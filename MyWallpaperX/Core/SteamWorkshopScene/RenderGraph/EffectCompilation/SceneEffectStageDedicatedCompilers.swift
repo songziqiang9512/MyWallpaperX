@@ -244,6 +244,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     && template.textureSlots[slot] != nil
             )
         })
+        var preparedVariants: [SceneShaderPreparedProgram] = []
         for readiness in [unavailable, available] {
             let prepared: SceneShaderPreparedProgram
             switch SceneAuthoredShaderPreparation.prepareShaderStages(
@@ -316,10 +317,13 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     .sourceProvenGraphInputTypedDataRGBFilter
                     .validatedRollbackOwner == .none
             else { return false }
-            guard activeUserPropertyConsumersAreProven(
+            preparedVariants.append(prepared)
+        }
+        if !plan.bindings.isEmpty {
+            guard directUserPropertyOwnerDisposition(
                 plan: plan,
-                prepared: prepared
-            ) else { return false }
+                preparedVariants: preparedVariants
+            ) == .revokeDedicatedOwner else { return false }
         }
         return true
     }
@@ -584,8 +588,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     }
 
     /// A wrapper is not enough to transfer execution authority: every bound
-    /// value must also be the unique active fragment consumer with the exact
-    /// scalar/vector ABI in every prepared readiness variant.
+    /// value must also have the exact active stage set and scalar/vector ABI in
+    /// every prepared readiness variant.
     private nonisolated static func activeUserPropertyConsumersAreProven(
         plan: ScenePulseExecutionPlan,
         prepared: SceneShaderPreparedProgram
@@ -598,19 +602,55 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             case .vector3: type = .float3
             default: return false
             }
-            guard let uniform = SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+            let stages: [SceneShaderContract.StageKind]
+            switch constant {
+            case .speed, .amount:
+                stages = [.vertex, .fragment]
+            case .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh:
+                stages = [.fragment]
+            case .phase, .bounds:
+                return false
+            }
+            guard let uniforms = SceneResolvedMaterialShaderSchema.exactActiveUniforms(
                 materialKey: constant.rawValue,
                 type: type,
-                stage: .fragment,
+                stages: stages,
                 prepared: prepared
             ) else { return false }
-            return uniform.authoredRange == constant.range(for: plan.shaderProfile)
+            return uniforms.allSatisfy {
+                $0.authoredRange == constant.range(for: plan.shaderProfile)
+            }
         }
     }
 
-    /// Transfers only direct, fragment-only Pulse constants whose authored
-    /// numeric domain is expressible by the shared shader schema. Cross-stage
-    /// constants and vector2 bounds retain the incumbent owner.
+    nonisolated enum DirectUserPropertyOwnerDisposition: String {
+        case retainIncumbent = "retain-incumbent"
+        case revokeDedicatedOwner = "revoke-dedicated-owner"
+    }
+
+    /// Final owner decision shared by the production compiler and executable
+    /// partition tests. Both unavailable and available readiness variants must
+    /// preserve the exact consumer set before the incumbent can be revoked.
+    nonisolated static func directUserPropertyOwnerDisposition(
+        plan: ScenePulseExecutionPlan,
+        preparedVariants: [SceneShaderPreparedProgram]
+    ) -> DirectUserPropertyOwnerDisposition {
+        guard !plan.bindings.isEmpty,
+              preparedVariants.count == 2,
+              preparedVariants.allSatisfy({
+                  activeUserPropertyConsumersAreProven(
+                      plan: plan,
+                      prepared: $0
+                  )
+              }) else {
+            return .retainIncumbent
+        }
+        return .revokeDedicatedOwner
+    }
+
+    /// Transfers direct Pulse constants whose exact active stages share one
+    /// authored numeric domain expressible by the shared shader schema. Phase
+    /// and relational vector2 bounds retain the incumbent owner.
     private nonisolated static func directColorBindingCohortIsProven(
         _ plan: ScenePulseExecutionPlan
     ) -> Bool {
@@ -619,6 +659,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
               !plan.pulseAlpha,
               !plan.bindings.isEmpty else { return false }
         let supported: Set<ScenePulseExecutionPlan.Constant> = [
+            .speed, .amount,
             .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
         ]
         return plan.bindings.keys.allSatisfy(supported.contains)

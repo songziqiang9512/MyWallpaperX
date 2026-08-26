@@ -696,6 +696,16 @@ enum Harness {
             "noiseamount": value([0.5], kind: "binding", binding: "noiselevel"),
         ]
         let boundPlan = planned(descriptorOptions: boundOptions, contracts: stockContracts)!
+        var crossStageBoundOptions = Options()
+        crossStageBoundOptions.constants = [
+            "speed": value([2.81], kind: "binding", binding: "pulselevel"),
+            "amount": value([1.08], kind: "binding", binding: "pulselevel"),
+            "noiseamount": value([0.21], kind: "binding", binding: "pulselevel"),
+        ]
+        let crossStageBoundPlan = planned(
+            descriptorOptions: crossStageBoundOptions,
+            contracts: stockContracts
+        )!
         let tintTarget = boundPlan.bindings[.tintHigh]!.dynamicTarget
         let noiseTarget = boundPlan.bindings[.noiseAmount]!.dynamicTarget
         let definitions = [
@@ -988,6 +998,11 @@ enum Harness {
                 && boundPlan.staticOrFallbackValues[.tintHigh]! == SIMD3<Double>(1, 0, 1)
                 && boundPlan.requiresNoiseTexture == true
                 && boundPlan.liveConsumerTargets.count == 2,
+            "crossStageBindingCombinationAccepted":
+                crossStageBoundPlan.bindings[.speed]!.propertyKey == "pulselevel"
+                && crossStageBoundPlan.bindings[.amount]!.propertyKey == "pulselevel"
+                && crossStageBoundPlan.bindings[.noiseAmount]!.propertyKey == "pulselevel"
+                && crossStageBoundPlan.liveConsumerTargets.count == 3,
             "snapshotApplied": boundPlan.resolvedComponents(.tintHigh, in: liveSnapshot)
                 == SIMD3<Double>(0.2, 0.4, 0.6),
             "snapshotFallback": boundPlan.resolvedComponents(.tintHigh, in: invalidSnapshot)

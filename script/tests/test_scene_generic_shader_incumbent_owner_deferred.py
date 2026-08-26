@@ -62,6 +62,7 @@ DEDICATED_STAGES_SOURCE = SCENE_ROOT / (
 )
 LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 FINALIZER_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgramFinalizer.swift"
+SHADER_SCHEMA_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialShaderSchema.swift"
 
 
 HARNESS = r'''
@@ -933,16 +934,34 @@ fragment float4 mwxGenericFragment(
             self.assertIn(static_guard, pulse_compiler)
         self.assertIn("directColorBindingCohortIsProven(plan)", pulse_compiler)
         self.assertIn("exactUserPropertyProducersAreProven(", pulse_compiler)
-        for fragment_constant in (
+        for direct_constant in (
+            ".speed", ".amount",
             ".noiseSpeed", ".noiseAmount", ".power", ".tintLow", ".tintHigh",
         ):
-            self.assertIn(fragment_constant, pulse_compiler)
+            self.assertIn(direct_constant, pulse_compiler)
+        cohort_start = pulse_compiler.index(
+            "private nonisolated static func directColorBindingCohortIsProven("
+        )
+        cohort_end = pulse_compiler.index(
+            "private nonisolated static func exactUserPropertyProducersAreProven(",
+            cohort_start,
+        )
+        direct_cohort = pulse_compiler[cohort_start:cohort_end]
+        self.assertNotIn(".phase", direct_cohort)
+        self.assertNotIn(".bounds", direct_cohort)
+        self.assertIn("case .speed, .amount:", pulse_compiler)
+        self.assertIn("stages = [.vertex, .fragment]", pulse_compiler)
+        self.assertIn("case .phase, .bounds:", pulse_compiler)
+        self.assertIn("exactActiveUniforms(", pulse_compiler)
+        shader_schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("static func exactActiveUniforms(", shader_schema)
+        self.assertIn("matches.count == stages.count", shader_schema)
         self.assertIn("propertyKey: binding.propertyKey", pulse_compiler)
         self.assertIn("target: binding.dynamicTarget", pulse_compiler)
         self.assertIn("valueType: constant.valueType", pulse_compiler)
         self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
         self.assertIn("activeUserPropertyConsumersAreProven(", pulse_compiler)
-        self.assertIn("uniform.authoredRange == constant.range", pulse_compiler)
+        self.assertIn("$0.authoredRange == constant.range", pulse_compiler)
         self.assertIn(
             "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
             pulse_compiler,

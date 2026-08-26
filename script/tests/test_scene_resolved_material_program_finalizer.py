@@ -140,7 +140,8 @@ private let layerModelMatrix = simd_float4x4(diagonal: SIMD4(6, 7, 8, 9))
 private func vertexSource(
     samplerMetadata: String?,
     deadMaskCoordinates: Bool = false,
-    stageLocalUniforms: Bool = false
+    stageLocalUniforms: Bool = false,
+    sharedStageLocalBinding: Bool = false
 ) -> String {
     let sampler = samplerMetadata.map {
         "uniform sampler2D g_Texture0; // \($0)"
@@ -157,9 +158,14 @@ private func vertexSource(
         );
         """
         : ""
-    let stageLocalUniform = stageLocalUniforms
-        ? #"uniform float g_Gain; // {"material":"vertexGain","default":2}"#
-        : ""
+    let stageLocalUniform: String
+    if sharedStageLocalBinding {
+        stageLocalUniform = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,1]}"#
+    } else if stageLocalUniforms {
+        stageLocalUniform = #"uniform float g_Gain; // {"material":"vertexGain","default":2}"#
+    } else {
+        stageLocalUniform = ""
+    }
     let stageLocalProbe = stageLocalUniforms ? "float vertexProbe = g_Gain;" : ""
     return """
     #if 1
@@ -206,6 +212,7 @@ private func fragmentSource(
     optionalMask: Bool = false,
     directRedInput: Bool = false,
     stageLocalUniforms: Bool = false,
+    sharedStageLocalBinding: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
     pointerState: Bool = false,
@@ -337,9 +344,14 @@ private func fragmentSource(
     let audioProbe = audioSpectrum
         ? "float audioProbe = g_AudioSpectrum16Left[3] + g_AudioSpectrum32Right[5] + g_AudioSpectrum64Left[7] + g_AudioSpectrum64Right[9];"
         : ""
-    let stageLocalUniform = stageLocalUniforms
-        ? #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
-        : ""
+    let stageLocalUniform: String
+    if sharedStageLocalBinding {
+        stageLocalUniform = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,1]}"#
+    } else if stageLocalUniforms {
+        stageLocalUniform = #"uniform float g_Gain; // {"material":"fragmentGain","default":3}"#
+    } else {
+        stageLocalUniform = ""
+    }
     let stageLocalProbe = stageLocalUniforms ? "float fragmentProbe = g_Gain;" : ""
     let metadataProbes = semanticProbes
         ? "vec3 tintProbe = u_Tint;\nfloat timeProbe = g_Time;"
@@ -407,6 +419,7 @@ private func contract(
     directRedInput: Bool = false,
     deadMaskCoordinates: Bool = false,
     stageLocalUniforms: Bool = false,
+    sharedStageLocalBinding: Bool = false,
     runtimeLoop: Bool = false,
     runtimeLoopEditorHints: Bool = false,
     pointerState: Bool = false,
@@ -444,7 +457,8 @@ private func contract(
             source: vertexSourceOverride ?? vertexSource(
                 samplerMetadata: vertexSamplerMetadata,
                 deadMaskCoordinates: deadMaskCoordinates || colorBlend,
-                stageLocalUniforms: stageLocalUniforms
+                stageLocalUniforms: stageLocalUniforms,
+                sharedStageLocalBinding: sharedStageLocalBinding
             )
         ),
         stage(
@@ -462,6 +476,7 @@ private func contract(
                 optionalMask: optionalMask,
                 directRedInput: directRedInput,
                 stageLocalUniforms: stageLocalUniforms,
+                sharedStageLocalBinding: sharedStageLocalBinding,
                 runtimeLoop: runtimeLoop,
                 runtimeLoopEditorHints: runtimeLoopEditorHints,
                 pointerState: pointerState,
@@ -498,6 +513,46 @@ private func contract(
         canonicalSHA256: "fixture-contract-\(revision)",
         sourceGraph: includeSourceGraph ? sourceGraph : nil
     )
+}
+
+private func crossStageUniformContract(
+    revision: String,
+    vertexDeclarations: String,
+    fragmentDeclarations: String
+) -> SceneShaderContract {
+    contract(
+        revision: revision,
+        vertexSourceOverride: """
+        attribute vec3 a_Position;
+        varying vec2 v_TexCoord;
+        \(vertexDeclarations)
+        void main() {
+            v_TexCoord = a_Position.xy;
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """,
+        fragmentSourceOverride: """
+        varying vec2 v_TexCoord;
+        \(fragmentDeclarations)
+        void main() {
+            gl_FragColor = vec4(v_TexCoord, 0.0, 1.0);
+        }
+        """
+    )
+}
+
+private func prepared(
+    _ contract: SceneShaderContract
+) -> SceneShaderPreparedProgram? {
+    switch SceneAuthoredShaderPreparation.prepareShaderStages(
+        contract: contract,
+        combos: [:],
+        inactiveComboProviders: [],
+        textureReadiness: [:]
+    ) {
+    case let .accepted(value): value
+    case .notApplicable, .rejected: nil
+    }
 }
 
 private func graphTexture() -> Graph.TextureIdentity {
@@ -2874,6 +2929,99 @@ private enum Harness {
                 && float(program.uniformBytes, at: vertex.offset) == 2
                 && float(program.uniformBytes, at: fragment.offset) == 3
         }()
+        let sharedStageLocalProgram = finalize(
+            shader: contract(
+                revision: "shared-stage-local-binding",
+                stageLocalUniforms: true,
+                sharedStageLocalBinding: true
+            ),
+            device: device,
+            uniformDeclarations: [directUserAlphaDeclaration()],
+            dynamicSource: .userProperty,
+            dynamicAlphaValue: .scalar(0.4),
+            authoredAlphaValue: .scalar(0.75)
+        )
+        let sharedStageLocalDynamicUniformsEncoded: Bool = {
+            guard case let .success(program) = sharedStageLocalProgram,
+                  let vertex = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "mwxV_g_Gain" }
+                  ),
+                  let fragment = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "mwxF_g_Gain" }
+                  ) else {
+                return false
+            }
+            return vertex.authoredName == "g_Gain"
+                && fragment.authoredName == "g_Gain"
+                && float(program.uniformBytes, at: vertex.offset) == 0.4
+                && float(program.uniformBytes, at: fragment.offset) == 0.4
+        }()
+        let exactCrossStageUniformCases: [String: Bool] = {
+            let exactDeclaration = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,1]}"#
+            let widerDeclaration = #"uniform float g_Gain; // {"material":"alpha","default":0.75,"range":[0,2]}"#
+            let extraDeclaration = #"uniform float g_Extra; // {"material":"alpha","default":0.5,"range":[0,1]}"#
+            func exact(
+                _ contract: SceneShaderContract,
+                stages: [SceneShaderContract.StageKind] = [.vertex, .fragment]
+            ) -> [SceneResolvedMaterialShaderSchema.Uniform]? {
+                guard let program = prepared(contract) else { return nil }
+                return SceneResolvedMaterialShaderSchema.exactActiveUniforms(
+                    materialKey: "alpha",
+                    type: .float,
+                    stages: stages,
+                    prepared: program
+                )
+            }
+            let good = exact(crossStageUniformContract(
+                revision: "exact-cross-stage-good",
+                vertexDeclarations: exactDeclaration,
+                fragmentDeclarations: exactDeclaration
+            ))
+            let rangeMismatch = exact(crossStageUniformContract(
+                revision: "exact-cross-stage-range-mismatch",
+                vertexDeclarations: exactDeclaration,
+                fragmentDeclarations: widerDeclaration
+            ))
+            return [
+                "exactSet": good?.count == 2
+                    && good!.allSatisfy { $0.authoredRange == 0 ... 1 },
+                "missingStage": exact(crossStageUniformContract(
+                    revision: "exact-cross-stage-missing",
+                    vertexDeclarations: "",
+                    fragmentDeclarations: exactDeclaration
+                )) == nil,
+                "extraConsumer": exact(crossStageUniformContract(
+                    revision: "exact-cross-stage-extra",
+                    vertexDeclarations: exactDeclaration,
+                    fragmentDeclarations: exactDeclaration + "\n" + extraDeclaration
+                )) == nil,
+                "sameStageDuplicate": exact(crossStageUniformContract(
+                    revision: "exact-cross-stage-duplicate",
+                    vertexDeclarations: exactDeclaration + "\n" + exactDeclaration,
+                    fragmentDeclarations: exactDeclaration
+                )) == nil,
+                "array": exact(crossStageUniformContract(
+                    revision: "exact-cross-stage-array",
+                    vertexDeclarations: #"uniform float g_Gain[2]; // {"material":"alpha","default":0.75,"range":[0,1]}"#,
+                    fragmentDeclarations: exactDeclaration
+                )) == nil,
+                "wrongType": exact(crossStageUniformContract(
+                    revision: "exact-cross-stage-wrong-type",
+                    vertexDeclarations: #"uniform vec2 g_Gain; // {"material":"alpha","default":"0.75 0.75","range":[0,1]}"#,
+                    fragmentDeclarations: exactDeclaration
+                )) == nil,
+                "rangeMismatchDetected": rangeMismatch?.count == 2
+                    && !rangeMismatch!.allSatisfy { $0.authoredRange == 0 ... 1 },
+                "duplicateExpectedStage": exact(
+                    crossStageUniformContract(
+                        revision: "exact-cross-stage-duplicate-expected",
+                        vertexDeclarations: exactDeclaration,
+                        fragmentDeclarations: exactDeclaration
+                    ),
+                    stages: [.vertex, .vertex]
+                ) == nil,
+            ]
+        }()
         let runtimeLoopProgram = finalize(
             shader: contract(
                 revision: "runtime-loop-static-producer",
@@ -4495,6 +4643,7 @@ private enum Harness {
             "metalAvailable": true,
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
+            "exactCrossStageUniformCases": exactCrossStageUniformCases,
             "activeDefaultCache": [
                 "launchMasks": activeDefaultLaunchMasks?.map(Int.init) ?? [-1],
                 "failure": failureToken(activeDefaultMaskProgram),
@@ -4525,6 +4674,10 @@ private enum Harness {
                 "hostIgnoresShaderDefault": hostDefaultIgnored,
                 "explicitUniformOverridesDefault": explicitOverrideCorrect,
                 "stageLocalUniformsEncoded": stageLocalUniformsEncoded,
+                "sharedStageLocalDynamicUniformsEncoded":
+                    sharedStageLocalDynamicUniformsEncoded,
+                "exactCrossStageUniformSchema":
+                    exactCrossStageUniformCases.values.allSatisfy { $0 },
                 "assetReferenceTyped": failureToken(assetProgram) == "success",
                 "userReferenceTyped": failureToken(propertyProgram) == "success",
                 "providerReferenceTyped": failureToken(providerProgram) == "success",
