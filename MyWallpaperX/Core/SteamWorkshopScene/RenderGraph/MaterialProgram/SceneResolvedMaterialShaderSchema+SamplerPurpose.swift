@@ -307,7 +307,8 @@ extension SceneResolvedMaterialShaderSchema {
     ) -> Int? {
         switch transfer {
         case let .passthrough(slot),
-             let .straightAlphaPreserving(slot):
+             let .straightAlphaPreserving(slot),
+             let .opaqueFromStraightColor(slot):
             slot
         case .interpolatedColor, .straightAlpha, .straightAlphaUNorm,
              .independentAlphaSignal, .independentAlphaSignalPreserving,

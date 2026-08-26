@@ -309,6 +309,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         case let .straightAlphaPreserving(slot): "straight-preserving-\(slot)"
         case let .straightAlpha(slot): "straight-\(slot)"
         case let .straightAlphaUNorm(slot): "straight-unorm-\(slot)"
+        case let .opaqueFromStraightColor(slot):
+            "opaque-from-straight-color-\(slot)"
         case let .independentAlphaSignal(slot): "alpha-signal-\(slot)"
         case let .independentAlphaSignalPreserving(slot):
             "alpha-signal-preserving-\(slot)"

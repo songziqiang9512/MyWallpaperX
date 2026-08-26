@@ -229,6 +229,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
                 textureSlot: fact.alphaCarrierSlot
             )
         }
+        if let fact =
+            SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer
+                .analyze(fragment) {
+            return .opaqueFromStraightColor(textureSlot: fact.sourceSlot)
+        }
         if let slot = SceneAuthoredShaderOpaqueInputAlphaAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,

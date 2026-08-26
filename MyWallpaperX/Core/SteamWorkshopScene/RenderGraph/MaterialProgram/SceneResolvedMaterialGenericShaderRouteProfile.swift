@@ -68,6 +68,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-target-opaque-static-sample-average"
     case sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage =
         "source-proven-graph-target-opaque-alpha-weighted-loop-average"
+    case sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB =
+        "source-proven-graph-input-conditional-opaque-alpha-weighted-rgb"
     case sourceProvenGraphInputAlphaWeightedSampleAverage =
         "source-proven-graph-input-alpha-weighted-sample-average"
     case sourceProvenGraphInputPreservedAlphaRGBFilter =
@@ -182,6 +184,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             SceneAuthoredShaderOpaqueAlphaWeightedLoopAverageAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
+        let conditionalOpaqueAlphaWeightedRGBFact =
+            SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         if producesPreservedRGBAOutput,
            hasDefiniteWholeOutput,
            !hasExternalProviderTexture,
@@ -288,6 +294,19 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([fact.sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage
+        } else if let fact = conditionalOpaqueAlphaWeightedRGBFact,
+                  colorTransfer == .opaqueFromStraightColor(
+                    textureSlot: fact.sourceSlot
+                  ),
+                  activeTextureSlots == Set([fact.sourceSlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  !producesRedGreenUnormOutput,
+                  !producesPreservedRGBAOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([fact.sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
         } else if let fact = conditionalGeneratedRGBFact,
                   case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   fact.alphaCarrierSlot == sourceSlot,
@@ -498,6 +517,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphTargetOpaqueLoopSampleAverage,
              .sourceProvenGraphTargetOpaqueStaticSampleAverage,
              .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage,
+             .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenGraphInputTypedDataRGBFilter,
@@ -530,6 +550,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             || self == .sourceProvenGraphTargetOpaqueLoopSampleAverage
             || self == .sourceProvenGraphTargetOpaqueStaticSampleAverage
             || self == .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage
+            || self
+                == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
     }
 
     /// Shared profiles normally roll back through the bounded frontend. The
@@ -559,10 +581,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         routeState: SceneGenericShaderRouteState
     ) -> Bool {
         guard validatedRollbackOwner == .boundedFrontend else { return false }
-        return routeState != .genericOnly
+            return routeState != .genericOnly
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
             || self == .sourceProvenGraphInputOverlayAlphaBlend
+            || self
+                == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
     }
 
     func artifactFallbackOutcome(

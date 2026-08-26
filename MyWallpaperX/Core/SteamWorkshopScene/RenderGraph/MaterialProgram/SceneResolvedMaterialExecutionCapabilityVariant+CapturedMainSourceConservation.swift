@@ -302,7 +302,8 @@ extension SceneResolvedMaterialVariantCache {
         case let .passthrough(slot),
              let .straightAlphaPreserving(slot),
              let .straightAlpha(slot),
-             let .straightAlphaUNorm(slot):
+             let .straightAlphaUNorm(slot),
+             let .opaqueFromStraightColor(slot):
             return slot
         case let .independentAlphaSignalCompositing(_, colorSlot):
             return colorSlot

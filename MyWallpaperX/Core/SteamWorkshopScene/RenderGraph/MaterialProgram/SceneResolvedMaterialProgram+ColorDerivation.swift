@@ -302,6 +302,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             return nil
         case .opaque:
             fragmentOutput = .opaque
+        case let .opaqueFromStraightColor(slot):
+            guard let representation = representation(
+                slot: slot,
+                textureFacts: textureFacts
+            ), representation == .opaque || representation == .premultipliedAlpha,
+               auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
+                return nil
+            }
+            fragmentOutput = .opaque
         case .premultipliedAlpha:
             guard textureFacts.compactMap({ $0 }).allSatisfy({ fact in
                 switch fact.content {

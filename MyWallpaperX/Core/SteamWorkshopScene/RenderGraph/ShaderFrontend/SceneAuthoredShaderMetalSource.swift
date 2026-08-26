@@ -195,6 +195,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     ) -> String {
         switch transfer {
         case .straightAlphaPreserving, .straightAlpha, .straightAlphaUNorm,
+             .opaqueFromStraightColor,
              .independentAlphaSignal,
              .independentAlphaSignalCompositing:
             break

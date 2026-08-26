@@ -123,6 +123,8 @@ private func transfer(
     )?.colorTransfer ?? .unresolved
     switch result {
     case .opaque: return "opaque"
+    case .opaqueFromStraightColor(let slot):
+        return "opaque-from-straight-slot:\(slot)"
     case .unresolved: return "unresolved"
     case .passthrough(let slot): return "slot:\(slot)"
     case .interpolatedColor(let slots):

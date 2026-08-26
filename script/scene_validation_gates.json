@@ -283,6 +283,7 @@
         "test_scene_opaque_loop_sample_average_owner",
         "test_scene_opaque_static_sample_average_owner",
         "test_scene_opaque_alpha_weighted_loop_average_owner",
+        "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
         "test_scene_effect_texture_purposes",
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
@@ -328,6 +329,7 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/**"],
       "modules": [
         "test_scene_graph_condition_schema_evidence",
+        "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
         "test_scene_independent_signal_carrier",
         "test_scene_graph_texture_publication",
         "test_scene_resolved_material_program_derivation",
@@ -353,6 +355,7 @@
         "test_scene_opaque_loop_sample_average_owner",
         "test_scene_opaque_static_sample_average_owner",
         "test_scene_opaque_alpha_weighted_loop_average_owner",
+        "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
         "test_scene_authored_shader_frontend",
         "test_scene_fragment_output_initialization",
         "test_scene_independent_signal_carrier",

@@ -48,15 +48,15 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
         key = declaration_body(self.frontend, "private struct ProgramCacheKey")
         for field in (
             "cacheSchemaVersion",
-            "frontendSchemaVersion",
             "vertexSourceSHA256",
             "fragmentSourceSHA256",
             "runtimeLoopBounds",
             "provenColorTransfer",
         ):
             self.assertIn(field, key)
-        self.assertIn("SceneShaderStableDigest.hash(Data(vertexSource.utf8))", key)
-        self.assertIn("SceneShaderStableDigest.hash(Data(fragmentSource.utf8))", key)
+        self.assertIn("ProgramCacheDigest.hash(Data(vertexSource.utf8))", key)
+        self.assertIn("ProgramCacheDigest.hash(Data(fragmentSource.utf8))", key)
+        self.assertNotIn("SceneShaderVariantEnvironment", key)
 
     def test_preparation_key_covers_graph_variant_and_resource_facts(self) -> None:
         key = declaration_body(self.preparation, "private struct PreparationCacheKey")
@@ -80,12 +80,15 @@ class SceneShaderPersistentCacheTests(unittest.TestCase):
         preparation_cache = declaration_body(
             self.preparation, "private final class PersistentPreparationCache"
         )
-        for cache in (frontend_cache, preparation_cache):
+        for cache, digest in (
+            (frontend_cache, "ProgramCacheDigest"),
+            (preparation_cache, "SceneShaderStableDigest"),
+        ):
             self.assertIn("let key:", cache)
             self.assertIn("envelope.key == key", cache)
-            self.assertIn("SceneShaderStableDigest.hash(envelope.key)", cache)
+            self.assertIn(f"{digest}.hash(envelope.key)", cache)
             self.assertIn("programSHA256", cache)
-            self.assertIn("SceneShaderStableDigest.hash(envelope.program)", cache)
+            self.assertIn(f"{digest}.hash(envelope.program)", cache)
             self.assertIn("options: .atomic", cache)
 
     def test_persistent_tier_only_stores_accepted_products(self) -> None:

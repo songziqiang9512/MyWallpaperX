@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：V1-A correctness 已按专项表闭合；正在清零 V1-B 产品 owner 债务
+> 当前主线：V1-A correctness 已按专项表闭合；正在清零 V1-B 产品 owner 债务。最新共享 owner cohort 未改变阶段门，V1-B 完成前仍不进入 V2
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 

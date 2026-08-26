@@ -1,9 +1,9 @@
+import CryptoKit
 import Foundation
 
 nonisolated enum SceneAuthoredShaderFrontend {
     private struct ProgramCacheKey: Codable, Hashable {
         let cacheSchemaVersion: Int
-        let frontendSchemaVersion: Int
         let vertexSourceSHA256: String
         let fragmentSourceSHA256: String
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
@@ -16,10 +16,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: SceneShaderColorTransfer?
         ) {
             cacheSchemaVersion = 1
-            frontendSchemaVersion = SceneShaderVariantEnvironment
-                .frontendSchemaVersion
-            vertexSourceSHA256 = SceneShaderStableDigest.hash(Data(vertexSource.utf8))
-            fragmentSourceSHA256 = SceneShaderStableDigest.hash(Data(fragmentSource.utf8))
+            vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
+            fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
             self.provenColorTransfer = provenColorTransfer
         }
@@ -44,7 +42,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             lock.withLock {
                 if let program = memory[key] { return program }
                 guard let directory = directoryURL() else { return nil }
-                let keySHA256 = SceneShaderStableDigest.hash(key)
+                let keySHA256 = ProgramCacheDigest.hash(key)
                 let url = directory.appendingPathComponent("\(keySHA256).json")
                 guard let data = try? Data(contentsOf: url),
                       let envelope = try? JSONDecoder().decode(
@@ -54,9 +52,9 @@ nonisolated enum SceneAuthoredShaderFrontend {
                       envelope.key == key,
                       envelope.keySHA256 == keySHA256,
                       envelope.keySHA256
-                        == SceneShaderStableDigest.hash(envelope.key),
+                        == ProgramCacheDigest.hash(envelope.key),
                       envelope.programSHA256
-                        == SceneShaderStableDigest.hash(envelope.program),
+                        == ProgramCacheDigest.hash(envelope.program),
                       valid(envelope.program) else { return nil }
                 memory[key] = envelope.program
                 return envelope.program
@@ -68,12 +66,12 @@ nonisolated enum SceneAuthoredShaderFrontend {
             lock.withLock {
                 memory[key] = program
                 guard let directory = directoryURL() else { return }
-                let keySHA256 = SceneShaderStableDigest.hash(key)
+                let keySHA256 = ProgramCacheDigest.hash(key)
                 let envelope = Envelope(
                     schemaVersion: schemaVersion,
                     key: key,
                     keySHA256: keySHA256,
-                    programSHA256: SceneShaderStableDigest.hash(program),
+                    programSHA256: ProgramCacheDigest.hash(program),
                     program: program
                 )
                 let encoder = JSONEncoder()
@@ -138,6 +136,23 @@ nonisolated enum SceneAuthoredShaderFrontend {
             for url in sorted.dropFirst(retainedEntryLimit) {
                 try? FileManager.default.removeItem(at: url)
             }
+        }
+    }
+
+    private enum ProgramCacheDigest {
+        static func hash<T: Encodable>(_ value: T) -> String {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+            guard let data = try? encoder.encode(value) else {
+                preconditionFailure("Frontend cache identity must be encodable.")
+            }
+            return hash(data)
+        }
+
+        static func hash(_ data: Data) -> String {
+            SHA256.hash(data: data)
+                .map { String(format: "%02x", $0) }
+                .joined()
         }
     }
 

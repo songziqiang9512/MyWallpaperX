@@ -280,6 +280,9 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     /// A single straight-RGBA source is filtered with bounded whole-vector
     /// affine math, clamped to the UNorm attachment domain, then premultiplied.
     case straightAlphaUNorm(textureSlot: Int)
+    /// One resolved color source enters authored math in straight RGB while
+    /// the authored terminal write proves opaque alpha.
+    case opaqueFromStraightColor(textureSlot: Int)
     case independentAlphaSignal(textureSlot: Int)
     case independentAlphaSignalPreserving(textureSlot: Int)
     case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)

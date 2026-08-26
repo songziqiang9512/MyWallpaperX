@@ -18,6 +18,24 @@ extension SceneGenericShaderArtifactBuilder {
                 source,
                 .init(kind: "interpolated-color", slot: nil, slots: slots)
             )
+        case let .opaqueFromStraightColor(expectedSlot):
+            guard let fact =
+                    SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer
+                        .analyze(fragmentSource: authoredSource),
+                  fact.sourceSlot == expectedSlot,
+                  let lowered = SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerOpaqueFromStraightColor(
+                        source,
+                        expectedSlot: expectedSlot,
+                        sampleCount: fact.sampleCount
+                    ) else { throw Failure.colorTransfer }
+            return (
+                lowered,
+                artifactTransfer(
+                    kind: "opaque-from-straight-color",
+                    slot: expectedSlot
+                )
+            )
         case .opaque:
             return (source, artifactTransfer(kind: "opaque"))
         case .premultipliedAlpha:
@@ -270,6 +288,7 @@ extension SceneGenericShaderArtifactBuilder {
         case let ("passthrough", slot?, nil),
              let ("straight-alpha", slot?, nil),
              let ("straight-alpha-preserving", slot?, nil),
+             let ("opaque-from-straight-color", slot?, nil),
              let ("independent-alpha-signal", slot?, nil),
              let ("independent-alpha-signal-preserving", slot?, nil):
             return boundSlots.contains(slot)

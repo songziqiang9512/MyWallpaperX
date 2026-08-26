@@ -695,12 +695,12 @@ inline float4 \(premultiply)(float4 color) {
         return insertingBoundaryHelpers(into: transformed)
     }
 
-    private struct CompilerTextureSampleCall {
+    struct CompilerTextureSampleCall {
         let range: NSRange
         let slot: Int
     }
 
-    private static func compilerTextureSampleCalls(
+    static func compilerTextureSampleCalls(
         in source: String
     ) -> [CompilerTextureSampleCall]? {
         let starts = matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
