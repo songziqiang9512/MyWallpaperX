@@ -88,6 +88,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMixAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderColorMixGraphAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderNormalizedSampleSumAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.swift",
