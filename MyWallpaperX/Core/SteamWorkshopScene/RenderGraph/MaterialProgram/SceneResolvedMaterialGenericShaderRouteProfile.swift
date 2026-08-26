@@ -60,6 +60,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-independent-signal-compositing"
     case sourceProvenGraphTargetPassthrough =
         "source-proven-graph-target-passthrough"
+    case sourceProvenGraphInputSameSlotColorReplacement =
+        "source-proven-graph-input-same-slot-color-replacement"
     case sourceProvenNormalizedSampleSum =
         "source-proven-normalized-sample-sum"
     case sourceProvenGraphTargetOpaqueLoopSampleAverage =
@@ -186,6 +188,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             )
         let conditionalOpaqueAlphaWeightedRGBFact =
             SceneAuthoredShaderConditionalOpaqueAlphaWeightedRGBAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
+        let sameSlotColorReplacementSourceSlot =
+            SceneAuthoredShaderSameSlotMixAnalyzer.aliasReplacementSourceSlot(
                 fragmentSource: fragmentSource
             )
         if producesPreservedRGBAOutput,
@@ -394,6 +400,17 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphTargetPassthrough
         } else if case let .passthrough(sourceSlot) = colorTransfer,
+                  sameSlotColorReplacementSourceSlot == sourceSlot,
+                  activeTextureSlots == Set([sourceSlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  !producesRedGreenUnormOutput,
+                  !producesPreservedRGBAOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphInputSameSlotColorReplacement
+        } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
                   graphInputTextureSlots.contains(sourceSlot),
@@ -513,6 +530,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphTargetIndependentSignalUNormAccumulator,
              .sourceProvenGraphInputIndependentSignalCompositing,
              .sourceProvenGraphTargetPassthrough,
+             .sourceProvenGraphInputSameSlotColorReplacement,
              .sourceProvenNormalizedSampleSum,
              .sourceProvenGraphTargetOpaqueLoopSampleAverage,
              .sourceProvenGraphTargetOpaqueStaticSampleAverage,
@@ -550,6 +568,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             || self == .sourceProvenGraphTargetOpaqueLoopSampleAverage
             || self == .sourceProvenGraphTargetOpaqueStaticSampleAverage
             || self == .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage
+            || self == .sourceProvenGraphInputSameSlotColorReplacement
             || self
                 == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
     }

@@ -3,6 +3,34 @@ import Foundation
 /// Proves root-level scalar interpolation whose two color operands retain one
 /// texture representation. It does not inspect shader paths or identities.
 nonisolated enum SceneAuthoredShaderSameSlotMixAnalyzer {
+    /// Returns the sampled slot only when a prepared fragment contains one
+    /// unconditional whole-color replacement between two root locals sampled
+    /// from that same slot. The result is source-derived and independent of
+    /// shader path, effect identity, or local spelling.
+    static func aliasReplacementSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty,
+              let fragment = syntax.unit,
+              let main = fragment.functions.first(where: { $0.name == "main" })
+        else { return nil }
+        let outputUses = fragment.tokens.indices.filter {
+            fragment.tokens[$0].text == "gl_FragColor"
+        }
+        return analyzeAliasReplacement(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
     static func analyze(
         outputUses: [Int],
         fragment: SceneAuthoredShaderSyntaxUnit,

@@ -1,5 +1,7 @@
 # Scene Render Graph 与 Shader 覆盖矩阵
 
+> 现役 same-slot whole-color replacement owner 更正：`SceneAuthoredShaderSameSlotMixAnalyzer` 现可从 prepared fragment 证明两个 root whole-color local 对同一 slot 的 direct sample、原 local 被 replacement local 无条件整值替换以及唯一 terminal 输出；route 再要求 active/graph-input 精确为该唯一 slot、only graph-input sampler、无 target/provider/scalar/RG/preserved output。由此新增第 36 个缺省 `generic-only` profile `source-proven-graph-input-same-slot-color-replacement`，显式 profile-local disable 才回滚 shared bounded frontend。真实 `3747492842` 的两个 no-mask/FOLLOWCURSOR Iris leaf 在 default/corrupt/disable 三路分别证明 generic artifact、effect-local previous-current 与 `boundedSwift` 回滚，GPU/publication/compositor/next-frame 和完整可见 composition 继续；conditional/member/cross-slot/bypass/extra-sampler 反例仍留在宽 route。当前 census 为 **36/4/1**；下述 `35/4/1` 与“第35个”只保留各批冻结快照。见 [E-V1-SAME-SLOT-COLOR-REPLACEMENT-OWNER](runtime-evidence-index.md#e-v1-same-slot-color-replacement-owner)。
+
 > 现役 auxiliary RGB owner 更正：既有 `source-proven-graph-input-auxiliary-rgb-blend-alpha-preserving / generic-only` 不再只覆盖无 greyscale preprocessing 的 processed form；同一 identity-free analyzer 现也只在两份 auxiliary RGB local 分别经过 exact `CAST3(greyscale(local))` 匹配对、其余 sample/power/blend/source-alpha terminal 合同不变且 source carrier 未传入 authored `out/inout` helper 时接管。真实 `3747492842:434#effect#545` 的作者默认 `GREYSCALE=1 / MASK=0` 因而从宽 `straight-alpha-preserving / prefer-generic` 迁入该既有窄 owner；默认 generic artifact、坏 artifact effect-local previous-current 与 profile-local shared bounded rollback 都保持 GPU/publication、Iris suffix compositor 与 next-frame。route profile 数未增加，现役 census 仍为 35/4/1；MASK、mutable carrier alias escape、非匹配/其他 RGB preprocessing、其他 blend/revision 和宽 profile 余量继续未迁移。见 [E-V1-GREYSCALE-AUXILIARY-RGB-OWNER](runtime-evidence-index.md#e-v1-greyscale-auxiliary-rgb-owner)。
 
 > 核验日期：2026-08-27
@@ -227,7 +229,7 @@
 
 ## 2. 四条实现通道
 
-> 当前 census 更正（2026-08-27）：现役 route registry 为 **35 个缺省 `generic-only` profile、4 个 `prefer-generic` 与 1 个 `observe-only`**。最新迁移的是上述 conditional opaque alpha-weighted RGB light-map bounded profile；两个宽 graph-input alpha profile、ordinary/provider-backed route与唯一 Standard Blur unowned observe-only隔离桶的准入、rollback和证据边界不变。
+> 当前 census 更正（2026-08-27）：现役 route registry 为 **36 个缺省 `generic-only` profile、4 个 `prefer-generic` 与 1 个 `observe-only`**。最新迁移的是上述 same-slot whole-color replacement bounded profile；两个宽 graph-input alpha profile、ordinary/provider-backed route与唯一 Standard Blur unowned observe-only隔离桶的准入、rollback和证据边界不变。
 
 | 通道 | 当前含义 | 当前事实 |
 |---|---|---|
