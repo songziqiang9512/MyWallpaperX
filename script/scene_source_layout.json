@@ -113,6 +113,7 @@
           "SceneResolvedMaterialProgram+ColorDerivation.swift",
           "SceneResolvedMaterialProgram+Derivation.swift",
           "SceneResolvedMaterialProgram.swift",
+          "SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
           "SceneResolvedMaterialProgramFinalizer.swift",
           "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
           "SceneResolvedMaterialProgramIdentity.swift",

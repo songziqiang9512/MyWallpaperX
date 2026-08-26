@@ -85,6 +85,21 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 profiles = value
             }
             if preservedChannelOutput { continue }
+            if let contract = variant.conditionalGeneratedRGBInputContract {
+                guard profiles.allSatisfy({
+                    SceneResolvedMaterialProgramDerivation
+                        .hasResolvedConditionalGeneratedRGBInputContract(
+                            contract,
+                            textureFacts: $0
+                        )
+                }) else {
+                    return failure(
+                        .colorContractUnproven,
+                        phase: .color,
+                        details: ["conditional-generated-rgb-input-contract"]
+                    )
+                }
+            }
             if case let .straightAlphaUNorm(slot) =
                 variant.frontendProgram.colorTransfer {
                 guard profiles.allSatisfy({ profile in
@@ -107,7 +122,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             guard profiles.allSatisfy({
                 SceneResolvedMaterialProgramDerivation.resolveColor(
                     transfer: variant.frontendProgram.colorTransfer,
-                    textureFacts: $0
+                    textureFacts: $0,
+                    conditionalGeneratedRGBInputContract:
+                        variant.conditionalGeneratedRGBInputContract
                 ) != nil
             }) else {
                 return failure(

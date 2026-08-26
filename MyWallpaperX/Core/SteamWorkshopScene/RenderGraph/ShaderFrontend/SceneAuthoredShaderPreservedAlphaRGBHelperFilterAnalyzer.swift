@@ -177,6 +177,27 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         return closure
     }
 
+    /// The same transitive side-effect proof without requiring the compiler-
+    /// selected helper to have one syntactic return. Multiple pure return paths
+    /// still do not grant texture, output, discard, out/inout, or global-write
+    /// authority.
+    static func safeReadOnlyHelperClosure(
+        rootName: String,
+        fragment: Unit
+    ) -> [Unit.Function]? {
+        guard let root = uniqueFunction(named: rootName, fragment: fragment),
+              root.name != "main",
+              let closure = reachableFunctions(from: root, fragment: fragment),
+              helperClosureIsPure(
+                closure,
+                fragment: fragment,
+                requiresSingleReturn: false
+              ) else {
+            return nil
+        }
+        return closure
+    }
+
     private static func reachableFunctions(
         from root: Unit.Function,
         fragment: Unit
@@ -213,7 +234,8 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
 
     private static func helperClosureIsPure(
         _ functions: [Unit.Function],
-        fragment: Unit
+        fragment: Unit,
+        requiresSingleReturn: Bool = true
     ) -> Bool {
         let tokens = fragment.tokens
         let effectfulCalls: Set<String> = [
@@ -228,9 +250,9 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
                 && !tokens[function.bodyRange].contains(where: {
                     ["gl_FragColor", "discard"].contains($0.text)
                 })
-                && function.bodyRange.filter({
+                && (!requiresSingleReturn || function.bodyRange.filter({
                     tokens[$0].text == "return"
-                }).count == 1
+                }).count == 1)
                 && !function.bodyRange.contains(where: { index in
                     guard index + 1 < tokens.count,
                           tokens[index + 1].text == "(" else { return false }
@@ -252,9 +274,10 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
             || name == "subpassLoad"
     }
 
-    private static func writesOnlyLocalState(
+    static func writesOnlyLocalState(
         _ function: Unit.Function,
-        tokens: [Token]
+        tokens: [SceneAuthoredShaderToken],
+        allowingExternalWrites: Set<String> = []
     ) -> Bool {
         let valueTypes: Set<String> = [
             "bool", "int", "uint", "float", "double",
@@ -276,7 +299,10 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         for index in function.bodyRange where
             tokens[index].kind == .identifier
                 && isWriteTarget(index, body: function.bodyRange, tokens: tokens) {
-            if !locals.contains(tokens[index].text) { return false }
+            if !locals.contains(tokens[index].text),
+               !allowingExternalWrites.contains(tokens[index].text) {
+                return false
+            }
         }
         return true
     }

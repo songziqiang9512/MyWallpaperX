@@ -170,26 +170,15 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             )
             switch outputStorage {
             case .color:
-                guard SceneResolvedMaterialProgramDerivation
-                    .hasResolvedColorSampleContract(
-                        colorSlots:
-                            selection.variant.preservedAlphaRGBColorSlots,
-                        textureSlots: texture.slots
-                    ) else {
-                    throw failure(
-                        .color,
-                        .colorContractUnproven,
-                        details: [
-                            "preserved-alpha-rgb-color-slots",
-                            selection.variant.preservedAlphaRGBColorSlots
-                                .sorted().map(String.init)
-                                .joined(separator: ","),
-                        ]
-                    )
-                }
+                if let failure = colorSampleFailure(
+                    variant: selection.variant,
+                    textureSlots: texture.slots
+                ) { throw failure }
                 guard SceneResolvedMaterialProgramDerivation.hasResolvedColorContract(
                     transfer: texture.frontend.colorTransfer,
-                    textureSlots: texture.slots
+                    textureSlots: texture.slots,
+                    conditionalGeneratedRGBInputContract:
+                        selection.variant.conditionalGeneratedRGBInputContract
                 ) else {
                     throw failure(
                         .color,
@@ -235,7 +224,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 outputStorage: outputStorage,
                 runtimeLoopBounds: selection.variant.runtimeLoopBounds
             ), frontend: selection.variant.frontendProgram,
-                routeDecision: selection.variant.routeDecision) else {
+                routeDecision: selection.variant.routeDecision,
+                conditionalGeneratedRGBInputContract:
+                    selection.variant.conditionalGeneratedRGBInputContract
+            ) else {
                 throw failure(.invariant, .programAssemblyIdentityInvariant)
             }
             return .success(program)
@@ -788,7 +780,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             && defaultComponents[0] == defaultComponents[1]
     }
 
-    private static func failure(
+    static func failure(
         _ phase: Failure.Phase, _ code: Failure.Code,
         details: [String] = []
     ) -> Failure {

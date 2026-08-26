@@ -114,6 +114,20 @@ extension SceneGenericShaderArtifactBuilder {
                         slot: expectedSlot
                     )
                 )
+            } else if let fact = SceneAuthoredShaderConditionalGeneratedRGBAnalyzer
+                .analyze(fragmentSource: authoredSource) {
+                guard fact.alphaCarrierSlot == expectedSlot,
+                      let lowered = SceneGenericShaderConditionalGeneratedRGBLowering
+                        .lower(source, fact: fact) else {
+                    throw Failure.colorTransfer
+                }
+                preserving = (
+                    msl: lowered,
+                    transfer: artifactTransfer(
+                        kind: "straight-alpha-preserving",
+                        slot: expectedSlot
+                    )
+                )
             } else {
                 preserving = straightAlphaPreserving(
                     source,

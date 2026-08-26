@@ -100,6 +100,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCompositingAnalyzer.swift",
@@ -192,6 +193,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderUnitPreviousBlurredCompositeLowering.swift",
@@ -243,6 +245,7 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+Launch.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer.swift"
       ]
     },

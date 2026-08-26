@@ -17,6 +17,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         Int: SceneResolvedMaterialGraphInputSourceSlotFact
     ]
     let preservedAlphaRGBColorSlots: Set<Int>
+    let conditionalGeneratedRGBInputContract:
+        SceneResolvedMaterialProgramDerivation
+            .ConditionalGeneratedRGBInputContract?
     let activeUniforms: [String: Uniform]
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -33,6 +36,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ],
         preservedAlphaRGBColorSlots: Set<Int>,
+        conditionalGeneratedRGBInputContract:
+            SceneResolvedMaterialProgramDerivation
+                .ConditionalGeneratedRGBInputContract?,
         activeUniforms: [String: Uniform],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?
@@ -46,6 +52,8 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.activeSamplers = activeSamplers
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
+        self.conditionalGeneratedRGBInputContract =
+            conditionalGeneratedRGBInputContract
         self.activeUniforms = activeUniforms
         self.neutralTextureResolution = neutralTextureResolution
     }
@@ -153,6 +161,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 fragmentSource: compilerSources.fragment,
                 provenRuntimeLoopBounds: runtimeLoopBounds.fragment
             )
+        let conditionalGeneratedRGBFact =
+            SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
+                fragmentSource: compilerSources.fragment
+            )
         let sourceColorTransfer: SceneShaderColorTransfer =
             spatialWeightedColorBlendFact.map {
                 .straightAlphaPreserving(textureSlot: $0.sourceSlot)
@@ -173,6 +185,24 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             preservedAlphaRGBColorSlots = [fact.sourceSlot]
         } else {
             preservedAlphaRGBColorSlots = []
+        }
+        let conditionalGeneratedRGBInputContract:
+            SceneResolvedMaterialProgramDerivation
+                .ConditionalGeneratedRGBInputContract?
+        if let fact = conditionalGeneratedRGBFact,
+           sourceColorTransfer == .straightAlphaPreserving(
+            textureSlot: fact.alphaCarrierSlot
+           ) {
+            conditionalGeneratedRGBInputContract = .init(
+                alphaCarrierSlot: fact.alphaCarrierSlot,
+                generatedOpaqueColorSlots: fact.generatedOpaqueColorSlots,
+                scalarRedSlots: fact.scalarRedSlots,
+                scalarGreenSlots: fact.scalarGreenSlots,
+                scalarBlueSlots: fact.scalarBlueSlots,
+                scalarAlphaSlots: fact.scalarAlphaSlots
+            )
+        } else {
+            conditionalGeneratedRGBInputContract = nil
         }
         let sourceGraphInputFacts = SceneResolvedMaterialShaderSchema
             .graphInputSourceSlotFacts(
@@ -449,6 +479,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeSamplers: samplers,
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
+            conditionalGeneratedRGBInputContract:
+                conditionalGeneratedRGBInputContract,
             activeUniforms: uniforms,
             neutralTextureResolution: neutralTextureResolution
         )

@@ -21,7 +21,17 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
-SWIFT_SOURCES = list(scene_swift_sources("authored_shader_frontend_core"))
+SWIFT_SOURCES = [
+    *scene_swift_sources("authored_shader_frontend_core"),
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+]
 
 
 HARNESS = r'''
@@ -36,6 +46,7 @@ private func fragment(
     varying vec2 v_TexCoord;
     uniform sampler2D g_Texture0;
     uniform sampler2D g_Texture1;
+    uniform sampler2D g_Texture2;
     uniform sampler2D g_Texture3;
     uniform float g_ScalarWeight;
     uniform float g_Border;
@@ -187,6 +198,113 @@ private func metal(
     )?.metalSource ?? ""
 }
 
+private func conditionalGeneratedRGBFact(
+    _ body: String,
+    helpers: String = ""
+) -> String {
+    guard let fact = SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
+        fragmentSource: fragment(body, helpers: helpers)
+    ) else { return "unresolved" }
+    let generated = fact.generatedOpaqueColorSlots.sorted()
+        .map(String.init).joined(separator: ",")
+    let red = fact.scalarRedSlots.sorted()
+        .map(String.init).joined(separator: ",")
+    let green = fact.scalarGreenSlots.sorted()
+        .map(String.init).joined(separator: ",")
+    let blue = fact.scalarBlueSlots.sorted()
+        .map(String.init).joined(separator: ",")
+    let alpha = fact.scalarAlphaSlots.sorted()
+        .map(String.init).joined(separator: ",")
+    let counts = fact.sampleCallCounts.sorted(by: { $0.key < $1.key })
+        .map { "\($0.key):\($0.value)" }.joined(separator: ",")
+    return "carrier:\(fact.alphaCarrierSlot);generated:\(generated);" +
+        "red:\(red);green:\(green);blue:\(blue);alpha:\(alpha);" +
+        "counts:\(counts)"
+}
+
+private func conditionalGeneratedRGBCompilerLowering(
+    _ body: String,
+    mutation: String = "valid"
+) -> String {
+    guard let fact = SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
+        fragmentSource: fragment(body)
+    ) else { return "unresolved" }
+    var source = """
+    using namespace metal;
+    struct CompilerOutput { float4 mwxFragColor; };
+    fragment CompilerOutput translatedFragment() {
+        CompilerOutput out = {};
+        float4 base = g_Texture2.sample(g_Texture2Smplr, coordinates);
+        float3 color = base.xyz;
+        float mask = g_Texture1.sample(g_Texture1Smplr, coordinates).x;
+        if ((weight > 0.001) && (mask > 0.001)) {
+            color = g_Texture0.sample(g_Texture0Smplr, coordinates).xyz;
+            color += g_Texture0.sample(g_Texture0Smplr, coordinates * 0.5).xyz;
+            color *= 0.4 * tint;
+            color = ApplyBlending(0, base.xyz, color, mask);
+        }
+        out.mwxFragColor = float4(color, base.w);
+        return out;
+    }
+    """
+    switch mutation {
+    case "role-swap":
+        source = source.replacingOccurrences(
+            of: "float3 color = g_Texture0.sample(g_Texture0Smplr, coordinates).xyz;",
+            with: "float3 color = g_Texture1.sample(g_Texture1Smplr, coordinates).xyz;"
+        ).replacingOccurrences(
+            of: "float mask = g_Texture1.sample(g_Texture1Smplr, coordinates).x;",
+            with: "float mask = g_Texture0.sample(g_Texture0Smplr, coordinates).x;"
+        )
+    case "post-output":
+        source = source.replacingOccurrences(
+            of: "out.mwxFragColor = float4(color, base.w);",
+            with: "out.mwxFragColor = float4(color, base.w);\n        sideEffect();"
+        )
+    case "carrier-conditional-write":
+        source = source.replacingOccurrences(
+            of: "out.mwxFragColor = float4(color, base.w);",
+            with: "if (weight > 0.0) base.w = 0.0;\n        " +
+                "out.mwxFragColor = float4(color, base.w);"
+        )
+    case "carrier-prefix-write":
+        source = source.replacingOccurrences(
+            of: "out.mwxFragColor = float4(color, base.w);",
+            with: "++base.w;\n        " +
+                "out.mwxFragColor = float4(color, base.w);"
+        )
+    case "compound-extra-output":
+        source = source.replacingOccurrences(
+            of: "out.mwxFragColor = float4(color, base.w);",
+            with: "out.secondary += float4(1.0);\n        " +
+                "out.mwxFragColor = float4(color, base.w);"
+        )
+    case "prefix-extra-output":
+        source = source.replacingOccurrences(
+            of: "out.mwxFragColor = float4(color, base.w);",
+            with: "++out.secondary.x;\n        " +
+                "out.mwxFragColor = float4(color, base.w);"
+        )
+    case "hidden-helper-sample":
+        source = source.replacingOccurrences(
+            of: "fragment CompilerOutput translatedFragment() {",
+            with: "float3 compilerHidden() { return g_Texture0.sample(" +
+                "g_Texture0Smplr, coordinates * 0.5).xyz; }\n" +
+                "fragment CompilerOutput translatedFragment() {"
+        ).replacingOccurrences(
+            of: "color += g_Texture0.sample(g_Texture0Smplr, " +
+                "coordinates * 0.5).xyz;",
+            with: "color += compilerHidden();"
+        )
+    default:
+        break
+    }
+    return SceneGenericShaderConditionalGeneratedRGBLowering.lower(
+        source,
+        fact: fact
+    ) ?? "unresolved"
+}
+
 private func conditionalShadowBody(
     mode: Int = 30,
     offsetSample: String = "texSample2D(g_Texture0, " +
@@ -223,6 +341,30 @@ enum Harness {
             prelude: "float mask = 1.0; ",
             weight: "g_ScalarWeight * mask"
         )
+        let conditionalGeneratedRGB =
+            "vec4 base = texSample2D(g_Texture2, v_TexCoord); " +
+            "vec3 color = base.rgb; " +
+            "float mask = texSample2D(g_Texture1, v_TexCoord).r; " +
+            "if (g_ScalarWeight > 0.001 && mask > 0.001) { " +
+            "color = texSample2D(g_Texture0, v_TexCoord).rgb; " +
+            "color += texSample2D(g_Texture0, v_TexCoord * 0.5).rgb; " +
+            "color *= 0.4 * g_Tint; " +
+            "color.rgb = ApplyBlending(0, base.rgb, color, mask); } " +
+            "gl_FragColor = vec4(color, base.a);"
+        let conditionalGeneratedRGBComponentScalars =
+            "vec4 base = texSample2D(g_Texture2, v_TexCoord); " +
+            "vec3 color = base.rgb; " +
+            "float red = texSample2D(g_Texture1, v_TexCoord).x; " +
+            "float green = texSample2D(g_Texture3, v_TexCoord).y; " +
+            "float blue = texSample2D(g_Texture1, v_TexCoord).z; " +
+            "float alpha = texSample2D(g_Texture3, v_TexCoord).w; " +
+            "if (g_ScalarWeight > 0.001 && " +
+            "red + green + blue + alpha > 0.001) { " +
+            "color = texSample2D(g_Texture0, v_TexCoord).rgb; " +
+            "color += texSample2D(g_Texture0, v_TexCoord * 0.5).rgb; " +
+            "color *= (0.4 + blue) * g_Tint; " +
+            "color.rgb = ApplyBlending(0, base.rgb, color, red); } " +
+            "gl_FragColor = vec4(color, base.a);"
         let result: [String: String] = [
             "directTexture0": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
@@ -565,6 +707,162 @@ enum Harness {
                 "scene.rgb, scene.a), finalColor.rgb, weight); " +
                 "float alpha = scene.a; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "conditionalGeneratedRGBPreservedAlpha": transfer(
+                conditionalGeneratedRGB
+            ),
+            "conditionalGeneratedRGBFact": conditionalGeneratedRGBFact(
+                conditionalGeneratedRGB
+            ),
+            "conditionalGeneratedRGBComponentScalarFact":
+                conditionalGeneratedRGBFact(
+                    conditionalGeneratedRGBComponentScalars
+                ),
+            "conditionalGeneratedRGBMetal": metal(conditionalGeneratedRGB),
+            "conditionalGeneratedRGBCompilerLowering":
+                conditionalGeneratedRGBCompilerLowering(conditionalGeneratedRGB),
+            "conditionalGeneratedRGBCompilerRoleSwap":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "role-swap"
+                ),
+            "conditionalGeneratedRGBCompilerPostOutput":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "post-output"
+                ),
+            "conditionalGeneratedRGBCompilerCarrierConditionalWrite":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "carrier-conditional-write"
+                ),
+            "conditionalGeneratedRGBCompilerCarrierPrefixWrite":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "carrier-prefix-write"
+                ),
+            "conditionalGeneratedRGBCompilerCompoundExtraOutput":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "compound-extra-output"
+                ),
+            "conditionalGeneratedRGBCompilerPrefixExtraOutput":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "prefix-extra-output"
+                ),
+            "conditionalGeneratedRGBCompilerHiddenHelperSample":
+                conditionalGeneratedRGBCompilerLowering(
+                    conditionalGeneratedRGB,
+                    mutation: "hidden-helper-sample"
+                ),
+            "conditionalGeneratedRGBMultiReturnHelper": transfer(
+                conditionalGeneratedRGB,
+                blendReturns: "if (opacity > 0.0) { " +
+                    "return mix(base, (blend), opacity); } " +
+                    "return base;"
+            ),
+            "conditionalGeneratedRGBReplacedAlpha": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "vec4(color, base.a)",
+                    with: "vec4(color, mask)"
+                )
+            ),
+            "conditionalGeneratedRGBWholeColorSample": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "texSample2D(g_Texture0, v_TexCoord).rgb",
+                    with: "texSample2D(g_Texture0, v_TexCoord)",
+                    options: [],
+                    range: conditionalGeneratedRGB.range(
+                        of: "texSample2D(g_Texture0, v_TexCoord).rgb"
+                    )
+                )
+            ),
+            "conditionalGeneratedRGBHiddenHelperSample": transfer(
+                conditionalGeneratedRGB,
+                helpers: "float HiddenGeneratedControl() { " +
+                    "return texSample2D(g_Texture3, v_TexCoord).r; }"
+            ),
+            "conditionalGeneratedRGBHelperSample": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "ApplyBlending",
+                    with: "SamplingGeneratedBlend"
+                ),
+                helpers: "vec3 SamplingGeneratedBlend(const int mode, " +
+                    "in vec3 base, in vec3 blend, in float opacity) { " +
+                    "float sampled = texSample2D(g_Texture3, " +
+                    "v_TexCoord).r; " +
+                    "return mix(base, blend, opacity * sampled); }"
+            ),
+            "conditionalGeneratedRGBHelperOutputMutation": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "ApplyBlending",
+                    with: "OutputMutatingGeneratedBlend"
+                ),
+                helpers: "vec3 OutputMutatingGeneratedBlend(" +
+                    "const int mode, in vec3 base, in vec3 blend, " +
+                    "in float opacity) { gl_FragColor = vec4(base, 1.0); " +
+                    "return mix(base, blend, opacity); }"
+            ),
+            "conditionalGeneratedRGBHelperOutMutation": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "ApplyBlending",
+                    with: "MutatingGeneratedBlend"
+                ),
+                helpers: "void MutateGeneratedOutput(out vec3 value) { " +
+                    "value = vec3(0.0); } " +
+                    "vec3 MutatingGeneratedBlend(const int mode, " +
+                    "in vec3 base, in vec3 blend, in float opacity) { " +
+                    "MutateGeneratedOutput(blend); " +
+                    "return mix(base, blend, opacity); }"
+            ),
+            "conditionalGeneratedRGBCallAfterBlend": transfer(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "color.rgb = ApplyBlending(0, base.rgb, " +
+                        "color, mask); }",
+                    with: "color.rgb = ApplyBlending(0, base.rgb, " +
+                        "color, mask); GeneratedTail(); }"
+                ),
+                helpers: "void GeneratedTail() {}"
+            ),
+            "conditionalGeneratedRGBCallAfterOutput": transfer(
+                conditionalGeneratedRGB + " GeneratedTail();",
+                helpers: "void GeneratedTail() {}"
+            ),
+            "conditionalGeneratedRGBDiscardAfterOutput": transfer(
+                conditionalGeneratedRGB + " discard;"
+            ),
+            "conditionalGeneratedRGBMainBarrier": conditionalGeneratedRGBFact(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "gl_FragColor = vec4(color, base.a);",
+                    with: "memoryBarrier(); " +
+                        "gl_FragColor = vec4(color, base.a);"
+                )
+            ),
+            "conditionalGeneratedRGBMainTexelFetch": conditionalGeneratedRGBFact(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "if (g_ScalarWeight > 0.001",
+                    with: "vec4 hidden = texelFetch(g_Texture3, ivec2(0), 0); " +
+                        "if (g_ScalarWeight > 0.001"
+                )
+            ),
+            "conditionalGeneratedRGBGlobalWritingHelper":
+                conditionalGeneratedRGBFact(
+                    conditionalGeneratedRGB.replacingOccurrences(
+                        of: "gl_FragColor = vec4(color, base.a);",
+                        with: "MutateGeneratedGlobal(); " +
+                            "gl_FragColor = vec4(color, base.a);"
+                    ),
+                    helpers: "float generatedGlobal; " +
+                        "void MutateGeneratedGlobal() { " +
+                        "generatedGlobal = 1.0; }"
+                ),
+            "conditionalGeneratedRGBExtraOutput": conditionalGeneratedRGBFact(
+                conditionalGeneratedRGB.replacingOccurrences(
+                    of: "gl_FragColor = vec4(color, base.a);",
+                    with: "gl_FragDepth = mask; " +
+                        "gl_FragColor = vec4(color, base.a);"
+                )
             ),
             "overlayAlphaBlend": transfer(
                 "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
@@ -1453,7 +1751,10 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertEqual(self.result["closedConditionalPassthrough"], "slot:1")
 
     def test_exhaustive_branch_preserves_one_sampled_alpha(self) -> None:
-        for key in ("conditionalAlphaPreserving", "conditionalGeneratedRGB"):
+        for key in (
+            "conditionalAlphaPreserving",
+            "conditionalGeneratedRGB",
+        ):
             self.assertEqual(
                 self.result[key], "straight-preserving-slot:0", key
             )
@@ -1504,6 +1805,66 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.assertNotEqual(
                 self.result[key], "straight-preserving-slot:0", key
             )
+
+    def test_conditional_generated_rgb_keeps_an_independent_base_alpha(self) -> None:
+        self.assertEqual(
+            self.result["conditionalGeneratedRGBPreservedAlpha"],
+            "straight-preserving-slot:2",
+        )
+        self.assertEqual(
+            self.result["conditionalGeneratedRGBFact"],
+            "carrier:2;generated:0;red:1;green:;blue:;alpha:;" +
+            "counts:0:2,1:1,2:1",
+        )
+        self.assertEqual(
+            self.result["conditionalGeneratedRGBComponentScalarFact"],
+            "carrier:2;generated:0;red:1;green:3;blue:1;alpha:3;" +
+            "counts:0:2,1:2,2:1,3:2",
+        )
+        source = self.result["conditionalGeneratedRGBMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture2.sample", source)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        compiler_source = self.result["conditionalGeneratedRGBCompilerLowering"]
+        self.assertIn(
+            "mwxGenericUnpremultiply(g_Texture2.sample", compiler_source
+        )
+        self.assertNotIn(
+            "mwxGenericUnpremultiply(g_Texture0.sample", compiler_source
+        )
+        self.assertIn(
+            "mwxGenericPremultiply(float4(color, base.w))", compiler_source
+        )
+        for key in (
+            "conditionalGeneratedRGBCompilerRoleSwap",
+            "conditionalGeneratedRGBCompilerPostOutput",
+            "conditionalGeneratedRGBCompilerCarrierConditionalWrite",
+            "conditionalGeneratedRGBCompilerCarrierPrefixWrite",
+            "conditionalGeneratedRGBCompilerCompoundExtraOutput",
+            "conditionalGeneratedRGBCompilerPrefixExtraOutput",
+            "conditionalGeneratedRGBCompilerHiddenHelperSample",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+        self.assertEqual(
+            self.result["conditionalGeneratedRGBMultiReturnHelper"],
+            "straight-preserving-slot:2",
+        )
+        for key in (
+            "conditionalGeneratedRGBReplacedAlpha",
+            "conditionalGeneratedRGBWholeColorSample",
+            "conditionalGeneratedRGBHiddenHelperSample",
+            "conditionalGeneratedRGBHelperSample",
+            "conditionalGeneratedRGBHelperOutputMutation",
+            "conditionalGeneratedRGBHelperOutMutation",
+            "conditionalGeneratedRGBCallAfterBlend",
+            "conditionalGeneratedRGBCallAfterOutput",
+            "conditionalGeneratedRGBDiscardAfterOutput",
+            "conditionalGeneratedRGBMainBarrier",
+            "conditionalGeneratedRGBMainTexelFetch",
+            "conditionalGeneratedRGBGlobalWritingHelper",
+            "conditionalGeneratedRGBExtraOutput",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_straight_rgb_with_factored_source_alpha_has_one_color_boundary(self) -> None:
         self.assertEqual(

@@ -113,6 +113,15 @@ private enum Harness {
             .resolved(.independentAlphaSignal)
         )
         let unresolved = SceneTextureContent.color(.unresolved)
+        let conditionalContract =
+            Derivation.ConditionalGeneratedRGBInputContract(
+                alphaCarrierSlot: 2,
+                generatedOpaqueColorSlots: [0],
+                scalarRedSlots: [],
+                scalarGreenSlots: [],
+                scalarBlueSlots: [],
+                scalarAlphaSlots: []
+            )
 
         let result: [String: Bool] = [
             "twoPremultipliedAccepted":
@@ -164,6 +173,144 @@ private enum Harness {
                 !Derivation.hasResolvedColorSampleContract(
                     colorSlots: [0],
                     textureFacts: Array(facts([0: premultiplied]).prefix(7))
+                ),
+            "generatedOpaqueAccepted":
+                Derivation.hasResolvedOpaqueColorSampleContract(
+                    colorSlots: [0],
+                    textureFacts: facts([0: opaque, 2: premultiplied])
+                ),
+            "generatedPremultipliedRejected":
+                !Derivation.hasResolvedOpaqueColorSampleContract(
+                    colorSlots: [0],
+                    textureFacts: facts([0: premultiplied, 2: premultiplied])
+                ),
+            "generatedDataRejected":
+                !Derivation.hasResolvedOpaqueColorSampleContract(
+                    colorSlots: [0],
+                    textureFacts: facts([0: .data, 2: premultiplied])
+                ),
+            "generatedMissingRejected":
+                !Derivation.hasResolvedOpaqueColorSampleContract(
+                    colorSlots: [0],
+                    textureFacts: facts([2: premultiplied])
+                ),
+            "emptyGeneratedSetAccepted":
+                Derivation.hasResolvedOpaqueColorSampleContract(
+                    colorSlots: [],
+                    textureFacts: facts([2: premultiplied])
+                ),
+            "nonConditionalMixedRepresentationRejected":
+                Derivation.resolveColor(
+                    transfer: .straightAlphaPreserving(textureSlot: 2),
+                    textureFacts: facts([0: opaque, 2: premultiplied])
+                ) == nil,
+            "conditionalProjectionAcceptsOpaqueGeneratedRGB":
+                Derivation.resolveColor(
+                    transfer: .straightAlphaPreserving(textureSlot: 2),
+                    textureFacts: facts([0: opaque, 2: premultiplied]),
+                    conditionalGeneratedRGBInputContract: conditionalContract
+                ) == .init(
+                    framebufferInput: .premultipliedAlpha,
+                    fragmentOutput: .premultipliedAlpha
+                ),
+            "conditionalProjectionRejectsPremultipliedGeneratedRGB":
+                Derivation.resolveColor(
+                    transfer: .straightAlphaPreserving(textureSlot: 2),
+                    textureFacts: facts([
+                        0: premultiplied,
+                        2: premultiplied,
+                    ]),
+                    conditionalGeneratedRGBInputContract: conditionalContract
+                ) == nil,
+            "conditionalProjectionRejectsUnresolvedCarrier":
+                Derivation.resolveColor(
+                    transfer: .straightAlphaPreserving(textureSlot: 2),
+                    textureFacts: facts([0: opaque, 2: unresolved]),
+                    conditionalGeneratedRGBInputContract: conditionalContract
+                ) == nil,
+            "scalarRedAcceptsR8":
+                Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [1],
+                        scalarGreenSlots: [],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: []
+                    ),
+                    textureFacts: facts([1: .scalarRedUnorm])
+                ),
+            "scalarGreenRejectsR8":
+                !Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [],
+                        scalarGreenSlots: [1],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: []
+                    ),
+                    textureFacts: facts([1: .scalarRedUnorm])
+                ),
+            "scalarGreenAcceptsRG":
+                Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [],
+                        scalarGreenSlots: [1],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: []
+                    ),
+                    textureFacts: facts([1: .redGreenFloat16])
+                ),
+            "scalarBlueRejectsRG":
+                !Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [],
+                        scalarGreenSlots: [],
+                        scalarBlueSlots: [1],
+                        scalarAlphaSlots: []
+                    ),
+                    textureFacts: facts([1: .redGreenFloat16])
+                ),
+            "scalarRGBRejectsPremultipliedColor":
+                !Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [1],
+                        scalarGreenSlots: [],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: []
+                    ),
+                    textureFacts: facts([1: premultiplied])
+                ),
+            "scalarAlphaAcceptsPremultipliedColor":
+                Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [],
+                        scalarGreenSlots: [],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: [1]
+                    ),
+                    textureFacts: facts([1: premultiplied])
+                ),
+            "scalarAlphaRejectsR8BackendDefault":
+                !Derivation.hasResolvedConditionalGeneratedRGBInputContract(
+                    .init(
+                        alphaCarrierSlot: 2,
+                        generatedOpaqueColorSlots: [],
+                        scalarRedSlots: [],
+                        scalarGreenSlots: [],
+                        scalarBlueSlots: [],
+                        scalarAlphaSlots: [1]
+                    ),
+                    textureFacts: facts([1: .scalarRedUnorm])
                 ),
         ]
         FileHandle.standardOutput.write(try JSONEncoder().encode(result))

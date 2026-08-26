@@ -9,21 +9,34 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
 
     static func derive(_ input: Program.AssemblyInput) -> Program.Derived? {
         guard let frontend = compileFrontend(input.preparedShader) else { return nil }
-        return derive(input, frontend: frontend)
+        return derive(
+            input,
+            frontend: frontend,
+            conditionalGeneratedRGBInputContract: nil
+        )
     }
 
     static func deriveCompiled(
         _ input: Program.AssemblyInput,
-        frontend: SceneAuthoredShaderProgram
+        frontend: SceneAuthoredShaderProgram,
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract?
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
               uniqueAndValid(frontend.uniformLayout) else { return nil }
-        return derive(input, frontend: frontend)
+        return derive(
+            input,
+            frontend: frontend,
+            conditionalGeneratedRGBInputContract:
+                conditionalGeneratedRGBInputContract
+        )
     }
 
     private static func derive(
         _ input: Program.AssemblyInput,
-        frontend: SceneAuthoredShaderProgram
+        frontend: SceneAuthoredShaderProgram,
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract?
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
               acceptsGraphRole(
@@ -54,7 +67,9 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
               let output = resolveOutputContract(
                   outputStorage: input.outputStorage,
                   frontend: frontend,
-                  textureSlots: input.textureSlots
+                  textureSlots: input.textureSlots,
+                  conditionalGeneratedRGBInputContract:
+                    conditionalGeneratedRGBInputContract
               ) else {
             return nil
         }
@@ -102,13 +117,17 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
     private static func resolveOutputContract(
         outputStorage: Program.OutputStorage,
         frontend: SceneAuthoredShaderProgram,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract?
     ) -> OutputProjection? {
         switch outputStorage {
         case .color:
             guard let color = resolveColor(
                 transfer: frontend.colorTransfer,
-                textureSlots: textureSlots
+                textureSlots: textureSlots,
+                conditionalGeneratedRGBInputContract:
+                    conditionalGeneratedRGBInputContract
             ) else { return nil }
             let identity = Program.ColorContractIdentity(
                 framebufferInput: SceneResolvedMaterialProgramIdentity.color(

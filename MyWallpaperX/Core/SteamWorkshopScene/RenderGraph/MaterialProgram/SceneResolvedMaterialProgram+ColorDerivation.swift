@@ -14,11 +14,31 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         let content: SceneTextureContent
     }
 
+    /// Source-proven input roles for the one bounded shape that combines
+    /// generated RGB with an independently sampled carrier alpha. Keeping the
+    /// roles explicit prevents its mixed-representation allowance from
+    /// broadening every straight-alpha-preserving shader.
+    struct ConditionalGeneratedRGBInputContract: Hashable {
+        let alphaCarrierSlot: Int
+        let generatedOpaqueColorSlots: Set<Int>
+        let scalarRedSlots: Set<Int>
+        let scalarGreenSlots: Set<Int>
+        let scalarBlueSlots: Set<Int>
+        let scalarAlphaSlots: Set<Int>
+    }
+
     static func hasResolvedColorContract(
         transfer: SceneShaderColorTransfer,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract? = nil
     ) -> Bool {
-        resolveColor(transfer: transfer, textureSlots: textureSlots) != nil
+        resolveColor(
+            transfer: transfer,
+            textureSlots: textureSlots,
+            conditionalGeneratedRGBInputContract:
+                conditionalGeneratedRGBInputContract
+        ) != nil
     }
 
     static func hasResolvedColorSampleContract(
@@ -62,12 +82,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         }
     }
 
-    static func resolveColor(
-        transfer: SceneShaderColorTransfer,
+    /// Generated RGB that is not moved through an unpremultiply boundary may
+    /// only consume source-proven opaque color. The carrier alpha is checked
+    /// separately by the transfer projection.
+    static func hasResolvedOpaqueColorSampleContract(
+        colorSlots: Set<Int>,
         textureSlots: [Program.TextureSlot?]
-    ) -> ColorProjection? {
-        resolveColor(
-            transfer: transfer,
+    ) -> Bool {
+        hasResolvedOpaqueColorSampleContract(
+            colorSlots: colorSlots,
             textureFacts: textureSlots.map { slot -> ColorTextureFact? in
                 guard let slot else { return nil }
                 let isGraphReference = if case .graph = slot.reference {
@@ -88,11 +111,95 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         )
     }
 
+    static func hasResolvedOpaqueColorSampleContract(
+        colorSlots: Set<Int>,
+        textureFacts: [ColorTextureFact?]
+    ) -> Bool {
+        guard textureFacts.count == 8 else { return false }
+        return colorSlots.allSatisfy { slot in
+            representation(slot: slot, textureFacts: textureFacts) == .opaque
+        }
+    }
+
+    static func hasResolvedConditionalGeneratedRGBInputContract(
+        _ contract: ConditionalGeneratedRGBInputContract,
+        textureSlots: [Program.TextureSlot?]
+    ) -> Bool {
+        hasResolvedConditionalGeneratedRGBInputContract(
+            contract,
+            textureFacts: textureSlots.map(colorTextureFact)
+        )
+    }
+
+    static func hasResolvedConditionalGeneratedRGBInputContract(
+        _ contract: ConditionalGeneratedRGBInputContract,
+        textureFacts: [ColorTextureFact?]
+    ) -> Bool {
+        guard textureFacts.count == 8,
+              hasResolvedOpaqueColorSampleContract(
+                colorSlots: contract.generatedOpaqueColorSlots,
+                textureFacts: textureFacts
+              ),
+              contract.scalarRedSlots.allSatisfy({
+                  scalarComponentIsResolved(
+                    .red,
+                    slot: $0,
+                    textureFacts: textureFacts
+                  )
+              }),
+              contract.scalarGreenSlots.allSatisfy({
+                  scalarComponentIsResolved(
+                    .green,
+                    slot: $0,
+                    textureFacts: textureFacts
+                  )
+              }),
+              contract.scalarBlueSlots.allSatisfy({
+                  scalarComponentIsResolved(
+                    .blue,
+                    slot: $0,
+                    textureFacts: textureFacts
+                  )
+              }),
+              contract.scalarAlphaSlots.allSatisfy({
+                  scalarComponentIsResolved(
+                    .alpha,
+                    slot: $0,
+                    textureFacts: textureFacts
+                  )
+              }) else { return false }
+        return true
+    }
+
     static func resolveColor(
         transfer: SceneShaderColorTransfer,
-        textureFacts: [ColorTextureFact?]
+        textureSlots: [Program.TextureSlot?],
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract? = nil
+    ) -> ColorProjection? {
+        resolveColor(
+            transfer: transfer,
+            textureFacts: textureSlots.map(colorTextureFact),
+            conditionalGeneratedRGBInputContract:
+                conditionalGeneratedRGBInputContract
+        )
+    }
+
+    static func resolveColor(
+        transfer: SceneShaderColorTransfer,
+        textureFacts: [ColorTextureFact?],
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract? = nil
     ) -> ColorProjection? {
         guard textureFacts.count == 8 else { return nil }
+        if let contract = conditionalGeneratedRGBInputContract {
+            guard transfer == .straightAlphaPreserving(
+                textureSlot: contract.alphaCarrierSlot
+            ), hasResolvedConditionalGeneratedRGBInputContract(
+                contract,
+                textureFacts: textureFacts
+            ) else { return nil }
+        }
         var framebufferRepresentations: Set<SceneShaderColorRepresentation> = []
         for fact in textureFacts.compactMap({ $0 }) where fact.isFramebufferInput {
             switch fact.content {
@@ -112,6 +219,20 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             // sampler that the prepared variant never reads. Use one stable
             // identity value without claiming or requiring a sampled input.
             framebufferInput = .opaque
+        } else if let contract = conditionalGeneratedRGBInputContract,
+                  case let .straightAlphaPreserving(slot) = transfer,
+                  contract.alphaCarrierSlot == slot {
+            guard let representation = representation(
+                slot: slot,
+                textureFacts: textureFacts
+            ), representation == .opaque
+                || representation == .premultipliedAlpha else {
+                return nil
+            }
+            // The alpha carrier defines the framebuffer projection. Other
+            // color inputs may be source-proven opaque generated RGB and are
+            // validated independently before this projection is resolved.
+            framebufferInput = representation
         } else if case let .independentAlphaSignalCompositing(
             signalSlot,
             colorSlot
@@ -231,6 +352,59 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
               case let .color(.resolved(value)) =
                 fact.content else { return nil }
         return value
+    }
+
+    private enum ScalarComponent {
+        case red
+        case green
+        case blue
+        case alpha
+    }
+
+    private static func scalarComponentIsResolved(
+        _ component: ScalarComponent,
+        slot: Int,
+        textureFacts: [ColorTextureFact?]
+    ) -> Bool {
+        guard textureFacts.indices.contains(slot),
+              let fact = textureFacts[slot] else { return false }
+        switch (component, fact.content) {
+        case (_, .data):
+            return true
+        case (.red, .scalarRedUnorm), (.red, .redGreenUnorm),
+             (.red, .scalarRedFloat16), (.red, .redGreenFloat16),
+             (.green, .redGreenUnorm), (.green, .redGreenFloat16):
+            return true
+        case (.red, .color(.resolved(.opaque))),
+             (.green, .color(.resolved(.opaque))),
+             (.blue, .color(.resolved(.opaque))):
+            return true
+        case (.alpha, .color(.resolved)):
+            return true
+        case (_, .color), (_, .scalarRedUnorm), (_, .redGreenUnorm),
+             (_, .scalarRedFloat16), (_, .redGreenFloat16):
+            return false
+        }
+    }
+
+    private static func colorTextureFact(
+        _ slot: Program.TextureSlot?
+    ) -> ColorTextureFact? {
+        guard let slot else { return nil }
+        let isGraphReference = if case .graph = slot.reference {
+            true
+        } else {
+            false
+        }
+        let isFramebufferInput = switch slot.reference {
+        case .graph, .provider(.sceneBackground): true
+        default: false
+        }
+        return .init(
+            isGraphReference: isGraphReference,
+            isFramebufferInput: isFramebufferInput,
+            content: slot.resource.publication.candidate.content
+        )
     }
 
     private static func auxiliarySlotsAreData(

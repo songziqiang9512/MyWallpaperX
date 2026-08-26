@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 60)
+        self.assertEqual(len(implementation), 61)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -169,7 +169,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(preprocessing[:3], environment)
         self.assertEqual(len(preparation), 16)
         self.assertEqual(preparation[:14], preprocessing)
-        self.assertEqual(len(generic_compiler), 22)
+        self.assertEqual(len(generic_compiler), 23)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
@@ -209,7 +209,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(model), 7)
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 6)
-        self.assertEqual(len(texture_finalization), 7)
+        self.assertEqual(len(texture_finalization), 8)
         self.assertEqual(len(variant_preparation), 13)
         self.assertIn(
             "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
@@ -231,7 +231,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 34)
+        self.assertEqual(len(frame_finalization), 35)
         self.assertEqual(len(template_compilation), 2)
         self.assertEqual(
             complete,
@@ -240,7 +240,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 36)
+        self.assertEqual(len(complete), 37)
 
         material_program_directory = (
             REPOSITORY_ROOT

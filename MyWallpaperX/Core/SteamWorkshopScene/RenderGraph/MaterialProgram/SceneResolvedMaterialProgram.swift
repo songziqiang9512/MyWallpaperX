@@ -508,11 +508,16 @@ nonisolated struct SceneResolvedMaterialProgram {
     static func assembleCompiled(
         _ input: AssemblyInput,
         frontend: SceneAuthoredShaderProgram,
-        routeDecision: SceneGenericShaderRouteDecision
+        routeDecision: SceneGenericShaderRouteDecision,
+        conditionalGeneratedRGBInputContract:
+            SceneResolvedMaterialProgramDerivation
+                .ConditionalGeneratedRGBInputContract?
     ) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
             input,
-            frontend: frontend
+            frontend: frontend,
+            conditionalGeneratedRGBInputContract:
+                conditionalGeneratedRGBInputContract
         ) else { return nil }
         return Self(
             input: input,
