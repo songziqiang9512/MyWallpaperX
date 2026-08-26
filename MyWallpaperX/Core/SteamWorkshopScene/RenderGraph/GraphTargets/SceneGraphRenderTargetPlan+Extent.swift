@@ -49,8 +49,31 @@ nonisolated extension SceneGraphRenderTargetPlan {
     nonisolated static func authoredSwapDescriptorsAreCompatible(
         in graph: Graph
     ) -> Bool {
+        authoredCommandDescriptorsAreCompatible(
+            in: graph,
+            includeCopy: false
+        )
+    }
+
+    /// A startup capability probe must not admit a copy merely because two
+    /// different authored extent expressions collapse to 1x1. Runtime copy
+    /// storage requires the same extent and format at every real size.
+    nonisolated static func authoredCommandStorageDescriptorsAreCompatible(
+        in graph: Graph
+    ) -> Bool {
+        authoredCommandDescriptorsAreCompatible(
+            in: graph,
+            includeCopy: true
+        )
+    }
+
+    private nonisolated static func authoredCommandDescriptorsAreCompatible(
+        in graph: Graph,
+        includeCopy: Bool
+    ) -> Bool {
         let declarations = Dictionary(grouping: graph.renderTargets, by: \.texture)
-        for node in graph.nodes where node.kind == .swap {
+        for node in graph.nodes where node.kind == .swap
+                || (includeCopy && node.kind == .copy) {
             guard let source = node.commandSource,
                   let target = node.commandTarget,
                   source != target,
@@ -75,9 +98,10 @@ nonisolated extension SceneGraphRenderTargetPlan {
                   sourceDescriptor.format == targetDescriptor.format else {
                 return false
             }
-            if sourceDescriptor.addressMode != targetDescriptor.addressMode
+            if node.kind == .swap,
+               (sourceDescriptor.addressMode != targetDescriptor.addressMode
                 || sourceDescriptor.isUnique != targetDescriptor.isUnique
-                || sourceDescriptor.initialClear != targetDescriptor.initialClear {
+                || sourceDescriptor.initialClear != targetDescriptor.initialClear) {
                 return false
             }
         }
@@ -277,5 +301,129 @@ nonisolated extension SceneGraphRenderTargetPlan {
         case .string("repeat"): return .repeatWrap
         default: return nil
         }
+    }
+}
+
+/// Shared target-topology predicate for an effect-local previous-current
+/// fallback. It accepts only non-persistent framebuffer work whose reads are
+/// dominated by authored writes and whose terminal output consumes that work.
+nonisolated enum SceneEffectLocalPreviousCurrentTopology {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    static func acceptsFramebufferGraph(
+        _ graph: Graph,
+        effect: Graph.Effect
+    ) -> Bool {
+        let targetIdentities = Set(graph.renderTargets.map(\.texture))
+        guard graph.effects.count == 1,
+              graph.effects.first?.key == effect.key,
+              graph.finalOutput == effect.output,
+              graph.blockers.isEmpty,
+              effect.nodeIndices == graph.nodes.map(\.nodeIndex),
+              !targetIdentities.isEmpty,
+              targetIdentities.count == graph.renderTargets.count,
+              graph.renderTargets.allSatisfy({ target in
+                  target.texture.kind == .framebuffer
+                    && target.texture.layerID == graph.layerID
+                    && target.texture.effect == effect.key
+                    && target.texture.name?.isEmpty == false
+                    && !target.declaredUnique
+                    && target.clear == nil
+                    && target.conditions == nil
+              }),
+              graph.nodes.count >= 2,
+              SceneGraphRenderTargetPlan
+                .authoredCommandStorageDescriptorsAreCompatible(in: graph),
+              let inputRole = SceneAuthoredEffectInputValidator.role(
+                  for: effect.input,
+                  layerID: graph.layerID
+              ),
+              case let .success(targetPlan) = SceneGraphRenderTargetPlan.make(
+                  graph: graph,
+                  inputRole: inputRole,
+                  inputWidth: 1,
+                  inputHeight: 1
+              ),
+              targetPlan.logicalTargets.allSatisfy({
+                  !$0.lifetime.requiresHistorySeed
+              }) else { return false }
+
+        var initializedTargets = Set<Graph.TextureIdentity>()
+        var consumedTargets = Set<Graph.TextureIdentity>()
+        var materialOrdinals: [Int] = []
+        var terminalReadsFramebuffer = false
+        for (offset, node) in graph.nodes.enumerated() {
+            guard node.effect == effect.key,
+                  node.conditions == nil,
+                  node.compose == nil || node.compose == .bool(false)
+            else { return false }
+
+            switch node.kind {
+            case .material:
+                guard let ordinal = node.materialOrdinal,
+                      node.commandSource == nil,
+                      node.commandTarget == nil,
+                      node.bindings.allSatisfy({ binding in
+                          binding.conditions == nil
+                            && (binding.texture == effect.input
+                                || (targetIdentities.contains(binding.texture)
+                                    && initializedTargets.contains(
+                                        binding.texture
+                                    )))
+                      }) else { return false }
+                materialOrdinals.append(ordinal)
+                consumedTargets.formUnion(node.bindings.compactMap { binding in
+                    targetIdentities.contains(binding.texture)
+                        ? binding.texture : nil
+                })
+                if node.target == effect.output {
+                    guard offset == graph.nodes.indices.last,
+                          node.bindings.contains(where: {
+                              targetIdentities.contains($0.texture)
+                          }) else { return false }
+                    terminalReadsFramebuffer = true
+                } else {
+                    guard let target = node.target,
+                          targetIdentities.contains(target) else { return false }
+                    initializedTargets.insert(target)
+                }
+
+            case .copy:
+                guard node.materialOrdinal == nil,
+                      node.target == nil,
+                      node.bindings.isEmpty,
+                      let source = node.commandSource,
+                      let target = node.commandTarget,
+                      source != target,
+                      targetIdentities.contains(source),
+                      initializedTargets.contains(source),
+                      targetIdentities.contains(target) else { return false }
+                consumedTargets.insert(source)
+                initializedTargets.insert(target)
+
+            case .swap:
+                guard node.materialOrdinal == nil,
+                      node.target == nil,
+                      node.bindings.isEmpty,
+                      let source = node.commandSource,
+                      let target = node.commandTarget,
+                      source != target,
+                      targetIdentities.contains(source),
+                      initializedTargets.contains(source),
+                      targetIdentities.contains(target),
+                      initializedTargets.contains(target) else { return false }
+                consumedTargets.insert(source)
+                consumedTargets.insert(target)
+
+            case .unknownCommand:
+                return false
+            }
+        }
+        return terminalReadsFramebuffer
+            && materialOrdinals.count >= 2
+            && zip(materialOrdinals, materialOrdinals.dropFirst())
+                .allSatisfy({ $0 < $1 })
+            && initializedTargets == targetIdentities
+            && consumedTargets == targetIdentities
     }
 }

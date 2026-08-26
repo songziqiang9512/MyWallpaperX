@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：收口 V1 通用 graph/FBO/command correctness atom，再清零 V1 产品 owner 债务
+> 当前主线：V1-A correctness 已按专项表闭合；正在清零 V1-B 产品 owner 债务
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
@@ -47,6 +47,8 @@ V0 的目标链和首个 `slice-visible` 结论已经由[能力台账](semantics
 ### V1：Effect graph、FBO 与 command——现在
 
 #### V1-A：剩余 correctness atom
+
+当前段位：2026-08-26 已由[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)与[运行证据索引](semantics/runtime-evidence-index.md)同步通过完成门；未登记或生命周期/资源合同不同的 shape 继续按明确边界 fail closed，不作为继续滞留 V1-A 的理由。现役主线已切到 V1-B，VHS/Chromatic 的 typed SceneScript attachment 明确留在 V2/V4，不能倒灌成新的 V1-A 原子。
 
 沿同一 Program/GraphExecutor 路线逐个闭合：
 

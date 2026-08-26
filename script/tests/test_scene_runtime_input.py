@@ -101,8 +101,7 @@ enum SceneDirectBoolEffectVisibilityRouteAdmission {
         candidates: Set<SceneDynamicTarget>
     ) -> Set<SceneDynamicTarget> {
         _ = descriptor
-        _ = candidates
-        return []
+        return candidates
     }
 }
 
@@ -157,8 +156,9 @@ enum Harness {
             "programRetained": input.propertyBindingProgram == program,
             "directVisibilityTargetRetained":
                 input.directBoolEffectVisibilityTargets == [visibilityTarget],
-            "startupVisibilityTargetsEmpty":
-                input.startupInactiveEffectVisibilityTargets.isEmpty,
+            "startupVisibilityTargetRetained":
+                input.startupInactiveEffectVisibilityTargets
+                    == [visibilityTarget],
             "valuesRetained": input.effectivePropertyValues == effectiveValues,
             "contractsRetained": input.shaderContracts == shaderContracts,
             "hostBuiltinContract": shaderContracts.count == 1
@@ -206,12 +206,13 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRetained"])
         self.assertTrue(self.result["directVisibilityTargetRetained"])
-        self.assertTrue(self.result["startupVisibilityTargetsEmpty"])
+        self.assertTrue(self.result["startupVisibilityTargetRetained"])
         self.assertTrue(self.result["valuesRetained"])
         self.assertTrue(self.result["contractsRetained"])
         self.assertTrue(self.result["hostBuiltinContract"])
 
     def test_builder_compiles_runtime_input_without_file_round_trip(self) -> None:
+        runtime_input = RUNTIME_INPUT_SOURCE.read_text(encoding="utf-8")
         source = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
         diagnostics = DIAGNOSTICS_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", source)
@@ -224,6 +225,10 @@ class SceneRuntimeInputTests(unittest.TestCase):
             source,
         )
         self.assertNotIn("SceneInterpretation", source)
+        self.assertIn(
+            ".effectLocalDirectBoolEffectVisibilityTargets",
+            runtime_input,
+        )
 
     def test_production_playback_passes_the_original_project_root(self) -> None:
         playback = PLAYBACK_SOURCE.read_text(encoding="utf-8")

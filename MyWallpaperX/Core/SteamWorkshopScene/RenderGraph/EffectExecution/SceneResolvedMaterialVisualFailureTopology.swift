@@ -79,25 +79,14 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         effect: Graph.Effect,
         pairStep: SceneLayerFullFramePairPlan.EffectStep
     ) -> Bool {
-        let targetIdentities = Set(graph.renderTargets.map(\.texture))
-        guard !targetIdentities.isEmpty,
-              targetIdentities.count == graph.renderTargets.count,
-              graph.renderTargets.allSatisfy({ target in
-                  !target.declaredUnique
-                    && target.clear == nil
-                    && target.conditions == nil
-              }),
-              graph.nodes.count >= 2,
+        guard SceneEffectLocalPreviousCurrentTopology
+                .acceptsFramebufferGraph(graph, effect: effect),
               pairStep.nodes.count == graph.nodes.count,
               pairStep.fullFrameOutputWriteCount == 1,
               pairStep.composeTransitionCount == 0,
               pairStep.inputMember != pairStep.outputMember else { return false }
 
-        var initializedTargets = Set<Graph.TextureIdentity>()
-        var consumedTargets = Set<Graph.TextureIdentity>()
-        var materialOrdinals: [Int] = []
-        var terminalReadsFramebuffer = false
-        for (offset, pair) in zip(graph.nodes, pairStep.nodes).enumerated() {
+        for pair in zip(graph.nodes, pairStep.nodes) {
             let node = pair.0
             let pairNode = pair.1
             guard node.effect == effect.key,
@@ -112,76 +101,28 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             switch node.kind {
             case .material:
                 guard pairNode.kind == .material,
-                      let ordinal = node.materialOrdinal,
-                      node.commandSource == nil,
-                      node.commandTarget == nil,
-                      node.bindings.allSatisfy({ binding in
-                          binding.conditions == nil
-                            && (binding.texture == effect.input
-                                || (targetIdentities.contains(binding.texture)
-                                    && initializedTargets.contains(binding.texture)))
-                      }) else { return false }
-                materialOrdinals.append(ordinal)
-                consumedTargets.formUnion(node.bindings.compactMap { binding in
-                    targetIdentities.contains(binding.texture)
-                        ? binding.texture : nil
-                })
+                      node.materialOrdinal != nil else { return false }
                 if node.target == effect.output {
-                    guard offset == graph.nodes.indices.last,
-                          pairNode.fullFrameWriteMember == pairStep.outputMember,
-                          node.bindings.contains(where: {
-                              targetIdentities.contains($0.texture)
-                          }) else { return false }
-                    terminalReadsFramebuffer = true
+                    guard pairNode.fullFrameWriteMember == pairStep.outputMember
+                    else { return false }
                 } else {
-                    guard let target = node.target,
-                          targetIdentities.contains(target),
-                          pairNode.fullFrameWriteMember == nil else { return false }
-                    initializedTargets.insert(target)
+                    guard pairNode.fullFrameWriteMember == nil else { return false }
                 }
 
             case .copy:
                 guard pairNode.kind == .copy,
-                      node.materialOrdinal == nil,
-                      node.target == nil,
-                      node.bindings.isEmpty,
-                      let source = node.commandSource,
-                      let target = node.commandTarget,
-                      source != target,
-                      targetIdentities.contains(source),
-                      initializedTargets.contains(source),
-                      targetIdentities.contains(target),
                       pairNode.fullFrameReadMember == nil,
                       pairNode.fullFrameWriteMember == nil else { return false }
-                consumedTargets.insert(source)
-                initializedTargets.insert(target)
 
             case .swap:
                 guard pairNode.kind == .swap,
-                      node.materialOrdinal == nil,
-                      node.target == nil,
-                      node.bindings.isEmpty,
-                      let source = node.commandSource,
-                      let target = node.commandTarget,
-                      source != target,
-                      targetIdentities.contains(source),
-                      initializedTargets.contains(source),
-                      targetIdentities.contains(target),
-                      initializedTargets.contains(target),
                       pairNode.fullFrameReadMember == nil,
                       pairNode.fullFrameWriteMember == nil else { return false }
-                consumedTargets.insert(source)
-                consumedTargets.insert(target)
 
             case .unknownCommand:
                 return false
             }
         }
-        return terminalReadsFramebuffer
-            && materialOrdinals.count >= 2
-            && zip(materialOrdinals, materialOrdinals.dropFirst())
-                .allSatisfy({ $0 < $1 })
-            && initializedTargets == targetIdentities
-            && consumedTargets == targetIdentities
+        return true
     }
 }

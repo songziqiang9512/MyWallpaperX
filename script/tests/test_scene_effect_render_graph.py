@@ -61,6 +61,55 @@ MOTION = {
     ],
 }
 
+SAFE_COMMAND_FBO = {
+    "passes": [
+        {
+            "material": "materials/safe-init-a.json",
+            "target": "scratch_a",
+            "bind": [{"name": "previous", "index": 0}],
+        },
+        {
+            "material": "materials/safe-init-b.json",
+            "target": "scratch_b",
+            "bind": [{"name": "previous", "index": 0}],
+        },
+        {"command": "swap", "source": "scratch_a", "target": "scratch_b"},
+        {"command": "copy", "source": "scratch_a", "target": "scratch_b"},
+        {
+            "material": "materials/safe-terminal.json",
+            "bind": [{"name": "scratch_b", "index": 0}],
+        },
+    ],
+    "fbos": [
+        {"name": "scratch_a", "scale": 2, "format": "rgba_backbuffer"},
+        {"name": "scratch_b", "scale": 2, "format": "rgba_backbuffer"},
+    ],
+}
+
+UNSAFE_COPY_FBO = {
+    "passes": [
+        {
+            "material": "materials/copy-init-a.json",
+            "target": "copy_a",
+            "bind": [{"name": "previous", "index": 0}],
+        },
+        {
+            "material": "materials/copy-init-b.json",
+            "target": "copy_b",
+            "bind": [{"name": "previous", "index": 0}],
+        },
+        {"command": "copy", "source": "copy_a", "target": "copy_b"},
+        {
+            "material": "materials/copy-terminal.json",
+            "bind": [{"name": "copy_b", "index": 0}],
+        },
+    ],
+    "fbos": [
+        {"name": "copy_a", "scale": 1, "format": "rgba_backbuffer"},
+        {"name": "copy_b", "scale": 2, "format": "rgba_backbuffer"},
+    ],
+}
+
 FLUID = {
     "passes": [
         *[
@@ -362,7 +411,8 @@ enum Harness {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let names = [
-            "blur", "motion", "raw-compose", "composed-extent",
+            "blur", "motion", "safe-command-fbo", "unsafe-copy-fbo",
+            "raw-compose", "composed-extent",
             "fluid", "compose", "compose-false", "compose-string",
             "semantic-swap", "incompatible-extent", "incompatible-format",
             "incompatible-unique", "incompatible-clear", "malformed",
@@ -433,9 +483,9 @@ enum Harness {
             .init(id: 101, effects: [
                 effect("fbo-prefix", "effects/compose-false/effect.json", passCount: 1),
                 effect(
-                    "startup-fbo",
-                    "effects/blur/effect.json",
-                    passCount: 4,
+                    "renamed-startup-command-graph",
+                    "effects/safe-command-fbo/effect.json",
+                    passCount: 3,
                     visible: false
                 ),
                 effect("fbo-suffix", "effects/compose-false/effect.json", passCount: 1),
@@ -448,6 +498,26 @@ enum Harness {
                     visible: false
                 ),
             ]),
+            .init(id: 103, effects: [
+                effect("unsafe-prefix", "effects/compose-false/effect.json", passCount: 1),
+                effect(
+                    "startup-history-read",
+                    "effects/motion/effect.json",
+                    passCount: 2,
+                    visible: false
+                ),
+                effect("unsafe-suffix", "effects/compose-false/effect.json", passCount: 1),
+            ]),
+            .init(id: 104, effects: [
+                effect("copy-prefix", "effects/compose-false/effect.json", passCount: 1),
+                effect(
+                    "startup-copy-mismatch",
+                    "effects/unsafe-copy-fbo/effect.json",
+                    passCount: 3,
+                    visible: false
+                ),
+                effect("copy-suffix", "effects/compose-false/effect.json", passCount: 1),
+            ]),
         ]
         let plans = SceneAuthoredEffectRenderPlanner.plans(for: .init(
             layers: layers,
@@ -456,6 +526,8 @@ enum Harness {
         ), startupInactiveEffectVisibilityTargets: [
             .effectVisibility(layerID: 100, effectIndex: 1),
             .effectVisibility(layerID: 101, effectIndex: 1),
+            .effectVisibility(layerID: 103, effectIndex: 1),
+            .effectVisibility(layerID: 104, effectIndex: 1),
         ])
         let byLayer = Dictionary(uniqueKeysWithValues: plans.map { ($0.layerID, $0) })
         let blur = byLayer[10]!
@@ -475,6 +547,8 @@ enum Harness {
         let incompatibleClear = byLayer[93]!
         let startupPairLeaf = byLayer[100]!
         let startupFBO = byLayer[101]!
+        let unsafeStartupFBO = byLayer[103]!
+        let unsafeCopyFBO = byLayer[104]!
         let incompatibleGraphs = [
             incompatibleExtent, incompatibleFormat, incompatibleUnique, incompatibleClear,
         ]
@@ -612,6 +686,15 @@ enum Harness {
             },
             "startupFBOEffectIndices": startupFBO.effects.map(\.key.effectIndex),
             "startupFBOTargetCount": startupFBO.renderTargets.count,
+            "startupFBONodeKinds": startupFBO.nodes.filter {
+                $0.effect.effectIndex == 1
+            }.map(\.kind.rawValue),
+            "unsafeStartupFBOEffectIndices":
+                unsafeStartupFBO.effects.map(\.key.effectIndex),
+            "unsafeStartupFBOTargetCount": unsafeStartupFBO.renderTargets.count,
+            "unsafeCopyFBOEffectIndices":
+                unsafeCopyFBO.effects.map(\.key.effectIndex),
+            "unsafeCopyFBOTargetCount": unsafeCopyFBO.renderTargets.count,
             "staticDisabledPlanAbsent": byLayer[102] == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -631,6 +714,8 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         for name, fixture in {
             "blur": BLUR,
             "motion": MOTION,
+            "safe-command-fbo": SAFE_COMMAND_FBO,
+            "unsafe-copy-fbo": UNSAFE_COPY_FBO,
             "fluid": FLUID,
             "compose": COMPOSE,
             "compose-false": COMPOSE_FALSE,
@@ -777,9 +862,19 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         self.assertEqual(inputs[1], outputs[0])
         self.assertEqual(inputs[2], outputs[1])
 
-    def test_startup_inactive_fbo_and_static_false_remain_outside_slice(self) -> None:
-        self.assertEqual(self.result["startupFBOEffectIndices"], [0, 2])
-        self.assertEqual(self.result["startupFBOTargetCount"], 0)
+    def test_startup_inactive_safe_fbo_keeps_authored_command_chain(self) -> None:
+        self.assertEqual(self.result["startupFBOEffectIndices"], [0, 1, 2])
+        self.assertEqual(self.result["startupFBOTargetCount"], 2)
+        self.assertEqual(
+            self.result["startupFBONodeKinds"],
+            ["material", "material", "swap", "copy", "material"],
+        )
+
+    def test_startup_inactive_unsafe_fbo_and_static_false_remain_outside_slice(self) -> None:
+        self.assertEqual(self.result["unsafeStartupFBOEffectIndices"], [0, 2])
+        self.assertEqual(self.result["unsafeStartupFBOTargetCount"], 0)
+        self.assertEqual(self.result["unsafeCopyFBOEffectIndices"], [0, 2])
+        self.assertEqual(self.result["unsafeCopyFBOTargetCount"], 0)
         self.assertTrue(self.result["staticDisabledPlanAbsent"])
 
 

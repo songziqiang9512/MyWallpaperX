@@ -417,8 +417,11 @@ enum SceneAuthoredEffectRenderPlanner {
             finalOutput: effect.output,
             blockers: graph.blockers.filter { $0.effect == effect.key }
         )
-        guard stage.renderTargets.isEmpty,
-              stage.blockers.isEmpty,
+        if !stage.renderTargets.isEmpty {
+            return SceneEffectLocalPreviousCurrentTopology
+                .acceptsFramebufferGraph(stage, effect: effect)
+        }
+        guard stage.blockers.isEmpty,
               stage.nodes.count == 1,
               let node = stage.nodes.first,
               node.effect == effect.key,
