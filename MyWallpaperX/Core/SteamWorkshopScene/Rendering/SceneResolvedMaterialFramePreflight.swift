@@ -121,6 +121,7 @@ extension SceneMetalRenderer {
         var requests: [
             SceneResolvedMaterialGraphComposition.FrameTargetRequest
         ] = []
+        var sourceCoverageFallbacks: [Int: String] = [:]
         func materialFunctionInvocations(
             for layer: SceneRenderDescriptor.Layer
         ) -> [SceneGraphMaterialFunctionInvocationRequest] {
@@ -193,10 +194,27 @@ extension SceneMetalRenderer {
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue,
-                      layer.childLayerIDs.isEmpty else {
+                      case let .success(sourceRoute) =
+                        SceneUtilityLayerSourceRoute.resolve(
+                          layer: layer,
+                          descriptor: renderDescriptor
+                      ) else {
                     return .rejected(
                         reasonCode: "utility-source-shape-invalid"
                     )
+                }
+                if sourceRoute.capturesCompositionSubtree,
+                   !hasOpaqueFullViewportUtilitySource(
+                       route: sourceRoute,
+                       imageTextures: imageTextures,
+                       frameContext: frameContext,
+                       worldFramesByLayerID: worldFramesByLayerID,
+                       cameraFrame: cameraFrame,
+                       parallaxConfiguration: parallaxConfiguration
+                   ) {
+                    sourceCoverageFallbacks[layer.id] =
+                        "utility-composition-subtree-source-coverage-unavailable"
+                    continue
                 }
                 let model = imageModelMatrix(
                     for: layer,
@@ -243,16 +261,25 @@ extension SceneMetalRenderer {
             ))
         }
         guard !requests.isEmpty else {
-            return .ready(plans: [:], localFallbacks: [:])
+            return .ready(
+                plans: [:],
+                localFallbacks: sourceCoverageFallbacks
+            )
         }
         guard let offscreenTexturePool else {
             return .rejected(reasonCode: "frame-target-pool-unavailable")
         }
-        return SceneResolvedMaterialGraphComposition.preflight(
+        let result = SceneResolvedMaterialGraphComposition.preflight(
             requests: requests,
             pool: offscreenTexturePool,
             commandBuffer: commandBuffer
         )
+        guard case let .ready(plans, localFallbacks) = result else {
+            return result
+        }
+        var mergedFallbacks = sourceCoverageFallbacks
+        mergedFallbacks.merge(localFallbacks) { _, graphReason in graphReason }
+        return .ready(plans: plans, localFallbacks: mergedFallbacks)
     }
 
     func resolvedMaterialFramePreparationRequests(
@@ -363,7 +390,10 @@ extension SceneMetalRenderer {
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue,
-                      layer.childLayerIDs.isEmpty else {
+                      case .success = SceneUtilityLayerSourceRoute.resolve(
+                          layer: layer,
+                          descriptor: renderDescriptor
+                      ) else {
                     return invalid("layer-\(layerID)-utility-source-shape-invalid")
                 }
                 sourceMVP = imageMVP(layer, nil)

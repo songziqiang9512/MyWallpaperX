@@ -62,6 +62,12 @@ DEPENDENCY_OWNERSHIP_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift"
 )
+UTILITY_SOURCE_ROUTE_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneUtilityLayerSourceRoute.swift"
+)
+UTILITY_SOURCE_COVERAGE_SOURCE = (
+    SCENE_ROOT / "Rendering/SceneUtilityLayerSourceCoverage.swift"
+)
 RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
@@ -81,6 +87,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneLayerFullFramePairPlan.swift",
     SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
+    UTILITY_SOURCE_ROUTE_SOURCE,
+    SCENE_ROOT / "Rendering/SceneMatrix.swift",
+    SCENE_ROOT / "Rendering/SceneCaptureGeometry.swift",
+    UTILITY_SOURCE_COVERAGE_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
     SCENE_ROOT
@@ -142,11 +152,28 @@ CATALOG_DEMAND_SWIFT_SOURCES = [
 
 
 SUPPORT = r'''
+import CoreGraphics
 import Foundation
+import simd
 
 enum SceneShaderTextureFormat { case r8, rg88, r16f, rg1616f }
 struct SceneAssetTextureIdentity: Hashable {}
-enum SceneTextureContent: Hashable {}
+enum SceneShaderColorRepresentationResolution: Hashable {
+    case resolved(SceneShaderColorRepresentation)
+}
+enum SceneTextureContent: Hashable {
+    case color(SceneShaderColorRepresentationResolution)
+}
+struct SceneTextureUVTransform {
+    let origin: SIMD2<Float>
+    let xAxis: SIMD2<Float>
+    let yAxis: SIMD2<Float>
+    static let identity = SceneTextureUVTransform(
+        origin: .zero,
+        xAxis: SIMD2(1, 0),
+        yAxis: SIMD2(0, 1)
+    )
+}
 enum SceneAssetTextureLaunchState: Hashable {
     case ready(SceneTextureContent)
     case absent
@@ -174,6 +201,31 @@ struct SceneEffectStageProgram {
 struct SceneUtilityLayer {
     enum Kind: String { case composition, project, fullscreen }
     let kind: Kind
+    let copyBackground: Bool
+    let passthrough: Bool
+
+    init(
+        kind: Kind,
+        copyBackground: Bool = false,
+        passthrough: Bool = false
+    ) {
+        self.kind = kind
+        self.copyBackground = copyBackground
+        self.passthrough = passthrough
+    }
+}
+
+struct HarnessDisplayScriptOwnership {
+    let alpha: Bool
+}
+
+struct HarnessLayerTimeline {
+    enum Host { case alpha, other }
+    let host: Host
+}
+
+struct HarnessLayerScriptBinding {
+    let host: String
 }
 
 struct SceneRenderDescriptor {
@@ -199,6 +251,11 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var parentID: Int? = nil
         var visible: Bool? = true
+        var alpha: Double? = nil
+        var displayScriptOwnership: HarnessDisplayScriptOwnership? = nil
+        var timelines: [HarnessLayerTimeline] = []
+        var scriptBindings: [HarnessLayerScriptBinding]? = nil
+        var colorBlendMode: Int? = nil
         var namedReferences: [SceneDependencyRenderPlan.Reference] = []
         var namedBindings: [SceneDependencyRenderPlan.Binding] = []
     }
@@ -712,7 +769,9 @@ final class SceneResolvedMaterialVariantCache {
 
 
 HARNESS = r'''
+import CoreGraphics
 import Foundation
+import simd
 
 private typealias Graph = SceneAuthoredEffectRenderPlan
 private typealias Catalog = SceneResolvedMaterialExecutionCapabilityCatalog
@@ -1778,7 +1837,7 @@ private func descriptor(
             effects: effects,
             contentKind: contentKind,
             utilityLayer: utilityLayer.flatMap(SceneUtilityLayer.Kind.init)
-                .map(SceneUtilityLayer.init),
+                .map { SceneUtilityLayer(kind: $0) },
             childLayerIDs: childLayerIDs,
             dependencyLayerIDs: dependencyLayerIDs,
             authoredDependencies: authoredDependencies,
@@ -1804,6 +1863,136 @@ private func descriptor(
             )
         },
         effectDefinitions: definitions
+    )
+}
+
+private func compositionSubtreeDescriptor(
+    interleavesUnrelatedRoot: Bool = false,
+    effectfulChild: Bool = false,
+    rootHasDependency: Bool = false,
+    unsupportedChildKind: Bool = false,
+    startsAfterUnrelatedRoot: Bool = false,
+    rootAlpha: Double? = nil,
+    nestedAlpha: Double? = nil,
+    rootDisplayAlphaScript: Bool = false,
+    rootAlphaTimeline: Bool = false,
+    rootAlphaScriptBinding: Bool = false
+) -> SceneRenderDescriptor {
+    let base = descriptor(
+        contentKind: "composition",
+        utilityLayer: "composition"
+    )
+    let directChildID = layerID + 40
+    let nestedCompositionID = layerID + 41
+    let nestedChildID = layerID + 42
+    let laterRootID = layerID + 80
+    let root = SceneRenderDescriptor.Layer(
+        id: layerID,
+        effects: base.layers[0].effects,
+        contentKind: "composition",
+        utilityLayer: .init(kind: .composition),
+        childLayerIDs: [directChildID, nestedCompositionID],
+        dependencyLayerIDs: rootHasDependency ? [laterRootID] : [],
+        visible: true,
+        alpha: rootAlpha,
+        displayScriptOwnership: rootDisplayAlphaScript
+            ? .init(alpha: true) : nil,
+        timelines: rootAlphaTimeline ? [.init(host: .alpha)] : [],
+        scriptBindings: rootAlphaScriptBinding
+            ? [.init(host: "alpha")] : nil
+    )
+    let directChild = SceneRenderDescriptor.Layer(
+        id: directChildID,
+        effects: effectfulChild ? [.init(
+            id: "child-effect",
+            file: "effects/child/effect.json",
+            visible: true,
+            passes: []
+        )] : [],
+        contentKind: unsupportedChildKind ? "particle" : "image",
+        parentID: layerID,
+        visible: true
+    )
+    let nestedComposition = SceneRenderDescriptor.Layer(
+        id: nestedCompositionID,
+        effects: [],
+        contentKind: "composition",
+        utilityLayer: .init(kind: .composition),
+        childLayerIDs: [nestedChildID],
+        parentID: layerID,
+        visible: true,
+        alpha: nestedAlpha
+    )
+    let nestedChild = SceneRenderDescriptor.Layer(
+        id: nestedChildID,
+        effects: [],
+        contentKind: "image",
+        parentID: nestedCompositionID,
+        visible: true
+    )
+    let laterRoot = SceneRenderDescriptor.Layer(
+        id: laterRootID,
+        effects: [],
+        contentKind: "image",
+        visible: true
+    )
+    let layers: [SceneRenderDescriptor.Layer]
+    if startsAfterUnrelatedRoot {
+        layers = [laterRoot, root, directChild, nestedComposition, nestedChild]
+    } else if interleavesUnrelatedRoot {
+        layers = [root, directChild, laterRoot, nestedComposition, nestedChild]
+    } else {
+        layers = [root, directChild, nestedComposition, nestedChild, laterRoot]
+    }
+    return .init(
+        layers: layers,
+        materialPasses: base.materialPasses,
+        effectDefinitions: base.effectDefinitions
+    )
+}
+
+private func rejectsCompositionSubtree(
+    _ descriptor: SceneRenderDescriptor
+) -> Bool {
+    guard let root = descriptor.layers.first(where: { $0.id == layerID }) else {
+        return false
+    }
+    switch SceneUtilityLayerSourceRoute.resolve(
+        layer: root,
+        descriptor: descriptor
+    ) {
+    case .success:
+        return false
+    case let .failure(reason):
+        return reason == .compositionSubtreeShape
+    }
+}
+
+private func provesCompositionSubtreeCoverage(
+    _ descriptor: SceneRenderDescriptor,
+    content: SceneShaderColorRepresentation,
+    scale: Float = 2,
+    alpha: Float = 1
+) -> Bool {
+    guard let root = descriptor.layers.first(where: { $0.id == layerID }),
+          case let .success(route) = SceneUtilityLayerSourceRoute.resolve(
+              layer: root,
+              descriptor: descriptor
+          ) else {
+        return false
+    }
+    let mvp = simd_float4x4(diagonal: SIMD4(scale, scale, 1, 1))
+    return SceneUtilityLayerSourceCoverage.hasOpaqueFullViewportSource(
+        route: route,
+        descriptor: descriptor,
+        framesByLayerID: [
+            layerID + 40: .init(
+                content: .color(.resolved(content)),
+                alpha: alpha,
+                modelViewProjection: mvp
+            )
+        ],
+        viewportSize: CGSize(width: 1920, height: 1080)
     )
 }
 
@@ -2418,6 +2607,20 @@ private enum Harness {
             graphs: [utilityPairGraph],
             materials: materialCatalog(graph: utilityPairGraph)
         )
+        let compositionSubtree = compositionSubtreeDescriptor()
+        let compositionSubtreeCatalog = catalog(
+            descriptor: compositionSubtree,
+            graphs: [raw],
+            materials: materialCatalog(graph: raw)
+        )
+        let compositionSubtreeCapability = compositionSubtreeCatalog
+            .claim(layerID: layerID)
+            .flatMap { compositionSubtreeCatalog.resolve($0.token) }
+        let compositionSubtreeRoute = try?
+            SceneUtilityLayerSourceRoute.resolve(
+                layer: compositionSubtree.layers[0],
+                descriptor: compositionSubtree
+            ).get()
         let omitted = rawGraph(omitSecond: true)
         let omittedCatalog = catalog(
             descriptor: desc,
@@ -3861,6 +4064,82 @@ private enum Harness {
                     resolvedUtilityChainCatalog.claim(layerID: layerID).flatMap {
                         resolvedUtilityChainCatalog.resolve($0.token)
                     }?.stages.count == 2,
+                "compositionSubtreeAccepted":
+                    compositionSubtreeCapability?.sourceRoute
+                        == .capturedMainTargetTexture
+                    && compositionSubtreeCapability?.stages.count == 2,
+                "compositionSubtreeTrigger":
+                    compositionSubtreeRoute?.triggerLayerID == layerID + 42,
+                "compositionSubtreeOpaqueCoverageAccepted":
+                    provesCompositionSubtreeCoverage(
+                        compositionSubtree,
+                        content: .opaque
+                    ),
+                "compositionSubtreeRejectsTranslucentCoverage":
+                    !provesCompositionSubtreeCoverage(
+                        compositionSubtree,
+                        content: .premultipliedAlpha
+                    ),
+                "compositionSubtreeRejectsSparseCoverage":
+                    !provesCompositionSubtreeCoverage(
+                        compositionSubtree,
+                        content: .opaque,
+                        scale: 1
+                    ),
+                "compositionSubtreeRejectsTransparentCoverageAlpha":
+                    !provesCompositionSubtreeCoverage(
+                        compositionSubtree,
+                        content: .opaque,
+                        alpha: 0.5
+                    ),
+                "compositionSubtreeRejectsInterleavedRoot":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        interleavesUnrelatedRoot: true
+                    )),
+                "compositionSubtreeRejectsEffectfulChild":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        effectfulChild: true
+                    )),
+                "compositionSubtreeRejectsDependency":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootHasDependency: true
+                    )),
+                "compositionSubtreeRejectsUnsupportedChild":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        unsupportedChildKind: true
+                    )),
+                "compositionSubtreeRejectsNonFirstRoot":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        startsAfterUnrelatedRoot: true
+                    )),
+                "compositionSubtreeRejectsZeroRootAlpha":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootAlpha: 0
+                    )),
+                "compositionSubtreeRejectsPartialRootAlpha":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootAlpha: 0.5
+                    )),
+                "compositionSubtreeRejectsExplicitUnitRootAlpha":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootAlpha: 1
+                    )),
+                "compositionSubtreeRejectsNestedGroupAlpha":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        nestedAlpha: 0.5
+                    )),
+                "compositionSubtreeRejectsDisplayAlphaScript":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootDisplayAlphaScript: true
+                    )),
+                "compositionSubtreeRejectsAlphaTimeline":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootAlphaTimeline: true
+                    )),
+                "compositionSubtreeRejectsAlphaScriptBinding":
+                    rejectsCompositionSubtree(compositionSubtreeDescriptor(
+                        rootAlphaScriptBinding: true
+                    )),
                 "utilityKindMismatch": admissionRejects(
                     descriptor(utilityLayer: "composition"),
                     raw: raw,
@@ -3873,7 +4152,7 @@ private enum Harness {
                         childLayerIDs: [42]
                     ),
                     raw: raw,
-                    reason: "execution-route-utility-shape"
+                    reason: "execution-route-utility-composition-subtree-shape"
                 ),
                 "legacyDependency": admissionRejects(
                     descriptor(dependencyLayerIDs: [42]),
@@ -7362,13 +7641,21 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             'case "image", "solid", "text":',
             'case "quad":',
             ".transparentDirectDraw",
-            "if let utility = layer.utilityLayer",
+            "SceneUtilityLayerSourceRoute.resolve(",
             ".capturedMainTargetTexture",
-            "layer.childLayerIDs.isEmpty",
             "SceneResolvedMaterialDependencyOwnershipCompiler",
             "guard let dependencyOwnership else",
         ):
             self.assertIn(contract, admission)
+        utility_source_route = UTILITY_SOURCE_ROUTE_SOURCE.read_text(encoding="utf-8")
+        for contract in (
+            "guard !layer.childLayerIDs.isEmpty else",
+            "order.first == layer.id",
+            "Set(orderedSubtree) == subtreeIDs",
+            "child.effects.isEmpty",
+            "hasImplicitOpaqueCompositionAlpha(child)",
+        ):
+            self.assertIn(contract, utility_source_route)
         self.assertNotIn("specializedLayerIDs", admission)
         self.assertNotIn("execution-route-specialized-owner", admission)
         self.assertIn(
@@ -7645,6 +7932,24 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "utilityAdapterContract": True,
                 "downstreamUtilityAdapterAcceptedWithoutSourceCapture": True,
                 "resolvedUtilityChainAccepted": True,
+                "compositionSubtreeAccepted": True,
+                "compositionSubtreeTrigger": True,
+                "compositionSubtreeOpaqueCoverageAccepted": True,
+                "compositionSubtreeRejectsTranslucentCoverage": True,
+                "compositionSubtreeRejectsSparseCoverage": True,
+                "compositionSubtreeRejectsTransparentCoverageAlpha": True,
+                "compositionSubtreeRejectsInterleavedRoot": True,
+                "compositionSubtreeRejectsEffectfulChild": True,
+                "compositionSubtreeRejectsDependency": True,
+                "compositionSubtreeRejectsUnsupportedChild": True,
+                "compositionSubtreeRejectsNonFirstRoot": True,
+                "compositionSubtreeRejectsZeroRootAlpha": True,
+                "compositionSubtreeRejectsPartialRootAlpha": True,
+                "compositionSubtreeRejectsExplicitUnitRootAlpha": True,
+                "compositionSubtreeRejectsNestedGroupAlpha": True,
+                "compositionSubtreeRejectsDisplayAlphaScript": True,
+                "compositionSubtreeRejectsAlphaTimeline": True,
+                "compositionSubtreeRejectsAlphaScriptBinding": True,
                 "utilityKindMismatch": True,
                 "utilityChildren": True,
                 "legacyDependency": True,

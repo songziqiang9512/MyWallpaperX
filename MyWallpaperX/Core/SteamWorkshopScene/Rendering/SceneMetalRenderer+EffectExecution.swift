@@ -22,8 +22,12 @@ extension SceneMetalRenderer {
             Int: SceneResolvedMaterialFrameTargetPlan
         ] = [:]
     ) {
-        guard let plans = utilityPlansByTriggerLayerID[layerID],
+        guard let planned = utilityPlansByTriggerLayerID[layerID],
               let imagePipeline, let offscreenTexturePool else { return }
+        let plans = planned.filter {
+            resolvedMaterialFrameTargetPlans[$0.layerID] != nil
+        }
+        guard !plans.isEmpty else { return }
         SceneUtilityPlanFrameRenderer.render(
             renderer: self,
             plans: plans,

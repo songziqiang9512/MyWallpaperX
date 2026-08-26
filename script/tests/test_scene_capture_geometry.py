@@ -56,6 +56,22 @@ enum Harness {
             layerMVP: SceneMatrix.scale(SIMD3<Float>(1.5, 0.25, 1)),
             viewportSize: viewport
         )
+        let fullCoverage = SceneCaptureGeometryResolver
+            .isAxisAlignedFullViewportCoverage(
+                layerMVP: SceneMatrix.scale(SIMD3<Float>(2, 2, 1)),
+                viewportSize: viewport
+            )
+        let sparseCoverage = SceneCaptureGeometryResolver
+            .isAxisAlignedFullViewportCoverage(
+                layerMVP: SceneMatrix.scale(SIMD3<Float>(1, 1, 1)),
+                viewportSize: viewport
+            )
+        let rotatedCoverage = SceneCaptureGeometryResolver
+            .isAxisAlignedFullViewportCoverage(
+                layerMVP: SceneMatrix.rotationZ(.pi / 4)
+                    * SceneMatrix.scale(SIMD3<Float>(3, 3, 1)),
+                viewportSize: viewport
+            )
         let result: [String: Any] = [
             "localOrigin": vector(local.sourceUV.origin),
             "localXAxis": vector(local.sourceUV.xAxis),
@@ -76,6 +92,9 @@ enum Harness {
             "projectOutput": matrix(project.outputMVP),
             "invalidIsNil": invalid == nil,
             "projectedSize": projected.map { [$0.width, $0.height] } ?? [],
+            "fullCoverage": fullCoverage,
+            "sparseCoverage": sparseCoverage,
+            "rotatedCoverage": rotatedCoverage,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -151,6 +170,11 @@ class SceneCaptureGeometryTests(unittest.TestCase):
 
     def test_projected_pixel_size_preserves_non_square_surface_extent(self) -> None:
         self.assertEqual(self.result["projectedSize"], [750, 100])
+
+    def test_only_axis_aligned_full_viewport_quads_prove_coverage(self) -> None:
+        self.assertTrue(self.result["fullCoverage"])
+        self.assertFalse(self.result["sparseCoverage"])
+        self.assertFalse(self.result["rotatedCoverage"])
 
 
 if __name__ == "__main__":

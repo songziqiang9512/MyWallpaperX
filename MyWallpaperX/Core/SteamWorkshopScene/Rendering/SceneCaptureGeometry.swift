@@ -69,6 +69,33 @@ enum SceneCaptureGeometryResolver {
         )
     }
 
+    nonisolated static func isAxisAlignedFullViewportCoverage(
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize
+    ) -> Bool {
+        guard viewportSize.width.isFinite, viewportSize.height.isFinite,
+              viewportSize.width > 0, viewportSize.height > 0,
+              let topLeft = sourceUV(position: SIMD2(-0.5, 0.5), mvp: layerMVP),
+              let topRight = sourceUV(position: SIMD2(0.5, 0.5), mvp: layerMVP),
+              let bottomLeft = sourceUV(position: SIMD2(-0.5, -0.5), mvp: layerMVP),
+              let bottomRight = sourceUV(position: SIMD2(0.5, -0.5), mvp: layerMVP)
+        else { return false }
+
+        let tolerance: Float = 0.000_1
+        guard abs(topLeft.y - topRight.y) <= tolerance,
+              abs(bottomLeft.y - bottomRight.y) <= tolerance,
+              abs(topLeft.x - bottomLeft.x) <= tolerance,
+              abs(topRight.x - bottomRight.x) <= tolerance else {
+            return false
+        }
+        let minX = min(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x)
+        let maxX = max(topLeft.x, topRight.x, bottomLeft.x, bottomRight.x)
+        let minY = min(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y)
+        let maxY = max(topLeft.y, topRight.y, bottomLeft.y, bottomRight.y)
+        return minX <= tolerance && maxX >= 1 - tolerance
+            && minY <= tolerance && maxY >= 1 - tolerance
+    }
+
     nonisolated private static func sourceUV(
         position: SIMD2<Float>,
         mvp: simd_float4x4

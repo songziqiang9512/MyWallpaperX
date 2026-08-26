@@ -3536,6 +3536,51 @@ enum Harness {
                 logSink: { recorder.append($0) }
             )
             let buffer = queue.makeCommandBuffer()!
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 22, valid: true),
+                dynamicSnapshot: .init(),
+                frameInputs: .init()
+            )
+            let reason =
+                "utility-composition-subtree-source-coverage-unavailable"
+            let installed = coordinator.installFrameLocalFallbacks([7: reason])
+            let rejectedWithTypedReason: Bool
+            switch coordinator.claim(layerID: 7) {
+            case let .rejected(reasonCode):
+                rejectedWithTypedReason = reasonCode == reason
+            case .claimed, .notMigrated:
+                rejectedWithTypedReason = false
+            }
+            let preparedWithoutRootTarget: Bool
+            switch coordinator.prepareFrame([], pool: nil, commandBuffer: buffer) {
+            case .ready:
+                preparedWithoutRootTarget = true
+            case .rejected:
+                preparedWithoutRootTarget = false
+            }
+            let frameStayedLocal = !coordinator.frameRequiresDrop
+            let sealed = coordinator.sealFrame(on: buffer)
+            buffer.commit()
+            buffer.waitUntilCompleted()
+            let audit = coordinator.endFrame().joined(separator: "\n")
+            results["utilitySubtreeCoverageFallbackRemainsLayerLocal"] =
+                installed && rejectedWithTypedReason
+                && preparedWithoutRootTarget && frameStayedLocal && sealed
+                && buffer.status == .completed
+                && audit.contains("failures=0")
+                && audit.contains("localFallbacks=1")
+                && recorder.lines.contains {
+                    $0.contains("layer-local-fallback count=1 entries=7:\(reason)")
+                }
+        }
+
+        do {
+            let recorder = LogRecorder()
+            let coordinator = makeCoordinator(
+                device,
+                logSink: { recorder.append($0) }
+            )
+            let buffer = queue.makeCommandBuffer()!
             coordinator.frameIsActive = true
             coordinator.frame = .init(frameIndex: 1)
             let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
@@ -4715,6 +4760,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "emptyExecutionFamilyDropsOnlyInvalidKey",
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",
                 "typedTargetDescriptorFallbackRemainsLayerLocal",
+                "utilitySubtreeCoverageFallbackRemainsLayerLocal",
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
                 "typedHistoryDiscardReachesPoolExactly",

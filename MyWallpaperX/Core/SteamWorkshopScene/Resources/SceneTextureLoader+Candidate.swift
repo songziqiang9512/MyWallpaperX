@@ -168,7 +168,14 @@ extension SceneTextureLoader {
         let content: SceneTextureContent
         switch purpose {
         case .premultipliedColor:
-            content = .color(.resolved(.premultipliedAlpha))
+            content = .color(.resolved(
+                sourceIsProvenOpaque(
+                    url: url,
+                    container: container,
+                    physicalSize: physicalSize,
+                    mappedSize: mappedSize
+                ) ? .opaque : .premultipliedAlpha
+            ))
         case .straightAlbedo:
             content = .color(.resolved(.straightAlpha))
         case .preservedChannels, .mask, .noise, .flow, .phase, .normal,
@@ -203,6 +210,26 @@ extension SceneTextureLoader {
                 SceneShaderTextureFormat(rawValue: $0.format)
             }
         ))
+    }
+
+    private func sourceIsProvenOpaque(
+        url: URL,
+        container: SceneTexContainer?,
+        physicalSize: CGSize,
+        mappedSize: CGSize
+    ) -> Bool {
+        if container == nil {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+            else { return false }
+            return SceneImageTextureUploader.imageHasNoAlpha(image)
+        }
+        guard let container else { return false }
+        return container.format == 0
+            && container.containerVersion == .texb0003
+            && container.freeImageFormat == 2
+            && physicalSize == mappedSize
+            && hasValidTexb3EmbeddedMipChain(container)
     }
 
     func materialAtlasAdmission(

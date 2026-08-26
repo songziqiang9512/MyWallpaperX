@@ -1,5 +1,7 @@
-enum SceneShaderColorRepresentation {
+enum SceneShaderColorRepresentation: Hashable {
     case independentAlphaSignal
+    case opaque
+    case premultipliedAlpha
 }
 
 extension SceneResolvedMaterialVariantCache {

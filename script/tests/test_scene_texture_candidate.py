@@ -976,6 +976,11 @@ enum Harness {
                 mappedTexb3JPEG.axisAlignedMappedUVScale(
                     expectedPurpose: .premultipliedColor
                 ) == SIMD2(repeating: 1),
+            "mappedTexb3JPEGOpaque":
+                mappedTexb3JPEG.content == .color(.resolved(.opaque)),
+            "mappedTexb3PNGPreservesAlphaContract":
+                mappedTexb3EmbeddedColor.content
+                    == .color(.resolved(.premultipliedAlpha)),
             "normalizedStraightAlbedoJPEGIdentity":
                 normalizedStraightAlbedoJPEG.axisAlignedMappedUVScale(
                     expectedPurpose: .straightAlbedo
@@ -1667,6 +1672,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "mappedTexb3EmbeddedColorIdentity": True,
                 "mappedTexb3EmbeddedNormalIdentity": True,
                 "mappedTexb3JPEGIdentity": True,
+                "mappedTexb3JPEGOpaque": True,
+                "mappedTexb3PNGPreservesAlphaContract": True,
                 "normalizedStraightAlbedoJPEGIdentity": True,
                 "paddedStraightAlbedoJPEGRejected": True,
                 "mislabeledTexb4StraightAlbedoPNGRejected": True,

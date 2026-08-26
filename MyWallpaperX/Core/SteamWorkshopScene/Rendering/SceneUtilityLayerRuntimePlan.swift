@@ -48,13 +48,17 @@ enum SceneUtilityLayerRuntimePlanner {
         let namedTargetLayerIDs = Set(descriptor.layers.flatMap(\.dependencyLayerIDs))
         return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap { layer in
             guard let utility = layer.utilityLayer else { return nil }
+            let sourceRoute = try? SceneUtilityLayerSourceRoute.resolve(
+                layer: layer,
+                descriptor: descriptor
+            ).get()
             let hasVisibleEffects = layer.effects.contains { $0.visible != false }
             let disposition: SceneUtilityLayerRuntimePlan.Disposition
             if !visibleLayerIDs.contains(layer.id) {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
                 if utility.kind == .composition,
-                   layer.childLayerIDs.isEmpty,
+                   sourceRoute?.capturesCompositionSubtree == false,
                    executableUtilityConsumerLayerIDs.contains(layer.id),
                    dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil,
                    resolvedMaterialLayerIDs.contains(layer.id) {
@@ -64,9 +68,10 @@ enum SceneUtilityLayerRuntimePlanner {
                 }
             } else if !hasVisibleEffects {
                 disposition = .skippedNoEffect
-            } else if !layer.childLayerIDs.isEmpty {
+            } else if sourceRoute == nil, !layer.childLayerIDs.isEmpty {
                 disposition = .unsupportedChildren
-            } else if resolvedMaterialLayerIDs.contains(layer.id) {
+            } else if sourceRoute != nil,
+                      resolvedMaterialLayerIDs.contains(layer.id) {
                 disposition = .capture
             } else {
                 disposition = .unsupportedEffects
@@ -78,7 +83,7 @@ enum SceneUtilityLayerRuntimePlanner {
                     kind: utility.kind,
                     disposition: disposition,
                     requiresNamedTarget: namedTargetLayerIDs.contains(layer.id),
-                    triggerLayerID: layer.id
+                    triggerLayerID: sourceRoute?.triggerLayerID ?? layer.id
                 )
             )
         })
@@ -155,7 +160,8 @@ enum SceneUtilityLayerRuntimePlanner {
             }
             lines.append(
                 "utility layer \(plan.layerID): \(plan.disposition.rawValue) "
-                    + "kind=\(plan.kind.rawValue)\(namedTarget)"
+                    + "kind=\(plan.kind.rawValue) "
+                    + "trigger=\(plan.triggerLayerID)\(namedTarget)"
             )
         }
         return lines

@@ -114,7 +114,7 @@ enum SceneImageTextureUploader {
         )
     }
 
-    private static func imageHasNoAlpha(_ image: CGImage) -> Bool {
+    static func imageHasNoAlpha(_ image: CGImage) -> Bool {
         switch image.alphaInfo {
         case .none, .noneSkipLast, .noneSkipFirst:
             true

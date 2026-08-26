@@ -14,6 +14,10 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift"
 RUNTIME_PLAN_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
+SOURCE_ROUTE_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerSourceRoute.swift"
+SOURCE_COVERAGE_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneUtilityLayerSourceCoverage.swift"
+)
 UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
 UTILITY_FRAME_RENDERER_SOURCE = (
@@ -34,6 +38,10 @@ IMAGE_COMPOSITOR_SOURCE = (
 )
 FRAME_PREFLIGHT_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+)
+SUBMISSION_COORDINATOR_SOURCE = (
+    SOURCE_ROOT
+    / "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialSubmissionCoordinator.swift"
 )
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
@@ -175,18 +183,52 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_resolved_utility_uses_the_current_main_target_and_frame_plan(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        source_route = SOURCE_ROUTE_SOURCE.read_text(encoding="utf-8")
+        source_coverage = SOURCE_COVERAGE_SOURCE.read_text(encoding="utf-8")
         preflight = FRAME_PREFLIGHT_SOURCE.read_text(encoding="utf-8")
+        coordinator = SUBMISSION_COORDINATOR_SOURCE.read_text(encoding="utf-8")
         effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn("resolvedMaterialLayerIDs.contains(layer.id)", runtime_plan)
-        compact_plan = "".join(runtime_plan.split())
         self.assertIn(
-            "elseifresolvedMaterialLayerIDs.contains(layer.id){disposition=.capture}",
-            compact_plan,
+            "SceneUtilityLayerSourceRoute.resolve(",
+            runtime_plan,
+        )
+        self.assertIn("triggerLayerID: sourceRoute?.triggerLayerID", runtime_plan)
+        self.assertIn("order.first == layer.id", source_route)
+        self.assertIn("Set(orderedSubtree) == subtreeIDs", source_route)
+        self.assertIn("hasImplicitOpaqueCompositionAlpha(layer)", source_route)
+        self.assertIn("layer.alpha == nil", source_route)
+        self.assertIn("$0.host == .alpha", source_route)
+        self.assertIn('$0.host == "alpha"', source_route)
+        self.assertIn(".color(.resolved(.opaque))", source_coverage)
+        self.assertIn(
+            "isAxisAlignedFullViewportCoverage(",
+            source_coverage,
+        )
+        self.assertIn(
+            "utility-composition-subtree-source-coverage-unavailable",
+            preflight,
+        )
+        self.assertIn(
+            "utility-composition-subtree-source-coverage-unavailable",
+            coordinator,
+        )
+        self.assertIn(
+            "resolvedMaterialFrameTargetPlans[$0.layerID] != nil",
+            effect_execution,
+        )
+        self.assertIn(
+            r"by: \.triggerLayerID",
+            METAL_RENDERER_SOURCE.read_text(encoding="utf-8"),
         )
         self.assertIn("case .capturedMainTargetTexture:", preflight)
+        self.assertEqual(
+            preflight.count("SceneUtilityLayerSourceRoute.resolve("),
+            2,
+        )
         self.assertIn("sourceTexture = mainTarget", preflight)
         self.assertIn("textureFrame = geometry.sourceUV", preflight)
         self.assertIn("outputMVP = geometry.outputMVP", preflight)

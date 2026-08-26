@@ -172,6 +172,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
                 layer,
+                descriptor: descriptor,
                 visibleLayerIDs: visibleLayerIDs,
                 graphOutputProviderLayerIDs: graphOutputProviderLayerIDs,
                 dependencyOwnership: dependencyOwnership
@@ -237,6 +238,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
 
     private static func executionSourceRoute(
         _ layer: SceneRenderDescriptor.Layer,
+        descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         graphOutputProviderLayerIDs: Set<Int>,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership?
@@ -248,16 +250,16 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         guard let dependencyOwnership else {
             return .failure(failure("execution-route-dependency-owner"))
         }
-        if let utility = layer.utilityLayer {
-            let kindMatchesContent = switch (layer.contentKind, utility.kind) {
-            case ("composition", .composition), ("project", .project),
-                 ("fullscreen", .fullscreen):
-                true
-            default:
-                false
-            }
-            guard kindMatchesContent, layer.childLayerIDs.isEmpty else {
-                return .failure(failure("execution-route-utility-shape"))
+        if layer.utilityLayer != nil {
+            let utilityRoute: SceneUtilityLayerSourceRoute.Resolution
+            switch SceneUtilityLayerSourceRoute.resolve(
+                layer: layer,
+                descriptor: descriptor
+            ) {
+            case let .success(resolution):
+                utilityRoute = resolution
+            case let .failure(routeFailure):
+                return .failure(failure("execution-route-\(routeFailure.rawValue)"))
             }
             switch dependencyOwnership {
             case .none:
@@ -270,6 +272,12 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 }
             case .graphInternal:
                 return .failure(failure("execution-route-utility-shape"))
+            }
+            if utilityRoute.capturesCompositionSubtree,
+               dependencyOwnership != .none {
+                return .failure(failure(
+                    "execution-route-utility-composition-subtree-shape"
+                ))
             }
             return .success(.capturedMainTargetTexture)
         }
