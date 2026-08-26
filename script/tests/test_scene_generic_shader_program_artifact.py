@@ -2755,6 +2755,35 @@ void main() {
 }
 """
 
+CONDITIONAL_GENERATED_RGB_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture2;
+uniform float g_ScalarWeight;
+uniform vec3 g_Tint;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 base = texSample2D(g_Texture2, v_TexCoord);
+    vec3 color = base.rgb;
+    float mask = texSample2D(g_Texture1, v_TexCoord).r;
+    if (g_ScalarWeight > 0.001 && mask > 0.001) {
+        color = texSample2D(g_Texture0, v_TexCoord).rgb;
+        color += texSample2D(g_Texture0, v_TexCoord * 0.5).rgb;
+        color *= 0.4 * g_Tint;
+        color.rgb = ApplyBlending(0, base.rgb, color, mask);
+    }
+    gl_FragColor = vec4(color, base.a);
+}
+"""
+
 STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1;
@@ -5154,6 +5183,172 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     "state=prefer-generic profile=ordinary-shader outcome=fallback",
                     ordinary_log,
                 )
+
+    def test_conditional_generated_rgb_uses_narrow_generic_only_route(self):
+        profile = (
+            "source-proven-graph-input-conditional-generated-rgb-preserved-alpha"
+        )
+        facts = {
+            "graph_input_slots": (2,),
+            "active_slots": (0, 1, 2),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-conditional-generated-rgb-route-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, observed_log = self.run_harness(
+                root,
+                route="disable-generic",
+                fragment=CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            self.assertEqual(observed["routeState"], "generic-only")
+            self.assertNotEqual(observed["code"], "route-disabled")
+            self.assertFalse(observed["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                observed_log,
+            )
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha-preserving",
+                auxiliary_channel_uses={
+                    1: "redOnly",
+                    2: "unproven",
+                },
+            )
+            artifact["program"]["colorTransfer"]["slot"] = 2
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            rejected, _, _, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected "
+                "reason=artifact-contract-rejected",
+                rejected_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback "
+                "reason=route-disabled",
+                rollback_log,
+            )
+
+    def test_conditional_generated_rgb_profile_stays_source_and_slot_exact(self):
+        profile = (
+            "source-proven-graph-input-conditional-generated-rgb-preserved-alpha"
+        )
+        renamed = CONDITIONAL_GENERATED_RGB_FRAGMENT.replace(
+            "vec4 base = texSample2D", "vec4 alphaCarrier = texSample2D"
+        ).replace(
+            "vec3 color = base.rgb;", "vec3 generated = alphaCarrier.rgb;"
+        ).replace(
+            "color = texSample2D", "generated = texSample2D"
+        ).replace(
+            "color += texSample2D", "generated += texSample2D"
+        ).replace(
+            "color *= 0.4 * g_Tint;", "generated *= 0.4 * g_Tint;"
+        ).replace(
+            "color.rgb = ApplyBlending(0, base.rgb, color, mask);",
+            "generated.rgb = ApplyBlending("
+            "0, alphaCarrier.rgb, generated, mask);",
+        ).replace(
+            "vec4(color, base.a)", "vec4(generated, alphaCarrier.a)"
+        )
+        additional_generated_slot = renamed.replace(
+            "uniform sampler2D g_Texture2;",
+            "uniform sampler2D g_Texture2;\nuniform sampler2D g_Texture3;",
+        ).replace(
+            "generated *= 0.4 * g_Tint;",
+            "generated += texSample2D(g_Texture3, v_TexCoord).rgb;\n"
+            "        generated *= 0.4 * g_Tint;",
+        )
+        positives = [
+            (renamed, (0, 1, 2)),
+            (additional_generated_slot, (0, 1, 2, 3)),
+        ]
+        for fragment, active_slots in positives:
+            with self.subTest(active_slots=active_slots), tempfile.TemporaryDirectory(
+                prefix="mwx-conditional-generated-rgb-unseen-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=fragment,
+                    graph_input_slots=(2,),
+                    active_slots=active_slots,
+                )
+                self.assertEqual(result["routeProfile"], profile)
+                self.assertIn(f"profile={profile}", log)
+
+        negatives = [
+            (
+                CONDITIONAL_GENERATED_RGB_FRAGMENT.replace(
+                    "vec4(color, base.a)", "vec4(color, 1.0)"
+                ),
+                {"graph_input_slots": (2,), "active_slots": (0, 1, 2)},
+            ),
+            (
+                CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                {"graph_input_slots": (2,), "active_slots": (0, 2)},
+            ),
+            (
+                CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                {"graph_input_slots": (0,), "active_slots": (0, 1, 2)},
+            ),
+            (
+                CONDITIONAL_GENERATED_RGB_FRAGMENT,
+                {
+                    "graph_input_slots": (2,),
+                    "active_slots": (0, 1, 2),
+                    "has_external_provider": True,
+                },
+            ),
+        ]
+        for fragment, facts in negatives:
+            with self.subTest(facts=facts), tempfile.TemporaryDirectory(
+                prefix="mwx-conditional-generated-rgb-negative-test-"
+            ) as directory:
+                result, _, _, log = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
+                self.assertNotIn(f"profile={profile}", log)
 
     def test_narrow_alpha_and_channel_profiles_reject_unproven_shapes(self):
         cases = [

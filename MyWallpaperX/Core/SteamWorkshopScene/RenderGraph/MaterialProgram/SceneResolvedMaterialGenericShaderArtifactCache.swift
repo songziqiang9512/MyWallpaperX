@@ -294,6 +294,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let activeAudioSpectrumArrays =
             normalizedRouteFacts?.activeAudioSpectrumArrays ?? []
         let profile = CapabilityProfile(
+            fragmentSource: fragmentSource,
             colorTransfer: colorTransfer,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
@@ -333,7 +334,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 straightRGBScalarAlphaFact?.sourceSlot,
             straightRGBScalarAlphaAuxiliarySlots:
                 straightRGBScalarAlphaFact?.auxiliarySlots ?? [],
-            straightRGBScalarAlphaActiveSlots: activeTextureSlots,
+            activeTextureSlots: activeTextureSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendSourceSlot,
@@ -651,7 +652,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             return profile.defaultRouteState
         }
         return RouteState.resolve(
-            environment[routeEnvironment],
+            profile.ignoresLegacyProcessRoute ? nil : environment[routeEnvironment],
             defaultState: profile.defaultRouteState
         )
     }

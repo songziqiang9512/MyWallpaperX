@@ -84,6 +84,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-overlay-alpha-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
         "source-proven-graph-input-conditional-straight-union"
+    case sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha =
+        "source-proven-graph-input-conditional-generated-rgb-preserved-alpha"
     case sourceProvenGraphInputSingleSamplerAlphaMutation =
         "source-proven-graph-input-single-sampler-alpha-mutation"
     case sourceProvenGraphInputStraightRGBScalarAlpha =
@@ -106,6 +108,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-stage-uniform-passthrough"
 
     init(
+        fragmentSource: String,
         colorTransfer: SceneShaderColorTransfer,
         alphaAttenuationSourceSlot: Int?,
         colorBlendSourceSlot: Int?,
@@ -127,7 +130,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         sameAlphaReconstructedRGBFilterAuxiliarySlots: Set<Int> = [],
         straightRGBScalarAlphaSourceSlot: Int? = nil,
         straightRGBScalarAlphaAuxiliarySlots: Set<Int> = [],
-        straightRGBScalarAlphaActiveSlots: Set<Int> = [],
+        activeTextureSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -157,6 +160,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         hasStereoAudioSpectrumArrays: Bool,
         hasLocalizedMutableFragmentVarying: Bool
     ) {
+        let conditionalGeneratedRGBFact =
+            SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         if producesPreservedRGBAOutput,
            hasDefiniteWholeOutput,
            !hasExternalProviderTexture,
@@ -227,6 +234,15 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphTextureSlots.isEmpty,
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputConditionalStraightUnion
+        } else if let fact = conditionalGeneratedRGBFact,
+                  case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  fact.alphaCarrierSlot == sourceSlot,
+                  !fact.sampleCallCounts.isEmpty,
+                  Set(fact.sampleCallCounts.keys) == activeTextureSlots,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphInputTextureSlots.contains(sourceSlot) {
+            self = .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
         } else if colorTransfer == .opaque, producesScalarRedOutput {
             self = .sourceProvenOpaqueScalarOutput
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
@@ -338,7 +354,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   straightRGBScalarAlphaSourceSlot == sourceSlot,
                   straightRGBScalarAlphaAuxiliarySlots
                     == typedStaticDataAuxiliarySlots,
-                  straightRGBScalarAlphaActiveSlots
+                  activeTextureSlots
                     == straightRGBScalarAlphaAuxiliarySlots.union([sourceSlot]),
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -435,6 +451,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputSpatialWeightedColorBlend,
              .sourceProvenGraphInputOverlayAlphaBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
+             .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
              .sourceProvenGraphInputStraightRGBScalarAlpha,
              .sourceProvenGraphInputSameSlotChannelReconstruction,
@@ -447,6 +464,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .sourceProvenUnitPreviousBlurredCompositeUnowned:
             .observeOnly
         }
+    }
+
+    /// New owner migrations are controlled only by the exact profile map;
+    /// the legacy process-wide switch must not revoke their product owner.
+    var ignoresLegacyProcessRoute: Bool {
+        self == .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
     }
 
     /// Shared profiles normally roll back through the bounded frontend. The
