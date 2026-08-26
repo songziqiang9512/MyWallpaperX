@@ -1,6 +1,56 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
+    var product: SceneGraphAdmissionProduct {
+        switch self {
+        case .resolved(let product, _, _), .dedicated(let product, _, _):
+            product
+        case .visualFailurePassthrough(let product, _),
+             .initiallyInactivePassthrough(let product, _):
+            product
+        }
+    }
+
+    var activationPolicy: SceneResolvedMaterialStageActivationPolicy? {
+        guard case let .resolved(_, _, activation) = self else { return nil }
+        return activation
+    }
+
+    var subject: SceneEffectExactRuntimeSubject? {
+        guard let key = product.graph.effects.first?.key else { return nil }
+        switch self {
+        case .resolved:
+            return .init(key: key, family: "resolved-material")
+        case .dedicated(_, _, let family):
+            return .init(key: key, family: family)
+        case .visualFailurePassthrough:
+            return .init(key: key, family: "visual-failure-passthrough")
+        case .initiallyInactivePassthrough:
+            return .init(key: key, family: "initially-inactive-passthrough")
+        }
+    }
+
+    /// Projects only the dedicated leaf's execution plan for resource
+    /// loading. Resolved material stages own their resources elsewhere.
+    var dedicatedExecutionPlan: SceneEffectStageExecutionPlan? {
+        guard case .dedicated(_, let program, _) = self else { return nil }
+        return program.executionPlan
+    }
+
+    var visualFailureReasonCode: String? {
+        guard case let .visualFailurePassthrough(_, reasonCode) = self else {
+            return nil
+        }
+        return reasonCode
+    }
+
+    var initiallyInactivePassthroughReasonCode: String? {
+        guard case let .initiallyInactivePassthrough(_, reasonCode) = self else {
+            return nil
+        }
+        return reasonCode
+    }
+
     var requiresInvertibleEffectTextureProjection: Bool {
         switch self {
         case .resolved(_, let materials, _):
@@ -10,7 +60,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
         case .dedicated(_, let program, _):
             let plan = program.executionPlan
             return plan.xRay != nil
-        case .visualFailurePassthrough:
+        case .visualFailurePassthrough, .initiallyInactivePassthrough:
             return false
         }
     }

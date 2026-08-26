@@ -321,7 +321,15 @@ final class SceneResolvedMaterialRuntimeBridge {
         for claim: ClaimedExecution
     ) -> [ExactEffectSubject] {
         guard let runtimeClaim = capabilities.resolve(claim.token) else { return [] }
-        return runtimeClaim.stages.compactMap(\.subject)
+        executionEvidenceLock.lock()
+        defer { executionEvidenceLock.unlock() }
+        return runtimeClaim.stages.compactMap { stage in
+            guard let subject = stage.subject,
+                  let family = executionEvidenceByKey[subject.key] else {
+                return nil
+            }
+            return .init(key: subject.key, family: family)
+        }
     }
 
     func executionEvidenceOutcome(

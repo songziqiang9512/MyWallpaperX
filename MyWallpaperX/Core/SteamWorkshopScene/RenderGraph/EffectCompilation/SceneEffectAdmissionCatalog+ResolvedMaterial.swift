@@ -4,7 +4,8 @@ extension SceneEffectAdmissionCatalog {
     nonisolated static func validResolvedMaterialKeys(
         descriptor: SceneRenderDescriptor,
         authoredPlansByLayerID: [Int: [SceneAuthoredEffectRenderPlan]],
-        subjects: [SceneEffectExactRuntimeSubject]
+        subjects: [SceneEffectExactRuntimeSubject],
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget>
     ) -> [Int: Set<SceneAuthoredEffectRenderPlan.EffectKey>] {
         let grouped = Dictionary(grouping: subjects, by: \.key.layerID)
         var result: [Int: Set<SceneAuthoredEffectRenderPlan.EffectKey>] = [:]
@@ -20,7 +21,8 @@ extension SceneEffectAdmissionCatalog {
                   let graph = graphs.first else { continue }
             let activeKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = Set(
                 layer.effects.enumerated().compactMap {
-                    effectIndex, effect in
+                    effectIndex, effect
+                        -> SceneAuthoredEffectRenderPlan.EffectKey? in
                     guard effect.visible != false else { return nil }
                     return SceneAuthoredEffectRenderPlan.EffectKey(
                         layerID: layerID,
@@ -29,10 +31,36 @@ extension SceneEffectAdmissionCatalog {
                     )
                 }
             )
+            let graphKeys = Set(graph.effects.map(\.key))
+            let propertyInactiveGraphKeys = graphKeys.subtracting(activeKeys)
+            let propertyInactiveDescriptorKeys: Set<
+                SceneAuthoredEffectRenderPlan.EffectKey
+            > = Set(
+                layer.effects.enumerated().compactMap {
+                    effectIndex, effect
+                        -> SceneAuthoredEffectRenderPlan.EffectKey? in
+                    guard effect.visible == false,
+                          startupInactiveEffectVisibilityTargets.contains(
+                              .effectVisibility(
+                                  layerID: layerID,
+                                  effectIndex: effectIndex
+                              )
+                          ) else { return nil }
+                    return SceneAuthoredEffectRenderPlan.EffectKey(
+                        layerID: layerID,
+                        effectIndex: effectIndex,
+                        descriptorID: effect.id
+                    )
+                }
+            )
             let subjectKeys = Set(layerSubjects.map(\.key))
-            guard !activeKeys.isEmpty, subjectKeys == activeKeys,
-                  Set(graph.effects.map(\.key)) == activeKeys else { continue }
-            result[layerID] = activeKeys
+            guard !graphKeys.isEmpty,
+                  activeKeys.isSubset(of: graphKeys),
+                  propertyInactiveGraphKeys.isSubset(
+                      of: propertyInactiveDescriptorKeys
+                  ),
+                  subjectKeys == graphKeys else { continue }
+            result[layerID] = graphKeys
         }
         return result
     }

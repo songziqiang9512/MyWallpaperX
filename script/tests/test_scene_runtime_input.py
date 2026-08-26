@@ -87,8 +87,22 @@ struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
 }
 
 enum SceneAuthoredEffectRenderPlanner {
-    static func plans(for descriptor: SceneRenderDescriptor) -> [SceneAuthoredEffectRenderPlan] {
+    static func plans(
+        for descriptor: SceneRenderDescriptor,
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = []
+    ) -> [SceneAuthoredEffectRenderPlan] {
         [SceneAuthoredEffectRenderPlan(layerID: descriptor.entryPath.count)]
+    }
+}
+
+enum SceneInitiallyInactiveEffectRouteAdmission {
+    static func targets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        _ = descriptor
+        _ = candidates
+        return []
     }
 }
 
@@ -96,15 +110,30 @@ enum SceneAuthoredEffectRenderPlanner {
 enum Harness {
     static func main() throws {
         let target = SceneDynamicTarget.layer(layerID: 42, field: .alpha)
+        let visibilityTarget = SceneDynamicTarget.effectVisibility(
+            layerID: 42,
+            effectIndex: 0
+        )
         let path = SceneUserPropertyPath(components: [
             .key("objects"), .index(0), .key("alpha"),
         ])
         let program = ScenePropertyBindingProgram(
             definitions: [
                 .init(target: target, valueType: .scalar, authoredValue: .scalar(0.25)),
+                .init(
+                    target: visibilityTarget,
+                    valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
             ],
             instructions: [
                 .init(propertyKey: "opacity", path: path, target: target, valueType: .scalar),
+                .init(
+                    propertyKey: "visible",
+                    path: path,
+                    target: visibilityTarget,
+                    valueType: .bool
+                ),
             ]
         )
         let effectiveValues: [String: SceneUserPropertyValue] = [
@@ -126,6 +155,10 @@ enum Harness {
             "entryPath": input.renderDescriptor.entryPath,
             "authoredPlanCount": input.authoredEffectRenderPlans.count,
             "programRetained": input.propertyBindingProgram == program,
+            "directVisibilityTargetRetained":
+                input.directBoolEffectVisibilityTargets == [visibilityTarget],
+            "startupVisibilityTargetsEmpty":
+                input.startupInactiveEffectVisibilityTargets.isEmpty,
             "valuesRetained": input.effectivePropertyValues == effectiveValues,
             "contractsRetained": input.shaderContracts == shaderContracts,
             "hostBuiltinContract": shaderContracts.count == 1
@@ -172,6 +205,8 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertEqual(self.result["entryPath"], "scene.json")
         self.assertEqual(self.result["authoredPlanCount"], 1)
         self.assertTrue(self.result["programRetained"])
+        self.assertTrue(self.result["directVisibilityTargetRetained"])
+        self.assertTrue(self.result["startupVisibilityTargetsEmpty"])
         self.assertTrue(self.result["valuesRetained"])
         self.assertTrue(self.result["contractsRetained"])
         self.assertTrue(self.result["hostBuiltinContract"])

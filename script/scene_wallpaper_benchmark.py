@@ -1571,6 +1571,14 @@ def resolved_material_graph_exact_backend_metrics(
     disposition_is_valid, _, eligible_exact = (
         _effect_execution_static_catalog(static_disposition)
     )
+    eligible_exact_identities = {
+        (
+            subject.get("layer_id"),
+            subject.get("effect_index"),
+            subject.get("descriptor_id"),
+        )
+        for subject in eligible_exact
+    }
     required_by_layer: dict[int, set[tuple[int, str]]] = {
         layer_id: set() for layer_id in accepted_layers
     }
@@ -1613,6 +1621,11 @@ def resolved_material_graph_exact_backend_metrics(
             layer_id = invocation.get("layer_id")
             if not isinstance(layer_id, int) or isinstance(layer_id, bool):
                 continue
+            effect_index = invocation.get("effect_index")
+            descriptor_id = invocation.get("descriptor_id")
+            exact_identity = (layer_id, effect_index, descriptor_id)
+            if exact_identity not in eligible_exact_identities:
+                continue
             if invocation.get("backend") == RESOLVED_MATERIAL_GRAPH_BACKEND:
                 resolved_backend_layer_ids.add(layer_id)
             if layer_id not in accepted_layers:
@@ -1621,8 +1634,6 @@ def resolved_material_graph_exact_backend_metrics(
                 wrong_backend_layer_ids.add(layer_id)
             if invocation.get("outcome") != "encoded-output":
                 failed_layer_ids.add(layer_id)
-            effect_index = invocation.get("effect_index")
-            descriptor_id = invocation.get("descriptor_id")
             if (
                 invocation.get("join_valid") is not True
                 or not isinstance(effect_index, int)
@@ -1640,20 +1651,34 @@ def resolved_material_graph_exact_backend_metrics(
     complete_layer_ids = sorted(
         layer_id for layer_id in accepted_layers
         if disposition_is_valid
-        and execution_is_well_formed
-        and bool(required_by_layer[layer_id])
-        and required_by_layer[layer_id] == successful_by_layer[layer_id]
-        and layer_id not in wrong_backend_layer_ids
-        and layer_id not in failed_layer_ids
-        and layer_id not in malformed_layer_ids
+        and (
+            not required_by_layer[layer_id]
+            or (
+                execution_is_well_formed
+                and required_by_layer[layer_id] == successful_by_layer[layer_id]
+                and layer_id not in wrong_backend_layer_ids
+                and layer_id not in failed_layer_ids
+                and layer_id not in malformed_layer_ids
+            )
+        )
     )
     missing_layer_ids = sorted(accepted_layers.difference(complete_layer_ids))
     unexpected_layer_ids = sorted(
         resolved_backend_layer_ids.difference(accepted_layers)
     )
     return {
-        "has_evidence": disposition_is_valid and execution_is_well_formed,
+        "has_evidence": disposition_is_valid and (
+            not any(required_by_layer.values()) or execution_is_well_formed
+        ),
         "backend": RESOLVED_MATERIAL_GRAPH_BACKEND,
+        "required_layer_ids": sorted(
+            layer_id for layer_id, subjects in required_by_layer.items()
+            if subjects
+        ),
+        "no_demand_layer_ids": sorted(
+            layer_id for layer_id, subjects in required_by_layer.items()
+            if not subjects
+        ),
         "complete_layer_ids": complete_layer_ids,
         "missing_layer_ids": missing_layer_ids,
         "wrong_backend_layer_ids": sorted(wrong_backend_layer_ids),
@@ -1661,6 +1686,131 @@ def resolved_material_graph_exact_backend_metrics(
         "malformed_layer_ids": sorted(malformed_layer_ids),
         "unexpected_layer_ids": unexpected_layer_ids,
         "resolved_backend_layer_ids": sorted(resolved_backend_layer_ids),
+    }
+
+
+def resolved_material_graph_passthrough_metrics(
+    accepted_layer_ids: list[int],
+    graph_observations: dict[str, Any],
+    static_disposition: dict[str, Any] | None,
+) -> dict[str, Any]:
+    accepted_layers = set(accepted_layer_ids)
+    disposition_is_valid, disposition_records, _ = (
+        _effect_execution_static_catalog(static_disposition)
+    )
+    required_subjects = {
+        (
+            record.get("layer_id"),
+            record.get("effect_index"),
+            record.get("descriptor_id"),
+        )
+        for record in disposition_records
+        if record.get("kind") == "passthrough"
+        and record.get("layer_id") in accepted_layers
+    }
+    required_by_layer = {
+        layer_id: {
+            subject for subject in required_subjects
+            if subject[0] == layer_id
+        }
+        for layer_id in accepted_layers
+    }
+    observed_subjects: set[tuple[int, int, str]] = set()
+    next_frame_subjects: set[tuple[int, int, str]] = set()
+    malformed_subjects: set[tuple[int, int, str]] = set()
+    for observation in graph_observations.get(
+        "terminal_success_observations", []
+    ):
+        subject = (
+            observation.get("layer_id"),
+            observation.get("effect_index"),
+            observation.get("descriptor_id"),
+        )
+        if subject not in required_subjects:
+            continue
+        if (
+            observation.get("activation_passthrough") is not True
+            or observation.get("program_identity") != (
+                "activation-passthrough:"
+                "initially-inactive-property-stage-passthrough"
+            )
+        ):
+            malformed_subjects.add(subject)
+            continue
+        observed_subjects.add(subject)
+        if "next-frame" in observation.get("trigger", []):
+            next_frame_subjects.add(subject)
+
+    missing_subjects = required_subjects.difference(observed_subjects)
+    missing_next_frame_subjects = required_subjects.difference(
+        next_frame_subjects
+    )
+    required_layer_ids = {
+        layer_id for layer_id, required in required_by_layer.items()
+        if required
+    }
+    missing_compositor_layer_ids = required_layer_ids.difference(
+        graph_observations.get("compositor_consumed_layer_ids", [])
+    )
+    complete_layer_ids = sorted(
+        layer_id for layer_id, required in required_by_layer.items()
+        if required.issubset(observed_subjects)
+        and required.issubset(next_frame_subjects)
+        and required.isdisjoint(malformed_subjects)
+        and layer_id not in missing_compositor_layer_ids
+    )
+    failures: list[str] = []
+    if required_subjects and not graph_observations.get("has_evidence"):
+        failures.append(
+            "resolved material graph passthrough terminal evidence missing"
+        )
+    if missing_subjects:
+        failures.append(
+            "resolved material graph passthrough activation evidence missing"
+        )
+    if missing_next_frame_subjects:
+        failures.append(
+            "resolved material graph passthrough next-frame evidence missing"
+        )
+    if missing_compositor_layer_ids:
+        failures.append(
+            "resolved material graph passthrough compositor evidence missing"
+        )
+    if malformed_subjects:
+        failures.append(
+            "resolved material graph passthrough activation evidence malformed"
+        )
+
+    def public_subjects(
+        subjects: set[tuple[int, int, str]],
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                "layer_id": layer_id,
+                "effect_index": effect_index,
+                "descriptor_id": descriptor_id,
+            }
+            for layer_id, effect_index, descriptor_id in sorted(subjects)
+        ]
+
+    return {
+        "has_evidence": disposition_is_valid and (
+            not required_subjects or graph_observations.get("has_evidence") is True
+        ),
+        "required_layer_ids": sorted(required_layer_ids),
+        "complete_layer_ids": complete_layer_ids,
+        "missing_compositor_layer_ids": sorted(
+            missing_compositor_layer_ids
+        ),
+        "required_subjects": public_subjects(required_subjects),
+        "observed_subjects": public_subjects(observed_subjects),
+        "next_frame_subjects": public_subjects(next_frame_subjects),
+        "missing_subjects": public_subjects(missing_subjects),
+        "missing_next_frame_subjects": public_subjects(
+            missing_next_frame_subjects
+        ),
+        "malformed_subjects": public_subjects(malformed_subjects),
+        "validation_failures": failures,
     }
 
 
@@ -2416,6 +2566,9 @@ def resolved_material_graph_execution_metrics(
         .intersection(clean_named_capture_layer_ids)
         .difference(compositor_consumed_layer_ids)
     )
+    output_consumed_layer_set = set(
+        compositor_consumed_layer_ids
+    ).union(named_published_layer_ids)
     program_output_consumed_layer_set = set(
         program_compositor_consumed_layer_ids
     ).union(named_published_layer_ids)
@@ -2429,6 +2582,11 @@ def resolved_material_graph_execution_metrics(
     exact_backend = resolved_material_graph_exact_backend_metrics(
         accepted_layer_ids,
         effect_execution,
+        static_disposition,
+    )
+    passthrough = resolved_material_graph_passthrough_metrics(
+        accepted_layer_ids,
+        graph_observations,
         static_disposition,
     )
     if capability is None and (
@@ -2451,11 +2609,15 @@ def resolved_material_graph_execution_metrics(
         accepted_layer_set.difference(next_frame_layer_ids)
     )
     missing_exact_backend_layer_ids = exact_backend["missing_layer_ids"]
+    missing_passthrough_layer_ids = sorted(
+        accepted_layer_set.difference(passthrough["complete_layer_ids"])
+    )
     missing_layer_ids = sorted(
         set(missing_gpu_completed_layer_ids).union(
             missing_compositor_consumed_layer_ids,
             missing_next_frame_layer_ids,
             missing_exact_backend_layer_ids,
+            missing_passthrough_layer_ids,
         )
     )
     unexpected_gpu_completed_layer_ids = sorted(
@@ -2564,6 +2726,7 @@ def resolved_material_graph_execution_metrics(
         capability_failures
         + executor_failures
         + graph_observations["validation_failures"]
+        + passthrough["validation_failures"]
     )
     if accepted_count == 0:
         if not executor_observations:
@@ -2579,12 +2742,44 @@ def resolved_material_graph_execution_metrics(
                 "resolved material graph zero contract observed graph execution"
             )
     validation_failures = list(dict.fromkeys(validation_failures))
+    exact_required_layer_ids = set(exact_backend["required_layer_ids"])
+    passthrough_required_layer_ids = set(passthrough["required_layer_ids"])
+    program_only_layer_ids = exact_required_layer_ids.difference(
+        passthrough_required_layer_ids
+    )
+    execution_observed_layer_ids = exact_required_layer_ids.intersection(
+        program_observed_layer_ids
+    ).union(
+        accepted_layer_set.difference(exact_required_layer_ids).intersection(
+            observed_layer_ids
+        )
+    )
+    output_evidence_layer_ids = program_only_layer_ids.intersection(
+        program_output_consumed_layer_set
+    ).union(
+        accepted_layer_set.difference(program_only_layer_ids).intersection(
+            output_consumed_layer_set
+        )
+    )
+    next_frame_evidence_layer_ids = program_only_layer_ids.intersection(
+        program_next_frame_layer_ids
+    ).union(
+        accepted_layer_set.difference(program_only_layer_ids).intersection(
+            next_frame_layer_ids
+        )
+    )
     succeeded_layer_ids = sorted(
         accepted_layer_set
-        .intersection(program_observed_layer_ids)
-        .intersection(program_output_consumed_layer_set)
-        .intersection(program_next_frame_layer_ids)
+        .intersection(execution_observed_layer_ids)
+        .intersection(output_evidence_layer_ids)
+        .intersection(next_frame_evidence_layer_ids)
         .intersection(exact_backend["complete_layer_ids"])
+        .intersection(passthrough["complete_layer_ids"])
+    )
+    minimum_transactions_satisfied = (
+        graph_observations["program_successful_transaction_count"] >= 2
+        if exact_required_layer_ids
+        else graph_observations["successful_transaction_count"] >= 2
     )
     execution_succeeded = bool(
         capability is not None
@@ -2595,7 +2790,7 @@ def resolved_material_graph_execution_metrics(
         and encoded_count > 0
         and gpu_encoded_count > 0
         and failure_count == 0
-        and graph_observations["program_successful_transaction_count"] >= 2
+        and minimum_transactions_satisfied
         and succeeded_layer_ids == accepted_layer_ids
         and not missing_layer_ids
         and not unexpected_layer_ids
@@ -2625,6 +2820,7 @@ def resolved_material_graph_execution_metrics(
             and (
                 graph_observations["has_evidence"]
                 and exact_backend["has_evidence"]
+                and passthrough["has_evidence"]
                 if accepted_count and accepted_count > 0
                 else graph_observations["observation_count"] == 0
             )
@@ -2693,6 +2889,7 @@ def resolved_material_graph_execution_metrics(
         },
         "graph_observations": graph_observations,
         "exact_backend": exact_backend,
+        "passthrough": passthrough,
         "layer_routes": {
             "has_evidence": route_evidence_complete,
             "schema_version": (
@@ -3068,13 +3265,21 @@ def resolved_material_graph_execution_failures(
     if not graph_observations["has_evidence"]:
         failures.append("resolved material graph terminal evidence missing")
     elif (
-        require_evidence or expects_evidence
-    ) and graph_observations["program_successful_transaction_count"] < 2:
+        (require_evidence or expects_evidence)
+        and metrics["exact_backend"].get("required_layer_ids")
+        and graph_observations["program_successful_transaction_count"] < 2
+    ):
         failures.append(
             "resolved material graph Program transaction count below two"
         )
     elif (
-        expects_activation_evidence
+        (
+            expects_activation_evidence
+            or (
+                (require_evidence or expects_evidence)
+                and not metrics["exact_backend"].get("required_layer_ids")
+            )
+        )
         and graph_observations["successful_transaction_count"] < 2
     ):
         failures.append(
@@ -3298,12 +3503,18 @@ def _stage_count_map(
 
 
 def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
-    activity_keys = ("author-disabled", "layer-hidden", "active")
+    activity_keys = (
+        "author-disabled",
+        "property-inactive",
+        "layer-hidden",
+        "active",
+    )
     admission_keys = (
         "inactive",
         "admitted-dedicated",
         "admitted-fallback",
         "admitted-generic",
+        "admitted-passthrough",
         "not-admitted",
     )
     coverage_keys = (
@@ -3431,14 +3642,18 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
         "rejected-graph-mismatch",
     }
     for record in records:
-        active = record["activity"] == "active"
+        route_participating = record["activity"] in {
+            "active",
+            "property-inactive",
+        }
         admission_inactive = record["admission"] == "inactive"
         admitted = record["admission"] in {
             "admitted-dedicated",
             "admitted-fallback",
             "admitted-generic",
+            "admitted-passthrough",
         }
-        if active == admission_inactive:
+        if route_participating == admission_inactive:
             failures.append("effect stage activity and admission conflict")
             break
         if admitted and record["backend"] is None:
@@ -3459,10 +3674,17 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
         ):
             failures.append("effect stage fallback owner invalid")
             break
-        if active and not admitted and record["reason"] is None:
+        if record["admission"] == "admitted-passthrough" and (
+            record["activity"] != "property-inactive"
+            or record["backend"] != "initially-inactive-passthrough"
+            or record["profile"] != "inactive-passthrough"
+        ):
+            failures.append("effect stage passthrough owner invalid")
+            break
+        if route_participating and not admitted and record["reason"] is None:
             failures.append("effect stage non-admitted reason missing")
             break
-        if not active and (
+        if not route_participating and (
             not admission_inactive
             or record["coverage"] != "inactive"
             or record["backend"] is not None
@@ -3479,10 +3701,12 @@ def effect_stage_admission_metrics(preview_text: str) -> dict[str, Any]:
                 and record["profile"] != "effect-local-passthrough")
             or (record["admission"] == "admitted-generic"
                 and record["profile"] is None)
+            or (record["admission"] == "admitted-passthrough"
+                and record["profile"] != "inactive-passthrough")
         ):
             failures.append("effect stage admitted state combination invalid")
             break
-        if active and not admitted and (
+        if route_participating and not admitted and (
             record["admission"] != "not-admitted"
             or record["coverage"] not in (
                 omitted_or_rejected_coverages | structural_rejection_coverages
@@ -3703,6 +3927,7 @@ def effect_runtime_disposition_metrics(
         "inactive",
         "dedicated",
         "fallback",
+        "passthrough",
         "program",
         "unsupported",
         "unattributed",
@@ -3958,11 +4183,15 @@ def effect_runtime_disposition_metrics(
                 failures.append("effect runtime disposition inactive group invalid")
         elif not referenced:
             failures.append("effect runtime disposition active group is empty")
+        all_passthrough = bool(referenced) and all(
+            record["kind"] == "passthrough" for record in referenced
+        )
         if group["kind"] == "resolved" and (
-            group["owner_count"] < 1
+            (group["owner_count"] < 1 and not all_passthrough)
             or not kinds.issubset({
                 "dedicated",
                 "fallback",
+                "passthrough",
                 "program",
                 "unattributed",
             })
@@ -3981,6 +4210,7 @@ def effect_runtime_disposition_metrics(
         "inactive": ("none", {"none"}, "none", "forbidden"),
         "dedicated": ("exact-key", {"owner"}, "resolved", "required"),
         "fallback": ("exact-key", {"owner"}, "resolved", "required"),
+        "passthrough": ("exact-key", {"member"}, "resolved", "required"),
         "program": ("exact-key", {"owner"}, "resolved", "required"),
         "unsupported": ("none", {"member"}, "direct", "forbidden"),
         "unattributed": (
@@ -4057,7 +4287,7 @@ def effect_runtime_disposition_metrics(
             )
             if record["definition_path"] != admission["definition_path"]:
                 failures.append("effect runtime disposition definition path mismatch")
-            if admission["activity"] != "active":
+            if admission["activity"] not in {"active", "property-inactive"}:
                 expected_kind = "inactive"
                 expected_reason = admission["activity"]
             elif resolved_material_owner:
@@ -4069,6 +4299,11 @@ def effect_runtime_disposition_metrics(
             elif admission["admission"] == "admitted-fallback":
                 expected_kind = "fallback"
                 expected_reason = "effect-local-visual-failure"
+            elif admission["admission"] == "admitted-passthrough":
+                expected_kind = "passthrough"
+                expected_reason = (
+                    "initially-inactive-property-stage-passthrough"
+                )
             elif admission["admission"] == "admitted-generic":
                 expected_kind = "program"
                 expected_reason = admission["reason"]
@@ -4093,6 +4328,13 @@ def effect_runtime_disposition_metrics(
                 or record["family"] != "visual-failure-passthrough"
             ):
                 failures.append("effect runtime disposition fallback family mismatch")
+            if expected_kind == "passthrough" and (
+                record["family"] != admission["backend"]
+                or record["family"] != "initially-inactive-passthrough"
+            ):
+                failures.append(
+                    "effect runtime disposition passthrough family mismatch"
+                )
             if expected_kind == "program" and not resolved_material_owner and (
                 record["family"] != (
                     admission["profile"] or admission["backend"]
@@ -4105,7 +4347,8 @@ def effect_runtime_disposition_metrics(
                 if record["layer_id"] == group["layer_id"]
             ]
             active_count = sum(
-                record["activity"] == "active" for record in admissions
+                record["activity"] in {"active", "property-inactive"}
+                for record in admissions
             )
             if group["effect_count"] != active_count:
                 failures.append("effect runtime disposition active admission count mismatch")
@@ -4198,7 +4441,10 @@ def _effect_execution_identity_list(
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[Any, ...], dict[str, Any]] = {}
     for invocation in invocations:
-        if invocation["outcome"] != outcome:
+        if (
+            invocation["outcome"] != outcome
+            or invocation.get("join_valid") is not True
+        ):
             continue
         key = (
             invocation["layer_id"],
@@ -4429,6 +4675,10 @@ def effect_execution_metrics(
             continue
         invocation["definition_path"] = record["definition_path"]
         invocation["disposition_kind"] = record["kind"]
+        if record["kind"] == "passthrough":
+            if invocation["family"] != record["family"]:
+                failures.append("effect execution passthrough family mismatch")
+            continue
         if record["kind"] not in EFFECT_EXECUTION_EXACT_KINDS:
             failures.append("effect execution exact disposition cannot invoke")
             continue

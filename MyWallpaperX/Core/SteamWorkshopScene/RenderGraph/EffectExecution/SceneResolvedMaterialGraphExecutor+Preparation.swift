@@ -69,6 +69,23 @@ extension SceneResolvedMaterialGraphExecutor {
                 )
             }
         }
+        if case let .initiallyInactivePassthrough(_, reasonCode) = stageCapability {
+            return prepareActivationPassthrough(
+                reasonCode: reasonCode,
+                dependencyOwnership: capability.dependencyOwnership,
+                transition: transition,
+                graph: graph,
+                pairStep: pairStep,
+                lease: lease,
+                snapshot: visualFailureSnapshot,
+                pair: &pair,
+                publications: &publications,
+                commands: &commands,
+                programKeys: &programKeys,
+                effectLocalActivationBypassReasonCode:
+                    &effectLocalActivationBypassReasonCode
+            )
+        }
         if case let .visualFailurePassthrough(_, reasonCode) = stageCapability {
             return prepareVisualFailurePassthrough(
                 reasonCode: reasonCode,

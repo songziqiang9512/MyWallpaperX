@@ -455,6 +455,31 @@ enum Harness {
             definitions: xRayBindings.program.definitions,
             userValues: xRayEvaluation.userValues
         ).snapshot
+        let xRayVisibilityInstruction = xRayBindings.program.instructions.first {
+            $0.target == xRayVisibilityTarget
+        }!
+        let xRaySizeInstruction = xRayBindings.program.instructions.first {
+            $0.target == xRaySizeTarget
+        }!
+        let mixedVisibilityKeyProgram = ScenePropertyBindingProgram(
+            definitions: xRayBindings.program.definitions,
+            instructions: [
+                xRayVisibilityInstruction,
+                .init(
+                    propertyKey: xRayVisibilityInstruction.propertyKey,
+                    path: xRaySizeInstruction.path,
+                    target: xRaySizeInstruction.target,
+                    valueType: xRaySizeInstruction.valueType
+                ),
+            ]
+        )
+        let rebuildVisibilityProgram = ScenePropertyBindingProgram(
+            definitions: xRayBindings.program.definitions.filter {
+                $0.target == xRayVisibilityTarget
+            },
+            instructions: [xRayVisibilityInstruction],
+            rebuildRequiredPropertyKeys: [xRayVisibilityInstruction.propertyKey]
+        )
         let unsupportedOpacityTargets = compiler.compile(
             report: .init(bindings: [
                 binding("opacityWrongPath", .number(1), 101, .shaderValue(
@@ -752,6 +777,13 @@ enum Harness {
             "xRayUserVisibility": resolved(xRayUser[xRayVisibilityTarget]),
             "xRayUserSize": resolved(xRayUser[xRaySizeTarget]),
             "xRayRuntimeCodes": codes(xRayEvaluation.diagnostics),
+            "xRayStartupVisibilityTargets":
+                xRayBindings.program.directBoolEffectVisibilityTargets
+                    == [xRayVisibilityTarget],
+            "mixedVisibilityStartupTargetsEmpty":
+                mixedVisibilityKeyProgram.directBoolEffectVisibilityTargets.isEmpty,
+            "rebuildVisibilityStartupTargetsEmpty":
+                rebuildVisibilityProgram.directBoolEffectVisibilityTargets.isEmpty,
             "unsupportedOpacityCount": unsupportedOpacityTargets.program.instructions.count,
             "unsupportedOpacityCodes": codes(unsupportedOpacityTargets.diagnostics),
             "unsupportedOpacityRebuild": unsupportedOpacityTargets.program.rebuildRequiredPropertyKeys,
@@ -1146,6 +1178,9 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["scalar(0.4)", "userProperty"],
         )
         self.assertEqual(self.result["xRayRuntimeCodes"], [])
+        self.assertTrue(self.result["xRayStartupVisibilityTargets"])
+        self.assertTrue(self.result["mixedVisibilityStartupTargetsEmpty"])
+        self.assertTrue(self.result["rebuildVisibilityStartupTargetsEmpty"])
 
     def test_direct_scalar_targets_do_not_depend_on_effect_path_pass_or_name(self) -> None:
         self.assertEqual(self.result["unsupportedOpacityCount"], 3)

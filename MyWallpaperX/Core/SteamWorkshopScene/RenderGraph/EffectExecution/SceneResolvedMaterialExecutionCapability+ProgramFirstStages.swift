@@ -27,6 +27,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let effect = product.graph.effects.first else {
                 return .failure(rejection("stage-effect-identity-missing"))
             }
+            let initiallyInactive = admitted.initiallyInactiveEffectKeys
+                .contains(effect.key)
             // The renderer captures the layer/main target exactly once into
             // the pair member identified by baseCaptureIdentity. Every later
             // effect consumes the preceding effect output already resident in
@@ -45,6 +47,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     admitted.unavailableDependencyStageReasons.filter {
                         $0.key == effect.key
                     },
+                initiallyInactiveEffectKeys:
+                    initiallyInactive ? [effect.key] : [],
                 sourceRoute: stageSourceRoute,
                 isVisibleExecutionRoot: admitted.isVisibleExecutionRoot,
                 isGraphOutputProvider: admitted.isGraphOutputProvider,
@@ -85,10 +89,49 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                       case .resolved = compiled.stages[0],
                       Set(allMaterials.keys).isDisjoint(with: compiled.materials.keys)
                 else { return .failure(rejection("material-identity-duplicate")) }
+                let expectedVisibilityTarget = SceneDynamicTarget
+                    .effectVisibility(
+                        layerID: effect.key.layerID,
+                        effectIndex: effect.key.effectIndex
+                    )
+                if initiallyInactive,
+                   compiled.stages[0].activationPolicy?
+                    .effectVisibilityTarget != expectedVisibilityTarget {
+                    guard initiallyInactiveStageMayPassthrough(
+                        product,
+                        pairPlan: admitted.pairPlan
+                    ) else {
+                        return .failure(rejection(
+                            "initially-inactive-stage-passthrough-unsafe"
+                        ))
+                    }
+                    stages.append(.initiallyInactivePassthrough(
+                        product: product,
+                        reasonCode:
+                            "initially-inactive-property-stage-passthrough"
+                    ))
+                    continue
+                }
                 stages.append(compiled.stages[0])
                 allMaterials.merge(compiled.materials) { current, _ in current }
 
             case let .failure(programFailure):
+                if initiallyInactive {
+                    guard initiallyInactiveStageMayPassthrough(
+                        product,
+                        pairPlan: admitted.pairPlan
+                    ) else {
+                        return .failure(rejection(
+                            "initially-inactive-stage-passthrough-unsafe"
+                        ))
+                    }
+                    stages.append(.initiallyInactivePassthrough(
+                        product: product,
+                        reasonCode:
+                            "initially-inactive-property-stage-passthrough"
+                    ))
+                    continue
+                }
                 if programFailure.revokesDedicatedProductOwner
                     || programFailure.code == "material-generic-owner-revoked" {
                     if product.clearFunctions.functions.isEmpty,
@@ -183,6 +226,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             materials: allMaterials,
             sceneBackgroundRequirement: background
         ))
+    }
+
+    private static func initiallyInactiveStageMayPassthrough(
+        _ product: SceneGraphAdmissionProduct,
+        pairPlan: SceneLayerFullFramePairPlan
+    ) -> Bool {
+        guard product.clearFunctions.functions.isEmpty,
+              let effect = product.graph.effects.first else { return false }
+        return dependencyStageFailureMayPassthrough(
+            product.graph,
+            pairStep: pairPlan.effects.first(where: {
+                $0.effect == effect.key
+            })
+        )
     }
 
     private struct SceneBackgroundCandidate {

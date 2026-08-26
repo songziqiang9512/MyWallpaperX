@@ -7,6 +7,7 @@ nonisolated struct SceneEffectStageRuntimeDisposition {
         case inactive
         case dedicated
         case fallback
+        case passthrough
         case program
         case unsupported
         case unattributed

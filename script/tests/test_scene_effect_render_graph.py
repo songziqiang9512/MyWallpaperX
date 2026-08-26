@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SOURCE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift",
@@ -275,11 +276,16 @@ enum Harness {
     typealias TargetPlan = SceneGraphRenderTargetPlan
     typealias State = SceneGraphExecutionState
 
-    static func effect(_ id: String, _ file: String, passCount: Int) -> SceneRenderDescriptor.EffectDescriptor {
+    static func effect(
+        _ id: String,
+        _ file: String,
+        passCount: Int,
+        visible: Bool = true
+    ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
             id: id,
             file: file,
-            visible: true,
+            visible: visible,
             passes: (0..<passCount).map { .init(passIndex: $0) }
         )
     }
@@ -414,12 +420,43 @@ enum Harness {
             .init(id: 93, effects: [
                 effect("clear-a", "effects/incompatible-clear/effect.json", passCount: 1),
             ]),
+            .init(id: 100, effects: [
+                effect("active-prefix", "effects/compose-false/effect.json", passCount: 1),
+                effect(
+                    "startup-pair-leaf",
+                    "effects/compose-false/effect.json",
+                    passCount: 1,
+                    visible: false
+                ),
+                effect("active-suffix", "effects/compose-false/effect.json", passCount: 1),
+            ]),
+            .init(id: 101, effects: [
+                effect("fbo-prefix", "effects/compose-false/effect.json", passCount: 1),
+                effect(
+                    "startup-fbo",
+                    "effects/blur/effect.json",
+                    passCount: 4,
+                    visible: false
+                ),
+                effect("fbo-suffix", "effects/compose-false/effect.json", passCount: 1),
+            ]),
+            .init(id: 102, effects: [
+                effect(
+                    "static-disabled",
+                    "effects/compose-false/effect.json",
+                    passCount: 1,
+                    visible: false
+                ),
+            ]),
         ]
         let plans = SceneAuthoredEffectRenderPlanner.plans(for: .init(
             layers: layers,
             effectDefinitions: definitions,
             materialPasses: materials
-        ))
+        ), startupInactiveEffectVisibilityTargets: [
+            .effectVisibility(layerID: 100, effectIndex: 1),
+            .effectVisibility(layerID: 101, effectIndex: 1),
+        ])
         let byLayer = Dictionary(uniqueKeysWithValues: plans.map { ($0.layerID, $0) })
         let blur = byLayer[10]!
         let motion = byLayer[20]!
@@ -436,6 +473,8 @@ enum Harness {
         let incompatibleFormat = byLayer[91]!
         let incompatibleUnique = byLayer[92]!
         let incompatibleClear = byLayer[93]!
+        let startupPairLeaf = byLayer[100]!
+        let startupFBO = byLayer[101]!
         let incompatibleGraphs = [
             incompatibleExtent, incompatibleFormat, incompatibleUnique, incompatibleClear,
         ]
@@ -563,6 +602,17 @@ enum Harness {
                 String(composedExtent.fit ?? -1),
                 String(composedExtent.scale ?? -1),
             ],
+            "startupPairLeafEffectIndices":
+                startupPairLeaf.effects.map(\.key.effectIndex),
+            "startupPairLeafInputs": startupPairLeaf.effects.map {
+                textureKey($0.input)
+            },
+            "startupPairLeafOutputs": startupPairLeaf.effects.map {
+                textureKey($0.output)
+            },
+            "startupFBOEffectIndices": startupFBO.effects.map(\.key.effectIndex),
+            "startupFBOTargetCount": startupFBO.renderTargets.count,
+            "staticDisabledPlanAbsent": byLayer[102] == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -598,19 +648,22 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         harness = root / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = root / "scene-effect-graph"
-        subprocess.run(
+        compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness), "-o", str(cls.binary),
             ],
-            check=True,
             capture_output=True,
             text=True,
         )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(cls.binary), str(root)], check=True, capture_output=True, text=True
+            [str(cls.binary), str(root)], capture_output=True, text=True
         )
+        if completed.returncode != 0:
+            raise RuntimeError(completed.stderr)
         cls.result = json.loads(completed.stdout)
 
     @classmethod
@@ -716,6 +769,18 @@ class SceneEffectRenderGraphTests(unittest.TestCase):
         self.assertIn("invalidFramebufferUnique", reasons)
         self.assertIn("invalidFramebufferClear", reasons)
         self.assertIn("unsupportedFramebufferExtent", reasons)
+
+    def test_startup_inactive_pair_leaf_preserves_authored_sibling_chain(self) -> None:
+        self.assertEqual(self.result["startupPairLeafEffectIndices"], [0, 1, 2])
+        inputs = self.result["startupPairLeafInputs"]
+        outputs = self.result["startupPairLeafOutputs"]
+        self.assertEqual(inputs[1], outputs[0])
+        self.assertEqual(inputs[2], outputs[1])
+
+    def test_startup_inactive_fbo_and_static_false_remain_outside_slice(self) -> None:
+        self.assertEqual(self.result["startupFBOEffectIndices"], [0, 2])
+        self.assertEqual(self.result["startupFBOTargetCount"], 0)
+        self.assertTrue(self.result["staticDisabledPlanAbsent"])
 
 
 if __name__ == "__main__":

@@ -3378,27 +3378,30 @@ enum Harness {
             )
             let key7 = effect(for: 7)
             let key8 = effect(for: 8)
-            let fallback7: SceneResolvedMaterialRuntimeBridge.ExactEffectSubject
-            let fallback8: SceneResolvedMaterialRuntimeBridge.ExactEffectSubject
             guard case let .claimed(claim7) = bridge.preflightClaim(layerID: 7),
-                  case let .claimed(claim8) = bridge.preflightClaim(layerID: 8),
-                  let first7 = bridge.executionEvidenceSubjects(for: claim7).first,
-                  let first8 = bridge.executionEvidenceSubjects(for: claim8).first else {
+                  case let .claimed(claim8) = bridge.preflightClaim(layerID: 8) else {
                 fatalError("fixture capability claims unavailable")
             }
-            fallback7 = first7
-            fallback8 = first8
-            results["bridgeDerivesNeutralEvidenceSubjectsAfterClaim"] =
-                fallback7.key == key7 && fallback7.family == "resolved-material"
-                && fallback8.key == key8 && fallback8.family == "resolved-material"
+            results["uninstalledDispositionEvidenceIsNotInvoked"] =
+                bridge.executionEvidenceSubjects(for: claim7).isEmpty
+                && bridge.executionEvidenceSubjects(for: claim8).isEmpty
             bridge.installExecutionEvidence([
                 .init(key: key7, family: "generic-framebuffer"),
             ])
+            guard let fallback7 = bridge.executionEvidenceSubjects(
+                for: claim7
+            ).first else {
+                fatalError("installed fixture disposition unavailable")
+            }
+            results["bridgeProjectsOnlyInstalledDispositionEvidence"] =
+                fallback7.key == key7
+                && fallback7.family == "generic-framebuffer"
+                && bridge.executionEvidenceSubjects(for: claim8).isEmpty
             results["executionEvidenceOverridesFallbackFamily"] =
                 bridge.executionEvidenceFamily(for: fallback7.key)
                     == "generic-framebuffer"
             results["missingExecutionEvidenceKeepsFallbackIsolated"] =
-                bridge.executionEvidenceFamily(for: fallback8.key) == nil
+                bridge.executionEvidenceFamily(for: key8) == nil
 
             let passthroughBridge = SceneResolvedMaterialRuntimeBridge(
                 catalog: .init(
@@ -3414,6 +3417,12 @@ enum Harness {
                 assets: .init(states: [:]),
                 device: device
             )
+            passthroughBridge.installExecutionEvidence([
+                .init(
+                    key: effect(for: 9),
+                    family: "visual-failure-passthrough"
+                ),
+            ])
             if case let .claimed(passthroughClaim) = passthroughBridge
                 .preflightClaim(layerID: 9),
                let passthroughSubject = passthroughBridge
@@ -4751,7 +4760,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "productionObservationBuilderFailure",
                 "claimUsesCentralCapabilityAdmission",
                 "claimCarriesGraphIdentityOnly",
-                "bridgeDerivesNeutralEvidenceSubjectsAfterClaim",
+                "uninstalledDispositionEvidenceIsNotInvoked",
+                "bridgeProjectsOnlyInstalledDispositionEvidence",
                 "executionEvidenceOverridesFallbackFamily",
                 "missingExecutionEvidenceKeepsFallbackIsolated",
                 "visualFailurePassthroughKeepsFailedTelemetry",

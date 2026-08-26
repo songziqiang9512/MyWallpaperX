@@ -4,6 +4,8 @@ struct SceneRuntimeInput: Codable {
     let renderDescriptor: SceneRenderDescriptor
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let propertyBindingProgram: ScenePropertyBindingProgram
+    let directBoolEffectVisibilityTargets: Set<SceneDynamicTarget>
+    let startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget>
     let effectivePropertyValues: [String: SceneUserPropertyValue]
     let shaderContracts: [SceneShaderContract]
 
@@ -14,8 +16,17 @@ struct SceneRuntimeInput: Codable {
         shaderContracts: [SceneShaderContract]
     ) {
         self.renderDescriptor = renderDescriptor
+        directBoolEffectVisibilityTargets =
+            propertyBindingProgram.directBoolEffectVisibilityTargets
+        startupInactiveEffectVisibilityTargets =
+            SceneInitiallyInactiveEffectRouteAdmission.targets(
+                in: renderDescriptor,
+                candidates: directBoolEffectVisibilityTargets
+            )
         authoredEffectRenderPlans = SceneAuthoredEffectRenderPlanner.plans(
-            for: renderDescriptor
+            for: renderDescriptor,
+            startupInactiveEffectVisibilityTargets:
+                startupInactiveEffectVisibilityTargets
         )
         self.propertyBindingProgram = propertyBindingProgram
         self.effectivePropertyValues = effectivePropertyValues

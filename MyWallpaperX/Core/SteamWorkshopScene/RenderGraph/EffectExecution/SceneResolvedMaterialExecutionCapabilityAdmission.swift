@@ -14,6 +14,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
     let unavailableDependencyStageReasons: [Graph.EffectKey: String]
+    let initiallyInactiveEffectKeys: Set<Graph.EffectKey>
     let sourceRoute: SourceRoute
     let isVisibleExecutionRoot: Bool
     let isGraphOutputProvider: Bool
@@ -25,6 +26,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         unavailableDependencyStageReasons: [Graph.EffectKey: String] = [:],
+        initiallyInactiveEffectKeys: Set<Graph.EffectKey> = [],
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
@@ -35,10 +37,75 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
         self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
+        self.initiallyInactiveEffectKeys = initiallyInactiveEffectKeys
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
         self.requiresGraphOutputProvider = requiresGraphOutputProvider
+    }
+}
+
+/// Narrows validated direct-bool bindings to ordinary, visible root layers.
+/// Cross-layer providers/consumers and utility or hierarchy-owned output keep
+/// their existing route; startup-inactive admission must not extend it.
+nonisolated enum SceneInitiallyInactiveEffectRouteAdmission {
+    static func targets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let structuralUtilityConsumerLayerIDs =
+            SceneResolvedMaterialDependencyOwnershipCompiler
+                .structuralUtilityConsumerLayerIDs(in: descriptor)
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs,
+            executableUtilityConsumerLayerIDs:
+                structuralUtilityConsumerLayerIDs
+        )
+        return targets(
+            in: descriptor,
+            candidates: candidates,
+            visibleLayerIDs: visibleLayerIDs,
+            dependencyPlan: dependencyPlan
+        )
+    }
+
+    static func targets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>,
+        visibleLayerIDs: Set<Int>,
+        dependencyPlan: SceneDependencyRenderPlan
+    ) -> Set<SceneDynamicTarget> {
+        let layersByID = Dictionary(
+            uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
+        )
+        let dependencyConsumerLayerIDs = Set(
+            dependencyPlan.references.map(\.consumerLayerID)
+        )
+            .union(dependencyPlan.namedReferenceConsumerLayerIDs)
+            .union(dependencyPlan.requiredEffectConsumerLayerIDs)
+            .union(dependencyPlan.bindingsByConsumerLayerID.keys)
+        let dependencyProviderLayerIDs = dependencyPlan.requiredProviderLayerIDs
+            .union(dependencyPlan.requiredGraphOutputProviderLayerIDs)
+        return Set(candidates.compactMap { target in
+            guard case let .effectVisibility(layerID, effectIndex) = target,
+                  let layer = layersByID[layerID],
+                  layer.effects.indices.contains(effectIndex),
+                  layer.effects[effectIndex].visible == false,
+                  visibleLayerIDs.contains(layerID),
+                  layer.parentID == nil,
+                  layer.childLayerIDs.isEmpty,
+                  layer.dependencyLayerIDs.isEmpty,
+                  layer.authoredDependencies.isEmpty,
+                  ["image", "solid", "text"].contains(layer.contentKind),
+                  !dependencyConsumerLayerIDs.contains(layerID),
+                  !dependencyProviderLayerIDs.contains(layerID),
+                  !dependencyPlan.staticLayerSourcePassthroughBlockedLayerIDs
+                    .contains(layerID) else { return nil }
+            guard case nil = layer.utilityLayer else { return nil }
+            return target
+        })
     }
 }
 
@@ -83,6 +150,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         authoredPlans: [Graph],
         dedicatedStagePrograms: [SceneEffectStageProgram] = [],
         dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence] = [:]
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
@@ -103,6 +171,13 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         )
         let graphOutputProviderLayerIDs =
             dependencyPlan.requiredGraphOutputProviderLayerIDs
+        let safeStartupInactiveTargets =
+            SceneInitiallyInactiveEffectRouteAdmission.targets(
+                in: descriptor,
+                candidates: startupInactiveEffectVisibilityTargets,
+                visibleLayerIDs: visibleLayerIDs,
+                dependencyPlan: dependencyPlan
+            )
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
             layer.effects.contains(where: { $0.visible != false }) ? layer.id : nil
         })
@@ -191,15 +266,6 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     result: .failure(failure("dynamic-effect-visibility"))
                 )
             }
-            let activeEffects = layer.effects.enumerated().filter {
-                $0.element.visible != false
-            }
-            guard !activeEffects.isEmpty else {
-                return .init(
-                    layerID: layerID,
-                    result: .failure(failure("active-effect-conservation"))
-                )
-            }
             let graphs = rawGroups[layerID] ?? []
             guard graphs.count == 1, let graph = graphs.first,
                   let dependencyOwnership else {
@@ -208,16 +274,52 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     result: .failure(failure("raw-graph-count"))
                 )
             }
+            let graphKeys = Set(graph.effects.map(\.key))
+            let plannedEffects = layer.effects.enumerated().filter {
+                effectIndex, effect in
+                if effect.visible != false { return true }
+                return graphKeys.contains(.init(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    descriptorID: effect.id
+                ))
+            }
+            let initiallyInactiveEffectKeys: Set<Graph.EffectKey> = Set(
+                plannedEffects.compactMap { effectIndex, effect -> Graph.EffectKey? in
+                    guard effect.visible == false else { return nil }
+                    let target = SceneDynamicTarget.effectVisibility(
+                        layerID: layerID,
+                        effectIndex: effectIndex
+                    )
+                    guard safeStartupInactiveTargets.contains(target)
+                    else { return nil }
+                    return Graph.EffectKey(
+                        layerID: layerID,
+                        effectIndex: effectIndex,
+                        descriptorID: effect.id
+                    )
+                }
+            )
+            guard !plannedEffects.isEmpty,
+                  plannedEffects.filter({ $0.element.visible == false }).count
+                    == initiallyInactiveEffectKeys.count else {
+                return .init(
+                    layerID: layerID,
+                    result: .failure(failure("active-effect-conservation"))
+                )
+            }
             return .init(
                 layerID: layerID,
                 result: compileLayer(
                     graph: graph,
                     layer: layer,
-                    activeEffects: activeEffects,
+                    plannedEffects: plannedEffects,
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
                     unavailableDependencyStageReasons:
                         unavailableDependencyStageReasons,
+                    initiallyInactiveEffectKeys:
+                        initiallyInactiveEffectKeys,
                     sourceRoute: sourceRoute,
                     isVisibleExecutionRoot: visibleLayerIDs.contains(layerID),
                     isGraphOutputProvider:
@@ -294,10 +396,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     private static func compileLayer(
         graph: Graph,
         layer: SceneRenderDescriptor.Layer,
-        activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
+        plannedEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         unavailableDependencyStageReasons: [Graph.EffectKey: String],
+        initiallyInactiveEffectKeys: Set<Graph.EffectKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
         isVisibleExecutionRoot: Bool,
         isGraphOutputProvider: Bool,
@@ -313,7 +416,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             try validateOuterGraph(
                 graph,
                 layer: layer,
-                activeEffects: activeEffects
+                plannedEffects: plannedEffects
             )
             var products: [SceneGraphAdmissionProduct] = []
             for effect in graph.effects {
@@ -361,6 +464,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 dependencyOwnership: dependencyOwnership,
                 unavailableDependencyStageReasons:
                     unavailableDependencyStageReasons,
+                initiallyInactiveEffectKeys: initiallyInactiveEffectKeys,
                 sourceRoute: sourceRoute,
                 isVisibleExecutionRoot: isVisibleExecutionRoot,
                 isGraphOutputProvider: isGraphOutputProvider,
@@ -376,10 +480,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     private static func validateOuterGraph(
         _ graph: Graph,
         layer: SceneRenderDescriptor.Layer,
-        activeEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)]
+        plannedEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)]
     ) throws {
         guard graph.layerID == layer.id,
-              graph.effects.count == activeEffects.count,
+              graph.effects.count == plannedEffects.count,
               !graph.effects.isEmpty else {
             throw failure("active-effect-conservation")
         }
@@ -388,7 +492,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         )
         var seenKeys = Set<Graph.EffectKey>()
         var seenNodeIndices = Set<Int>()
-        for (effect, active) in zip(graph.effects, activeEffects) {
+        for (effect, active) in zip(graph.effects, plannedEffects) {
             let expectedKey = Graph.EffectKey(
                 layerID: layer.id,
                 effectIndex: active.offset,

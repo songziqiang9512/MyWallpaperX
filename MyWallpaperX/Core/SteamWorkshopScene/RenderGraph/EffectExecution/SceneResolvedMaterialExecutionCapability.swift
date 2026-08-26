@@ -196,44 +196,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             product: SceneGraphAdmissionProduct,
             reasonCode: String
         )
-
-        var product: SceneGraphAdmissionProduct {
-            switch self {
-            case .resolved(let product, _, _), .dedicated(let product, _, _): product
-            case .visualFailurePassthrough(let product, _): product
-            }
-        }
-
-        var activationPolicy: SceneResolvedMaterialStageActivationPolicy? {
-            guard case let .resolved(_, _, activation) = self else { return nil }
-            return activation
-        }
-
-        var subject: ExactEffectSubject? {
-            guard let key = product.graph.effects.first?.key else { return nil }
-            switch self {
-            case .resolved:
-                return .init(key: key, family: "resolved-material")
-            case .dedicated(_, _, let family):
-                return .init(key: key, family: family)
-            case .visualFailurePassthrough:
-                return .init(key: key, family: "visual-failure-passthrough")
-            }
-        }
-
-        /// Projects only the dedicated leaf's execution plan for resource
-        /// loading. Resolved material stages own their resources elsewhere.
-        var dedicatedExecutionPlan: SceneEffectStageExecutionPlan? {
-            guard case .dedicated(_, let program, _) = self else { return nil }
-            return program.executionPlan
-        }
-
-        var visualFailureReasonCode: String? {
-            guard case let .visualFailurePassthrough(_, reasonCode) = self else {
-                return nil
-            }
-            return reasonCode
-        }
+        case initiallyInactivePassthrough(
+            product: SceneGraphAdmissionProduct,
+            reasonCode: String
+        )
     }
 
     final class LayerCapability {
@@ -324,6 +290,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         Rejection.ProgramFailureAttribution
     ]
     private let visualFailurePassthroughReasons: [String: Int]
+    private let initiallyInactivePassthroughReasons: [String: Int]
     private let candidateCount: Int
     private let variantLimit: Int
 
@@ -347,7 +314,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         var productAuthorityRejectedByLayerID: [Int: String] = [:]
         var rejected: [String: Int] = [:]
         var programFailures: [Rejection.ProgramFailureAttribution] = []
-        var passthroughs: [String: Int] = [:]
+        var visualFailurePassthroughs: [String: Int] = [:]
+        var initiallyInactivePassthroughs: [String: Int] = [:]
         for candidate in admissionCandidates {
             switch candidate.result {
             case let .failure(failure):
@@ -391,7 +359,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     for reason in compiled.stages.compactMap(
                         \.visualFailureReasonCode
                     ) {
-                        passthroughs[reason, default: 0] += 1
+                        visualFailurePassthroughs[reason, default: 0] += 1
+                    }
+                    for reason in compiled.stages.compactMap(
+                        \.initiallyInactivePassthroughReasonCode
+                    ) {
+                        initiallyInactivePassthroughs[reason, default: 0] += 1
                     }
                 }
             }
@@ -405,7 +378,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             productAuthorityRejectedByLayerID
         rejectedReasons = rejected
         programFailureAttributions = programFailures
-        visualFailurePassthroughReasons = passthroughs
+        visualFailurePassthroughReasons = visualFailurePassthroughs
+        initiallyInactivePassthroughReasons = initiallyInactivePassthroughs
     }
 
     /// A hidden graph-output provider has product execution authority only
@@ -568,7 +542,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                 case .dedicated(_, let program, _):
                     targets.formUnion(program.executionPlan.liveConsumerTargets)
-                case .visualFailurePassthrough:
+                case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     break
                 }
             }
@@ -594,7 +568,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     }
                 case .dedicated(_, let program, _):
                     targets.formUnion(program.executionPlan.liveConsumerTargets)
-                case .visualFailurePassthrough:
+                case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     break
                 }
             }
@@ -610,7 +584,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
                 case .dedicated(_, let program, _):
                     return program.executionPlan.pulse?.audio != nil
-                case .visualFailurePassthrough:
+                case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     return false
                 }
             }
@@ -635,6 +609,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 + " state=prefer-generic outcome=effect-local-passthrough"
                 + " reason=\($0)"
                 + " count=\(visualFailurePassthroughReasons[$0] ?? 0)"
+        }
+        result += initiallyInactivePassthroughReasons.keys.sorted().map {
+            "resolved material execution capability passthrough:"
+                + " scope=startup-property-inactive outcome=previous-current"
+                + " reason=\($0)"
+                + " count=\(initiallyInactivePassthroughReasons[$0] ?? 0)"
         }
         result += capabilitiesByLayerID.keys.sorted().map { layerID in
             guard let dependency = capabilitiesByLayerID[layerID]?

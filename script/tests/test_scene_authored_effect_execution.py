@@ -972,6 +972,65 @@ enum Harness {
         ]
     }
 
+    static func startupInactiveAdmissionEvidence() -> [String: Any] {
+        let fixture = orderedGraph(
+            layerID: 941,
+            stageNames: ["prefix", "film-grain", "suffix"]
+        )
+        let layer = fixture.descriptor.layers[0]
+        let effects = layer.effects.enumerated().map { index, effect in
+            SceneRenderDescriptor.EffectDescriptor(
+                id: effect.id,
+                file: effect.file,
+                visible: index == 1 ? false : true,
+                passes: effect.passes
+            )
+        }
+        let descriptor = SceneRenderDescriptor(
+            layers: [.init(
+                id: layer.id,
+                parentID: layer.parentID,
+                visible: layer.visible,
+                contentKind: layer.contentKind,
+                effects: effects
+            )],
+            materialPasses: fixture.descriptor.materialPasses
+        )
+        let subjects = fixture.graph.effects.map {
+            SceneEffectExactRuntimeSubject(
+                key: $0.key,
+                family: "resolved-material"
+            )
+        }
+        let target = SceneDynamicTarget.effectVisibility(
+            layerID: layer.id,
+            effectIndex: 1
+        )
+        let owned = SceneEffectAdmissionCatalog(
+            descriptor: descriptor,
+            authoredPlans: [fixture.graph],
+            resolvedMaterialSubjects: subjects,
+            startupInactiveEffectVisibilityTargets: [target]
+        )
+        let missingToken = SceneEffectAdmissionCatalog(
+            descriptor: descriptor,
+            authoredPlans: [fixture.graph],
+            resolvedMaterialSubjects: subjects
+        )
+        return [
+            "owned": owned.stageAdmissions.map {
+                [$0.activity.rawValue, $0.admission.rawValue, $0.coverage.rawValue]
+            },
+            "ownedStageCount": owned.unifiedExecutionStageKeys.count,
+            "missingTokenStageCount":
+                missingToken.unifiedExecutionStageKeys.count,
+            "missingTokenMiddle": [
+                missingToken.stageAdmissions[1].activity.rawValue,
+                missingToken.stageAdmissions[1].admission.rawValue,
+            ],
+        ]
+    }
+
     static func stageEvidence(
         graph: Graph,
         descriptor: SceneRenderDescriptor
@@ -1054,6 +1113,7 @@ enum Harness {
             "precedence": resolverPrecedence(),
             "materialOnly": materialOnlyResolverEvidence(),
             "hiddenCapabilityAdmission": hiddenCapabilityAdmissionEvidence(),
+            "startupInactiveAdmission": startupInactiveAdmissionEvidence(),
             "standardScale": [standardBlur.horizontalStep, standardBlur.verticalStep],
             "standardRTScale": standardBlur.renderTargetScale,
             "standardEffectDescriptorID": standardBlur.effectDescriptorID,
@@ -1236,6 +1296,23 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertEqual(evidence["ownedStageCount"], 2)
         self.assertEqual(evidence["unownedStageCount"], 0)
         self.assertEqual(evidence["incompleteStageCount"], 0)
+
+    def test_startup_inactive_stage_keeps_truthful_owned_admission(self) -> None:
+        evidence = self.result["startupInactiveAdmission"]
+        self.assertEqual(
+            evidence["owned"],
+            [
+                ["active", "admitted-generic", "complete"],
+                ["property-inactive", "admitted-generic", "complete"],
+                ["active", "admitted-generic", "complete"],
+            ],
+        )
+        self.assertEqual(evidence["ownedStageCount"], 3)
+        self.assertEqual(evidence["missingTokenStageCount"], 0)
+        self.assertEqual(
+            evidence["missingTokenMiddle"],
+            ["author-disabled", "inactive"],
+        )
 
     def test_unsupported_standard_blur_shapes_fail_closed(self) -> None:
         rejection_keys = (

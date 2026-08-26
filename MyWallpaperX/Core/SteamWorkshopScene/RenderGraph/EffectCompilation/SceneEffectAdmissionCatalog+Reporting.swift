@@ -18,9 +18,11 @@ extension SceneEffectAdmissionCatalog {
             SceneEffectStageAdmission.Coverage.allCases,
             value: \.coverage
         )
-        let activeCount = stageAdmissions.filter { $0.activity == .active }.count
+        let activeCount = stageAdmissions.filter {
+            $0.activity.participatesInUnifiedRoute
+        }.count
         let inactiveActivityCount = stageAdmissions.filter {
-            $0.activity != .active
+            !$0.activity.participatesInUnifiedRoute
         }.count
         let inactiveAdmissionCount = stageAdmissions.filter {
             $0.admission == .inactive
@@ -31,7 +33,8 @@ extension SceneEffectAdmissionCatalog {
         let parsedKeys = stageAdmissions.map(\.key)
         let admittedKeys = stageAdmissions.compactMap { admission in
             switch admission.admission {
-            case .admittedDedicated, .admittedFallback, .admittedGeneric:
+            case .admittedDedicated, .admittedFallback, .admittedGeneric,
+                 .admittedPassthrough:
                 admission.key
             case .inactive, .notAdmitted:
                 nil

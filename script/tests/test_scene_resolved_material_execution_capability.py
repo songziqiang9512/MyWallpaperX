@@ -42,6 +42,10 @@ VISUAL_FAILURE_TOPOLOGY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialVisualFailureTopology.swift"
 )
+GRAPH_EXECUTOR_VISUAL_FAILURE_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+VisualFailurePassthrough.swift"
+)
 VARIANT_CACHE_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant.swift"
@@ -333,8 +337,11 @@ struct SceneDependencyRenderPlan {
 
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
+    let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
+    let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -345,6 +352,7 @@ struct SceneDependencyRenderPlan {
         namedReferenceConsumerLayerIDs = Set(references.compactMap {
             visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
         })
+        requiredEffectConsumerLayerIDs = namedReferenceConsumerLayerIDs
         var bindings: [Int: Binding] = [:]
         for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
             guard layer.utilityLayer == nil
@@ -359,6 +367,7 @@ struct SceneDependencyRenderPlan {
             }
         }
         bindingsByConsumerLayerID = bindings
+        requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
         requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
             descriptor.layers.first(where: { $0.id == binding.providerLayerID })
                 .flatMap { provider in
@@ -366,6 +375,8 @@ struct SceneDependencyRenderPlan {
                         ? provider.id : nil
                 }
         })
+        staticLayerSourcePassthroughBlockedLayerIDs =
+            namedReferenceConsumerLayerIDs.union(requiredProviderLayerIDs)
     }
 }
 
@@ -1318,6 +1329,289 @@ private func pairOnlyDescriptor() -> SceneRenderDescriptor {
             .init(relativePath: "effects/second/effect.json", functions: nil),
         ]
     )
+}
+
+private let startupInactiveKey = key(1, "startup-inactive")
+
+private func startupInactiveVisibilityTarget() -> SceneDynamicTarget {
+    .effectVisibility(
+        layerID: layerID,
+        effectIndex: startupInactiveKey.effectIndex
+    )
+}
+
+private func startupInactiveGraph() -> Graph {
+    let keys = [firstKey, startupInactiveKey, secondKey]
+    var current = source()
+    var effects: [Graph.Effect] = []
+    var nodes: [Graph.Node] = []
+    for (index, effectKey) in keys.enumerated() {
+        let next = output(effectKey)
+        let node = material(
+            index: index,
+            ordinal: 0,
+            effect: effectKey,
+            target: next,
+            input: current
+        )
+        nodes.append(node)
+        effects.append(.init(
+            key: effectKey,
+            definitionPath: "effects/startup-\(index)/effect.json",
+            input: current,
+            output: next,
+            nodeIndices: [index]
+        ))
+        current = next
+    }
+    return .init(
+        layerID: layerID,
+        effects: effects,
+        renderTargets: [],
+        nodes: nodes,
+        finalOutput: current,
+        blockers: []
+    )
+}
+
+private func startupInactiveDescriptor() -> SceneRenderDescriptor {
+    let keys = [firstKey, startupInactiveKey, secondKey]
+    return .init(
+        layers: [.init(
+            id: layerID,
+            effects: keys.enumerated().map { index, effectKey in
+                .init(
+                    id: effectKey.descriptorID,
+                    file: "effects/startup-\(index)/effect.json",
+                    visible: index == 1 ? false : true,
+                    passes: [.init(passIndex: 0, combos: [:])]
+                )
+            }
+        )],
+        materialPasses: keys.indices.map {
+            .init(
+                id: "m\($0)",
+                materialPath: "materials/m\($0).json",
+                combos: [:]
+            )
+        },
+        effectDefinitions: keys.indices.map {
+            .init(
+                relativePath: "effects/startup-\($0)/effect.json",
+                functions: nil
+            )
+        }
+    )
+}
+
+private func startupInactiveChecks() -> [String: Bool] {
+    let graph = startupInactiveGraph()
+    let descriptor = startupInactiveDescriptor()
+    let visibilityTarget = startupInactiveVisibilityTarget()
+    let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
+        descriptor: descriptor,
+        authoredPlans: [graph],
+        dedicatedStagePrograms: [dedicatedProgram(
+            graph: graph,
+            effectIndex: 1,
+            inputRole: .priorEffectOutput
+        )],
+        startupInactiveEffectVisibilityTargets: [visibilityTarget]
+    )
+    let producers = Catalog.DynamicProducerCatalog(
+        userProperties: [.init(
+            propertyKey: "startup-visible",
+            target: visibilityTarget,
+            valueType: .bool
+        )],
+        authoredFallbackTargets: [visibilityTarget],
+        timelineTargets: [],
+        sceneScriptTargets: []
+    )
+    let programCatalog = Catalog(
+        admissionCandidates: candidates,
+        materialCatalog: materialCatalog(graph: graph),
+        dynamicProducers: producers,
+        dedicatedStageFamilies: [startupInactiveKey: "fixture-dedicated"],
+        dedicatedLeafKeys: [startupInactiveKey]
+    )
+    let passthroughCatalog = Catalog(
+        admissionCandidates: candidates,
+        materialCatalog: materialCatalog(graph: graph, omitNode: 1),
+        dynamicProducers: producers,
+        dedicatedStageFamilies: [startupInactiveKey: "fixture-dedicated"],
+        dedicatedLeafKeys: [startupInactiveKey]
+    )
+    let program = programCatalog.claim(layerID: layerID)
+        .flatMap { programCatalog.resolve($0.token) }
+    let passthrough = passthroughCatalog.claim(layerID: layerID)
+        .flatMap { passthroughCatalog.resolve($0.token) }
+    let programFamilies = program?.stages.compactMap(\.subject).map(\.family)
+    let passthroughFamilies = passthrough?.stages.compactMap(\.subject)
+        .map(\.family)
+    func replacingLayers(
+        _ layers: [SceneRenderDescriptor.Layer]
+    ) -> SceneRenderDescriptor {
+        .init(
+            layers: layers,
+            materialPasses: descriptor.materialPasses,
+            effectDefinitions: descriptor.effectDefinitions
+        )
+    }
+    func admittedTargets(
+        _ candidateDescriptor: SceneRenderDescriptor
+    ) -> Set<SceneDynamicTarget> {
+        SceneInitiallyInactiveEffectRouteAdmission.targets(
+            in: candidateDescriptor,
+            candidates: [visibilityTarget]
+        )
+    }
+    var utilityLayer = descriptor.layers[0]
+    utilityLayer.utilityLayer = .init(kind: .composition)
+    var childLayer = descriptor.layers[0]
+    childLayer.childLayerIDs = [layerID + 10]
+    let parentID = layerID + 11
+    var parentOwnedLayer = descriptor.layers[0]
+    parentOwnedLayer.parentID = parentID
+    let parentLayer = SceneRenderDescriptor.Layer(
+        id: parentID,
+        effects: []
+    )
+    var unsupportedSourceLayer = descriptor.layers[0]
+    unsupportedSourceLayer.contentKind = "quad"
+
+    let providerID = layerID + 20
+    let consumerSlot = SceneEffectPassSlot(
+        effectID: startupInactiveKey.descriptorID,
+        passIndex: 0,
+        slotIndex: 0
+    )
+    let consumerReference = SceneDependencyRenderPlan.Reference(
+        consumerLayerID: layerID,
+        providerLayerID: providerID,
+        slot: consumerSlot,
+        variant: .primary
+    )
+    let consumerBinding = SceneDependencyRenderPlan.Binding(
+        consumerLayerID: layerID,
+        providerLayerID: providerID,
+        slot: consumerSlot,
+        blendMode: 0,
+        kind: .resolvedMaterial
+    )
+    var dependencyConsumerLayer = descriptor.layers[0]
+    dependencyConsumerLayer.dependencyLayerIDs = [providerID]
+    dependencyConsumerLayer.namedReferences = [consumerReference]
+    dependencyConsumerLayer.namedBindings = [consumerBinding]
+    let dependencyProviderLayer = SceneRenderDescriptor.Layer(
+        id: providerID,
+        effects: []
+    )
+
+    let hiddenProviderConsumerID = layerID + 30
+    let hiddenProviderSlot = SceneEffectPassSlot(
+        effectID: "consumer",
+        passIndex: 0,
+        slotIndex: 0
+    )
+    let hiddenProviderReference = SceneDependencyRenderPlan.Reference(
+        consumerLayerID: hiddenProviderConsumerID,
+        providerLayerID: layerID,
+        slot: hiddenProviderSlot,
+        variant: .primary
+    )
+    let hiddenProviderBinding = SceneDependencyRenderPlan.Binding(
+        consumerLayerID: hiddenProviderConsumerID,
+        providerLayerID: layerID,
+        slot: hiddenProviderSlot,
+        blendMode: 0,
+        kind: .resolvedMaterial
+    )
+    var hiddenProviderLayer = descriptor.layers[0]
+    hiddenProviderLayer.visible = false
+    let hiddenProviderConsumer = SceneRenderDescriptor.Layer(
+        id: hiddenProviderConsumerID,
+        effects: [],
+        dependencyLayerIDs: [layerID],
+        namedReferences: [hiddenProviderReference],
+        namedBindings: [hiddenProviderBinding]
+    )
+    let visibleProviderConsumerID = layerID + 40
+    let visibleProviderSlot = SceneEffectPassSlot(
+        effectID: "visible-consumer",
+        passIndex: 0,
+        slotIndex: 0
+    )
+    let visibleProviderReference = SceneDependencyRenderPlan.Reference(
+        consumerLayerID: visibleProviderConsumerID,
+        providerLayerID: layerID,
+        slot: visibleProviderSlot,
+        variant: .primary
+    )
+    let visibleProviderBinding = SceneDependencyRenderPlan.Binding(
+        consumerLayerID: visibleProviderConsumerID,
+        providerLayerID: layerID,
+        slot: visibleProviderSlot,
+        blendMode: 0,
+        kind: .resolvedMaterial
+    )
+    let visibleProviderConsumer = SceneRenderDescriptor.Layer(
+        id: visibleProviderConsumerID,
+        effects: [],
+        dependencyLayerIDs: [layerID],
+        namedReferences: [visibleProviderReference],
+        namedBindings: [visibleProviderBinding]
+    )
+    return [
+        "program": program?.stages.count == 3
+            && programFamilies == [
+                "resolved-material", "resolved-material", "resolved-material",
+            ]
+            && program?.stages[1].activationPolicy?.effectVisibilityTarget
+                == visibilityTarget
+            && programCatalog.liveConsumerTargets.contains(visibilityTarget),
+        "passthrough": passthrough?.stages.count == 3
+            && passthroughFamilies == [
+                "resolved-material", "initially-inactive-passthrough",
+                "resolved-material",
+            ]
+            && passthrough?.stages[1].visualFailureReasonCode == nil
+            && passthrough?.stages[1].initiallyInactivePassthroughReasonCode
+                == "initially-inactive-property-stage-passthrough"
+            && passthroughCatalog.reportLines.contains {
+                $0 == "resolved material execution capability passthrough:"
+                    + " scope=startup-property-inactive"
+                    + " outcome=previous-current"
+                    + " reason=initially-inactive-property-stage-passthrough"
+                    + " count=1"
+            }
+            && !passthroughCatalog.reportLines.contains {
+                $0.contains("resolved material execution capability fallback:")
+                    && $0.contains(
+                        "reason=initially-inactive-property-stage-passthrough"
+                    )
+            }
+            && !passthroughCatalog.liveConsumerTargets.contains(visibilityTarget),
+        "ordinaryRootAdmitted": admittedTargets(descriptor)
+            == Set([visibilityTarget]),
+        "utilityExcluded": admittedTargets(replacingLayers([utilityLayer])).isEmpty,
+        "childExcluded": admittedTargets(replacingLayers([childLayer])).isEmpty,
+        "parentExcluded": admittedTargets(replacingLayers([
+            parentOwnedLayer, parentLayer,
+        ])).isEmpty,
+        "unsupportedSourceExcluded": admittedTargets(
+            replacingLayers([unsupportedSourceLayer])
+        ).isEmpty,
+        "dependencyConsumerExcluded": admittedTargets(replacingLayers([
+            dependencyConsumerLayer, dependencyProviderLayer,
+        ])).isEmpty,
+        "hiddenGraphOutputProviderExcluded": admittedTargets(replacingLayers([
+            hiddenProviderLayer, hiddenProviderConsumer,
+        ])).isEmpty,
+        "visibleCrossLayerProviderExcluded": admittedTargets(replacingLayers([
+            descriptor.layers[0], visibleProviderConsumer,
+        ])).isEmpty,
+    ]
 }
 
 private func pairGraphInternalDescriptor() -> SceneRenderDescriptor {
@@ -2881,6 +3175,7 @@ private enum Harness {
         )
         let pairGraph = pairOnlyGraph()
         let pairDescriptor = pairOnlyDescriptor()
+        let startupInactive = startupInactiveChecks()
         let forwardGraph = forwardUnavailableGraph()
         let forwardDescriptor = forwardUnavailableDescriptor()
         let forwardCatalog = catalog(
@@ -3842,11 +4137,14 @@ private enum Harness {
                     let keys = capability.stages.compactMap(\.subject).map(\.key)
                     let families = capability.stages.compactMap(\.subject).map(\.family)
                     let steps = capability.pairPlan.effects
-                    let continuous = zip(steps.dropLast(), steps.dropFirst())
-                        .allSatisfy { previous, next in
-                            previous.outputIdentity == next.inputIdentity
-                                && previous.outputMember == next.inputMember
-                        }
+                    var continuous = true
+                    for index in 1 ..< steps.count {
+                        let previous = steps[index - 1]
+                        let next = steps[index]
+                        continuous = continuous
+                            && previous.outputIdentity == next.inputIdentity
+                            && previous.outputMember == next.inputMember
+                    }
                     return keys == [firstKey, secondKey, thirdKey, fourthKey]
                         && families == [
                             "fixture-dedicated",
@@ -3878,6 +4176,26 @@ private enum Harness {
                         programFirstCatalog,
                         "dedicated-leaf-unsupported"
                     ),
+                "startupInactiveProgramActivation":
+                    startupInactive["program"] ?? false,
+                "startupInactivePassthroughKeepsSiblings":
+                    startupInactive["passthrough"] ?? false,
+                "startupInactiveOrdinaryRootAdmitted":
+                    startupInactive["ordinaryRootAdmitted"] ?? false,
+                "startupInactiveUtilityExcluded":
+                    startupInactive["utilityExcluded"] ?? false,
+                "startupInactiveChildExcluded":
+                    startupInactive["childExcluded"] ?? false,
+                "startupInactiveParentExcluded":
+                    startupInactive["parentExcluded"] ?? false,
+                "startupInactiveUnsupportedSourceExcluded":
+                    startupInactive["unsupportedSourceExcluded"] ?? false,
+                "startupInactiveDependencyConsumerExcluded":
+                    startupInactive["dependencyConsumerExcluded"] ?? false,
+                "startupInactiveHiddenGraphOutputProviderExcluded":
+                    startupInactive["hiddenGraphOutputProviderExcluded"] ?? false,
+                "startupInactiveVisibleCrossLayerProviderExcluded":
+                    startupInactive["visibleCrossLayerProviderExcluded"] ?? false,
                 "forwardDependencyFailureIsEffectLocal":
                     forwardCapability?.stages.compactMap(\.subject).map(\.family)
                         == ["visual-failure-passthrough", "resolved-material"]
@@ -4366,6 +4684,9 @@ struct SceneResolvedMaterialAdmittedLayer {
     let unavailableDependencyStageReasons: [
         SceneAuthoredEffectRenderPlan.EffectKey: String
     ]
+    let initiallyInactiveEffectKeys: Set<
+        SceneAuthoredEffectRenderPlan.EffectKey
+    >
     let sourceRoute: SourceRoute
     var isVisibleExecutionRoot: Bool = true
     var isGraphOutputProvider: Bool = false
@@ -4379,6 +4700,9 @@ struct SceneResolvedMaterialAdmittedLayer {
         unavailableDependencyStageReasons: [
             SceneAuthoredEffectRenderPlan.EffectKey: String
         ] = [:],
+        initiallyInactiveEffectKeys: Set<
+            SceneAuthoredEffectRenderPlan.EffectKey
+        > = [],
         sourceRoute: SourceRoute,
         isVisibleExecutionRoot: Bool = true,
         isGraphOutputProvider: Bool = false,
@@ -4389,6 +4713,7 @@ struct SceneResolvedMaterialAdmittedLayer {
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
         self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
+        self.initiallyInactiveEffectKeys = initiallyInactiveEffectKeys
         self.sourceRoute = sourceRoute
         self.isVisibleExecutionRoot = isVisibleExecutionRoot
         self.isGraphOutputProvider = isGraphOutputProvider
@@ -7441,6 +7766,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("cachedGraphTextureFormatFacts", variant_cache)
         self.assertIn("launch-graph-texture-formats-changed", variant_cache)
 
+    def test_startup_inactive_passthrough_is_executable_by_graph_executor(self) -> None:
+        program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8")
+        graph_executor = GRAPH_EXECUTOR_VISUAL_FAILURE_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        reason = '"initially-inactive-property-stage-passthrough"'
+        self.assertIn(reason, program_first)
+        activation_start = graph_executor.index("func prepareActivationPassthrough(")
+        activation = graph_executor[activation_start:]
+        self.assertIn(reason, activation)
+
     def test_launch_uses_one_admitted_batch_for_templates_demands_and_claims(
         self,
     ) -> None:
@@ -7883,6 +8219,16 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "fallbackDedicatedLeaf": True,
                 "emptyDedicatedLeafDoesNotUseDedicated": True,
                 "programFirstPrefersResolvedStage": True,
+                "startupInactiveProgramActivation": True,
+                "startupInactivePassthroughKeepsSiblings": True,
+                "startupInactiveOrdinaryRootAdmitted": True,
+                "startupInactiveUtilityExcluded": True,
+                "startupInactiveChildExcluded": True,
+                "startupInactiveParentExcluded": True,
+                "startupInactiveUnsupportedSourceExcluded": True,
+                "startupInactiveDependencyConsumerExcluded": True,
+                "startupInactiveHiddenGraphOutputProviderExcluded": True,
+                "startupInactiveVisibleCrossLayerProviderExcluded": True,
                 "forwardDependencyFailureIsEffectLocal": True,
                 "forwardMultipleReferenceRemainsRejected": True,
                 "secondarySelfFBOFailureIsEffectLocal": True,

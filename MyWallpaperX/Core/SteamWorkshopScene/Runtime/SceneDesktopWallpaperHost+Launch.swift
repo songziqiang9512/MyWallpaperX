@@ -353,6 +353,8 @@ extension SceneDesktopWallpaperHost {
                 dedicatedStagePrograms: dedicatedStageLeaves,
                 dynamicEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners,
+                startupInactiveEffectVisibilityTargets:
+                    runtimeInput.startupInactiveEffectVisibilityTargets,
                 conditionSchemaEvidence:
                     SceneGraphConditionSchemaEvidenceCompiler.compile(
                         descriptor: runtimeInput.renderDescriptor,
@@ -402,6 +404,8 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             authoredPlans: runtimeInput.authoredEffectRenderPlans,
             resolvedMaterialSubjects: resolvedMaterialSubjects,
+            startupInactiveEffectVisibilityTargets:
+                runtimeInput.startupInactiveEffectVisibilityTargets,
             verifiedXRayStageKeys: verifiedXRayStockIdentityKeys
         )
         let sceneScriptConsumerTargets =

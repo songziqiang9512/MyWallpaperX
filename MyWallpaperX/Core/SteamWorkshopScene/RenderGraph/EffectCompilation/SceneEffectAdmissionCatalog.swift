@@ -11,6 +11,7 @@ nonisolated struct SceneEffectAdmissionCatalog {
         descriptor: SceneRenderDescriptor,
         authoredPlans: [SceneAuthoredEffectRenderPlan],
         resolvedMaterialSubjects: [SceneEffectExactRuntimeSubject] = [],
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = []
     ) {
         let visible = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -33,7 +34,9 @@ nonisolated struct SceneEffectAdmissionCatalog {
         let resolvedKeysByLayerID = Self.validResolvedMaterialKeys(
             descriptor: descriptor,
             authoredPlansByLayerID: grouped,
-            subjects: resolvedMaterialSubjects
+            subjects: resolvedMaterialSubjects,
+            startupInactiveEffectVisibilityTargets:
+                startupInactiveEffectVisibilityTargets
         )
         let unifiedSubjects = resolvedMaterialSubjects.filter {
             resolvedKeysByLayerID[$0.key.layerID]?.contains($0.key) == true
@@ -48,6 +51,8 @@ nonisolated struct SceneEffectAdmissionCatalog {
                 layer: layer,
                 graphCandidates: grouped[layer.id] ?? [],
                 layerIsExecutable: executableLayerIDs.contains(layer.id),
+                startupInactiveEffectVisibilityTargets:
+                    startupInactiveEffectVisibilityTargets,
                 unifiedExecutionSubjects: unifiedSubjectsByLayerID[layer.id] ?? []
             )
         }.sorted {

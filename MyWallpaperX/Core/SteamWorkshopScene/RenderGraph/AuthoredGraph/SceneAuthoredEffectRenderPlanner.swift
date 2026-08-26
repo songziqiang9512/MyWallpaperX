@@ -4,7 +4,8 @@ enum SceneAuthoredEffectRenderPlanner {
     typealias Plan = SceneAuthoredEffectRenderPlan
 
     nonisolated static func plans(
-        for descriptor: SceneRenderDescriptor
+        for descriptor: SceneRenderDescriptor,
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = []
     ) -> [SceneAuthoredEffectRenderPlan] {
         let definitions = Dictionary(
             grouping: descriptor.effectDefinitions,
@@ -14,14 +15,60 @@ enum SceneAuthoredEffectRenderPlanner {
             grouping: descriptor.materialPasses,
             by: { normalizedPath($0.materialPath) }
         )
-        return descriptor.layers.compactMap { layer in
-            guard layer.effects.contains(where: { $0.visible != false }) else { return nil }
-            return plan(for: layer, definitions: definitions, materials: materials)
+        return descriptor.layers.compactMap { layer -> Plan? in
+            let visibleIndices = Set(layer.effects.enumerated().compactMap {
+                $0.element.visible != false ? $0.offset : nil
+            })
+            let propertyInactiveCandidates = Set(
+                layer.effects.enumerated().compactMap { effectIndex, effect in
+                    let target = SceneDynamicTarget.effectVisibility(
+                        layerID: layer.id,
+                        effectIndex: effectIndex
+                    )
+                    return effect.visible == false
+                            && startupInactiveEffectVisibilityTargets.contains(target)
+                        ? effectIndex : nil
+                }
+            )
+            let tentativeIndices = visibleIndices.union(
+                propertyInactiveCandidates
+            )
+            guard !tentativeIndices.isEmpty else { return nil }
+            let tentative = plan(
+                for: layer,
+                includedEffectIndices: tentativeIndices,
+                definitions: definitions,
+                materials: materials
+            )
+            let safePropertyInactiveIndices: Set<Int> = Set(
+                tentative.effects.compactMap { effect -> Int? in
+                    guard propertyInactiveCandidates.contains(
+                        effect.key.effectIndex
+                    ), effectLocalPassthroughIsSafe(
+                        effect,
+                        in: tentative
+                    ) else { return nil }
+                    return effect.key.effectIndex
+                }
+            )
+            let selectedIndices = visibleIndices.union(
+                safePropertyInactiveIndices
+            )
+            guard !selectedIndices.isEmpty else { return nil }
+            return selectedIndices == tentativeIndices
+                ? tentative
+                : plan(
+                    for: layer,
+                    includedEffectIndices: selectedIndices,
+                    definitions: definitions,
+                    materials: materials
+                )
         }
     }
 
     nonisolated private static func plan(
         for layer: SceneRenderDescriptor.Layer,
+        includedEffectIndices: Set<Int>,
         definitions: [String: [SceneEffectDefinition]],
         materials: [String: [SceneRenderDescriptor.MaterialPassDescriptor]]
     ) -> Plan {
@@ -31,7 +78,8 @@ enum SceneAuthoredEffectRenderPlanner {
         var blockers: [Plan.Blocker] = []
         var chainInput = texture(.layerSource, layerID: layer.id)
 
-        for (effectIndex, instance) in layer.effects.enumerated() where instance.visible != false {
+        for (effectIndex, instance) in layer.effects.enumerated()
+            where includedEffectIndices.contains(effectIndex) {
             let key = Plan.EffectKey(
                 layerID: layer.id,
                 effectIndex: effectIndex,
@@ -341,6 +389,49 @@ enum SceneAuthoredEffectRenderPlanner {
             finalOutput: chainInput,
             blockers: blockers
         )
+    }
+
+    /// Initially inactive stages enter the authored chain only when the exact
+    /// stage can be skipped as a previous-current copy. Unsupported stages are
+    /// omitted without changing active siblings; a later property change then
+    /// follows the existing relaunch path.
+    nonisolated private static func effectLocalPassthroughIsSafe(
+        _ effect: Plan.Effect,
+        in graph: Plan
+    ) -> Bool {
+        let nodesByIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
+        var nodes: [Plan.Node] = []
+        for nodeIndex in effect.nodeIndices {
+            guard let matches = nodesByIndex[nodeIndex], matches.count == 1,
+                  let node = matches.first,
+                  node.effect == effect.key else { return false }
+            nodes.append(node)
+        }
+        let stage = Plan(
+            layerID: graph.layerID,
+            effects: [effect],
+            renderTargets: graph.renderTargets.filter {
+                $0.texture.effect == effect.key
+            },
+            nodes: nodes,
+            finalOutput: effect.output,
+            blockers: graph.blockers.filter { $0.effect == effect.key }
+        )
+        guard stage.renderTargets.isEmpty,
+              stage.blockers.isEmpty,
+              stage.nodes.count == 1,
+              let node = stage.nodes.first,
+              node.effect == effect.key,
+              node.kind == .material,
+              node.target == effect.output,
+              node.commandSource == nil,
+              node.commandTarget == nil,
+              node.conditions == nil,
+              node.compose == nil || node.compose == .bool(false),
+              node.bindings.allSatisfy({
+                  $0.conditions == nil && $0.texture == effect.input
+              }) else { return false }
+        return true
     }
 
     nonisolated private static func supportsLayerLocalCompose(

@@ -35,36 +35,45 @@ extension SceneEffectRuntimeDispositionCatalog {
                   disposition.definitionPath == admission.definitionPath else {
                 return false
             }
-            guard admission.activity == .active else {
+            guard admission.activity.participatesInUnifiedRoute else {
                 return disposition.kind == .inactive
                     && disposition.routeGroupID == nil
                     && disposition.routeRole == .none
             }
             if resolvedLayerIDs.contains(admission.key.layerID) {
-                guard disposition.attribution == .exactKey,
-                      disposition.routeRole == .owner else { return false }
+                guard disposition.attribution == .exactKey else { return false }
                 switch admission.admission {
                 case .admittedGeneric:
-                    return disposition.kind == .program
+                    return disposition.routeRole == .owner
+                        && disposition.kind == .program
                         && disposition.family == "resolved-material"
                         && disposition.reasonCode
                             == "resolved-material-capability-owner"
                 case .admittedDedicated:
-                    return disposition.kind == .dedicated
+                    return disposition.routeRole == .owner
+                        && disposition.kind == .dedicated
                         && disposition.family == admission.backendName
                         && disposition.reasonCode == admission.reasonCode
                 case .admittedFallback:
-                    return disposition.kind == .fallback
+                    return disposition.routeRole == .owner
+                        && disposition.kind == .fallback
                         && disposition.family == "visual-failure-passthrough"
                         && disposition.family == admission.backendName
                         && disposition.reasonCode == "effect-local-visual-failure"
+                case .admittedPassthrough:
+                    return disposition.routeRole == .member
+                        && disposition.kind == .passthrough
+                        && disposition.family == "initially-inactive-passthrough"
+                        && disposition.family == admission.backendName
+                        && disposition.reasonCode
+                            == "initially-inactive-property-stage-passthrough"
                 default:
                     return false
                 }
             }
             guard admission.admission == .notAdmitted else { return false }
             switch disposition.kind {
-            case .inactive, .dedicated, .fallback, .program:
+            case .inactive, .dedicated, .fallback, .passthrough, .program:
                 return false
             default:
                 return true

@@ -7,6 +7,7 @@ nonisolated struct SceneEffectStageAdmission {
 
     enum Activity: String, CaseIterable {
         case authorDisabled = "author-disabled"
+        case propertyInactive = "property-inactive"
         case layerHidden = "layer-hidden"
         case active
     }
@@ -16,6 +17,7 @@ nonisolated struct SceneEffectStageAdmission {
         case admittedDedicated = "admitted-dedicated"
         case admittedFallback = "admitted-fallback"
         case admittedGeneric = "admitted-generic"
+        case admittedPassthrough = "admitted-passthrough"
         case notAdmitted = "not-admitted"
     }
 
@@ -54,6 +56,12 @@ nonisolated struct SceneEffectStageAdmission {
     }
 }
 
+extension SceneEffectStageAdmission.Activity {
+    nonisolated var participatesInUnifiedRoute: Bool {
+        self == .active || self == .propertyInactive
+    }
+}
+
 enum SceneEffectStageAdmissionBuilder {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Admission = SceneEffectStageAdmission
@@ -62,6 +70,7 @@ enum SceneEffectStageAdmissionBuilder {
         layer: SceneRenderDescriptor.Layer,
         graphCandidates: [Graph],
         layerIsExecutable: Bool,
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         unifiedExecutionSubjects: [SceneEffectExactRuntimeSubject] = []
     ) -> [Admission] {
         layer.effects.enumerated().map { effectIndex, descriptorEffect in
@@ -70,7 +79,18 @@ enum SceneEffectStageAdmissionBuilder {
                 effectIndex: effectIndex,
                 descriptorID: descriptorEffect.id
             )
-            if descriptorEffect.visible == false {
+            let propertyInactive = descriptorEffect.visible == false
+                && startupInactiveEffectVisibilityTargets.contains(
+                    .effectVisibility(
+                        layerID: layer.id,
+                        effectIndex: effectIndex
+                    )
+                )
+                && graphCandidates.count == 1
+                && graphCandidates[0].effects.contains(where: {
+                    $0.key == key
+                })
+            if descriptorEffect.visible == false && !propertyInactive {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
@@ -79,6 +99,8 @@ enum SceneEffectStageAdmissionBuilder {
                     coverage: .inactive
                 )
             }
+            let activity: Admission.Activity = propertyInactive
+                ? .propertyInactive : .active
             guard layerIsExecutable else {
                 return admission(
                     key: key,
@@ -92,7 +114,7 @@ enum SceneEffectStageAdmissionBuilder {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
-                    activity: .active,
+                    activity: activity,
                     admission: .notAdmitted,
                     coverage: graphCandidates.isEmpty
                         ? .rejectedMissingGraph
@@ -107,7 +129,7 @@ enum SceneEffectStageAdmissionBuilder {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
-                    activity: .active,
+                    activity: activity,
                     admission: .notAdmitted,
                     coverage: .rejectedGraphMismatch,
                     reasonCode: "graph-mismatch"
@@ -123,6 +145,9 @@ enum SceneEffectStageAdmissionBuilder {
                 case "visual-failure-passthrough":
                     admissionKind = .admittedFallback
                     profileName = "effect-local-passthrough"
+                case "initially-inactive-passthrough":
+                    admissionKind = .admittedPassthrough
+                    profileName = "inactive-passthrough"
                 default:
                     admissionKind = .admittedDedicated
                     profileName = nil
@@ -130,7 +155,7 @@ enum SceneEffectStageAdmissionBuilder {
                 return admission(
                     key: key,
                     path: descriptorEffect.file,
-                    activity: .active,
+                    activity: activity,
                     admission: admissionKind,
                     coverage: .complete,
                     backendName: subject.family,
@@ -140,7 +165,7 @@ enum SceneEffectStageAdmissionBuilder {
             return admission(
                 key: key,
                 path: descriptorEffect.file,
-                activity: .active,
+                activity: activity,
                 admission: .notAdmitted,
                 coverage: .rejectedCapability,
                 reasonCode: "unified-capability-unavailable"

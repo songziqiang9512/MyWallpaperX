@@ -56,6 +56,31 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         )
     }
 
+    /// Exact direct bool producers that may keep an authored effect stage in
+    /// the launch graph while its current property value is false. The
+    /// validated binding program remains the only property identity owner.
+    nonisolated var directBoolEffectVisibilityTargets: Set<SceneDynamicTarget> {
+        let validation = ScenePropertyBindingProgramValidator().validate(self)
+        let definitions = Dictionary(
+            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
+        )
+        let instructionsByPropertyKey = Dictionary(
+            grouping: validation.instructions,
+            by: \.propertyKey
+        )
+        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        return Set(validation.instructions.compactMap { instruction in
+            guard instruction.valueType == .bool,
+                  instructionsByPropertyKey[instruction.propertyKey]?.count == 1,
+                  !rebuildRequired.contains(instruction.propertyKey),
+                  case .effectVisibility = instruction.target,
+                  let definition = definitions[instruction.target],
+                  definition.valueType == .bool,
+                  case .bool = definition.authoredValue else { return nil }
+            return instruction.target
+        })
+    }
+
     private enum CodingKeys: String, CodingKey {
         case definitions
         case instructions

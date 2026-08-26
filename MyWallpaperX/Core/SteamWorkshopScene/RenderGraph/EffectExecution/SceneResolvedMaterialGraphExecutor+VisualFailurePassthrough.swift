@@ -115,6 +115,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 "effect-activation-visibility-disabled",
                 "effect-activation-pointer-provider-unavailable",
                 "effect-activation-scalar-below-minimum",
+                "initially-inactive-property-stage-passthrough",
               ].contains(reasonCode),
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,

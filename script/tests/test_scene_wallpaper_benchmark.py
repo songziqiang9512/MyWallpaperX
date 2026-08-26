@@ -64,8 +64,8 @@ def effect_runtime_disposition_preview() -> str:
         "authoredEffectGraphStageCount: 1",
         "effectStageDescriptorCount: 2",
         "effectStageParsedCount: 2",
-        "effectStageActivityCounts: author-disabled=0,layer-hidden=0,active=2",
-        "effectStageAdmissionCounts: inactive=0,admitted-dedicated=1,admitted-fallback=0,admitted-generic=1,not-admitted=0",
+        "effectStageActivityCounts: author-disabled=0,property-inactive=0,layer-hidden=0,active=2",
+        "effectStageAdmissionCounts: inactive=0,admitted-dedicated=1,admitted-fallback=0,admitted-generic=1,admitted-passthrough=0,not-admitted=0",
         "effectStageCoverageCounts: inactive=0,complete=2,rejected-missing-graph=0,rejected-ambiguous-graph=0,rejected-graph-mismatch=0,rejected-capability=0",
         "effectStageDescriptorIdentityConserved: true",
         "effectStageActivityConserved: true",
@@ -77,7 +77,7 @@ def effect_runtime_disposition_preview() -> str:
         "effectStageRuntimeDispositionSchema: 1",
         "effectStageRuntimeRouteScope: unified-effect-graph",
         "effectStageRuntimeDispositionCount: 2",
-        "effectStageRuntimeDispositionKindCounts: inactive=0,dedicated=1,fallback=0,program=1,unsupported=0,unattributed=0",
+        "effectStageRuntimeDispositionKindCounts: inactive=0,dedicated=1,fallback=0,passthrough=0,program=1,unsupported=0,unattributed=0",
         "effectStageRuntimeDispositionAttributionCounts: exact-key=2,none=0",
         "effectStageRuntimeDispositionRoleCounts: owner=2,member=0,none=0",
         "effectStaticRouteGroupCount: 1",
@@ -322,6 +322,64 @@ def resolved_graph_exact_evidence(
                 ),
             ))
     disposition = static_effect_disposition(records=records, groups=groups)
+    execution = benchmark.effect_execution_metrics(
+        effect_execution_log(90, events, []),
+        disposition,
+    )
+    return disposition, execution
+
+
+def resolved_graph_passthrough_evidence(
+    layer_id: int,
+    *,
+    include_program: bool = False,
+) -> tuple[dict[str, object], dict[str, object]]:
+    descriptor_id = f"{layer_id}#effect#0"
+    records = [{
+        "layer_id": layer_id,
+        "effect_index": 0,
+        "descriptor_id": descriptor_id,
+        "definition_path": f"effects/{layer_id}/inactive/effect.json",
+        "family": "initially-inactive-passthrough",
+        "kind": "passthrough",
+        "role": "member",
+        "reason": "initially-inactive-property-stage-passthrough",
+    }]
+    events = [effect_cpu_event(
+        frame=90,
+        origin="resolved-material-graph",
+        subject="effect",
+        layer=layer_id,
+        effect=0,
+        descriptor=f"{layer_id}%23effect%230",
+        family="initially-inactive-passthrough",
+        backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+    )]
+    if include_program:
+        records.append({
+            "layer_id": layer_id,
+            "effect_index": 1,
+            "descriptor_id": f"{layer_id}#effect#1",
+            "definition_path": f"effects/{layer_id}/program/effect.json",
+            "family": "generic-fragment",
+            "kind": "program",
+            "role": "owner",
+            "reason": "resolved-material-capability-owner",
+        })
+        events.append(effect_cpu_event(
+            frame=90,
+            origin="resolved-material-graph",
+            subject="effect",
+            layer=layer_id,
+            effect=1,
+            descriptor=f"{layer_id}%23effect%231",
+            family="generic-fragment",
+            backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+        ))
+    disposition = static_effect_disposition(
+        records=records,
+        groups=[{"layer_id": layer_id, "kind": "resolved"}],
+    )
     execution = benchmark.effect_execution_metrics(
         effect_execution_log(90, events, []),
         disposition,
@@ -2583,8 +2641,8 @@ utility layer 763: skippedHidden kind=composition
             "authoredEffectGraphStageCount: 1",
             "effectStageDescriptorCount: 3",
             "effectStageParsedCount: 3",
-            "effectStageActivityCounts: author-disabled=1,layer-hidden=0,active=2",
-            "effectStageAdmissionCounts: inactive=1,admitted-dedicated=1,admitted-fallback=0,admitted-generic=0,not-admitted=1",
+            "effectStageActivityCounts: author-disabled=1,property-inactive=0,layer-hidden=0,active=2",
+            "effectStageAdmissionCounts: inactive=1,admitted-dedicated=1,admitted-fallback=0,admitted-generic=0,admitted-passthrough=0,not-admitted=1",
             f"effectStageCoverageCounts: {coverage}",
             "effectStageDescriptorIdentityConserved: true",
             "effectStageActivityConserved: true",
@@ -2636,8 +2694,8 @@ utility layer 763: skippedHidden kind=composition
         )
 
         generic_preview = preview.replace(
-            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=0",
-            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1",
+            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=0,admitted-passthrough=0",
+            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1,admitted-passthrough=0",
         ).replace(
             "not-admitted=1",
             "not-admitted=0",
@@ -2658,8 +2716,8 @@ utility layer 763: skippedHidden kind=composition
 
         unified_leaf_metrics = benchmark.effect_stage_admission_metrics(
             generic_preview.replace(
-                "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1",
-                "admitted-dedicated=2,admitted-fallback=0,admitted-generic=1",
+                "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1,admitted-passthrough=0",
+                "admitted-dedicated=2,admitted-fallback=0,admitted-generic=1,admitted-passthrough=0",
             ).replace(
                 "effectStageDescriptorCount: 3",
                 "effectStageDescriptorCount: 4",
@@ -2667,8 +2725,8 @@ utility layer 763: skippedHidden kind=composition
                 "effectStageParsedCount: 3",
                 "effectStageParsedCount: 4",
             ).replace(
-                "author-disabled=1,layer-hidden=0,active=2",
-                "author-disabled=1,layer-hidden=0,active=3",
+                "author-disabled=1,property-inactive=0,layer-hidden=0,active=2",
+                "author-disabled=1,property-inactive=0,layer-hidden=0,active=3",
             ).replace(
                 "inactive=1,complete=2",
                 "inactive=1,complete=3",
@@ -2679,6 +2737,17 @@ utility layer 763: skippedHidden kind=composition
             "profile=- reason=- path=effects/shake/effect.json"
         )
         self.assertEqual(unified_leaf_metrics["validation_failures"], [])
+
+        property_inactive_metrics = benchmark.effect_stage_admission_metrics(
+            generic_preview.replace(
+                "property-inactive=0,layer-hidden=0,active=2",
+                "property-inactive=1,layer-hidden=0,active=1",
+            ).replace(
+                "effect=2 descriptor=1%23effect%232 activity=active",
+                "effect=2 descriptor=1%23effect%232 activity=property-inactive",
+            )
+        )
+        self.assertEqual(property_inactive_metrics["validation_failures"], [])
 
         for invalid_owner in (
             "backend=authored-shader profile=program",
@@ -2720,11 +2789,11 @@ utility layer 763: skippedHidden kind=composition
             "effectStageParsedCount: 2",
             "effectStageParsedCount: 3",
         ).replace(
-            "author-disabled=0,layer-hidden=0,active=2",
-            "author-disabled=0,layer-hidden=0,active=3",
+            "author-disabled=0,property-inactive=0,layer-hidden=0,active=2",
+            "author-disabled=0,property-inactive=0,layer-hidden=0,active=3",
         ).replace(
-            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1",
-            "admitted-dedicated=1,admitted-fallback=1,admitted-generic=1",
+            "admitted-dedicated=1,admitted-fallback=0,admitted-generic=1,admitted-passthrough=0",
+            "admitted-dedicated=1,admitted-fallback=1,admitted-generic=1,admitted-passthrough=0",
         ).replace(
             "inactive=0,complete=2",
             "inactive=0,complete=3",
@@ -2732,8 +2801,8 @@ utility layer 763: skippedHidden kind=composition
             "effectStageRuntimeDispositionCount: 2",
             "effectStageRuntimeDispositionCount: 3",
         ).replace(
-            "inactive=0,dedicated=1,fallback=0,program=1",
-            "inactive=0,dedicated=1,fallback=1,program=1",
+            "inactive=0,dedicated=1,fallback=0,passthrough=0,program=1",
+            "inactive=0,dedicated=1,fallback=1,passthrough=0,program=1",
         ).replace(
             "exact-key=2,none=0",
             "exact-key=3,none=0",
@@ -2802,6 +2871,67 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn(
             "effect stage fallback owner invalid",
             invalid_admission["validation_failures"],
+        )
+
+    def test_startup_inactive_passthrough_has_no_exact_cpu_demand(self) -> None:
+        preview = "\n".join([
+            "authoredEffectGraphStageCount: 1",
+            "effectStageDescriptorCount: 1",
+            "effectStageParsedCount: 1",
+            "effectStageActivityCounts: author-disabled=0,property-inactive=1,layer-hidden=0,active=0",
+            "effectStageAdmissionCounts: inactive=0,admitted-dedicated=0,admitted-fallback=0,admitted-generic=0,admitted-passthrough=1,not-admitted=0",
+            "effectStageCoverageCounts: inactive=0,complete=1,rejected-missing-graph=0,rejected-ambiguous-graph=0,rejected-graph-mismatch=0,rejected-capability=0",
+            "effectStageDescriptorIdentityConserved: true",
+            "effectStageActivityConserved: true",
+            "effectStageInactiveAdmissionConserved: true",
+            "effectStageActiveAdmissionConserved: true",
+            "effectStageExecutionIdentityConserved: true",
+            "effectStageAdmission: layer=2 effect=0 descriptor=2%23effect%230 activity=property-inactive admission=admitted-passthrough coverage=complete backend=initially-inactive-passthrough profile=inactive-passthrough reason=- path=effects/inactive/effect.json",
+            "effectStageRuntimeDispositionSchema: 1",
+            "effectStageRuntimeRouteScope: unified-effect-graph",
+            "effectStageRuntimeDispositionCount: 1",
+            "effectStageRuntimeDispositionKindCounts: inactive=0,dedicated=0,fallback=0,passthrough=1,program=0,unsupported=0,unattributed=0",
+            "effectStageRuntimeDispositionAttributionCounts: exact-key=1,none=0",
+            "effectStageRuntimeDispositionRoleCounts: owner=0,member=1,none=0",
+            "effectStaticRouteGroupCount: 1",
+            "effectStaticRouteGroupKindCounts: inactive=0,direct=0,resolved=1",
+            "effectStageRuntimeDescriptorIdentityConserved: true",
+            "effectStageRuntimeGroupIdentityConserved: true",
+            "effectStageRuntimeAdmissionIdentityConserved: true",
+            "effectStageRuntimeResolvedMaterialOwnershipConserved: true",
+            "effectStaticRouteGroup: layer=2 scope=unified-effect-graph kind=resolved effects=1 owners=0 reason=-",
+            "effectStageRuntimeDisposition: layer=2 effect=0 descriptor=2%23effect%230 kind=passthrough attribution=exact-key family=initially-inactive-passthrough group=2 role=member reason=initially-inactive-property-stage-passthrough path=effects/inactive/effect.json",
+        ])
+
+        admission = benchmark.effect_stage_admission_metrics(preview)
+        self.assertEqual(admission["validation_failures"], [])
+        self.assertEqual(
+            admission["admission_counts"]["admitted-passthrough"],
+            1,
+        )
+        self.assertEqual(admission["admission_counts"]["admitted-fallback"], 0)
+
+        disposition = benchmark.effect_runtime_disposition_metrics(
+            preview,
+            admission,
+        )
+        self.assertEqual(disposition["validation_failures"], [])
+        self.assertEqual(disposition["kind_counts"]["passthrough"], 1)
+        self.assertEqual(disposition["kind_counts"]["fallback"], 0)
+        demand = benchmark.effect_execution_static_demand(disposition)
+        self.assertTrue(demand.static_is_valid)
+        self.assertEqual(demand.eligible_exact_effect_count, 0)
+        self.assertNotIn("passthrough", benchmark.EFFECT_EXECUTION_EXACT_KINDS)
+
+        execution = benchmark.effect_execution_metrics("", disposition)
+        self.assertFalse(execution["has_evidence"])
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                execution,
+                require_evidence=True,
+                static_disposition=disposition,
+            ),
+            [],
         )
 
     def test_effect_stage_admission_evidence_is_optional_unless_requested(self) -> None:
@@ -4755,6 +4885,164 @@ utility layer 763: skippedHidden kind=composition
             "resolved material graph observation GPU failure reported",
         ):
             self.assertIn(failure, bad_axis["validation_failures"])
+
+    def test_resolved_graph_startup_passthrough_joins_terminal_evidence(
+        self,
+    ) -> None:
+        preview_text = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=68 status=accepted",
+        ])
+        disposition, effect_execution = resolved_graph_passthrough_evidence(68)
+        self.assertEqual(effect_execution["validation_failures"], [])
+        self.assertEqual(effect_execution["succeeded_exact_effects"], [])
+
+        def passthrough_log(
+            reason: str,
+            *,
+            compositor_consumed: bool,
+        ) -> str:
+            program = f"activation-passthrough:{reason}"
+            return "\n".join([
+                "resolved material runtime audit: "
+                "schema=scene-graph-executor-v1 claimed=2 encoded=2 "
+                "failures=0 deferred=0 pending=0 gpuEncoded=2",
+                graph_execution_observation(
+                    frame=10,
+                    layer=68,
+                    effect=0,
+                    descriptor_id="68%23effect%230",
+                    transaction="tx-passthrough-10",
+                    trigger="first-frame+gpu-completed",
+                    authored=1,
+                    material=0,
+                    copy=0,
+                    swap=0,
+                    compose=0,
+                    rejected=1,
+                    program=program,
+                ),
+                graph_execution_observation(
+                    frame=11,
+                    layer=68,
+                    effect=0,
+                    descriptor_id="68%23effect%230",
+                    transaction="tx-passthrough-11",
+                    trigger="next-frame+compositor-consume+gpu-completed",
+                    authored=1,
+                    material=0,
+                    copy=0,
+                    swap=0,
+                    compose=0,
+                    rejected=1,
+                    consumed=compositor_consumed,
+                    program=program,
+                ),
+            ])
+
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            passthrough_log(
+                "initially-inactive-property-stage-passthrough",
+                compositor_consumed=True,
+            ),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertTrue(metrics["execution_succeeded"])
+        self.assertEqual(metrics["succeeded_layer_ids"], [68])
+        self.assertEqual(metrics["exact_backend"]["required_layer_ids"], [])
+        self.assertEqual(metrics["exact_backend"]["no_demand_layer_ids"], [68])
+        self.assertEqual(metrics["passthrough"]["complete_layer_ids"], [68])
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample={
+                    "expected_resolved_material_graph_succeeded_layer_ids": [68]
+                },
+            ),
+            [],
+        )
+
+        mixed_disposition, mixed_execution = (
+            resolved_graph_passthrough_evidence(68, include_program=True)
+        )
+        self.assertEqual(mixed_execution["validation_failures"], [])
+        self.assertEqual(len(mixed_execution["succeeded_exact_effects"]), 1)
+        mixed_log = passthrough_log(
+            "initially-inactive-property-stage-passthrough",
+            compositor_consumed=True,
+        ).replace(
+            "claimed=2 encoded=2 failures=0 deferred=0 pending=0 gpuEncoded=2",
+            "claimed=4 encoded=4 failures=0 deferred=0 pending=0 gpuEncoded=4",
+        ) + "\n" + "\n".join([
+            graph_execution_observation(
+                frame=10,
+                layer=68,
+                effect=1,
+                descriptor_id="68%23effect%231",
+                transaction="tx-program-10",
+                trigger="first-frame+gpu-completed",
+                program="program-identity",
+            ),
+            graph_execution_observation(
+                frame=11,
+                layer=68,
+                effect=1,
+                descriptor_id="68%23effect%231",
+                transaction="tx-program-11",
+                trigger="next-frame+gpu-completed",
+                program="program-identity",
+            ),
+        ])
+        mixed = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            mixed_log,
+            effect_execution=mixed_execution,
+            static_disposition=mixed_disposition,
+        )
+        self.assertTrue(mixed["execution_succeeded"])
+        self.assertEqual(mixed["succeeded_layer_ids"], [68])
+        self.assertEqual(mixed["exact_backend"]["required_layer_ids"], [68])
+        self.assertEqual(mixed["passthrough"]["complete_layer_ids"], [68])
+        self.assertEqual(mixed["validation_failures"], [])
+
+        wrong_reason = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            passthrough_log(
+                "effect-activation-visibility-disabled",
+                compositor_consumed=True,
+            ),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertEqual(wrong_reason["succeeded_layer_ids"], [])
+        self.assertIn(
+            "resolved material graph passthrough activation evidence malformed",
+            wrong_reason["validation_failures"],
+        )
+
+        missing_compositor = (
+            benchmark.resolved_material_graph_execution_metrics(
+                preview_text,
+                passthrough_log(
+                    "initially-inactive-property-stage-passthrough",
+                    compositor_consumed=False,
+                ),
+                effect_execution=effect_execution,
+                static_disposition=disposition,
+            )
+        )
+        self.assertEqual(missing_compositor["succeeded_layer_ids"], [])
+        self.assertIn(
+            "resolved material graph passthrough compositor evidence missing",
+            missing_compositor["validation_failures"],
+        )
 
     def test_resolved_material_graph_execution_gate_conserves_layer_routes(
         self,

@@ -27,7 +27,7 @@ struct SceneEffectRuntimeDispositionCatalog {
         var ownershipConserved = true
         for (layerID, subjects) in subjectsByLayerID {
             let activeKeys = Set((admissionsByLayerID[layerID] ?? []).compactMap {
-                $0.activity == .active ? $0.key : nil
+                $0.activity.participatesInUnifiedRoute ? $0.key : nil
             })
             let admissionByKey = Dictionary(
                 uniqueKeysWithValues: (admissionsByLayerID[layerID] ?? []).map {
@@ -50,6 +50,9 @@ struct SceneEffectRuntimeDispositionCatalog {
                       case .admittedFallback:
                           return admission.backendName == subject.family
                               && subject.family == "visual-failure-passthrough"
+                      case .admittedPassthrough:
+                          return admission.backendName == subject.family
+                              && subject.family == "initially-inactive-passthrough"
                       default:
                           return false
                       }
@@ -64,7 +67,9 @@ struct SceneEffectRuntimeDispositionCatalog {
         var groups: [SceneEffectStaticRouteGroup] = []
         for layer in descriptor.layers where !layer.effects.isEmpty {
             let admissions = admissionsByLayerID[layer.id] ?? []
-            let activeAdmissions = admissions.filter { $0.activity == .active }
+            let activeAdmissions = admissions.filter {
+                $0.activity.participatesInUnifiedRoute
+            }
             if activeAdmissions.isEmpty {
                 records.append(contentsOf: admissions.map(Self.inactiveDisposition))
                 groups.append(SceneEffectStaticRouteGroup(
@@ -81,7 +86,7 @@ struct SceneEffectRuntimeDispositionCatalog {
                     (subjectsByLayerID[layer.id] ?? []).map { ($0.key, $0) }
                 )
                 let migrated = admissions.map { admission in
-                    admission.activity == .active
+                    admission.activity.participatesInUnifiedRoute
                         ? Self.resolvedDisposition(
                             admission,
                             family: subjectByKey[admission.key]?.family
@@ -98,7 +103,7 @@ struct SceneEffectRuntimeDispositionCatalog {
                 continue
             }
             let unsupported = admissions.map { admission in
-                admission.activity == .active
+                admission.activity.participatesInUnifiedRoute
                     ? Self.rejectedDisposition(
                         admission,
                         reason: "r5-no-runtime-owner"
@@ -208,6 +213,16 @@ struct SceneEffectRuntimeDispositionCatalog {
                 role: .owner,
                 reason: "effect-local-visual-failure"
             )
+        case .admittedPassthrough
+            where family == "initially-inactive-passthrough"
+                && family == admission.backendName:
+            return disposition(
+                admission,
+                kind: .passthrough,
+                family: family,
+                role: .member,
+                reason: "initially-inactive-property-stage-passthrough"
+            )
         default:
             return unattributedDisposition(
                 admission,
@@ -244,10 +259,11 @@ struct SceneEffectRuntimeDispositionCatalog {
             kind: .unattributed,
             attribution: .none,
             family: nil,
-            routeGroupID: admission.activity == .active
+            routeGroupID: admission.activity.participatesInUnifiedRoute
                 ? admission.key.layerID
                 : nil,
-            routeRole: admission.activity == .active ? .member : .none,
+            routeRole: admission.activity.participatesInUnifiedRoute
+                ? .member : .none,
             reasonCode: reason
         )
     }
