@@ -64,6 +64,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-normalized-sample-sum"
     case sourceProvenGraphTargetOpaqueLoopSampleAverage =
         "source-proven-graph-target-opaque-loop-sample-average"
+    case sourceProvenGraphTargetOpaqueStaticSampleAverage =
+        "source-proven-graph-target-opaque-static-sample-average"
     case sourceProvenGraphInputAlphaWeightedSampleAverage =
         "source-proven-graph-input-alpha-weighted-sample-average"
     case sourceProvenGraphInputPreservedAlphaRGBFilter =
@@ -170,6 +172,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             SceneAuthoredShaderOpaqueLoopSampleAverageAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
+        let opaqueStaticSampleAverageFact =
+            SceneAuthoredShaderOpaqueStaticSampleAverageAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         if producesPreservedRGBAOutput,
            hasDefiniteWholeOutput,
            !hasExternalProviderTexture,
@@ -252,6 +258,18 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([fact.sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphTargetOpaqueLoopSampleAverage
+        } else if let fact = opaqueStaticSampleAverageFact,
+                  colorTransfer == .opaque,
+                  (2 ... 16).contains(fact.sampleCount),
+                  activeTextureSlots == Set([fact.sourceSlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  !producesRedGreenUnormOutput,
+                  !producesPreservedRGBAOutput,
+                  graphTextureSlots == Set([fact.sourceSlot]),
+                  graphInputTextureSlots == Set([fact.sourceSlot]),
+                  hasOnlyGraphInputSampler {
+            self = .sourceProvenGraphTargetOpaqueStaticSampleAverage
         } else if let fact = conditionalGeneratedRGBFact,
                   case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   fact.alphaCarrierSlot == sourceSlot,
@@ -460,6 +478,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphTargetPassthrough,
              .sourceProvenNormalizedSampleSum,
              .sourceProvenGraphTargetOpaqueLoopSampleAverage,
+             .sourceProvenGraphTargetOpaqueStaticSampleAverage,
              .sourceProvenGraphInputAlphaWeightedSampleAverage,
              .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenGraphInputTypedDataRGBFilter,
@@ -490,6 +509,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     var ignoresLegacyProcessRoute: Bool {
         self == .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
             || self == .sourceProvenGraphTargetOpaqueLoopSampleAverage
+            || self == .sourceProvenGraphTargetOpaqueStaticSampleAverage
     }
 
     /// Shared profiles normally roll back through the bounded frontend. The

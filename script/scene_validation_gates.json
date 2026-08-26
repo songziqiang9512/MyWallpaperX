@@ -281,6 +281,7 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/**"],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
+        "test_scene_opaque_static_sample_average_owner",
         "test_scene_effect_texture_purposes",
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
@@ -349,6 +350,7 @@
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
+        "test_scene_opaque_static_sample_average_owner",
         "test_scene_authored_shader_frontend",
         "test_scene_fragment_output_initialization",
         "test_scene_independent_signal_carrier",
