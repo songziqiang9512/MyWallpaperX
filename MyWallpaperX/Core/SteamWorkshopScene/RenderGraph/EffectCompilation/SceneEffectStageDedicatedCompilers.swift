@@ -129,7 +129,7 @@ extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
             phase: .compatibility,
             code: .dedicatedProfileRejected,
             details: [
-                "typed-user-scalar-owner-revoked-to-material-program",
+                "current-stock-scalar-owner-revoked-to-material-program",
             ]
         ))
     }

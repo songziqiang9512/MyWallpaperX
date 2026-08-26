@@ -1,9 +1,11 @@
 import Foundation
 
-/// Transfers the current-stock X-Ray direct scalar cohort only after the
-/// shared MaterialProgram proves the same authored values, typed producers,
-/// active shader ABI, and source-derived spatial blend profile. Dynamic effect
-/// visibility and any broader source/resource shape retain the incumbent.
+/// Transfers the current-stock X-Ray scalar cohort only after the shared
+/// MaterialProgram proves the same authored values, any typed producers,
+/// active shader ABI, and source-derived spatial blend profile. Static values
+/// and exact direct user-scalar values share one owner boundary. Frame-driven
+/// effect visibility and any broader source/resource shape retain the
+/// incumbent.
 nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -132,7 +134,6 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
         guard template.uniformDeclarations.count == scalarContracts.count else {
             return false
         }
-        var dynamicCount = 0
         for contract in scalarContracts {
             guard let authored = material.constants[contract.name],
                   authored.timeline == nil,
@@ -155,7 +156,6 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
             )
             let targetProducers = producers.filter { $0.target == target }
             if let propertyKey = authored.userBinding {
-                dynamicCount += 1
                 let expected = SceneDynamicUserPropertyProducer(
                     propertyKey: propertyKey,
                     target: target,
@@ -190,7 +190,7 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 else { return false }
             }
         }
-        return dynamicCount > 0
+        return true
     }
 
     private static func activeScalarConsumersAreProven(

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Executable owner-partition gate for direct X-Ray user scalars."""
+"""Controlled executable owner partition for current-stock X-Ray scalars."""
 
 from __future__ import annotations
 
@@ -22,10 +22,23 @@ STOCK_ROOT = (
 FINALIZER_FIXTURE = runpy.run_path(
     str(REPOSITORY_ROOT / "script/tests/test_scene_resolved_material_program_finalizer.py")
 )
+DEDICATED_COMPILERS_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
+)
 
 
 def unique_sources(paths: list[Path]) -> list[Path]:
     return list(dict.fromkeys(paths))
+
+
+def product_xray_compiler_source() -> str:
+    """Compile the exact production protocols and X-Ray compiler extension."""
+    source = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
+    standard_blur = source.index("extension SceneAuthoredStandardBlurPlanner")
+    xray = source.index("extension SceneAuthoredXRayPlanner")
+    pulse = source.index("extension SceneAuthoredPulsePlanner")
+    return source[:standard_blur] + source[xray:pulse]
 
 
 SWIFT_SOURCES = unique_sources([
@@ -38,6 +51,8 @@ SWIFT_SOURCES = unique_sources([
     SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     SCENE_ROOT
     / "RenderGraph/EffectCompilation/SceneEffectStageXRayScalarOwnerAdmission.swift",
+    SCENE_ROOT / "Effects/SceneXRayRuntimePlan.swift",
+    SCENE_ROOT / "RenderGraph/SceneAuthoredXRayPlanner.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",
@@ -49,6 +64,7 @@ SWIFT_SOURCES = unique_sources([
 
 SUPPORT = r'''
 import Foundation
+import simd
 
 struct SceneDocument {}
 struct SceneTimelineAnimation: Codable {}
@@ -96,6 +112,74 @@ struct SceneRenderDescriptor {
 
     let layers: [Layer]
     let materialPasses: [MaterialPassDescriptor]
+}
+
+struct SceneXRayEffectTextures {
+    let effectID: String
+    let blendTexturePath: String
+    let haloTexturePath: String?
+    let opacityMaskPath: String?
+    let blendPropertyKey: String?
+    let haloPropertyKey: String?
+    let blendUVScale: SIMD2<Float>
+    let opacityUVScale: SIMD2<Float>
+
+    func matches(_ declaration: SceneXRayRuntimePlanner.Declaration) -> Bool {
+        effectID == declaration.effectID
+            && blendTexturePath == declaration.blendTexturePath
+            && haloTexturePath == declaration.haloTexturePath
+            && opacityMaskPath == declaration.opacityMaskPath
+            && blendPropertyKey == declaration.blendPropertyKey
+            && haloPropertyKey == declaration.haloPropertyKey
+    }
+}
+
+// The stock hash/source-graph identity has its own production gate. This seam
+// deliberately lets the real planner body and compiler extension reach scalar
+// admission; it does not claim full stock-identity integration.
+extension SceneAuthoredXRayPlanner {
+    static let definitionPath = "effects/xray/effect.json"
+    static let materialPath = "materials/effects/xray.json"
+    static let materialPassID = "materials/effects/xray.json#0"
+    static let shaderIdentity = "effects/xray"
+
+    struct StockIdentityProfile {
+        let version: Int?
+        let replacementKey: String?
+        let group: String
+        let materialSemanticSHA256: String
+        let shaderCanonicalSHA256: String
+        let shaderDependencySHA256: String
+    }
+
+    static func currentStockDefinitionMatches(
+        descriptor: SceneRenderDescriptor,
+        path: String
+    ) -> Bool {
+        path.replacingOccurrences(of: "\\\\", with: "/").lowercased()
+            == "effects/xray/effect.json"
+    }
+
+    static func currentStockMaterialMatches(
+        descriptor: SceneRenderDescriptor
+    ) -> Bool {
+        true
+    }
+
+    static func currentStockShaderContractMatches(
+        _ contracts: [SceneShaderContract]
+    ) -> Bool {
+        contracts.count == 1
+    }
+
+    static func containsCandidate(graph: Graph) -> Bool {
+        graph.effects.contains {
+            $0.definitionPath.replacingOccurrences(
+                of: "\\\\",
+                with: "/"
+            ).lowercased() == "effects/xray/effect.json"
+        }
+    }
 }
 '''
 
@@ -253,7 +337,7 @@ private func contract(_ root: URL) -> SceneShaderContract {
     return contracts[0]
 }
 
-private func admits(
+private func compileInput(
     root: URL,
     sizeProperty: String? = nil,
     multiplyProperty: String? = nil,
@@ -262,8 +346,8 @@ private func admits(
     frameDrivenVisibilityEffectIndex: Int? = nil,
     extraSizeBindingKey: Bool = false,
     sizeScript: String? = nil
-) -> Bool {
-    let input = SceneEffectStageCompileInput(
+) -> SceneEffectStageCompileInput {
+    SceneEffectStageCompileInput(
         stageGraph: graph(),
         effectKey: effectKey,
         definitionPath: "effects/xray/effect.json",
@@ -282,8 +366,44 @@ private func admits(
             .map { [.init(layerID: layerID, effectIndex: $0)] }
             ?? []
     )
+}
+
+private func admits(
+    root: URL,
+    sizeProperty: String? = nil,
+    multiplyProperty: String? = nil,
+    producers: Set<SceneDynamicUserPropertyProducer> = [],
+    activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
+    frameDrivenVisibilityEffectIndex: Int? = nil,
+    extraSizeBindingKey: Bool = false,
+    sizeScript: String? = nil
+) -> Bool {
+    let input = compileInput(
+        root: root,
+        sizeProperty: sizeProperty,
+        multiplyProperty: multiplyProperty,
+        producers: producers,
+        activeEffectLocalDirectBoolVisibilityTargets:
+            activeEffectLocalDirectBoolVisibilityTargets,
+        frameDrivenVisibilityEffectIndex: frameDrivenVisibilityEffectIndex,
+        extraSizeBindingKey: extraSizeBindingKey,
+        sizeScript: sizeScript
+    )
     return SceneEffectStageXRayScalarOwnerAdmission
         .acceptsDedicatedRevocation(effectKey: effectKey, input: input)
+}
+
+private func productCompilerResult(
+    _ input: SceneEffectStageCompileInput
+) -> (outcome: String, detail: String) {
+    switch SceneAuthoredXRayPlanner.compile(input) {
+    case .notApplicable:
+        return ("not-applicable", "")
+    case .accepted:
+        return ("accepted", "")
+    case .rejected(let failure):
+        return ("rejected", failure.details.first ?? "")
+    }
 }
 
 @main
@@ -305,7 +425,42 @@ enum Harness {
             target: .effectVisibility(layerID: layerID, effectIndex: 0),
             valueType: .bool
         )
-        let result: [String: Bool] = [
+        let staticInput = compileInput(root: stock)
+        let productStatic = productCompilerResult(staticInput)
+        let productMissingProducer = productCompilerResult(compileInput(
+            root: stock,
+            sizeProperty: "xraySize"
+        ))
+        let productWrongProducer = productCompilerResult(compileInput(
+            root: stock,
+            sizeProperty: "xraySize",
+            producers: [producer("xraySize", name: "size", type: .vector2)]
+        ))
+        let productFrameDrivenVisibility = productCompilerResult(compileInput(
+            root: stock,
+            frameDrivenVisibilityEffectIndex: 0
+        ))
+        let productWrongRange = productCompilerResult(compileInput(
+            root: wrongRange
+        ))
+        let productNonSpatial = productCompilerResult(compileInput(
+            root: nonSpatial
+        ))
+        let result: [String: Any] = [
+            "plannerStaticAccepted": SceneAuthoredXRayPlanner.plan(
+                graph: staticInput.stageGraph,
+                descriptor: staticInput.descriptor,
+                shaderContracts: staticInput.shaderContracts,
+                inputRole: staticInput.inputRole
+            ) != nil,
+            "productStaticOutcome": productStatic.outcome,
+            "productStaticDetail": productStatic.detail,
+            "productMissingProducerOutcome": productMissingProducer.outcome,
+            "productWrongProducerOutcome": productWrongProducer.outcome,
+            "productFrameDrivenVisibilityOutcome":
+                productFrameDrivenVisibility.outcome,
+            "productWrongRangeOutcome": productWrongRange.outcome,
+            "productNonSpatialOutcome": productNonSpatial.outcome,
             "size": admits(
                 root: stock,
                 sizeProperty: "xraySize",
@@ -323,6 +478,11 @@ enum Harness {
                 producers: [size, multiply]
             ),
             "staticOnly": admits(root: stock),
+            "staticDynamicVisibility": admits(
+                root: stock,
+                producers: [visibility],
+                activeEffectLocalDirectBoolVisibilityTargets: [visibility.target]
+            ),
             "missingProducer": admits(
                 root: stock,
                 sizeProperty: "xraySize"
@@ -412,8 +572,13 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
         )
         root = Path(cls.temporary_directory.name)
         support = root / "Support.swift"
+        product_compiler = root / "ProductXRayCompiler.swift"
         harness = root / "Harness.swift"
         support.write_text(SUPPORT, encoding="utf-8")
+        product_compiler.write_text(
+            product_xray_compiler_source(),
+            encoding="utf-8",
+        )
         harness.write_text(HARNESS, encoding="utf-8")
 
         cls.stock = root / "stock"
@@ -459,6 +624,7 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
                 str(support),
                 *(str(path) for path in SWIFT_SOURCES),
+                str(product_compiler),
                 str(harness),
                 "-framework", "Metal",
                 "-framework", "CoreGraphics",
@@ -493,7 +659,9 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
-    def test_direct_scalar_cohort_revokes_the_incumbent(self) -> None:
+    def test_current_stock_scalar_cohort_revokes_the_incumbent(self) -> None:
+        self.assertTrue(self.result["staticOnly"])
+        self.assertTrue(self.result["staticDynamicVisibility"])
         self.assertTrue(self.result["size"])
         self.assertTrue(self.result["multiply"])
         self.assertTrue(self.result["both"])
@@ -501,7 +669,6 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
 
     def test_non_cohort_shapes_retain_the_incumbent(self) -> None:
         for key in (
-            "staticOnly",
             "missingProducer",
             "wrongProducerType",
             "wrongVisibilityType",
@@ -515,6 +682,15 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
         ):
             with self.subTest(key=key):
                 self.assertFalse(self.result[key])
+        for key in (
+            "productMissingProducerOutcome",
+            "productWrongProducerOutcome",
+            "productFrameDrivenVisibilityOutcome",
+            "productWrongRangeOutcome",
+            "productNonSpatialOutcome",
+        ):
+            with self.subTest(key=key):
+                self.assertEqual(self.result[key], "accepted")
 
     def test_launch_forwards_frame_driven_visibility_to_stage_compilers(
         self,
@@ -538,6 +714,16 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
             "activeEffectLocalDirectBoolVisibilityTargets:"
             "activeEffectLocalDirectBoolVisibilityTargets",
             normalized,
+        )
+
+    def test_controlled_stock_identity_partition_reaches_product_compiler(
+        self,
+    ) -> None:
+        self.assertTrue(self.result["plannerStaticAccepted"])
+        self.assertEqual(self.result["productStaticOutcome"], "rejected")
+        self.assertEqual(
+            self.result["productStaticDetail"],
+            "current-stock-scalar-owner-revoked-to-material-program",
         )
 
 
