@@ -70,6 +70,7 @@ struct SceneRenderDescriptor {
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
         var utilityLayer: SceneUtilityLayer? = nil
+        var parentID: Int? = nil
         var childLayerIDs: [Int] = []
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [String] = []
@@ -153,8 +154,11 @@ struct SceneDependencyRenderPlan {
 
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
+    let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
+    let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -165,6 +169,7 @@ struct SceneDependencyRenderPlan {
         namedReferenceConsumerLayerIDs = Set(references.compactMap {
             visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
         })
+        requiredEffectConsumerLayerIDs = namedReferenceConsumerLayerIDs
         var bindings: [Int: Binding] = [:]
         for layer in descriptor.layers where visibleLayerIDs.contains(layer.id) {
             guard layer.utilityLayer == nil
@@ -179,6 +184,7 @@ struct SceneDependencyRenderPlan {
             }
         }
         bindingsByConsumerLayerID = bindings
+        requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
         requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
             descriptor.layers.first(where: { $0.id == binding.providerLayerID })
                 .flatMap { provider in
@@ -186,6 +192,8 @@ struct SceneDependencyRenderPlan {
                         ? provider.id : nil
                 }
         })
+        staticLayerSourcePassthroughBlockedLayerIDs =
+            namedReferenceConsumerLayerIDs.union(requiredProviderLayerIDs)
     }
 }
 

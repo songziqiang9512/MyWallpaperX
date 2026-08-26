@@ -112,6 +112,10 @@ private struct Output: Codable {
     let reconstructedRouteProfile: String
     let reconstructedRouteState: String
     let reconstructedRollbackOwner: String
+    let reconstructedDefaultPermitsBoundedFrontend: Bool
+    let reconstructedDefaultFallbackOutcome: String
+    let reconstructedDisablePermitsBoundedFrontend: Bool
+    let reconstructedDisableFallbackOutcome: String
     let reconstructedMissingTypedProfile: String
 }
 
@@ -707,6 +711,22 @@ private enum TypedDataRGBFilterHarness {
                 reconstructedSelected.defaultRouteState.rawValue,
             reconstructedRollbackOwner:
                 reconstructedSelected.validatedRollbackOwner.rawValue,
+            reconstructedDefaultPermitsBoundedFrontend:
+                reconstructedSelected.permitsBoundedFrontendAfterArtifactFailure(
+                    routeState: reconstructedSelected.defaultRouteState
+                ),
+            reconstructedDefaultFallbackOutcome:
+                reconstructedSelected.artifactFallbackOutcome(
+                    routeState: reconstructedSelected.defaultRouteState
+                ),
+            reconstructedDisablePermitsBoundedFrontend:
+                reconstructedSelected.permitsBoundedFrontendAfterArtifactFailure(
+                    routeState: .disableGeneric
+                ),
+            reconstructedDisableFallbackOutcome:
+                reconstructedSelected.artifactFallbackOutcome(
+                    routeState: .disableGeneric
+                ),
             reconstructedMissingTypedProfile:
                 reconstructedProfile(typed: []).rawValue
         )
@@ -849,7 +869,7 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             "source-proven-graph-input-straight-alpha-preserving",
         )
 
-    def test_same_alpha_reconstruction_is_a_separate_prefer_generic_profile(
+    def test_same_alpha_reconstruction_is_a_separate_generic_only_profile(
         self,
     ) -> None:
         self.assertEqual(
@@ -871,9 +891,21 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             self.result["reconstructedRouteProfile"],
             "source-proven-graph-input-same-alpha-reconstructed-rgb-data-filter",
         )
-        self.assertEqual(self.result["reconstructedRouteState"], "prefer-generic")
+        self.assertEqual(self.result["reconstructedRouteState"], "generic-only")
         self.assertEqual(
             self.result["reconstructedRollbackOwner"], "bounded-frontend"
+        )
+        self.assertFalse(
+            self.result["reconstructedDefaultPermitsBoundedFrontend"]
+        )
+        self.assertEqual(
+            self.result["reconstructedDefaultFallbackOutcome"], "rejected"
+        )
+        self.assertTrue(
+            self.result["reconstructedDisablePermitsBoundedFrontend"]
+        )
+        self.assertEqual(
+            self.result["reconstructedDisableFallbackOutcome"], "fallback"
         )
         self.assertEqual(
             self.result["reconstructedMissingTypedProfile"],

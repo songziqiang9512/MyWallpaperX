@@ -55,6 +55,10 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectTextureInput.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneEffectDefinition.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredEffectRenderPlan.swift"],
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
+    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlanner+Resolution.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredMaterialResolver.swift"],
@@ -97,7 +101,15 @@ import Foundation
 
 // This census only needs the compile-input collection shape; typed producer
 // identity is exercised by the product/runtime capability tests.
-struct SceneDynamicUserPropertyProducer: Hashable {}
+enum SceneDynamicValueType: Hashable {
+    case bool, scalar, vector2, vector3, vector4, string
+}
+
+struct SceneDynamicUserPropertyProducer: Hashable {
+    let propertyKey: String
+    let target: SceneDynamicTarget
+    let valueType: SceneDynamicValueType
+}
 
 // The production descriptor is intentionally decoded into the smallest exact
 // view consumed by the current planner/resolver. This keeps the census linked
@@ -171,9 +183,14 @@ struct SceneRenderDescriptor: Decodable {
 // Template compilation uses these production concepts, while Program
 // finalization is deliberately unavailable without immutable frame snapshots.
 enum SceneDynamicTarget: Hashable {
+    case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(
         layerID: Int, effectIndex: Int, passIndex: Int, name: String
     )
+}
+
+extension SceneEffectStageExecutionPlan {
+    enum Backend {}
 }
 
 enum SceneDynamicSource: Hashable {
@@ -188,6 +205,15 @@ enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 enum SceneResolvedMaterialProgramDerivation {
+    struct ConditionalGeneratedRGBInputContract: Hashable {
+        let alphaCarrierSlot: Int
+        let generatedOpaqueColorSlots: Set<Int>
+        let scalarRedSlots: Set<Int>
+        let scalarGreenSlots: Set<Int>
+        let scalarBlueSlots: Set<Int>
+        let scalarAlphaSlots: Set<Int>
+    }
+
     static func derive(
         _ input: SceneResolvedMaterialProgram.AssemblyInput
     ) -> SceneResolvedMaterialProgram.Derived? {
@@ -196,7 +222,9 @@ enum SceneResolvedMaterialProgramDerivation {
 
     static func deriveCompiled(
         _ input: SceneResolvedMaterialProgram.AssemblyInput,
-        frontend: SceneAuthoredShaderProgram
+        frontend: SceneAuthoredShaderProgram,
+        conditionalGeneratedRGBInputContract:
+            ConditionalGeneratedRGBInputContract? = nil
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
     }
