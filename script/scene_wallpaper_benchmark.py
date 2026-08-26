@@ -5502,7 +5502,7 @@ def run_sample(
             text=True,
         )
         try:
-            exit_code = process.wait(timeout=duration + 20)
+            exit_code = process.wait(timeout=duration + 60)
         except subprocess.TimeoutExpired:
             timed_out = True
             process.terminate()
