@@ -7068,8 +7068,8 @@ nonisolated struct SceneRenderDescriptor {}
 nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
     static func accepts(
         key: SceneResolvedMaterialRuntimeCatalog.Key, graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor
-    ) -> Bool { false }
+        descriptor: SceneRenderDescriptor, userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+    ) -> Bool { _ = userPropertyProducers; return false }
 }
 nonisolated struct SceneAuthoredMaterialResolution {
     let node: SceneResolvedMaterialNode?
@@ -7383,7 +7383,7 @@ private func catalog(
         admissionCandidates: [.init(result: .success(.init(
             products: [.init(graph: graph)]
         )))],
-        shaderContracts: [contract]
+        shaderContracts: [contract], userPropertyProducers: []
     )
 }
 

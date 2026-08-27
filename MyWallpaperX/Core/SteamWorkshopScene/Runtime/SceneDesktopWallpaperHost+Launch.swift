@@ -588,6 +588,7 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
+            userPropertyProducers: userPropertyProducers,
             provenSceneScriptValueTargets: provenSceneScriptValueTargets
         )
         guard let device = MTLCreateSystemDefaultDevice() else {

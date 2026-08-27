@@ -735,25 +735,23 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             "layer.childLayerIDs.isEmpty",
             "layer.dependencyLayerIDs.isEmpty",
             "layer.authoredDependencies.isEmpty",
+            "scaleProducerCohortIsProven(",
         ):
             self.assertIn(captured_main_boundary, owner_gate)
         self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
         self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
         self.assertIn("sourceScaleCohortIsProven(", owner_gate)
-        self.assertIn(
-            "case (.copyOnlyCapturedMain, .userPropertyScalarSplat)",
-            owner_gate,
-        )
-        self.assertIn(
-            "(.passthroughOnlyCapturedMain, .userPropertyScalarSplat):",
-            owner_gate,
-        )
         source_scale_gate = owner_gate[
             owner_gate.index("private static func sourceScaleCohortIsProven("):
             owner_gate.index("static func acceptsDedicatedRevocation(")
         ]
-        self.assertNotIn("default:", source_scale_gate)
-        self.assertIn(".userPropertyScalarSplat", owner_gate)
+        for supported_pair in (
+            "(.copyOnlyCapturedMain, .userPropertyScalarSplat)",
+            "(.passthroughOnlyCapturedMain, .userPropertyScalarSplat)",
+        ):
+            self.assertIn(supported_pair, source_scale_gate)
+        for permissive_escape in ("default:", "false"):
+            self.assertNotIn(permissive_escape, source_scale_gate)
         self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
         self.assertIn("components.count == 1 || components.count == 2", owner_gate)
         self.assertIn("components.count == 1 || components[0] == components[1]", owner_gate)
@@ -779,8 +777,8 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             'owner-revoked-to-material-program"',
             owner_gate,
         )
-        self.assertNotIn("captured-main-copy-only-typed-user-scalar", owner_gate)
-        self.assertNotIn(
+        self.assertIn("captured-main-copy-only-typed-user-scalar", owner_gate)
+        self.assertIn(
             "captured-main-passthrough-only-typed-user-scalar", owner_gate
         )
         self.assertIn(
@@ -800,13 +798,13 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         self.assertIn("template.textureSlots.indices.contains(slot)", revocation_gate)
         self.assertIn("template.textureSlots[slot] != nil", revocation_gate)
         self.assertNotIn("($0, true)", revocation_gate)
-        self.assertIn("userPropertyScalarSplatConsumersAdmit(", revocation_gate)
-        self.assertIn("[1, 2].allSatisfy", revocation_gate)
-        self.assertIn(
+        for producer_boundary in (
+            "userPropertyScalarSplatConsumersAdmit(", "[1, 2].allSatisfy",
+            "dynamic.target == expectedTarget", "producers.filter",
             "dynamic.valueContributors == [.userProperty(propertyKey)]",
-            revocation_gate,
-        )
-        self.assertIn('dynamic.authoredBindingKeys == ["user", "value"]', revocation_gate)
+            'dynamic.authoredBindingKeys == ["user", "value"]',
+        ):
+            self.assertIn(producer_boundary, revocation_gate)
         self.assertIn('materialKey: "scale"', revocation_gate)
         self.assertIn("type: .float2", revocation_gate)
         self.assertIn("stage: .vertex", revocation_gate)
@@ -834,6 +832,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             "acceptsDedicatedRevocation(",
             standard_compiler,
         )
+        self.assertIn("userPropertyProducers: input.userPropertyProducers", standard_compiler)
         self.assertIn("dedicatedRevocationDetail(", standard_compiler)
         self.assertIn(
             "!input.hasFrameDrivenEffectVisibilityOwner(for: effect.key)",
@@ -862,6 +861,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             launch,
         )
         self.assertIn(".activeOrdinaryRootTargets(", launch)
+        self.assertGreaterEqual(launch.count("userPropertyProducers: userPropertyProducers"), 2)
 
         pulse_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):

@@ -25,6 +25,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         key: SceneResolvedMaterialRuntimeCatalog.Key,
         graph: Graph,
         descriptor: SceneRenderDescriptor,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
         inputRole requiredInputRole: SceneAuthoredEffectInputRole? = nil
     ) -> Bool {
         guard graph.effects.count == 1,
@@ -48,6 +49,11 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               ), sourceScaleCohortIsProven(
                   source: source,
                   scale: scale
+              ), scaleProducerCohortIsProven(
+                  scale: scale,
+                  effect: graph.effects[0],
+                  graph: graph,
+                  producers: userPropertyProducers
               ) else { return false }
         return true
     }
@@ -79,9 +85,11 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             "static-owner-revoked-to-material-program"
         case (.ordinary?, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
-        case (.copyOnlyCapturedMain?, .userPropertyScalarSplat?),
-             (.passthroughOnlyCapturedMain?, .userPropertyScalarSplat?),
-             (nil, _), (_, nil):
+        case (.copyOnlyCapturedMain?, .userPropertyScalarSplat?):
+            "captured-main-copy-only-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (.passthroughOnlyCapturedMain?, .userPropertyScalarSplat?):
+            "captured-main-passthrough-only-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (nil, _), (_, nil):
             nil
         }
     }
@@ -117,15 +125,14 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         scale: ScaleCohort
     ) -> Bool {
         switch (source, scale) {
-        case (.copyOnlyCapturedMain, .userPropertyScalarSplat),
-             (.passthroughOnlyCapturedMain, .userPropertyScalarSplat):
-            false
         case (.ordinary, .staticExact),
              (.ordinary, .userPropertyScalarSplat),
              (.capturedMain, .staticExact),
              (.capturedMain, .userPropertyScalarSplat),
              (.copyOnlyCapturedMain, .staticExact),
+             (.copyOnlyCapturedMain, .userPropertyScalarSplat),
              (.passthroughOnlyCapturedMain, .staticExact),
+             (.passthroughOnlyCapturedMain, .userPropertyScalarSplat),
              (.copyPassthroughCapturedMain, .staticExact),
              (.copyPassthroughCapturedMain, .userPropertyScalarSplat):
             true
@@ -141,12 +148,14 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         inputRole: SceneAuthoredEffectInputRole,
-        shaderContracts: [SceneShaderContract]
+        shaderContracts: [SceneShaderContract],
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
     ) -> Bool {
         guard accepts(
             key: key,
             graph: graph,
             descriptor: descriptor,
+            userPropertyProducers: userPropertyProducers,
             inputRole: inputRole
         ), let layer = descriptor.layers.first(where: {
             $0.id == graph.layerID
@@ -166,7 +175,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                 effect: effect,
                 graph: graph,
                 descriptor: descriptor,
-                shaderContracts: shaderContracts
+                shaderContracts: shaderContracts,
+                producers: userPropertyProducers
             ) else { return false }
         }
 
@@ -281,10 +291,26 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         effect: Graph.Effect,
         graph: Graph,
         descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract]
+        shaderContracts: [SceneShaderContract],
+        producers: Set<SceneDynamicUserPropertyProducer>
     ) -> Bool {
         [1, 2].allSatisfy { ordinal in
-            guard graph.nodes.indices.contains(ordinal) else { return false }
+            guard graph.nodes.indices.contains(ordinal),
+                  let passIndex = graph.nodes[ordinal].instancePassIndex else {
+                return false
+            }
+            let expectedTarget = SceneDynamicTarget.effectConstant(
+                layerID: effect.key.layerID,
+                effectIndex: effect.key.effectIndex,
+                passIndex: passIndex,
+                name: "scale"
+            )
+            let expectedProducer = SceneDynamicUserPropertyProducer(
+                propertyKey: propertyKey,
+                target: expectedTarget,
+                valueType: .scalar
+            )
+            let targetProducers = producers.filter { $0.target == expectedTarget }
             let resolution = SceneAuthoredMaterialResolver.resolve(
                 node: graph.nodes[ordinal],
                 graph: graph,
@@ -315,9 +341,11 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             }
             guard scaleDeclarations.count == 1,
                   case let .dynamic(dynamic) = scaleDeclarations[0].value,
+                  dynamic.target == expectedTarget,
                   dynamic.valueContributors == [.userProperty(propertyKey)],
                   dynamic.scriptAttachments.isEmpty,
                   dynamic.authoredBindingKeys == ["user", "value"],
+                  targetProducers == [expectedProducer],
                   let fallback = dynamic.authoredFallback,
                   fallback.valueKind.localizedLowercase == "binding",
                   fallback.authoredBindingKeys == ["user", "value"] else {
@@ -391,6 +419,39 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         components.allSatisfy(\.isFinite)
             && (components.count == 1
                 || (components.count == 2 && components[0] == components[1]))
+    }
+
+    /// The owner token and dedicated revocation consume the same launch-scoped
+    /// producer facts. Other targets may share the property key, but each
+    /// Gaussian scale target must have exactly one scalar producer.
+    private static func scaleProducerCohortIsProven(
+        scale: ScaleCohort,
+        effect: Graph.Effect,
+        graph: Graph,
+        producers: Set<SceneDynamicUserPropertyProducer>
+    ) -> Bool {
+        guard case let .userPropertyScalarSplat(propertyKey) = scale else {
+            return true
+        }
+        return [1, 2].allSatisfy { ordinal in
+            guard graph.nodes.indices.contains(ordinal),
+                  graph.nodes[ordinal].effect == effect.key,
+                  let passIndex = graph.nodes[ordinal].instancePassIndex else {
+                return false
+            }
+            let target = SceneDynamicTarget.effectConstant(
+                layerID: effect.key.layerID,
+                effectIndex: effect.key.effectIndex,
+                passIndex: passIndex,
+                name: "scale"
+            )
+            let expected = SceneDynamicUserPropertyProducer(
+                propertyKey: propertyKey,
+                target: target,
+                valueType: .scalar
+            )
+            return producers.filter { $0.target == target } == [expected]
+        }
     }
 
     private static func normalized(_ path: String) -> String {

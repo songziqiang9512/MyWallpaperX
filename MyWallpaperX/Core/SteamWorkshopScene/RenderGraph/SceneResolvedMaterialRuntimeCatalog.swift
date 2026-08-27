@@ -178,6 +178,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         descriptor: SceneRenderDescriptor,
         admissionCandidates: [AdmissionCandidate],
         shaderContracts: [SceneShaderContract],
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) {
         var records: [Key: [(graph: Graph, node: Graph.Node)]] = [:]
@@ -282,7 +283,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                     SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.accepts(
                         key: key,
                         graph: record.graph,
-                        descriptor: descriptor
+                        descriptor: descriptor,
+                        userPropertyProducers: userPropertyProducers
                     ),
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
             ) {
