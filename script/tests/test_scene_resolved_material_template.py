@@ -449,6 +449,16 @@ enum Harness {
             ]),
             graph: materialOnlyGraph
         ))
+        let malformedScalarStatic = template(compile(
+            material(constants: [
+                "g_Static": .init(
+                    rawValue: "0.5 trailing",
+                    valueKind: "string",
+                    components: [0.5]
+                ),
+            ]),
+            graph: materialOnlyGraph
+        ))
         let materialOnlyDynamicFailure = failure(compile(
             material(
                 constants: [
@@ -475,6 +485,16 @@ enum Harness {
                 Double(0.5).bitPattern,
             ]
         } else { exactStaticBits = false }
+        let exactScalarProjectionProven: Bool = {
+            guard case let .staticExact(value)? = materialOnlyStatic?
+                    .uniformDeclarations.first?.value else { return false }
+            return value.authoredScalarProjectionProven
+        }()
+        let malformedScalarProjectionRejected: Bool = {
+            guard case let .staticExact(value)? = malformedScalarStatic?
+                    .uniformDeclarations.first?.value else { return false }
+            return !value.authoredScalarProjectionProven
+        }()
         let mergedDynamic: Bool
         if case let .dynamic(value)? = dynamicDeclaration?.value,
            value.valueContributors == [.userProperty("strength")],
@@ -848,6 +868,9 @@ enum Harness {
                 && failure(compile(material(slots: Array(repeating: nil, count: 7))))?.code
                     == .textureSlotsInvalid,
             "staticExactBits": exactStaticBits,
+            "exactScalarProjectionProven": exactScalarProjectionProven,
+            "malformedScalarProjectionRejected":
+                malformedScalarProjectionRejected,
             "materialOnlyStaticDoesNotRequireInstancePass":
                 materialOnlyStatic?.uniformDeclarations.first?.name == "g_Static",
             "materialOnlyDynamicStillRequiresPassIdentity":
@@ -1132,6 +1155,8 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
     def test_uniforms_separate_value_producers_from_script_attachments(self) -> None:
         self.assert_contracts([
             "staticExactBits",
+            "exactScalarProjectionProven",
+            "malformedScalarProjectionRejected",
             "constantFallbackMergedWithDynamic",
             "multipleValueContributorsPreserved",
             "timelineControlSeparated",

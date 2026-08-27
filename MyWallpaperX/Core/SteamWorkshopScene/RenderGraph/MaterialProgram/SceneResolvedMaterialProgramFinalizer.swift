@@ -447,9 +447,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             }
             switch declaration.value {
             case let .staticExact(value):
-                guard let encoded = SceneResolvedMaterialUniformEncoder.encode(
+                guard let encoded =
+                        SceneResolvedMaterialUniformProjection.encodeAuthoredStatic(
                     value,
-                    as: field.type
+                    schema: schema,
+                    field: field
                 ) else {
                     throw failure(
                         .uniform,
@@ -756,14 +758,15 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Bool {
         guard case .userProperty = contributor,
-              field.type == .float2,
-              field.arrayCount == nil,
               declaration.scriptAttachments.isEmpty,
               declaration.authoredBindingKeys == ["user", "value"],
               let fallback = declaration.authoredFallback,
               fallback.valueKind.localizedLowercase == "binding",
               fallback.authoredBindingKeys == ["user", "value"],
-              let consumerDefault = schema.defaultValue else {
+              SceneResolvedMaterialUniformProjection.isIsotropicFloat2Consumer(
+                  schema: schema,
+                  field: field
+              ) else {
             return false
         }
         let fallbackComponents = fallback.componentBitPatterns.map {
@@ -772,14 +775,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         let fallbackIsScalarOrEqualPair = fallbackComponents.count == 1
             || (fallbackComponents.count == 2
                 && fallbackComponents[0] == fallbackComponents[1])
-        let defaultComponents = consumerDefault.componentBitPatterns.map {
-            Double(bitPattern: $0)
-        }
         return fallbackIsScalarOrEqualPair
             && fallbackComponents.allSatisfy(\.isFinite)
-            && defaultComponents.count == 2
-            && defaultComponents.allSatisfy(\.isFinite)
-            && defaultComponents[0] == defaultComponents[1]
     }
 
     static func failure(

@@ -132,7 +132,8 @@
           "SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
           "SceneResolvedMaterialTextureResolver.swift",
           "SceneResolvedMaterialTextureSelection.swift",
-          "SceneResolvedMaterialUniformEncoder.swift"
+          "SceneResolvedMaterialUniformEncoder.swift",
+          "SceneResolvedMaterialUniformProjection.swift"
         ],
         "responsibility": "Complete resolved-material producer lifecycle: ingress and Template compilation, generic compiler artifact validation, schema and variant preparation, Program identity and derivation, texture selection and frame finalization, and uniform encoding; RuntimeCatalog and GPU execution consumers are excluded."
       },

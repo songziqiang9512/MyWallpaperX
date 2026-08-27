@@ -230,7 +230,8 @@
       "description": "Program host, static, and dynamic uniform byte encoding.",
       "includes": [],
       "sources": [
-        "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformEncoder.swift"
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformEncoder.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialUniformProjection.swift"
       ]
     },
     "resolved_material_shader_schema": {

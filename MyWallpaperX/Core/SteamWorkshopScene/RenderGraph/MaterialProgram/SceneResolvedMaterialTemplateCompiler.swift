@@ -243,7 +243,9 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     Template.StaticUniformValue(
                         valueKind: authored.valueKind,
                         componentBitPatterns: $0.map(\.bitPattern),
-                        authoredBindingKeys: authored.bindingKeys.sorted()
+                        authoredBindingKeys: authored.bindingKeys.sorted(),
+                        authoredScalarProjectionProven:
+                            authoredScalarProjectionIsProven(authored)
                     )
                 }
             }
@@ -285,6 +287,22 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
             ))
         }
         return (values, diagnostics)
+    }
+
+    private static func authoredScalarProjectionIsProven(
+        _ authored: SceneDocument.ShaderValue
+    ) -> Bool {
+        guard let components = authored.components,
+              components.count == 1,
+              let component = components.first,
+              component.isFinite else { return false }
+        let token = authored.rawValue.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        guard !token.isEmpty,
+              let parsed = Double(token),
+              parsed.isFinite else { return false }
+        return parsed.bitPattern == component.bitPattern
     }
 
     private static func graphRole(_ context: GraphContext) -> Template.GraphRole? {

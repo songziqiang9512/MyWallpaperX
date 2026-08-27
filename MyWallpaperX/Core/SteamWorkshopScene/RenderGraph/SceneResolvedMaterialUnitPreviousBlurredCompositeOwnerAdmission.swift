@@ -10,6 +10,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
 
     private enum ScaleCohort: Equatable {
         case staticExact
+        case staticScalarProjection
         case userPropertyScalarSplat(String)
     }
 
@@ -72,18 +73,28 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         )) {
         case (.copyPassthroughCapturedMain?, .staticExact?):
             "captured-main-copy-passthrough-static-owner-revoked-to-material-program"
+        case (.copyPassthroughCapturedMain?, .staticScalarProjection?):
+            "captured-main-copy-passthrough-static-scalar-owner-revoked-to-material-program"
         case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):
             "captured-main-copy-passthrough-typed-user-scalar-splat-owner-revoked-to-material-program"
         case (.copyOnlyCapturedMain?, .staticExact?):
             "captured-main-copy-only-static-owner-revoked-to-material-program"
+        case (.copyOnlyCapturedMain?, .staticScalarProjection?):
+            "captured-main-copy-only-static-scalar-owner-revoked-to-material-program"
         case (.passthroughOnlyCapturedMain?, .staticExact?):
             "captured-main-passthrough-only-static-owner-revoked-to-material-program"
+        case (.passthroughOnlyCapturedMain?, .staticScalarProjection?):
+            "captured-main-passthrough-only-static-scalar-owner-revoked-to-material-program"
         case (.capturedMain?, .staticExact?):
             "captured-main-static-owner-revoked-to-material-program"
+        case (.capturedMain?, .staticScalarProjection?):
+            "captured-main-static-scalar-owner-revoked-to-material-program"
         case (.capturedMain?, .userPropertyScalarSplat?):
             "captured-main-typed-user-scalar-splat-owner-revoked-to-material-program"
         case (.ordinary?, .staticExact?):
             "static-owner-revoked-to-material-program"
+        case (.ordinary?, .staticScalarProjection?):
+            "static-scalar-owner-revoked-to-material-program"
         case (.ordinary?, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
         case (.copyOnlyCapturedMain?, .userPropertyScalarSplat?):
@@ -127,14 +138,19 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
     ) -> Bool {
         switch (source, scale) {
         case (.ordinary, .staticExact),
+             (.ordinary, .staticScalarProjection),
              (.ordinary, .userPropertyScalarSplat),
              (.capturedMain, .staticExact),
+             (.capturedMain, .staticScalarProjection),
              (.capturedMain, .userPropertyScalarSplat),
              (.copyOnlyCapturedMain, .staticExact),
+             (.copyOnlyCapturedMain, .staticScalarProjection),
              (.copyOnlyCapturedMain, .userPropertyScalarSplat),
              (.passthroughOnlyCapturedMain, .staticExact),
+             (.passthroughOnlyCapturedMain, .staticScalarProjection),
              (.passthroughOnlyCapturedMain, .userPropertyScalarSplat),
              (.copyPassthroughCapturedMain, .staticExact),
+             (.copyPassthroughCapturedMain, .staticScalarProjection),
              (.copyPassthroughCapturedMain, .userPropertyScalarSplat):
             true
         }
@@ -170,7 +186,24 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                $0.nodeIndex == terminalNodeIndex
            }) else { return false }
 
-        if case let .userPropertyScalarSplat(propertyKey) = scaleCohort {
+        switch scaleCohort {
+        case .staticExact:
+            guard staticConsumersAdmit(
+                effect: effect,
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                scalarProjectionRequired: false
+            ) else { return false }
+        case .staticScalarProjection:
+            guard staticConsumersAdmit(
+                effect: effect,
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                scalarProjectionRequired: true
+            ) else { return false }
+        case let .userPropertyScalarSplat(propertyKey):
             guard userPropertyScalarSplatConsumersAdmit(
                 propertyKey: propertyKey,
                 effect: effect,
@@ -282,6 +315,82 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             return false
         }
         return true
+    }
+
+    /// Static owner revocation preflights both Gaussian consumers. Scalar
+    /// projection additionally requires exact authored-token provenance and
+    /// an isotropic typed shader default; exact float2 values keep their lanes.
+    private static func staticConsumersAdmit(
+        effect: Graph.Effect,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        scalarProjectionRequired: Bool
+    ) -> Bool {
+        [1, 2].allSatisfy { ordinal in
+            guard graph.nodes.indices.contains(ordinal) else { return false }
+            let resolution = SceneAuthoredMaterialResolver.resolve(
+                node: graph.nodes[ordinal],
+                graph: graph,
+                descriptor: descriptor
+            )
+            guard resolution.isResolved,
+                  let material = resolution.node else { return false }
+            let contracts = shaderContracts.filter {
+                normalized($0.identity) == normalized(material.shaderPath)
+            }
+            guard contracts.count == 1,
+                  let contract = contracts.first,
+                  let inheritedInactiveCombos = inheritedInactiveCombos(
+                      effect: effect,
+                      material: material,
+                      graph: graph,
+                      descriptor: descriptor
+                  ), case let .success(template) =
+                    SceneResolvedMaterialTemplateCompiler.compile(
+                        material: material,
+                        graph: graph,
+                        shaderContract: contract,
+                        inheritedInactiveCombos: inheritedInactiveCombos
+                    ) else { return false }
+            let declarations = template.uniformDeclarations.filter {
+                $0.name == "scale"
+            }
+            guard declarations.count == 1,
+                  case let .staticExact(value) = declarations[0].value else {
+                return false
+            }
+            let components = value.componentBitPatterns.map {
+                Double(bitPattern: $0)
+            }
+            let valueShapeMatches = scalarProjectionRequired
+                ? (components.count == 1
+                    && value.authoredScalarProjectionProven)
+                : components.count == 2
+            guard components.allSatisfy(\.isFinite),
+                  valueShapeMatches else { return false }
+
+            let prepared: SceneShaderPreparedProgram
+            switch SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: contract,
+                combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
+                textureReadiness: textureReadiness(template)
+            ) {
+            case let .accepted(value): prepared = value
+            case .notApplicable, .rejected: return false
+            }
+            guard let schema =
+                    SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                        materialKey: "scale",
+                        type: .float2,
+                        stage: .vertex,
+                        prepared: prepared
+                    ) else { return false }
+            return !scalarProjectionRequired
+                || SceneResolvedMaterialUniformProjection
+                    .hasIsotropicFloat2Default(schema)
+        }
     }
 
     /// Dynamic scalar projection may revoke the incumbent only after both
@@ -483,18 +592,21 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
     ) -> ScaleCohort? {
         guard scale.timeline == nil,
               scale.timelineDiagnostics.isEmpty,
-              scale.scriptSource == nil else { return nil }
+              scale.scriptSource == nil,
+              let components = scale.components,
+              components.count == 1 || components.count == 2,
+              components.allSatisfy(\.isFinite) else { return nil }
         guard scale.valueKind.localizedLowercase == "binding" else {
-            return scale.userBinding == nil ? .staticExact : nil
+            guard scale.userBinding == nil else { return nil }
+            return components.count == 1
+                ? .staticScalarProjection
+                : .staticExact
         }
         guard let key = scale.userBinding,
               !key.isEmpty,
               key == key.trimmingCharacters(in: .whitespacesAndNewlines),
               scale.userValueKind == .string,
               scale.bindingKeys == ["user", "value"],
-              let components = scale.components,
-              components.count == 1 || components.count == 2,
-              components.allSatisfy(\.isFinite),
               components.count == 1 || components[0] == components[1] else {
             return nil
         }

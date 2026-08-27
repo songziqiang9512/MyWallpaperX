@@ -184,6 +184,23 @@ nonisolated struct SceneResolvedMaterialTemplate {
         let valueKind: String
         let componentBitPatterns: [UInt64]
         let authoredBindingKeys: [String]
+        /// True only when the original authored token parsed in full as one
+        /// finite scalar. Lowered components alone cannot prove that malformed
+        /// trailing tokens were not discarded.
+        let authoredScalarProjectionProven: Bool
+
+        init(
+            valueKind: String,
+            componentBitPatterns: [UInt64],
+            authoredBindingKeys: [String],
+            authoredScalarProjectionProven: Bool = false
+        ) {
+            self.valueKind = valueKind
+            self.componentBitPatterns = componentBitPatterns
+            self.authoredBindingKeys = authoredBindingKeys
+            self.authoredScalarProjectionProven =
+                authoredScalarProjectionProven
+        }
     }
 
     enum DynamicUniformSource: Hashable {

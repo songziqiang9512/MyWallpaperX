@@ -218,6 +218,9 @@ private func fragmentSource(
     pointerState: Bool = false,
     semanticProbes: Bool = true,
     scalarSplatScale: Bool = false,
+    scalarSplatType: String = "vec2",
+    scalarSplatDefault: String? = "1 1",
+    scalarSplatArray: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false
 ) -> String {
@@ -312,8 +315,12 @@ private func fragmentSource(
     let alphaUniform = maskedAlpha
         ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0,\"range\":[0,1]}"
         : ""
+    let scalarSplatMetadata = scalarSplatDefault.map {
+        "{\"material\":\"scale\",\"default\":\"\($0)\"}"
+    } ?? "{\"material\":\"scale\"}"
+    let scalarSplatArraySuffix = scalarSplatArray ? "[2]" : ""
     let scalarSplatUniform = scalarSplatScale
-        ? #"uniform vec2 u_Scale; // {"material":"scale","default":"1 1"}"#
+        ? "uniform \(scalarSplatType) u_Scale\(scalarSplatArraySuffix); // \(scalarSplatMetadata)"
         : ""
     let overlayUniforms = overlayAlphaBlend
         ? """
@@ -356,7 +363,10 @@ private func fragmentSource(
     let metadataProbes = semanticProbes
         ? "vec3 tintProbe = u_Tint;\nfloat timeProbe = g_Time;"
         : ""
-    let scalarSplatProbe = scalarSplatScale ? "vec2 scaleProbe = u_Scale;" : ""
+    let scalarSplatReadSuffix = scalarSplatArray ? "[0]" : ""
+    let scalarSplatProbe = scalarSplatScale
+        ? "\(scalarSplatType) scaleProbe = u_Scale\(scalarSplatReadSuffix);"
+        : ""
     let runtimeLoopMetadata = runtimeLoopEditorHints
         ? #"{"material":"Fractals","int":true,"default":5,"range":[1,10]}"#
         : #"{"material":"Fractals"}"#
@@ -425,6 +435,9 @@ private func contract(
     pointerState: Bool = false,
     semanticProbes: Bool = true,
     scalarSplatScale: Bool = false,
+    scalarSplatType: String = "vec2",
+    scalarSplatDefault: String? = "1 1",
+    scalarSplatArray: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false,
     includeSourceGraph: Bool = true,
@@ -482,6 +495,9 @@ private func contract(
                 pointerState: pointerState,
                 semanticProbes: semanticProbes,
                 scalarSplatScale: scalarSplatScale,
+                scalarSplatType: scalarSplatType,
+                scalarSplatDefault: scalarSplatDefault,
+                scalarSplatArray: scalarSplatArray,
                 colorBlend: colorBlend,
                 legacyMaskOverride: legacyMaskOverride
             )
@@ -622,19 +638,27 @@ private func candidates(
     }
 }
 
-private func staticValue(_ components: [Double]) -> Template.StaticUniformValue {
+private func staticValue(
+    _ components: [Double],
+    scalarProjectionProven: Bool = false
+) -> Template.StaticUniformValue {
     .init(
         valueKind: "fixture",
         componentBitPatterns: components.map(\.bitPattern),
-        authoredBindingKeys: []
+        authoredBindingKeys: [],
+        authoredScalarProjectionProven: scalarProjectionProven
     )
 }
 
 private func staticDeclaration(
     _ name: String,
-    components: [Double]
+    components: [Double],
+    scalarProjectionProven: Bool = false
 ) -> Template.UniformDeclaration {
-    .init(name: name, value: .staticExact(staticValue(components)))
+    .init(name: name, value: .staticExact(staticValue(
+        components,
+        scalarProjectionProven: scalarProjectionProven
+    )))
 }
 
 private func dynamicDeclaration(
@@ -3671,6 +3695,17 @@ private enum Harness {
             dynamicSource: nil,
             authoredScaleValue: .scalar(0.6)
         )
+        let staticScalarSplatProgram = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
         let userPropertyScalarFloat2SplatEncoded: Bool = {
             guard case let .success(program) = scalarSplatProgram,
                   case let .success(authored) = scalarSplatAuthoredProgram,
@@ -3682,6 +3717,139 @@ private enum Harness {
                 && float(program.uniformBytes, at: field.offset + 4) == 0.6
                 && float(authored.uniformBytes, at: field.offset) == 0.6
                 && float(authored.uniformBytes, at: field.offset + 4) == 0.6
+        }()
+        let staticScalarFloat2SplatEncoded: Bool = {
+            guard case let .success(program) = staticScalarSplatProgram,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ) else { return false }
+            return field.type == .float2
+                && field.arrayCount == nil
+                && float(program.uniformBytes, at: field.offset) == 0.4
+                && float(program.uniformBytes, at: field.offset + 4) == 0.4
+        }()
+        let unequalDefaultStaticScalarSplat = finalize(
+            shader: contract(
+                revision: "static-scalar-float2-unequal-default",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatDefault: "1 0.5"
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let missingDefaultStaticScalarSplat = finalize(
+            shader: contract(
+                revision: "static-scalar-float2-missing-default",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatDefault: nil
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let nonFiniteDefaultStaticScalarSplat = finalize(
+            shader: contract(
+                revision: "static-scalar-float2-nonfinite-default",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatDefault: "nan nan"
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let wrongABIStaticScalarSplat = finalize(
+            shader: contract(
+                revision: "static-scalar-float3-rejected",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatType: "vec3",
+                scalarSplatDefault: "1 1 1"
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let arrayStaticScalarSplat = finalize(
+            shader: contract(
+                revision: "static-scalar-float2-array-rejected",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatArray: true
+            ),
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [0.4],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let nonFiniteStaticScalarSplat = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration(
+                    "scale",
+                    components: [.nan],
+                    scalarProjectionProven: true
+                ),
+            ]
+        )
+        let unprovenStaticScalarSplat = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration("scale", components: [0.4]),
+            ]
+        )
+        let scalarShaderDefaultOnly = finalize(
+            shader: contract(
+                revision: "scalar-shader-default-not-projected",
+                semanticProbes: false,
+                scalarSplatScale: true,
+                scalarSplatDefault: "1"
+            ),
+            device: device
+        )
+        let exactStaticFloat2Program = finalize(
+            shader: scalarSplatShader,
+            device: device,
+            uniformDeclarations: [
+                staticDeclaration("scale", components: [0.4, 0.7]),
+            ]
+        )
+        let exactStaticFloat2Preserved: Bool = {
+            guard case let .success(program) = exactStaticFloat2Program,
+                  let field = program.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ) else { return false }
+            return float(program.uniformBytes, at: field.offset) == 0.4
+                && float(program.uniformBytes, at: field.offset + 4) == 0.7
         }()
         let unequalScalarSplatFallback = finalize(
             shader: contract(
@@ -4627,6 +4795,30 @@ private enum Harness {
                 nonUserScalarSplatContributor
             ),
             "extraKeyScalarSplat": failureToken(extraKeyScalarSplat),
+            "unequalDefaultStaticScalarSplat": failureToken(
+                unequalDefaultStaticScalarSplat
+            ),
+            "missingDefaultStaticScalarSplat": failureToken(
+                missingDefaultStaticScalarSplat
+            ),
+            "nonFiniteDefaultStaticScalarSplat": failureToken(
+                nonFiniteDefaultStaticScalarSplat
+            ),
+            "wrongABIStaticScalarSplat": failureToken(
+                wrongABIStaticScalarSplat
+            ),
+            "arrayStaticScalarSplat": failureToken(
+                arrayStaticScalarSplat
+            ),
+            "nonFiniteStaticScalarSplat": failureToken(
+                nonFiniteStaticScalarSplat
+            ),
+            "unprovenStaticScalarSplat": failureToken(
+                unprovenStaticScalarSplat
+            ),
+            "scalarShaderDefaultOnly": failureToken(
+                scalarShaderDefaultOnly
+            ),
         ]
 
         let attenuationEligibility = attenuationEligibilityTokens()
@@ -4689,6 +4881,9 @@ private enum Harness {
                     timelineVectorUpdatesProgramWithoutTopologyChange,
                 "userPropertyScalarFloat2SplatEncoded":
                     userPropertyScalarFloat2SplatEncoded,
+                "staticScalarFloat2SplatEncoded":
+                    staticScalarFloat2SplatEncoded,
+                "exactStaticFloat2Preserved": exactStaticFloat2Preserved,
                 "overlayDataTyped": overlayDataTyped,
                 "optionalMaskWithoutResourceAccepted":
                     optionalMaskWithoutResourceAccepted,
@@ -5382,6 +5577,22 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "nonUserScalarSplatContributor":
                 "uniform/dynamicUniformBindingInvalid",
             "extraKeyScalarSplat": "uniform/dynamicUniformBindingInvalid",
+            "unequalDefaultStaticScalarSplat":
+                "uniform/staticUniformBindingInvalid",
+            "missingDefaultStaticScalarSplat":
+                "uniform/staticUniformBindingInvalid",
+            "nonFiniteDefaultStaticScalarSplat":
+                "uniform/uniformBindingInvalid",
+            "wrongABIStaticScalarSplat":
+                "uniform/staticUniformBindingInvalid",
+            "arrayStaticScalarSplat":
+                "frontend/shaderFrontendFailed",
+            "nonFiniteStaticScalarSplat":
+                "uniform/staticUniformBindingInvalid",
+            "unprovenStaticScalarSplat":
+                "uniform/staticUniformBindingInvalid",
+            "scalarShaderDefaultOnly":
+                "uniform/staticUniformBindingInvalid",
             "multipleValueContributors": "uniform/uniformContributorPolicyUnproven",
             "runtimeLoopMetadataOnly": "frontend/shaderFrontendFailed",
             "runtimeLoopDynamicProducer": "frontend/shaderFrontendFailed",
