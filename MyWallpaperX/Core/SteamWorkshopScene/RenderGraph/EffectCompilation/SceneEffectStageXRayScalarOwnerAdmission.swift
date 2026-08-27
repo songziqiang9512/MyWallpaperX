@@ -39,9 +39,17 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
               }).count == 1,
               layer.effects.indices.contains(effectKey.effectIndex),
               layer.effects[effectKey.effectIndex].id == effectKey.descriptorID,
-              layer.effects[effectKey.effectIndex].visible != false,
+              let startupInactive = input.authoredEffectIsStartupInactive(
+                for: effectKey
+              ),
               !input.hasFrameDrivenEffectVisibilityOwner(for: effectKey),
-              input.supportsEffectLocalUserPropertyVisibility(for: effectKey)
+              (startupInactive
+                ? input.supportsStartupInactiveUserPropertyVisibility(
+                    for: effectKey
+                )
+                : input.supportsEffectLocalUserPropertyVisibility(
+                    for: effectKey
+                ))
         else { return false }
 
         let resolution = SceneAuthoredMaterialResolver.resolve(

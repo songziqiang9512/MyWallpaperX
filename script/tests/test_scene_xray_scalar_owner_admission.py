@@ -232,6 +232,7 @@ private func value(
 }
 
 private func descriptor(
+    effectVisible: Bool? = true,
     sizeProperty: String? = nil,
     multiplyProperty: String? = nil,
     extraSizeBindingKey: Bool = false,
@@ -261,7 +262,7 @@ private func descriptor(
             effects: [.init(
                 id: effectKey.descriptorID,
                 file: "effects/xray/effect.json",
-                visible: true,
+                visible: effectVisible,
                 passes: [pass]
             )]
         )],
@@ -313,10 +314,12 @@ private func contract(_ root: URL) -> SceneShaderContract {
 
 private func compileInput(
     root: URL,
+    effectVisible: Bool? = true,
     sizeProperty: String? = nil,
     multiplyProperty: String? = nil,
     producers: Set<SceneDynamicUserPropertyProducer> = [],
     activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
+    startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
     frameDrivenVisibilityEffectIndex: Int? = nil,
     extraSizeBindingKey: Bool = false,
     sizeScript: String? = nil
@@ -327,6 +330,7 @@ private func compileInput(
         definitionPath: "effects/xray/effect.json",
         inputRole: .layerSource,
         descriptor: descriptor(
+            effectVisible: effectVisible,
             sizeProperty: sizeProperty,
             multiplyProperty: multiplyProperty,
             extraSizeBindingKey: extraSizeBindingKey,
@@ -336,6 +340,8 @@ private func compileInput(
         userPropertyProducers: producers,
         activeEffectLocalDirectBoolVisibilityTargets:
             activeEffectLocalDirectBoolVisibilityTargets,
+        startupInactiveEffectVisibilityTargets:
+            startupInactiveEffectVisibilityTargets,
         frameDrivenEffectVisibilityOwners: frameDrivenVisibilityEffectIndex
             .map { [.init(layerID: layerID, effectIndex: $0)] }
             ?? []
@@ -369,14 +375,18 @@ private func admits(
 
 private func productCompilerResult(
     _ input: SceneEffectStageCompileInput
-) -> (outcome: String, detail: String) {
+) -> (outcome: String, detail: String, envelope: String) {
     switch SceneAuthoredXRayPlanner.compile(input) {
     case .notApplicable:
-        return ("not-applicable", "")
+        return ("not-applicable", "", "")
     case .accepted:
-        return ("accepted", "")
+        return ("accepted", "", "")
     case .rejected(let failure):
-        return ("rejected", failure.details.first ?? "")
+        return (
+            "rejected",
+            failure.details.first ?? "",
+            "\(failure.backend.rawValue):\(failure.phase.rawValue):\(failure.code.rawValue)"
+        )
     }
 }
 
@@ -397,6 +407,11 @@ enum Harness {
         let visibility = SceneDynamicUserPropertyProducer(
             propertyKey: "xrayVisible",
             target: .effectVisibility(layerID: layerID, effectIndex: 0),
+            valueType: .bool
+        )
+        let competingVisibility = SceneDynamicUserPropertyProducer(
+            propertyKey: "competingVisible",
+            target: visibility.target,
             valueType: .bool
         )
         let staticInput = compileInput(root: stock)
@@ -420,6 +435,12 @@ enum Harness {
         let productNonSpatial = productCompilerResult(compileInput(
             root: nonSpatial
         ))
+        let productStartup = productCompilerResult(compileInput(
+            root: stock,
+            effectVisible: false,
+            producers: [visibility],
+            startupInactiveEffectVisibilityTargets: [visibility.target]
+        ))
         let result: [String: Any] = [
             "plannerStaticAccepted": SceneAuthoredXRayPlanner.plan(
                 graph: staticInput.stageGraph,
@@ -435,6 +456,57 @@ enum Harness {
                 productFrameDrivenVisibility.outcome,
             "productWrongRangeOutcome": productWrongRange.outcome,
             "productNonSpatialOutcome": productNonSpatial.outcome,
+            "productStartupOutcome": productStartup.outcome,
+            "productStartupDetail": productStartup.detail,
+            "productStartupEnvelope": productStartup.envelope,
+            "productStartupNearMisses": [
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false, producers: [visibility],
+                    activeEffectLocalDirectBoolVisibilityTargets: [visibility.target]
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false,
+                    startupInactiveEffectVisibilityTargets: [visibility.target]
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false,
+                    producers: [visibility, competingVisibility],
+                    startupInactiveEffectVisibilityTargets: [visibility.target]
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false, producers: [visibility],
+                    startupInactiveEffectVisibilityTargets: [
+                        .effectVisibility(layerID: layerID, effectIndex: 1),
+                    ]
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false, producers: [visibility],
+                    startupInactiveEffectVisibilityTargets: [visibility.target],
+                    frameDrivenVisibilityEffectIndex: 0
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false, producers: [visibility],
+                    startupInactiveEffectVisibilityTargets: [visibility.target],
+                    frameDrivenVisibilityEffectIndex: 1
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false,
+                    producers: [.init(
+                        propertyKey: "xrayVisible", target: visibility.target,
+                        valueType: .vector2
+                    )],
+                    startupInactiveEffectVisibilityTargets: [visibility.target]
+                )).outcome,
+                productCompilerResult(compileInput(
+                    root: stock, effectVisible: false,
+                    producers: [.init(
+                        propertyKey: "xrayVisible",
+                        target: .effectVisibility(layerID: layerID, effectIndex: 1),
+                        valueType: .bool
+                    )],
+                    startupInactiveEffectVisibilityTargets: [visibility.target]
+                )).outcome,
+            ],
             "size": admits(
                 root: stock,
                 sizeProperty: "xraySize",
@@ -701,6 +773,19 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
             self.result["productStaticDetail"],
             "current-stock-scalar-owner-revoked-to-material-program",
         )
+
+    def test_startup_inactive_requires_the_exact_direct_bool_route(self) -> None:
+        self.assertEqual(self.result["productStartupOutcome"], "rejected")
+        self.assertEqual(
+            self.result["productStartupDetail"],
+            "startup-inactive-direct-bool-current-stock-scalar-"
+            "owner-revoked-to-material-program",
+        )
+        self.assertEqual(
+            self.result["productStartupEnvelope"],
+            "x-ray:compatibility:dedicated-profile-rejected",
+        )
+        self.assertEqual(self.result["productStartupNearMisses"], ["accepted"] * 8)
 
 
 if __name__ == "__main__":

@@ -134,13 +134,14 @@ extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
                     effectKey: plan.effectKey,
                     input: input
                 ) else { return result }
+        let detail = input.authoredEffectIsStartupInactive(for: plan.effectKey) == true
+            ? "startup-inactive-direct-bool-current-stock-scalar-owner-revoked-to-material-program"
+            : "current-stock-scalar-owner-revoked-to-material-program"
         return .rejected(.init(
             backend: .xRay,
             phase: .compatibility,
             code: .dedicatedProfileRejected,
-            details: [
-                "current-stock-scalar-owner-revoked-to-material-program",
-            ]
+            details: [detail]
         ))
     }
 }
