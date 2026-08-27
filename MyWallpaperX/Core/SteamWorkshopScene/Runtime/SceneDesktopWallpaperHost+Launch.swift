@@ -453,6 +453,8 @@ extension SceneDesktopWallpaperHost {
                 timelineDefinitions: timelineDefinitions,
                 activeEffectLocalDirectBoolVisibilityTargets:
                     activeEffectLocalDirectBoolVisibilityTargets,
+                startupInactiveEffectVisibilityTargets:
+                    runtimeInput.startupInactiveEffectVisibilityTargets,
                 frameDrivenEffectVisibilityOwners:
                     stageCompileEffectVisibilityOwners
             )

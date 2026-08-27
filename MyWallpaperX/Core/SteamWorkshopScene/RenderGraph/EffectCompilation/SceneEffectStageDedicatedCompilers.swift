@@ -69,9 +69,14 @@ extension SceneAuthoredStandardBlurPlanner {
         guard case .accepted = result,
               let effect = input.stageGraph.effects.first,
               !input.hasFrameDrivenEffectVisibilityOwner(for: effect.key),
-              input.supportsEffectLocalUserPropertyVisibility(for: effect.key),
+              let startupInactive = input.authoredEffectIsStartupInactive(
+                for: effect.key
+              ),
+              (startupInactive
+                ? input.supportsStartupInactiveUserPropertyVisibility(for: effect.key)
+                : input.supportsEffectLocalUserPropertyVisibility(for: effect.key)),
               let terminalNodeIndex = effect.nodeIndices.last else { return result }
-        let revocationDetail =
+        let baseRevocationDetail =
             SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                 .dedicatedRevocationDetail(
                     graph: input.stageGraph,
@@ -91,7 +96,10 @@ extension SceneAuthoredStandardBlurPlanner {
                     userPropertyProducers: input.userPropertyProducers,
                     timelineDefinitions: input.timelineDefinitions
                 )
-        guard sourceAccepted, let revocationDetail else { return result }
+        guard sourceAccepted, let baseRevocationDetail else { return result }
+        let revocationDetail = startupInactive
+            ? "startup-inactive-direct-bool-\(baseRevocationDetail)"
+            : baseRevocationDetail
         return .rejected(.init(
             backend: .standardBlur,
             phase: .compatibility,

@@ -21,6 +21,7 @@ extension SceneEffectProgramCompiler {
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         activeEffectLocalDirectBoolVisibilityTargets:
             Set<SceneDynamicTarget> = [],
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         frameDrivenEffectVisibilityOwners:
             Set<SceneEffectStageCompileInput.DynamicEffectVisibilityOwner> = []
     ) -> [SceneEffectStageProgram] {
@@ -40,6 +41,8 @@ extension SceneEffectProgramCompiler {
                 timelineDefinitions: timelineDefinitions,
                 activeEffectLocalDirectBoolVisibilityTargets:
                     activeEffectLocalDirectBoolVisibilityTargets,
+                startupInactiveEffectVisibilityTargets:
+                    startupInactiveEffectVisibilityTargets,
                 frameDrivenEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners
             )

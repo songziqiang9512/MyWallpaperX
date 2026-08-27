@@ -21,6 +21,7 @@ nonisolated struct SceneEffectStageCompileInput {
     let userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
     let timelineDefinitions: Set<SceneDynamicTargetDefinition>
     let activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget>
+    let startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget>
     let frameDrivenEffectVisibilityOwners:
         Set<DynamicEffectVisibilityOwner>
 
@@ -35,6 +36,7 @@ nonisolated struct SceneEffectStageCompileInput {
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
+        startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         frameDrivenEffectVisibilityOwners:
             Set<DynamicEffectVisibilityOwner> = []
     ) {
@@ -49,6 +51,8 @@ nonisolated struct SceneEffectStageCompileInput {
         self.timelineDefinitions = timelineDefinitions
         self.activeEffectLocalDirectBoolVisibilityTargets =
             activeEffectLocalDirectBoolVisibilityTargets
+        self.startupInactiveEffectVisibilityTargets =
+            startupInactiveEffectVisibilityTargets
         self.frameDrivenEffectVisibilityOwners =
             frameDrivenEffectVisibilityOwners
     }
@@ -59,6 +63,19 @@ nonisolated struct SceneEffectStageCompileInput {
         frameDrivenEffectVisibilityOwners.contains {
             $0.layerID == effectKey.layerID
         }
+    }
+
+    func authoredEffectIsStartupInactive(
+        for effectKey: Graph.EffectKey
+    ) -> Bool? {
+        guard let layer = descriptor.layers.first(where: {
+            $0.id == effectKey.layerID
+        }), layer.effects.indices.contains(effectKey.effectIndex) else {
+            return nil
+        }
+        let effect = layer.effects[effectKey.effectIndex]
+        guard effect.id == effectKey.descriptorID else { return nil }
+        return effect.visible == false
     }
 
     func supportsEffectLocalUserPropertyVisibility(
@@ -73,6 +90,23 @@ nonisolated struct SceneEffectStageCompileInput {
             || (producers.count == 1
                 && producers.first?.valueType == .bool
                 && activeEffectLocalDirectBoolVisibilityTargets.contains(target))
+    }
+
+    /// Startup-inactive execution is a distinct lifecycle cohort. Only the
+    /// fully validated route-admission target may revoke an incumbent; active
+    /// targets stay separate so other dedicated families do not inherit this
+    /// broader lifecycle without their own owner proof.
+    func supportsStartupInactiveUserPropertyVisibility(
+        for effectKey: Graph.EffectKey
+    ) -> Bool {
+        let target = SceneDynamicTarget.effectVisibility(
+            layerID: effectKey.layerID,
+            effectIndex: effectKey.effectIndex
+        )
+        let producers = userPropertyEffectVisibilityProducers(for: effectKey)
+        return producers.count == 1
+            && producers.first?.valueType == .bool
+            && startupInactiveEffectVisibilityTargets.contains(target)
     }
 
     private func userPropertyEffectVisibilityProducers(

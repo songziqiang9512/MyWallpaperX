@@ -190,14 +190,19 @@
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift",
         "script/tests/fixtures/SceneStandardBlurStaticScalarOwnerAdmissionSupport.swift",
         "script/tests/test_scene_standard_blur_static_scalar_owner_admission.py",
+        "script/tests/test_scene_standard_blur_startup_false_direct_bool_owner_admission.py",
         "script/tests/test_scene_standard_blur_timeline_vector2_owner_admission.py"
       ],
       "modules": [
         "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
+        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
         "test_scene_standard_blur_timeline_vector2_owner_admission"
       ]
     },
@@ -256,6 +261,7 @@
         "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
+        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
         "test_scene_standard_blur_timeline_vector2_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_utility_layers"
@@ -338,6 +344,7 @@
         "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
+        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
         "test_scene_standard_blur_timeline_vector2_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",
