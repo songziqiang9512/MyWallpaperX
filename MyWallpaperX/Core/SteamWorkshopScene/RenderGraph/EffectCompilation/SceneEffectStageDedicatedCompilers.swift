@@ -336,9 +336,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
 
     /// Revokes canonical alpha-writing Pulse shapes only after source analysis
     /// proves either preserved RGB or an RGB blend driven by the same scalar.
-    /// Binding, provider, alpha-only mask, and historical combined forms retain
-    /// incumbent. Stock combined RGB/alpha may carry one source-proven typed
-    /// opacity mask after the alpha write.
+    /// Binding, provider, and historical combined forms retain incumbent.
+    /// Stock combined RGB/alpha may carry one source-proven typed opacity mask
+    /// after the alpha write. The straight-RGB/scalar-alpha path also admits an
+    /// exact source-proven non-audio historical max-clamp shape, with or without
+    /// that post-alpha mask.
     private nonisolated static func scalarAlphaProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput

@@ -718,6 +718,21 @@ enum Harness {
                     combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
                 ))
             },
+            "legacyStaticAlphaOnly": legacyContracts.map {
+                outcome(compileInput(
+                    contracts: $0,
+                    bindings: [:],
+                    combos: ["PULSECOLOR": 0, "PULSEALPHA": 1]
+                ))
+            },
+            "legacyMaskedStaticAlphaOnly": legacyContracts.map {
+                outcome(compileInput(
+                    contracts: $0,
+                    bindings: [:],
+                    combos: ["PULSECOLOR": 0, "PULSEALPHA": 1],
+                    maskPath: "materials/pulse-mask.png"
+                ))
+            },
             "rgbAlphaProfile": SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputRGBBlendScalarAlpha.rawValue,
             "rgbAlphaRoute": SceneGenericShaderCapabilityProfile
@@ -991,6 +1006,15 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
     def test_rgb_alpha_bad_artifact_or_profile_rejects_locally(self) -> None:
         self.assertEqual(self.result["rgbAlphaBadArtifact"], "rejected")
         self.assertEqual(self.result["legacyStaticRGBAlpha"], ["incumbent"] * 3)
+
+    def test_historical_alpha_only_partition_follows_source_proof(self) -> None:
+        expected = [
+            "incumbent",
+            "revoked:static-alpha-only-owner-revoked-to-material-program",
+            "incumbent",
+        ]
+        self.assertEqual(self.result["legacyStaticAlphaOnly"], expected)
+        self.assertEqual(self.result["legacyMaskedStaticAlphaOnly"], expected)
 
     def test_historical_fragment_only_phase_revokes_the_incumbent(self) -> None:
         expected = "revoked:typed-user-property-rgb-owner-revoked-to-material-program"
