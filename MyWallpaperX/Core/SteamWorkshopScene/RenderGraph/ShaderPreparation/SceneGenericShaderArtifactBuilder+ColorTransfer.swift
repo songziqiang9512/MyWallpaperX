@@ -458,7 +458,9 @@ extension SceneGenericShaderArtifactBuilder {
     ) -> String? {
         guard !containsWord("mwxGenericUnpremultiply", in: source),
               !containsWord("mwxGenericPremultiply", in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              let body = straightRGBScalarAlphaFragmentBodyRange(in: source),
+              straightRGBScalarAlphaCompilerBodyIsLinear(body, source: source)
         else { return nil }
 
         let expectedSlots = fact.auxiliarySlots.union([fact.sourceSlot])
@@ -471,6 +473,9 @@ extension SceneGenericShaderArtifactBuilder {
               Set(sampledSlots) == expectedSlots,
               Set(sampledSlots).allSatisfy({ slot in
                   sampledSlots.filter({ $0 == slot }).count == 1
+              }),
+              sampleCalls.allSatisfy({
+                  straightRGBScalarAlphaRange(body, contains: $0.range)
               }) else { return nil }
 
         let carrierDeclarations = matches(
@@ -481,6 +486,9 @@ extension SceneGenericShaderArtifactBuilder {
         )
         guard carrierDeclarations.count == 1,
               let carrierDeclaration = carrierDeclarations.first,
+              straightRGBScalarAlphaRange(
+                  body, contains: carrierDeclaration.range
+              ),
               let carrier = capture(carrierDeclaration, 2, in: source)
         else { return nil }
 
@@ -491,6 +499,7 @@ extension SceneGenericShaderArtifactBuilder {
         )
         guard aliases.count == 1,
               let alias = aliases.first,
+              straightRGBScalarAlphaRange(body, contains: alias.range),
               let color = capture(alias, 1, in: source),
               color != carrier else { return nil }
 
@@ -505,11 +514,44 @@ extension SceneGenericShaderArtifactBuilder {
             in: source
         )
         guard alphaWrites.count == 1,
-              colorWrites.count == 1,
-              capture(colorWrites[0], 1, in: source) == "w",
               let alphaWrite = alphaWrites.first,
+              straightRGBScalarAlphaRange(body, contains: alphaWrite.range),
               let factor = capture(alphaWrite, 1, in: source),
               !containsWord(color, in: factor) else { return nil }
+
+        let maskMix: StraightRGBScalarAlphaMaskMix?
+        if let slot = fact.maskSlot, let maskFactor = fact.maskFactorName {
+            guard let proven = straightRGBScalarAlphaMaskMix(
+                source: source,
+                sourceCarrier: carrier,
+                transformedCarrier: color,
+                slot: slot,
+                factor: maskFactor
+            ), straightRGBScalarAlphaRange(
+                body, contains: proven.declarationRange
+            ), straightRGBScalarAlphaRange(
+                body, contains: proven.assignmentRange
+            ), alphaWrite.range.location < proven.declarationRange.location,
+               proven.declarationRange.location < proven.assignmentRange.location
+            else { return nil }
+            maskMix = proven
+        } else {
+            guard fact.maskSlot == nil, fact.maskFactorName == nil else {
+                return nil
+            }
+            maskMix = nil
+        }
+        guard colorWrites.count == 1 + (maskMix == nil ? 0 : 1),
+              colorWrites.allSatisfy({ write in
+                  straightRGBScalarAlphaRange(
+                      alphaWrite.range, contains: write.range
+                  )
+                    || maskMix.map {
+                        straightRGBScalarAlphaRange(
+                            $0.assignmentRange, contains: write.range
+                        )
+                    } == true
+              }) else { return nil }
 
         let outputPatterns = [
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.xyz\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
@@ -521,18 +563,25 @@ extension SceneGenericShaderArtifactBuilder {
               returns.count == 1,
               matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               let output = outputs.first,
+              straightRGBScalarAlphaRange(body, contains: output.range),
               let outputRange = Range(output.range, in: source),
               let indent = capture(output, 1, in: source),
               let outputValue = capture(output, 2, in: source),
               capture(output, 3, in: source) == color,
               capture(output, 4, in: source) == color,
-              countWord(carrier, in: source) == 2,
-              countWord(color, in: source) == 4,
+              countWord(carrier, in: source) == (maskMix == nil ? 2 : 3),
+              countWord(color, in: source) == (maskMix == nil ? 4 : 6),
               carrierDeclaration.range.location < alias.range.location,
               alias.range.location < alphaWrite.range.location,
               alphaWrite.range.location < output.range.location,
+              maskMix.map({
+                  $0.assignmentRange.location < output.range.location
+              }) ?? true,
               output.range.location < returns[0].range.location,
-              sampleCalls.allSatisfy({ $0.range.location < output.range.location })
+              sampleCalls.allSatisfy({ $0.range.location < output.range.location }),
+              straightRGBScalarAlphaTerminalTail(
+                  after: output.range, within: body, source: source
+              )
         else { return nil }
 
         var transformed = source
@@ -551,6 +600,102 @@ extension SceneGenericShaderArtifactBuilder {
         )
         return SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private struct StraightRGBScalarAlphaMaskMix {
+        let declarationRange: NSRange
+        let assignmentRange: NSRange
+    }
+
+    private static func straightRGBScalarAlphaRange(
+        _ outer: NSRange,
+        contains inner: NSRange
+    ) -> Bool {
+        outer.location <= inner.location
+            && NSMaxRange(inner) <= NSMaxRange(outer)
+    }
+
+    private static func straightRGBScalarAlphaFragmentBodyRange(
+        in source: String
+    ) -> NSRange? {
+        let signatures = matches(#"\bfragment\b[^\{]*\{"#, in: source)
+        guard signatures.count == 1,
+              let signature = signatures.first,
+              let signatureRange = Range(signature.range, in: source),
+              let open = source[..<signatureRange.upperBound].lastIndex(of: "{")
+        else { return nil }
+        var depth = 0
+        var cursor = open
+        while cursor < source.endIndex {
+            if source[cursor] == "{" { depth += 1 }
+            if source[cursor] == "}" {
+                depth -= 1
+                if depth == 0 {
+                    return NSRange(source.index(after: open) ..< cursor, in: source)
+                }
+                if depth < 0 { return nil }
+            }
+            cursor = source.index(after: cursor)
+        }
+        return nil
+    }
+
+    private static func straightRGBScalarAlphaCompilerBodyIsLinear(
+        _ body: NSRange,
+        source: String
+    ) -> Bool {
+        let text = (source as NSString).substring(with: body)
+        return matches(
+            #"\b(?:if|else|for|while|do|switch|discard)\b"#,
+            in: text
+        ).isEmpty && matches(#"\breturn\b"#, in: text).count == 1
+    }
+
+    private static func straightRGBScalarAlphaTerminalTail(
+        after output: NSRange,
+        within body: NSRange,
+        source: String
+    ) -> Bool {
+        guard NSMaxRange(output) <= NSMaxRange(body) else { return false }
+        let tail = (source as NSString).substring(with: NSRange(
+            location: NSMaxRange(output),
+            length: NSMaxRange(body) - NSMaxRange(output)
+        ))
+        return matches(#"^\s*return\s+out\s*;\s*$"#, in: tail).count == 1
+    }
+
+    private static func straightRGBScalarAlphaMaskMix(
+        source: String,
+        sourceCarrier: String,
+        transformedCarrier: String,
+        slot: Int,
+        factor: String
+    ) -> StraightRGBScalarAlphaMaskMix? {
+        let declarations = matches(
+            #"(?m)^[ \t]*float\s+"# + escaped(factor)
+                + #"\s*=\s*g_Texture"# + String(slot)
+                + #"\.sample\([^;]+\)\.(?:x|r)\s*;[ \t]*$"#,
+            in: source
+        )
+        let assignments = matches(
+            #"(?m)^[ \t]*"# + escaped(transformedCarrier)
+                + #"\s*=\s*(?:fast::)?(?:mix|lerp)\(\s*"#
+                + escaped(sourceCarrier) + #"\s*,\s*"#
+                + escaped(transformedCarrier)
+                + #"\s*,\s*(?:(?:float4|half4)\(\s*"#
+                + escaped(factor) + #"\s*\)|"#
+                + escaped(factor) + #")\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard declarations.count == 1,
+              assignments.count == 1,
+              let declaration = declarations.first,
+              let assignment = assignments.first,
+              countWord(factor, in: source) == 2 else { return nil }
+        return .init(
+            declarationRange: declaration.range,
+            assignmentRange: assignment.range
+        )
     }
 
     static func premultipliedAccumulator(_ source: String, assignment: String) -> Bool {

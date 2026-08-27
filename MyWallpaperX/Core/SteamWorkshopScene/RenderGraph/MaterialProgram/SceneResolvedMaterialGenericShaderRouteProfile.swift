@@ -142,7 +142,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         sameAlphaReconstructedRGBFilterAuxiliarySlots: Set<Int> = [],
         straightRGBScalarAlphaSourceSlot: Int? = nil,
         straightRGBScalarAlphaAuxiliarySlots: Set<Int> = [],
+        straightRGBScalarAlphaMaskSlot: Int? = nil,
         activeTextureSlots: Set<Int> = [],
+        activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -450,6 +452,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   rgbBlendScalarAlphaFact?.sourceSlot == sourceSlot,
                   rgbBlendScalarAlphaFact?.auxiliarySlots
                     == typedStaticDataAuxiliarySlots,
+                  activeOpacityMaskSlots == (
+                    rgbBlendScalarAlphaFact?.maskSlot.map { Set([$0]) } ?? []
+                  ),
                   activeTextureSlots
                     == typedStaticDataAuxiliarySlots.union([sourceSlot]),
                   !hasExternalProviderTexture,
@@ -461,6 +466,9 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   straightRGBScalarAlphaSourceSlot == sourceSlot,
                   straightRGBScalarAlphaAuxiliarySlots
                     == typedStaticDataAuxiliarySlots,
+                  activeOpacityMaskSlots == (
+                    straightRGBScalarAlphaMaskSlot.map { Set([$0]) } ?? []
+                  ),
                   activeTextureSlots
                     == straightRGBScalarAlphaAuxiliarySlots.union([sourceSlot]),
                   !hasExternalProviderTexture,

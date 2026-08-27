@@ -701,6 +701,16 @@ enum Harness {
                 combos: ["PULSECOLOR": 0, "PULSEALPHA": 1],
                 maskPath: "materials/pulse-mask.png"
             )),
+            "productMaskedAudioAlphaOnly": outcome(compileInput(
+                contracts: contracts,
+                bindings: [:],
+                combos: [
+                    "AUDIOPROCESSING": 3,
+                    "PULSECOLOR": 0,
+                    "PULSEALPHA": 1,
+                ],
+                maskPath: "materials/pulse-mask.png"
+            )),
             "legacyStaticRGBAlpha": legacyContracts.map {
                 outcome(compileInput(
                     contracts: $0,
@@ -963,7 +973,14 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             self.result["productMaskedAudioRGBAlpha"],
             "revoked:audio-rgb-alpha-owner-revoked-to-material-program",
         )
-        self.assertEqual(self.result["productMaskedAlphaOnly"], "incumbent")
+        self.assertEqual(
+            self.result["productMaskedAlphaOnly"],
+            "revoked:static-alpha-only-owner-revoked-to-material-program",
+        )
+        self.assertEqual(
+            self.result["productMaskedAudioAlphaOnly"],
+            "revoked:audio-alpha-only-owner-revoked-to-material-program",
+        )
         self.assertEqual(
             self.result["rgbAlphaProfile"],
             "source-proven-graph-input-rgb-blend-scalar-alpha",

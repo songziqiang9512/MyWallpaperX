@@ -4,14 +4,21 @@ import Foundation
 /// non-negative clamp) while its alpha is multiplied by a bounded scalar
 /// graph. Zero auxiliary textures is valid when the scalar comes entirely
 /// from uniforms or linked varyings; any auxiliary texture reads must be
-/// distinct direct red-channel scalar reads.
+/// distinct direct red-channel scalar reads. One optional direct red-channel
+/// opacity mask may restore the original carrier after the alpha mutation.
 nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
     struct Fact: Equatable {
         let sourceSlot: Int
-        let auxiliarySlots: Set<Int>
+        let scalarAuxiliarySlots: Set<Int>
+        let maskSlot: Int?
+        let maskFactorName: String?
+
+        var auxiliarySlots: Set<Int> {
+            scalarAuxiliarySlots.union(maskSlot.map { [$0] } ?? [])
+        }
     }
 
     static func analyze(
@@ -25,6 +32,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
               let statements = topLevelStatements(in: main.bodyRange, tokens: tokens),
               (6 ... 20).contains(statements.count),
               statements.last?.contains(output) == true,
+              noShadowedBuiltins(fragment),
               !main.bodyRange.contains(where: {
                   ["if", "else", "for", "while", "do", "switch", "discard", "return"]
                       .contains(tokens[$0].text)
@@ -40,8 +48,10 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         var colorName: String?
         var colorSlot: Int?
         var scalarNames: Set<String> = []
-        var auxiliarySlots: [Int] = []
+        var scalarAuxiliarySlots: [Int] = []
         var alphaWritten = false
+        var pendingMask: (slot: Int, factorName: String)?
+        var maskMixed = false
 
         for (position, range) in statements.enumerated() {
             let statement = Array(tokens[range])
@@ -71,6 +81,28 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
                 continue
             }
             guard let sourceName, let colorName, let colorSlot else { return nil }
+            if alphaWritten {
+                if pendingMask == nil, !maskMixed,
+                   let mask = opacityMaskDeclaration(
+                       statement,
+                       fragment: fragment,
+                       sourceName: sourceName,
+                       colorName: colorName
+                   ), !scalarNames.contains(mask.factorName) {
+                    pendingMask = mask
+                    continue
+                }
+                guard let mask = pendingMask,
+                      !maskMixed,
+                      opacityMaskMix(
+                          statement,
+                          sourceName: sourceName,
+                          colorName: colorName,
+                          factorName: mask.factorName
+                      ) else { return nil }
+                maskMixed = true
+                continue
+            }
             let context = ScalarContext(
                 globals: globals,
                 locals: scalarNames,
@@ -84,7 +116,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
                           context: context
                       ) else { return nil }
                 scalarNames.insert(declaration.name)
-                auxiliarySlots.append(contentsOf: slots)
+                scalarAuxiliarySlots.append(contentsOf: slots)
                 continue
             }
             if let assignment = scalarAssignment(statement),
@@ -94,7 +126,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
                           assignment.expression,
                           context: context
                       ) else { return nil }
-                auxiliarySlots.append(contentsOf: slots)
+                scalarAuxiliarySlots.append(contentsOf: slots)
                 continue
             }
             if alphaMultiplication(statement, colorName: colorName) != nil {
@@ -106,7 +138,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
                     return nil
                 }
                 alphaWritten = true
-                auxiliarySlots.append(contentsOf: slots)
+                scalarAuxiliarySlots.append(contentsOf: slots)
                 continue
             }
             return nil
@@ -114,16 +146,82 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
 
         guard let sourceName, let colorName, let colorSlot,
               alphaWritten,
-              (0 ... 3).contains(auxiliarySlots.count),
-              Set(auxiliarySlots).count == auxiliarySlots.count,
-              !auxiliarySlots.contains(colorSlot) else { return nil }
+              (pendingMask == nil && !maskMixed)
+                || (pendingMask != nil && maskMixed),
+              (0 ... 3).contains(scalarAuxiliarySlots.count),
+              Set(scalarAuxiliarySlots).count == scalarAuxiliarySlots.count,
+              !scalarAuxiliarySlots.contains(colorSlot),
+              pendingMask?.slot != colorSlot,
+              pendingMask.map({ !scalarAuxiliarySlots.contains($0.slot) }) ?? true
+        else { return nil }
         let body = tokens[main.bodyRange]
-        return body.filter({ $0.text == sourceName }).count == 2
-            && body.filter({ $0.text == colorName }).count == 4
+        let hasMask = pendingMask != nil
+        let identityUseCountsAreExact =
+            body.filter({ $0.text == sourceName }).count == (hasMask ? 3 : 2)
+            && body.filter({ $0.text == colorName }).count == (hasMask ? 6 : 4)
+        let maskFactorUseCountIsExact = pendingMask.map({ mask in
+                body.filter({ $0.text == mask.factorName }).count == 2
+            }) ?? true
+        return identityUseCountsAreExact && maskFactorUseCountIsExact
             ? Fact(
                 sourceSlot: colorSlot,
-                auxiliarySlots: Set(auxiliarySlots)
+                scalarAuxiliarySlots: Set(scalarAuxiliarySlots),
+                maskSlot: pendingMask?.slot,
+                maskFactorName: pendingMask?.factorName
             ) : nil
+    }
+
+    private static func opacityMaskDeclaration(
+        _ tokens: [Token],
+        fragment: Unit,
+        sourceName: String,
+        colorName: String
+    ) -> (slot: Int, factorName: String)? {
+        guard let declaration = scalarDeclaration(tokens),
+              declaration.name != sourceName,
+              declaration.name != colorName,
+              declaration.expression.count >= 8,
+              declaration.expression.suffix(2).map(\.text) == [".", "r"],
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(declaration.expression.dropLast(2)),
+              fragment.declarations.filter({
+                  $0.storage == .uniform && $0.arraySize == nil
+                      && $0.typeName == "sampler2D"
+                      && $0.name == "g_Texture\(slot)"
+              }).count == 1 else { return nil }
+        return (slot, declaration.name)
+    }
+
+    private static func opacityMaskMix(
+        _ tokens: [Token],
+        sourceName: String,
+        colorName: String,
+        factorName: String
+    ) -> Bool {
+        guard tokens.count >= 8,
+              tokens[0].text == colorName,
+              tokens[1].text == "=",
+              let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(tokens[2...]),
+              ["mix", "lerp"].contains(call.name),
+              call.arguments.count == 3 else { return false }
+        return SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .identifier(call.arguments[0]) == sourceName
+            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(call.arguments[1]) == colorName
+            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(call.arguments[2]) == factorName
+    }
+
+    private static func noShadowedBuiltins(_ fragment: Unit) -> Bool {
+        let protected: Set<String> = [
+            "CAST3", "float3", "float4", "lerp", "max", "min", "mix",
+            "pow", "sin", "smoothstep", "texSample2D", "texture2D",
+            "vec3", "vec4",
+        ]
+        return fragment.functions.allSatisfy {
+            $0.name == "main" || !protected.contains($0.name)
+        }
     }
 
     private static func vectorDeclaration(

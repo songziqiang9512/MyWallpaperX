@@ -173,6 +173,14 @@ private struct StraightRGBScalarAlphaBuilderOutput: Codable {
     let duplicateAuxiliaryRejected: Bool
     let rgbWriteRejected: Bool
     let outputShapeRejected: Bool
+    let maskedAccepted: Bool
+    let maskedSourceSampleUnpremultiplied: Bool
+    let maskedDataSamplesPreserved: Bool
+    let maskedOutputPremultiplied: Bool
+    let maskedCompilerTransformRejected: Bool
+    let maskedCompilerOrderRejected: Bool
+    let maskedCompilerControlFlowRejected: Bool
+    let maskedCompilerMixRejected: Bool
 }
 
 private struct StraightOutputBuilderOutput: Codable {
@@ -1957,23 +1965,48 @@ private struct GenericShaderArtifactHarness {
                 "    gl_FragColor = vec4(max(CAST3(0), albedo.rgb), albedo.a);",
                 "}",
             ].joined(separator: "\n")
-            func build(_ msl: String) -> Result<
+            let maskedReflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16},{"name":"mwxTexture1Transform0","type":"vec4","offset":32},{"name":"mwxTexture1Transform1","type":"vec4","offset":48},{"name":"mwxTexture2Transform0","type":"vec4","offset":64},{"name":"mwxTexture2Transform1","type":"vec4","offset":80}]}},"ubos":[{"type":"_1","block_size":96,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1},{"name":"g_Texture2","binding":2}]}"#.utf8)
+            let maskedVertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; float4 mwxTexture2Transform0; float4 mwxTexture2Transform1; };"
+            let maskedFragmentMSL = fragmentMSL.replacingOccurrences(
+                of: "    albedo.w *= pulse;\n",
+                with: "    albedo.w *= pulse;\n"
+                    + "    float mask = g_Texture2.sample(maskSampler, maskUV).x;\n"
+                    + "    albedo = mix(mwx_sample, albedo, float4(mask));\n"
+            )
+            let maskedAuthored = authored.replacingOccurrences(
+                of: "    albedo.a *= pulse;\n",
+                with: "    albedo.a *= pulse;\n"
+                    + "    float mask = texSample2D(g_Texture2, v_TexCoord.zw).r;\n"
+                    + "    albedo = mix(sample, albedo, mask);\n"
+            ).replacingOccurrences(
+                of: "uniform sampler2D g_Texture1;\n",
+                with: "uniform sampler2D g_Texture1;\nuniform sampler2D g_Texture2;\n"
+            )
+            func build(
+                _ msl: String,
+                authoredSource: String? = nil,
+                reflectionData: Data? = nil,
+                vertexSource: String? = nil
+            ) -> Result<
                 SceneGenericShaderProgramArtifact,
                 SceneGenericShaderArtifactBuilder.Failure
             > {
-                SceneGenericShaderArtifactBuilder.build(
+                let actualAuthored = authoredSource ?? authored
+                let actualReflection = reflectionData ?? reflection
+                return SceneGenericShaderArtifactBuilder.build(
                     requestKey: String(repeating: "9", count: 64),
                     backendID: "glslang-spirv-cross-msl-v2",
                     stages: [
                         .init(
                             name: "vertex", source: "void main() {}",
                             authoredSource: "void main() {}",
-                            msl: vertexMSL, reflection: reflection
+                            msl: vertexSource ?? vertexMSL,
+                            reflection: actualReflection
                         ),
                         .init(
-                            name: "fragment", source: authored,
-                            authoredSource: authored,
-                            msl: msl, reflection: reflection
+                            name: "fragment", source: actualAuthored,
+                            authoredSource: actualAuthored,
+                            msl: msl, reflection: actualReflection
                         ),
                     ],
                     maximumArtifactBytes: 1_024_000
@@ -1985,6 +2018,17 @@ private struct GenericShaderArtifactHarness {
             case .failure: positive = nil
             }
             let metal = positive?.program.metalSource ?? ""
+            let masked: SceneGenericShaderProgramArtifact?
+            switch build(
+                maskedFragmentMSL,
+                authoredSource: maskedAuthored,
+                reflectionData: maskedReflection,
+                vertexSource: maskedVertexMSL
+            ) {
+            case let .success(artifact): masked = artifact
+            case .failure: masked = nil
+            }
+            let maskedMetal = masked?.program.metalSource ?? ""
             let output = StraightRGBScalarAlphaBuilderOutput(
                 analyzedTransfer: colorTransferName(
                     SceneAuthoredShaderColorTransferAnalyzer.analyze(
@@ -2029,6 +2073,64 @@ private struct GenericShaderArtifactHarness {
                         of: "float4(fast::max(float3(0.0), albedo.xyz), albedo.w)",
                         with: "float4(albedo.xyz, albedo.w)"
                     )
+                )),
+                maskedAccepted: masked != nil,
+                maskedSourceSampleUnpremultiplied: maskedMetal.contains(
+                    "float4 mwx_sample = mwxGenericUnpremultiply("
+                        + "g_Texture0.sample(sourceSampler, uv));"
+                ),
+                maskedDataSamplesPreserved: maskedMetal.contains(
+                    "float noise = g_Texture1.sample(noiseSampler, noiseUV).x * noiseAmount;"
+                ) && maskedMetal.contains(
+                    "float mask = g_Texture2.sample(maskSampler, maskUV).x;"
+                ) && !maskedMetal.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample"
+                ) && !maskedMetal.contains(
+                    "mwxGenericUnpremultiply(g_Texture2.sample"
+                ),
+                maskedOutputPremultiplied: maskedMetal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply("
+                        + "float4(fast::max(float3(0.0), albedo.xyz), albedo.w));"
+                ),
+                maskedCompilerTransformRejected: failedColorTransfer(build(
+                    maskedFragmentMSL.replacingOccurrences(
+                        of: "float mask = g_Texture2.sample(maskSampler, maskUV).x;",
+                        with: "float mask = g_Texture2.sample(maskSampler, maskUV).x * noiseAmount;"
+                    ),
+                    authoredSource: maskedAuthored,
+                    reflectionData: maskedReflection,
+                    vertexSource: maskedVertexMSL
+                )),
+                maskedCompilerOrderRejected: failedColorTransfer(build(
+                    maskedFragmentMSL.replacingOccurrences(
+                        of: "    albedo.w *= pulse;\n    float mask = g_Texture2.sample(maskSampler, maskUV).x;",
+                        with: "    float mask = g_Texture2.sample(maskSampler, maskUV).x;\n    albedo.w *= pulse;"
+                    ),
+                    authoredSource: maskedAuthored,
+                    reflectionData: maskedReflection,
+                    vertexSource: maskedVertexMSL
+                )),
+                maskedCompilerControlFlowRejected: failedColorTransfer(build(
+                    maskedFragmentMSL.replacingOccurrences(
+                        of: "    float mask = g_Texture2.sample(maskSampler, maskUV).x;\n"
+                            + "    albedo = mix(mwx_sample, albedo, float4(mask));",
+                        with: "    if (false) {\n"
+                            + "        float mask = g_Texture2.sample(maskSampler, maskUV).x;\n"
+                            + "        albedo = mix(mwx_sample, albedo, float4(mask));\n"
+                            + "    }"
+                    ),
+                    authoredSource: maskedAuthored,
+                    reflectionData: maskedReflection,
+                    vertexSource: maskedVertexMSL
+                )),
+                maskedCompilerMixRejected: failedColorTransfer(build(
+                    maskedFragmentMSL.replacingOccurrences(
+                        of: "albedo = mix(mwx_sample, albedo, float4(mask));",
+                        with: "albedo = mix(albedo, mwx_sample, float4(mask));"
+                    ),
+                    authoredSource: maskedAuthored,
+                    reflectionData: maskedReflection,
+                    vertexSource: maskedVertexMSL
                 ))
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
@@ -2310,6 +2412,11 @@ private struct GenericShaderArtifactHarness {
             activeTextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_ACTIVE_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
+            ),
+            activeOpacityMaskSlots: Set(
+                (ProcessInfo.processInfo.environment[
+                    "MWX_TEST_ACTIVE_OPACITY_MASK_SLOTS"
+                ] ?? "").split(separator: ",").compactMap { Int($0) }
             ),
             typedStaticDataAuxiliarySlots: Set(
                 (ProcessInfo.processInfo.environment[
@@ -2980,6 +3087,30 @@ void main() {
 }
 """
 
+STRAIGHT_RGB_SCALAR_ALPHA_MASKED_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform sampler2D g_Texture2;
+uniform float g_Time;
+uniform float g_NoiseAmount;
+varying vec4 v_TexCoord;
+void main() {
+    vec4 sampled = texSample2D(g_Texture0, v_TexCoord.xy);
+    vec4 color = sampled;
+    float pulse = 0.0;
+    float noise = texSample2D(
+        g_Texture1, vec2(g_Time * 0.08, g_Time * 0.03)
+    ).r * g_NoiseAmount;
+    pulse = smoothstep(0.0, 1.0, sin(g_Time) * 0.5 + 0.5);
+    pulse += noise;
+    pulse = pow(pulse, 1.0);
+    color.a *= pulse;
+    float mask = texSample2D(g_Texture2, v_TexCoord.zw).r;
+    color = mix(sampled, color, mask);
+    gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);
+}
+"""
+
 PREMULTIPLIED_FRAGMENT = """
 uniform float g_Weight;
 vec3 ApplyBlending(
@@ -3090,6 +3221,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         graph_slots: tuple[int, ...] = (),
         graph_input_slots: tuple[int, ...] = (),
         active_slots: tuple[int, ...] = (),
+        active_opacity_mask_slots: tuple[int, ...] = (),
         typed_static_data_auxiliary_slots: tuple[int, ...] = (),
         spatial_weighted_source_slot: int | None = None,
         spatial_weighted_active_slots: tuple[int, ...] = (),
@@ -3163,6 +3295,12 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_ACTIVE_SLOTS", None)
+        if active_opacity_mask_slots:
+            environment["MWX_TEST_ACTIVE_OPACITY_MASK_SLOTS"] = ",".join(
+                map(str, active_opacity_mask_slots)
+            )
+        else:
+            environment.pop("MWX_TEST_ACTIVE_OPACITY_MASK_SLOTS", None)
         if typed_static_data_auxiliary_slots:
             environment["MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"] = ",".join(
                 map(str, typed_static_data_auxiliary_slots)
@@ -3733,6 +3871,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "duplicateAuxiliaryRejected": True,
             "rgbWriteRejected": True,
             "outputShapeRejected": True,
+            "maskedAccepted": True,
+            "maskedSourceSampleUnpremultiplied": True,
+            "maskedDataSamplesPreserved": True,
+            "maskedOutputPremultiplied": True,
+            "maskedCompilerTransformRejected": True,
+            "maskedCompilerOrderRejected": True,
+            "maskedCompilerControlFlowRejected": True,
+            "maskedCompilerMixRejected": True,
         })
 
     def test_product_builder_lowers_source_proven_conditional_straight_union(self):
@@ -6060,6 +6206,76 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertNotEqual(rejected["routeProfile"], profile)
             self.assertNotIn(f"profile={profile}", rejected_log)
+
+    def test_straight_rgb_scalar_alpha_profile_accepts_exact_optional_mask(
+        self,
+    ):
+        profile = "source-proven-graph-input-straight-rgb-scalar-alpha"
+        facts = {
+            "graph_input_slots": (0,),
+            "active_slots": (0, 1, 2),
+            "active_opacity_mask_slots": (2,),
+            "typed_static_data_auxiliary_slots": (1, 2),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-scalar-alpha-mask-route-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_MASKED_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha",
+                auxiliary_channel_use="redOnly",
+            )
+            (cache / f"{observed['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, log = self.run_harness(
+                root,
+                route=None,
+                fragment=STRAIGHT_RGB_SCALAR_ALPHA_MASKED_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted", log
+            )
+
+        for rejected_facts in (
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (1, 2),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1, 2),
+                "typed_static_data_auxiliary_slots": (1,),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1, 2),
+                "typed_static_data_auxiliary_slots": (1, 2),
+            },
+        ):
+            with self.subTest(facts=rejected_facts), tempfile.TemporaryDirectory(
+                prefix="mwx-scalar-alpha-mask-rejection-test-"
+            ) as directory:
+                rejected, _, _, rejected_log = self.run_harness(
+                    Path(directory),
+                    route="observe-only",
+                    fragment=STRAIGHT_RGB_SCALAR_ALPHA_MASKED_FRAGMENT,
+                    **rejected_facts,
+                )
+                self.assertNotEqual(rejected["routeProfile"], profile)
+                self.assertNotIn(f"profile={profile}", rejected_log)
 
     def test_auxiliary_rgb_mix_shape_uses_narrow_generic_only_route(
         self,

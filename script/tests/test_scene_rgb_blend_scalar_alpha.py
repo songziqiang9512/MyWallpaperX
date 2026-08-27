@@ -77,6 +77,7 @@ private struct Output: Codable {
     let routeState: String
     let rollbackOwner: String
     let missingTypedPurposeRejected: Bool
+    let wrongMaskPurposeRejected: Bool
     let providerRejected: Bool
     let graphTargetRejected: Bool
     let secondGraphInputRejected: Bool
@@ -224,6 +225,7 @@ private func profile(
     active: Set<Int>,
     typed: Set<Int>,
     graphInputs: Set<Int>,
+    opacityMasks: Set<Int> = [],
     graphTargets: Set<Int> = [],
     provider: Bool = false
 ) -> SceneGenericShaderCapabilityProfile {
@@ -243,6 +245,7 @@ private func profile(
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
         activeTextureSlots: active,
+        activeOpacityMaskSlots: opacityMasks,
         typedStaticDataAuxiliarySlots: typed,
         unitCompositeBlurredSlot: nil,
         unitCompositePreviousSlot: nil,
@@ -301,8 +304,8 @@ private enum RGBBlendScalarAlphaHarness {
             active: [0, 1], typed: [1], graphInputs: [0]
         )
         let maskedProfile = profile(
-            authored: maskedAuthored,
-            active: [0, 1, 2], typed: [1, 2], graphInputs: [0]
+            authored: maskedAuthored, active: [0, 1, 2], typed: [1, 2],
+            graphInputs: [0], opacityMasks: [2]
         )
         let hiddenSample = staticAuthored.replacingOccurrences(
             of: "void main() {",
@@ -451,6 +454,10 @@ private enum RGBBlendScalarAlphaHarness {
                 authored: staticAuthored,
                 active: [0, 1], typed: [], graphInputs: [0]
             ) != expected,
+            wrongMaskPurposeRejected: profile(
+                authored: maskedAuthored,
+                active: [0, 1, 2], typed: [1, 2], graphInputs: [0]
+            ) != expected,
             providerRejected: profile(
                 authored: staticAuthored,
                 active: [0, 1], typed: [1], graphInputs: [0], provider: true
@@ -572,6 +579,7 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
     def test_route_requires_exact_typed_graph_input_shape(self) -> None:
         for key in (
             "missingTypedPurposeRejected",
+            "wrongMaskPurposeRejected",
             "providerRejected",
             "graphTargetRejected",
             "secondGraphInputRejected",

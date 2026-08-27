@@ -188,6 +188,18 @@ private func scalarAlphaFact(_ body: String) -> String {
         .map(String.init).joined(separator: ",")
 }
 
+private func scalarAlphaDetailedFact(_ body: String) -> String {
+    guard let fact = SceneAuthoredShaderColorTransferAnalyzer
+        .straightRGBScalarAlphaFact(fragmentSource: fragment(body)) else {
+        return "unresolved"
+    }
+    return "source:\(fact.sourceSlot);scalar:"
+        + fact.scalarAuxiliarySlots.sorted().map(String.init).joined(separator: ",")
+        + ";mask:" + (fact.maskSlot.map(String.init) ?? "none")
+        + ";aux:" + fact.auxiliarySlots.sorted().map(String.init)
+            .joined(separator: ",")
+}
+
 private func metal(
     _ body: String,
     helpers: String = "",
@@ -512,6 +524,54 @@ enum Harness {
                 "float noise = texSample2D(g_Texture1, v_TexCoord).r * 0.5; " +
                 "pulse += noise; pulse = pow(pulse, 1.0); " +
                 "color.a *= pulse; " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMasked": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "color.a *= pulse; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r; " +
+                "color = mix(sampled, color, mask); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMaskedFact": scalarAlphaDetailedFact(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "color.a *= pulse; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r; " +
+                "color = mix(sampled, color, mask); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMaskTransform": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "color.a *= pulse; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r * 0.5; " +
+                "color = mix(sampled, color, mask); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMaskShadowedMix": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "color.a *= pulse; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r; " +
+                "color = mix(sampled, color, mask); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);",
+                helpers: "vec4 mix(vec4 a, vec4 b, float t) { return a; }"
+            ),
+            "straightRGBScalarAlphaMaskReversed": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "color.a *= pulse; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r; " +
+                "color = mix(color, sampled, mask); " +
+                "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
+            ),
+            "straightRGBScalarAlphaMaskBeforeAlpha": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = g_ScalarWeight; " +
+                "float mask = texSample2D(g_Texture2, v_TexCoord).r; " +
+                "color.a *= pulse; color = mix(sampled, color, mask); " +
                 "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
             ),
             "straightRGBScalarAlphaNoAux": transfer(
@@ -1919,6 +1979,24 @@ class SceneShaderColorContractTests(unittest.TestCase):
         source = self.result["straightRGBScalarAlphaNoAuxMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_optional_mask_must_restore_the_original_after_alpha_mutation(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaMasked"], "straight-slot:0"
+        )
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaMaskedFact"],
+            "source:0;scalar:;mask:2;aux:2",
+        )
+        for key in (
+            "straightRGBScalarAlphaMaskTransform",
+            "straightRGBScalarAlphaMaskShadowedMix",
+            "straightRGBScalarAlphaMaskReversed",
+            "straightRGBScalarAlphaMaskBeforeAlpha",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
 
     def test_overlay_alpha_blend_reuses_the_bounded_straight_boundary(self) -> None:
         self.assertEqual(self.result["overlayAlphaBlend"], "straight-slot:0")

@@ -439,9 +439,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                         ) else { return false }
                 sourceShape = (
                     fact.sourceSlot,
+                    fact.scalarAuxiliarySlots,
                     fact.auxiliarySlots,
-                    fact.auxiliarySlots,
-                    nil,
+                    fact.maskSlot,
                     .sourceProvenGraphInputStraightRGBScalarAlpha
                 )
             }

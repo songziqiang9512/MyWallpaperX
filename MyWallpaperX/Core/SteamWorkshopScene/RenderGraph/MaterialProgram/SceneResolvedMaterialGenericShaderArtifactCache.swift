@@ -7,7 +7,6 @@ import Foundation
 nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     typealias RouteDecision = SceneGenericShaderRouteDecision
     typealias RouteState = SceneGenericShaderRouteState
-    typealias FallbackOwner = SceneGenericShaderFallbackOwner
     typealias CapabilityProfile = SceneGenericShaderCapabilityProfile
 
     enum Resolution {
@@ -218,6 +217,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         graphTextureSlots: Set<Int> = [],
         graphInputTextureSlots: Set<Int> = [],
         activeTextureSlots: Set<Int> = [],
+        activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -272,10 +272,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
-        let straightRGBScalarAlphaFact =
-            SceneAuthoredShaderColorTransferAnalyzer.straightRGBScalarAlphaFact(
-                fragmentSource: fragmentSource
-            )
+        let straightRGBScalarAlphaFact = SceneAuthoredShaderColorTransferAnalyzer
+            .straightRGBScalarAlphaFact(fragmentSource: fragmentSource)
         let preservedAlphaRGBFilterTextureSlots =
             preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
         let unitCompositeSourceFact =
@@ -334,7 +332,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 straightRGBScalarAlphaFact?.sourceSlot,
             straightRGBScalarAlphaAuxiliarySlots:
                 straightRGBScalarAlphaFact?.auxiliarySlots ?? [],
+            straightRGBScalarAlphaMaskSlot: straightRGBScalarAlphaFact?.maskSlot,
             activeTextureSlots: activeTextureSlots,
+            activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendSourceSlot,

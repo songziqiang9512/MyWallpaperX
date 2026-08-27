@@ -268,6 +268,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             }
             return slot
         })
+        let activeOpacityMaskSlots = Set(sourceActiveSamplers.compactMap {
+            slot, sampler in sampler.mode == .opacityMask ? slot : nil
+        })
         let neutralTextureResolution =
             SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
                 vertexSource: compilerSources.vertex,
@@ -335,6 +338,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphTextureSlots: graphTextureSlots,
             graphInputTextureSlots: graphInputTextureSlots,
             activeTextureSlots: activeTextureSlots,
+            activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendFact?.sourceSlot,
