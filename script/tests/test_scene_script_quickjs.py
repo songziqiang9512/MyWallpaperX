@@ -341,7 +341,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertIn("fallback=bounded-swift-prefer-generic", launch)
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
-            launch.index("nextSceneScriptGeneration &+= 1")
+            launch.index("let sceneScriptScalarProgram =")
         ]
         for producer in (
             "launch-origin",

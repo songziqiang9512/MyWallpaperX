@@ -633,7 +633,7 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
-            launch.index("nextSceneScriptGeneration &+= 1")
+            launch.index("let sceneScriptScalarProgram =")
         ]
         self.assertIn(
             '("launch-origin", launchOriginTransitionTargets,',
