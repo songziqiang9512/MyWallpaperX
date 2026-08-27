@@ -2,13 +2,15 @@
 
 > 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
-> 最近核对：2026-08-27
+> 最近核对：2026-08-28
 >
 > 当前系统能力、主要缺口和明确待办只由本页汇总；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。路线只拥有 V0-V5 顺序，不复制或改写 current capability；逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
 
 ## 1. 口径
+
+2026-08-28 的 Pulse direct alpha-binding owner-debt cohort 没有新增 route、renderer、property state、graph/history 或 output owner：旧 Pulse candidate 现仅对 non-audio、alpha-writing、direct non-relational `{user,value}` binding 在 target-local sole producer、key/target/type、consumer ABI/range、source/profile/readiness 全部精确重证时撤权；`bounds`、audio+binding、SceneScript/Timeline、缺/错/多 producer 与其他 source/resource/topology 仍保留 incumbent 或失败关闭。旧提交 App 对两个受控 fixture 已经默认走 Program，因此本批的产品变化是删除一个潜在可复权的 Pulse candidate，不是伪称默认画面刚从 dedicated 切到 Program。旧基线、新 App default 与 fresh recovery 均严格 **2/2 PASS**；同时 `disable-generic` 两个 exact profile 的回滚门严格 **0/2 NON-PASS / 每项 8 failures**，因为未放宽的正门仍要求目标 Program 与 live consumer，但 raw graph 保留目标 previous-current、后缀 GPU/compositor/next-frame，且旧 Pulse owner 没有复活。精确边界见 [E-V1-PULSE-ALPHA-BINDING-CANDIDATE-REVOCATION](runtime-evidence-index.md#e-v1-pulse-alpha-binding-candidate-revocation)。
 
 2026-08-27 的 X-Ray visible provider V1-B cohort 新增 identity-free `provider-backed-graph-input-spatial-weighted-color-blend / generic-only / fallbackOwner=bounded-frontend`，把 visible image layer 的 graph-final premultiplied publication 以 typed slot 进入同一 MaterialProgram/GraphExecutor，并在作者 shader 边界只对该 slot 解预乘；provider 仍由同一最终 compositor 显示，没有新增 renderer、resource registry、graph/history 或 output owner。准入仅覆盖 current-stock single-backward external-primary、pass 0 / slot 1 / primary、static scalar 与无 frame-driven visibility 的 exact 形态；错 pass/slot、secondary、forward/cycle/multi dependency、dynamic/script/Timeline 与 lifecycle 差异仍保留 incumbent 或 fail closed。fresh Developer ID App 对真实 `2896873092` 的 `23→56、46→58、62→39、50→66、1075→1077` 五对运行 default、exact profile `disable-generic` 和 legacy named-provider `disable-generic` 三路，均为 **1/1 PASS / 0 dedicated**：default 与 legacy 开关下五个consumer由`genericCompilerArtifact`执行，profile rollback由shared `boundedSwift`执行；三路均有5个visible graph-output publication、5个named binding、11个accepted graph layer、0 GPU failure，并闭合terminal compositor/next-frame。legacy named-provider开关现只控制旧named-provider route，不再撤销这个generic-only binding或复活X-Ray owner。这是单一真实样本的bounded owner migration，不是Fast/fixed/full、X-Ray family、独立ROI/fidelity或官方parity。现役route census更新为 **38/4/1**，dedicated family/probe仍为3/3；其后继 Standard Blur childless copy-only/passthrough-only × exact equal-lane user-property scalar-splat 已由同一 Program owner 闭合，见 [E-V1-STANDARD-BLUR-MIXED-USER-SCALAR-OWNER](runtime-evidence-index.md#e-v1-standard-blur-mixed-user-scalar-owner)。X-Ray 精确证据仍见 [E-V1-XRAY-VISIBLE-PROVIDER-OWNER](runtime-evidence-index.md#e-v1-xray-visible-provider-owner)。
 

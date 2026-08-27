@@ -166,7 +166,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 detail = "audio-color-only-rgb-owner-revoked-to-material-program"
             }
         } else if scalarAlphaProgramOwnerIsProven(plan: plan, input: input) {
-            if plan.pulseColor {
+            if !plan.bindings.isEmpty {
+                detail = plan.pulseColor
+                    ? "typed-user-property-rgb-alpha-owner-revoked-to-material-program"
+                    : "typed-user-property-alpha-only-owner-revoked-to-material-program"
+            } else if plan.pulseColor {
                 detail = plan.audio == nil
                     ? "static-rgb-alpha-owner-revoked-to-material-program"
                     : "audio-rgb-alpha-owner-revoked-to-material-program"
@@ -337,7 +341,10 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
 
     /// Revokes canonical alpha-writing Pulse shapes only after source analysis
     /// proves either preserved RGB or an RGB blend driven by the same scalar.
-    /// Binding, provider, and historical combined forms retain incumbent.
+    /// Direct non-relational user-property bindings share the same exact
+    /// producer, consumer ABI, and authored-range proof as color-only Pulse.
+    /// Audio+binding, SceneScript/Timeline, provider, and unsupported historical
+    /// combined forms retain incumbent.
     /// Stock combined RGB/alpha may carry one source-proven typed opacity mask
     /// after the alpha write. The straight-RGB/scalar-alpha path also admits an
     /// exact source-proven non-audio historical max-clamp shape, with or without
@@ -350,8 +357,14 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         let supportedProfiles: [ScenePulseShaderProfile] = plan.pulseColor
             ? [.stock2842]
             : [.stock2842, .directPhaseSaturateV1, .directPhaseMaxClampV1]
+        let bindingCohortIsProven = plan.bindings.isEmpty
+            || (directAlphaBindingCohortIsProven(plan)
+                && exactUserPropertyProducersAreProven(
+                    plan: plan,
+                    input: input
+                ))
         guard supportedProfiles.contains(plan.shaderProfile),
-              plan.bindings.isEmpty,
+              bindingCohortIsProven,
               plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseAlpha,
               input.stageGraph.effects.count == 1,
@@ -716,7 +729,26 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         guard plan.audio == nil,
               plan.pulseColor,
               !plan.pulseAlpha,
-              !plan.bindings.isEmpty else { return false }
+              directNonRelationalBindingsAreProven(plan) else { return false }
+        return true
+    }
+
+    /// Alpha-writing Pulse uses the same typed uniform consumers as color-only
+    /// Pulse. Keep it non-audio and exclude relational bounds until the shared
+    /// finalizer can prove the authored x < y invariant after live updates.
+    private nonisolated static func directAlphaBindingCohortIsProven(
+        _ plan: ScenePulseExecutionPlan
+    ) -> Bool {
+        guard plan.audio == nil,
+              plan.pulseAlpha,
+              directNonRelationalBindingsAreProven(plan) else { return false }
+        return true
+    }
+
+    private nonisolated static func directNonRelationalBindingsAreProven(
+        _ plan: ScenePulseExecutionPlan
+    ) -> Bool {
+        guard !plan.bindings.isEmpty else { return false }
         let supported: Set<ScenePulseExecutionPlan.Constant> = [
             .speed, .phase, .amount,
             .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
@@ -733,11 +765,14 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         input: SceneEffectStageCompileInput
     ) -> Bool {
         plan.bindings.allSatisfy { constant, binding in
-            input.userPropertyProducers.contains(.init(
+            let expected = SceneDynamicUserPropertyProducer(
                 propertyKey: binding.propertyKey,
                 target: binding.dynamicTarget,
                 valueType: constant.valueType
-            ))
+            )
+            return input.userPropertyProducers.filter {
+                $0.target == binding.dynamicTarget
+            } == [expected]
         }
     }
 }

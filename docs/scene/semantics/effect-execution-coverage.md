@@ -2,11 +2,13 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-27
+> 最近核对：2026-08-28
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
+
+现役更正：Pulse 两个精确 non-audio alpha-writing direct-binding sibling 已从潜在 dedicated candidate 中撤权，但共享 Program 在补丁前已经是默认产品输出，因此本批只是 candidate debt closeout，不是新 Program 或新视觉 owner。准入仅限 direct non-relational `{user,value}`、无 script attachment、target-local producer 集合精确等于预期 singleton，并逐 readiness 重证 source/profile/consumer ABI/range；`bounds`、audio+binding、SceneScript/Timeline、missing/wrong/multi producer 与其他 source/resource/topology 仍保留 incumbent。旧 App baseline、新 App default/recovery 均 **2/2 PASS**；profile disable 诚实保持 **0/2 NON-PASS / 每项 8 failures**，但 previous-current、suffix GPU/compositor/next-frame 继续，0 dedicated。这一更正取代下文无限定的“alpha/combined binding 尚未撤权”冻结句，不改变 route `38/4/1` 或 dedicated identity/probe `3/3`；见 [E-V1-PULSE-ALPHA-BINDING-CANDIDATE-REVOCATION](runtime-evidence-index.md#e-v1-pulse-alpha-binding-candidate-revocation)。
 
 现役证据边界：后继 fresh Developer ID App 已把 historical `directPhaseMaxClampV1` exact `CAST3(0)`、non-audio alpha-only、一个 typed opacity mask 的 cohort 闭合到既有 `source-proven-graph-input-straight-rgb-scalar-alpha / generic-only / fallbackOwner=none` Program。default/fresh-process restore 均 **1/1 PASS**；两个 exact readiness artifact 同时损坏及 profile-local `disable-generic` 的未放宽严格负门均 **0/1 NON-PASS / 12 failures**，但 raw graph 只把目标撤到 typed previous-current，GPU、publication、唯一 compositor 与 next-frame 继续，0 dedicated、0 `boundedSwift`，旧 Pulse owner 未复活。与 mask/no-mask 的 `[incumbent, revoked, incumbent]` 可执行分区合取后，该 exact historical masked CAST3 cohort 达到 bounded `owner-migration-complete`；saturate、literal-zero、binding/SceneScript/Timeline、多 contributor 与其他 source/resource/topology 仍保留 incumbent 或失败关闭。截图仅证明整幅 composition 安全，不证明 mask/Pulse 独立 ROI、fidelity 或官方 parity。下文“historical masked CAST3 仍缺 fresh 证据”的冻结句统一由本段取代；精确证据见 [E-V1-PULSE-CAST3-MASKED-ALPHA-OWNER](runtime-evidence-index.md#e-v1-pulse-cast3-masked-alpha-owner)。
 

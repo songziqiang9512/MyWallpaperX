@@ -2,11 +2,13 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-27
+> 最近核对：2026-08-28
 >
 > 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](runtime-evidence-index.md)，唯一实现顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 >
 > `311115e3` 新增的click、shared alpha、audio-scaled value、property→Vec3、media colors/title/artist仍只有产品接线与自动测试，统一标为`S2 wired / visible unknown`。hover坐标现有一个shared Cursor feedback真实consumer，但只证明bounded Program输入与整层安全输出，不升级generic pointer event能力。
+
+> 最新 Pulse direct alpha-binding 更正：基于只读真实 `3738202317` 的受控 `9000001000/1001` 分别以 masked combined `speed` 和 no-mask alpha-only `power` 进入补丁前已有的 typed snapshot/finalizer/Program。新代码只在每个 exact dynamic target 的 producer 集合恰为预期 singleton，且 wrapper、target/type、consumer ABI/domain、source/profile/readiness 守恒时撤销 latent Pulse candidate。现役 controlled direct-scalar 证据口径由 4 扩为 6 个 fixture cohort，但它们均不计入 authored corpus；本 exact cohort 之外的 alpha shape、`bounds`、audio+binding、Timeline/SceneScript、missing/wrong/multi producer 仍保留 incumbent 或失败关闭。这一口径取代下表无限定的“alpha 尚未开放”冻结句；见 [E-V1-PULSE-ALPHA-BINDING-CANDIDATE-REVOCATION](runtime-evidence-index.md#e-v1-pulse-alpha-binding-candidate-revocation)。
 
 > 最新 startup-inactive safe FBO 后继把 startup query 从全局 sole-key view 改为完整校验的 effect-local direct-bool view，并继续由 route admission 过滤。只有同 key 全部 sibling 都是 bool `effectVisibility`、各有 bool authored fallback 且 key 非 rebuild 时才可 fan-out；planner 又只接纳共享 previous-current topology 已证明安全的 exact nonpersistent FBO graph。真实 `3211615441` 的两条 Blur FBO 与两条 VHS suffix 在 `blur=false→true` 中于同一 surface/window 从 typed inactive 恢复 Program、GPU/publication/compositor/next-frame。该结论取代下表中“startup 使用 sole-key / startup FBO 全部关闭”的冻结措辞；persistent/unique/history、dependency/provider、read-before-write、descriptor mismatch、clear/condition/function/compose、mixed/nonbool/rebuild 与无 Program consumer仍关闭。见 [E-V1-STARTUP-INACTIVE-SAFE-FBO](runtime-evidence-index.md#e-v1-startup-inactive-safe-fbo)。
 

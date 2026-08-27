@@ -330,6 +330,21 @@ private func outcome(_ input: SceneEffectStageCompileInput) -> String {
     }
 }
 
+private func compileOutcome(
+    _ contracts: [SceneShaderContract],
+    bindings: [Constant: String] = [:],
+    fallbackOverrides: [Constant: [Double]] = [:],
+    producers: Set<SceneDynamicUserPropertyProducer>? = nil,
+    combos: [String: Int] = [:],
+    maskPath: String? = nil
+) -> String {
+    outcome(compileInput(
+        contracts: contracts, bindings: bindings,
+        fallbackOverrides: fallbackOverrides, producers: producers,
+        combos: combos, maskPath: maskPath
+    ))
+}
+
 private func plan(
     contracts: [SceneShaderContract],
     bindings: [Constant: String]
@@ -643,6 +658,10 @@ enum Harness {
             name: "g_PulsePhase",
             range: 0 ... 1
         )
+        let rgbAlpha = ["PULSECOLOR": 1, "PULSEALPHA": 1]
+        let alphaOnly = ["PULSECOLOR": 0, "PULSEALPHA": 1]
+        let audioRGBAlpha = ["AUDIOPROCESSING": 3, "PULSECOLOR": 1, "PULSEALPHA": 1]
+        let audioAlphaOnly = ["AUDIOPROCESSING": 3, "PULSECOLOR": 0, "PULSEALPHA": 1]
 
         let result: [String: Any] = [
             "phaseRanges": SceneResolvedMaterialShaderSchema.exactActiveUniforms(
@@ -657,81 +676,68 @@ enum Harness {
             )?.map {
                 [$0.authoredRange?.lowerBound ?? -1, $0.authoredRange?.upperBound ?? -1]
             } ?? [],
-            "productSpeed": outcome(compileInput(
-                contracts: contracts,
-                bindings: [.speed: "pulseSpeed"]
-            )),
-            "productAmount": outcome(compileInput(
-                contracts: contracts,
-                bindings: [.amount: "pulseAmount"]
-            )),
-            "productCombined": outcome(compileInput(
-                contracts: contracts,
-                bindings: [
+            "productSpeed": compileOutcome(
+                contracts, bindings: [.speed: "pulseSpeed"]
+            ),
+            "productAmount": compileOutcome(
+                contracts, bindings: [.amount: "pulseAmount"]
+            ),
+            "productCombined": compileOutcome(
+                contracts, bindings: [
                     .speed: "pulseValue",
                     .phase: "pulseValue",
                     .amount: "pulseValue",
                     .noiseAmount: "pulseValue",
                 ]
-            )),
-            "productStaticRGBAlpha": outcome(compileInput(
-                contracts: contracts,
-                bindings: [:],
-                combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
-            )),
-            "productMaskedStaticRGBAlpha": outcome(compileInput(
-                contracts: contracts,
-                bindings: [:],
-                combos: ["PULSECOLOR": 1, "PULSEALPHA": 1],
+            ),
+            "productStaticRGBAlpha": compileOutcome(contracts, combos: rgbAlpha),
+            "productMaskedBoundRGBAlpha": compileOutcome(
+                contracts,
+                bindings: [.speed: "pulseSpeed"],
+                combos: rgbAlpha,
                 maskPath: "materials/pulse-mask.png"
-            )),
-            "productMaskedAudioRGBAlpha": outcome(compileInput(
-                contracts: contracts,
-                bindings: [:],
-                combos: [
-                    "AUDIOPROCESSING": 3,
-                    "PULSECOLOR": 1,
-                    "PULSEALPHA": 1,
+            ),
+            "productBoundAlphaOnly": compileOutcome(
+                contracts,
+                bindings: [.noiseAmount: "pulseNoise"],
+                combos: alphaOnly
+            ),
+            "productBoundAlphaExtraProducer": compileOutcome(
+                contracts,
+                bindings: [.speed: "pulseSpeed"],
+                producers: [
+                    producer(.speed, propertyKey: "pulseSpeed"),
+                    producer(.speed, propertyKey: "competingSpeed"),
                 ],
+                combos: alphaOnly
+            ),
+            "productMaskedStaticRGBAlpha": compileOutcome(
+                contracts, combos: rgbAlpha,
                 maskPath: "materials/pulse-mask.png"
-            )),
-            "productMaskedAlphaOnly": outcome(compileInput(
-                contracts: contracts,
-                bindings: [:],
-                combos: ["PULSECOLOR": 0, "PULSEALPHA": 1],
+            ),
+            "productMaskedAudioRGBAlpha": compileOutcome(
+                contracts, combos: audioRGBAlpha,
                 maskPath: "materials/pulse-mask.png"
-            )),
-            "productMaskedAudioAlphaOnly": outcome(compileInput(
-                contracts: contracts,
-                bindings: [:],
-                combos: [
-                    "AUDIOPROCESSING": 3,
-                    "PULSECOLOR": 0,
-                    "PULSEALPHA": 1,
-                ],
+            ),
+            "productMaskedAlphaOnly": compileOutcome(
+                contracts, combos: alphaOnly,
                 maskPath: "materials/pulse-mask.png"
-            )),
+            ),
+            "productMaskedAudioAlphaOnly": compileOutcome(
+                contracts, combos: audioAlphaOnly,
+                maskPath: "materials/pulse-mask.png"
+            ),
             "legacyStaticRGBAlpha": legacyContracts.map {
-                outcome(compileInput(
-                    contracts: $0,
-                    bindings: [:],
-                    combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
-                ))
+                compileOutcome($0, combos: rgbAlpha)
             },
             "legacyStaticAlphaOnly": legacyContracts.map {
-                outcome(compileInput(
-                    contracts: $0,
-                    bindings: [:],
-                    combos: ["PULSECOLOR": 0, "PULSEALPHA": 1]
-                ))
+                compileOutcome($0, combos: alphaOnly)
             },
             "legacyMaskedStaticAlphaOnly": legacyContracts.map {
-                outcome(compileInput(
-                    contracts: $0,
-                    bindings: [:],
-                    combos: ["PULSECOLOR": 0, "PULSEALPHA": 1],
+                compileOutcome(
+                    $0, combos: alphaOnly,
                     maskPath: "materials/pulse-mask.png"
-                ))
+                )
             },
             "rgbAlphaProfile": SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputRGBBlendScalarAlpha.rawValue,
@@ -744,75 +750,63 @@ enum Harness {
             "rgbAlphaBadArtifact": SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputRGBBlendScalarAlpha
                 .artifactFallbackOutcome(routeState: .genericOnly),
-            "productPhase": outcome(compileInput(
-                contracts: contracts,
+            "productPhase": compileOutcome(
+                contracts,
                 bindings: [.phase: "pulsePhase"]
-            )),
-            "productPhaseUnsafeFallback": outcome(compileInput(
-                contracts: contracts, bindings: [.phase: "pulsePhase"],
+            ),
+            "productPhaseUnsafeFallback": compileOutcome(
+                contracts, bindings: [.phase: "pulsePhase"],
                 fallbackOverrides: [.phase: [2]]
-            )),
+            ),
             "legacyProductPhase": legacyContracts.map {
-                outcome(compileInput(
-                    contracts: $0,
-                    bindings: [.phase: "pulsePhase"]
-                ))
+                compileOutcome($0, bindings: [.phase: "pulsePhase"])
             },
-            "legacyProductPhaseUnsafeFallback": outcome(compileInput(
-                contracts: legacyContracts[0],
+            "legacyProductPhaseUnsafeFallback": compileOutcome(
+                legacyContracts[0],
                 bindings: [.phase: "pulsePhase"],
                 fallbackOverrides: [.phase: [7]]
-            )),
-            "legacyProductPhaseMissingProducer": outcome(compileInput(
-                contracts: legacyContracts[0],
+            ),
+            "legacyProductPhaseMissingProducer": compileOutcome(
+                legacyContracts[0],
                 bindings: [.phase: "pulsePhase"],
                 producers: []
-            )),
-            "productBounds": outcome(compileInput(
-                contracts: contracts,
+            ),
+            "productBounds": compileOutcome(
+                contracts,
                 bindings: [.bounds: "pulseBounds"]
-            )),
-            "productMissingProducer": outcome(compileInput(
-                contracts: contracts,
+            ),
+            "productMissingProducer": compileOutcome(
+                contracts,
                 bindings: [.speed: "pulseSpeed"],
                 producers: []
-            )),
-            "productWrongProducerType": outcome(compileInput(
-                contracts: contracts,
+            ),
+            "productWrongProducerType": compileOutcome(
+                contracts,
                 bindings: [.speed: "pulseSpeed"],
                 producers: [producer(
                     .speed,
                     propertyKey: "pulseSpeed",
                     valueType: .vector2
                 )]
-            )),
-            "stockSpeedDisposition": ownerDisposition(
-                speedPlan,
-                [stock, stock]
             ),
+            "stockSpeedDisposition": ownerDisposition(speedPlan, [stock, stock]),
             "missingStage": ownerDisposition(
-                speedPlan,
-                [stock, copy(stock, vertex: missingVertexSpeed)]
+                speedPlan, [stock, copy(stock, vertex: missingVertexSpeed)]
             ),
             "extraStage": ownerDisposition(
-                noisePlan,
-                [stock, copy(stock, vertex: extraStageVertex)]
+                noisePlan, [stock, copy(stock, vertex: extraStageVertex)]
             ),
             "sameStageDuplicate": ownerDisposition(
-                speedPlan,
-                [stock, copy(stock, fragment: duplicateFragment)]
+                speedPlan, [stock, copy(stock, fragment: duplicateFragment)]
             ),
             "arrayDrift": ownerDisposition(
-                speedPlan,
-                [stock, copy(stock, vertex: arrayVertex)]
+                speedPlan, [stock, copy(stock, vertex: arrayVertex)]
             ),
             "typeDrift": ownerDisposition(
-                speedPlan,
-                [stock, copy(stock, vertex: wrongTypeVertex)]
+                speedPlan, [stock, copy(stock, vertex: wrongTypeVertex)]
             ),
             "rangeDrift": ownerDisposition(
-                speedPlan,
-                [stock, copy(stock, vertex: wrongRangeVertex)]
+                speedPlan, [stock, copy(stock, vertex: wrongRangeVertex)]
             ),
             "phaseVertexRangeDrift": ownerDisposition(
                 phasePlan, [stock, copy(stock, vertex: wrongPhaseVertex)]
@@ -826,8 +820,8 @@ enum Harness {
                 ownerDisposition(plan, [prepared, prepared])
             },
             "legacyPhaseExtraStage": ownerDisposition(
-                legacyPhasePlans[0],
-                [legacyPrepared[0], copy(legacyPrepared[0], vertex: legacyExtraVertex)]
+                legacyPhasePlans[0], [legacyPrepared[0],
+                    copy(legacyPrepared[0], vertex: legacyExtraVertex)]
             ),
             "legacyPhaseMissingStage": ownerDisposition(
                 legacyPhasePlans[0],
@@ -841,10 +835,7 @@ enum Harness {
                     legacyPrepared[0], fragment: legacyWrongRange
                 )]
             ),
-            "boundsDisposition": ownerDisposition(
-                boundsPlan,
-                [stock, stock]
-            ),
+            "boundsDisposition": ownerDisposition(boundsPlan, [stock, stock]),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -976,32 +967,40 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.result["boundsDisposition"], "retain-incumbent")
 
     def test_static_rgb_alpha_owner_moves_to_the_shared_program(self) -> None:
-        self.assertEqual(
-            self.result["productStaticRGBAlpha"],
-            "revoked:static-rgb-alpha-owner-revoked-to-material-program",
-        )
-        self.assertEqual(
-            self.result["productMaskedStaticRGBAlpha"],
-            "revoked:static-rgb-alpha-owner-revoked-to-material-program",
-        )
-        self.assertEqual(
-            self.result["productMaskedAudioRGBAlpha"],
-            "revoked:audio-rgb-alpha-owner-revoked-to-material-program",
-        )
-        self.assertEqual(
-            self.result["productMaskedAlphaOnly"],
-            "revoked:static-alpha-only-owner-revoked-to-material-program",
-        )
-        self.assertEqual(
-            self.result["productMaskedAudioAlphaOnly"],
-            "revoked:audio-alpha-only-owner-revoked-to-material-program",
-        )
+        expected = {
+            "productStaticRGBAlpha": "static-rgb-alpha",
+            "productMaskedStaticRGBAlpha": "static-rgb-alpha",
+            "productMaskedAudioRGBAlpha": "audio-rgb-alpha",
+            "productMaskedAlphaOnly": "static-alpha-only",
+            "productMaskedAudioAlphaOnly": "audio-alpha-only",
+        }
+        for key, reason in expected.items():
+            with self.subTest(key=key):
+                self.assertEqual(
+                    self.result[key],
+                    f"revoked:{reason}-owner-revoked-to-material-program",
+                )
         self.assertEqual(
             self.result["rgbAlphaProfile"],
             "source-proven-graph-input-rgb-blend-scalar-alpha",
         )
         self.assertEqual(self.result["rgbAlphaRoute"], "generic-only")
         self.assertEqual(self.result["rgbAlphaRollback"], "none")
+
+    def test_direct_bound_alpha_writing_cohort_revokes_the_incumbent(self) -> None:
+        expected = {
+            "productMaskedBoundRGBAlpha": "typed-user-property-rgb-alpha",
+            "productBoundAlphaOnly": "typed-user-property-alpha-only",
+        }
+        for key, reason in expected.items():
+            with self.subTest(key=key):
+                self.assertEqual(
+                    self.result[key],
+                    f"revoked:{reason}-owner-revoked-to-material-program",
+                )
+
+    def test_unsafe_bound_alpha_writing_shapes_retain_the_incumbent(self) -> None:
+        self.assertEqual(self.result["productBoundAlphaExtraProducer"], "incumbent")
 
     def test_rgb_alpha_bad_artifact_or_profile_rejects_locally(self) -> None:
         self.assertEqual(self.result["rgbAlphaBadArtifact"], "rejected")
