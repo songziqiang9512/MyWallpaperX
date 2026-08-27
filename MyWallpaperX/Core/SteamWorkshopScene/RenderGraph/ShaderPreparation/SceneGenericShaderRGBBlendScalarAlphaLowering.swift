@@ -42,7 +42,7 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
               let carrierDeclaration = carrierDeclarations.first,
               contains(body, carrierDeclaration.range),
               let carrier = capture(carrierDeclaration, 2, in: source),
-              countWord(carrier, in: source) == 2
+              countWord(carrier, in: source) == (fact.maskSlot == nil ? 2 : 3)
         else { return nil }
 
         let aliases = matches(
@@ -85,19 +85,44 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
                 factor: blendWrite.scalar,
                 before: blendWrite.anchorRange.location,
                 source: source,
-                auxiliarySlots: fact.auxiliarySlots
-              ) == fact.auxiliarySlots,
-              colorWrites.count == blendWrite.colorWriteRanges.count + 1,
-              colorWrites.allSatisfy({ colorWrite in
-                  blendWrite.colorWriteRanges.contains(where: { allowedRange in
-                      contains(allowedRange, colorWrite.range)
-                  }) || contains(alphaWrite.range, colorWrite.range)
-              }),
+                auxiliarySlots: fact.scalarAuxiliarySlots
+              ) == fact.scalarAuxiliarySlots,
               matches(#"(?:\+\+|--)\s*\b"# + escaped(color) + #"\b"#, in: source)
                 .isEmpty,
               matches(#"\b"# + escaped(color) + #"\b\s*(?:\+\+|--)"#, in: source)
                 .isEmpty
         else { return nil }
+
+        let maskMix: MaskMix?
+        if let slot = fact.maskSlot, let factor = fact.maskFactorName {
+            guard let proven = compilerMaskMix(
+                source: source,
+                sourceCarrier: carrier,
+                transformedCarrier: color,
+                slot: slot,
+                factor: factor
+            ), contains(body, proven.declarationRange),
+               contains(body, proven.assignmentRange),
+               alphaWrite.range.location < proven.declarationRange.location,
+               proven.declarationRange.location < proven.assignmentRange.location
+            else { return nil }
+            maskMix = proven
+        } else {
+            guard fact.maskSlot == nil, fact.maskFactorName == nil else {
+                return nil
+            }
+            maskMix = nil
+        }
+        guard colorWrites.count == blendWrite.colorWriteRanges.count + 1
+                + (maskMix == nil ? 0 : 1),
+              colorWrites.allSatisfy({ colorWrite in
+                  blendWrite.colorWriteRanges.contains(where: { allowedRange in
+                      contains(allowedRange, colorWrite.range)
+                  }) || contains(alphaWrite.range, colorWrite.range)
+                    || maskMix.map {
+                        contains($0.assignmentRange, colorWrite.range)
+                    } == true
+              }) else { return nil }
 
         let outputPatterns = [
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:w|a)\s*\))\s*;[ \t]*$"#,
@@ -112,7 +137,8 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
               let outputValue = capture(output, 2, in: source),
               capture(output, 3, in: source) == color,
               capture(output, 4, in: source) == color,
-              countWord(color, in: source) == blendWrite.carrierWordCount,
+              countWord(color, in: source) == blendWrite.carrierWordCount
+                + (maskMix == nil ? 0 : 2),
               matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               carrierDeclaration.range.location < aliasDeclaration.range.location,
               aliasDeclaration.range.location < blendWrite.anchorRange.location,
@@ -120,6 +146,9 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
                   $0.location < alphaWrite.range.location
               }),
               alphaWrite.range.location < output.range.location,
+              maskMix.map({
+                  $0.assignmentRange.location < output.range.location
+              }) ?? true,
               sampleCalls.allSatisfy({ $0.range.location < output.range.location }),
               terminalTail(after: output.range, within: body, source: source)
         else { return nil }
@@ -152,6 +181,45 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
     private struct ParameterDeclaration {
         let range: NSRange
         let expression: String
+    }
+
+    private struct MaskMix {
+        let declarationRange: NSRange
+        let assignmentRange: NSRange
+    }
+
+    private static func compilerMaskMix(
+        source: String,
+        sourceCarrier: String,
+        transformedCarrier: String,
+        slot: Int,
+        factor: String
+    ) -> MaskMix? {
+        let declarations = matches(
+            #"(?m)^[ \t]*float\s+"# + escaped(factor)
+                + #"\s*=\s*g_Texture"# + String(slot)
+                + #"\.sample\([^;]+\)\.(?:x|r)\s*;[ \t]*$"#,
+            in: source
+        )
+        let assignments = matches(
+            #"(?m)^[ \t]*"# + escaped(transformedCarrier)
+                + #"\s*=\s*(?:fast::)?(?:mix|lerp)\(\s*"#
+                + escaped(sourceCarrier) + #"\s*,\s*"#
+                + escaped(transformedCarrier)
+                + #"\s*,\s*(?:(?:float4|half4)\(\s*"#
+                + escaped(factor) + #"\s*\)|"#
+                + escaped(factor) + #")\s*\)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard declarations.count == 1,
+              assignments.count == 1,
+              let declaration = declarations.first,
+              let assignment = assignments.first,
+              countWord(factor, in: source) == 2 else { return nil }
+        return .init(
+            declarationRange: declaration.range,
+            assignmentRange: assignment.range
+        )
     }
 
     private static func directBlendWrite(

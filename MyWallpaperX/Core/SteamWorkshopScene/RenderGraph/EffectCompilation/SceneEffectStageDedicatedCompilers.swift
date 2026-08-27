@@ -336,7 +336,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
 
     /// Revokes canonical alpha-writing Pulse shapes only after source analysis
     /// proves either preserved RGB or an RGB blend driven by the same scalar.
-    /// Mask, binding, provider, and historical combined forms retain incumbent.
+    /// Binding, provider, alpha-only mask, and historical combined forms retain
+    /// incumbent. Stock combined RGB/alpha may carry one source-proven typed
+    /// opacity mask after the alpha write.
     private nonisolated static func scalarAlphaProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
@@ -349,7 +351,6 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
               plan.bindings.isEmpty,
               plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseAlpha,
-              plan.maskTexturePath == nil,
               input.stageGraph.effects.count == 1,
               input.stageGraph.nodes.count == 1,
               let effect = input.stageGraph.effects.first,
@@ -410,7 +411,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             )
             let sourceShape: (
                 sourceSlot: Int,
+                scalarAuxiliarySlots: Set<Int>,
                 auxiliarySlots: Set<Int>,
+                maskSlot: Int?,
                 profile: SceneGenericShaderCapabilityProfile
             )
             if plan.pulseColor {
@@ -422,7 +425,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                         ) else { return false }
                 sourceShape = (
                     fact.sourceSlot,
+                    fact.scalarAuxiliarySlots,
                     fact.auxiliarySlots,
+                    fact.maskSlot,
                     .sourceProvenGraphInputRGBBlendScalarAlpha
                 )
             } else {
@@ -435,6 +440,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 sourceShape = (
                     fact.sourceSlot,
                     fact.auxiliarySlots,
+                    fact.auxiliarySlots,
+                    nil,
                     .sourceProvenGraphInputStraightRGBScalarAlpha
                 )
             }
@@ -474,16 +481,22 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                     samplers: samplers,
                     graphInputSlots: graphInputSlots
                 )
+            let activeMaskSlots = Set(samplers.compactMap { slot, sampler in
+                sampler.mode == .opacityMask ? slot : nil
+            })
+            let sourceMaskSlots = sourceShape.maskSlot.map { Set([$0]) } ?? []
             let auxiliaryShapeIsProven: Bool
             if plan.audio == nil {
-                auxiliaryShapeIsProven = !sourceShape.auxiliarySlots.isEmpty
+                auxiliaryShapeIsProven =
+                    !sourceShape.scalarAuxiliarySlots.isEmpty
             } else {
                 auxiliaryShapeIsProven = plan.shaderProfile == .stock2842
-                    && sourceShape.auxiliarySlots.isEmpty
+                    && sourceShape.scalarAuxiliarySlots.isEmpty
             }
             guard graphInputSlots == [sourceShape.sourceSlot],
                   graphTargetSlots.isEmpty,
                   auxiliaryShapeIsProven,
+                  activeMaskSlots == sourceMaskSlots,
                   Set(samplers.keys)
                     == sourceShape.auxiliarySlots.union([sourceShape.sourceSlot]),
                   typedAuxiliary == sourceShape.auxiliarySlots,

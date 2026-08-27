@@ -184,7 +184,8 @@ private func definition() -> SceneEffectDefinition {
 private func descriptor(
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]] = [:],
-    combos: [String: Int] = [:]
+    combos: [String: Int] = [:],
+    maskPath: String? = nil
 ) -> SceneRenderDescriptor {
     let constants = Dictionary(uniqueKeysWithValues: bindings.map {
         constant, propertyKey in
@@ -192,10 +193,11 @@ private func descriptor(
             ?? constant.defaultComponents(for: .stock2842)
         return (constant.rawValue, value(components, propertyKey: propertyKey))
     })
+    let textureSlots: [String?] = maskPath.map { [nil, nil, $0] } ?? []
     let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
         passIndex: 0,
-        texturePaths: [],
-        textureSlots: [],
+        texturePaths: maskPath.map { [$0] } ?? [],
+        textureSlots: textureSlots,
         userTextureInputs: [],
         combos: combos,
         constantShaderValues: constants
@@ -297,7 +299,8 @@ private func compileInput(
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer>? = nil,
-    combos: [String: Int] = [:]
+    combos: [String: Int] = [:],
+    maskPath: String? = nil
 ) -> SceneEffectStageCompileInput {
     let actualProducers = producers ?? Set(bindings.map {
         producer($0.key, propertyKey: $0.value)
@@ -310,7 +313,8 @@ private func compileInput(
         descriptor: descriptor(
             bindings: bindings,
             fallbackOverrides: fallbackOverrides,
-            combos: combos
+            combos: combos,
+            maskPath: maskPath
         ),
         shaderContracts: contracts,
         userPropertyProducers: actualProducers
@@ -675,6 +679,28 @@ enum Harness {
                 bindings: [:],
                 combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
             )),
+            "productMaskedStaticRGBAlpha": outcome(compileInput(
+                contracts: contracts,
+                bindings: [:],
+                combos: ["PULSECOLOR": 1, "PULSEALPHA": 1],
+                maskPath: "materials/pulse-mask.png"
+            )),
+            "productMaskedAudioRGBAlpha": outcome(compileInput(
+                contracts: contracts,
+                bindings: [:],
+                combos: [
+                    "AUDIOPROCESSING": 3,
+                    "PULSECOLOR": 1,
+                    "PULSEALPHA": 1,
+                ],
+                maskPath: "materials/pulse-mask.png"
+            )),
+            "productMaskedAlphaOnly": outcome(compileInput(
+                contracts: contracts,
+                bindings: [:],
+                combos: ["PULSECOLOR": 0, "PULSEALPHA": 1],
+                maskPath: "materials/pulse-mask.png"
+            )),
             "legacyStaticRGBAlpha": legacyContracts.map {
                 outcome(compileInput(
                     contracts: $0,
@@ -929,6 +955,15 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             self.result["productStaticRGBAlpha"],
             "revoked:static-rgb-alpha-owner-revoked-to-material-program",
         )
+        self.assertEqual(
+            self.result["productMaskedStaticRGBAlpha"],
+            "revoked:static-rgb-alpha-owner-revoked-to-material-program",
+        )
+        self.assertEqual(
+            self.result["productMaskedAudioRGBAlpha"],
+            "revoked:audio-rgb-alpha-owner-revoked-to-material-program",
+        )
+        self.assertEqual(self.result["productMaskedAlphaOnly"], "incumbent")
         self.assertEqual(
             self.result["rgbAlphaProfile"],
             "source-proven-graph-input-rgb-blend-scalar-alpha",

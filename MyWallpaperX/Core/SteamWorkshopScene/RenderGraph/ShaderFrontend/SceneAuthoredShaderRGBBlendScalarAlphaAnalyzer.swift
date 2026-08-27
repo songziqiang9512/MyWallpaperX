@@ -3,18 +3,24 @@ import Foundation
 /// Proves one bounded straight-color carrier whose final scalar drives both
 /// an authored RGB blend and multiplicative alpha. The proof is independent
 /// of effect/path identity and admits at most one distinct red-channel data
-/// sample in the scalar graph.
+/// sample in the scalar graph plus one optional post-transform opacity mask.
 nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
     struct Fact: Equatable {
         let sourceSlot: Int
-        let auxiliarySlots: Set<Int>
+        let scalarAuxiliarySlots: Set<Int>
+        let maskSlot: Int?
         let blendMode: Int
         let baseMultiplier: String
         let blendMultiplier: String
         let factorName: String
+        let maskFactorName: String?
+
+        var auxiliarySlots: Set<Int> {
+            scalarAuxiliarySlots.union(maskSlot.map { [$0] } ?? [])
+        }
     }
 
     static func analyze(_ fragment: Unit) -> Fact? {
@@ -41,6 +47,8 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
         var auxiliarySlots: [Int] = []
         var blend: RGBBlend?
         var sawAlphaMutation = false
+        var pendingMask: MaskBlend?
+        var sawMaskMix = false
 
         for range in statements.dropFirst(2).dropLast() {
             let statement = Array(fragment.tokens[range])
@@ -91,36 +99,68 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
                 blend = candidate
                 continue
             }
-            guard let blend,
-                  !sawAlphaMutation,
-                  alphaMultiplication(
-                    statement,
-                    carrierName: carrier,
-                    factorName: blend.factorName
+            if let blend,
+               !sawAlphaMutation,
+               alphaMultiplication(
+                   statement,
+                   carrierName: carrier,
+                   factorName: blend.factorName
+               ) {
+                sawAlphaMutation = true
+                continue
+            }
+            if sawAlphaMutation,
+               pendingMask == nil,
+               !sawMaskMix,
+               let mask = maskDeclaration(
+                   statement,
+                   fragment: fragment,
+                   scalarDependencies: scalarDependencies,
+                   sourceName: source.name,
+                   carrierName: carrier
+               ) {
+                pendingMask = mask
+                continue
+            }
+            guard let mask = pendingMask,
+                  !sawMaskMix,
+                  maskMix(
+                      statement,
+                      sourceName: source.name,
+                      carrierName: carrier,
+                      factorName: mask.factorName
                   ) else { return nil }
-            sawAlphaMutation = true
+            sawMaskMix = true
         }
 
+        let maskSlots = pendingMask.map { [$0.slot] } ?? []
         guard let blend,
               sawAlphaMutation,
+              (pendingMask == nil && !sawMaskMix)
+                || (pendingMask != nil && sawMaskMix),
               terminalOutput(
                 Array(fragment.tokens[statements.last!]),
                 carrierName: carrier
               ), auxiliarySlots.count <= 1,
               Set(auxiliarySlots).count == auxiliarySlots.count,
               !auxiliarySlots.contains(source.slot),
+              pendingMask?.slot != source.slot,
+              pendingMask.map({ !auxiliarySlots.contains($0.slot) }) ?? true,
               allScalarLocalsReachFactor(
                 blend.factorName,
                 scalarDependencies: scalarDependencies
-              ), sampleSlots(in: fragment.tokens)
-                == [source.slot] + auxiliarySlots else { return nil }
+              ), sampleSlots(in: fragment.tokens) == [source.slot]
+                + auxiliarySlots + maskSlots
+        else { return nil }
         return .init(
             sourceSlot: source.slot,
-            auxiliarySlots: Set(auxiliarySlots),
+            scalarAuxiliarySlots: Set(auxiliarySlots),
+            maskSlot: pendingMask?.slot,
             blendMode: blend.mode,
             baseMultiplier: blend.baseMultiplier,
             blendMultiplier: blend.blendMultiplier,
-            factorName: blend.factorName
+            factorName: blend.factorName,
+            maskFactorName: pendingMask?.factorName
         )
     }
 
@@ -199,6 +239,56 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
         let baseMultiplier: String
         let blendMultiplier: String
         let factorName: String
+    }
+
+    private struct MaskBlend {
+        let slot: Int
+        let factorName: String
+    }
+
+    private static func maskDeclaration(
+        _ tokens: [Token],
+        fragment: Unit,
+        scalarDependencies: [String: Set<String>],
+        sourceName: String,
+        carrierName: String
+    ) -> MaskBlend? {
+        guard let declaration = SceneAuthoredShaderUniformRGBMixAnalyzer
+                .scalarDeclaration(tokens),
+              scalarDependencies[declaration.name] == nil,
+              declaration.name != sourceName,
+              declaration.name != carrierName,
+              declaration.expression.count >= 8,
+              declaration.expression.suffix(2).map(\.text) == [".", "r"],
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(declaration.expression.dropLast(2)),
+              fragment.declarations.filter({
+                  $0.storage == .uniform && $0.arraySize == nil
+                      && $0.typeName == "sampler2D"
+                      && $0.name == "g_Texture\(slot)"
+              }).count == 1 else { return nil }
+        return .init(slot: slot, factorName: declaration.name)
+    }
+
+    private static func maskMix(
+        _ tokens: [Token],
+        sourceName: String,
+        carrierName: String,
+        factorName: String
+    ) -> Bool {
+        guard tokens.count >= 8,
+              tokens[0].text == carrierName,
+              tokens[1].text == "=",
+              let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(tokens[2...]),
+              ["mix", "lerp"].contains(call.name),
+              call.arguments.count == 3 else { return false }
+        return SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .identifier(call.arguments[0]) == sourceName
+            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(call.arguments[1]) == carrierName
+            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(call.arguments[2]) == factorName
     }
 
     private static func rgbBlendFactor(

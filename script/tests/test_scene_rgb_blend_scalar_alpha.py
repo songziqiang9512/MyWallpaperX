@@ -39,14 +39,19 @@ private struct Output: Codable {
     let staticAuxiliarySlots: [Int]?
     let audioSourceSlot: Int?
     let audioAuxiliarySlots: [Int]?
+    let maskedScalarAuxiliarySlots: [Int]?
+    let maskedMaskSlot: Int?
     let renamedAccepted: Bool
     let staticTransferAccepted: Bool
     let audioTransferAccepted: Bool
     let staticLoweringAccepted: Bool
     let audioLoweringAccepted: Bool
     let renamedLoweringAccepted: Bool
+    let maskedTransferAccepted: Bool
+    let maskedLoweringAccepted: Bool
     let sourceUnpremultipliedOnce: Bool
     let auxiliaryRemainsData: Bool
+    let maskRemainsData: Bool
     let outputPremultiplied: Bool
     let differentScalarRejected: Bool
     let alphaAssignmentRejected: Bool
@@ -61,8 +66,13 @@ private struct Output: Codable {
     let compilerBaseMultiplierDriftRejected: Bool
     let compilerAuxiliaryDetachedRejected: Bool
     let compilerExtraSampleRejected: Bool
+    let sourceMaskOrderRejected: Bool
+    let sourceMaskTransformRejected: Bool
+    let sourceMaskFactorRejected: Bool
+    let compilerMaskSlotRejected: Bool
     let staticRouteProfile: String
     let audioRouteProfile: String
+    let maskedRouteProfile: String
     let renamedRouteProfile: String
     let routeState: String
     let rollbackOwner: String
@@ -165,6 +175,29 @@ private let audioMSL = [
     "}",
 ].joined(separator: "\n")
 
+private let maskedAuthored = staticAuthored
+    .replacingOccurrences(
+        of: "uniform sampler2D g_Texture1;",
+        with: "uniform sampler2D g_Texture1;\nuniform sampler2D g_Texture2;"
+    )
+    .replacingOccurrences(
+        of: "    albedo.a *= pulse;",
+        with: [
+            "    albedo.a *= pulse;",
+            "    float mask = texSample2D(g_Texture2, v_TexCoord).r;",
+            "    albedo = mix(sampled, albedo, mask);",
+        ].joined(separator: "\n")
+    )
+
+private let maskedMSL = staticMSL.replacingOccurrences(
+    of: "    albedo.w *= pulse;",
+    with: [
+        "    albedo.w *= pulse;",
+        "    float mask = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord).x;",
+        "    albedo = mix(sampled, albedo, float4(mask));",
+    ].joined(separator: "\n")
+)
+
 private func fact(
     _ source: String
 ) -> SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.Fact? {
@@ -248,9 +281,11 @@ private enum RGBBlendScalarAlphaHarness {
 
         let staticFact = fact(staticAuthored)
         let audioFact = fact(audioAuthored)
+        let maskedFact = fact(maskedAuthored)
         let staticLowered = lowered(staticMSL, authored: staticAuthored)
         let audioLowered = lowered(audioMSL, authored: audioAuthored)
         let renamedLowered = lowered(renamedMSL, authored: renamedAuthored)
+        let maskedLowered = lowered(maskedMSL, authored: maskedAuthored)
         let expected = SceneGenericShaderCapabilityProfile
             .sourceProvenGraphInputRGBBlendScalarAlpha
         let staticProfile = profile(
@@ -264,6 +299,10 @@ private enum RGBBlendScalarAlphaHarness {
         let renamedProfile = profile(
             authored: renamedAuthored,
             active: [0, 1], typed: [1], graphInputs: [0]
+        )
+        let maskedProfile = profile(
+            authored: maskedAuthored,
+            active: [0, 1, 2], typed: [1, 2], graphInputs: [0]
         )
         let hiddenSample = staticAuthored.replacingOccurrences(
             of: "void main() {",
@@ -279,17 +318,25 @@ private enum RGBBlendScalarAlphaHarness {
             staticAuxiliarySlots: staticFact?.auxiliarySlots.sorted(),
             audioSourceSlot: audioFact?.sourceSlot,
             audioAuxiliarySlots: audioFact?.auxiliarySlots.sorted(),
+            maskedScalarAuxiliarySlots:
+                maskedFact?.scalarAuxiliarySlots.sorted(),
+            maskedMaskSlot: maskedFact?.maskSlot,
             renamedAccepted: fact(renamedAuthored) != nil,
             staticTransferAccepted: transferAccepted(staticAuthored, slot: 0),
             audioTransferAccepted: transferAccepted(audioAuthored, slot: 0),
             staticLoweringAccepted: staticLowered != nil,
             audioLoweringAccepted: audioLowered != nil,
             renamedLoweringAccepted: renamedLowered != nil,
+            maskedTransferAccepted: transferAccepted(maskedAuthored, slot: 0),
+            maskedLoweringAccepted: maskedLowered != nil,
             sourceUnpremultipliedOnce: staticLowered?.components(
                 separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
             ).count == 2,
             auxiliaryRemainsData: staticLowered?.contains(
                 "mwxGenericUnpremultiply(g_Texture1.sample("
+            ) == false,
+            maskRemainsData: maskedLowered?.contains(
+                "mwxGenericUnpremultiply(g_Texture2.sample("
             ) == false,
             outputPremultiplied: staticLowered?.contains(
                 "out.mwxFragColor = mwxGenericPremultiply(float4("
@@ -367,8 +414,36 @@ private enum RGBBlendScalarAlphaHarness {
                 ),
                 authored: staticAuthored
             ) == nil,
+            sourceMaskOrderRejected: fact(
+                maskedAuthored.replacingOccurrences(
+                    of: "    albedo.a *= pulse;\n"
+                        + "    float mask = texSample2D(g_Texture2, v_TexCoord).r;",
+                    with: "    float mask = texSample2D(g_Texture2, v_TexCoord).r;\n"
+                        + "    albedo.a *= pulse;"
+                )
+            ) == nil,
+            sourceMaskTransformRejected: fact(
+                maskedAuthored.replacingOccurrences(
+                    of: "float mask = texSample2D(g_Texture2, v_TexCoord).r;",
+                    with: "float mask = texSample2D(g_Texture2, v_TexCoord).r * g_TintLow.r;"
+                )
+            ) == nil,
+            sourceMaskFactorRejected: fact(
+                maskedAuthored.replacingOccurrences(
+                    of: "albedo = mix(sampled, albedo, mask);",
+                    with: "albedo = mix(sampled, albedo, pulse);"
+                )
+            ) == nil,
+            compilerMaskSlotRejected: lowered(
+                maskedMSL.replacingOccurrences(
+                    of: "g_Texture2.sample(g_Texture2Smplr,",
+                    with: "g_Texture1.sample(g_Texture1Smplr,"
+                ),
+                authored: maskedAuthored
+            ) == nil,
             staticRouteProfile: staticProfile.rawValue,
             audioRouteProfile: audioProfile.rawValue,
+            maskedRouteProfile: maskedProfile.rawValue,
             renamedRouteProfile: renamedProfile.rawValue,
             routeState: expected.defaultRouteState.rawValue,
             rollbackOwner: expected.validatedRollbackOwner.rawValue,
@@ -447,6 +522,8 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         self.assertEqual(self.result["staticAuxiliarySlots"], [1])
         self.assertEqual(self.result["audioSourceSlot"], 0)
         self.assertEqual(self.result["audioAuxiliarySlots"], [])
+        self.assertEqual(self.result["maskedScalarAuxiliarySlots"], [1])
+        self.assertEqual(self.result["maskedMaskSlot"], 2)
         for key in (
             "renamedAccepted",
             "staticTransferAccepted",
@@ -454,8 +531,11 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "staticLoweringAccepted",
             "audioLoweringAccepted",
             "renamedLoweringAccepted",
+            "maskedTransferAccepted",
+            "maskedLoweringAccepted",
             "sourceUnpremultipliedOnce",
             "auxiliaryRemainsData",
+            "maskRemainsData",
             "outputPremultiplied",
         ):
             self.assertTrue(self.result[key], key)
@@ -463,6 +543,7 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         self.assertEqual(self.result["staticRouteProfile"], expected)
         self.assertEqual(self.result["audioRouteProfile"], expected)
         self.assertEqual(self.result["renamedRouteProfile"], expected)
+        self.assertEqual(self.result["maskedRouteProfile"], expected)
         self.assertEqual(self.result["routeState"], "generic-only")
         self.assertEqual(self.result["rollbackOwner"], "none")
 
@@ -481,6 +562,10 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "compilerBaseMultiplierDriftRejected",
             "compilerAuxiliaryDetachedRejected",
             "compilerExtraSampleRejected",
+            "sourceMaskOrderRejected",
+            "sourceMaskTransformRejected",
+            "sourceMaskFactorRejected",
+            "compilerMaskSlotRejected",
         ):
             self.assertTrue(self.result[key], key)
 

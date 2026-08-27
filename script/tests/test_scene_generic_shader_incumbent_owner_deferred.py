@@ -987,10 +987,10 @@ fragment float4 mwxGenericFragment(
             "plan.audio == nil || plan.shaderProfile == .stock2842",
             "plan.bindings.isEmpty",
             "plan.pulseAlpha",
-            "plan.maskTexturePath == nil",
             "auxiliaryShapeIsProven",
+            "activeMaskSlots == sourceMaskSlots",
             "plan.shaderProfile == .stock2842",
-            "sourceShape.auxiliarySlots.isEmpty",
+            "sourceShape.scalarAuxiliarySlots.isEmpty",
             "Set(samplers.keys)",
             "graphTargetSlots.isEmpty",
             ".sourceProvenGraphInputStraightRGBScalarAlpha",
@@ -1003,17 +1003,17 @@ fragment float4 mwxGenericFragment(
                 "scalarAlphaProgramOwnerIsProven("
             ):
         ]
+        self.assertIn("if plan.audio == nil {", alpha_owner)
         self.assertIn(
-            "if plan.audio == nil {\n"
-                "                auxiliaryShapeIsProven = "
-            "!sourceShape.auxiliarySlots.isEmpty",
-            alpha_owner,
+            "!sourceShape.scalarAuxiliarySlots.isEmpty", alpha_owner
         )
         self.assertIn(
             "plan.shaderProfile == .stock2842\n"
-            "                    && sourceShape.auxiliarySlots.isEmpty",
+            "                    && sourceShape.scalarAuxiliarySlots.isEmpty",
             alpha_owner,
         )
+        self.assertNotIn("plan.maskTexturePath == nil", alpha_owner)
+        self.assertIn("fact.maskSlot", alpha_owner)
         self.assertNotIn(
             "graphTargetSlots.isEmpty,\n"
             "                  !sourceShape.auxiliarySlots.isEmpty,",
