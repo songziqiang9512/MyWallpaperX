@@ -105,6 +105,8 @@ enum SceneDynamicValueType: Hashable {
     case bool, scalar, vector2, vector3, vector4, string
 }
 
+struct SceneDynamicTargetDefinition: Hashable {}
+
 struct SceneDynamicUserPropertyProducer: Hashable {
     let propertyKey: String
     let target: SceneDynamicTarget

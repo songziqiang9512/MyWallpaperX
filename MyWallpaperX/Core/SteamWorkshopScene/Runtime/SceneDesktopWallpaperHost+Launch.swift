@@ -391,7 +391,10 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         )
-        let timelineTargets = Set(timelineProgram.bindings.map(\.target))
+        let timelineDefinitions = Set(
+            timelineProgram.bindings.map(\.definition)
+        )
+        let timelineTargets = Set(timelineDefinitions.map(\.target))
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
@@ -447,6 +450,7 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts,
                 userPropertyProducers: userPropertyProducers,
+                timelineDefinitions: timelineDefinitions,
                 activeEffectLocalDirectBoolVisibilityTargets:
                     activeEffectLocalDirectBoolVisibilityTargets,
                 frameDrivenEffectVisibilityOwners:
@@ -589,6 +593,7 @@ extension SceneDesktopWallpaperHost {
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
             userPropertyProducers: userPropertyProducers,
+            timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provenSceneScriptValueTargets
         )
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -609,7 +614,7 @@ extension SceneDesktopWallpaperHost {
                 dynamicProducers: .init(
                     userProperties: userPropertyProducers,
                     authoredFallbackTargets: propertyBindingTargets,
-                    timelineTargets: Set(timelineProgram.bindings.map(\.target)),
+                    timelineDefinitions: timelineDefinitions,
                     sceneScriptTargets: provenSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,

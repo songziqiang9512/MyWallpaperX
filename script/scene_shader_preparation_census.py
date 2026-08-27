@@ -124,6 +124,8 @@ struct SceneDynamicUserPropertyProducer: Hashable {
     let valueType: SceneDynamicValueType?
 }
 
+struct SceneDynamicTargetDefinition: Hashable {}
+
 struct SceneDocument {
     struct ShaderValue {
         let userBinding: String?

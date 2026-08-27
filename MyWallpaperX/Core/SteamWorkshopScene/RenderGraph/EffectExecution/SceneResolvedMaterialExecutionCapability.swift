@@ -13,10 +13,34 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         let userProperties: Set<UserProperty>
         private(set) var authoredFallbackTargets: Set<SceneDynamicTarget> = []
-        let timelineTargets: Set<SceneDynamicTarget>
+        let timelineDefinitions: Set<SceneDynamicTargetDefinition>
+        private let legacyTimelineTargets: Set<SceneDynamicTarget>
         let sceneScriptTargets: Set<SceneDynamicTarget>
 
-        static let empty = Self(userProperties: [], timelineTargets: [], sceneScriptTargets: [])
+        var timelineTargets: Set<SceneDynamicTarget> {
+            timelineDefinitions.isEmpty
+                ? legacyTimelineTargets
+                : Set(timelineDefinitions.map(\.target))
+        }
+
+        init(
+            userProperties: Set<UserProperty>,
+            authoredFallbackTargets: Set<SceneDynamicTarget> = [],
+            timelineTargets: Set<SceneDynamicTarget> = [],
+            timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
+            sceneScriptTargets: Set<SceneDynamicTarget>
+        ) {
+            self.userProperties = userProperties
+            self.authoredFallbackTargets = authoredFallbackTargets
+            self.timelineDefinitions = timelineDefinitions
+            legacyTimelineTargets = timelineDefinitions.isEmpty
+                ? timelineTargets : []
+            self.sceneScriptTargets = sceneScriptTargets
+        }
+
+        static let empty = Self(
+            userProperties: [], timelineTargets: [], sceneScriptTargets: []
+        )
     }
 
     struct Rejection: Error {
@@ -688,7 +712,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                             )
                     }
                 case .timeline:
-                    return producers.timelineTargets.contains(dynamic.target)
+                    return timelineDefinitionMatches(
+                        dynamic,
+                        producers: producers
+                    )
                 case .sceneScript:
                     return producers.sceneScriptTargets.contains(dynamic.target)
                 }
@@ -756,31 +783,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 }) else { return rejection("dynamic-uniform-unavailable") }
         }
         return nil
-    }
-
-    /// Exact direct bindings conserve the producer type before Program claims
-    /// product output. Legacy/test catalogs without a type retain the previous
-    /// identity-only behavior; product launch always publishes the real type.
-    private static func userPropertyValueTypeMatches(
-        _ producerType: SceneDynamicValueType?,
-        dynamic: Template.DynamicUniform
-    ) -> Bool {
-        guard let producerType else { return true }
-        guard dynamic.authoredBindingKeys == ["user", "value"],
-              let fallback = dynamic.authoredFallback,
-              fallback.valueKind.localizedLowercase == "binding",
-              fallback.authoredBindingKeys == ["user", "value"] else {
-            return true
-        }
-        let expected: SceneDynamicValueType
-        switch fallback.componentBitPatterns.count {
-        case 1: expected = .scalar
-        case 2: expected = .vector2
-        case 3: expected = .vector3
-        case 4: expected = .vector4
-        default: return true
-        }
-        return producerType == expected
     }
 
     static func rejection(

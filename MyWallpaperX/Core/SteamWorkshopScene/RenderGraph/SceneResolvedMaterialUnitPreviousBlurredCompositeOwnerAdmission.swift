@@ -12,6 +12,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         case staticExact
         case staticScalarProjection
         case userPropertyScalarSplat(String)
+        case timelineExactVector2
     }
 
     private enum SourceCohort: Equatable {
@@ -27,6 +28,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         graph: Graph,
         descriptor: SceneRenderDescriptor,
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         inputRole requiredInputRole: SceneAuthoredEffectInputRole? = nil
     ) -> Bool {
         guard graph.effects.count == 1,
@@ -55,7 +57,9 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   scale: scale,
                   effect: graph.effects[0],
                   graph: graph,
-                  producers: userPropertyProducers
+                  descriptor: descriptor,
+                  userPropertyProducers: userPropertyProducers,
+                  timelineDefinitions: timelineDefinitions
               ) else { return false }
         return true
     }
@@ -77,26 +81,36 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             "captured-main-copy-passthrough-static-scalar-owner-revoked-to-material-program"
         case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):
             "captured-main-copy-passthrough-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (.copyPassthroughCapturedMain?, .timelineExactVector2?):
+            "captured-main-copy-passthrough-timeline-vector2-owner-revoked-to-material-program"
         case (.copyOnlyCapturedMain?, .staticExact?):
             "captured-main-copy-only-static-owner-revoked-to-material-program"
         case (.copyOnlyCapturedMain?, .staticScalarProjection?):
             "captured-main-copy-only-static-scalar-owner-revoked-to-material-program"
+        case (.copyOnlyCapturedMain?, .timelineExactVector2?):
+            "captured-main-copy-only-timeline-vector2-owner-revoked-to-material-program"
         case (.passthroughOnlyCapturedMain?, .staticExact?):
             "captured-main-passthrough-only-static-owner-revoked-to-material-program"
         case (.passthroughOnlyCapturedMain?, .staticScalarProjection?):
             "captured-main-passthrough-only-static-scalar-owner-revoked-to-material-program"
+        case (.passthroughOnlyCapturedMain?, .timelineExactVector2?):
+            "captured-main-passthrough-only-timeline-vector2-owner-revoked-to-material-program"
         case (.capturedMain?, .staticExact?):
             "captured-main-static-owner-revoked-to-material-program"
         case (.capturedMain?, .staticScalarProjection?):
             "captured-main-static-scalar-owner-revoked-to-material-program"
         case (.capturedMain?, .userPropertyScalarSplat?):
             "captured-main-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (.capturedMain?, .timelineExactVector2?):
+            "captured-main-timeline-vector2-owner-revoked-to-material-program"
         case (.ordinary?, .staticExact?):
             "static-owner-revoked-to-material-program"
         case (.ordinary?, .staticScalarProjection?):
             "static-scalar-owner-revoked-to-material-program"
         case (.ordinary?, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (.ordinary?, .timelineExactVector2?):
+            "timeline-vector2-owner-revoked-to-material-program"
         case (.copyOnlyCapturedMain?, .userPropertyScalarSplat?):
             "captured-main-copy-only-typed-user-scalar-splat-owner-revoked-to-material-program"
         case (.passthroughOnlyCapturedMain?, .userPropertyScalarSplat?):
@@ -140,18 +154,23 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         case (.ordinary, .staticExact),
              (.ordinary, .staticScalarProjection),
              (.ordinary, .userPropertyScalarSplat),
+             (.ordinary, .timelineExactVector2),
              (.capturedMain, .staticExact),
              (.capturedMain, .staticScalarProjection),
              (.capturedMain, .userPropertyScalarSplat),
+             (.capturedMain, .timelineExactVector2),
              (.copyOnlyCapturedMain, .staticExact),
              (.copyOnlyCapturedMain, .staticScalarProjection),
              (.copyOnlyCapturedMain, .userPropertyScalarSplat),
+             (.copyOnlyCapturedMain, .timelineExactVector2),
              (.passthroughOnlyCapturedMain, .staticExact),
              (.passthroughOnlyCapturedMain, .staticScalarProjection),
              (.passthroughOnlyCapturedMain, .userPropertyScalarSplat),
+             (.passthroughOnlyCapturedMain, .timelineExactVector2),
              (.copyPassthroughCapturedMain, .staticExact),
              (.copyPassthroughCapturedMain, .staticScalarProjection),
-             (.copyPassthroughCapturedMain, .userPropertyScalarSplat):
+             (.copyPassthroughCapturedMain, .userPropertyScalarSplat),
+             (.copyPassthroughCapturedMain, .timelineExactVector2):
             true
         }
     }
@@ -166,13 +185,15 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         descriptor: SceneRenderDescriptor,
         inputRole: SceneAuthoredEffectInputRole,
         shaderContracts: [SceneShaderContract],
-        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        timelineDefinitions: Set<SceneDynamicTargetDefinition> = []
     ) -> Bool {
         guard accepts(
             key: key,
             graph: graph,
             descriptor: descriptor,
             userPropertyProducers: userPropertyProducers,
+            timelineDefinitions: timelineDefinitions,
             inputRole: inputRole
         ), let layer = descriptor.layers.first(where: {
             $0.id == graph.layerID
@@ -211,6 +232,14 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
                 producers: userPropertyProducers
+            ) else { return false }
+        case .timelineExactVector2:
+            guard timelineVector2ConsumersAdmit(
+                effect: effect,
+                graph: graph,
+                descriptor: descriptor,
+                shaderContracts: shaderContracts,
+                definitions: timelineDefinitions
             ) else { return false }
         }
 
@@ -494,6 +523,92 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         }
     }
 
+    /// Exact Timeline vector values do not use scalar projection. Both
+    /// Gaussian consumers must preserve the authored wrapper and fallback,
+    /// resolve to one launch-scoped typed definition, and expose one active
+    /// non-array vertex float2 ABI before the incumbent may be revoked.
+    private static func timelineVector2ConsumersAdmit(
+        effect: Graph.Effect,
+        graph: Graph,
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        definitions: Set<SceneDynamicTargetDefinition>
+    ) -> Bool {
+        [1, 2].allSatisfy { ordinal in
+            guard graph.nodes.indices.contains(ordinal),
+                  let passIndex = graph.nodes[ordinal].instancePassIndex else {
+                return false
+            }
+            let target = SceneDynamicTarget.effectConstant(
+                layerID: effect.key.layerID,
+                effectIndex: effect.key.effectIndex,
+                passIndex: passIndex,
+                name: "scale"
+            )
+            let targetDefinitions = definitions.filter { $0.target == target }
+            let resolution = SceneAuthoredMaterialResolver.resolve(
+                node: graph.nodes[ordinal],
+                graph: graph,
+                descriptor: descriptor
+            )
+            guard resolution.isResolved, let material = resolution.node else {
+                return false
+            }
+            let contracts = shaderContracts.filter {
+                normalized($0.identity) == normalized(material.shaderPath)
+            }
+            guard contracts.count == 1, let contract = contracts.first,
+                  let inheritedInactiveCombos = inheritedInactiveCombos(
+                      effect: effect,
+                      material: material,
+                      graph: graph,
+                      descriptor: descriptor
+                  ), case let .success(template) =
+                    SceneResolvedMaterialTemplateCompiler.compile(
+                        material: material,
+                        graph: graph,
+                        shaderContract: contract,
+                        inheritedInactiveCombos: inheritedInactiveCombos
+                    ) else { return false }
+
+            let scaleDeclarations = template.uniformDeclarations.filter {
+                $0.name == "scale"
+            }
+            guard scaleDeclarations.count == 1,
+                  case let .dynamic(dynamic) = scaleDeclarations[0].value,
+                  dynamic.target == target,
+                  dynamic.valueContributors == [.timeline],
+                  dynamic.scriptAttachments.isEmpty,
+                  dynamic.authoredBindingKeys == ["animation", "value"],
+                  let fallback = dynamic.authoredFallback,
+                  fallback.valueKind.localizedLowercase == "binding",
+                  fallback.authoredBindingKeys == ["animation", "value"],
+                  targetDefinitions.count == 1,
+                  let definition = targetDefinitions.first,
+                  timelineDefinition(
+                      definition,
+                      matches: fallback.componentBitPatterns
+                  ) else { return false }
+
+            let prepared: SceneShaderPreparedProgram
+            switch SceneAuthoredShaderPreparation.prepareShaderStages(
+                contract: contract,
+                combos: template.comboValues,
+                inactiveComboProviders: Set(template.inheritedInactiveCombos),
+                textureReadiness: textureReadiness(template)
+            ) {
+            case let .accepted(value): prepared = value
+            case .notApplicable, .rejected: return false
+            }
+            return SceneResolvedMaterialShaderSchema.uniqueActiveUniform(
+                materialKey: "scale",
+                type: .float2,
+                stage: .vertex,
+                prepared: prepared
+            ) != nil
+        }
+    }
+
     private static func inheritedInactiveCombos(
         effect: Graph.Effect,
         material: SceneResolvedMaterialNode,
@@ -538,30 +653,81 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         scale: ScaleCohort,
         effect: Graph.Effect,
         graph: Graph,
-        producers: Set<SceneDynamicUserPropertyProducer>
+        descriptor: SceneRenderDescriptor,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        timelineDefinitions: Set<SceneDynamicTargetDefinition>
     ) -> Bool {
-        guard case let .userPropertyScalarSplat(propertyKey) = scale else {
+        switch scale {
+        case let .userPropertyScalarSplat(propertyKey):
+            return [1, 2].allSatisfy { ordinal in
+                guard graph.nodes.indices.contains(ordinal),
+                      graph.nodes[ordinal].effect == effect.key,
+                      let passIndex = graph.nodes[ordinal].instancePassIndex else {
+                    return false
+                }
+                let target = SceneDynamicTarget.effectConstant(
+                    layerID: effect.key.layerID,
+                    effectIndex: effect.key.effectIndex,
+                    passIndex: passIndex,
+                    name: "scale"
+                )
+                let expected = SceneDynamicUserPropertyProducer(
+                    propertyKey: propertyKey,
+                    target: target,
+                    valueType: .scalar
+                )
+                return userPropertyProducers.filter {
+                    $0.target == target
+                } == [expected]
+            }
+        case .timelineExactVector2:
+            return [1, 2].allSatisfy { ordinal in
+                guard graph.nodes.indices.contains(ordinal),
+                      graph.nodes[ordinal].effect == effect.key,
+                      let passIndex = graph.nodes[ordinal].instancePassIndex else {
+                    return false
+                }
+                let target = SceneDynamicTarget.effectConstant(
+                    layerID: effect.key.layerID,
+                    effectIndex: effect.key.effectIndex,
+                    passIndex: passIndex,
+                    name: "scale"
+                )
+                let targetDefinitions = timelineDefinitions.filter {
+                    $0.target == target
+                }
+                let resolution = SceneAuthoredMaterialResolver.resolve(
+                    node: graph.nodes[ordinal],
+                    graph: graph,
+                    descriptor: descriptor
+                )
+                guard resolution.isResolved,
+                      let authored = resolution.node?.constants["scale"],
+                      let components = authored.components,
+                      targetDefinitions.count == 1,
+                      let definition = targetDefinitions.first else {
+                    return false
+                }
+                return timelineDefinition(
+                    definition,
+                    matches: components.map(\.bitPattern)
+                )
+            }
+        case .staticExact, .staticScalarProjection:
             return true
         }
-        return [1, 2].allSatisfy { ordinal in
-            guard graph.nodes.indices.contains(ordinal),
-                  graph.nodes[ordinal].effect == effect.key,
-                  let passIndex = graph.nodes[ordinal].instancePassIndex else {
-                return false
-            }
-            let target = SceneDynamicTarget.effectConstant(
-                layerID: effect.key.layerID,
-                effectIndex: effect.key.effectIndex,
-                passIndex: passIndex,
-                name: "scale"
-            )
-            let expected = SceneDynamicUserPropertyProducer(
-                propertyKey: propertyKey,
-                target: target,
-                valueType: .scalar
-            )
-            return producers.filter { $0.target == target } == [expected]
-        }
+    }
+
+    private static func timelineDefinition(
+        _ definition: SceneDynamicTargetDefinition,
+        matches componentBitPatterns: [UInt64]
+    ) -> Bool {
+        guard definition.valueType == .vector2,
+              componentBitPatterns.count == 2,
+              case let .vector2(x, y) = definition.authoredValue,
+              x.isFinite, y.isFinite else { return false }
+        return x.bitPattern == componentBitPatterns[0]
+            && y.bitPattern == componentBitPatterns[1]
     }
 
     private static func normalized(_ path: String) -> String {
@@ -573,7 +739,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         descriptor: SceneRenderDescriptor
     ) -> ScaleCohort? {
         let cohorts = [1, 2].compactMap { ordinal -> ScaleCohort? in
-            guard graph.nodes.indices.contains(ordinal) else { return nil }
+            guard graph.nodes.indices.contains(ordinal),
+                  graph.nodes[ordinal].effect == graph.effects.first?.key else {
+                return nil
+            }
             let resolution = SceneAuthoredMaterialResolver.resolve(
                 node: graph.nodes[ordinal], graph: graph, descriptor: descriptor
             )
@@ -590,12 +759,19 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
     private static func scaleCohort(
         _ scale: SceneDocument.ShaderValue
     ) -> ScaleCohort? {
-        guard scale.timeline == nil,
-              scale.timelineDiagnostics.isEmpty,
+        guard scale.timelineDiagnostics.isEmpty,
               scale.scriptSource == nil,
               let components = scale.components,
               components.count == 1 || components.count == 2,
               components.allSatisfy(\.isFinite) else { return nil }
+        if scale.timeline != nil {
+            guard scale.valueKind.localizedLowercase == "binding",
+                  scale.userBinding == nil,
+                  scale.userValueKind == nil,
+                  scale.bindingKeys == ["animation", "value"],
+                  components.count == 2 else { return nil }
+            return .timelineExactVector2
+        }
         guard scale.valueKind.localizedLowercase == "binding" else {
             guard scale.userBinding == nil else { return nil }
             return components.count == 1

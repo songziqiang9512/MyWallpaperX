@@ -85,6 +85,10 @@ RUNTIME_CATALOG_REPORT_SOURCE = (
 EFFECT_BACKEND_SOURCE = (
     SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
 )
+DEDICATED_STAGES_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
+)
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -443,6 +447,43 @@ struct SceneResolvedMaterialStageActivationPolicy {
 
 enum SceneDynamicValueType: Hashable {
     case bool, scalar, vector2, vector3, vector4, string
+}
+
+enum SceneDynamicValue: Hashable {
+    case bool(Bool)
+    case scalar(Double)
+    case vector2(Double, Double)
+    case vector3(Double, Double, Double)
+    case vector4(Double, Double, Double, Double)
+    case string(String)
+
+    var valueType: SceneDynamicValueType {
+        switch self {
+        case .bool: .bool
+        case .scalar: .scalar
+        case .vector2: .vector2
+        case .vector3: .vector3
+        case .vector4: .vector4
+        case .string: .string
+        }
+    }
+
+    var isFinite: Bool {
+        switch self {
+        case .bool, .string: true
+        case let .scalar(value): value.isFinite
+        case let .vector2(x, y): x.isFinite && y.isFinite
+        case let .vector3(x, y, z): x.isFinite && y.isFinite && z.isFinite
+        case let .vector4(x, y, z, w):
+            x.isFinite && y.isFinite && z.isFinite && w.isFinite
+        }
+    }
+}
+
+struct SceneDynamicTargetDefinition: Hashable {
+    let target: SceneDynamicTarget
+    let valueType: SceneDynamicValueType
+    let authoredValue: SceneDynamicValue
 }
 
 struct SceneDynamicUserPropertyProducer: Hashable {
@@ -2525,6 +2566,156 @@ private func dynamicUniform(
     )
 }
 
+private func typedTimelineUniform(
+    fallbackComponents: [Double] = [0, 0.31]
+) -> Template.UniformDeclaration {
+    let bindingKeys = ["animation", "value"]
+    return .init(
+        name: "strength",
+        value: .dynamic(.init(
+            target: dynamicTarget(),
+            valueContributors: [.timeline],
+            scriptAttachments: [],
+            authoredFallback: .init(
+                valueKind: "binding",
+                componentBitPatterns: fallbackComponents.map(\.bitPattern),
+                authoredBindingKeys: bindingKeys
+            ),
+            authoredBindingKeys: bindingKeys
+        ))
+    )
+}
+
+private func typedTimelineDefinition(
+    target: SceneDynamicTarget = dynamicTarget(),
+    valueType: SceneDynamicValueType = .vector2,
+    authoredValue: SceneDynamicValue = .vector2(0, 0.31)
+) -> SceneDynamicTargetDefinition {
+    .init(
+        target: target,
+        valueType: valueType,
+        authoredValue: authoredValue
+    )
+}
+
+private func typedTimelineChecks(
+    raw: Graph,
+    descriptor: SceneRenderDescriptor,
+    admissionCandidates: [
+        SceneResolvedMaterialExecutionCapabilityAdmission.Candidate
+    ]
+) -> [String: Bool] {
+    func makeCatalog(
+        _ definitions: Set<SceneDynamicTargetDefinition>,
+        fallbackComponents: [Double] = [0, 0.31]
+    ) -> Catalog {
+        let materials = materialCatalog(
+            graph: raw,
+            omitNode: 1,
+            uniformsByNode: [0: [typedTimelineUniform(
+                fallbackComponents: fallbackComponents
+            )]]
+        )
+        return catalog(
+            descriptor: descriptor,
+            graphs: [raw],
+            materials: materials,
+            admissionCandidates: admissionCandidates,
+            dynamicProducers: .init(
+                userProperties: [],
+                timelineDefinitions: definitions,
+                sceneScriptTargets: []
+            )
+        )
+    }
+    func claimsTimelineProgram(_ catalog: Catalog) -> Bool {
+        guard let claim = catalog.claim(layerID: layerID),
+              let capability = catalog.resolve(claim.token) else {
+            return false
+        }
+        return capability.stages.contains {
+            $0.subject?.key == firstKey
+                && $0.subject?.family == "resolved-material"
+                && $0.visualFailureReasonCode == nil
+        }
+    }
+    func rejectsTimelineProgram(_ catalog: Catalog) -> Bool {
+        guard let claim = catalog.claim(layerID: layerID),
+              let capability = catalog.resolve(claim.token) else {
+            return false
+        }
+        let claimed = capability.stages.contains {
+            $0.subject?.key == firstKey
+                && $0.subject?.family == "resolved-material"
+        }
+        let rejected = capability.stages.contains {
+            $0.visualFailureReasonCode
+                == "material-dynamic-uniform-producer-unavailable"
+        }
+        return !claimed && rejected
+    }
+
+    let matchingScalar = makeCatalog(
+        [typedTimelineDefinition(
+            valueType: .scalar,
+            authoredValue: .scalar(0.31)
+        )],
+        fallbackComponents: [0.31]
+    )
+    let matching = makeCatalog([typedTimelineDefinition()])
+    let matchingVector3 = makeCatalog(
+        [typedTimelineDefinition(
+            valueType: .vector3,
+            authoredValue: .vector3(0, 0.31, 0.62)
+        )],
+        fallbackComponents: [0, 0.31, 0.62]
+    )
+    let matchingVector4 = makeCatalog(
+        [typedTimelineDefinition(
+            valueType: .vector4,
+            authoredValue: .vector4(0, 0.31, 0.62, 0.93)
+        )],
+        fallbackComponents: [0, 0.31, 0.62, 0.93]
+    )
+    let missing = makeCatalog([])
+    let wrongTarget = makeCatalog([typedTimelineDefinition(
+        target: dynamicTarget(passIndex: 1)
+    )])
+    let duplicate = makeCatalog([
+        typedTimelineDefinition(),
+        typedTimelineDefinition(authoredValue: .vector2(0, 0.32)),
+    ])
+    let definitionTypeMismatch = makeCatalog(
+        [typedTimelineDefinition(
+            valueType: .vector2,
+            authoredValue: .vector3(0, 0.31, 1)
+        )],
+        fallbackComponents: [0, 0.31, 1]
+    )
+    let fallbackBitMismatch = makeCatalog([typedTimelineDefinition(
+        authoredValue: .vector2(-0.0, 0.31)
+    )])
+    let nonfinite = makeCatalog([typedTimelineDefinition(
+        authoredValue: .vector2(.infinity, 0.31)
+    )])
+    return [
+        "matchingUniqueScalarClaims": claimsTimelineProgram(matchingScalar),
+        "matchingUniqueVector2Claims": claimsTimelineProgram(matching),
+        "matchingUniqueVector3Claims": claimsTimelineProgram(matchingVector3),
+        "matchingUniqueVector4Claims": claimsTimelineProgram(matchingVector4),
+        "missingRejected": rejectsTimelineProgram(missing),
+        "wrongTargetRejected": rejectsTimelineProgram(wrongTarget),
+        "sameTargetDuplicateRejected": rejectsTimelineProgram(duplicate),
+        "definitionTypeMismatchRejected": rejectsTimelineProgram(
+            definitionTypeMismatch
+        ),
+        "fallbackBitMismatchRejected": rejectsTimelineProgram(
+            fallbackBitMismatch
+        ),
+        "nonfiniteRejected": rejectsTimelineProgram(nonfinite),
+    ]
+}
+
 private func rejectsOversizedLayerBeforePlanning() -> Bool {
     let effectCount =
         SceneResolvedMaterialExecutionCapabilityAdmission.maximumEffectsPerLayer + 1
@@ -3992,6 +4183,11 @@ private enum Harness {
             "acceptedRouteLines": success.reportLines.filter {
                 $0.contains("schema=layer-graph-route-v1")
             },
+            "typedTimeline": typedTimelineChecks(
+                raw: raw,
+                descriptor: desc,
+                admissionCandidates: admissionCandidates
+            ),
             "rejections": [
                 "omitted": reportHas(
                     omittedCatalog,
@@ -7068,8 +7264,14 @@ nonisolated struct SceneRenderDescriptor {}
 nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
     static func accepts(
         key: SceneResolvedMaterialRuntimeCatalog.Key, graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor, userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
-    ) -> Bool { _ = userPropertyProducers; return false }
+        descriptor: SceneRenderDescriptor,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        timelineDefinitions: Set<SceneDynamicTargetDefinition> = []
+    ) -> Bool {
+        _ = userPropertyProducers
+        _ = timelineDefinitions
+        return false
+    }
 }
 nonisolated struct SceneAuthoredMaterialResolution {
     let node: SceneResolvedMaterialNode?
@@ -7778,6 +7980,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self,
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
         runtime_catalog = "\n".join(
             path.read_text(encoding="utf-8")
@@ -7816,6 +8019,76 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             1,
         )
         compact_launch = "".join(launch.split())
+        timeline_definition_source = (
+            r"lettimelineDefinitions="
+            r"Set(timelineProgram.bindings.map(\.definition))"
+        )
+        self.assertEqual(compact_launch.count(timeline_definition_source), 1)
+        dedicated_stage_source = compact_launch[
+            compact_launch.index("letdedicatedStageLeaves=") :
+            compact_launch.index("letdedicatedStageFamilies=")
+        ]
+        self.assertIn(
+            "timelineDefinitions:timelineDefinitions",
+            dedicated_stage_source,
+        )
+        resolved_catalog_source = compact_launch[
+            compact_launch.index(
+                "letresolvedMaterialCatalog=SceneResolvedMaterialRuntimeCatalog("
+            ) :
+            compact_launch.index("guardletdevice=MTLCreateSystemDefaultDevice()")
+        ]
+        self.assertIn(
+            "timelineDefinitions:timelineDefinitions",
+            resolved_catalog_source,
+        )
+        dynamic_producer_source = compact_launch[
+            compact_launch.index("letresolvedMaterialExecutionCapabilities=") :
+            compact_launch.index("letresolvedMaterialSubjects=")
+        ]
+        self.assertIn("dynamicProducers:.init(", dynamic_producer_source)
+        self.assertIn(
+            "timelineDefinitions:timelineDefinitions",
+            dynamic_producer_source,
+        )
+        compact_dedicated_stages = "".join(dedicated_stages.split())
+        compile_dedicated_leaves_source = compact_dedicated_stages[
+            compact_dedicated_stages.index(
+                "nonisolatedstaticfunccompileDedicatedLeaves("
+            ) :
+            compact_dedicated_stages.index(
+                "nonisolatedstaticfuncresolveDedicatedStage("
+            )
+        ]
+        stage_compile_input_source = compile_dedicated_leaves_source[
+            compile_dedicated_leaves_source.index(
+                "letinput=SceneEffectStageCompileInput("
+            ) :
+            compile_dedicated_leaves_source.index(
+                "guardcaselet.accepted(backend,plan,probes)="
+            )
+        ]
+        self.assertEqual(
+            stage_compile_input_source.count(
+                "timelineDefinitions:timelineDefinitions"
+            ),
+            1,
+        )
+        compact_runtime_catalog = "".join(runtime_catalog.split())
+        owner_admission_source = compact_runtime_catalog[
+            compact_runtime_catalog.index(
+                "SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.accepts("
+            ) :
+            compact_runtime_catalog.index(
+                "),provenSceneScriptValueTargets:",
+            )
+        ]
+        self.assertEqual(
+            owner_admission_source.count(
+                "timelineDefinitions:timelineDefinitions"
+            ),
+            1,
+        )
         visibility_owner_source = compact_launch[
             compact_launch.index("typealiasVisibilityOwner=") :
             compact_launch.index("letdedicatedStageLeaves=")
@@ -8137,6 +8410,21 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "schema=layer-graph-route-v1 layer=880 status=accepted "
                 "dependency=none dependencyReferences=0"
             ],
+        )
+        self.assertEqual(
+            payload["typedTimeline"],
+            {
+                "matchingUniqueScalarClaims": True,
+                "matchingUniqueVector2Claims": True,
+                "matchingUniqueVector3Claims": True,
+                "matchingUniqueVector4Claims": True,
+                "missingRejected": True,
+                "wrongTargetRejected": True,
+                "sameTargetDuplicateRejected": True,
+                "definitionTypeMismatchRejected": True,
+                "fallbackBitMismatchRejected": True,
+                "nonfiniteRejected": True,
+            },
         )
         self.assertEqual(
             payload["dependencyOwnership"],

@@ -88,7 +88,8 @@ extension SceneAuthoredStandardBlurPlanner {
                     descriptor: input.descriptor,
                     inputRole: input.inputRole,
                     shaderContracts: input.shaderContracts,
-                    userPropertyProducers: input.userPropertyProducers
+                    userPropertyProducers: input.userPropertyProducers,
+                    timelineDefinitions: input.timelineDefinitions
                 )
         guard sourceAccepted, let revocationDetail else { return result }
         return .rejected(.init(

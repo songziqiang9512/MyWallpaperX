@@ -19,6 +19,7 @@ nonisolated struct SceneEffectStageCompileInput {
     let descriptor: SceneRenderDescriptor
     let shaderContracts: [SceneShaderContract]
     let userPropertyProducers: Set<SceneDynamicUserPropertyProducer>
+    let timelineDefinitions: Set<SceneDynamicTargetDefinition>
     let activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget>
     let frameDrivenEffectVisibilityOwners:
         Set<DynamicEffectVisibilityOwner>
@@ -32,6 +33,7 @@ nonisolated struct SceneEffectStageCompileInput {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         activeEffectLocalDirectBoolVisibilityTargets: Set<SceneDynamicTarget> = [],
         frameDrivenEffectVisibilityOwners:
             Set<DynamicEffectVisibilityOwner> = []
@@ -44,6 +46,7 @@ nonisolated struct SceneEffectStageCompileInput {
         self.descriptor = descriptor
         self.shaderContracts = shaderContracts
         self.userPropertyProducers = userPropertyProducers
+        self.timelineDefinitions = timelineDefinitions
         self.activeEffectLocalDirectBoolVisibilityTargets =
             activeEffectLocalDirectBoolVisibilityTargets
         self.frameDrivenEffectVisibilityOwners =

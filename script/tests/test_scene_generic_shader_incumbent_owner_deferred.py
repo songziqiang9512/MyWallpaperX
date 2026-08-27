@@ -1023,7 +1023,10 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         self.assertIn("valueType: $0.valueType", launch)
         self.assertIn("userPropertyProducers: userPropertyProducers", launch)
 
-        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        capability = "\n".join([
+            CAPABILITY_SOURCE.read_text(encoding="utf-8"),
+            PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8"),
+        ])
         self.assertIn("userPropertyValueTypeMatches(", capability)
         self.assertIn(
             'dynamic.authoredBindingKeys == ["user", "value"]', capability
