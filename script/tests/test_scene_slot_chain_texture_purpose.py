@@ -147,7 +147,8 @@ private func catalog(
         admissionCandidates: [.init(result: .success(.init(
             products: [.init(graph: graph)]
         )))],
-        shaderContracts: [contract]
+        shaderContracts: [contract],
+        userPropertyProducers: []
     )
 }
 
