@@ -167,9 +167,13 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             }
         } else if scalarAlphaProgramOwnerIsProven(plan: plan, input: input) {
             if !plan.bindings.isEmpty {
-                detail = plan.pulseColor
-                    ? "typed-user-property-rgb-alpha-owner-revoked-to-material-program"
-                    : "typed-user-property-alpha-only-owner-revoked-to-material-program"
+                if plan.audio != nil {
+                    detail = "audio-typed-user-property-rgb-alpha-owner-revoked-to-material-program"
+                } else {
+                    detail = plan.pulseColor
+                        ? "typed-user-property-rgb-alpha-owner-revoked-to-material-program"
+                        : "typed-user-property-alpha-only-owner-revoked-to-material-program"
+                }
             } else if plan.pulseColor {
                 detail = plan.audio == nil
                     ? "static-rgb-alpha-owner-revoked-to-material-program"
@@ -192,9 +196,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
 
     /// Revokes color-only profiles after every readiness shape proves the same
     /// graph-input carrier, typed-data auxiliaries, and exact terminal RGB/alpha
-    /// transform. Audio is limited to stock's shared typed response admission;
-    /// exact user-property uniforms must prove the existing typed Program
-    /// consumer. SceneScript/Timeline and alpha-writing cohorts retain incumbent.
+    /// transform. SceneScript/Timeline, audio-bound, and alpha-writing cohorts
+    /// retain incumbent.
     private nonisolated static func colorOnlyRGBProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
@@ -205,13 +208,12 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             .directPhaseSaturateV1,
             .directPhaseMaxClampV1,
         ]
+        let bindingCohortIsProven = plan.bindings.isEmpty
+            || directBindingCohortIsProven(
+                plan: plan, input: input, alphaWriting: false
+            )
         guard supportedProfiles.contains(plan.shaderProfile),
-              plan.bindings.isEmpty
-                || (directColorBindingCohortIsProven(plan)
-                    && exactUserPropertyProducersAreProven(
-                        plan: plan,
-                        input: input
-                    )),
+              bindingCohortIsProven,
               plan.audio == nil || plan.shaderProfile == .stock2842,
               plan.pulseColor,
               !plan.pulseAlpha,
@@ -343,7 +345,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     /// proves either preserved RGB or an RGB blend driven by the same scalar.
     /// Direct non-relational user-property bindings share the same exact
     /// producer, consumer ABI, and authored-range proof as color-only Pulse.
-    /// Audio+binding, SceneScript/Timeline, provider, and unsupported historical
+    /// Stock audio may additionally carry active tint bindings when it has no
+    /// optional mask. SceneScript/Timeline, provider, and unsupported historical
     /// combined forms retain incumbent.
     /// Stock combined RGB/alpha may carry one source-proven typed opacity mask
     /// after the alpha write. The straight-RGB/scalar-alpha path also admits an
@@ -358,11 +361,9 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             ? [.stock2842]
             : [.stock2842, .directPhaseSaturateV1, .directPhaseMaxClampV1]
         let bindingCohortIsProven = plan.bindings.isEmpty
-            || (directAlphaBindingCohortIsProven(plan)
-                && exactUserPropertyProducersAreProven(
-                    plan: plan,
-                    input: input
-                ))
+            || directBindingCohortIsProven(
+                plan: plan, input: input, alphaWriting: true
+            )
         guard supportedProfiles.contains(plan.shaderProfile),
               bindingCohortIsProven,
               plan.audio == nil || plan.shaderProfile == .stock2842,
@@ -720,29 +721,32 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         return .revokeDedicatedOwner
     }
 
-    /// Transfers direct Pulse constants whose exact active stage-indexed
-    /// domains are expressible by the shared shader schema. Relational vector2
-    /// bounds retain the incumbent owner.
-    private nonisolated static func directColorBindingCohortIsProven(
-        _ plan: ScenePulseExecutionPlan
+    /// Non-audio direct values share the stage-indexed Program schema. Audio
+    /// keeps timing in the host snapshot and only exposes stock, mask-free tint.
+    private nonisolated static func directBindingCohortIsProven(
+        plan: ScenePulseExecutionPlan,
+        input: SceneEffectStageCompileInput,
+        alphaWriting: Bool
     ) -> Bool {
-        guard plan.audio == nil,
-              plan.pulseColor,
-              !plan.pulseAlpha,
-              directNonRelationalBindingsAreProven(plan) else { return false }
-        return true
-    }
-
-    /// Alpha-writing Pulse uses the same typed uniform consumers as color-only
-    /// Pulse. Keep it non-audio and exclude relational bounds until the shared
-    /// finalizer can prove the authored x < y invariant after live updates.
-    private nonisolated static func directAlphaBindingCohortIsProven(
-        _ plan: ScenePulseExecutionPlan
-    ) -> Bool {
-        guard plan.audio == nil,
-              plan.pulseAlpha,
-              directNonRelationalBindingsAreProven(plan) else { return false }
-        return true
+        guard !plan.bindings.isEmpty else { return false }
+        let shapeIsProven: Bool
+        if plan.audio == nil {
+            shapeIsProven = directNonRelationalBindingsAreProven(plan)
+                && (alphaWriting
+                    ? plan.pulseAlpha
+                    : plan.pulseColor && !plan.pulseAlpha)
+        } else {
+            shapeIsProven = alphaWriting
+                && plan.pulseAlpha
+                && plan.shaderProfile == .stock2842
+                && plan.pulseColor
+                && plan.maskTexturePath == nil
+                && plan.bindings.keys.allSatisfy {
+                    $0 == .tintLow || $0 == .tintHigh
+                }
+        }
+        return shapeIsProven
+            && exactUserPropertyProducersAreProven(plan: plan, input: input)
     }
 
     private nonisolated static func directNonRelationalBindingsAreProven(

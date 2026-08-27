@@ -236,6 +236,7 @@
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
         "test_scene_xray_visible_graph_output_owner",
+        "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_utility_layers"
@@ -315,6 +316,7 @@
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_pass_encoder",
         "test_scene_resolved_material_program_derivation",
+        "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",

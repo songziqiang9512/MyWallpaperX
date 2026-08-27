@@ -883,7 +883,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             "!plan.pulseAlpha",
         ):
             self.assertIn(static_guard, pulse_compiler)
-        self.assertIn("directColorBindingCohortIsProven(plan)", pulse_compiler)
+        self.assertIn("directBindingCohortIsProven(", pulse_compiler)
         self.assertIn("exactUserPropertyProducersAreProven(", pulse_compiler)
         for direct_constant in (
             ".speed", ".phase", ".amount",
@@ -891,7 +891,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         ):
             self.assertIn(direct_constant, pulse_compiler)
         cohort_start = pulse_compiler.index(
-            "private nonisolated static func directColorBindingCohortIsProven("
+            "private nonisolated static func directBindingCohortIsProven("
         )
         cohort_end = pulse_compiler.index(
             "private nonisolated static func exactUserPropertyProducersAreProven(",
@@ -948,12 +948,12 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             ".sourceProvenGraphInputRGBBlendScalarAlpha",
         ):
             self.assertIn(alpha_guard, pulse_compiler)
-        alpha_owner = pulse_compiler[
-            pulse_compiler.index(
-                "private nonisolated static func "
-                "scalarAlphaProgramOwnerIsProven("
-            ):
-        ]
+        alpha_owner_start = pulse_compiler.index("scalarAlphaProgramOwnerIsProven(")
+        alpha_owner_end = pulse_compiler.index(
+            "private nonisolated static func exactGenericParametersAreProven(",
+            alpha_owner_start,
+        )
+        alpha_owner = pulse_compiler[alpha_owner_start:alpha_owner_end]
         self.assertIn("if plan.audio == nil {", alpha_owner)
         self.assertIn(
             "!sourceShape.scalarAuxiliarySlots.isEmpty", alpha_owner
