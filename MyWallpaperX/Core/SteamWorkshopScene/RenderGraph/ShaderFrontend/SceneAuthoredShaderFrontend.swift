@@ -8,18 +8,22 @@ nonisolated enum SceneAuthoredShaderFrontend {
         let fragmentSourceSHA256: String
         let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
         let provenColorTransfer: SceneShaderColorTransfer?
+        let premultipliedColorInputSlots: [Int]
 
         init(
             vertexSource: String,
             fragmentSource: String,
             runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
-            provenColorTransfer: SceneShaderColorTransfer?
+            provenColorTransfer: SceneShaderColorTransfer?,
+            premultipliedColorInputSlots: Set<Int>
         ) {
-            cacheSchemaVersion = 1
+            cacheSchemaVersion = 2
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
             self.provenColorTransfer = provenColorTransfer
+            self.premultipliedColorInputSlots =
+                premultipliedColorInputSlots.sorted()
         }
     }
 
@@ -171,13 +175,15 @@ nonisolated enum SceneAuthoredShaderFrontend {
         vertexSource: String,
         fragmentSource: String,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none,
-        provenColorTransfer: SceneShaderColorTransfer? = nil
+        provenColorTransfer: SceneShaderColorTransfer? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> SceneAuthoredShaderFrontendOutput {
         let cacheKey = ProgramCacheKey(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             runtimeLoopBounds: runtimeLoopBounds,
-            provenColorTransfer: provenColorTransfer
+            provenColorTransfer: provenColorTransfer,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
         if let program = programCache.load(cacheKey) {
             return .init(program: program, diagnostics: [])
@@ -217,6 +223,17 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
         let colorTransfer = provenColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentUnit)
+        guard premultipliedColorInputSlots.isSubset(
+            of: Set(validation.textures.map(\.slot))
+        ) else {
+            return .init(program: nil, diagnostics: [.init(
+                code: .unsupportedSampler,
+                message: "Premultiplied color input slot is not actively bound.",
+                stage: .fragment,
+                line: nil,
+                column: nil
+            )])
+        }
         let fragmentOutputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer
             .analyze(fragmentUnit)
         let emission = SceneAuthoredShaderMetalEmitter.emit(
@@ -228,7 +245,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             varyings: validation.varyings,
             varyingPrefixFacts: validation.varyingPrefixFacts,
             omittedVertexStatementRanges: validation.omittedVertexStatementRanges,
-            colorTransfer: colorTransfer
+            colorTransfer: colorTransfer,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
         guard let metalSource = emission.source, emission.diagnostics.isEmpty else {
             return .init(program: nil, diagnostics: emission.diagnostics)

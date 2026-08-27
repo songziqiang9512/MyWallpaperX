@@ -11,6 +11,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.scene_dependency_binding_test_support import (
+    SCENE_DEPENDENCY_BINDING_SUPPORT,
+)
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -702,36 +706,6 @@ enum SceneNamedTextureReference {
     }
 }
 struct SceneDependencyRenderPlan {
-    struct Binding: Hashable {
-        enum Kind: Hashable {
-            case resolvedMaterial
-            case solidLayer
-            case imageLayerBlend
-        }
-
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let referenceSlots: [SceneEffectPassSlot]
-        let blendMode: Int
-        let kind: Kind
-
-        init(
-            consumerLayerID: Int,
-            providerLayerID: Int,
-            slot: SceneEffectPassSlot,
-            referenceSlots: [SceneEffectPassSlot]? = nil,
-            blendMode: Int,
-            kind: Kind
-        ) {
-            self.consumerLayerID = consumerLayerID
-            self.providerLayerID = providerLayerID
-            self.slot = slot
-            self.referenceSlots = referenceSlots ?? [slot]
-            self.blendMode = blendMode
-            self.kind = kind
-        }
-    }
 }
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case none
@@ -4168,7 +4142,7 @@ enum Harness {
         print(String(decoding: data, as: UTF8.self))
     }
 }
-'''
+''' + SCENE_DEPENDENCY_BINDING_SUPPORT
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):

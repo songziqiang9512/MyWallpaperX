@@ -198,6 +198,18 @@ void main() { bounded(1.0); bounded(0.5); }""",
             ):
                 build_program_artifact(**artifact_arguments(changed))
 
+    def test_falsey_non_list_input_color_slots_fail_closed(self) -> None:
+        arguments = artifact_arguments(self.direct_fragment)
+        for value in (False, 0, "", {}):
+            with self.subTest(value=value), self.assertRaisesRegex(
+                ArtifactFailure,
+                "premultiplied-color-input-slots",
+            ):
+                build_program_artifact(
+                    **arguments,
+                    premultiplied_color_input_slots=value,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

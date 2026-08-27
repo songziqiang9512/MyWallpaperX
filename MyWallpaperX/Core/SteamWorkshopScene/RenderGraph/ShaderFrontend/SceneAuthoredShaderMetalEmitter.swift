@@ -29,7 +29,8 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         varyings: [(String, SceneAuthoredShaderValueType, Int?)],
         varyingPrefixFacts: [String: SceneAuthoredShaderVaryingPrefixLink.Fact],
         omittedVertexStatementRanges: [Range<Int>],
-        colorTransfer: SceneShaderColorTransfer
+        colorTransfer: SceneShaderColorTransfer,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Output {
         let defineResult = SceneAuthoredShaderMetalSource.mergedDefines(
             vertex.defines,
@@ -76,7 +77,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             unpremultipliedTextureSlots: [],
             omittedStatementRanges: omittedVertexStatementRanges
         )
-        let unpremultipliedTextureSlots: Set<Int>
+        var unpremultipliedTextureSlots: Set<Int>
         switch colorTransfer {
         case let .straightAlphaPreserving(slot), let .straightAlpha(slot),
              let .straightAlphaUNorm(slot),
@@ -94,6 +95,7 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         default:
             unpremultipliedTextureSlots = []
         }
+        unpremultipliedTextureSlots.formUnion(premultipliedColorInputSlots)
         let fragmentContext = Context(
             unit: fragment,
             functionNames: Set(fragment.functions.map(\.name)),
@@ -119,7 +121,9 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         let source = [
             SceneAuthoredShaderMetalSource.prelude(
                 defines: defines,
-                colorTransfer: colorTransfer
+                colorTransfer: colorTransfer,
+                requiresInputColorBoundary:
+                    !premultipliedColorInputSlots.isEmpty
             ),
             [vertex, fragment].contains(where: {
                 SceneAuthoredShaderFunctionSemantics.usesFloat3x3Inverse($0)

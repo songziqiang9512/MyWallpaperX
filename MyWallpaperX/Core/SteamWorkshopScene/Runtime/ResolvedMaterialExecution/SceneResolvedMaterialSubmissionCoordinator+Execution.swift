@@ -198,6 +198,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 1,
                       binding.blendMode == 0 else { return false }
+            case .visibleImageGraphOutput:
+                guard binding.slot.passIndex == 0,
+                      binding.slot.slotIndex == 1,
+                      binding.blendMode == 0 else { return false }
             }
             guard let input else { return false }
             return input.consumerLayerID == binding.consumerLayerID

@@ -113,6 +113,7 @@
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_runtime_bridge",
+        "test_scene_visible_graph_output_compositor",
         "test_scene_utility_layers"
       ]
     },
@@ -152,7 +153,8 @@
         "test_scene_framebuffer_capture",
         "test_scene_background_material_provider",
         "test_scene_resolved_material_runtime_bridge",
-        "test_scene_source_update_transaction"
+        "test_scene_source_update_transaction",
+        "test_scene_visible_graph_output_compositor"
       ]
     },
     {
@@ -173,7 +175,8 @@
         "test_scene_frame_texture_registry",
         "test_scene_media_thumbnail_provider",
         "test_scene_media_thumbnail_binding",
-        "test_scene_wallpaper_benchmark"
+        "test_scene_wallpaper_benchmark",
+        "test_scene_visible_graph_output_compositor"
       ]
     },
     {
@@ -232,6 +235,7 @@
         "test_scene_background_material_provider",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
+        "test_scene_xray_visible_graph_output_owner",
         "test_scene_pulse_direct_user_property_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_utility_layers"
@@ -274,6 +278,9 @@
         "test_scene_dependency_render_plan",
         "test_scene_named_render_target_pool",
         "test_scene_framebuffer_capture",
+        "test_scene_visible_graph_output_compositor",
+        "test_scene_visible_graph_output_render_plan",
+        "test_scene_xray_visible_graph_output_owner",
         "test_scene_utility_layers"
       ]
     },
@@ -290,6 +297,7 @@
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
         "test_scene_generic_shader_incumbent_owner_deferred",
+        "test_scene_generic_shader_typed_input_lowering",
         "test_scene_rgb_blend_scalar_alpha",
         "test_scene_independent_signal_color_carrier_compositing",
         "test_scene_independent_signal_unorm_accumulator",
@@ -345,6 +353,7 @@
         "test_scene_rgb_blend_scalar_alpha",
         "test_scene_rgb_difference_enhancement",
         "test_scene_standard_alpha_composite_generic_contract",
+        "test_scene_generic_shader_typed_input_lowering",
         "test_scene_generic_shader_matrix_cast",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
@@ -373,6 +382,7 @@
         "test_scene_rgb_difference_enhancement",
         "test_scene_source_proven_noise_purpose",
         "test_scene_standard_alpha_composite_generic_contract",
+        "test_scene_generic_shader_typed_input_lowering",
         "test_scene_swift_source_sets"
       ]
     },
@@ -497,6 +507,7 @@
         "test_scene_independent_signal_compiler_artifact",
         "test_scene_shader_compiler_artifact_foundation",
         "test_scene_shader_compiler_harness",
+        "test_scene_generic_shader_typed_input_lowering",
         "test_scene_shader_compiler_product_manifest"
       ]
     },

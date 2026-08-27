@@ -210,7 +210,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(len(uniform), 1)
         self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 8)
-        self.assertEqual(len(variant_preparation), 13)
+        self.assertEqual(len(variant_preparation), 15)
         self.assertIn(
             "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
             "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
@@ -218,7 +218,17 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertIn(
             "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
+            "SceneResolvedMaterialGenericShaderRequest.swift",
+            variant_preparation,
+        )
+        self.assertIn(
+            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
             "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+            variant_preparation,
+        )
+        self.assertIn(
+            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
+            "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
             variant_preparation,
         )
         self.assertEqual(
@@ -231,7 +241,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 35)
+        self.assertEqual(len(frame_finalization), 37)
         self.assertEqual(len(template_compilation), 2)
         self.assertEqual(
             complete,
@@ -240,7 +250,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 37)
+        self.assertEqual(len(complete), 39)
 
         material_program_directory = (
             REPOSITORY_ROOT

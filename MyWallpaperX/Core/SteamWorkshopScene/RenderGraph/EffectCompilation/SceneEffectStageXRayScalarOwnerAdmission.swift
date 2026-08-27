@@ -93,10 +93,12 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 return false
             }
             guard spatialWeightedProfileIsProven(
+                effectKey: effectKey,
                 effect: effect,
                 template: template,
                 prepared: prepared,
-                textureReadiness: readiness
+                textureReadiness: readiness,
+                descriptor: input.descriptor
             ) else { return false }
         }
         return true
@@ -208,10 +210,12 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
     }
 
     private static func spatialWeightedProfileIsProven(
+        effectKey: Graph.EffectKey,
         effect: Graph.Effect,
         template: Template,
         prepared: SceneShaderPreparedProgram,
-        textureReadiness: [Int: Bool]
+        textureReadiness: [Int: Bool],
+        descriptor: SceneRenderDescriptor
     ) -> Bool {
         let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
             vertex: prepared.vertex.source,
@@ -288,15 +292,64 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
         guard typedAuxiliary == fact.activeSlots.subtracting([fact.sourceSlot]) else {
             return false
         }
-        guard !SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
-            in: template,
-            activeTextureSlots: activeSlots
-        ) else { return false }
+        let externalProviderSlots =
+            SceneResolvedMaterialVariantCache.externalProviderTextureSlots(
+                in: template,
+                activeTextureSlots: activeSlots
+            )
+        if externalProviderSlots.isEmpty {
+            return SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputSpatialWeightedColorBlend
+                .defaultRouteState == .genericOnly
+                && SceneGenericShaderCapabilityProfile
+                    .sourceProvenGraphInputSpatialWeightedColorBlend
+                    .validatedRollbackOwner == .boundedFrontend
+        }
+
+        let providerSlots = Set([fact.straightColorSlot])
+        guard externalProviderSlots == providerSlots,
+              SceneResolvedMaterialVariantCache
+                .terminalNamedLayerProviderTextureSlots(
+                    in: template,
+                    activeTextureSlots: activeSlots
+                ) == providerSlots,
+              template.textureSlots.indices.contains(fact.straightColorSlot),
+              let selected = template.textureSlots[fact.straightColorSlot]?
+                .candidates.last,
+              case let .provider(.namedLayerTarget(reference)) =
+                selected.reference,
+              reference.variant == .primary else { return false }
+
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: descriptor
+        )
+        let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: visibleLayerIDs,
+            verifiedXRayStageKeys: [effectKey]
+        )
+        let expectedSlot = SceneEffectPassSlot(
+            effectID: effectKey.descriptorID,
+            passIndex: 0,
+            slotIndex: fact.straightColorSlot
+        )
+        guard let binding =
+                dependencyPlan.bindingsByConsumerLayerID[effectKey.layerID],
+              binding.kind == .visibleImageGraphOutput,
+              binding.consumerLayerID == effectKey.layerID,
+              binding.providerLayerID == reference.providerLayerID,
+              binding.slot == expectedSlot,
+              binding.referenceSlots == [expectedSlot],
+              binding.blendMode == 0,
+              dependencyPlan.requiredGraphOutputProviderLayerIDs.contains(
+                  reference.providerLayerID
+              ) else { return false }
+
         return SceneGenericShaderCapabilityProfile
-            .sourceProvenGraphInputSpatialWeightedColorBlend
+            .providerBackedGraphInputSpatialWeightedColorBlend
             .defaultRouteState == .genericOnly
             && SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputSpatialWeightedColorBlend
+                .providerBackedGraphInputSpatialWeightedColorBlend
                 .validatedRollbackOwner == .boundedFrontend
     }
 

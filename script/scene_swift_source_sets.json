@@ -268,10 +268,12 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialColorBlendEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapability+Diagnostics.swift"

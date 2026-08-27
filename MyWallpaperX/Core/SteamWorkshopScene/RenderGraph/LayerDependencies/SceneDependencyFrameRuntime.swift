@@ -21,6 +21,12 @@ final class SceneDependencyFrameRuntime {
     private let plan: SceneDependencyRenderPlan
     private let targetPool: SceneNamedRenderTargetPool
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
+    private let namedGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
+        phase: "named-graph-output-publication"
+    )
+    private let visibleGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
+        phase: "visible-graph-output-publication"
+    )
     private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
     private var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
@@ -344,7 +350,7 @@ final class SceneDependencyFrameRuntime {
 
         let encoded: Bool
         switch binding.kind {
-        case .imageLayerBlend:
+        case .imageLayerBlend, .visibleImageGraphOutput:
             guard let sourceTexture,
                   let sourceCandidate,
                   Self.isExactImageProviderCandidate(
@@ -459,6 +465,9 @@ final class SceneDependencyFrameRuntime {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
         }
+        guard let publicationTelemetry = graphOutputPublicationTelemetry(
+            for: layerID
+        ) else { return false }
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
         guard let reservation = reservationsByProviderLayerID[layerID],
@@ -474,7 +483,7 @@ final class SceneDependencyFrameRuntime {
               texture.usage.contains(.renderTarget),
               texture.usage.contains(.shaderRead),
               let blit = commandBuffer.makeBlitCommandEncoder() else {
-            captureTelemetry.recordFailure(layerID: layerID)
+            publicationTelemetry.recordFailure(layerID: layerID)
             return false
         }
         blit.label = "Scene named graph publication layer=\(layerID)"
@@ -502,15 +511,27 @@ final class SceneDependencyFrameRuntime {
         )
         textureRegistry.set(.ready(reservation.texture), for: identity)
         guard textureRegistry.texture(for: identity) === reservation.texture else {
-            captureTelemetry.recordFailure(layerID: layerID)
+            publicationTelemetry.recordFailure(layerID: layerID)
             return false
         }
-        captureTelemetry.record(
+        publicationTelemetry.record(
             layerID: layerID,
             encoded: true,
             on: commandBuffer
         )
         return true
+    }
+
+    private func graphOutputPublicationTelemetry(
+        for providerLayerID: Int
+    ) -> SceneGPUCompletionTelemetry? {
+        let kinds = Set(plan.bindingsByConsumerLayerID.values.compactMap {
+            $0.providerLayerID == providerLayerID ? $0.kind : nil
+        })
+        guard kinds.count == 1, let kind = kinds.first else { return nil }
+        return kind == .visibleImageGraphOutput
+            ? visibleGraphOutputPublicationTelemetry
+            : namedGraphOutputPublicationTelemetry
     }
 
     private func makeEffectInput(
@@ -562,7 +583,7 @@ final class SceneDependencyFrameRuntime {
         failureReason: inout String?
     ) -> (width: Int, height: Int)? {
         switch binding.kind {
-        case .imageLayerBlend:
+        case .imageLayerBlend, .visibleImageGraphOutput:
             guard binding.providerLayerID == providerLayer.id,
                   let providerTexture,
                   let providerCandidate,

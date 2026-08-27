@@ -18,6 +18,12 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
 from scene_swift_source_sets import scene_swift_sources
 from scene_shader_compiler_artifact import build_program_artifact
+from script.tests.scene_generic_shader_provider_test_support import (
+    assert_independent_signal_request_contract,
+    assert_provider_backed_spatial_weighted_profile,
+    assert_python_worker_rejects_nonempty_typed_input_color_slots,
+    assert_transform_abi_request_and_cache_namespaces,
+)
 
 
 SWIFT_SOURCES = [
@@ -27,6 +33,8 @@ SWIFT_SOURCES = [
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
     Path(__file__).with_name("fixtures")
@@ -2437,6 +2445,10 @@ private struct GenericShaderArtifactHarness {
                     "MWX_TEST_SPATIAL_WEIGHTED_TYPED_AUXILIARY_SLOTS"
                 ] ?? "").split(separator: ",").compactMap { Int($0) }
             ),
+            spatialWeightedColorBlendExternalColorSlot:
+                ProcessInfo.processInfo.environment[
+                    "MWX_TEST_SPATIAL_WEIGHTED_EXTERNAL_COLOR_SLOT"
+                ].flatMap(Int.init),
             r8TextureSlots: Set(
                 (ProcessInfo.processInfo.environment["MWX_TEST_R8_SLOTS"] ?? "")
                     .split(separator: ",").compactMap { Int($0) }
@@ -3226,6 +3238,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         spatial_weighted_source_slot: int | None = None,
         spatial_weighted_active_slots: tuple[int, ...] = (),
         spatial_weighted_typed_auxiliary_slots: tuple[int, ...] = (),
+        spatial_weighted_external_color_slot: int | None = None,
         r8_slots: tuple[int, ...] = (),
         has_defaulted_opacity_mask: bool = False,
         has_typed_opacity_mask: bool = False,
@@ -3327,6 +3340,14 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             environment.pop(
                 "MWX_TEST_SPATIAL_WEIGHTED_TYPED_AUXILIARY_SLOTS", None
             )
+        if spatial_weighted_external_color_slot is not None:
+            environment[
+                "MWX_TEST_SPATIAL_WEIGHTED_EXTERNAL_COLOR_SLOT"
+            ] = str(spatial_weighted_external_color_slot)
+        else:
+            environment.pop(
+                "MWX_TEST_SPATIAL_WEIGHTED_EXTERNAL_COLOR_SLOT", None
+            )
         if r8_slots:
             environment["MWX_TEST_R8_SLOTS"] = ",".join(map(str, r8_slots))
         else:
@@ -3378,6 +3399,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         output_channel_use: str = "redDefined",
         auxiliary_channel_use: str | None = None,
         auxiliary_channel_uses: dict[int, str] | None = None,
+        premultiplied_color_input_slots: tuple[int, ...] = (),
     ) -> dict:
         if auxiliary_channel_uses is None:
             auxiliary_channel_uses = (
@@ -3397,7 +3419,7 @@ vertex float4 mwxGenericVertex(uint vertexID [[vertex_id]], constant Uniforms& u
 fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], constant Uniforms& u [[buffer(8)]]) {{ return g_Texture0.sample(sampler(), u.mwxTexture0Transform0.xy + u.mwxTexture0Transform0.zw * 0.5 + u.mwxTexture0Transform1.xy * 0.5); }}
 """.strip() + "\n"
         return {
-            "schemaVersion": 6,
+            "schemaVersion": 7,
             "kind": "scene-generic-shader-program-artifact",
             "backendID": "glslang-spirv-cross-msl-v2",
             "requestKey": key,
@@ -3426,6 +3448,9 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     )} for slot in slots
                 ],
                 "staticLoopWork": 0,
+                "premultipliedColorInputSlots": list(
+                    premultiplied_color_input_slots
+                ),
                 "fragmentOutputChannelUse": output_channel_use,
                 "colorTransfer": (
                     {"kind": color_transfer, "slot": 0}
@@ -3449,6 +3474,7 @@ fragment float4 mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         *,
         vertex_source: str = VERTEX,
         fragment_source: str = FRAGMENT,
+        premultiplied_color_input_slots: tuple[int, ...] = (),
     ) -> dict:
         reflection = {
             "types": {"_1": {"members": [
@@ -3493,6 +3519,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             },
             msl_sources={"vertex": vertex_msl, "fragment": fragment_msl},
             maximum_artifact_bytes=1_024_000,
+            premultiplied_color_input_slots=list(
+                premultiplied_color_input_slots
+            ),
         )
 
     @staticmethod
@@ -3501,6 +3530,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         vertex_source: str,
         fragment_source: str,
         expected_color_transfer: tuple[str, int] | None = None,
+        premultiplied_color_input_slots: tuple[int, ...] = (),
     ) -> str:
         digest = hashlib.sha256()
         expected_key = (
@@ -3514,6 +3544,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             vertex_source,
             fragment_source,
             expected_key,
+            ",".join(map(str, sorted(premultiplied_color_input_slots))),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -3522,66 +3553,19 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         return digest.hexdigest()
 
     def test_transform_abi_request_and_default_cache_namespaces_are_isolated(self):
-        source = CACHE_SOURCE.read_text(encoding="utf-8")
-        self.assertIn('"mwx-generic-shader-request-v9"', source)
-        self.assertIn('"SceneGenericShaderPrograms-v8"', source)
-        self.assertNotIn('"mwx-generic-shader-request-v5"', source)
-        self.assertNotIn('"SceneGenericShaderPrograms-v5"', source)
-
-        with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
-            root = Path(directory)
-            observed, _, cache, _ = self.run_harness(root, route="observe-only")
-            current_key = self.request_key(
-                "mwx-generic-shader-request-v9", VERTEX, FRAGMENT
-            )
-            legacy_key = self.request_key(
-                "mwx-generic-shader-request-v5", VERTEX, FRAGMENT
-            )
-            self.assertEqual(observed["requestKey"], current_key)
-            self.assertNotEqual(current_key, legacy_key)
-
-            stale = self.artifact(legacy_key)
-            (cache / f"{legacy_key}.json").write_text(
-                json.dumps(stale), encoding="utf-8"
-            )
-            unavailable, _, _, log = self.run_harness(
-                root, route="prefer-generic"
-            )
-            self.assertEqual(unavailable["requestKey"], current_key)
-            self.assertEqual(
-                unavailable["code"],
-                "compiler-configuration-licensebundleunavailable",
-            )
-            self.assertNotIn("artifact-invalid-json", log)
+        assert_transform_abi_request_and_cache_namespaces(
+            self,
+            cache_source=CACHE_SOURCE,
+            vertex=VERTEX,
+            fragment=FRAGMENT,
+        )
 
     def test_independent_signal_request_carries_exact_source_proven_contract(self):
-        with tempfile.TemporaryDirectory(prefix="mwx-generic-independent-request-") as directory:
-            root = Path(directory)
-            observed, requests, _, _ = self.run_harness(
-                root,
-                route="observe-only",
-                fragment=INDEPENDENT_SIGNAL_FRAGMENT,
-            )
-            request_path = requests / f"{observed['requestKey']}.json"
-            request = json.loads(request_path.read_text(encoding="utf-8"))
-            expected = ("independent-alpha-signal-preserving", 1)
-            self.assertEqual(request["schemaVersion"], 4)
-            self.assertEqual(request["expectedColorTransfer"], {
-                "kind": expected[0], "slot": expected[1],
-            })
-            keyed = self.request_key(
-                "mwx-generic-shader-request-v9",
-                textwrap.dedent(VERTEX),
-                textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
-                expected,
-            )
-            unresolved = self.request_key(
-                "mwx-generic-shader-request-v9",
-                textwrap.dedent(VERTEX),
-                textwrap.dedent(INDEPENDENT_SIGNAL_FRAGMENT),
-            )
-            self.assertEqual(observed["requestKey"], keyed)
-            self.assertNotEqual(keyed, unresolved)
+        assert_independent_signal_request_contract(
+            self,
+            vertex=VERTEX,
+            fragment=INDEPENDENT_SIGNAL_FRAGMENT,
+        )
 
     def test_swift_normalizer_prunes_only_dead_fragment_varying_mismatch(self):
         completed = subprocess.run(
@@ -4061,7 +4045,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             request = json.loads(
                 (requests / f"{data['requestKey']}.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(request["schemaVersion"], 4)
+            self.assertEqual(request["schemaVersion"], 5)
+            self.assertEqual(request["premultipliedColorInputSlots"], [])
             self.assertEqual(request["outputSemantics"], "preserved-rgba-unorm")
 
             missing, _, _, _ = self.run_harness(
@@ -4285,6 +4270,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "source-proven-red-green-unorm-scalar-splat",
             )
             self.assertEqual(unseen["routeState"], "generic-only")
+
+    def test_python_worker_rejects_nonempty_typed_input_color_slots(self):
+        assert_python_worker_rejects_nonempty_typed_input_color_slots(self)
 
     def test_preserved_rgba_builder_requires_definite_whole_output(self):
         completed = subprocess.run(
@@ -5814,7 +5802,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 f"state=generic-only profile={profile} outcome=accepted",
                 accepted_log,
             )
-
             artifact["program"]["metalSourceSHA256"] = "0" * 64
             artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
             fallback, _, _, fallback_log = self.run_harness(
@@ -6044,6 +6031,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 f"state=disable-generic profile={profile} outcome=fallback",
                 rollback_log,
             )
+
+    def test_provider_backed_spatial_weighted_profile_requires_exact_typed_input_metadata(
+        self,
+    ):
+        assert_provider_backed_spatial_weighted_profile(
+            self,
+            vertex=VERTEX,
+            fragment=SPATIAL_WEIGHTED_COLOR_BLEND_FRAGMENT,
+        )
 
     def test_straight_rgb_scalar_alpha_profile_owns_only_exact_typed_data_shape(
         self,

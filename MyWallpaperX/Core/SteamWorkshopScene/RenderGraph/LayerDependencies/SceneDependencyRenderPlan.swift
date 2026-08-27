@@ -13,6 +13,10 @@ nonisolated struct SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            /// A visible image layer publishes its unified graph-final color
+            /// into the same-frame named target consumed by a later
+            /// MaterialProgram stage. It remains a normal compositor layer.
+            case visibleImageGraphOutput
         }
 
         let consumerLayerID: Int
@@ -124,12 +128,42 @@ nonisolated struct SceneDependencyRenderPlan {
                 changed = true
             }
         }
+        let visibleGraphOutputReferences: Set<Reference> = Set(
+            descriptor.layers.compactMap { layer in
+                guard reachableConsumerLayerIDs.contains(layer.id) else {
+                    return nil
+                }
+                return Self.visibleImageGraphOutputReference(
+                    layer: layer,
+                    visibleEffects: layer.effects.filter { $0.visible != false },
+                    references: references.filter {
+                        $0.consumerLayerID == layer.id
+                    },
+                    layersByID: layersByID,
+                    visibleLayerIDs: visibleLayerIDs
+                )
+            }
+        )
+        let passthroughSafeGraphOutputProviderLayerIDs = Set(
+            visibleGraphOutputReferences.map(\.providerLayerID)
+        ).filter { providerLayerID in
+            let incoming = references.filter {
+                reachableConsumerLayerIDs.contains($0.consumerLayerID)
+                    && $0.providerLayerID == providerLayerID
+            }
+            return !incoming.isEmpty && incoming.allSatisfy {
+                visibleGraphOutputReferences.contains($0)
+            }
+        }
         for consumerLayerID in reachableConsumerLayerIDs {
             for providerLayerID in dependencyEdges[consumerLayerID] ?? [] {
                 if !xRayExemptConsumerLayerIDs.contains(consumerLayerID) {
                     passthroughBlockedLayerIDs.insert(consumerLayerID)
                 }
-                if layersByID[providerLayerID] != nil {
+                if layersByID[providerLayerID] != nil,
+                   !passthroughSafeGraphOutputProviderLayerIDs.contains(
+                       providerLayerID
+                   ) {
                     passthroughBlockedLayerIDs.insert(providerLayerID)
                 }
             }
@@ -143,6 +177,7 @@ nonisolated struct SceneDependencyRenderPlan {
                 references: layerReferences,
                 layersByID: layersByID,
                 order: order,
+                visibleLayerIDs: visibleLayerIDs,
                 cyclicLayerIDs: cyclicLayerIDs,
                 executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
                 namedProviderRouteDisabled: namedProviderRouteDisabled,
@@ -225,7 +260,12 @@ nonisolated struct SceneDependencyRenderPlan {
                       executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs
                   ) || routeDisabledStructuralUtility,
                   !layerReferences.isEmpty,
-                  Self.requiresNamedEffect(layer) else {
+                  Self.requiresNamedEffect(
+                      layer,
+                      references: layerReferences,
+                      layersByID: layersByID,
+                      visibleLayerIDs: visibleLayerIDs
+                  ) else {
                 return nil
             }
             return layer.id
@@ -252,6 +292,7 @@ nonisolated struct SceneDependencyRenderPlan {
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         order: [Int: Int],
+        visibleLayerIDs: Set<Int>,
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         namedProviderRouteDisabled: Bool,
@@ -277,6 +318,14 @@ nonisolated struct SceneDependencyRenderPlan {
            reference.slot.slotIndex == declaration.slotIndex,
            reference.providerLayerID == declaration.providerLayerID {
             contract = (reference, declaration.blendMode, .imageLayerBlend)
+        } else if let reference = visibleImageGraphOutputReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID,
+            visibleLayerIDs: visibleLayerIDs
+        ) {
+            contract = (reference, 0, .visibleImageGraphOutput)
         } else if let reference = resolvedMaterialReference(
             in: visibleEffects,
             references: references
@@ -342,11 +391,18 @@ nonisolated struct SceneDependencyRenderPlan {
             provider.contentKind == "image"
                 && hasNoUtilityLayer(provider)
                 && provider.visible == false
+        case .visibleImageGraphOutput:
+            provider.contentKind == "image"
+                && hasNoUtilityLayer(provider)
+                && provider.visible != false
+                && providerHasVisibleEffects
+                && provider.dependencyLayerIDs.isEmpty
         }
         guard providerKindIsSupported,
               (!providerHasVisibleEffects || (
-                  contract.kind == .imageLayerBlend
-                      && provider.visible == false
+                  (contract.kind == .imageLayerBlend
+                      && provider.visible == false)
+                    || contract.kind == .visibleImageGraphOutput
               )),
               provider.childLayerIDs.isEmpty,
               (provider.dependencyLayerIDs.isEmpty || providerHasVisibleEffects),
@@ -358,7 +414,11 @@ nonisolated struct SceneDependencyRenderPlan {
             ))
             return nil
         }
-        if namedProviderRouteDisabled {
+        // The legacy switch owns only the older named-provider route. A
+        // visible graph-output binding is part of the exact generic-only
+        // shader profile and must not silently restore the X-Ray incumbent.
+        if namedProviderRouteDisabled,
+           contract.kind != .visibleImageGraphOutput {
             issues.append(Issue(
                 kind: .namedProviderRouteDisabled,
                 layerID: layer.id,
@@ -399,13 +459,24 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
     private nonisolated static func requiresNamedEffect(
-        _ layer: SceneRenderDescriptor.Layer
+        _ layer: SceneRenderDescriptor.Layer,
+        references: [Reference],
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        visibleLayerIDs: Set<Int>
     ) -> Bool {
         let visibleEffects = layer.effects.filter { $0.visible != false }
-        let references = SceneDependencyGraphAnalysis.references(in: [layer])
         if resolvedMaterialReference(
             in: visibleEffects,
             references: references
+        ) != nil {
+            return true
+        }
+        if visibleImageGraphOutputReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID,
+            visibleLayerIDs: visibleLayerIDs
         ) != nil {
             return true
         }
@@ -458,6 +529,61 @@ nonisolated struct SceneDependencyRenderPlan {
                   hasOnlyNeutralAuthoredConstants else {
                 return nil
             }
+        }
+        return reference
+    }
+
+    /// Generic carrier for one source-proven Program sampler backed by an
+    /// earlier visible image layer's graph-final publication. Shader identity,
+    /// effect name and scalar values deliberately do not participate here;
+    /// MaterialProgram admission owns those contracts after this compiler has
+    /// conserved the exact authored primary reference.
+    private nonisolated static func visibleImageGraphOutputReference(
+        layer: SceneRenderDescriptor.Layer,
+        visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
+        references: [Reference],
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        visibleLayerIDs: Set<Int>
+    ) -> Reference? {
+        guard layer.contentKind == "image",
+              hasNoUtilityLayer(layer),
+              layer.visible != false,
+              visibleLayerIDs.contains(layer.id),
+              layer.childLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty,
+              references.count == 1,
+              let reference = references.first,
+              reference.variant == .primary,
+              reference.slot.passIndex == 0,
+              reference.slot.slotIndex == 1,
+              layer.dependencyLayerIDs == [reference.providerLayerID],
+              let provider = layersByID[reference.providerLayerID],
+              provider.contentKind == "image",
+              hasNoUtilityLayer(provider),
+              provider.visible != false,
+              visibleLayerIDs.contains(provider.id),
+              provider.childLayerIDs.isEmpty,
+              provider.authoredDependencies.isEmpty,
+              provider.dependencyLayerIDs.isEmpty,
+              provider.effects.contains(where: { $0.visible != false }) else {
+            return nil
+        }
+        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
+        guard effects.count == 1, let effect = effects.first,
+              effect.passes.count == 1 else { return nil }
+        let passes = effect.passes.filter {
+            $0.passIndex == reference.slot.passIndex
+        }
+        guard passes.count == 1, let pass = passes.first,
+              pass.textureSlots.indices.contains(reference.slot.slotIndex),
+              let path = pass.textureSlots[reference.slot.slotIndex],
+              SceneNamedTextureReference.parse(path) == .init(
+                  providerLayerID: reference.providerLayerID,
+                  variant: .primary
+              ), (!pass.userTextureInputs.indices.contains(
+                  reference.slot.slotIndex
+              ) || pass.userTextureInputs[reference.slot.slotIndex] == nil) else {
+            return nil
         }
         return reference
     }

@@ -29,6 +29,9 @@ from scene_shader_compiler_harness import (
     parse_limits,
     validate_request,
 )
+from script.tests.scene_generic_shader_test_support import (
+    assert_default_color_artifact,
+)
 
 
 SCRIPT = REPOSITORY_ROOT / "script/scene_shader_compiler_harness.py"
@@ -274,9 +277,7 @@ class SceneShaderCompilerHarnessTests(unittest.TestCase):
             self.assertEqual(completed.returncode, 0, completed.stderr)
             artifact = json.loads(artifact_output.read_text(encoding="utf-8"))
             request = json.loads(FIXTURE.read_text(encoding="utf-8"))
-            self.assertEqual(artifact["schemaVersion"], 6)
-            self.assertEqual(artifact["outputSemantics"], "color")
-            self.assertEqual(artifact["kind"], "scene-generic-shader-program-artifact")
+            assert_default_color_artifact(self, artifact)
             self.assertEqual(artifact["requestKey"], request_cache_key(request))
             self.assertNotIn("routeState", artifact)
             self.assertEqual(artifact["program"]["colorTransfer"], {
@@ -332,8 +333,7 @@ fragment void f() {
             "void main() { for (int i = 0; i < 4; ++i) { value += i; } }"
         )
         artifact = build_program_artifact(**arguments)
-        self.assertEqual(artifact["schemaVersion"], 6)
-        self.assertEqual(artifact["outputSemantics"], "color")
+        assert_default_color_artifact(self, artifact)
         self.assertEqual(artifact["program"]["staticLoopWork"], 4)
         self.assertEqual(artifact["program"]["colorTransfer"], {"kind": "opaque"})
         self.assertEqual(

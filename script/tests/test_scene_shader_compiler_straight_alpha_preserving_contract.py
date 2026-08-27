@@ -104,8 +104,9 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
         )
 
         request = {
-            "schemaVersion": 4,
+            "schemaVersion": 5,
             "outputSemantics": "color",
+            "premultipliedColorInputSlots": [],
             "stages": [
                 {"stage": "vertex", "source": "void main() {}"},
                 {"stage": "fragment", "source": "void main() {}"},

@@ -26,6 +26,10 @@ DEDICATED_COMPILERS_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
 )
+X_RAY_SUPPORT_SOURCE = (
+    Path(__file__).with_name("fixtures")
+    / "SceneXRayScalarOwnerAdmissionSupport.swift"
+)
 
 
 def unique_sources(paths: list[Path]) -> list[Path]:
@@ -51,6 +55,13 @@ SWIFT_SOURCES = unique_sources([
     SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     SCENE_ROOT
     / "RenderGraph/EffectCompilation/SceneEffectStageXRayScalarOwnerAdmission.swift",
+    SCENE_ROOT / "Rendering/SceneLayerVisibility.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
     SCENE_ROOT / "Effects/SceneXRayRuntimePlan.swift",
     SCENE_ROOT / "RenderGraph/SceneAuthoredXRayPlanner.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
@@ -68,6 +79,18 @@ import simd
 
 struct SceneDocument {}
 struct SceneTimelineAnimation: Codable {}
+
+struct SceneLayerDisplayScriptOwnership {
+    let fields: [String]
+
+    var isEmpty: Bool { fields.isEmpty }
+}
+
+struct SceneUtilityLayer {
+    enum Kind { case composition, project, fullscreen }
+
+    let kind: Kind
+}
 
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
@@ -89,6 +112,13 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let contentKind: String
+        var utilityLayer: SceneUtilityLayer? = nil
+        var dependencyLayerIDs: [Int] = []
+        var authoredDependencies: [Int] = []
+        var parentID: Int? = nil
+        var childLayerIDs: [Int] = []
+        var visible: Bool? = true
+        var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         let effects: [EffectDescriptor]
     }
 
@@ -111,76 +141,20 @@ struct SceneRenderDescriptor {
     }
 
     let layers: [Layer]
+    let renderOrderLayerIDs: [Int]
     let materialPasses: [MaterialPassDescriptor]
-}
 
-struct SceneXRayEffectTextures {
-    let effectID: String
-    let blendTexturePath: String
-    let haloTexturePath: String?
-    let opacityMaskPath: String?
-    let blendPropertyKey: String?
-    let haloPropertyKey: String?
-    let blendUVScale: SIMD2<Float>
-    let opacityUVScale: SIMD2<Float>
-
-    func matches(_ declaration: SceneXRayRuntimePlanner.Declaration) -> Bool {
-        effectID == declaration.effectID
-            && blendTexturePath == declaration.blendTexturePath
-            && haloTexturePath == declaration.haloTexturePath
-            && opacityMaskPath == declaration.opacityMaskPath
-            && blendPropertyKey == declaration.blendPropertyKey
-            && haloPropertyKey == declaration.haloPropertyKey
+    init(
+        layers: [Layer],
+        renderOrderLayerIDs: [Int]? = nil,
+        materialPasses: [MaterialPassDescriptor]
+    ) {
+        self.layers = layers
+        self.renderOrderLayerIDs = renderOrderLayerIDs ?? layers.map(\.id)
+        self.materialPasses = materialPasses
     }
 }
 
-// The stock hash/source-graph identity has its own production gate. This seam
-// deliberately lets the real planner body and compiler extension reach scalar
-// admission; it does not claim full stock-identity integration.
-extension SceneAuthoredXRayPlanner {
-    static let definitionPath = "effects/xray/effect.json"
-    static let materialPath = "materials/effects/xray.json"
-    static let materialPassID = "materials/effects/xray.json#0"
-    static let shaderIdentity = "effects/xray"
-
-    struct StockIdentityProfile {
-        let version: Int?
-        let replacementKey: String?
-        let group: String
-        let materialSemanticSHA256: String
-        let shaderCanonicalSHA256: String
-        let shaderDependencySHA256: String
-    }
-
-    static func currentStockDefinitionMatches(
-        descriptor: SceneRenderDescriptor,
-        path: String
-    ) -> Bool {
-        path.replacingOccurrences(of: "\\\\", with: "/").lowercased()
-            == "effects/xray/effect.json"
-    }
-
-    static func currentStockMaterialMatches(
-        descriptor: SceneRenderDescriptor
-    ) -> Bool {
-        true
-    }
-
-    static func currentStockShaderContractMatches(
-        _ contracts: [SceneShaderContract]
-    ) -> Bool {
-        contracts.count == 1
-    }
-
-    static func containsCandidate(graph: Graph) -> Bool {
-        graph.effects.contains {
-            $0.definitionPath.replacingOccurrences(
-                of: "\\\\",
-                with: "/"
-            ).lowercased() == "effects/xray/effect.json"
-        }
-    }
-}
 '''
 
 
@@ -617,12 +591,14 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
 
         binary = root / "xray-scalar-owner"
         environment = os.environ.copy()
+        environment.pop("MWX_SCENE_NAMED_PROVIDER_ROUTE", None)
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
         compilation = subprocess.run(
             [
                 "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
                 str(support),
+                str(X_RAY_SUPPORT_SOURCE),
                 *(str(path) for path in SWIFT_SOURCES),
                 str(product_compiler),
                 str(harness),

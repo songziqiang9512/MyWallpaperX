@@ -65,6 +65,7 @@ struct SceneImageLayerCompositor {
     func drawOutcome(
         _ request: SceneImageLayerDrawRequest,
         explicitLayerSourcePublication: SceneTextureProviderPublication?,
+        resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)? = nil,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
@@ -218,6 +219,22 @@ struct SceneImageLayerCompositor {
                 _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                     reasonCode: "final-offscreen-texture-unavailable")
                 return .failed
+            }
+            if let resolvedMaterialGraphOutputPublisher {
+                guard let graphExecutionTicket,
+                      resolvedMaterialGraphOutputPublisher(finalTexture) else {
+                    if let graphExecutionTicket {
+                        _ = consumeResolvedMaterialComposite(
+                            graphExecutionTicket,
+                            texture: finalTexture,
+                            consumed: false,
+                            layerID: request.layer.id,
+                            executionTrace: executionTrace,
+                            executionOrigin: executionOrigin
+                        )
+                    }
+                    return .failed
+                }
             }
             let finalValues = SceneImageLayerUniformValues(
                 time: request.uniforms.time,

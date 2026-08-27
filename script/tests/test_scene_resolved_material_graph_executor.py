@@ -10,6 +10,10 @@ import runpy
 import shutil
 import unittest
 
+from script.tests.scene_dependency_binding_test_support import (
+    SCENE_DEPENDENCY_BINDING_SUPPORT,
+)
+
 
 CONTRACT_GATE = Path(__file__).with_name(
     "test_scene_resolved_material_graph_visual_failure_contract.py"
@@ -122,34 +126,6 @@ struct SceneDependencyRenderPlan {
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
         let variant: SceneNamedTextureReference.Variant
-    }
-
-    struct Binding: Hashable {
-        enum Kind: Hashable {
-            case resolvedMaterial, solidLayer, imageLayerBlend
-        }
-        let consumerLayerID: Int
-        let providerLayerID: Int
-        let slot: SceneEffectPassSlot
-        let referenceSlots: [SceneEffectPassSlot]
-        let blendMode: Int
-        let kind: Kind
-
-        init(
-            consumerLayerID: Int,
-            providerLayerID: Int,
-            slot: SceneEffectPassSlot,
-            referenceSlots: [SceneEffectPassSlot]? = nil,
-            blendMode: Int,
-            kind: Kind
-        ) {
-            self.consumerLayerID = consumerLayerID
-            self.providerLayerID = providerLayerID
-            self.slot = slot
-            self.referenceSlots = referenceSlots ?? [slot]
-            self.blendMode = blendMode
-            self.kind = kind
-        }
     }
 
     let references: [Reference]
@@ -468,7 +444,7 @@ struct SceneImageLayerPipeline {
         )
     }
 }
-'''
+''' + SCENE_DEPENDENCY_BINDING_SUPPORT
 
 
 HARNESS = r'''

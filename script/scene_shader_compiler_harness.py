@@ -30,8 +30,12 @@ from typing import Any
 from scene_shader_compiler_artifact import (
     ArtifactFailure,
     build_program_artifact,
-    expected_color_transfer_for_output,
     request_cache_key,
+)
+from scene_shader_compiler_request_contract import (
+    ALLOWED_STAGES,
+    RequestContractFailure,
+    validated_request_stages,
 )
 from scene_shader_compiler_texture_sampling import active_sampler_slots, shader_compatibility_lines, texture_sampling_support_lines, texture_transform_uniform_lines
 from scene_shader_compiler_cli import parse_args
@@ -39,7 +43,6 @@ from scene_shader_compiler_cli import parse_args
 
 SCRIPT_ROOT = Path(__file__).resolve().parent
 DEFAULT_MANIFEST = SCRIPT_ROOT / "scene_shader_compiler_dependencies.json"
-ALLOWED_STAGES = ("vertex", "fragment")
 STAGE_SUFFIX = {"vertex": "vert", "fragment": "frag"}
 ALLOWED_DIALECTS = ("glsl-450", "wallpaper-engine-glsl-like-v0")
 VALUE_TYPES = {
@@ -148,44 +151,14 @@ def parse_limits(manifest: dict[str, Any]) -> Limits:
 
 
 def validate_request(payload: dict[str, Any], limits: Limits) -> list[dict[str, str]]:
-    if payload.get("schemaVersion") != 4:
-        raise HarnessFailure("request", "schema-version")
-    request_id = payload.get("requestID")
-    if not isinstance(request_id, str) or not request_id or len(request_id) > 128:
-        raise HarnessFailure("request", "request-id")
     try:
-        expected_color_transfer_for_output(
-            payload.get("outputSemantics"), payload.get("expectedColorTransfer")
+        return validated_request_stages(
+            payload, limits.maximum_stage_source_bytes
         )
-    except ArtifactFailure as error:
-        raise HarnessFailure("request", str(error)) from error
-    raw_stages = payload.get("stages")
-    if not isinstance(raw_stages, list) or len(raw_stages) != 2:
-        raise HarnessFailure("request", "stage-count")
-    stages: list[dict[str, str]] = []
-    seen: set[str] = set()
-    for raw in raw_stages:
-        if not isinstance(raw, dict):
-            raise HarnessFailure("request", "stage-shape")
-        stage = raw.get("stage")
-        entry_point = raw.get("entryPoint")
-        source = raw.get("source")
-        if stage not in ALLOWED_STAGES or stage in seen:
-            raise HarnessFailure("request", "stage-identity")
-        if entry_point != "main":
-            raise HarnessFailure("request", "entry-point")
-        if not isinstance(source, str) or not source:
-            raise HarnessFailure("request", "source")
-        encoded = source.encode("utf-8")
-        if len(encoded) > limits.maximum_stage_source_bytes:
-            raise HarnessFailure("request", "source-too-large", [str(stage)])
-        if "\x00" in source:
-            raise HarnessFailure("request", "source-nul", [str(stage)])
-        seen.add(stage)
-        stages.append({"stage": stage, "entryPoint": entry_point, "source": source})
-    if seen != set(ALLOWED_STAGES):
-        raise HarnessFailure("request", "stage-pair")
-    return sorted(stages, key=lambda value: ALLOWED_STAGES.index(value["stage"]))
+    except RequestContractFailure as error:
+        raise HarnessFailure(
+            "request", error.code, error.details
+        ) from error
 
 
 def validated_defines(payload: dict[str, Any]) -> dict[str, int]:
@@ -907,6 +880,9 @@ def compile_request(
                     maximum_artifact_bytes=limits.maximum_artifact_bytes,
                     output_semantics=request["outputSemantics"],
                     expected_color_transfer=request.get("expectedColorTransfer"),
+                    premultiplied_color_input_slots=request.get(
+                        "premultipliedColorInputSlots"
+                    ),
                 )
             except ArtifactFailure as error:
                 raise HarnessFailure("artifact", str(error)) from error

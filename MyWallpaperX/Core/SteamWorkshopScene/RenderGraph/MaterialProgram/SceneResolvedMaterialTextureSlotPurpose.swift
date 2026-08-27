@@ -23,6 +23,20 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
         }
         let candidate = slot.candidates[candidateOrdinal]
         let directPurpose = sampler.purpose(for: candidate.reference)
+        if case .provider(.namedLayerTarget) = candidate.reference {
+            // The registry atom is the compositor's premultiplied publication.
+            // A source-proven straight-color sampler is reconciled by the
+            // compiled Program's typed input conversion, not by relabelling
+            // the same-frame provider resource as straight asset data.
+            guard directPurpose == .premultipliedColor else { return nil }
+            return Fact(
+                slot: slot.index,
+                ordinal: candidateOrdinal,
+                reference: candidate.reference,
+                provenance: candidate.provenance,
+                purpose: .premultipliedColor
+            )
+        }
         if let sourcePurpose = sampler.sourceProvenPurpose {
             guard directPurpose == sourcePurpose,
                   sourcePurposeIsCompatibleWithLowerCandidates(

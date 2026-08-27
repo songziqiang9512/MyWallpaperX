@@ -21,6 +21,12 @@ DEBUG_RUNNER_SOURCE = (
 import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
 import generate_scene_full_matrix as matrix_generator
+from script.tests.scene_wallpaper_graph_output_test_support import (
+    assert_named_graph_output_publication_has_one_terminal_owner,
+    assert_named_provider_terminal,
+    assert_visible_provider_requires_compositor_consumption,
+    assert_visible_publication_execution_metrics,
+)
 
 
 def static_effect_disposition(
@@ -3550,6 +3556,8 @@ utility layer 763: skippedHidden kind=composition
             "observed_layer_ids": [68],
             "compositor_consumed_layer_ids": [68],
             "named_published_layer_ids": [],
+            "visible_graph_output_published_layer_ids": [],
+            "named_graph_output_published_layer_ids": [],
             "named_compositor_overlap_layer_ids": [],
             "next_frame_layer_ids": [68],
             "missing_layer_ids": [],
@@ -3590,74 +3598,21 @@ utility layer 763: skippedHidden kind=composition
     def test_resolved_material_graph_gate_accepts_named_provider_terminal(
         self,
     ) -> None:
-        preview_text = (
-            "resolved material execution capabilities: "
-            "schema=layer-graph-capability-v1 candidates=2 accepted=2 "
-            "rejected=0 variantLimit=8\n"
-            "resolved material execution capability: "
-            "schema=layer-graph-route-v1 layer=67 status=accepted "
-            "dependency=none dependencyReferences=0\n"
-            "resolved material execution capability: "
-            "schema=layer-graph-route-v1 layer=68 status=accepted "
-            "dependency=external-primary dependencyReferences=1\n"
-        )
-        log_text = "\n".join([
-            "resolved material runtime audit: schema=scene-graph-executor-v1 "
-            "claimed=2 encoded=2 failures=0 deferred=0 pending=2 "
-            "gpuEncoded=2 localFallbacks=0",
-            "phase=named-target-capture layer=67 status=succeeded",
-            graph_execution_observation(
-                frame=10,
-                layer=67,
-                transaction="provider-10",
-                trigger="first-frame+first-success+gpu-completed",
-            ),
-            graph_execution_observation(
-                frame=11,
-                layer=67,
-                transaction="provider-11",
-                trigger="next-frame+gpu-completed",
-            ),
-            graph_execution_observation(
-                frame=10,
-                layer=68,
-                transaction="consumer-10",
-                trigger="first-frame+first-success+gpu-completed",
-            ),
-            graph_execution_observation(
-                frame=11,
-                layer=68,
-                transaction="consumer-11",
-                trigger="next-frame+compositor-consume+gpu-completed",
-                consumed=True,
-            ),
-        ])
-        disposition, exact_execution = resolved_graph_exact_evidence([67, 68])
-        metrics = benchmark.resolved_material_graph_execution_metrics(
-            preview_text,
-            log_text,
-            effect_execution=exact_execution,
-            static_disposition=disposition,
+        assert_named_provider_terminal(
+            self,
+            benchmark=benchmark,
+            graph_execution_observation=graph_execution_observation,
+            resolved_graph_exact_evidence=resolved_graph_exact_evidence,
         )
 
-        self.assertTrue(metrics["execution_succeeded"])
-        self.assertEqual(metrics["validation_failures"], [])
-        self.assertEqual(metrics["succeeded_layer_ids"], [67, 68])
-        self.assertEqual(
-            metrics["layer_routes"]["named_published_layer_ids"],
-            [67],
-        )
-        self.assertEqual(
-            metrics["layer_routes"]["compositor_consumed_layer_ids"],
-            [68],
-        )
-        self.assertEqual(
-            metrics["layer_routes"]["next_frame_layer_ids"],
-            [67, 68],
-        )
-        self.assertEqual(
-            metrics["layer_routes"]["missing_compositor_consumed_layer_ids"],
-            [],
+    def test_resolved_material_graph_gate_accepts_visible_graph_output_provider(
+        self,
+    ) -> None:
+        assert_visible_provider_requires_compositor_consumption(
+            self,
+            benchmark=benchmark,
+            graph_execution_observation=graph_execution_observation,
+            resolved_graph_exact_evidence=resolved_graph_exact_evidence,
         )
 
     def test_resolved_material_graph_extent_lifecycle_accepts_aba_profiles(
@@ -5638,6 +5593,20 @@ utility layer 763: skippedHidden kind=composition
                 "particle initial live evidence missing",
                 "particle refract evidence missing",
             ],
+        )
+
+    def test_visible_graph_output_publication_execution_is_typed(self) -> None:
+        assert_visible_publication_execution_metrics(
+            self,
+            benchmark=benchmark,
+        )
+
+    def test_named_graph_output_publication_has_one_terminal_owner(self) -> None:
+        assert_named_graph_output_publication_has_one_terminal_owner(
+            self,
+            benchmark=benchmark,
+            graph_execution_observation=graph_execution_observation,
+            resolved_graph_exact_evidence=resolved_graph_exact_evidence,
         )
 
 

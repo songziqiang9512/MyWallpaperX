@@ -526,12 +526,13 @@ fragment Output mwxGenericFragment(
     vec4 mwxTexture1Transform1;
 } uniforms;"""
         request = {
-            "schemaVersion": 4,
+            "schemaVersion": 5,
             "requestID": "project-independent-real-backend-v1",
             "outputSemantics": "color",
             "expectedColorTransfer": {
                 "kind": "independent-alpha-signal-preserving", "slot": 1,
             },
+            "premultipliedColorInputSlots": [],
             "stages": [
                 {
                     "stage": "vertex", "entryPoint": "main",

@@ -27,28 +27,11 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         )
     }
 
-    private struct Request: Encodable {
-        struct Stage: Encodable {
-            let stage: String
-            let entryPoint: String
-            let source: String
-        }
-
-        let schemaVersion = 4
-        let requestID: String
-        let sourceDialect = "wallpaper-engine-glsl-like-v0"
-        let outputSemantics: SceneGenericShaderOutputSemantics
-        let expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
-        let defines: [String: Int] = [:]
-        let stages: [Stage]
-    }
-
     private static let routeEnvironment = "MWX_SCENE_GENERIC_SHADER_ROUTE"
     /// Comma-separated profile-local route overrides.
     private static let profileRouteEnvironment =
         "MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES"
     private static let cacheEnvironment = "MWX_SCENE_GENERIC_SHADER_CACHE"
-    private static let requestEnvironment = "MWX_SCENE_GENERIC_SHADER_REQUESTS"
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     private static let maximumRouteAnalysisSourceBytes = 512 * 1_024
     static let routeTelemetry = RouteTelemetry()
@@ -222,6 +205,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
+        spatialWeightedColorBlendExternalColorSlot: Int? = nil,
         r8TextureSlots: Set<Int> = [],
         hasDefaultedOpacityMaskSampler: Bool = false,
         hasOnlyTypedOpacityMaskAuxiliary: Bool = false,
@@ -342,6 +326,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 spatialWeightedColorBlendActiveSlots,
             spatialWeightedColorBlendTypedAuxiliarySlots:
                 spatialWeightedColorBlendTypedAuxiliarySlots,
+            spatialWeightedColorBlendExternalColorSlot:
+                spatialWeightedColorBlendExternalColorSlot,
             unitCompositeBlurredSlot: unitCompositeBlurredSlot,
             unitCompositePreviousSlot: unitCompositePreviousSlot,
             unitCompositeMaskSlot: unitCompositeMaskSlot,
@@ -394,11 +380,17 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 profile
                     == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
         )
-        let key = requestKey(
+        let premultipliedColorInputSlots = Set(
+            profile == .providerBackedGraphInputSpatialWeightedColorBlend
+                ? spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+                : []
+        )
+        let key = SceneResolvedMaterialGenericShaderRequest.key(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             outputSemantics: outputSemantics,
-            expectedColorTransfer: expectedColorTransfer
+            expectedColorTransfer: expectedColorTransfer,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -442,12 +434,13 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 routeDecision: routeDecision
             )
         }
-        exportRequest(
+        SceneResolvedMaterialGenericShaderRequest.export(
             key: key,
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             outputSemantics: outputSemantics,
-            expectedColorTransfer: expectedColorTransfer
+            expectedColorTransfer: expectedColorTransfer,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
         guard routeState == .preferGeneric || routeState == .genericOnly else {
             routeTelemetry.record(
@@ -486,6 +479,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     vertexSource: vertexSource,
                     fragmentSource: fragmentSource,
                     outputSemantics: outputSemantics,
+                    premultipliedColorInputSlots: premultipliedColorInputSlots,
                     cacheRoot: root
                 )
             }
@@ -542,6 +536,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         guard let program = artifact.makeProgram(
                   expectedKey: key,
                   expectedOutputSemantics: outputSemantics,
+                  expectedPremultipliedColorInputSlots:
+                      premultipliedColorInputSlots,
                   expectedColorTransfer: colorTransfer,
                   expectedFragmentOutputChannelUse: fragmentOutputChannelUse
               ) else {
@@ -657,67 +653,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         )
     }
 
-    private static func requestKey(
-        vertexSource: String,
-        fragmentSource: String,
-        outputSemantics: SceneGenericShaderOutputSemantics,
-        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
-    ) -> String {
-        var data = Data()
-        for value in [
-            "mwx-generic-shader-request-v9",
-            "wallpaper-engine-glsl-like-v0",
-            outputSemantics.rawValue,
-            vertexSource,
-            fragmentSource,
-            expectedColorTransfer?.cacheKey ?? "-",
-            "{}",
-        ] {
-            let encoded = Data(value.utf8)
-            var length = UInt64(encoded.count).bigEndian
-            withUnsafeBytes(of: &length) { data.append(contentsOf: $0) }
-            data.append(encoded)
-        }
-        return sha256(data)
-    }
-
-    private static func exportRequest(
-        key: String,
-        vertexSource: String,
-        fragmentSource: String,
-        outputSemantics: SceneGenericShaderOutputSemantics,
-        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?
-    ) {
-        let environment = ProcessInfo.processInfo.environment
-        guard let rawRoot = environment[requestEnvironment],
-              let root = validatedDirectory(rawRoot) else { return }
-        let request = Request(
-            requestID: key,
-            outputSemantics: outputSemantics,
-            expectedColorTransfer: expectedColorTransfer,
-            stages: [
-                .init(stage: "vertex", entryPoint: "main", source: vertexSource),
-                .init(stage: "fragment", entryPoint: "main", source: fragmentSource),
-            ]
-        )
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(request) else { return }
-        let url = root.appendingPathComponent("\(key).json", isDirectory: false)
-        if let existing = try? Data(contentsOf: url) {
-            if existing != data {
-                NSLog("MWX generic shader request collision request=%@", key)
-            }
-            return
-        }
-        do {
-            try data.write(to: url, options: .atomic)
-            NSLog("MWX generic shader request exported request=%@", key)
-        } catch {
-            NSLog("MWX generic shader request export failed request=%@", key)
-        }
-    }
-
     private static func validatedDirectory(_ rawPath: String) -> URL? {
         guard !rawPath.isEmpty else { return nil }
         let url = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
@@ -742,7 +677,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         ).first else { return nil }
         let root = caches
             .appendingPathComponent("com.songziqiang.MyWallpaperX", isDirectory: true)
-            .appendingPathComponent("SceneGenericShaderPrograms-v8", isDirectory: true)
+            .appendingPathComponent("SceneGenericShaderPrograms-v9", isDirectory: true)
             .standardizedFileURL
         do {
             try FileManager.default.createDirectory(
@@ -794,7 +729,4 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         return try? Data(contentsOf: url, options: .mappedIfSafe)
     }
 
-    private static func sha256(_ data: Data) -> String {
-        SceneGenericShaderProgramArtifact.sha256(data)
-    }
 }

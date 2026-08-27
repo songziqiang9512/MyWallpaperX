@@ -193,6 +193,23 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sampler.sourceProvenPurpose == nil ? nil : slot
             }
         )
+        let activeExternalProviderTextureSlots = externalProviderTextureSlots(
+            in: template,
+            activeTextureSlots: Set(sourceActiveSamplers.keys)
+        )
+        let activeTerminalNamedLayerProviderTextureSlots =
+            terminalNamedLayerProviderTextureSlots(
+            in: template,
+            activeTextureSlots: Set(sourceActiveSamplers.keys)
+        )
+        let spatialWeightedColorBlendExternalColorSlot: Int?
+        if let fact = spatialWeightedColorBlendFact,
+           activeExternalProviderTextureSlots == [fact.straightColorSlot],
+           activeTerminalNamedLayerProviderTextureSlots == [fact.straightColorSlot] {
+            spatialWeightedColorBlendExternalColorSlot = fact.straightColorSlot
+        } else {
+            spatialWeightedColorBlendExternalColorSlot = nil
+        }
         let preservedAlphaRGBColorSlots: Set<Int>
         if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
             fragmentSource: compilerSources.fragment
@@ -346,6 +363,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 spatialWeightedColorBlendFact?.activeSlots ?? [],
             spatialWeightedColorBlendTypedAuxiliarySlots:
                 spatialWeightedColorBlendTypedAuxiliarySlots,
+            spatialWeightedColorBlendExternalColorSlot:
+                spatialWeightedColorBlendExternalColorSlot,
             r8TextureSlots: graphR8TextureSlots,
             hasDefaultedOpacityMaskSampler:
                 SceneResolvedMaterialShaderSchema.hasOnlyDefaultedOpacityMaskAuxiliary(
@@ -405,7 +424,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 vertexSource: compilerSources.vertex,
                 fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds,
-                provenColorTransfer: sourceColorTransfer
+                provenColorTransfer: sourceColorTransfer,
+                premultipliedColorInputSlots:
+                    decision.profile == SceneGenericShaderCapabilityProfile
+                        .providerBackedGraphInputSpatialWeightedColorBlend.rawValue
+                        ? spatialWeightedColorBlendExternalColorSlot.map {
+                            Set([$0])
+                        } ?? []
+                        : []
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {
@@ -605,26 +631,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             true
         case .premultipliedColor, .straightAlbedo:
             false
-        }
-    }
-
-    static func hasExternalProviderTexture(
-        in template: Template,
-        activeTextureSlots: Set<Int>? = nil
-    ) -> Bool {
-        template.textureSlots.enumerated().contains { index, slot in
-            guard activeTextureSlots?.contains(index) != false,
-                  let slot else { return false }
-            // Candidate order is low to high precedence. A terminal graph
-            // reference is the immutable selected override; earlier provider
-            // entries are provenance and cannot become runtime fallbacks.
-            if case .graph? = slot.candidates.last?.reference {
-                return false
-            }
-            return slot.candidates.contains { candidate in
-                if case .provider = candidate.reference { return true }
-                return false
-            }
         }
     }
 

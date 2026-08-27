@@ -335,6 +335,7 @@ private func genericFrontend(
                 name: "g_Texture0", slot: 0, channelUse: "unproven"
             )],
             staticLoopWork: 0,
+            premultipliedColorInputSlots: [],
             colorTransfer: .init(kind: "passthrough", slot: 0, slots: nil),
             fragmentOutputChannelUse: "unproven"
         )

@@ -291,6 +291,19 @@ struct SceneMetalRenderer {
                         for: layer.id,
                         matching: texture
                     )
+                let resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)?
+                if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                    resolvedMaterialGraphOutputPublisher = { graphOutput in
+                        dependencyRuntime.publishGraphOutputIfRequired(
+                            layerID: layer.id,
+                            texture: graphOutput,
+                            textureRegistry: textureRegistry,
+                            commandBuffer: commandBuffer
+                        ) == true
+                    }
+                } else {
+                    resolvedMaterialGraphOutputPublisher = nil
+                }
                 if let failure = resolvedDependencyFailure {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     if failure.isOrdinaryUnavailable,
@@ -315,6 +328,8 @@ struct SceneMetalRenderer {
                 let drawOutcome = imageCompositor.drawOutcome(
                     request,
                     explicitLayerSourcePublication: explicitLayerSourcePublication,
+                    resolvedMaterialGraphOutputPublisher:
+                        resolvedMaterialGraphOutputPublisher,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace,
@@ -417,12 +432,7 @@ struct SceneMetalRenderer {
         guard dependencyRuntime.requiresGraphOutputCapture(
             for: layer.id
         ) else { return nil }
-        guard layer.visible == false else {
-            imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                "effectful-provider-visibility-invalid"
-            )
-            return false
-        }
+        guard layer.visible == false else { return nil }
         // A visual frame-local fallback intentionally publishes nothing. Any
         // downstream consumer then takes the ordinary provider-miss path.
         guard framePlan != nil else { return true }

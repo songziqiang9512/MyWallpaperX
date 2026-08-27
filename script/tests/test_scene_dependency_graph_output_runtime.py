@@ -69,6 +69,7 @@ struct SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            case visibleImageGraphOutput
         }
 
         let consumerLayerID: Int
@@ -125,6 +126,7 @@ final class SceneFrameTextureRegistry {
     enum Status { case ready(MTLTexture) }
 
     var frameEpoch: UInt64
+    private(set) var readyPublicationCount = 0
     private var textures: [SceneFrameTextureIdentity: MTLTexture] = [:]
 
     init(frameEpoch: UInt64) {
@@ -137,7 +139,9 @@ final class SceneFrameTextureRegistry {
 
     func set(_ status: Status, for identity: SceneFrameTextureIdentity) {
         switch status {
-        case let .ready(texture): textures[identity] = texture
+        case let .ready(texture):
+            readyPublicationCount += 1
+            textures[identity] = texture
         }
     }
 }
@@ -288,6 +292,7 @@ private func texture(
         mipmapped: false
     )
     descriptor.usage = [.shaderRead, .renderTarget]
+    descriptor.storageMode = .shared
     guard let result = device.makeTexture(descriptor: descriptor) else {
         fatalError("texture unavailable")
     }
@@ -316,7 +321,7 @@ enum Harness {
             providerLayerID: 400,
             slot: .init(effectID: "blend", passIndex: 0, slotIndex: 1),
             blendMode: 0,
-            kind: .imageLayerBlend
+            kind: .visibleImageGraphOutput
         )
         let descriptor = SceneRenderDescriptor(
             layers: [provider],
@@ -325,7 +330,7 @@ enum Harness {
         )
         let runtime = SceneDependencyFrameRuntime(
             descriptor: descriptor,
-            visibleLayerIDs: [401],
+            visibleLayerIDs: [400, 401],
             executableUtilityConsumerLayerIDs: [],
             device: device
         )
@@ -349,6 +354,18 @@ enum Harness {
             failureReason: &reservationFailure
         )
         let output = texture(device, label: "provider-graph-output")
+        let expectedOutputBytes: [UInt8] = [
+            5, 17, 29, 255,
+            41, 53, 67, 223,
+            79, 83, 97, 191,
+            101, 113, 127, 159,
+        ]
+        output.replace(
+            region: MTLRegionMake2D(0, 0, output.width, output.height),
+            mipmapLevel: 0,
+            withBytes: expectedOutputBytes,
+            bytesPerRow: output.width * 4
+        )
         let registry = SceneFrameTextureRegistry(frameEpoch: 13)
         let unavailableBeforePublication: Bool
         switch runtime.resolvedMaterialEffectInputResolution(
@@ -381,6 +398,8 @@ enum Harness {
             textureRegistry: registry,
             commandBuffer: commandBuffer
         ) == false
+        let failedPublicationLeftReservationUnpublished =
+            registry.readyPublicationCount == 0
         let published = runtime.publishGraphOutputIfRequired(
             layerID: 400,
             texture: output,
@@ -409,6 +428,22 @@ enum Harness {
             [400: wrongSize],
             frameEpoch: 13
         )
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        let gpuCompleted = commandBuffer.status == .completed
+            && commandBuffer.error == nil
+        var publishedBytes = [UInt8](
+            repeating: 0,
+            count: expectedOutputBytes.count
+        )
+        provisionalInput?.texture.getBytes(
+            &publishedBytes,
+            bytesPerRow: output.width * 4,
+            from: MTLRegionMake2D(0, 0, output.width, output.height),
+            mipmapLevel: 0
+        )
+        let copiedGraphOutputBytes = gpuCompleted
+            && publishedBytes == expectedOutputBytes
         registry.frameEpoch = 14
         let epochAdvanceClearsReservation: Bool
         switch runtime.resolvedMaterialEffectInputResolution(
@@ -431,7 +466,12 @@ enum Harness {
             "installed": installed,
             "rawCaptureRefused": rawCaptureRefused,
             "wrongObjectRejected": wrongObjectRejected,
+            "failedPublicationLeftReservationUnpublished":
+                failedPublicationLeftReservationUnpublished,
             "published": published,
+            "publicationCount": registry.readyPublicationCount,
+            "gpuCompleted": gpuCompleted,
+            "copiedGraphOutputBytes": copiedGraphOutputBytes,
             "readyUsesDistinctNamedTarget":
                 readyInput?.texture === provisionalInput?.texture
                 && readyInput?.texture !== output,
@@ -499,7 +539,11 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "installed": True,
                     "rawCaptureRefused": True,
                     "wrongObjectRejected": True,
+                    "failedPublicationLeftReservationUnpublished": True,
                     "published": True,
+                    "publicationCount": 1,
+                    "gpuCompleted": True,
+                    "copiedGraphOutputBytes": True,
                     "readyUsesDistinctNamedTarget": True,
                     "directInputUsesDistinctNamedTarget": True,
                     "wrongSizeRejected": True,

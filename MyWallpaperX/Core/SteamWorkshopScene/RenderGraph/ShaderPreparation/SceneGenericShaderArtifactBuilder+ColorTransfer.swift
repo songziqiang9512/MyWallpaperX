@@ -1,6 +1,40 @@
 import Foundation
 
 extension SceneGenericShaderArtifactBuilder {
+    /// Moves exact provider-backed color inputs from the compositor's
+    /// premultiplied boundary into the authored shader's straight-color domain.
+    /// Output transfer remains owned by the independently proven color profile.
+    static func lowerPremultipliedColorInputs(
+        _ source: String,
+        slots: Set<Int>
+    ) -> String? {
+        guard !slots.isEmpty,
+              slots.allSatisfy({ (0 ..< 8).contains($0) }),
+              source.components(
+                  separatedBy: "inline float4 mwxGenericUnpremultiply"
+              ).count == 2,
+              let calls = SceneGenericShaderStraightAlphaPreservingLowering
+                .compilerTextureSampleCalls(in: source) else { return nil }
+        let selected = calls.filter { slots.contains($0.slot) }
+        guard !selected.isEmpty, Set(selected.map(\.slot)) == slots else {
+            return nil
+        }
+        var transformed = source
+        for call in selected.sorted(by: { $0.range.location > $1.range.location }) {
+            guard let sourceRange = Range(call.range, in: source),
+                  !source[..<sourceRange.lowerBound].hasSuffix(
+                      "mwxGenericUnpremultiply("
+                  ), let adjustedRange = Range(call.range, in: transformed) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                adjustedRange,
+                with: "mwxGenericUnpremultiply(\(source[sourceRange]))"
+            )
+        }
+        return transformed
+    }
+
     static func prepareColorTransfer(
         msl source: String,
         authoredSource: String

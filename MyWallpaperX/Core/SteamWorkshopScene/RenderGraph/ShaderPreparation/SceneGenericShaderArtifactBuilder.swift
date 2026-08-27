@@ -73,6 +73,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         requestKey: String,
         backendID: String,
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
+        premultipliedColorInputSlots: Set<Int> = [],
         stages: [Stage],
         maximumArtifactBytes: Int
     ) -> Result<SceneGenericShaderProgramArtifact, Failure> {
@@ -142,13 +143,24 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     .init(kind: "preserved-rgba-data", slot: nil, slots: nil)
                 )
             }
+            let preparedColorMSL: String
+            if premultipliedColorInputSlots.isEmpty {
+                preparedColorMSL = color.msl
+            } else if let lowered = lowerPremultipliedColorInputs(
+                color.msl,
+                slots: premultipliedColorInputSlots
+            ) {
+                preparedColorMSL = lowered
+            } else {
+                throw Failure.colorTransfer
+            }
             var vertexMSL = try normalizeUniformStruct(
                 vertexStage.msl,
                 layout: uniformLayout,
                 fieldNames: stagedUniforms.vertexNames
             )
             var fragmentMSL = try normalizeUniformStruct(
-                color.msl,
+                preparedColorMSL,
                 layout: uniformLayout,
                 fieldNames: stagedUniforms.fragmentNames
             )
@@ -181,6 +193,9 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
                 throw Failure.colorTransfer
             }
+            guard premultipliedColorInputSlots.isSubset(
+                of: Set(bindings.map(\.slot))
+            ) else { throw Failure.colorTransfer }
             let accumulatorLoopWork = color.transfer.kind
                     == "independent-alpha-signal-preserving"
                 ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
@@ -215,6 +230,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 ),
                 textureBindings: bindings,
                 staticLoopWork: loopWork,
+                premultipliedColorInputSlots:
+                    premultipliedColorInputSlots.sorted(),
                 colorTransfer: color.transfer,
                 fragmentOutputChannelUse: outputChannelUse.rawValue
             )

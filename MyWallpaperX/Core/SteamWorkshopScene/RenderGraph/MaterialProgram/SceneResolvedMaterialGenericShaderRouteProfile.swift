@@ -90,6 +90,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-color-blend"
     case sourceProvenGraphInputSpatialWeightedColorBlend =
         "source-proven-graph-input-spatial-weighted-color-blend"
+    case providerBackedGraphInputSpatialWeightedColorBlend =
+        "provider-backed-graph-input-spatial-weighted-color-blend"
     case sourceProvenGraphInputOverlayAlphaBlend =
         "source-proven-graph-input-overlay-alpha-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
@@ -149,6 +151,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
+        spatialWeightedColorBlendExternalColorSlot: Int? = nil,
         unitCompositeBlurredSlot: Int?,
         unitCompositePreviousSlot: Int?,
         unitCompositeMaskSlot: Int? = nil,
@@ -355,6 +358,19 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   !producesScalarRedOutput,
                   graphInputTextureSlots == preservedAlphaRGBFilterTextureSlots {
             self = .sourceProvenGraphInputPreservedAlphaRGBFilter
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  spatialWeightedColorBlendSourceSlot == sourceSlot,
+                  let externalColorSlot =
+                    spatialWeightedColorBlendExternalColorSlot,
+                  externalColorSlot != sourceSlot,
+                  spatialWeightedColorBlendActiveSlots.count >= 3,
+                  spatialWeightedColorBlendTypedAuxiliarySlots
+                    == spatialWeightedColorBlendActiveSlots.subtracting([sourceSlot]),
+                  hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .providerBackedGraphInputSpatialWeightedColorBlend
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   spatialWeightedColorBlendSourceSlot == sourceSlot,
                   spatialWeightedColorBlendActiveSlots.count >= 3,
@@ -569,6 +585,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputSpatialWeightedColorBlend,
+             .providerBackedGraphInputSpatialWeightedColorBlend,
              .sourceProvenGraphInputOverlayAlphaBlend,
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha,
@@ -595,6 +612,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             || self == .sourceProvenGraphTargetOpaqueStaticSampleAverage
             || self == .sourceProvenGraphTargetOpaqueAlphaWeightedLoopAverage
             || self == .sourceProvenGraphInputSameSlotColorReplacement
+            || self == .providerBackedGraphInputSpatialWeightedColorBlend
             || self
                 == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
     }

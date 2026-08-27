@@ -171,6 +171,7 @@ private func artifact(
                 .init(name: "g_Texture6", slot: 6, channelUse: "wholeVector"),
             ],
             staticLoopWork: 0,
+            premultipliedColorInputSlots: [],
             colorTransfer: .init(
                 kind: "independent-alpha-signal-compositing",
                 slot: nil,
@@ -457,8 +458,9 @@ fragment Output mwxGenericFragment() {
 
         reverse = {**expected, "slots": [2, 6]}
         request = {
-            "schemaVersion": 4,
+            "schemaVersion": 5,
             "outputSemantics": "color",
+            "premultipliedColorInputSlots": [],
             "stages": [
                 {"stage": "vertex", "source": "void main() {}"},
                 {"stage": "fragment", "source": "void main() {}"},

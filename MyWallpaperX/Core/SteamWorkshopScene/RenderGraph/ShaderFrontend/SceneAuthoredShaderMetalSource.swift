@@ -38,12 +38,16 @@ nonisolated enum SceneAuthoredShaderMetalSource {
 
     static func prelude(
         defines: [String: String],
-        colorTransfer: SceneShaderColorTransfer
+        colorTransfer: SceneShaderColorTransfer,
+        requiresInputColorBoundary: Bool = false
     ) -> String {
         let authoredDefines = defines.sorted { $0.key < $1.key }.map {
             "#define \($0.key) \($0.value)"
         }.joined(separator: "\n")
-        let colorBoundary = colorBoundaryHelpers(for: colorTransfer)
+        let colorBoundary = colorBoundaryHelpers(
+            for: colorTransfer,
+            requiresInputColorBoundary: requiresInputColorBoundary
+        )
         return """
         #include <metal_stdlib>
         using namespace metal;
@@ -191,7 +195,8 @@ nonisolated enum SceneAuthoredShaderMetalSource {
     }
 
     private static func colorBoundaryHelpers(
-        for transfer: SceneShaderColorTransfer
+        for transfer: SceneShaderColorTransfer,
+        requiresInputColorBoundary: Bool
     ) -> String {
         switch transfer {
         case .straightAlphaPreserving, .straightAlpha, .straightAlphaUNorm,
@@ -200,7 +205,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
              .independentAlphaSignalCompositing:
             break
         default:
-            return ""
+            if !requiresInputColorBoundary { return "" }
         }
         return """
         float4 mwxUnpremultiply(float4 color) {

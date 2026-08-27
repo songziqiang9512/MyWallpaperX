@@ -74,6 +74,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let uniformLayout: UniformLayout
         let textureBindings: [TextureBinding]
         let staticLoopWork: Int
+        let premultipliedColorInputSlots: [Int]
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
     }
@@ -91,7 +92,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         program: Program
     ) {
-        schemaVersion = 6
+        schemaVersion = 7
         kind = "scene-generic-shader-program-artifact"
         self.backendID = backendID
         self.requestKey = requestKey
@@ -102,11 +103,12 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
     func makeProgram(
         expectedKey: String,
         expectedOutputSemantics: SceneGenericShaderOutputSemantics = .color,
+        expectedPremultipliedColorInputSlots: Set<Int> = [],
         expectedColorTransfer: SceneShaderColorTransfer,
         expectedFragmentOutputChannelUse:
             SceneAuthoredShaderProgram.FragmentOutputChannelUse
     ) -> SceneAuthoredShaderProgram? {
-        guard schemaVersion == 6,
+        guard schemaVersion == 7,
               kind == "scene-generic-shader-program-artifact",
               backendID == "glslang-spirv-cross-msl-v2",
               requestKey == expectedKey,
@@ -161,7 +163,13 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
               SceneMaterialTextureTransformABI.validates(
                   layout: layout,
                   activeSlots: Set(bindings.map(\.slot))
-              ) else { return nil }
+              ), raw.premultipliedColorInputSlots
+                == expectedPremultipliedColorInputSlots.sorted(),
+              Set(raw.premultipliedColorInputSlots).count
+                == raw.premultipliedColorInputSlots.count,
+              raw.premultipliedColorInputSlots.allSatisfy({ slot in
+                  bindings.contains(where: { $0.slot == slot })
+              }) else { return nil }
         let colorTransfer: SceneShaderColorTransfer
         switch (raw.colorTransfer.kind, raw.colorTransfer.slot, raw.colorTransfer.slots) {
         case let ("passthrough", slot?, nil):

@@ -13,6 +13,10 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.scene_resolved_material_program_first_test_support import (
+    assert_authored_material_families_use_program_first_pair_adapters,
+)
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -309,6 +313,7 @@ struct SceneDependencyRenderPlan {
             case resolvedMaterial
             case solidLayer
             case imageLayerBlend
+            case visibleImageGraphOutput
         }
 
         let consumerLayerID: Int
@@ -1957,7 +1962,8 @@ private func externalSolidCatalog(
 
 private func imageBlendCatalog(
     ownershipProviderLayerID: Int?,
-    programAvailable: Bool
+    programAvailable: Bool,
+    bindingKind: SceneDependencyRenderPlan.Binding.Kind = .imageLayerBlend
 ) -> Catalog {
     let graph = externalResolvedMaterialGraph()
     let hasExternalOwnership = ownershipProviderLayerID != nil
@@ -1971,7 +1977,7 @@ private func imageBlendCatalog(
         references: hasExternalOwnership ? [reference] : [],
         bindings: hasExternalOwnership ? [dependencyBinding(
             providerLayerID: providerLayerID,
-            kind: .imageLayerBlend
+            kind: bindingKind
         )] : []
     )
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -2715,6 +2721,19 @@ private enum Harness {
             ownershipProviderLayerID: nil,
             programAvailable: false
         )
+        let visibleGraphOutput = imageBlendCatalog(
+            ownershipProviderLayerID: providerLayerID,
+            programAvailable: true,
+            bindingKind: .visibleImageGraphOutput
+        )
+        let visibleGraphOutputCapability = visibleGraphOutput
+            .claim(layerID: layerID)
+            .flatMap { visibleGraphOutput.resolve($0.token) }
+        let visibleGraphOutputWithoutProgram = imageBlendCatalog(
+            ownershipProviderLayerID: providerLayerID,
+            programAvailable: false,
+            bindingKind: .visibleImageGraphOutput
+        )
         let solidGraph = externalResolvedMaterialGraph()
         let externalSolid = externalSolidCatalog(
             descriptor: externalSolidDescriptor(),
@@ -2850,6 +2869,24 @@ private enum Harness {
                 && binding.kind == .resolvedMaterial
         } else {
             externalOwnershipMatches = false
+        }
+        let visibleGraphOutputOwnershipMatches: Bool
+        if let visibleGraphOutputCapability,
+           case let .externalPrimary(binding) =
+            visibleGraphOutputCapability.dependencyOwnership {
+            visibleGraphOutputOwnershipMatches =
+                binding.kind == .visibleImageGraphOutput
+                    && binding.consumerLayerID == layerID
+                    && binding.providerLayerID == providerLayerID
+                    && binding.slot == .init(
+                        effectID: firstKey.descriptorID,
+                        passIndex: 0,
+                        slotIndex: 1
+                    )
+                    && binding.referenceSlots == [binding.slot]
+                    && binding.blendMode == 0
+        } else {
+            visibleGraphOutputOwnershipMatches = false
         }
         let claim = success.claim(layerID: layerID)!
         let capability = success.resolve(claim.token)!
@@ -4347,6 +4384,17 @@ private enum Harness {
                         standaloneImageBlend,
                         "material-template-unsupported"
                     ),
+                "visibleGraphOutputUsesResolvedProgram":
+                    visibleGraphOutputOwnershipMatches
+                    && visibleGraphOutputCapability?.stages.compactMap(\.subject)
+                        .map(\.family) == ["resolved-material"]
+                    && visibleGraphOutputCapability?.materials.count == 1,
+                "visibleGraphOutputDoesNotReviveDedicatedFallback":
+                    visibleGraphOutputWithoutProgram.claim(layerID: layerID) == nil
+                    && reportHas(
+                        visibleGraphOutputWithoutProgram,
+                        "material-template-unsupported"
+                    ),
                 "externalSolidAccepted":
                     externalSolidCapability?.stages.count == 1,
                 "externalSolidDoesNotFallback": reportHas(
@@ -4591,6 +4639,7 @@ enum SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
             case resolvedMaterial, solidLayer, imageLayerBlend
+            case visibleImageGraphOutput
         }
         let consumerLayerID: Int
         let providerLayerID: Int
@@ -7558,107 +7607,13 @@ private enum Main {
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
     def test_authored_material_families_use_program_first_pair_adapters(self) -> None:
-        source = EFFECT_BACKEND_SOURCE.read_text(encoding="utf-8")
-        leaf_start = source.index("        var supportsUnifiedPairLeaf: Bool")
-        logical_start = source.index(
-            "    nonisolated var supportsUnifiedLogicalTargetStage: Bool"
-        )
-        leaf_body = source[leaf_start:logical_start]
-        logical_end = source.index("\n    nonisolated var standardBlur:", logical_start)
-        logical_body = source[logical_start:logical_end]
-
-        for backend_name in (".xRay", ".pulse"):
-            self.assertIn(backend_name, leaf_body)
-        self.assertNotIn(".blend", leaf_body)
-        self.assertNotIn(".waterWaves", leaf_body)
-        self.assertNotIn(".waterFlow", source)
-        self.assertNotIn("yieldsToResolvedMaterialProgram", source)
-        self.assertNotIn(".lightShafts", leaf_body)
-        self.assertNotIn("proceduralNoise", leaf_body)
-        self.assertNotIn(".spin", source)
-        self.assertNotIn(".workshopAudioBars", leaf_body)
-        self.assertNotIn("fisheyeZeroDistortion", leaf_body)
-        self.assertIn("case .standardBlur:", logical_body)
-        self.assertNotIn("preciseGaussian", source)
-        self.assertNotIn("case .localContrast:", logical_body)
-        self.assertNotIn("case .godrays", logical_body)
-        dedicated_compilers = (
-            SCENE_ROOT
-            / "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
-        ).read_text(encoding="utf-8")
-        self.assertNotIn("SceneAuthoredGodraysPlanner", dedicated_compilers)
-        self.assertNotIn("SceneAuthoredWaterWavesPlanner", dedicated_compilers)
-        self.assertNotIn(
-            "stock-radial-owner-revoked-to-material-program",
-            dedicated_compilers,
-        )
-        self.assertNotIn(".shine", source)
-        self.assertNotIn("case .cursorRipple:", logical_body)
-
-        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("Self.compileProgramFirstStages(", capability)
-        stages = CAPABILITY_STAGES_SOURCE.read_text(encoding="utf-8")
-        program_first = CAPABILITY_PROGRAM_FIRST_SOURCE.read_text(encoding="utf-8")
-        for product_source in (stages, program_first):
-            self.assertNotIn("yieldsToResolvedMaterialProgram", product_source)
-        for empty_argument in (
-            "dedicatedStagePrograms: []",
-            "dedicatedStageFamilies: [:]",
-            "dedicatedLeafKeys: []",
-        ):
-            self.assertNotIn(empty_argument, program_first)
-        for removed_parameter in (
-            "dedicatedStagePrograms:",
-            "dedicatedStageFamilies:",
-            "dedicatedLeafKeys:",
-        ):
-            self.assertNotIn(removed_parameter, stages)
-        self.assertLess(
-            program_first.index("let programResult = compileStages("),
-            program_first.index("case let .failure(programFailure):"),
-        )
-        self.assertNotIn("externallyOwnedImageBlendProgram", program_first)
-        self.assertNotIn("isExternallyOwnedImageBlend(", program_first)
-        self.assertNotIn(
-            "let hasDedicatedImageBlendDependencyStage = stages.contains",
-            program_first,
-        )
-        image_blend_case = program_first.index("case .imageLayerBlend:")
-        self.assertIn(
-            "return false",
-            program_first[image_blend_case:image_blend_case + 100],
-        )
-        self.assertIn("dedicatedLeafKeys.contains(effect.key)", program_first)
-        self.assertIn("dedicatedGraphStageKeys.contains(effect.key)", program_first)
-        self.assertIn("supportsUnifiedLogicalTargetStage", program_first)
-        self.assertNotIn("dedicatedFullFrameComposeStageKeys", program_first)
-        self.assertNotIn("supportsUnifiedFullFrameComposeStage", program_first)
-        self.assertIn(
-            "effect.input == admitted.pairPlan.baseCaptureIdentity",
-            program_first,
-        )
-        self.assertIn("sourceRoute: stageSourceRoute", program_first)
-        captured_route_start = program_first.index(
-            "let sourceRouteExecutable ="
-        )
-        captured_route_end = program_first.index(
-            "guard pairLeaf || logicalTargetStage,",
-            captured_route_start,
-        )
-        captured_route_guard = program_first[
-            captured_route_start:captured_route_end
-        ]
-        captured_route_compact = "".join(captured_route_guard.split())
-        self.assertIn(
-            "stageSourceRoute!=.capturedMainTargetTexture"
-            "||((pairLeaf||logicalTargetStage)"
-            "&&program.executionPlan.supportsUtilityCapture)",
-            captured_route_compact,
-        )
-        self.assertNotIn("fullFrameComposeStage", captured_route_guard)
-        self.assertIn(
-            "dynamicTargetsExecutable,\n                      sourceRouteExecutable else",
-            program_first[captured_route_end:],
+        assert_authored_material_families_use_program_first_pair_adapters(
+            self,
+            scene_root=SCENE_ROOT,
+            effect_backend_source=EFFECT_BACKEND_SOURCE,
+            capability_source=CAPABILITY_SOURCE,
+            capability_stages_source=CAPABILITY_STAGES_SOURCE,
+            capability_program_first_source=CAPABILITY_PROGRAM_FIRST_SOURCE,
         )
 
     def test_stage_activation_excludes_dependency_owned_stages(self) -> None:
@@ -8304,6 +8259,8 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "externalImageBlendUsesResolvedProgram": True,
                 "externalImageBlendDoesNotReviveDedicatedFallback": True,
                 "standaloneImageBlendDoesNotReviveDedicatedOwner": True,
+                "visibleGraphOutputUsesResolvedProgram": True,
+                "visibleGraphOutputDoesNotReviveDedicatedFallback": True,
                 "externalSolidAccepted": True,
                 "externalSolidDoesNotFallback": True,
                 "externalSolidRejectsWrongProvider": True,

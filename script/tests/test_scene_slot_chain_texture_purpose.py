@@ -392,6 +392,12 @@ private enum Main {
         let providerCandidate = Template.TextureCandidate(
             reference: .provider(.system("fixture")), provenance: .userTexture
         )
+        let namedLayerProviderCandidate = Template.TextureCandidate(
+            reference: .provider(.namedLayerTarget(.init(
+                providerLayerID: 77, variant: .primary
+            ))),
+            provenance: .userTexture
+        )
         let userCandidate = Template.TextureCandidate(
             reference: .userProperty(.init(key: "fixture")),
             provenance: .userTexture
@@ -455,6 +461,14 @@ private enum Main {
                     ordinal: 0,
                     samplerOverride: provenSampler
                 )?.reportToken == "straight-albedo",
+                "sourceNamedLayerProvider": purpose(
+                    validatedTemplate(
+                        from: template,
+                        candidates: [namedLayerProviderCandidate]
+                    ),
+                    ordinal: 0,
+                    samplerOverride: provenSampler
+                )?.reportToken == "premultiplied-color",
                 "sourceCurrentRegistryConflict": purpose(
                     validatedTemplate(from: template, candidates: [conflict]),
                     ordinal: 0,

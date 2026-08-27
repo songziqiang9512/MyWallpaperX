@@ -469,6 +469,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return false
             case .imageLayerBlend:
                 return false
+            case .visibleImageGraphOutput:
+                return false
             }
         }
     }

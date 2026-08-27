@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 from typing import Any
 
@@ -16,13 +15,21 @@ from scene_shader_compiler_msl_function_contract import (
     sample_end as _sample_end,
 )
 from scene_shader_compiler_loop_budget import static_loop_work as _static_loop_work
+from scene_shader_compiler_input_color_contract import (
+    InputColorContractFailure,
+    premultiplied_color_input_slots as parse_input_color_slots,
+)
 from scene_shader_compiler_passthrough_contract import aliased_texture_passthrough
 from scene_shader_compiler_color_transfer_contract import (
     IndependentSignalContractFailure,
-    expected_color_transfer_key,
     independent_signal_static_loop_work,
-    parse_expected_transfer,
     prepare_independent_signal_contract,
+)
+from scene_shader_compiler_request_contract import (
+    RequestContractFailure,
+    expected_color_transfer_for_output as _expected_color_transfer_for_output,
+    expected_independent_color_transfer as _expected_independent_color_transfer,
+    request_cache_key as _request_cache_key,
 )
 
 
@@ -72,58 +79,25 @@ TEXTURE_TRANSFORM_FIELD = re.compile(r"mwxTexture(?P<slot>[0-7])Transform(?P<par
 
 def expected_independent_color_transfer(value: Any) -> dict[str, Any] | None:
     try:
-        return parse_expected_transfer(value)
-    except IndependentSignalContractFailure as error:
+        return _expected_independent_color_transfer(value)
+    except RequestContractFailure as error:
         raise ArtifactFailure(error.code) from error
 
 
 def expected_color_transfer_for_output(
     output_semantics: Any, value: Any
 ) -> dict[str, Any] | None:
-    if output_semantics not in ("color", "red-green-unorm"):
-        raise ArtifactFailure("output-semantics")
-    if output_semantics == "red-green-unorm" and value is not None:
-        raise ArtifactFailure("expected-color-transfer")
-    return None if output_semantics != "color" else (
-        expected_independent_color_transfer(value)
-    )
+    try:
+        return _expected_color_transfer_for_output(output_semantics, value)
+    except RequestContractFailure as error:
+        raise ArtifactFailure(error.code) from error
 
 
 def request_cache_key(request: dict[str, Any]) -> str:
-    if request.get("schemaVersion") != 4:
-        raise ArtifactFailure("request-schema")
-    raw_stages = request.get("stages")
-    if not isinstance(raw_stages, list):
-        raise ArtifactFailure("request-stages")
-    sources: dict[str, str] = {}
-    for stage in raw_stages:
-        if not isinstance(stage, dict):
-            raise ArtifactFailure("request-stage")
-        name, source = stage.get("stage"), stage.get("source")
-        if name not in ("vertex", "fragment") or not isinstance(source, str):
-            raise ArtifactFailure("request-stage")
-        sources[name] = source
-    if set(sources) != {"vertex", "fragment"}:
-        raise ArtifactFailure("request-pair")
-    output_semantics = request.get("outputSemantics")
-    expected = expected_color_transfer_for_output(
-        output_semantics, request.get("expectedColorTransfer")
-    )
-    expected_key = expected_color_transfer_key(expected)
-    digest = hashlib.sha256()
-    for value in (
-        "mwx-generic-shader-request-v9",
-        str(request.get("sourceDialect", "glsl-450")),
-        output_semantics,
-        sources["vertex"],
-        sources["fragment"],
-        expected_key,
-        json.dumps(request.get("defines", {}), sort_keys=True, separators=(",", ":")),
-    ):
-        encoded = value.encode("utf-8")
-        digest.update(len(encoded).to_bytes(8, "big"))
-        digest.update(encoded)
-    return digest.hexdigest()
+    try:
+        return _request_cache_key(request)
+    except RequestContractFailure as error:
+        raise ArtifactFailure(error.code) from error
 
 
 def _uniform_layout(reflection: dict[str, Any]) -> tuple[list[dict[str, Any]], int]:
@@ -702,7 +676,18 @@ def build_program_artifact(
     maximum_artifact_bytes: int,
     output_semantics: str = "color",
     expected_color_transfer: dict[str, Any] | None = None,
+    premultiplied_color_input_slots: list[int] | None = None,
 ) -> dict[str, Any]:
+    try:
+        input_slots = parse_input_color_slots(
+            []
+            if premultiplied_color_input_slots is None
+            else premultiplied_color_input_slots
+        )
+    except InputColorContractFailure as error:
+        raise ArtifactFailure(str(error)) from error
+    if input_slots:
+        raise ArtifactFailure("premultiplied-color-input-lowering-unsupported")
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
     expected = expected_color_transfer_for_output(
@@ -777,7 +762,7 @@ def build_program_artifact(
         if static_loop_work > 256:
             raise ArtifactFailure("loop-budget")
     return {
-        "schemaVersion": 6,
+        "schemaVersion": 7,
         "kind": "scene-generic-shader-program-artifact",
         "backendID": backend_id,
         "requestKey": request_key,
@@ -793,6 +778,7 @@ def build_program_artifact(
             },
             "textureBindings": texture_bindings,
             "staticLoopWork": static_loop_work,
+            "premultipliedColorInputSlots": input_slots,
             "fragmentOutputChannelUse": "unproven",
             "colorTransfer": color_transfer,
         },
