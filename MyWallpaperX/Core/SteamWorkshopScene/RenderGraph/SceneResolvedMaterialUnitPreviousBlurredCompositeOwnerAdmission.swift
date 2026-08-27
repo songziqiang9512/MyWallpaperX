@@ -16,6 +16,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
     private enum SourceCohort: Equatable {
         case ordinary
         case capturedMain
+        case copyOnlyCapturedMain
+        case passthroughOnlyCapturedMain
         case copyPassthroughCapturedMain
     }
 
@@ -30,7 +32,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               graph.effects[0].nodeIndices.last == key.nodeIndex,
               let layer = descriptor.layers.first(where: {
                   $0.id == graph.layerID
-              }), sourceCohort(layer) != nil,
+              }), let source = sourceCohort(layer),
               let inputRole = SceneAuthoredEffectInputValidator.role(
                   for: graph.effects[0].input,
                   layerID: graph.layerID
@@ -40,10 +42,13 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   descriptor: descriptor,
                   inputRole: inputRole
               ), stage.standardBlur != nil,
-              wholeStageScaleCohort(
+              let scale = wholeStageScaleCohort(
                   graph: graph,
                   descriptor: descriptor
-              ) != nil else { return false }
+              ), sourceScaleCohortIsProven(
+                  source: source,
+                  scale: scale
+              ) else { return false }
         return true
     }
 
@@ -62,6 +67,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             "captured-main-copy-passthrough-static-owner-revoked-to-material-program"
         case (.copyPassthroughCapturedMain?, .userPropertyScalarSplat?):
             "captured-main-copy-passthrough-typed-user-scalar-splat-owner-revoked-to-material-program"
+        case (.copyOnlyCapturedMain?, .staticExact?):
+            "captured-main-copy-only-static-owner-revoked-to-material-program"
+        case (.passthroughOnlyCapturedMain?, .staticExact?):
+            "captured-main-passthrough-only-static-owner-revoked-to-material-program"
         case (.capturedMain?, .staticExact?):
             "captured-main-static-owner-revoked-to-material-program"
         case (.capturedMain?, .userPropertyScalarSplat?):
@@ -70,15 +79,16 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             "static-owner-revoked-to-material-program"
         case (.ordinary?, .userPropertyScalarSplat?):
             "typed-user-scalar-splat-owner-revoked-to-material-program"
-        case (nil, _), (_, nil):
+        case (.copyOnlyCapturedMain?, .userPropertyScalarSplat?),
+             (.passthroughOnlyCapturedMain?, .userPropertyScalarSplat?),
+             (nil, _), (_, nil):
             nil
         }
     }
 
-    /// Utility layers enter the same resolved-material executor through a
-    /// captured-main source. The two observed flag pairs share that capture;
-    /// mixed copy/passthrough states and dependency/child lifecycles remain
-    /// outside this owner transfer.
+    /// The product source route resolves every childless utility flag pair to
+    /// captured main. This gate preserves each authored pair as a distinct
+    /// diagnostic cohort; dependency and child lifecycles remain outside.
     private static func sourceCohort(
         _ layer: SceneRenderDescriptor.Layer
     ) -> SourceCohort? {
@@ -97,7 +107,28 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
         return switch (utility.copyBackground, utility.passthrough) {
         case (false, false): .capturedMain
         case (true, true): .copyPassthroughCapturedMain
-        case (false, true), (true, false): nil
+        case (true, false): .copyOnlyCapturedMain
+        case (false, true): .passthroughOnlyCapturedMain
+        }
+    }
+
+    private static func sourceScaleCohortIsProven(
+        source: SourceCohort,
+        scale: ScaleCohort
+    ) -> Bool {
+        switch (source, scale) {
+        case (.copyOnlyCapturedMain, .userPropertyScalarSplat),
+             (.passthroughOnlyCapturedMain, .userPropertyScalarSplat):
+            false
+        case (.ordinary, .staticExact),
+             (.ordinary, .userPropertyScalarSplat),
+             (.capturedMain, .staticExact),
+             (.capturedMain, .userPropertyScalarSplat),
+             (.copyOnlyCapturedMain, .staticExact),
+             (.passthroughOnlyCapturedMain, .staticExact),
+             (.copyPassthroughCapturedMain, .staticExact),
+             (.copyPassthroughCapturedMain, .userPropertyScalarSplat):
+            true
         }
     }
 
@@ -224,10 +255,14 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     slot: slots.previous,
                     identity: effect.input
                 ) else { return false }
-        if source != .copyPassthroughCapturedMain {
+        switch source {
+        case .ordinary, .capturedMain:
             guard template.textureSlots.indices.contains(slots.previous),
                   template.textureSlots[slots.previous]?.candidates.count == 1
             else { return false }
+        case .copyOnlyCapturedMain, .passthroughOnlyCapturedMain,
+             .copyPassthroughCapturedMain:
+            break
         }
         guard case let .straightAlphaPreserving(sourceSlot) =
                 SceneAuthoredShaderColorTransferAnalyzer.analyze(

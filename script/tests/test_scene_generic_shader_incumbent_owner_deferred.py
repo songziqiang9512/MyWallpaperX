@@ -811,7 +811,8 @@ fragment float4 mwxGenericFragment(
         for captured_main_boundary in (
             "case (false, false): .capturedMain",
             "case (true, true): .copyPassthroughCapturedMain",
-            "case (false, true), (true, false): nil",
+            "case (true, false): .copyOnlyCapturedMain",
+            "case (false, true): .passthroughOnlyCapturedMain",
             "layer.childLayerIDs.isEmpty",
             "layer.dependencyLayerIDs.isEmpty",
             "layer.authoredDependencies.isEmpty",
@@ -819,10 +820,20 @@ fragment float4 mwxGenericFragment(
             self.assertIn(captured_main_boundary, owner_gate)
         self.assertNotIn("blur.maskTexturePath == nil", owner_gate)
         self.assertIn("SceneAuthoredEffectInputValidator.role(", owner_gate)
+        self.assertIn("sourceScaleCohortIsProven(", owner_gate)
         self.assertIn(
-            "sourceCohort(layer) != nil",
+            "case (.copyOnlyCapturedMain, .userPropertyScalarSplat)",
             owner_gate,
         )
+        self.assertIn(
+            "(.passthroughOnlyCapturedMain, .userPropertyScalarSplat):",
+            owner_gate,
+        )
+        source_scale_gate = owner_gate[
+            owner_gate.index("private static func sourceScaleCohortIsProven("):
+            owner_gate.index("static func acceptsDedicatedRevocation(")
+        ]
+        self.assertNotIn("default:", source_scale_gate)
         self.assertIn(".userPropertyScalarSplat", owner_gate)
         self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
         self.assertIn("components.count == 1 || components.count == 2", owner_gate)
@@ -838,6 +849,27 @@ fragment float4 mwxGenericFragment(
         self.assertIn(
             '"captured-main-copy-passthrough-typed-user-scalar-splat-'
             'owner-revoked-to-material-program"',
+            owner_gate,
+        )
+        self.assertIn(
+            '"captured-main-copy-only-static-owner-revoked-to-material-program"',
+            owner_gate,
+        )
+        self.assertIn(
+            '"captured-main-passthrough-only-static-'
+            'owner-revoked-to-material-program"',
+            owner_gate,
+        )
+        self.assertNotIn("captured-main-copy-only-typed-user-scalar", owner_gate)
+        self.assertNotIn(
+            "captured-main-passthrough-only-typed-user-scalar", owner_gate
+        )
+        self.assertIn(
+            "case .ordinary, .capturedMain:",
+            owner_gate,
+        )
+        self.assertIn(
+            ".copyPassthroughCapturedMain:",
             owner_gate,
         )
         revocation_gate = owner_admission[
