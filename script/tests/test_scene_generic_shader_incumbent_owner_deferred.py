@@ -725,7 +725,11 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             incumbent_cases,
         )
         owner_gate = owner_admission[owner_admission.index("static func accepts("):]
-        self.assertIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)
+        self.assertIn(
+            "SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission",
+            owner_gate,
+        )
+        self.assertNotIn("SceneAuthoredStandardBlurPlanner.plan(", owner_gate)
         self.assertIn("let source = sourceCohort(layer)", owner_gate)
         for captured_main_boundary in (
             "case (false, false): .capturedMain",

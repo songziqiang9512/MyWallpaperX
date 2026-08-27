@@ -81,7 +81,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
             ),
         )
-        self.assertEqual(len(planning), 13)
+        self.assertEqual(len(planning), 14)
         self.assertEqual(
             planning,
             (
@@ -89,6 +89,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderContract/SceneShaderContract.swift",
@@ -107,6 +108,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectDefinition.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredMaterialResolver.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
             },
         )
 

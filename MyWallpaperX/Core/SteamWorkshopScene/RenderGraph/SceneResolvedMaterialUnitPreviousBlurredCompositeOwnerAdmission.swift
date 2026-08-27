@@ -1,9 +1,9 @@
 import Foundation
 
-/// Temporary whole-stage owner gate for the first generic Standard Blur
-/// cohort. The source-local composite fact remains reusable, but it cannot
-/// authorize product output until the surrounding graph and authored scale
-/// shape are inside the independently verified cohort.
+/// Whole-stage owner gate for the shared blurred/current composite cohort.
+/// The shared graph contract is independent of the incumbent planner; source,
+/// typed-input, and lifecycle checks remain narrower so unproven shapes keep
+/// the existing product fallback.
 nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -38,11 +38,12 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   for: graph.effects[0].input,
                   layerID: graph.layerID
               ), requiredInputRole == nil || requiredInputRole == inputRole,
-              let stage = SceneAuthoredStandardBlurPlanner.plan(
-                  graph: graph,
-                  descriptor: descriptor,
-                  inputRole: inputRole
-              ), stage.standardBlur != nil,
+              SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
+                  .accepts(
+                      graph: graph,
+                      descriptor: descriptor,
+                      inputRole: inputRole
+                  ),
               let scale = wholeStageScaleCohort(
                   graph: graph,
                   descriptor: descriptor

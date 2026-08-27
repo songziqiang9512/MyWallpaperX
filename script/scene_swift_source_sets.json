@@ -34,6 +34,7 @@
         "RenderGraph/SceneEffectDefinition.swift",
         "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
         "RenderGraph/SceneAuthoredMaterialResolver.swift",
+        "RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
         "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
         "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
         "RenderGraph/ShaderContract/SceneShaderContract.swift",
