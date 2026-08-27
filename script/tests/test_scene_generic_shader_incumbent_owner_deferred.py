@@ -916,7 +916,7 @@ fragment float4 mwxGenericFragment(
             dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
         ]
         self.assertIn("colorOnlyRGBProgramOwnerIsProven(", pulse_compiler)
-        self.assertIn("staticAlphaOnlyProgramOwnerIsProven(", pulse_compiler)
+        self.assertIn("scalarAlphaProgramOwnerIsProven(", pulse_compiler)
         for static_profile in (
             ".stock2842",
             ".directPhaseSaturateV1",
@@ -979,40 +979,44 @@ fragment float4 mwxGenericFragment(
             ".straightRGBScalarAlphaFact(",
             pulse_compiler,
         )
+        self.assertIn(
+            ".rgbBlendScalarAlphaFact(",
+            pulse_compiler,
+        )
         for alpha_guard in (
             "plan.audio == nil || plan.shaderProfile == .stock2842",
             "plan.bindings.isEmpty",
-            "!plan.pulseColor",
             "plan.pulseAlpha",
             "plan.maskTexturePath == nil",
             "auxiliaryShapeIsProven",
             "plan.shaderProfile == .stock2842",
-            "fact.auxiliarySlots.isEmpty",
+            "sourceShape.auxiliarySlots.isEmpty",
             "Set(samplers.keys)",
             "graphTargetSlots.isEmpty",
             ".sourceProvenGraphInputStraightRGBScalarAlpha",
+            ".sourceProvenGraphInputRGBBlendScalarAlpha",
         ):
             self.assertIn(alpha_guard, pulse_compiler)
         alpha_owner = pulse_compiler[
             pulse_compiler.index(
                 "private nonisolated static func "
-                "staticAlphaOnlyProgramOwnerIsProven("
+                "scalarAlphaProgramOwnerIsProven("
             ):
         ]
         self.assertIn(
             "if plan.audio == nil {\n"
-            "                auxiliaryShapeIsProven = "
-            "!fact.auxiliarySlots.isEmpty",
+                "                auxiliaryShapeIsProven = "
+            "!sourceShape.auxiliarySlots.isEmpty",
             alpha_owner,
         )
         self.assertIn(
             "plan.shaderProfile == .stock2842\n"
-            "                    && fact.auxiliarySlots.isEmpty",
+            "                    && sourceShape.auxiliarySlots.isEmpty",
             alpha_owner,
         )
         self.assertNotIn(
             "graphTargetSlots.isEmpty,\n"
-            "                  !fact.auxiliarySlots.isEmpty,",
+            "                  !sourceShape.auxiliarySlots.isEmpty,",
             alpha_owner,
         )
         self.assertIn("typedStaticDataAuxiliarySlots(", pulse_compiler)
@@ -1039,6 +1043,7 @@ fragment float4 mwxGenericFragment(
             "static-rgb-preserving", "audio-color-only-rgb",
             "typed-user-property-rgb",
             "static-alpha-only", "audio-alpha-only",
+            "static-rgb-alpha", "audio-rgb-alpha",
         ):
             self.assertIn(
                 f'"{revocation_detail}-owner-revoked-to-material-program"',

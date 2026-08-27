@@ -100,6 +100,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-single-sampler-alpha-mutation"
     case sourceProvenGraphInputStraightRGBScalarAlpha =
         "source-proven-graph-input-straight-rgb-scalar-alpha"
+    case sourceProvenGraphInputRGBBlendScalarAlpha =
+        "source-proven-graph-input-rgb-blend-scalar-alpha"
     case sourceProvenGraphInputSameSlotChannelReconstruction =
         "source-proven-graph-input-same-slot-channel-reconstruction"
     case sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving =
@@ -192,6 +194,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             )
         let sameSlotColorReplacementSourceSlot =
             SceneAuthoredShaderSameSlotMixAnalyzer.aliasReplacementSourceSlot(
+                fragmentSource: fragmentSource
+            )
+        let rgbBlendScalarAlphaFact =
+            SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
                 fragmentSource: fragmentSource
             )
         if producesPreservedRGBAOutput,
@@ -441,6 +447,17 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputSingleSamplerAlphaMutation
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  rgbBlendScalarAlphaFact?.sourceSlot == sourceSlot,
+                  rgbBlendScalarAlphaFact?.auxiliarySlots
+                    == typedStaticDataAuxiliarySlots,
+                  activeTextureSlots
+                    == typedStaticDataAuxiliarySlots.union([sourceSlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputRGBBlendScalarAlpha
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   straightRGBScalarAlphaSourceSlot == sourceSlot,
                   straightRGBScalarAlphaAuxiliarySlots
                     == typedStaticDataAuxiliarySlots,
@@ -549,6 +566,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
              .sourceProvenGraphInputStraightRGBScalarAlpha,
+             .sourceProvenGraphInputRGBBlendScalarAlpha,
              .sourceProvenGraphInputSameSlotChannelReconstruction,
              .sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving,
              .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary,
@@ -584,6 +602,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         case .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenGraphInputTypedDataRGBFilter,
              .sourceProvenGraphInputStraightRGBScalarAlpha,
+             .sourceProvenGraphInputRGBBlendScalarAlpha,
              .sourceProvenUnitPreviousBlurredComposite:
             .none
         case .sourceProvenUnitPreviousBlurredCompositeUnowned:

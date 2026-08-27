@@ -41,6 +41,14 @@ extension SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
+            let rgbBlendScalarAlphaLowering: String? =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .rgbBlendScalarAlphaFact(fragmentSource: authoredSource)
+                    .flatMap { fact in
+                        guard fact.sourceSlot == expectedSlot else { return nil }
+                        return SceneGenericShaderRGBBlendScalarAlphaLowering
+                            .lower(source, fact: fact)
+                    }
             let weightedAverage = SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer
                 .analyze(fragmentSource: authoredSource)
             let weightedLowering: String? = weightedAverage.flatMap { fact in
@@ -67,7 +75,8 @@ extension SceneGenericShaderArtifactBuilder {
                 source,
                 requiresStraightColorBoundary: requiresStraightColorBoundary
             )
-            let lowered = weightedLowering
+            let lowered = rgbBlendScalarAlphaLowering
+                ?? weightedLowering
                 ?? scalarAlphaLowering
                 ?? (direct?.transfer.slot == expectedSlot ? direct?.msl : nil)
                 ?? SceneGenericShaderStraightAlphaPreservingLowering

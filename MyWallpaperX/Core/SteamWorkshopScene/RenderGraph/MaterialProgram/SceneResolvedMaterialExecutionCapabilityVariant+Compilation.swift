@@ -180,6 +180,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
                 fragmentSource: compilerSources.fragment
             )
+        let rgbBlendScalarAlphaFact =
+            SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
+                fragmentSource: compilerSources.fragment
+            )
         let sourceColorTransfer: SceneShaderColorTransfer =
             spatialWeightedColorBlendFact.map {
                 .straightAlphaPreserving(textureSlot: $0.sourceSlot)
@@ -199,6 +203,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         ) {
             preservedAlphaRGBColorSlots = [fact.sourceSlot]
         } else if let fact = sameAlphaReconstructedRGBFact {
+            preservedAlphaRGBColorSlots = [fact.sourceSlot]
+        } else if let fact = rgbBlendScalarAlphaFact {
             preservedAlphaRGBColorSlots = [fact.sourceSlot]
         } else {
             preservedAlphaRGBColorSlots = []

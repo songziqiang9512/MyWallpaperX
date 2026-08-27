@@ -164,10 +164,16 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             } else {
                 detail = "audio-color-only-rgb-owner-revoked-to-material-program"
             }
-        } else if staticAlphaOnlyProgramOwnerIsProven(plan: plan, input: input) {
-            detail = plan.audio == nil
-                ? "static-alpha-only-owner-revoked-to-material-program"
-                : "audio-alpha-only-owner-revoked-to-material-program"
+        } else if scalarAlphaProgramOwnerIsProven(plan: plan, input: input) {
+            if plan.pulseColor {
+                detail = plan.audio == nil
+                    ? "static-rgb-alpha-owner-revoked-to-material-program"
+                    : "audio-rgb-alpha-owner-revoked-to-material-program"
+            } else {
+                detail = plan.audio == nil
+                    ? "static-alpha-only-owner-revoked-to-material-program"
+                    : "audio-alpha-only-owner-revoked-to-material-program"
+            }
         } else {
             return result
         }
@@ -328,26 +334,20 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         return true
     }
 
-    /// Revokes only canonical alpha-only Pulse shapes whose
-    /// prepared source proves one graph-input carrier and exact typed scalar
-    /// auxiliaries. Audio is limited to the stock profile whose typed response
-    /// parameters are re-derived below; exact user-property uniforms must prove
-    /// the existing typed Program consumer. Mask, SceneScript/Timeline,
-    /// provider, and broader alpha forms retain the incumbent owner.
-    private nonisolated static func staticAlphaOnlyProgramOwnerIsProven(
+    /// Revokes canonical alpha-writing Pulse shapes only after source analysis
+    /// proves either preserved RGB or an RGB blend driven by the same scalar.
+    /// Mask, binding, provider, and historical combined forms retain incumbent.
+    private nonisolated static func scalarAlphaProgramOwnerIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput
     ) -> Bool {
         typealias Graph = SceneAuthoredEffectRenderPlan
-        let supportedProfiles: [ScenePulseShaderProfile] = [
-            .stock2842,
-            .directPhaseSaturateV1,
-            .directPhaseMaxClampV1,
-        ]
+        let supportedProfiles: [ScenePulseShaderProfile] = plan.pulseColor
+            ? [.stock2842]
+            : [.stock2842, .directPhaseSaturateV1, .directPhaseMaxClampV1]
         guard supportedProfiles.contains(plan.shaderProfile),
               plan.bindings.isEmpty,
               plan.audio == nil || plan.shaderProfile == .stock2842,
-              !plan.pulseColor,
               plan.pulseAlpha,
               plan.maskTexturePath == nil,
               input.stageGraph.effects.count == 1,
@@ -408,12 +408,37 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             let transfer = SceneAuthoredShaderColorTransferAnalyzer.analyze(
                 fragmentSource: sources.fragment
             )
-            guard let fact = SceneAuthoredShaderColorTransferAnalyzer
-                    .straightRGBScalarAlphaFact(
-                        fragmentSource: sources.fragment
-                    ),
-                  transfer == .straightAlpha(textureSlot: fact.sourceSlot),
-                  let activeNames =
+            let sourceShape: (
+                sourceSlot: Int,
+                auxiliarySlots: Set<Int>,
+                profile: SceneGenericShaderCapabilityProfile
+            )
+            if plan.pulseColor {
+                guard let fact = SceneAuthoredShaderColorTransferAnalyzer
+                        .rgbBlendScalarAlphaFact(
+                            fragmentSource: sources.fragment
+                        ), transfer == .straightAlpha(
+                            textureSlot: fact.sourceSlot
+                        ) else { return false }
+                sourceShape = (
+                    fact.sourceSlot,
+                    fact.auxiliarySlots,
+                    .sourceProvenGraphInputRGBBlendScalarAlpha
+                )
+            } else {
+                guard let fact = SceneAuthoredShaderColorTransferAnalyzer
+                        .straightRGBScalarAlphaFact(
+                            fragmentSource: sources.fragment
+                        ), transfer == .straightAlpha(
+                            textureSlot: fact.sourceSlot
+                        ) else { return false }
+                sourceShape = (
+                    fact.sourceSlot,
+                    fact.auxiliarySlots,
+                    .sourceProvenGraphInputStraightRGBScalarAlpha
+                )
+            }
+            guard let activeNames =
                     SceneAuthoredShaderDeadBindingAnalyzer.activeSamplerNames(
                         vertexSource: sources.vertex,
                         fragmentSource: sources.fragment
@@ -451,27 +476,23 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 )
             let auxiliaryShapeIsProven: Bool
             if plan.audio == nil {
-                auxiliaryShapeIsProven = !fact.auxiliarySlots.isEmpty
+                auxiliaryShapeIsProven = !sourceShape.auxiliarySlots.isEmpty
             } else {
                 auxiliaryShapeIsProven = plan.shaderProfile == .stock2842
-                    && fact.auxiliarySlots.isEmpty
+                    && sourceShape.auxiliarySlots.isEmpty
             }
-            guard graphInputSlots == [fact.sourceSlot],
+            guard graphInputSlots == [sourceShape.sourceSlot],
                   graphTargetSlots.isEmpty,
                   auxiliaryShapeIsProven,
                   Set(samplers.keys)
-                    == fact.auxiliarySlots.union([fact.sourceSlot]),
-                  typedAuxiliary == fact.auxiliarySlots,
+                    == sourceShape.auxiliarySlots.union([sourceShape.sourceSlot]),
+                  typedAuxiliary == sourceShape.auxiliarySlots,
                   !SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
                       in: template,
                       activeTextureSlots: Set(samplers.keys)
                   ),
-                  SceneGenericShaderCapabilityProfile
-                    .sourceProvenGraphInputStraightRGBScalarAlpha
-                    .defaultRouteState == .genericOnly,
-                  SceneGenericShaderCapabilityProfile
-                    .sourceProvenGraphInputStraightRGBScalarAlpha
-                    .validatedRollbackOwner == .none
+                  sourceShape.profile.defaultRouteState == .genericOnly,
+                  sourceShape.profile.validatedRollbackOwner == .none
             else { return false }
             guard activeUserPropertyConsumersAreProven(
                 plan: plan,

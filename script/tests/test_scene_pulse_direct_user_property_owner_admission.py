@@ -183,7 +183,8 @@ private func definition() -> SceneEffectDefinition {
 
 private func descriptor(
     bindings: [Constant: String],
-    fallbackOverrides: [Constant: [Double]] = [:]
+    fallbackOverrides: [Constant: [Double]] = [:],
+    combos: [String: Int] = [:]
 ) -> SceneRenderDescriptor {
     let constants = Dictionary(uniqueKeysWithValues: bindings.map {
         constant, propertyKey in
@@ -196,7 +197,7 @@ private func descriptor(
         texturePaths: [],
         textureSlots: [],
         userTextureInputs: [],
-        combos: [:],
+        combos: combos,
         constantShaderValues: constants
     )
     return .init(
@@ -295,7 +296,8 @@ private func compileInput(
     contracts: [SceneShaderContract],
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]] = [:],
-    producers: Set<SceneDynamicUserPropertyProducer>? = nil
+    producers: Set<SceneDynamicUserPropertyProducer>? = nil,
+    combos: [String: Int] = [:]
 ) -> SceneEffectStageCompileInput {
     let actualProducers = producers ?? Set(bindings.map {
         producer($0.key, propertyKey: $0.value)
@@ -306,7 +308,9 @@ private func compileInput(
         definitionPath: definitionPath,
         inputRole: .layerSource,
         descriptor: descriptor(
-            bindings: bindings, fallbackOverrides: fallbackOverrides
+            bindings: bindings,
+            fallbackOverrides: fallbackOverrides,
+            combos: combos
         ),
         shaderContracts: contracts,
         userPropertyProducers: actualProducers
@@ -666,6 +670,29 @@ enum Harness {
                     .noiseAmount: "pulseValue",
                 ]
             )),
+            "productStaticRGBAlpha": outcome(compileInput(
+                contracts: contracts,
+                bindings: [:],
+                combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
+            )),
+            "legacyStaticRGBAlpha": legacyContracts.map {
+                outcome(compileInput(
+                    contracts: $0,
+                    bindings: [:],
+                    combos: ["PULSECOLOR": 1, "PULSEALPHA": 1]
+                ))
+            },
+            "rgbAlphaProfile": SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputRGBBlendScalarAlpha.rawValue,
+            "rgbAlphaRoute": SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputRGBBlendScalarAlpha
+                .defaultRouteState.rawValue,
+            "rgbAlphaRollback": SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputRGBBlendScalarAlpha
+                .validatedRollbackOwner.rawValue,
+            "rgbAlphaBadArtifact": SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputRGBBlendScalarAlpha
+                .artifactFallbackOutcome(routeState: .genericOnly),
             "productPhase": outcome(compileInput(
                 contracts: contracts,
                 bindings: [.phase: "pulsePhase"]
@@ -896,6 +923,22 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertEqual(self.result[key], "incumbent")
         self.assertEqual(self.result["boundsDisposition"], "retain-incumbent")
+
+    def test_static_rgb_alpha_owner_moves_to_the_shared_program(self) -> None:
+        self.assertEqual(
+            self.result["productStaticRGBAlpha"],
+            "revoked:static-rgb-alpha-owner-revoked-to-material-program",
+        )
+        self.assertEqual(
+            self.result["rgbAlphaProfile"],
+            "source-proven-graph-input-rgb-blend-scalar-alpha",
+        )
+        self.assertEqual(self.result["rgbAlphaRoute"], "generic-only")
+        self.assertEqual(self.result["rgbAlphaRollback"], "none")
+
+    def test_rgb_alpha_bad_artifact_or_profile_rejects_locally(self) -> None:
+        self.assertEqual(self.result["rgbAlphaBadArtifact"], "rejected")
+        self.assertEqual(self.result["legacyStaticRGBAlpha"], ["incumbent"] * 3)
 
     def test_historical_fragment_only_phase_revokes_the_incumbent(self) -> None:
         expected = "revoked:typed-user-property-rgb-owner-revoked-to-material-program"

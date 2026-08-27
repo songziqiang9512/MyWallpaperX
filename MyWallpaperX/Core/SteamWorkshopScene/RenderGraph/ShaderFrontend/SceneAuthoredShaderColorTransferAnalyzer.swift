@@ -106,6 +106,15 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         )
     }
 
+    /// Returns the carrier and scalar-data slots only when one final scalar
+    /// drives both an authored RGB blend and multiplicative carrier alpha.
+    static func rgbBlendScalarAlphaFact(
+        fragmentSource source: String
+    ) -> SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.Fact? {
+        guard let (fragment, _, _) = analyzedMain(source) else { return nil }
+        return SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.analyze(fragment)
+    }
+
     /// Returns source-proven slots for the two bounded blend dataflows that
     /// need narrower route authority than their resulting color contract.
     static func blendSourceSlots(
@@ -189,6 +198,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             fragment
         ) {
             return .straightAlpha(textureSlot: fact.textureSlot)
+        }
+        if let fact = SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.analyze(
+            fragment
+        ) {
+            return .straightAlpha(textureSlot: fact.sourceSlot)
         }
         if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
             fragment
