@@ -205,6 +205,15 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
                 fragmentSource: fragmentSource
             )
+        let scalarAlphaColorSourceSlot: Int? = {
+            switch colorTransfer {
+            case let .straightAlpha(sourceSlot),
+                 let .straightAlphaUNorm(sourceSlot):
+                sourceSlot
+            default:
+                nil
+            }
+        }()
         if producesPreservedRGBAOutput,
            hasDefiniteWholeOutput,
            !hasExternalProviderTexture,
@@ -464,7 +473,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]),
                   hasOnlyGraphInputSampler {
             self = .sourceProvenGraphInputSingleSamplerAlphaMutation
-        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+        } else if let sourceSlot = scalarAlphaColorSourceSlot,
                   rgbBlendScalarAlphaFact?.sourceSlot == sourceSlot,
                   rgbBlendScalarAlphaFact?.auxiliarySlots
                     == typedStaticDataAuxiliarySlots,
@@ -478,7 +487,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphTextureSlots.isEmpty,
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputRGBBlendScalarAlpha
-        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+        } else if let sourceSlot = scalarAlphaColorSourceSlot,
                   straightRGBScalarAlphaSourceSlot == sourceSlot,
                   straightRGBScalarAlphaAuxiliarySlots
                     == typedStaticDataAuxiliarySlots,

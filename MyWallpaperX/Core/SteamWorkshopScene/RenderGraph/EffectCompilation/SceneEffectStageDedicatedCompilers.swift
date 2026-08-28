@@ -470,9 +470,12 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 guard let fact = SceneAuthoredShaderColorTransferAnalyzer
                         .rgbBlendScalarAlphaFact(
                             fragmentSource: sources.fragment
-                        ), transfer == .straightAlpha(
-                            textureSlot: fact.sourceSlot
                         ) else { return false }
+                let expectedTransfer: SceneShaderColorTransfer =
+                    fact.terminalTransform == .saturateRGBA
+                        ? .straightAlphaUNorm(textureSlot: fact.sourceSlot)
+                        : .straightAlpha(textureSlot: fact.sourceSlot)
+                guard transfer == expectedTransfer else { return false }
                 sourceShape = (
                     fact.sourceSlot,
                     fact.scalarAuxiliarySlots,
@@ -484,9 +487,12 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                 guard let fact = SceneAuthoredShaderColorTransferAnalyzer
                         .straightRGBScalarAlphaFact(
                             fragmentSource: sources.fragment
-                        ), transfer == .straightAlpha(
-                            textureSlot: fact.sourceSlot
                         ) else { return false }
+                let expectedTransfer: SceneShaderColorTransfer =
+                    fact.terminalTransform == .saturateRGBA
+                        ? .straightAlphaUNorm(textureSlot: fact.sourceSlot)
+                        : .straightAlpha(textureSlot: fact.sourceSlot)
+                guard transfer == expectedTransfer else { return false }
                 sourceShape = (
                     fact.sourceSlot,
                     fact.scalarAuxiliarySlots,

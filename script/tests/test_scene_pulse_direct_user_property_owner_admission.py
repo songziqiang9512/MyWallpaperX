@@ -1005,14 +1005,14 @@ class ScenePulseDirectUserPropertyOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.result["rgbAlphaBadArtifact"], "rejected")
         self.assertEqual(
             self.result["legacyStaticRGBAlpha"],
-            ["incumbent"] + [
+            [
                 "revoked:static-rgb-alpha-owner-revoked-to-material-program"
-            ] * 2,
+            ] * 3,
         )
 
     def test_historical_alpha_only_partition_follows_source_proof(self) -> None:
         revoked = "revoked:static-alpha-only-owner-revoked-to-material-program"
-        expected = ["incumbent", revoked, revoked]
+        expected = [revoked] * 3
         self.assertEqual(self.result["legacyStaticAlphaOnly"], expected)
         self.assertEqual(self.result["legacyMaskedStaticAlphaOnly"], expected)
 

@@ -49,6 +49,10 @@ private struct Output: Codable {
     let renamedLoweringAccepted: Bool
     let maskedTransferAccepted: Bool
     let maskedLoweringAccepted: Bool
+    let saturateTransferAccepted: Bool
+    let saturateLoweringAccepted: Bool
+    let saturateCompilerTerminalDriftRejected: Bool
+    let saturateRouteProfile: String
     let sourceUnpremultipliedOnce: Bool
     let auxiliaryRemainsData: Bool
     let maskRemainsData: Bool
@@ -199,6 +203,16 @@ private let maskedMSL = staticMSL.replacingOccurrences(
     ].joined(separator: "\n")
 )
 
+private let saturateAuthored = staticAuthored.replacingOccurrences(
+    of: "gl_FragColor = vec4(max(CAST3(0), albedo.rgb), albedo.a);",
+    with: "gl_FragColor = saturate(albedo);"
+)
+
+private let saturateMSL = staticMSL.replacingOccurrences(
+    of: "out.mwxFragColor = float4(fast::max(float3(0.0), albedo.xyz), albedo.w);",
+    with: "out.mwxFragColor = fast::clamp(albedo, float4(0.0), float4(1.0));"
+)
+
 private func fact(
     _ source: String
 ) -> SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.Fact? {
@@ -210,6 +224,11 @@ private func fact(
 private func transferAccepted(_ source: String, slot: Int) -> Bool {
     SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source)
         == .straightAlpha(textureSlot: slot)
+}
+
+private func unormTransferAccepted(_ source: String, slot: Int) -> Bool {
+    SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source)
+        == .straightAlphaUNorm(textureSlot: slot)
 }
 
 private func lowered(_ msl: String, authored: String) -> String? {
@@ -307,6 +326,10 @@ private enum RGBBlendScalarAlphaHarness {
             authored: maskedAuthored, active: [0, 1, 2], typed: [1, 2],
             graphInputs: [0], opacityMasks: [2]
         )
+        let saturateProfile = profile(
+            authored: saturateAuthored,
+            active: [0, 1], typed: [1], graphInputs: [0]
+        )
         let hiddenSample = staticAuthored.replacingOccurrences(
             of: "void main() {",
             with: [
@@ -332,6 +355,19 @@ private enum RGBBlendScalarAlphaHarness {
             renamedLoweringAccepted: renamedLowered != nil,
             maskedTransferAccepted: transferAccepted(maskedAuthored, slot: 0),
             maskedLoweringAccepted: maskedLowered != nil,
+            saturateTransferAccepted: unormTransferAccepted(
+                saturateAuthored, slot: 0
+            ),
+            saturateLoweringAccepted: lowered(
+                saturateMSL, authored: saturateAuthored
+            ) != nil,
+            saturateCompilerTerminalDriftRejected: lowered(
+                saturateMSL.replacingOccurrences(
+                    of: "float4(1.0)", with: "float4(2.0)"
+                ),
+                authored: saturateAuthored
+            ) == nil,
+            saturateRouteProfile: saturateProfile.rawValue,
             sourceUnpremultipliedOnce: staticLowered?.components(
                 separatedBy: "mwxGenericUnpremultiply(g_Texture0.sample("
             ).count == 2,
@@ -540,6 +576,8 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "renamedLoweringAccepted",
             "maskedTransferAccepted",
             "maskedLoweringAccepted",
+            "saturateTransferAccepted",
+            "saturateLoweringAccepted",
             "sourceUnpremultipliedOnce",
             "auxiliaryRemainsData",
             "maskRemainsData",
@@ -551,6 +589,7 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         self.assertEqual(self.result["audioRouteProfile"], expected)
         self.assertEqual(self.result["renamedRouteProfile"], expected)
         self.assertEqual(self.result["maskedRouteProfile"], expected)
+        self.assertEqual(self.result["saturateRouteProfile"], expected)
         self.assertEqual(self.result["routeState"], "generic-only")
         self.assertEqual(self.result["rollbackOwner"], "none")
 
@@ -573,6 +612,7 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "sourceMaskTransformRejected",
             "sourceMaskFactorRejected",
             "compilerMaskSlotRejected",
+            "saturateCompilerTerminalDriftRejected",
         ):
             self.assertTrue(self.result[key], key)
 

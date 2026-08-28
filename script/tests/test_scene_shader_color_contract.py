@@ -592,6 +592,25 @@ enum Harness {
                 "pulse = g_ScalarWeight; color.a *= pulse; " +
                 "gl_FragColor = vec4(max(vec3(0.0), color.rgb), color.a);"
             ),
+            "straightRGBScalarAlphaSaturate": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = saturate(color);"
+            ),
+            "straightRGBScalarAlphaSaturateMetal": metal(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = saturate(color);"
+            ),
+            "straightRGBScalarAlphaShadowedSaturate": transfer(
+                "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = sampled; float pulse = 0.0; " +
+                "pulse = g_ScalarWeight; color.a *= pulse; " +
+                "gl_FragColor = saturate(color);",
+                helpers: "vec4 saturate(vec4 value) { return value; }"
+            ),
             "straightRGBScalarAlphaMetal": metal(
                 "vec4 sampled = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 color = sampled; float pulse = 0.0; " +
@@ -1979,6 +1998,17 @@ class SceneShaderColorContractTests(unittest.TestCase):
         source = self.result["straightRGBScalarAlphaNoAuxMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaSaturate"],
+            "straight-unorm-slot:0",
+        )
+        source = self.result["straightRGBScalarAlphaSaturateMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxSaturateAndPremultiply(mwxFragColor);", source)
+        self.assertEqual(
+            self.result["straightRGBScalarAlphaShadowedSaturate"],
+            "unresolved",
+        )
 
     def test_optional_mask_must_restore_the_original_after_alpha_mutation(
         self,

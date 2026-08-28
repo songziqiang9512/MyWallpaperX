@@ -253,8 +253,35 @@ extension SceneGenericShaderArtifactBuilder {
             // analyzer. The cache consumer still rejects any artifact that
             // contradicts a source fact that the shared analyzer did prove.
             return try prepareCompilerProvenColorTransfer(source)
-        case .straightAlphaUNorm:
-            throw Failure.colorTransfer
+        case let .straightAlphaUNorm(textureSlot: expectedSlot):
+            let rgbBlend: String? = SceneAuthoredShaderColorTransferAnalyzer
+                .rgbBlendScalarAlphaFact(fragmentSource: authoredSource)
+                .flatMap { fact in
+                    guard fact.sourceSlot == expectedSlot,
+                          fact.terminalTransform == .saturateRGBA else {
+                        return nil
+                    }
+                    return SceneGenericShaderRGBBlendScalarAlphaLowering
+                        .lower(source, fact: fact)
+                }
+            let scalarAlpha: String? = SceneAuthoredShaderColorTransferAnalyzer
+                .straightRGBScalarAlphaFact(fragmentSource: authoredSource)
+                .flatMap { fact in
+                    guard fact.sourceSlot == expectedSlot,
+                          fact.terminalTransform == .saturateRGBA else {
+                        return nil
+                    }
+                    return lowerStraightRGBScalarAlpha(source, fact: fact)
+                }
+            guard let lowered = rgbBlend ?? scalarAlpha else {
+                throw Failure.colorTransfer
+            }
+            return (
+                lowered,
+                artifactTransfer(
+                    kind: "straight-alpha-unorm", slot: expectedSlot
+                )
+            )
         }
     }
 
@@ -330,6 +357,7 @@ extension SceneGenericShaderArtifactBuilder {
         switch (transfer.kind, transfer.slot, transfer.slots) {
         case let ("passthrough", slot?, nil),
              let ("straight-alpha", slot?, nil),
+             let ("straight-alpha-unorm", slot?, nil),
              let ("straight-alpha-preserving", slot?, nil),
              let ("opaque-from-straight-color", slot?, nil),
              let ("independent-alpha-signal", slot?, nil),
@@ -587,10 +615,18 @@ extension SceneGenericShaderArtifactBuilder {
                     } == true
               }) else { return nil }
 
-        let outputPatterns = [
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.xyz\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*float3\(\s*0(?:\.0+)?\s*\)\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
-        ]
+        let outputPatterns: [String]
+        switch fact.terminalTransform {
+        case .nonNegativeRGBPreservedAlpha:
+            outputPatterns = [
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.xyz\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*([A-Za-z_]\w*)\.xyz\s*,\s*float3\(\s*0(?:\.0+)?\s*\)\s*\)\s*,\s*([A-Za-z_]\w*)\.w\s*\))\s*;[ \t]*$"#,
+            ]
+        case .saturateRGBA:
+            outputPatterns = [
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:fast::)?clamp\(\s*([A-Za-z_]\w*)\s*,\s*float4\(\s*0(?:\.0+)?f?\s*\)\s*,\s*float4\(\s*1(?:\.0+)?f?\s*\)\s*\))\s*;[ \t]*$"#,
+            ]
+        }
         let outputs = outputPatterns.flatMap { matches($0, in: source) }
         let returns = matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
         guard outputs.count == 1,
@@ -602,9 +638,12 @@ extension SceneGenericShaderArtifactBuilder {
               let indent = capture(output, 1, in: source),
               let outputValue = capture(output, 2, in: source),
               capture(output, 3, in: source) == color,
-              capture(output, 4, in: source) == color,
+              fact.terminalTransform == .saturateRGBA
+                || capture(output, 4, in: source) == color,
               countWord(carrier, in: source) == (maskMix == nil ? 2 : 3),
-              countWord(color, in: source) == (maskMix == nil ? 4 : 6),
+              countWord(color, in: source)
+                == (maskMix == nil ? 4 : 6)
+                    - (fact.terminalTransform == .saturateRGBA ? 1 : 0),
               carrierDeclaration.range.location < alias.range.location,
               alias.range.location < alphaWrite.range.location,
               alphaWrite.range.location < output.range.location,

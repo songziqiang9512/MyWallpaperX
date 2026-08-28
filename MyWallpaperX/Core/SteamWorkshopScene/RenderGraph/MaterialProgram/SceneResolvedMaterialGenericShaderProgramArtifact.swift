@@ -191,6 +191,9 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case let ("straight-alpha", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlpha(textureSlot: slot)
+        case let ("straight-alpha-unorm", slot?, nil):
+            guard bindings.contains(where: { $0.slot == slot }) else { return nil }
+            colorTransfer = .straightAlphaUNorm(textureSlot: slot)
         case let ("straight-alpha-preserving", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlphaPreserving(textureSlot: slot)

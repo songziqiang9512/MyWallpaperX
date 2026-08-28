@@ -124,10 +124,18 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
                     } == true
               }) else { return nil }
 
-        let outputPatterns = [
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:w|a)\s*\))\s*;[ \t]*$"#,
-            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*,\s*float3\(\s*0(?:\.0+)?\s*\)\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:w|a)\s*\))\s*;[ \t]*$"#,
-        ]
+        let outputPatterns: [String]
+        switch fact.terminalTransform {
+        case .nonNegativeRGBPreservedAlpha:
+            outputPatterns = [
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*float3\(\s*0(?:\.0+)?\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:w|a)\s*\))\s*;[ \t]*$"#,
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(\s*fast::max\(\s*([A-Za-z_]\w*)\.(?:xyz|rgb)\s*,\s*float3\(\s*0(?:\.0+)?\s*\)\s*\)\s*,\s*([A-Za-z_]\w*)\.(?:w|a)\s*\))\s*;[ \t]*$"#,
+            ]
+        case .saturateRGBA:
+            outputPatterns = [
+                #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:fast::)?clamp\(\s*([A-Za-z_]\w*)\s*,\s*float4\(\s*0(?:\.0+)?f?\s*\)\s*,\s*float4\(\s*1(?:\.0+)?f?\s*\)\s*\))\s*;[ \t]*$"#,
+            ]
+        }
         let outputs = outputPatterns.flatMap { matches($0, in: source) }
         guard outputs.count == 1,
               let output = outputs.first,
@@ -136,8 +144,10 @@ nonisolated enum SceneGenericShaderRGBBlendScalarAlphaLowering {
               let indent = capture(output, 1, in: source),
               let outputValue = capture(output, 2, in: source),
               capture(output, 3, in: source) == color,
-              capture(output, 4, in: source) == color,
+              fact.terminalTransform == .saturateRGBA
+                || capture(output, 4, in: source) == color,
               countWord(color, in: source) == blendWrite.carrierWordCount
+                - (fact.terminalTransform == .saturateRGBA ? 1 : 0)
                 + (maskMix == nil ? 0 : 2),
               matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
               carrierDeclaration.range.location < aliasDeclaration.range.location,

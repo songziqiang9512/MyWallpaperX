@@ -202,7 +202,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let fact = SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.analyze(
             fragment
         ) {
-            return .straightAlpha(textureSlot: fact.sourceSlot)
+            return fact.terminalTransform == .saturateRGBA
+                ? .straightAlphaUNorm(textureSlot: fact.sourceSlot)
+                : .straightAlpha(textureSlot: fact.sourceSlot)
         }
         if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
             fragment
@@ -346,7 +348,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         if let fact = SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main
         ) {
-            return .straightAlpha(textureSlot: fact.sourceSlot)
+            return fact.terminalTransform == .saturateRGBA
+                ? .straightAlphaUNorm(textureSlot: fact.sourceSlot)
+                : .straightAlpha(textureSlot: fact.sourceSlot)
         }
         if let slot = SceneAuthoredShaderStraightWholeColorFilterAnalyzer.analyze(
             outputUses: outputUses, fragment: fragment, main: main

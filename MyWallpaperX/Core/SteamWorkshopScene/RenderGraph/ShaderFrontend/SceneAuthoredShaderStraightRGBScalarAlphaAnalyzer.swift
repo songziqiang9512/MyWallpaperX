@@ -1,11 +1,18 @@
 import Foundation
 
+nonisolated enum SceneAuthoredShaderStraightColorTerminalTransform:
+    Equatable, Sendable
+{
+    case nonNegativeRGBPreservedAlpha
+    case saturateRGBA
+}
+
 /// Proves a straight-color source whose RGB is preserved (apart from a
-/// non-negative clamp) while its alpha is multiplied by a bounded scalar
-/// graph. Zero auxiliary textures is valid when the scalar comes entirely
-/// from uniforms or linked varyings; any auxiliary texture reads must be
-/// distinct direct red-channel scalar reads. One optional direct red-channel
-/// opacity mask may restore the original carrier after the alpha mutation.
+/// terminal clamp) while its alpha is multiplied by a bounded scalar graph.
+/// Zero auxiliary textures is valid when the scalar comes entirely from
+/// uniforms or linked varyings; any auxiliary texture reads must be distinct
+/// direct red-channel scalar reads. One optional direct red-channel opacity
+/// mask may restore the original carrier after the alpha mutation.
 nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
@@ -15,6 +22,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         let scalarAuxiliarySlots: Set<Int>
         let maskSlot: Int?
         let maskFactorName: String?
+        let terminalTransform: SceneAuthoredShaderStraightColorTerminalTransform
 
         var auxiliarySlots: Set<Int> {
             scalarAuxiliarySlots.union(maskSlot.map { [$0] } ?? [])
@@ -52,14 +60,18 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         var alphaWritten = false
         var pendingMask: (slot: Int, factorName: String)?
         var maskMixed = false
+        var terminalTransform: SceneAuthoredShaderStraightColorTerminalTransform?
 
         for (position, range) in statements.enumerated() {
             let statement = Array(tokens[range])
             if position == statements.count - 1 {
                 guard let colorName,
-                      outputStatement(statement, colorName: colorName) else {
+                      let transform = outputStatement(
+                          statement, colorName: colorName
+                      ) else {
                     return nil
                 }
+                terminalTransform = transform
                 continue
             }
             if let declaration = vectorDeclaration(statement) {
@@ -145,6 +157,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         }
 
         guard let sourceName, let colorName, let colorSlot,
+              let terminalTransform,
               alphaWritten,
               (pendingMask == nil && !maskMixed)
                 || (pendingMask != nil && maskMixed),
@@ -156,9 +169,11 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         else { return nil }
         let body = tokens[main.bodyRange]
         let hasMask = pendingMask != nil
+        let terminalColorUseCount = terminalTransform == .saturateRGBA ? 1 : 2
         let identityUseCountsAreExact =
             body.filter({ $0.text == sourceName }).count == (hasMask ? 3 : 2)
-            && body.filter({ $0.text == colorName }).count == (hasMask ? 6 : 4)
+            && body.filter({ $0.text == colorName }).count
+                == (hasMask ? 4 : 2) + terminalColorUseCount
         let maskFactorUseCountIsExact = pendingMask.map({ mask in
                 body.filter({ $0.text == mask.factorName }).count == 2
             }) ?? true
@@ -167,7 +182,8 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
                 sourceSlot: colorSlot,
                 scalarAuxiliarySlots: Set(scalarAuxiliarySlots),
                 maskSlot: pendingMask?.slot,
-                maskFactorName: pendingMask?.factorName
+                maskFactorName: pendingMask?.factorName,
+                terminalTransform: terminalTransform
             ) : nil
     }
 
@@ -217,7 +233,7 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
         let protected: Set<String> = [
             "CAST3", "float3", "float4", "lerp", "max", "min", "mix",
             "pow", "sin", "smoothstep", "texSample2D", "texture2D",
-            "vec3", "vec4",
+            "saturate", "vec3", "vec4",
         ]
         return fragment.functions.allSatisfy {
             $0.name == "main" || !protected.contains($0.name)
@@ -283,21 +299,29 @@ nonisolated enum SceneAuthoredShaderStraightRGBScalarAlphaAnalyzer {
     private static func outputStatement(
         _ statement: [Token],
         colorName: String
-    ) -> Bool {
+    ) -> SceneAuthoredShaderStraightColorTerminalTransform? {
         guard statement.count >= 5,
               statement[0].text == "gl_FragColor",
               statement[1].text == "=",
-              let constructor = call(Array(statement.dropFirst(2))),
-              ["vec4", "float4"].contains(constructor.name),
-              constructor.arguments.count == 2,
-              texts(constructor.arguments[1]) == [colorName, ".", "a"],
-              let clamp = call(constructor.arguments[0]),
+              let terminal = call(Array(statement.dropFirst(2))) else {
+            return nil
+        }
+        if terminal.name == "saturate",
+           terminal.arguments.count == 1,
+           texts(terminal.arguments[0]) == [colorName] {
+            return .saturateRGBA
+        }
+        guard ["vec4", "float4"].contains(terminal.name),
+              terminal.arguments.count == 2,
+              texts(terminal.arguments[1]) == [colorName, ".", "a"],
+              let clamp = call(terminal.arguments[0]),
               clamp.name == "max", clamp.arguments.count == 2 else {
-            return false
+            return nil
         }
         let rgb = [colorName, ".", "rgb"]
         return (zeroVector(clamp.arguments[0]) && texts(clamp.arguments[1]) == rgb)
             || (zeroVector(clamp.arguments[1]) && texts(clamp.arguments[0]) == rgb)
+            ? .nonNegativeRGBPreservedAlpha : nil
     }
 
     private static func zeroVector(_ tokens: [Token]) -> Bool {

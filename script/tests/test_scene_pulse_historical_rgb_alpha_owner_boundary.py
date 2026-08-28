@@ -71,22 +71,22 @@ class ScenePulseHistoricalRGBAlphaOwnerBoundaryTests(unittest.TestCase):
         finally:
             cls.base_globals["HARNESS"] = cls.original_harness
 
-    def test_static_cast3_and_literal_zero_revoke_with_or_without_mask(
+    def test_all_static_terminal_clamps_revoke_with_or_without_mask(
         self,
     ) -> None:
         revoked = "revoked:static-rgb-alpha-owner-revoked-to-material-program"
-        expected = ["incumbent", revoked, revoked]
+        expected = [revoked] * 3
         self.assertEqual(self.result["legacyStaticRGBAlpha"], expected)
         self.assertEqual(self.result["legacyMaskedStaticRGBAlpha"], expected)
 
-    def test_live_literal_zero_stays_incumbent_while_cast3_reuses_typed_input(
+    def test_live_saturate_and_cast3_revoke_while_literal_zero_stays_incumbent(
         self,
     ) -> None:
         revoked = (
             "revoked:typed-user-property-rgb-alpha-"
             "owner-revoked-to-material-program"
         )
-        expected = ["incumbent", revoked, "incumbent"]
+        expected = [revoked, revoked, "incumbent"]
         self.assertEqual(self.result["legacyBoundRGBAlpha"], expected)
         self.assertEqual(self.result["legacyMaskedBoundRGBAlpha"], expected)
 

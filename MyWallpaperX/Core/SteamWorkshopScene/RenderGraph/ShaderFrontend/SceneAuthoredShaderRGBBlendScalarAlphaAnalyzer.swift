@@ -17,6 +17,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
         let blendMultiplier: String
         let factorName: String
         let maskFactorName: String?
+        let terminalTransform: SceneAuthoredShaderStraightColorTerminalTransform
 
         var auxiliarySlots: Set<Int> {
             scalarAuxiliarySlots.union(maskSlot.map { [$0] } ?? [])
@@ -138,7 +139,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
               sawAlphaMutation,
               (pendingMask == nil && !sawMaskMix)
                 || (pendingMask != nil && sawMaskMix),
-              terminalOutput(
+              let terminalTransform = terminalOutput(
                 Array(fragment.tokens[statements.last!]),
                 carrierName: carrier
               ), auxiliarySlots.count <= 1,
@@ -160,7 +161,8 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
             baseMultiplier: blend.baseMultiplier,
             blendMultiplier: blend.blendMultiplier,
             factorName: blend.factorName,
-            maskFactorName: pendingMask?.factorName
+            maskFactorName: pendingMask?.factorName,
+            terminalTransform: terminalTransform
         )
     }
 
@@ -360,25 +362,31 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
 
     private static func terminalOutput(
         _ tokens: [Token], carrierName: String
-    ) -> Bool {
-        guard tokens.count >= 12,
-              Array(tokens.prefix(2)).map(\.text) == ["gl_FragColor", "="],
+    ) -> SceneAuthoredShaderStraightColorTerminalTransform? {
+        guard Array(tokens.prefix(2)).map(\.text) == ["gl_FragColor", "="],
               let output = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .call(tokens[2...]),
+                .call(tokens[2...]) else { return nil }
+        if output.name == "saturate",
+           output.arguments.count == 1,
+           SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(output.arguments[0]) == carrierName {
+            return .saturateRGBA
+        }
+        guard tokens.count >= 12,
               ["vec4", "float4"].contains(output.name),
               output.arguments.count == 2,
               SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
                 output.arguments[1], name: carrierName, component: "a"
               ), let maximum = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .call(output.arguments[0]), maximum.name == "max",
-              maximum.arguments.count == 2 else { return false }
-        return zeroVector(maximum.arguments[0])
+              maximum.arguments.count == 2 else { return nil }
+        return (zeroVector(maximum.arguments[0])
             && SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
                 maximum.arguments[1], name: carrierName, component: "rgb"
             ) || zeroVector(maximum.arguments[1])
             && SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
                 maximum.arguments[0], name: carrierName, component: "rgb"
-            )
+            )) ? .nonNegativeRGBPreservedAlpha : nil
     }
 
     private static func zeroVector(_ expression: ArraySlice<Token>) -> Bool {
@@ -412,7 +420,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
     private static func noShadowedBuiltins(_ fragment: Unit) -> Bool {
         let protected: Set<String> = [
             "CAST3", "float3", "float4", "lerp", "max", "min", "mix",
-            "pow", "sin",
+            "pow", "saturate", "sin",
             "smoothstep", "texSample2D", "texture2D", "vec3", "vec4",
         ]
         return fragment.functions.allSatisfy {
