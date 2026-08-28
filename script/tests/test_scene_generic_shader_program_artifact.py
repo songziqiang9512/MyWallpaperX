@@ -3964,8 +3964,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 root, route="observe-only"
             )
             self.assertEqual(first["status"], "unavailable")
-            self.assertEqual(first["code"], "route-observe-only")
-            self.assertNotIn("outcome=fallback", first_log)
+            self.assertEqual(
+                first["code"],
+                "compiler-configuration-licensebundleunavailable",
+            )
+            self.assertTrue(first["permitsBoundedFrontend"])
+            self.assertIn(
+                "state=generic-only profile=ordinary-shader "
+                "outcome=shared-backend-fallback",
+                first_log,
+            )
             request_files = list(requests.glob("*.json"))
             self.assertEqual([path.stem for path in request_files], [first["requestKey"]])
             request = json.loads(request_files[0].read_text(encoding="utf-8"))
@@ -3997,7 +4005,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             self.assertEqual(accepted["colorTransfer"], "passthrough")
             self.assertEqual(accepted["fragmentOutputChannelUse"], "redDefined")
             self.assertIn(
-                "state=prefer-generic profile=ordinary-shader "
+                "state=generic-only profile=ordinary-shader "
                 "outcome=accepted reason=- ", accepted_log
             )
             self.assertIn("count=1", accepted_log)
@@ -4010,13 +4018,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 default_accepted["backend"], "genericCompilerArtifact"
             )
             self.assertIn(
-                "state=prefer-generic profile=ordinary-shader "
+                "state=generic-only profile=ordinary-shader "
                 "outcome=accepted reason=- ",
                 default_log,
             )
 
             disabled, _, _, disabled_log = self.run_harness(
-                root, route="disable-generic"
+                root,
+                route=None,
+                profile_routes="ordinary-shader=disable-generic",
             )
             self.assertEqual(disabled["status"], "unavailable")
             self.assertEqual(disabled["code"], "route-disabled")
@@ -4027,11 +4037,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
 
             invalid, _, _, invalid_log = self.run_harness(
-                root, route="unknown-route"
+                root,
+                route=None,
+                profile_routes="ordinary-shader=unknown-route",
             )
             self.assertEqual(invalid["status"], "unavailable")
             self.assertEqual(invalid["code"], "route-invalid")
-            self.assertTrue(invalid["permitsBoundedFrontend"])
+            self.assertFalse(invalid["permitsBoundedFrontend"])
             self.assertNotIn("outcome=accepted", invalid_log)
 
             changed, _, _, changed_log = self.run_harness(
@@ -4046,7 +4058,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertNotEqual(changed["requestKey"], accepted["requestKey"])
             self.assertIn(
-                "profile=ordinary-shader outcome=fallback "
+                "profile=ordinary-shader outcome=shared-backend-fallback "
                 "reason=compiler-configuration-licensebundleunavailable",
                 changed_log,
             )
@@ -4409,7 +4421,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
             self.assertIn(
-                "profile=ordinary-shader outcome=fallback "
+                "profile=ordinary-shader outcome=shared-backend-fallback "
                 "reason=artifact-contract-rejected", rejected_log
             )
             self.assertIn(f"request={first['requestKey']}", rejected_log)
@@ -4428,7 +4440,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             self.assertEqual(rejected["status"], "unavailable")
             self.assertEqual(rejected["code"], "artifact-contract-rejected")
             self.assertIn(
-                "profile=ordinary-shader outcome=fallback "
+                "profile=ordinary-shader outcome=shared-backend-fallback "
                 "reason=artifact-contract-rejected",
                 rejected_log,
             )
@@ -4631,7 +4643,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 )
                 self.assertNotEqual(result["routeProfile"], profile)
                 self.assertTrue(result["permitsBoundedFrontend"])
-                self.assertIn("state=prefer-generic", log)
+                self.assertIn(
+                    "state=generic-only profile=ordinary-shader", log
+                )
 
     def test_conditional_straight_union_has_profile_local_product_authority(self):
         profile = "source-proven-graph-input-conditional-straight-union"
@@ -4746,7 +4760,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     self.assertEqual(
                         result["permitsBoundedFrontend"], permits_bounded
                     )
-                    self.assertIn("state=prefer-generic", log)
+                    if result["routeProfile"] == "ordinary-shader":
+                        self.assertIn(
+                            "state=generic-only profile=ordinary-shader", log
+                        )
+                    else:
+                        self.assertEqual(
+                            result["routeProfile"],
+                            "source-proven-graph-input-straight-alpha",
+                        )
+                        self.assertIn("state=prefer-generic", log)
 
     def test_straight_alpha_artifact_maps_color_source_slot(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
@@ -4874,7 +4897,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 )
                 self.assertNotEqual(result["routeProfile"], profile)
                 self.assertTrue(result["permitsBoundedFrontend"])
-                self.assertIn("state=prefer-generic", log)
+                if result["routeProfile"] == "ordinary-shader":
+                    self.assertIn(
+                        "state=generic-only profile=ordinary-shader", log
+                    )
+                else:
+                    self.assertEqual(
+                        result["routeProfile"],
+                        "source-proven-graph-input-straight-alpha",
+                    )
+                    self.assertIn("state=prefer-generic", log)
 
     def test_audio_stage_uniform_straight_alpha_without_varying_mutation_has_narrow_product_authority(
         self,
@@ -5219,12 +5251,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"produces_scalar_output": True},
                 False,
             ),
-            (
-                "ordinary-shader=generic-only",
-                FRAGMENT,
-                {},
-                True,
-            ),
         ]
         for profile_routes, fragment, facts, permits_bounded in cases:
             with self.subTest(profile_routes=profile_routes), tempfile.TemporaryDirectory(
@@ -5257,8 +5283,22 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertNotEqual(result["code"], "route-disabled")
             self.assertIn(
-                "state=prefer-generic profile=ordinary-shader",
+                "state=generic-only profile=ordinary-shader",
                 log,
+            )
+
+            rollback, _, _, rollback_log = self.run_harness(
+                Path(directory),
+                route=None,
+                profile_routes="ordinary-shader=disable-generic",
+                fragment=FRAGMENT,
+            )
+            self.assertEqual(rollback["code"], "route-disabled")
+            self.assertTrue(rollback["permitsBoundedFrontend"])
+            self.assertIn(
+                "state=disable-generic profile=ordinary-shader "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
             )
 
     def test_profile_routes_preserve_only_evidenced_owner_authority(self):
@@ -5461,7 +5501,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertTrue(ordinary["permitsBoundedFrontend"])
             self.assertIn(
-                "state=prefer-generic profile=ordinary-shader outcome=fallback",
+                "state=generic-only profile=ordinary-shader "
+                "outcome=shared-backend-fallback",
                 ordinary_log,
             )
 
@@ -5515,7 +5556,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 )
                 self.assertTrue(ordinary["permitsBoundedFrontend"])
                 self.assertIn(
-                    "state=prefer-generic profile=ordinary-shader outcome=fallback",
+                    "state=generic-only profile=ordinary-shader "
+                    "outcome=shared-backend-fallback",
                     ordinary_log,
                 )
 
@@ -6085,7 +6127,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     **facts,
                 )
                 self.assertNotEqual(result["routeProfile"], profile)
-                self.assertIn("state=prefer-generic", log)
+                if result["routeProfile"] == "ordinary-shader":
+                    self.assertIn(
+                        "state=generic-only profile=ordinary-shader", log
+                    )
+                else:
+                    self.assertEqual(
+                        result["routeProfile"],
+                        "source-proven-graph-input-straight-alpha",
+                    )
+                    self.assertIn("state=prefer-generic", log)
 
     def test_preferred_graph_input_profiles_accept_generic_then_fallback_locally(
         self,

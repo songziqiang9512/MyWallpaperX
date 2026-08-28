@@ -7034,7 +7034,7 @@ private enum Harness {
                           for: ordinaryChain
                       ) else { return false }
                 return capability.stages.first?.visualFailureReasonCode
-                    == "material-variant-envelope-uniform-schema"
+                    == "material-generic-owner-revoked"
             }(),
             "visualSamplerSchemaMultiNodeUsesWholeEffectPassthrough": {
                 guard let claim = samplerSchemaMultiNodeCapabilities.claim(
@@ -7103,7 +7103,7 @@ private enum Harness {
                           for: ordinaryChain
                       ) else { return false }
                 return capability.stages.first?.visualFailureReasonCode
-                    == "material-variant-envelope-frontend"
+                    == "material-generic-owner-revoked"
             }(),
             "copyAndSwapPrepared": failureCode(mixedPreparation) == "success"
                 && mixedKinds.contains("copy")
