@@ -53,6 +53,7 @@ SWIFT_SOURCES = unique_sources([
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
     SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
+    SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
     SCENE_ROOT
     / "RenderGraph/EffectCompilation/SceneEffectStageXRayScalarOwnerAdmission.swift",
     SCENE_ROOT / "Rendering/SceneLayerVisibility.swift",

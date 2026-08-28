@@ -3,9 +3,9 @@ import Foundation
 /// Transfers the current-stock X-Ray scalar cohort only after the shared
 /// MaterialProgram proves the same authored values, any typed producers,
 /// active shader ABI, and source-derived spatial blend profile. Static values
-/// and exact direct user-scalar values share one owner boundary. Frame-driven
-/// effect visibility and any broader source/resource shape retain the
-/// incumbent.
+/// exact direct user-scalar values, and exact definition-only authored
+/// fallbacks share one owner boundary. Frame-driven effect visibility and any
+/// broader source/resource shape retain the incumbent.
 nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -21,10 +21,51 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
         ScalarContract(name: "multiply", range: 0 ... 10, stage: .fragment),
     ]
 
+    private enum ScalarOwnerSource: Equatable {
+        case staticExact
+        case liveProducer
+        case authoredFallback
+    }
+
+    private struct Admission {
+        let startupInactive: Bool
+        let scalarOwnerSources: [ScalarOwnerSource]
+
+        var usesAuthoredFallback: Bool {
+            scalarOwnerSources.contains(.authoredFallback)
+        }
+    }
+
     static func acceptsDedicatedRevocation(
         effectKey: Graph.EffectKey,
         input: SceneEffectStageCompileInput
     ) -> Bool {
+        admission(effectKey: effectKey, input: input) != nil
+    }
+
+    static func dedicatedRevocationDetail(
+        effectKey: Graph.EffectKey,
+        input: SceneEffectStageCompileInput
+    ) -> String? {
+        guard let admission = admission(
+            effectKey: effectKey,
+            input: input
+        ) else { return nil }
+        let scalarToken = admission.usesAuthoredFallback
+            ? "current-stock-authored-fallback-scalar"
+            : "current-stock-scalar"
+        let lifecyclePrefix = admission.startupInactive
+            ? "startup-inactive-direct-bool-"
+            : ""
+        return lifecyclePrefix
+            + scalarToken
+            + "-owner-revoked-to-material-program"
+    }
+
+    private static func admission(
+        effectKey: Graph.EffectKey,
+        input: SceneEffectStageCompileInput
+    ) -> Admission? {
         guard input.stageGraph.effects.count == 1,
               input.stageGraph.nodes.count == 1,
               let effect = input.stageGraph.effects.first,
@@ -50,7 +91,7 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 : input.supportsEffectLocalUserPropertyVisibility(
                     for: effectKey
                 ))
-        else { return false }
+        else { return nil }
 
         let resolution = SceneAuthoredMaterialResolver.resolve(
             node: node,
@@ -65,7 +106,7 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                   $0 == "BLENDMODE" || $0 == "OPACITYMASK"
               }), material.combos["BLENDMODE", default: 0] == 0,
               (0 ... 1).contains(material.combos["OPACITYMASK", default: 0])
-        else { return false }
+        else { return nil }
 
         let contracts = input.shaderContracts.filter {
             normalized($0.identity) == normalized(material.shaderPath)
@@ -79,12 +120,13 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                     shaderContract: contract,
                     inheritedInactiveCombos: []
                 ), template.comboValues == material.combos,
-              exactScalarDeclarationsAreProven(
+              let scalarOwnerSources = exactScalarDeclarationsAreProven(
                   effectKey: effectKey,
                   material: material,
                   template: template,
-                  producers: input.userPropertyProducers
-              ) else { return false }
+                  producers: input.userPropertyProducers,
+                  definitions: input.propertyDefinitions
+              ) else { return nil }
 
         for readiness in textureReadinessVariants(template) {
             let prepared: SceneShaderPreparedProgram
@@ -95,10 +137,10 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 textureReadiness: readiness
             ) {
             case let .accepted(value): prepared = value
-            case .notApplicable, .rejected: return false
+            case .notApplicable, .rejected: return nil
             }
             guard activeScalarConsumersAreProven(prepared) else {
-                return false
+                return nil
             }
             guard spatialWeightedProfileIsProven(
                 effectKey: effectKey,
@@ -107,9 +149,12 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 prepared: prepared,
                 textureReadiness: readiness,
                 descriptor: input.descriptor
-            ) else { return false }
+            ) else { return nil }
         }
-        return true
+        return .init(
+            startupInactive: startupInactive,
+            scalarOwnerSources: scalarOwnerSources
+        )
     }
 
     /// Only OPACITYMASK is readiness-driven in the exact current shader. Keep
@@ -139,11 +184,13 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
         effectKey: Graph.EffectKey,
         material: SceneResolvedMaterialNode,
         template: Template,
-        producers: Set<SceneDynamicUserPropertyProducer>
-    ) -> Bool {
+        producers: Set<SceneDynamicUserPropertyProducer>,
+        definitions: [SceneDynamicTargetDefinition]
+    ) -> [ScalarOwnerSource]? {
         guard template.uniformDeclarations.count == scalarContracts.count else {
-            return false
+            return nil
         }
+        var ownerSources: [ScalarOwnerSource] = []
         for contract in scalarContracts {
             guard let authored = material.constants[contract.name],
                   authored.timeline == nil,
@@ -153,31 +200,31 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                   components.count == 1,
                   let component = components.first,
                   component.isFinite,
-                  contract.range.contains(component) else { return false }
+                  contract.range.contains(component) else { return nil }
             let declarations = template.uniformDeclarations.filter {
                 $0.name == contract.name
             }
-            guard declarations.count == 1 else { return false }
+            guard declarations.count == 1 else { return nil }
             let target = SceneDynamicTarget.effectConstant(
                 layerID: effectKey.layerID,
                 effectIndex: effectKey.effectIndex,
                 passIndex: 0,
                 name: contract.name
             )
-            let targetProducers = producers.filter { $0.target == target }
             if let propertyKey = authored.userBinding {
                 let expected = SceneDynamicUserPropertyProducer(
                     propertyKey: propertyKey,
                     target: target,
                     valueType: .scalar
                 )
+                let targetProducers = producers.filter { $0.target == target }
                 guard authored.valueKind.localizedLowercase == "binding",
                       authored.userValueKind == .string,
                       authored.bindingKeys == ["user", "value"],
                       !propertyKey.isEmpty,
                       propertyKey == propertyKey.trimmingCharacters(
                           in: .whitespacesAndNewlines
-                      ), targetProducers == [expected],
+                      ),
                       case let .dynamic(dynamic) = declarations[0].value,
                       dynamic.target == target,
                       dynamic.valueContributors == [.userProperty(propertyKey)],
@@ -187,20 +234,40 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                       fallback.valueKind.localizedLowercase == "binding",
                       fallback.authoredBindingKeys == ["user", "value"],
                       fallback.componentBitPatterns == [component.bitPattern]
-                else { return false }
+                else { return nil }
+                if targetProducers == [expected] {
+                    ownerSources.append(.liveProducer)
+                } else if !producers.contains(where: {
+                              $0.propertyKey == propertyKey
+                                  || $0.target == target
+                          }),
+                          SceneEffectStageAuthoredFallbackOwnerPartition
+                            .hasExactScalarDefinition(
+                                target: target,
+                                componentBitPatterns:
+                                    fallback.componentBitPatterns,
+                                definitions: definitions
+                            ) {
+                    ownerSources.append(.authoredFallback)
+                } else {
+                    return nil
+                }
             } else {
                 guard authored.valueKind.localizedLowercase == "number",
                       authored.userValueKind == nil,
                       authored.bindingKeys.isEmpty,
-                      targetProducers.isEmpty,
+                      !producers.contains(where: { $0.target == target }),
                       case let .staticExact(value) = declarations[0].value,
                       value.valueKind.localizedLowercase == "number",
                       value.authoredBindingKeys.isEmpty,
                       value.componentBitPatterns == [component.bitPattern]
-                else { return false }
+                else { return nil }
+                ownerSources.append(.staticExact)
             }
         }
-        return true
+        return ownerSources.count == scalarContracts.count
+            ? ownerSources
+            : nil
     }
 
     private static func activeScalarConsumersAreProven(

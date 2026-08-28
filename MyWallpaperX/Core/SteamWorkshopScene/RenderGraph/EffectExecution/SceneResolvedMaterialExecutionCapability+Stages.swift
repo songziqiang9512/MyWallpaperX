@@ -173,25 +173,35 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 passIndex: 0,
                 name: "size"
             )
-            let producers = dynamicProducers.userProperties.filter {
-                $0.target == expected
-            }
             guard dynamic.target == expected,
                   dynamic.valueContributors.count == 1,
                   case let .userProperty(propertyKey) =
                     dynamic.valueContributors[0],
                   dynamic.scriptAttachments.isEmpty,
                   dynamic.authoredBindingKeys == ["user", "value"],
-                  producers == [.init(
-                      propertyKey: propertyKey,
-                      target: expected,
-                      valueType: .scalar
-                  )],
                   let authored = dynamic.authoredFallback,
                   authored.valueKind.localizedLowercase == "binding",
                   authored.authoredBindingKeys == ["user", "value"]
             else { return nil }
-            target = expected
+            let expectedProducer = SceneDynamicUserPropertyProducer(
+                propertyKey: propertyKey,
+                target: expected,
+                valueType: .scalar
+            )
+            let targetProducers = dynamicProducers.userProperties.filter {
+                $0.target == expected
+            }
+            if targetProducers == [expectedProducer] {
+                target = expected
+            } else if hasAuthoredUserPropertyFallback(
+                .userProperty(propertyKey),
+                dynamic: dynamic,
+                producers: dynamicProducers
+            ) {
+                target = expected
+            } else {
+                return nil
+            }
             fallback = authored
         }
         guard fallback.componentBitPatterns.count == 1,

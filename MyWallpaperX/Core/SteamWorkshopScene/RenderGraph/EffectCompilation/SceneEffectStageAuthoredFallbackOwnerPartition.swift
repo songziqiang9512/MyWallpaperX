@@ -33,4 +33,25 @@ nonisolated enum SceneEffectStageAuthoredFallbackOwnerPartition {
             return hasRetainedOwner ? nil : target
         })
     }
+
+    /// Proves one definition-only scalar without collapsing the authored
+    /// definition array. Duplicate definitions, type drift, non-finite values,
+    /// and signed-zero mismatches must remain visible at the owner boundary.
+    static func hasExactScalarDefinition(
+        target: SceneDynamicTarget,
+        componentBitPatterns: [UInt64],
+        definitions: [SceneDynamicTargetDefinition]
+    ) -> Bool {
+        guard componentBitPatterns.count == 1,
+              let first = componentBitPatterns.first else {
+            return false
+        }
+        let matches = definitions.filter { $0.target == target }
+        guard matches.count == 1,
+              let definition = matches.first,
+              definition.valueType == .scalar,
+              case let .scalar(value) = definition.authoredValue,
+              value.isFinite else { return false }
+        return value.bitPattern == first
+    }
 }

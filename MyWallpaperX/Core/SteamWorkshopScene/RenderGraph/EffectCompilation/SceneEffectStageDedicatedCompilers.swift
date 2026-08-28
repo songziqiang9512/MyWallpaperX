@@ -132,14 +132,11 @@ extension SceneAuthoredXRayPlanner: SceneEffectStageGraphCandidatePlanner {
             }
         )
         guard case let .accepted(plan) = result,
-              SceneEffectStageXRayScalarOwnerAdmission
-                .acceptsDedicatedRevocation(
+              let detail = SceneEffectStageXRayScalarOwnerAdmission
+                .dedicatedRevocationDetail(
                     effectKey: plan.effectKey,
                     input: input
                 ) else { return result }
-        let detail = input.authoredEffectIsStartupInactive(for: plan.effectKey) == true
-            ? "startup-inactive-direct-bool-current-stock-scalar-owner-revoked-to-material-program"
-            : "current-stock-scalar-owner-revoked-to-material-program"
         return .rejected(.init(
             backend: .xRay,
             phase: .compatibility,

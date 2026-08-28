@@ -186,7 +186,7 @@
       "keywords": ["authored_effect", "graph", "offscreen", "resolved_material", "shader"]
     },
     {
-      "id": "standard-blur-owner-revocation",
+      "id": "authored-fallback-owner-revocation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
@@ -200,6 +200,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageXRayScalarOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
         "script/tests/fixtures/SceneStandardBlurStaticScalarOwnerAdmissionSupport.swift",
         "script/tests/test_scene_authored_fallback_owner_conservation.py",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
@@ -207,7 +209,10 @@
         "script/tests/test_scene_standard_blur_authored_fallback_owner_admission.py",
         "script/tests/test_scene_standard_blur_static_scalar_owner_admission.py",
         "script/tests/test_scene_standard_blur_startup_false_direct_bool_owner_admission.py",
-        "script/tests/test_scene_standard_blur_timeline_vector2_owner_admission.py"
+        "script/tests/test_scene_standard_blur_timeline_vector2_owner_admission.py",
+        "script/tests/test_scene_xray_authored_fallback_activation.py",
+        "script/tests/test_scene_xray_authored_fallback_owner_admission.py",
+        "script/tests/test_scene_xray_scalar_owner_admission.py"
       ],
       "modules": [
         "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
@@ -217,7 +222,10 @@
         "test_scene_standard_blur_authored_fallback_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
         "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
-        "test_scene_standard_blur_timeline_vector2_owner_admission"
+        "test_scene_standard_blur_timeline_vector2_owner_admission",
+        "test_scene_xray_authored_fallback_activation",
+        "test_scene_xray_authored_fallback_owner_admission",
+        "test_scene_xray_scalar_owner_admission"
       ]
     },
     {
@@ -263,6 +271,7 @@
       "modules": [
         "test_scene_authored_effect_execution",
         "test_scene_effect_execution_telemetry",
+        "test_scene_xray_authored_fallback_owner_admission",
         "test_scene_xray_scalar_owner_admission",
         "test_scene_effect_render_graph",
         "test_scene_framebuffer_capture",
@@ -302,6 +311,8 @@
         "test_scene_captured_main_source_conservation",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_fbo_stage_activation",
+        "test_scene_resolved_material_stage_activation",
+        "test_scene_xray_authored_fallback_activation",
         "test_scene_resolved_material_program_failure_attribution",
         "test_scene_resolved_material_graph_executor",
         "test_scene_external_primary_visual_failure_passthrough",
