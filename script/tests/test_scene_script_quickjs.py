@@ -160,6 +160,24 @@ static int update_string(
     );
 }
 
+static int refresh_audio(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    uint32_t resolution,
+    const float *left,
+    const float *right,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_refresh_audio_resolution(
+            owner, generation, resolution, left, right, resolution,
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
 static int update_vec3(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -920,6 +938,102 @@ int main(void) {
         "non-string callback return rejected"
     );
 
+    const char *audio_source =
+        "const audio=engine.registerAudioBuffers();"
+        "const same=engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_16);"
+        "const medium=engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_32);"
+        "const extended=engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_64);"
+        "const identity=audio.average;"
+        "export function update(value){"
+        "if(audio!==same||audio.average!==identity||"
+        "!(audio.left instanceof Float32Array)||audio.left.length!==16||"
+        "medium.left.length!==32||extended.left.length!==64)"
+        "throw new Error('audio identity');"
+        "const result=value+audio.left[0]+audio.right[1]+audio.average[2]+"
+        "medium.left[31]+extended.right[63];"
+        "audio.average[2]=99;return result;}";
+    MWXSceneQuickJSOwner *audio_owner = mwx_scene_quickjs_owner_create(
+        domain, audio_source, strlen(audio_source),
+        25, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(audio_owner != NULL, "audio owner compile", diagnostic);
+    failures += check(
+        mwx_scene_quickjs_owner_audio_registration_count(audio_owner) == 3,
+        "audio resolutions and duplicate identity", diagnostic
+    );
+    float audio_left[16] = {0};
+    float audio_right[16] = {0};
+    audio_left[0] = 1;
+    audio_right[1] = 2;
+    audio_left[2] = 4;
+    audio_right[2] = 2;
+    float audio_left32[32] = {0};
+    float audio_right32[32] = {0};
+    audio_left32[31] = 4;
+    float audio_left64[64] = {0};
+    float audio_right64[64] = {0};
+    audio_right64[63] = 5;
+    failures += refresh_audio(
+        audio_owner, 25, 16, audio_left, audio_right,
+        MWX_SCENE_QUICKJS_OK, "audio snapshot refresh"
+    );
+    failures += refresh_audio(
+        audio_owner, 25, 32, audio_left32, audio_right32,
+        MWX_SCENE_QUICKJS_OK, "audio 32 snapshot refresh"
+    );
+    failures += refresh_audio(
+        audio_owner, 25, 64, audio_left64, audio_right64,
+        MWX_SCENE_QUICKJS_OK, "audio 64 snapshot refresh"
+    );
+    failures += update(
+        audio_owner, 25, 1, MWX_SCENE_QUICKJS_OK, 16,
+        "audio left right average and resolutions"
+    );
+    audio_left[0] = -1;
+    failures += refresh_audio(
+        audio_owner, 25, 16, audio_left, audio_right,
+        MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "invalid audio sample"
+    );
+    audio_left[0] = 1;
+    failures += refresh_audio(
+        audio_owner, 25, 16, audio_left, audio_right,
+        MWX_SCENE_QUICKJS_OK, "audio same snapshot refresh"
+    );
+    failures += update(
+        audio_owner, 25, 1, MWX_SCENE_QUICKJS_OK, 16,
+        "audio host overwrites script mutation"
+    );
+    failures += refresh_audio(
+        audio_owner, 26, 16, audio_left, audio_right,
+        MWX_SCENE_QUICKJS_STALE_OWNER, "stale audio owner"
+    );
+
+    const char *invalid_audio_source =
+        "const audio=engine.registerAudioBuffers(8);"
+        "export function update(value){return value+audio.average[0];}";
+    MWXSceneQuickJSOwner *invalid_audio = mwx_scene_quickjs_owner_create(
+        domain, invalid_audio_source, strlen(invalid_audio_source),
+        26, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        invalid_audio == NULL, "invalid audio resolution rejected", diagnostic
+    );
+
+    const char *callback_audio_source =
+        "export function update(value){"
+        "engine.registerAudioBuffers(16);return value;}";
+    MWXSceneQuickJSOwner *callback_audio = mwx_scene_quickjs_owner_create(
+        domain, callback_audio_source, strlen(callback_audio_source),
+        27, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        callback_audio != NULL, "callback audio owner compile", diagnostic
+    );
+    failures += update(
+        callback_audio, 27, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "audio registration is global-only"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -936,6 +1050,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(media_playback_owner);
     mwx_scene_quickjs_owner_destroy(media_properties_owner);
     mwx_scene_quickjs_owner_destroy(bad_string);
+    mwx_scene_quickjs_owner_destroy(audio_owner);
+    mwx_scene_quickjs_owner_destroy(callback_audio);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -981,6 +1097,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(QUICKJS / "quickjs.c"),

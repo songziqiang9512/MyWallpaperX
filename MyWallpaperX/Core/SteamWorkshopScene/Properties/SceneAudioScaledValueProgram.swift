@@ -38,4 +38,14 @@ nonisolated struct SceneAudioScaledValueProgram: Equatable, Sendable {
             return layerID
         })
     }
+
+    nonisolated func excluding(
+        _ targets: Set<SceneDynamicTarget>
+    ) -> SceneAudioScaledValueProgram {
+        .init(
+            bindings: bindings.filter { !targets.contains($0.definition.target) },
+            rejectedParticleLayerIDs: rejectedParticleLayerIDs,
+            rejectedScaleLayerIDs: rejectedScaleLayerIDs
+        )
+    }
 }

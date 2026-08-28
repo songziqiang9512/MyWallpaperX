@@ -177,6 +177,7 @@
           "SceneScriptStringProgram.swift",
           "SceneScriptStringRuntime.swift",
           "SceneScriptAnimationHandleBridge.swift",
+          "SceneScriptAudioHost.swift",
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptLayerHandleBridge.swift",
           "SceneScriptMediaEventBridge.swift",

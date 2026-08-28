@@ -20,6 +20,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     private var consumedMediaPlaybackGeneration: UInt64 = 0
     private var consumedMediaPropertiesGeneration: UInt64 = 0
 
+    var hasAudioConsumers: Bool {
+        bindings.contains(where: \.hasAudioRegistration)
+    }
+
     static func compile(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -88,6 +92,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptStringFrameResult {
         let thumbnail = pending(
@@ -110,6 +115,15 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             guard !disabledTargets.contains(binding.target),
                   let input = inputs[binding.target],
                   case let .string(current) = input else { continue }
+            if binding.hasAudioRegistration {
+                switch binding.refreshAudio(audioSpectrum) {
+                case .success: break
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             var ownerMaterialFunctions: [SceneScriptMaterialFunctionMutation] = []
             var ownerAnimations: [SceneTimelinePlaybackMutation] = []
             if let playback, !dispatch(

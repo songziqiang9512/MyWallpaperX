@@ -21,8 +21,10 @@ SOURCES = [
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
+    SCENE / "Runtime/SceneAudioSpectrum.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptAnimationHandleBridge.swift",
+    VM / "SceneScriptAudioHost.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
@@ -185,6 +187,33 @@ enum Harness {
                 "x1": .number(40), "y1": .number(2100), "size": .number(1.25),
             ],
             frame: frame
+        )
+        let audioScaleProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "scale", source: audioScaleSource, value: "1.5 1.5 1.5",
+                properties: [
+                    "frequency": .number(0), "minvalue": .number(1),
+                ]
+            )],
+            userPropertyDefinitions: [],
+            generation: 18
+        )
+        let audioSnapshot = SceneAudioSpectrumSnapshot(
+            left: [1] + Array(repeating: 0, count: 15),
+            right: Array(repeating: 0, count: 16),
+            left32: Array(repeating: 0, count: 32),
+            right32: Array(repeating: 0, count: 32),
+            left64: Array(repeating: 0, count: 64),
+            right64: Array(repeating: 0, count: 64),
+            generation: 1
+        )
+        let audioScaleResult = audioScaleProgram.evaluate(
+            inputs: [.layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5)],
+            effectivePropertyValues: [:],
+            frame: frame,
+            audioSpectrum: audioSnapshot
         )
         let layerProgram = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -425,6 +454,12 @@ enum Harness {
             "stringFailures": stringResult.failures.count,
             "stringGenerationDeduplicated":
                 string(duplicateStringResult.values[stringTarget]) == "春日歌 / Artist",
+            "audioScaleBindings": audioScaleProgram.bindings.count,
+            "audioScaleDemand": audioScaleProgram.hasAudioConsumers,
+            "audioScaleValue": vector(audioScaleResult.values[
+                .layer(layerID: 10, field: .scale)
+            ]),
+            "audioScaleFailures": audioScaleResult.failures.count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -617,6 +652,21 @@ enum Harness {
         mediaData = event.title + " / " + event.artist;
     }
     """
+
+    static let audioScaleSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: "frequency", value: 0})
+        .addSlider({name: "minvalue", value: 1})
+        .finish();
+    const audioBuffer = engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_16);
+    let initialValue;
+    export function init(value) { initialValue = value; }
+    export function update() {
+        return initialValue.multiply(
+            scriptProperties.minvalue + audioBuffer.average[scriptProperties.frequency]
+        );
+    }
+    """
 }
 '''
 
@@ -632,6 +682,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         objects: list[Path] = []
         for source in [
             VM / "SceneQuickJS.c", VM / "SceneQuickJSAnimationHost.c",
+            VM / "SceneQuickJSAudioHost.c",
             VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
@@ -704,6 +755,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["stringValue"], "春日歌 / Artist")
         self.assertEqual(value["stringFailures"], 0)
         self.assertTrue(value["stringGenerationDeduplicated"])
+
+    def test_audio_buffers_update_generic_vec3_owner(self) -> None:
+        value = self.result()
+        self.assertEqual(value["audioScaleBindings"], 1)
+        self.assertTrue(value["audioScaleDemand"])
+        self.assertEqual(value["audioScaleValue"], [2.25, 2.25, 2.25])
+        self.assertEqual(value["audioScaleFailures"], 0)
 
 
 if __name__ == "__main__":

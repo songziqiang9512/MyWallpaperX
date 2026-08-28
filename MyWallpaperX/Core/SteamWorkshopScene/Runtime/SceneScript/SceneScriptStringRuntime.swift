@@ -12,6 +12,7 @@ nonisolated struct SceneScriptStringEvaluation: Equatable, Sendable {
 nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
+    let hasAudioRegistration: Bool
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -78,9 +79,20 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             throw error
         }
         handle = created
+        hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }
+
+    func refreshAudio(
+        _ snapshot: SceneAudioSpectrumSnapshot
+    ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        SceneScriptAudioHost.refresh(
+            owner: handle,
+            ownerGeneration: generation,
+            snapshot: snapshot
+        )
+    }
 
     func evaluate(
         input: String,

@@ -778,6 +778,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
         write_diagnostic(diagnostic, diagnostic_capacity, "QuickJS context allocation failed");
         return NULL;
     }
+    JS_SetContextOpaque(domain->context, domain);
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
     if (!install_value_host(domain)) {
@@ -846,15 +847,72 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         return NULL;
     }
 
+    MWXSceneQuickJSOwner *owner = calloc(1, sizeof(*owner));
+    if (owner == NULL) {
+        JS_FreeValue(domain->context, module);
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
+        return NULL;
+    }
+    owner->domain = domain;
+    owner->module = JS_UNDEFINED;
+    owner->generation = generation;
+    owner->material_function_layer = JS_UNDEFINED;
+    owner->scene_handle = JS_UNDEFINED;
+    owner->object_handle = JS_UNDEFINED;
+    for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS; ++index) {
+        owner->audio_registrations[index].object = JS_UNDEFINED;
+        owner->audio_registrations[index].left = JS_UNDEFINED;
+        owner->audio_registrations[index].right = JS_UNDEFINED;
+        owner->audio_registrations[index].average = JS_UNDEFINED;
+    }
+    owner->effect_names = calloc(1, sizeof(*owner->effect_names));
+    if (owner->effect_names == NULL) {
+        JS_FreeValue(domain->context, module);
+        free(owner);
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
+        return NULL;
+    }
+
     JSModuleDef *module_definition = JS_VALUE_GET_PTR(module);
+    JSValue previous_global_engine = JS_UNDEFINED;
+    if (!mwx_scene_quickjs_bind_module_engine_host(
+            owner, &previous_global_engine
+        )) {
+        JS_FreeValue(domain->context, module);
+        free(owner->effect_names);
+        free(owner);
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript module engine host unavailable"
+        );
+        return NULL;
+    }
     JSValue evaluation = JS_EvalFunction(
         domain->context,
         JS_DupValue(domain->context, module)
     );
+    const bool engine_restored = mwx_scene_quickjs_restore_module_engine_host(
+        owner, previous_global_engine
+    );
+    if (!engine_restored) {
+        JS_FreeValue(domain->context, evaluation);
+        JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        free(owner->effect_names);
+        free(owner);
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript module engine restore failed"
+        );
+        return NULL;
+    }
     if (JS_IsException(evaluation)) {
         mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        free(owner->effect_names);
+        free(owner);
         return NULL;
     }
     JSPromiseStateEnum state = JS_PromiseState(domain->context, evaluation);
@@ -870,6 +928,9 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         JS_FreeValue(domain->context, reason);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        free(owner->effect_names);
+        free(owner);
         return NULL;
     }
     if (state == JS_PROMISE_PENDING) {
@@ -880,6 +941,9 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         );
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        free(owner->effect_names);
+        free(owner);
         return NULL;
     }
     JS_FreeValue(domain->context, evaluation);
@@ -889,23 +953,15 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     if (JS_IsException(namespace)) {
         mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
         JS_FreeValue(domain->context, namespace);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        free(owner->effect_names);
+        free(owner);
         return NULL;
     }
-    MWXSceneQuickJSOwner *owner = calloc(1, sizeof(*owner));
-    if (owner == NULL) {
-        JS_FreeValue(domain->context, namespace);
-        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
-        return NULL;
-    }
-    owner->domain = domain;
     owner->module = namespace;
-    owner->generation = generation;
-    owner->material_function_layer = JS_UNDEFINED;
-    owner->scene_handle = JS_UNDEFINED;
-    owner->object_handle = JS_UNDEFINED;
-    owner->effect_names = calloc(1, sizeof(*owner->effect_names));
-    if (owner->effect_names == NULL || !mwx_scene_quickjs_install_owner_handles(owner)) {
+    if (!mwx_scene_quickjs_install_owner_handles(owner)) {
         mwx_scene_quickjs_destroy_owner_handles(owner);
+        mwx_scene_quickjs_destroy_audio_host(owner);
         JS_FreeValue(domain->context, owner->module);
         free(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript host globals unavailable");
@@ -956,6 +1012,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
     }
+    mwx_scene_quickjs_destroy_audio_host(owner);
     mwx_scene_quickjs_destroy_owner_handles(owner);
     free(owner);
 }

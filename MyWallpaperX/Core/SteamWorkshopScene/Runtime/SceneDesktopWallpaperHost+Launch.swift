@@ -377,11 +377,14 @@ extension SceneDesktopWallpaperHost {
         let hoverOriginTransitionTargets = Set(
             hoverOriginTransitionProgram.definitions.map(\.target)
         )
-        let audioScaledValueTargets = Set(
-            model.audioScaledValueProgram.definitions.map(\.target)
-        )
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
+        )
+        let audioScaledValueProgram = model.audioScaledValueProgram.excluding(
+            propertyVectorScriptTargets
+        )
+        let audioScaledValueTargets = Set(
+            audioScaledValueProgram.definitions.map(\.target)
         )
         let propertyBindingDefinitions =
             runtimeInput.propertyBindingProgram.definitions
@@ -458,7 +461,7 @@ extension SceneDesktopWallpaperHost {
             ("hover-origin", hoverOriginTransitionTargets,
              hoverOriginTransitionProgram.definitions.count, []),
             ("audio-scaled", audioScaledValueTargets,
-             model.audioScaledValueProgram.definitions.count, []),
+             audioScaledValueProgram.definitions.count, []),
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count,
              model.propertyVectorScriptProgram.animationTargets),
@@ -633,7 +636,7 @@ extension SceneDesktopWallpaperHost {
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,
             hoverOriginTransitionProgram: hoverOriginTransitionProgram,
-            audioScaledValueProgram: model.audioScaledValueProgram,
+            audioScaledValueProgram: audioScaledValueProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,

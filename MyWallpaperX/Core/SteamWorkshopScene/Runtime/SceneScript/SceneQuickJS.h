@@ -118,6 +118,21 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_has_function(
     size_t diagnostic_capacity
 );
 
+size_t mwx_scene_quickjs_owner_audio_registration_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_refresh_audio_resolution(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    uint32_t resolution,
+    const float *left,
+    const float *right,
+    size_t count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_catalog(
     MWXSceneQuickJSOwner *owner,
     uint32_t effect_count,

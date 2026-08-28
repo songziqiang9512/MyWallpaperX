@@ -307,7 +307,8 @@ extension SceneDesktopWallpaperHost {
             frame: SceneScriptFrameInput(timing: timing),
             layerSnapshot: preliminaryForSceneScript,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
-            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent
+            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
+            audioSpectrum: audioSpectrum
         )
         for (target, failure) in sceneScriptVectorResult.failures {
             NSLog(
@@ -335,7 +336,8 @@ extension SceneDesktopWallpaperHost {
             userPropertiesJSON: userPropertiesJSON,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
             mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
-            mediaPropertiesEvent: sceneScriptMediaPropertiesEvent
+            mediaPropertiesEvent: sceneScriptMediaPropertiesEvent,
+            audioSpectrum: audioSpectrum
         )
         for (target, failure) in sceneScriptStringResult.failures {
             NSLog(
@@ -361,7 +363,8 @@ extension SceneDesktopWallpaperHost {
             frame: SceneScriptFrameInput(timing: timing),
             userPropertiesJSON: userPropertiesJSON,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
-            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent
+            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
+            audioSpectrum: audioSpectrum
         )
         if !sceneScriptResult.failures.isEmpty {
             for (target, failure) in sceneScriptResult.failures {

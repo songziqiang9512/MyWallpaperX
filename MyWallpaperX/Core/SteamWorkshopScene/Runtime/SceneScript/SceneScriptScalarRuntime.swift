@@ -75,6 +75,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     let generation: UInt64
     let target: SceneDynamicTarget
     let authoredValue: Double
+    let hasAudioRegistration: Bool
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -129,10 +130,21 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             throw error
         }
         self.handle = created
+        hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
     }
 
     deinit {
         mwx_scene_quickjs_owner_destroy(handle)
+    }
+
+    func refreshAudio(
+        _ snapshot: SceneAudioSpectrumSnapshot
+    ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        SceneScriptAudioHost.refresh(
+            owner: handle,
+            ownerGeneration: generation,
+            snapshot: snapshot
+        )
     }
 
     func evaluate(

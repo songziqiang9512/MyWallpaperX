@@ -12,9 +12,10 @@ import os.lock
 /// 还会明确声明 32/64 档。当前宿主同时承载三档、左右分离、由低到高、取正值。
 ///
 /// 频段边界、幅度归一化与平滑策略官方均未公开，当前实现是工程选择而非官方合同，
-/// 不能据此宣称与 Wallpaper Engine 数值等价。通用 SceneScript
-/// `registerAudioBuffers` / `AudioBuffers` API 仍未接入；64 档另供两份严格准入的
-/// property-script native plan 使用，它们不构成通用脚本 API bridge。
+/// 不能据此宣称与 Wallpaper Engine 数值等价。该唯一快照也发布给通用
+/// SceneScript `registerAudioBuffers` 的 16/32/64 档 retained arrays；遗留的
+/// particle-rate native plan 仍消费同一份 16 档输入，等待其 nested binding IR
+/// 进入 QuickJS 后撤权。
 nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let bandCount = 16
     static let mediumBandCount = 32
@@ -28,7 +29,7 @@ nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     let left32: [Float]
     /// Workshop shader 的 32 档右声道频段能量。
     let right32: [Float]
-    /// Workshop shader 与受限 native property-script plan 的 64 档左声道能量。
+    /// Workshop shader 与 SceneScript AudioBuffers 的 64 档左声道能量。
     let left64: [Float]
     /// Workshop shader 与受限 native property-script plan 的 64 档右声道能量。
     let right64: [Float]

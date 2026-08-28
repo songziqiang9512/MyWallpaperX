@@ -13,6 +13,7 @@
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
+#define MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS 3
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -27,6 +28,14 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool configured;
 } MWXSceneQuickJSLayerRecord;
 
+typedef struct MWXSceneQuickJSAudioRegistration {
+    uint32_t resolution;
+    JSValue object;
+    JSValue left;
+    JSValue right;
+    JSValue average;
+} MWXSceneQuickJSAudioRegistration;
+
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
@@ -40,6 +49,7 @@ struct MWXSceneQuickJSDomain {
     uint64_t callback_epoch;
     bool callback_active;
     MWXSceneQuickJSOwner *active_owner;
+    MWXSceneQuickJSOwner *module_owner;
 };
 
 struct MWXSceneQuickJSOwner {
@@ -58,6 +68,10 @@ struct MWXSceneQuickJSOwner {
     bool current_animation_available;
     uint32_t effect_count;
     char **effect_names;
+    size_t audio_registration_count;
+    MWXSceneQuickJSAudioRegistration audio_registrations[
+        MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS
+    ];
     MWXSceneQuickJSMaterialFunctionMutationRecord material_functions[
         MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS
     ];
@@ -103,6 +117,15 @@ bool mwx_scene_quickjs_restore_frame_engine_host(
     MWXSceneQuickJSOwner *owner,
     JSValue previous_global_engine
 );
+bool mwx_scene_quickjs_bind_module_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue *previous_global_engine
+);
+bool mwx_scene_quickjs_restore_module_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue previous_global_engine
+);
+void mwx_scene_quickjs_destroy_audio_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner);
 MWXSceneQuickJSResult mwx_scene_quickjs_exception_result(

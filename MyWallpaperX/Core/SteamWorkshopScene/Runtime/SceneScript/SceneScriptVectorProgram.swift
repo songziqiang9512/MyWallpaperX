@@ -66,8 +66,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
+    private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
+
+    var hasAudioConsumers: Bool {
+        bindings.contains(where: { $0.owner.hasAudioRegistration })
+    }
 
     private init(
         domain: SceneScriptQuickJSDomain?,
@@ -172,6 +177,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         layerSnapshot: SceneDynamicSnapshot? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptVectorFrameResult {
         var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
@@ -234,6 +240,33 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       binding.properties,
                       effectiveValues: effectivePropertyValues
                   ) else { continue }
+            if binding.owner.hasAudioRegistration {
+                switch binding.owner.refreshAudio(audioSpectrum) {
+                case .success:
+                    if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
+                       reportedAudioTargets.insert(target).inserted {
+                        let peak = [
+                            audioSpectrum.left.max() ?? 0,
+                            audioSpectrum.right.max() ?? 0,
+                            audioSpectrum.left32.max() ?? 0,
+                            audioSpectrum.right32.max() ?? 0,
+                            audioSpectrum.left64.max() ?? 0,
+                            audioSpectrum.right64.max() ?? 0,
+                        ].max() ?? 0
+                        NSLog(
+                            "MWX SceneScript VM: target=%@ event=audioBuffersUpdated generation=%llu silent=%@ peak=%.9g route=generic-only",
+                            String(describing: target),
+                            audioSpectrum.generation,
+                            audioSpectrum.isSilent ? "true" : "false",
+                            peak
+                        )
+                    }
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var playbackMutationCount = 0
@@ -324,10 +357,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 if reportedTargets.insert(target).inserted,
                    case let .vector3(outputX, outputY, outputZ) = value {
                     NSLog(
-                        "MWX SceneScript VM: target=%@ callback=completed type=Vec3 input=(%.9g,%.9g,%.9g) output=(%.9g,%.9g,%.9g) route=generic-only",
+                        "MWX SceneScript VM: target=%@ callback=completed type=Vec3 input=(%.9g,%.9g,%.9g) output=(%.9g,%.9g,%.9g) audio=%@ audioGeneration=%llu route=generic-only",
                         String(describing: target),
                         x, y, z,
-                        outputX, outputY, outputZ
+                        outputX, outputY, outputZ,
+                        binding.owner.hasAudioRegistration ? "true" : "false",
+                        audioSpectrum.generation
                     )
                 }
             case let .failure(failure):

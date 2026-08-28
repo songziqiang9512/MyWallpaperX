@@ -20,6 +20,10 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
 
+    var hasAudioConsumers: Bool {
+        bindings.contains(where: \.hasAudioRegistration)
+    }
+
     private init(
         domain: SceneScriptQuickJSDomain?,
         bindings: [SceneScriptScalarOwner],
@@ -104,6 +108,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
+        audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
         var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
@@ -130,6 +135,15 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             guard !disabledTargets.contains(binding.target) else { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
+            if binding.hasAudioRegistration {
+                switch binding.refreshAudio(audioSpectrum) {
+                case .success: break
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var playbackMutationCount = 0

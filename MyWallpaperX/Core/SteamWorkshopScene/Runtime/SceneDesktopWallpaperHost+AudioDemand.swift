@@ -15,6 +15,9 @@ extension SceneDesktopWallpaperHost {
                 context.resolvedMaterialExecutionCapabilities,
             hasParticleAudioConsumer: hasParticleAudioConsumer
                 || !context.audioScaledValueProgram.bindings.isEmpty
+                || context.propertyVectorScriptProgram.hasAudioConsumers
+                || context.sceneScriptScalarProgram.hasAudioConsumers
+                || context.sceneScriptStringProgram.hasAudioConsumers
         ))
     }
 

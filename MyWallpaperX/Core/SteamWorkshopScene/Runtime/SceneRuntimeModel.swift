@@ -142,8 +142,7 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             userPropertyDefinitions: project.userProperties.definitions,
             timelineTargets: timelineTargets,
-            excludedTargets: Set(audioScaledValueProgram.definitions.map(\.target))
-                .union(launchTransitionTargets)
+            excludedTargets: launchTransitionTargets
                 .union(hoverTransitionTargets),
             generation: sceneScriptGeneration
         )
