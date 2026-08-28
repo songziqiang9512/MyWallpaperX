@@ -73,7 +73,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
     let hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
     let audioScaledValueProgram: SceneAudioScaledValueProgram
-    let propertyVectorScriptProgram: ScenePropertyVectorScriptProgram
+    let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
@@ -87,8 +87,9 @@ struct SceneDesktopWallpaperLaunchContext {
         resolvedMaterialCatalog.reportLines
             + resolvedMaterialExecutionCapabilities.reportLines
             + materialAssetCatalog.reportLines + [
-            "scene script VM: schema=quickjs-ng-scalar-v1"
+            "scene script VM: schema=quickjs-ng-typed-v2"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
+                + " vec3Bindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " targets=\(sceneScriptScalarProgram.definitions.count)"
                 + " route=generic-only fallback=previous-current",
             "resolved material system providers: schema=r3-system-provider-v1"
@@ -125,8 +126,9 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " rejectedScaleLayerIDs="
                 + "\(audioScaledValueProgram.rejectedScaleLayerIDs)"
                 + " resolution=16",
-            "scene property vector scripts: schema=bounded-property-vector-v1"
+            "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"
+                + " route=generic-only fallback=previous-current"
                 + " scaleLayerIDs="
                 + "\(Array(propertyVectorScriptProgram.admittedScaleLayerIDs).sorted())"
         ]
@@ -342,7 +344,8 @@ extension SceneDesktopWallpaperHost {
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
-            propertyOverrides: propertyOverrides
+            propertyOverrides: propertyOverrides,
+            sceneScriptGeneration: sceneScriptGeneration
         )
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
@@ -493,6 +496,7 @@ extension SceneDesktopWallpaperHost {
                 )
         }
         let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
+            domain: model.sceneScriptDomain,
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             excludedTargets: boundedSceneScriptTargets,

@@ -6,7 +6,7 @@
 >
 > 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](runtime-evidence-index.md)，唯一实现顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 >
-> `311115e3` 新增的click、shared alpha、audio-scaled value、property→Vec3、media colors/title/artist仍只有产品接线与自动测试，统一标为`S2 wired / visible unknown`。hover坐标现有一个shared Cursor feedback真实consumer，但只证明bounded Program输入与整层安全输出，不升级generic pointer event能力。
+> `311115e3` 新增的click、shared alpha、audio-scaled value、media colors/title/artist仍只有产品接线与自动测试，统一标为`S2 wired / visible unknown`。原property→Vec3 native projection已由同一QuickJS-NG domain中的generic object origin/scale Vec3 owner取代；真实`2802243144`闭合两个origin callback与统一snapshot，边界见[E-V2-SCENESCRIPT-VEC3-USER-PROPERTIES](runtime-evidence-index.md#e-v2-scenescript-vec3-user-properties)。hover坐标现有一个shared Cursor feedback真实consumer，但只证明bounded Program输入与整层安全输出，不升级generic pointer event能力。
 
 > 最新 historical Pulse combined RGB+alpha 更正：同一个typed property producer与static author value可在shared RGB-blend/scalar-alpha source proof成立时跨historical CAST3、literal-zero与`saturate(rgba)`的mask/no-mask形态复用，三种terminal的static与sole direct producer-present候选均已撤权。literal-zero的source rewrite只把字面`0`变为同维零向量，不触碰typed producer、property state、clock或值副本；mixed contributor、SceneScript/Timeline、`bounds`与其他关系域保持原边界。见 [E-V1-PULSE-LIVE-LITERAL-ZERO-RGB-ALPHA-OWNER](runtime-evidence-index.md#e-v1-pulse-live-literal-zero-rgb-alpha-owner)。
 

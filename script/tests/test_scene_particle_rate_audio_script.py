@@ -21,7 +21,6 @@ SOURCES = [
     SCENE / "Properties/SceneAudioScaledValueSyntax.swift",
     SCENE / "Properties/SceneAudioScaledValueProgram.swift",
     SCENE / "Properties/SceneAudioScaledValueCompiler.swift",
-    SCENE / "Properties/ScenePropertyVectorScriptProgram.swift",
     SCENE / "Properties/SceneScriptedLayerTransformProjection.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Properties/SceneAudioScaledValueRuntime.swift",
@@ -115,7 +114,7 @@ enum Harness {
         )
         let projected = SceneScriptedLayerTransformProjection.apply(
             audioScaledValueProgram: program,
-            propertyVectorScriptProgram: .empty,
+            admittedSceneScriptScaleLayerIDs: [],
             to: audioProjected
         )
         let initialValues = SceneAudioScaledValueRuntime.initialValues(

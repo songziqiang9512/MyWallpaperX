@@ -84,12 +84,12 @@ D3 + D4 + D5 + D6 + D7 + D8
 
 | 必须稳定的合同 | 当前状态 | 完成门 |
 |---|---|---|
-| value types and target definitions | 六类value与主要target由v22持久化；direct text、exact Local Contrast/Opacity与bounded Blend multiply已注册typed target。Local Contrast target现由共享MaterialProgram消费，不属于已删除strict renderer；`311115e3`又为shared layer alpha、audio-scaled particle rate/layer scale、property slider→Vec3 origin/scale与identity display建立bounded typed definition/projection，当前最高`S2 wired / visible unknown` | 新类型继续执行type/finite/default validation；这些native projection不冒充ECMAScript、mutable shared或generic binding |
+| value types and target definitions | 六类value与主要target由v22持久化；direct text、exact Local Contrast/Opacity与bounded Blend multiply已注册typed target。Local Contrast target现由共享MaterialProgram消费；shared layer alpha、audio-scaled particle rate/layer scale与identity display保持bounded native projection。property slider→Vec3 origin/scale已迁入同一QuickJS-NG domain并以真实`2802243144`闭合两个origin owner | 新类型继续执行type/finite/default validation；其余native projection不冒充ECMAScript、mutable shared或generic binding，当前Vec3正证也不外推全部Vec target/API |
 | source priority | `authored -> property -> Timeline -> SceneScript` 已定义；property、受限Timeline与bounded text/time-of-day/fade producer已复用同一resolver | generic SceneScript/event mutation接入时不得在renderer内重复求值 |
 | binding program | layer alpha/solid color、direct text、Local Contrast/Opacity 与 bounded Blend multiply 编译、验证和持久化已完成；`311115e3` 的 shared/audio/property/identity bounded program 已接入 definition/snapshot consumer；mixed/invalid/未知 SceneScript key 标记 rebuild | 下一 target 必须同批增加 compiler mapping、稳定 identity、snapshot consumer 和 fallback；新增接线补 fresh runtime/ROI 前保持 `S2` |
 | target scope and invalidation domain | direct text 使用 per-layer generation；alpha/color/effect scalar 为 value-only；mixed/hidden/no-consumer 统一 rebuild | topology/provider/simulation target 逐类登记失效域 |
 | evaluation transaction | property、Timeline与bounded text/time-of-day/fade evaluation、validation、atomic commit已执行；fade scene state及 `311115e3` 的 shared/audio/property projection 在 surface loop 外求值，hover/click 则在每 surface hit-test 后进入最终 transaction | generic events/mutation依固定顺序接入同一transaction；live media provider另立生命周期门；新接线补 fresh 可见证据 |
-| immutable snapshot and generation | 每 surface 独立 snapshot/generation；相同 payload 不增 generation；`311115e3` 已把 bounded shared alpha、audio-scaled value、property Vec3、identity display 与 media playback/colors/title/artist 合并进现役 carrier | 双屏 local input、generic script/event、live media provider 加入后继续验证不串用；这些 carrier 不证明可见结果 |
+| immutable snapshot and generation | 每surface独立snapshot/generation；相同payload不增generation；bounded shared alpha、audio-scaled value、QuickJS Vec3、identity display与media playback/colors/title/artist合并进现役carrier；scalar/Vec3 callback共用per-scene VM generation与typed immutable user-property snapshot | 双屏local input、generic handle/event、live media provider加入后继续验证不串用；当前单surface Vec3正证不证明多屏或其他carrier可见结果 |
 
 目标运行形态必须是：
 
@@ -100,7 +100,7 @@ HostFrameInputs(time, properties, audio, media)
   -> SurfaceDynamicSnapshot
 ```
 
-B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color，并用 per-layer generation/stale cancellation/last-ready fallback 消费同一 snapshot。`2134765860` 证明三字段更新不替换 surface/window；默认隐藏文本第一次会因无活动 consumer 被拒绝，只有作者属性先启用 Custom 模式后才 live。`32e3a928` 又把已准入的 root particle direct User Property 八字段注册为活动 consumer，并在相同 surface/window 内发布 typed snapshot。`311115e3` 新增的 shared alpha、audio-scaled value、property→Vec3、identity display 与 media carriers 只有产品接线和自动测试，统一保持 `S2 / visible unknown`；particle script/conflict/direct color/child、generic SceneScript/event、live media producer、container、mixed、unsupported 或无活动 consumer 的 key 仍重建或失败关闭。
+B0 live-property 已由 `1762743` 扩展到 direct text content/point-size/color，并用 per-layer generation/stale cancellation/last-ready fallback 消费同一 snapshot。`2134765860` 证明三字段更新不替换 surface/window；默认隐藏文本第一次会因无活动 consumer 被拒绝，只有作者属性先启用 Custom 模式后才 live。`32e3a928` 又把已准入的 root particle direct User Property 八字段注册为活动 consumer，并在相同 surface/window 内发布 typed snapshot。shared alpha、audio-scaled value、identity display 与 media carriers仍只有产品接线和自动测试，保持 `S2 / visible unknown`；property→Vec3已迁入QuickJS并对真实`2802243144`两个origin owner达到bounded `S4`。particle script/conflict/direct color/child、generic handle/event、live media producer、container、mixed、unsupported 或无活动 consumer 的 key 仍重建或失败关闭。
 
 <a id="d4"></a>
 ### D4 Input snapshots and event queues

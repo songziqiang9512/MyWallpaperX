@@ -6,11 +6,11 @@ import Foundation
 nonisolated enum SceneScriptedLayerTransformProjection {
     nonisolated static func apply(
         audioScaledValueProgram: SceneAudioScaledValueProgram,
-        propertyVectorScriptProgram: ScenePropertyVectorScriptProgram,
+        admittedSceneScriptScaleLayerIDs: Set<Int>,
         to descriptor: SceneRenderDescriptor
     ) -> SceneRenderDescriptor {
         let admittedScale = audioScaledValueProgram.admittedScaleLayerIDs.union(
-            propertyVectorScriptProgram.admittedScaleLayerIDs
+            admittedSceneScriptScaleLayerIDs
         )
         var result = descriptor
         result.layers = descriptor.layers.map { source in

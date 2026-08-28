@@ -82,6 +82,7 @@ extension SceneDesktopWallpaperHost {
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
             launchContext?.sceneScriptScalarProgram.invalidate()
+            launchContext?.propertyVectorScriptProgram.invalidate()
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil
@@ -265,10 +266,6 @@ extension SceneDesktopWallpaperHost {
             audioSpectrum: audioSpectrum,
             frameTime: timing.simulationFrameTime
         )
-        let propertyVectorScriptValues = ScenePropertyVectorScriptRuntime.values(
-            program: launchContext.propertyVectorScriptProgram,
-            effectivePropertyValues: launchContext.liveState.effectiveValues
-        )
 #if DEBUG
         if Self.usesDebugEvidenceWindow {
             debugAudioScaledValueValues = audioScaledValueValues
@@ -289,9 +286,6 @@ extension SceneDesktopWallpaperHost {
         ).merging(
             audioScaledValueValues,
             uniquingKeysWith: { existing, _ in existing }
-        ).merging(
-            propertyVectorScriptValues,
-            uniquingKeysWith: { existing, _ in existing }
         )
         let boundedSceneScriptValues = commonSceneScriptValues
         let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
@@ -302,6 +296,30 @@ extension SceneDesktopWallpaperHost {
             timelineValues: timelineValues,
             sceneScriptValues: boundedSceneScriptValues
         ).snapshot
+        let sceneScriptVectorInputs = launchContext.propertyVectorScriptProgram.bindings
+            .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
+                let target = binding.definition.target
+                guard let resolved = preliminaryForSceneScript[target],
+                      case .vector3 = resolved.value else { return }
+                inputs[target] = resolved.value
+            }
+        let sceneScriptVectorResult = launchContext.propertyVectorScriptProgram.evaluate(
+            inputs: sceneScriptVectorInputs,
+            effectivePropertyValues: launchContext.liveState.effectiveValues,
+            frame: SceneScriptFrameInput(timing: timing)
+        )
+        for (target, failure) in sceneScriptVectorResult.failures {
+            NSLog(
+                "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=previous-current",
+                String(describing: target),
+                String(describing: failure),
+                failure.code
+            )
+        }
+        commonSceneScriptValues.merge(
+            sceneScriptVectorResult.values,
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
         let sceneScriptInputs = launchContext.sceneScriptScalarProgram.bindings.reduce(
             into: [SceneDynamicTarget: SceneDynamicValue]()
         ) { inputs, binding in
@@ -311,7 +329,11 @@ extension SceneDesktopWallpaperHost {
         }
         let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
             inputs: sceneScriptInputs,
-            frame: SceneScriptFrameInput(timing: timing)
+            frame: SceneScriptFrameInput(timing: timing),
+            userPropertiesJSON: launchContext.propertyVectorScriptProgram
+                .userPropertiesJSON(
+                    effectiveValues: launchContext.liveState.effectiveValues
+                )
         )
         if !sceneScriptResult.failures.isEmpty {
             for (target, failure) in sceneScriptResult.failures {

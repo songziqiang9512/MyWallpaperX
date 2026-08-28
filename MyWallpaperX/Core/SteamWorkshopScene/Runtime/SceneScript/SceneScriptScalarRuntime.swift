@@ -122,6 +122,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     func evaluate(
         input: Double,
         frame: SceneScriptFrameInput,
+        userPropertiesJSON: String = "{}",
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptScalarEvaluation, SceneScriptScalarRuntimeFailure> {
@@ -147,15 +148,19 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             runtime: frame.runtime
         )
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = mwx_scene_quickjs_owner_update_scalar(
-            handle,
-            expectedGeneration,
-            input,
-            &frameInput,
-            &output,
-            &diagnostic,
-            diagnostic.count
-        )
+        let result = userPropertiesJSON.withCString { userProperties in
+            mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+                handle,
+                expectedGeneration,
+                input,
+                &frameInput,
+                userProperties,
+                userPropertiesJSON.utf8.count,
+                &output,
+                &diagnostic,
+                diagnostic.count
+            )
+        }
         guard result == MWX_SCENE_QUICKJS_OK else {
             return .failure(Self.failure(
                 raw: result,
@@ -241,7 +246,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
 }
 
 nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
-    fileprivate let handle: OpaquePointer
+    let handle: OpaquePointer
     let budget: SceneScriptScalarBudget
 
     init(budget: SceneScriptScalarBudget = .default) throws {
@@ -265,7 +270,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         mwx_scene_quickjs_domain_destroy(handle)
     }
 
-    fileprivate func resetBudget(_ interruptBudget: UInt64) {
+    func resetBudget(_ interruptBudget: UInt64) {
         mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
     }
 

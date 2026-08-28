@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Contract gate for the bounded QuickJS-NG SceneScript scalar owner."""
+"""Contract gate for the QuickJS-NG SceneScript typed owners."""
 
 from __future__ import annotations
 
@@ -49,6 +49,42 @@ static int update(
     return check(
         actual == expected
             && (expected != MWX_SCENE_QUICKJS_OK || output == expected_output),
+        label,
+        diagnostic
+    );
+}
+
+static int update_vec3(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    const double input[3],
+    const char *script_properties,
+    const char *user_properties,
+    MWXSceneQuickJSResult expected,
+    const double expected_output[3],
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    double output[3] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_vec3(
+        owner, generation, input, &frame,
+        script_properties, strlen(script_properties),
+        user_properties, strlen(user_properties),
+        output, diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        actual == expected && (
+            expected != MWX_SCENE_QUICKJS_OK || (
+                output[0] == expected_output[0] &&
+                output[1] == expected_output[1] &&
+                output[2] == expected_output[2]
+            )
+        ),
         label,
         diagnostic
     );
@@ -204,6 +240,69 @@ int main(void) {
         "WEMath engine.timeOfDay"
     );
 
+    const char *scalar_user_source =
+        "export function update(value) { return engine.userProperties.live; }";
+    MWXSceneQuickJSOwner *scalar_user = mwx_scene_quickjs_owner_create(
+        domain, scalar_user_source, strlen(scalar_user_source),
+        15, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(scalar_user != NULL, "scalar user properties compile", diagnostic);
+    double scalar_user_output = 0;
+    MWXSceneQuickJSFrameInput scalar_user_frame = {
+        .time_of_day = 0.25, .frame_time = 1.0 / 60.0, .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult scalar_user_result =
+        mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+            scalar_user, 15, 0, &scalar_user_frame,
+            "{\"live\":6}", strlen("{\"live\":6}"),
+            &scalar_user_output, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        scalar_user_result == MWX_SCENE_QUICKJS_OK && scalar_user_output == 6,
+        "scalar engine.userProperties",
+        diagnostic
+    );
+
+    const char *vec3_source =
+        "'use strict';\n"
+        "export var scriptProperties = createScriptProperties()\n"
+        "  .addSlider({name:'x',label:'X',value:1,min:0,max:10,integer:false})\n"
+        "  .finish();\n"
+        "export function update(value) {\n"
+        "  value.x = scriptProperties.x;\n"
+        "  value.y = engine.userProperties.live;\n"
+        "  value.z = engine.userProperties.tint.x;\n"
+        "  return value;\n"
+        "}";
+    MWXSceneQuickJSOwner *vec3 = mwx_scene_quickjs_owner_create(
+        domain, vec3_source, strlen(vec3_source),
+        13, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(vec3 != NULL, "Vec3 compile", diagnostic);
+    const double vec3_input[3] = {1, 2, 3};
+    const double vec3_expected[3] = {4, 5, 0.25};
+    failures += update_vec3(
+        vec3, 13, vec3_input,
+        "{\"x\":4}",
+        "{\"live\":5,\"tint\":{\"x\":0.25,\"y\":0.5,\"z\":1}}",
+        MWX_SCENE_QUICKJS_OK, vec3_expected,
+        "Vec3/scriptProperties/engine.userProperties"
+    );
+
+    const char *immutable_user_source =
+        "'use strict'; export function update(value) {"
+        "engine.userProperties.live = 9; return value; }";
+    MWXSceneQuickJSOwner *immutable_user = mwx_scene_quickjs_owner_create(
+        domain, immutable_user_source, strlen(immutable_user_source),
+        14, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(immutable_user != NULL, "immutable user compile", diagnostic);
+    failures += update_vec3(
+        immutable_user, 14, vec3_input, "", "{\"live\":5}",
+        MWX_SCENE_QUICKJS_EXCEPTION, vec3_input,
+        "engine.userProperties is immutable"
+    );
+
     MWXSceneQuickJSOwner *immutable_frame = mwx_scene_quickjs_owner_create(
         domain,
         "'use strict';\n"
@@ -324,6 +423,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(metadata_only);
     mwx_scene_quickjs_owner_destroy(time_of_day);
     mwx_scene_quickjs_owner_destroy(immutable_frame);
+    mwx_scene_quickjs_owner_destroy(vec3);
+    mwx_scene_quickjs_owner_destroy(immutable_user);
+    mwx_scene_quickjs_owner_destroy(scalar_user);
     mwx_scene_quickjs_domain_destroy(domain);
     return failures == 0 ? 0 : 1;
 }

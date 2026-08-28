@@ -10,7 +10,8 @@ struct SceneRuntimeModel {
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let audioScaledValueProgram: SceneAudioScaledValueProgram
-    let propertyVectorScriptProgram: ScenePropertyVectorScriptProgram
+    let propertyVectorScriptProgram: SceneScriptVectorProgram
+    let sceneScriptDomain: SceneScriptQuickJSDomain?
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
     let diagnostics: SceneDiagnosticsReport
@@ -64,7 +65,8 @@ struct SceneRuntimeModelBuilder {
 
     func build(
         rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+        propertyOverrides: [String: SceneUserPropertyValue] = [:],
+        sceneScriptGeneration: UInt64 = 1
     ) throws -> SceneRuntimeModel {
         let diagnostics = SceneDiagnosticsBuilder().build(
             rootURL: rootURL,
@@ -109,11 +111,31 @@ struct SceneRuntimeModelBuilder {
         let audioScaledValueProgram = SceneAudioScaledValueProgramCompiler.compile(
             descriptor: renderDescriptor
         )
-        let propertyVectorScriptProgram =
-            ScenePropertyVectorScriptProgramCompiler.compile(
+        let sceneScriptDomain = try? SceneScriptQuickJSDomain()
+        let launchTransitionTargets = Set(
+            SceneLaunchOriginTransitionProgramCompiler.compile(
                 descriptor: renderDescriptor,
-                scriptBindings: sceneDocument.scriptBindings
-            )
+                scriptBindings: sceneDocument.scriptBindings,
+                scriptSourceEvidence: sceneDocument.scriptSourceEvidence
+            ).definitions.map(\.target)
+        )
+        let hoverTransitionTargets = Set(
+            SceneHoverOriginTransitionProgramCompiler.compile(
+                descriptor: renderDescriptor,
+                scriptBindings: sceneDocument.scriptBindings,
+                scriptSourceEvidence: sceneDocument.scriptSourceEvidence
+            ).definitions.map(\.target)
+        )
+        let propertyVectorScriptProgram = SceneScriptVectorProgram.compile(
+            domain: sceneScriptDomain,
+            descriptor: renderDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            userPropertyDefinitions: project.userProperties.definitions,
+            excludedTargets: Set(audioScaledValueProgram.definitions.map(\.target))
+                .union(launchTransitionTargets)
+                .union(hoverTransitionTargets),
+            generation: sceneScriptGeneration
+        )
         let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(
             program: sharedLayerAlphaProgram,
             to: renderDescriptor
@@ -133,7 +155,8 @@ struct SceneRuntimeModelBuilder {
         )
         let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
             audioScaledValueProgram: audioScaledValueProgram,
-            propertyVectorScriptProgram: propertyVectorScriptProgram,
+            admittedSceneScriptScaleLayerIDs:
+                propertyVectorScriptProgram.admittedScaleLayerIDs,
             to: audioProjectedDescriptor
         )
         let runtimeInput = SceneRuntimeInput(
@@ -156,6 +179,7 @@ struct SceneRuntimeModelBuilder {
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
             audioScaledValueProgram: audioScaledValueProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
+            sceneScriptDomain: sceneScriptDomain,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
             runtimeInput: runtimeInput,
             diagnostics: diagnostics

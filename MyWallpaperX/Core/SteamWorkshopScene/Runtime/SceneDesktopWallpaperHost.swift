@@ -127,6 +127,7 @@ final class SceneDesktopWallpaperHost {
             epoch: nextVideoProviderEpoch
         )
         launchContext?.sceneScriptScalarProgram.invalidate()
+        launchContext?.propertyVectorScriptProgram.invalidate()
         launchContext = context
 #if DEBUG
         debugAudioScaledValueValues = [:]

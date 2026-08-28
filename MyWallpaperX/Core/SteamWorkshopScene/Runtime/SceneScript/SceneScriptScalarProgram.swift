@@ -35,6 +35,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     }
 
     static func compile(
+        domain sharedDomain: SceneScriptQuickJSDomain? = nil,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
         excludedTargets: Set<SceneDynamicTarget> = [],
@@ -42,9 +43,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptScalarProgram {
         let domain: SceneScriptQuickJSDomain
-        do {
-            domain = try SceneScriptQuickJSDomain(budget: budget)
-        } catch {
+        if let sharedDomain {
+            domain = sharedDomain
+        } else if let created = try? SceneScriptQuickJSDomain(budget: budget) {
+            domain = created
+        } else {
             return empty(budget: budget, generation: generation)
         }
         let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double)] =
@@ -80,6 +83,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         frame: SceneScriptFrameInput,
+        userPropertiesJSON: String = "{}",
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -92,6 +96,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             switch binding.evaluate(
                 input: value,
                 frame: frame,
+                userPropertiesJSON: userPropertiesJSON,
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
             ) {
