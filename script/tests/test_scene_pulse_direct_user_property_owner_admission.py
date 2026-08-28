@@ -52,12 +52,11 @@ SWIFT_SOURCES = unique_sources([
     *PULSE_FIXTURE["SWIFT_SOURCES"],
     SCENE_ROOT / "Format/SceneDocument+ShaderValue.swift",
     SCENE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
-    SCENE_ROOT
-    / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
+    SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
+    SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
+    SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
+    SCENE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStagePulseDirectPropertyOwnerAdmission.swift",
 ])
 
 

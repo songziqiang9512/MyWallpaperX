@@ -168,7 +168,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         guard case let .accepted(plan) = result else { return result }
         let detail: String
         if colorOnlyRGBProgramOwnerIsProven(plan: plan, input: input) {
-            if !plan.bindings.isEmpty {
+            if let fallbackDetail =
+                SceneEffectStagePulseDirectPropertyOwnerAdmission
+                    .authoredFallbackRevocationDetail(plan: plan, input: input) {
+                detail = fallbackDetail
+            } else if !plan.bindings.isEmpty {
                 detail = "typed-user-property-rgb-owner-revoked-to-material-program"
             } else if plan.audio == nil {
                 detail = "static-rgb-preserving-owner-revoked-to-material-program"
@@ -219,7 +223,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             .directPhaseMaxClampV1,
         ]
         let bindingCohortIsProven = plan.bindings.isEmpty
-            || directBindingCohortIsProven(
+            || SceneEffectStagePulseDirectPropertyOwnerAdmission
+                .bindingCohortIsProven(
                 plan: plan, input: input, alphaWriting: false
             )
         guard supportedProfiles.contains(plan.shaderProfile),
@@ -343,7 +348,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             preparedVariants.append(prepared)
         }
         if !plan.bindings.isEmpty {
-            guard directUserPropertyOwnerDisposition(
+            guard SceneEffectStagePulseDirectPropertyOwnerAdmission.ownerDisposition(
                 plan: plan,
                 preparedVariants: preparedVariants
             ) == .revokeDedicatedOwner else { return false }
@@ -371,7 +376,8 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             ? [.stock2842]
             : [.stock2842, .directPhaseSaturateV1, .directPhaseMaxClampV1]
         let bindingCohortIsProven = plan.bindings.isEmpty
-            || directBindingCohortIsProven(
+            || SceneEffectStagePulseDirectPropertyOwnerAdmission
+                .bindingCohortIsProven(
                 plan: plan, input: input, alphaWriting: true
             )
         guard supportedProfiles.contains(plan.shaderProfile),
@@ -534,10 +540,11 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                   sourceShape.profile.defaultRouteState == .genericOnly,
                   sourceShape.profile.validatedRollbackOwner == .none
             else { return false }
-            guard activeUserPropertyConsumersAreProven(
-                plan: plan,
-                prepared: prepared
-            ) else { return false }
+            guard SceneEffectStagePulseDirectPropertyOwnerAdmission
+                    .activeConsumersAreProven(
+                        plan: plan,
+                        prepared: prepared
+                    ) else { return false }
         }
         return true
     }
@@ -648,145 +655,16 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         }
     }
 
-    /// A wrapper is not enough to transfer execution authority: every bound
-    /// value must also have the exact active stage set and scalar/vector ABI in
-    /// every prepared readiness variant.
-    private nonisolated static func activeUserPropertyConsumersAreProven(
-        plan: ScenePulseExecutionPlan,
-        prepared: SceneShaderPreparedProgram
-    ) -> Bool {
-        plan.bindings.keys.allSatisfy { constant in
-            let type: SceneAuthoredShaderValueType
-            switch constant.valueType {
-            case .scalar: type = .float
-            case .vector2: type = .float2
-            case .vector3: type = .float3
-            default: return false
-            }
-            let stages: [SceneShaderContract.StageKind]
-            switch constant {
-            case .speed, .amount:
-                stages = [.vertex, .fragment]
-            case .phase:
-                switch plan.shaderProfile {
-                case .stock2842:
-                    stages = [.vertex, .fragment]
-                case .directPhaseSaturateV1, .directPhaseMaxClampV1:
-                    stages = [.fragment]
-                }
-            case .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh:
-                stages = [.fragment]
-            case .bounds:
-                return false
-            }
-            guard let uniforms = SceneResolvedMaterialShaderSchema.exactActiveUniforms(
-                materialKey: constant.rawValue,
-                type: type,
-                stages: stages,
-                prepared: prepared
-            ), let fallback = plan.staticOrFallbackValues[constant]
-            else { return false }
-            let fallbackComponents: [Double]
-            switch constant.valueType {
-            case .scalar: fallbackComponents = [fallback.x]
-            case .vector2: fallbackComponents = [fallback.x, fallback.y]
-            case .vector3: fallbackComponents = [fallback.x, fallback.y, fallback.z]
-            default: return false
-            }
-            return zip(stages, uniforms).allSatisfy { stage, uniform in
-                let expectedRange = constant.authoredRange(
-                    for: plan.shaderProfile,
-                    stage: stage
-                )
-                return uniform.authoredRange == expectedRange
-                    && fallbackComponents.allSatisfy {
-                        $0.isFinite && expectedRange.contains($0)
-                    }
-            }
-        }
-    }
+    typealias DirectUserPropertyOwnerDisposition =
+        SceneEffectStagePulseDirectPropertyOwnerAdmission.OwnerDisposition
 
-    nonisolated enum DirectUserPropertyOwnerDisposition: String {
-        case retainIncumbent = "retain-incumbent"
-        case revokeDedicatedOwner = "revoke-dedicated-owner"
-    }
-
-    /// Final owner decision shared by the production compiler and executable
-    /// partition tests. Both unavailable and available readiness variants must
-    /// preserve the exact consumer set before the incumbent can be revoked.
     nonisolated static func directUserPropertyOwnerDisposition(
         plan: ScenePulseExecutionPlan,
         preparedVariants: [SceneShaderPreparedProgram]
     ) -> DirectUserPropertyOwnerDisposition {
-        guard !plan.bindings.isEmpty,
-              preparedVariants.count == 2,
-              preparedVariants.allSatisfy({
-                  activeUserPropertyConsumersAreProven(
-                      plan: plan,
-                      prepared: $0
-                  )
-              }) else {
-            return .retainIncumbent
-        }
-        return .revokeDedicatedOwner
-    }
-
-    /// Non-audio direct values share the stage-indexed Program schema. Audio
-    /// keeps timing in the host snapshot and only exposes stock, mask-free tint.
-    private nonisolated static func directBindingCohortIsProven(
-        plan: ScenePulseExecutionPlan,
-        input: SceneEffectStageCompileInput,
-        alphaWriting: Bool
-    ) -> Bool {
-        guard !plan.bindings.isEmpty else { return false }
-        let shapeIsProven: Bool
-        if plan.audio == nil {
-            shapeIsProven = directNonRelationalBindingsAreProven(plan)
-                && (alphaWriting
-                    ? plan.pulseAlpha
-                    : plan.pulseColor && !plan.pulseAlpha)
-        } else {
-            shapeIsProven = alphaWriting
-                && plan.pulseAlpha
-                && plan.shaderProfile == .stock2842
-                && plan.pulseColor
-                && plan.maskTexturePath == nil
-                && plan.bindings.keys.allSatisfy {
-                    $0 == .tintLow || $0 == .tintHigh
-                }
-        }
-        return shapeIsProven
-            && exactUserPropertyProducersAreProven(plan: plan, input: input)
-    }
-
-    private nonisolated static func directNonRelationalBindingsAreProven(
-        _ plan: ScenePulseExecutionPlan
-    ) -> Bool {
-        guard !plan.bindings.isEmpty else { return false }
-        let supported: Set<ScenePulseExecutionPlan.Constant> = [
-            .speed, .phase, .amount,
-            .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
-        ]
-        return plan.bindings.keys.allSatisfy(supported.contains)
-    }
-
-    /// Owner revocation is launch-scoped: the property binding compiler must
-    /// publish the exact key, target, and scalar/vector type consumed by the
-    /// Program. A missing or differently typed producer retains the incumbent,
-    /// which preserves the authored fallback instead of claiming a bad route.
-    private nonisolated static func exactUserPropertyProducersAreProven(
-        plan: ScenePulseExecutionPlan,
-        input: SceneEffectStageCompileInput
-    ) -> Bool {
-        plan.bindings.allSatisfy { constant, binding in
-            let expected = SceneDynamicUserPropertyProducer(
-                propertyKey: binding.propertyKey,
-                target: binding.dynamicTarget,
-                valueType: constant.valueType
-            )
-            return input.userPropertyProducers.filter {
-                $0.target == binding.dynamicTarget
-            } == [expected]
-        }
+        SceneEffectStagePulseDirectPropertyOwnerAdmission.ownerDisposition(
+            plan: plan,
+            preparedVariants: preparedVariants
+        )
     }
 }

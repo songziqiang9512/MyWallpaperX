@@ -61,6 +61,9 @@ STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanne
 DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
 )
+PULSE_DIRECT_OWNER_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectCompilation/SceneEffectStagePulseDirectPropertyOwnerAdmission.swift"
+)
 STAGE_COMPILE_MODEL_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
 )
@@ -644,6 +647,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         )
         standard_blur = STANDARD_BLUR_SOURCE.read_text(encoding="utf-8")
         dedicated_compilers = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
+        pulse_direct_owner = PULSE_DIRECT_OWNER_SOURCE.read_text(encoding="utf-8")
         stage_compile_model = STAGE_COMPILE_MODEL_SOURCE.read_text(encoding="utf-8")
         dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
@@ -887,45 +891,28 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             "!plan.pulseAlpha",
         ):
             self.assertIn(static_guard, pulse_compiler)
-        self.assertIn("directBindingCohortIsProven(", pulse_compiler)
-        self.assertIn("exactUserPropertyProducersAreProven(", pulse_compiler)
+        self.assertIn(".bindingCohortIsProven(", pulse_compiler)
+        self.assertIn(".ownerDisposition(", pulse_compiler)
         for direct_constant in (
             ".speed", ".phase", ".amount",
             ".noiseSpeed", ".noiseAmount", ".power", ".tintLow", ".tintHigh",
         ):
-            self.assertIn(direct_constant, pulse_compiler)
-        cohort_start = pulse_compiler.index(
-            "private nonisolated static func directBindingCohortIsProven("
-        )
-        cohort_end = pulse_compiler.index(
-            "private nonisolated static func exactUserPropertyProducersAreProven(",
-            cohort_start,
-        )
-        direct_cohort = pulse_compiler[cohort_start:cohort_end]
-        self.assertIn(".phase", direct_cohort)
-        self.assertNotIn(".bounds", direct_cohort)
-        self.assertIn("case .speed, .amount:", pulse_compiler)
-        self.assertIn("case .phase:", pulse_compiler)
-        self.assertIn("case .stock2842:", pulse_compiler)
-        self.assertIn(
-            "case .directPhaseSaturateV1, .directPhaseMaxClampV1:",
-            pulse_compiler,
-        )
-        self.assertIn("stages = [.vertex, .fragment]", pulse_compiler)
-        self.assertIn("stages = [.fragment]", pulse_compiler)
-        self.assertIn("case .bounds:", pulse_compiler)
-        self.assertIn("exactActiveUniforms(", pulse_compiler)
-        self.assertIn("constant.authoredRange(", pulse_compiler)
-        self.assertIn("uniform.authoredRange == expectedRange", pulse_compiler)
-        self.assertIn("expectedRange.contains($0)", pulse_compiler)
+            self.assertIn(direct_constant, pulse_direct_owner)
+        self.assertIn("case .authoredFallback:", pulse_direct_owner)
+        self.assertIn("plan.shaderProfile == .stock2842", pulse_direct_owner)
+        self.assertIn("&& !alphaWriting", pulse_direct_owner)
+        self.assertIn("&& plan.maskTexturePath == nil", pulse_direct_owner)
+        self.assertIn("case .bounds:", pulse_direct_owner)
+        self.assertIn("exactActiveUniforms(", pulse_direct_owner)
+        self.assertIn("hasExactNumericDefinition(", pulse_direct_owner)
         shader_schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
         self.assertIn("static func exactActiveUniforms(", shader_schema)
         self.assertIn("matches.count == stages.count", shader_schema)
-        self.assertIn("propertyKey: binding.propertyKey", pulse_compiler)
-        self.assertIn("target: binding.dynamicTarget", pulse_compiler)
-        self.assertIn("valueType: constant.valueType", pulse_compiler)
+        self.assertIn("propertyKey: binding.propertyKey", pulse_direct_owner)
+        self.assertIn("target: binding.dynamicTarget", pulse_direct_owner)
+        self.assertIn("valueType: constant.valueType", pulse_direct_owner)
         self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
-        self.assertIn("activeUserPropertyConsumersAreProven(", pulse_compiler)
+        self.assertIn("activeConsumersAreProven(", pulse_direct_owner)
         self.assertIn(
             "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
             pulse_compiler,

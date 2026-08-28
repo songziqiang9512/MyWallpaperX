@@ -41,6 +41,7 @@
           "SceneEffectStageExecutionPlan.swift",
           "SceneEffectStageGraph.swift",
           "SceneEffectStageProgram.swift",
+          "SceneEffectStagePulseDirectPropertyOwnerAdmission.swift",
           "SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
           "SceneEffectStageXRayScalarOwnerAdmission.swift"
         ],
