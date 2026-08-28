@@ -5,8 +5,7 @@ extension SceneMetalRenderer {
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             standardBlurEffects: store.standardBlurEffects,
-            pulseEffects: store.pulseEffects,
-            xRay: store.xRayEffects[layerID]
+            pulseEffects: store.pulseEffects
         )
     }
 }

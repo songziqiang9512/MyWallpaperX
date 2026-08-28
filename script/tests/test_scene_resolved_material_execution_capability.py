@@ -8869,7 +8869,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
                 "unusedEffectProjectionDeclaration": True,
                 "effectProjectionInverse": True,
                 "ordinaryDedicated": True,
-                "projectionDedicated": True,
+                "projectionDedicated": False,
                 "uncompiledResolvedCacheFailsClosed": True,
             },
             payload,

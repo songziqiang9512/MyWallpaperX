@@ -86,6 +86,18 @@ enum Harness {
             propertyKey: "broken",
             purpose: .flow
         )!
+        let jpegStraightIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "jpeg",
+            purpose: .straightAlbedo
+        )!
+        let pngStraightIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "png",
+            purpose: .straightAlbedo
+        )!
+        let pngPreservedIdentity = SceneUserPropertyTextureIdentity(
+            propertyKey: "png",
+            purpose: .preservedChannels
+        )!
         let result = loader.load(
             urlsByPropertyKey: [
                 "png": pngURL,
@@ -96,9 +108,9 @@ enum Harness {
             ],
             requestedIdentities: [
                 absentIdentity, maskIdentity, brokenFlowIdentity,
+                jpegStraightIdentity, pngStraightIdentity,
+                pngPreservedIdentity,
             ],
-            straightAlbedoPropertyKeys: ["jpeg", "png"],
-            preservedPropertyKeys: ["png"],
             device: device
         )
         let sharedLoader = SceneTextureLoader()

@@ -1,7 +1,9 @@
 import CryptoKit
 import Foundation
 
-extension SceneAuthoredXRayPlanner {
+nonisolated enum SceneXRayStockIdentityVerifier {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
     nonisolated struct StockIdentityProfile {
         let version: Int?
         let replacementKey: String?
@@ -278,6 +280,32 @@ extension SceneAuthoredXRayPlanner {
     nonisolated static let materialPath = "materials/effects/xray.json"
     nonisolated static let materialPassID = "\(materialPath)#0"
     nonisolated static let shaderIdentity = "effects/xray"
+    nonisolated static let currentStockIdentityProfile = StockIdentityProfile(
+        version: 1,
+        replacementKey: "xray",
+        group: "interactive",
+        materialSemanticSHA256: stockMaterialSemanticSHA256,
+        shaderCanonicalSHA256:
+            "ae769d9b366c49d19957a5f9254bb113a0250c648e3df1e477160e407e652e00",
+        shaderDependencySHA256:
+            "085fdbac854d56bc33880f217065210dbb1d6d694da79ff4d66a7a86b7a911e9"
+    )
+    nonisolated static let legacyStockIdentityProfile = StockIdentityProfile(
+        version: nil,
+        replacementKey: nil,
+        group: "colorize",
+        materialSemanticSHA256: stockMaterialSemanticSHA256,
+        shaderCanonicalSHA256:
+            "2282ff824267047378841e0b504c1f20137f7527883d8de5914ea6ab942cd44e",
+        shaderDependencySHA256:
+            "86764cbeed420c09ca2d18eff1ba6ac217a5b14cdf8aaeba071f9cac089275c8"
+    )
+    nonisolated static let stockIdentityProfiles = [
+        currentStockIdentityProfile,
+        legacyStockIdentityProfile,
+    ]
+    private nonisolated static let stockMaterialSemanticSHA256 =
+        "f07dfa1b7f21c1c99742c66dfa14ab8c747ebc78a1a7573680329950ad40e121"
     private nonisolated static let dependencies = [
         materialPath,
         "shaders/effects/xray.frag",

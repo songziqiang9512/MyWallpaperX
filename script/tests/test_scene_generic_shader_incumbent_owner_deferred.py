@@ -834,7 +834,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         standard_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredStandardBlurPlanner"):
             dedicated_compilers.index(
-                "extension SceneAuthoredXRayPlanner"
+                "extension SceneAuthoredPulsePlanner"
             )
         ]
         self.assertNotIn("SceneAuthoredWaterWavesPlanner", dedicated_compilers)

@@ -57,9 +57,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
             return materials.values.contains {
                 $0.variants.requiresInvertibleEffectTextureProjection
             }
-        case .dedicated(_, let program, _):
-            let plan = program.executionPlan
-            return plan.xRay != nil
+        case .dedicated:
+            return false
         case .visualFailurePassthrough, .initiallyInactivePassthrough:
             return false
         }

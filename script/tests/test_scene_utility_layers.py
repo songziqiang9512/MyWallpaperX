@@ -171,7 +171,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
             metal_renderer,
             "utility capture must receive the same planned effect-instance resources",
         )
-        self.assertIn("xRay: store.xRayEffects[layerID]", metal_renderer_masks)
+        self.assertNotIn("xRay", metal_renderer_masks)
+        self.assertIn("standardBlurEffects: store.standardBlurEffects", metal_renderer_masks)
+        self.assertIn("pulseEffects: store.pulseEffects", metal_renderer_masks)
 
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")

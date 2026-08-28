@@ -134,20 +134,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .xRay(let plan):
-            switch SceneXRayRuntimePlanner.resolve(
-                declaration: plan.declaration,
-                resources: inputs.masks.xRay,
-                snapshot: inputs.dynamicValues,
-                pointerIsInside: inputs.pointerIsInside
-            ) {
-            case .identity:
-                return nil
-            case .render:
-                return pipelines.xRay == nil ? "x-ray-pipeline-missing" : nil
-            case .unsupported:
-                return "x-ray-runtime-unsupported"
-            }
         case .pulse(let plan):
             guard let resources = inputs.masks.pulseEffects[
                 plan.effectKey.descriptorID

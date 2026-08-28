@@ -87,22 +87,6 @@ struct SceneEffectTextureInput {
     let name: String
 }
 
-struct SceneXRayExecutionPlan {
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
-
-enum SceneAuthoredXRayPlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> SceneXRayExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/xray/effect.json" ? SceneXRayExecutionPlan() : nil
-    }
-}
-
 struct ScenePulseExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
@@ -213,10 +197,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredXRayPlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = SceneXRayExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .xRay }
-}
 extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
     typealias DedicatedPlan = ScenePulseExecutionPlan
     nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }
@@ -1045,7 +1025,6 @@ enum Harness {
             let backend: String
             switch stage.backend {
             case .standardBlur: backend = "standardBlur"
-            case .xRay: backend = "xRay"
             case .pulse: backend = "pulse"
             }
             return [effectIndex, backend]
@@ -1209,18 +1188,12 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn("case .transform", topology)
         self.assertIn(".pulse", leaf_body)
         self.assertNotIn("proceduralNoise", leaf_body)
-        self.assertIn(".xRay", leaf_body)
-        self.assertIn("case .xRay(let plan):", topology)
-        self.assertIn("SceneXRayRuntimePlanner.resolve(", topology)
-        self.assertIn('return "x-ray-runtime-unsupported"', topology)
-
-        x_ray = (SOURCE_ROOT / (
+        self.assertNotIn(".xRay", leaf_body)
+        self.assertNotIn("case .xRay", topology)
+        self.assertFalse((SOURCE_ROOT / (
             "RenderGraph/EffectExecution/"
             "SceneEffectStageRenderer+XRay.swift"
-        )).read_text(encoding="utf-8")
-        self.assertIn("sourceTexture !== targets.inputTexture", x_ray)
-        self.assertIn("copyIdentityOutput(", x_ray)
-        self.assertIn('encoder.label = "Scene X-Ray identity output"', x_ray)
+        )).exists())
 
     def test_default_standard_blur_graph_is_planned(self) -> None:
         self.assertEqual(self.result["standardNodes"], 4)
@@ -1358,7 +1331,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("authoredEffectResourcesOnly", source)
         self.assertNotIn("waterWavesEffects", source)
-        for resource in ("standardBlurEffects", "xRay"):
+        for resource in ("standardBlurEffects", "pulseEffects"):
             self.assertIn(f"let {resource}", source)
 
         layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")

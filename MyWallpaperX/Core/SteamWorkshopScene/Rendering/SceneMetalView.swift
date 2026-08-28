@@ -41,16 +41,9 @@ class SceneMetalView: NSView {
             program: mediaThumbnailBindings, device: renderer.device
         )
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
-        let xRayDeclarations = renderDescriptor.layers.compactMap {
-            SceneXRayRuntimePlanner.declaration(for: $0)
-        }
-        let straightAlbedoPropertyKeys = Set(xRayDeclarations.compactMap(\.blendPropertyKey))
-        let preservedPropertyKeys = Set(xRayDeclarations.compactMap(\.haloPropertyKey))
         self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
             urlsByPropertyKey: userPropertyTextureURLs,
             requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(including: renderDescriptor.texturePropertyKeys),
-            straightAlbedoPropertyKeys: straightAlbedoPropertyKeys,
-            preservedPropertyKeys: preservedPropertyKeys,
             device: renderer.device
         )
         let layer = CAMetalLayer()
@@ -109,9 +102,7 @@ class SceneMetalView: NSView {
                 stages: stages,
                 resolver: resolver,
                 loader: loader,
-                device: metalDevice,
-                straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures,
-                preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures
+                device: metalDevice
             )
             loadedEffectTextures.merge(layerID: layer.id, textures: textures)
             return textures

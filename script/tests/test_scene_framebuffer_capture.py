@@ -53,7 +53,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurPipeline.swift",
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
-    SOURCE_ROOT / "Effects/SceneXRayPipeline.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
     SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
@@ -68,7 +67,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+XRay.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectPipelineSet.swift",
@@ -548,12 +546,11 @@ struct SceneAuthoredShaderFrameInputs: Sendable {}
     struct SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
-        case xRay(SceneXRayExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .pulse:
+            case .pulse:
                 return true
             default:
                 return false
@@ -563,7 +560,6 @@ struct SceneAuthoredShaderFrameInputs: Sendable {}
         var stableName: String {
             switch self {
             case .standardBlur: "standard-blur"
-            case .xRay: "x-ray"
             case .pulse: "pulse"
             }
         }
@@ -681,60 +677,6 @@ struct SceneDynamicSnapshot {
 
     static func empty(frameIndex: UInt64, generation: UInt64 = 0) -> Self {
         Self(strengthsByEffectIndex: [:], opacitiesByEffectIndex: [:])
-    }
-}
-
-struct SceneXRayEffectTextures {
-    let effectID: String
-    let blend: MTLTexture
-    let halo: MTLTexture?
-    let opacityMask: MTLTexture?
-}
-
-enum SceneXRayRuntimeResolution {
-    case identity
-    case render(SceneXRayRuntimePlan)
-    case unsupported
-}
-
-struct SceneXRayRuntimePlan {
-    let layerID: Int
-    let effectIndex: Int
-    let effectID: String
-    let blendTexturePath: String
-    let opacityMaskPath: String?
-    let size: Float
-    let multiply: Float
-    let blendUVScale: SIMD2<Float>
-    let opacityUVScale: SIMD2<Float>
-}
-
-struct SceneXRayExecutionPlan {
-    let declaration: SceneXRayRuntimePlanner.Declaration
-}
-
-enum SceneXRayRuntimePlanner {
-    struct Declaration {}
-
-    static func resolve(
-        declaration: Declaration,
-        resources: SceneXRayEffectTextures?,
-        snapshot: SceneDynamicSnapshot,
-        pointerIsInside: Bool
-    ) -> SceneXRayRuntimeResolution {
-        guard pointerIsInside else { return .identity }
-        guard resources != nil else { return .unsupported }
-        return .render(SceneXRayRuntimePlan(
-            layerID: 2998757800,
-            effectIndex: 5,
-            effectID: "2998757800#effect#5",
-            blendTexturePath: "materials/xray/blend",
-            opacityMaskPath: "materials/xray/opacity",
-            size: 1,
-            multiply: 1,
-            blendUVScale: SIMD2(repeating: 1),
-            opacityUVScale: SIMD2(repeating: 1)
-        ))
     }
 }
 
@@ -1530,13 +1472,11 @@ enum Harness {
         )
         func masks(
             standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
-            pulseEffects: [String: ScenePulseEffectTextures] = [:],
-            xRay: SceneXRayEffectTextures? = nil
+            pulseEffects: [String: ScenePulseEffectTextures] = [:]
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
                 standardBlurEffects: standardBlurEffects,
-                pulseEffects: pulseEffects,
-                xRay: xRay
+                pulseEffects: pulseEffects
             )
         }
         func draw(
@@ -1807,7 +1747,7 @@ enum Harness {
                 claimRejectionReason: "fixture-claimed-route-rejected"
             )
         )
-        let claimedGraph = xRayStage(layerID: 0).renderGraph
+        let claimedGraph = pairLeafStage(layerID: 0).renderGraph
         let claimedPairPlan: SceneLayerFullFramePairPlan
         switch SceneLayerFullFramePairPlan.make(
             conditionPrunedGraphs: [claimedGraph]
@@ -2046,12 +1986,6 @@ enum Harness {
                     maskPath: "fixture/mask"
                 ),
             ])),
-            ("xray", masks(xRay: SceneXRayEffectTextures(
-                effectID: visibleEffectID,
-                blend: dependency,
-                halo: nil,
-                opacityMask: dependency
-            ))),
         ]
         for (name, maskSet) in maskedCases {
             rejected["mask-\(name)"] = try run(
@@ -2606,8 +2540,7 @@ enum Harness {
                     maskPath: path
                 ),
             ],
-            pulseEffects: [:],
-            xRay: nil
+            pulseEffects: [:]
         )
     }
 
@@ -2624,7 +2557,7 @@ enum Harness {
             size: size,
             usage: .shaderRead
         ) else { throw HarnessError.metalUnavailable }
-        let graph = xRayStage(layerID: 0).renderGraph
+        let graph = pairLeafStage(layerID: 0).renderGraph
         let pairPlan: SceneLayerFullFramePairPlan
         switch SceneLayerFullFramePairPlan.make(conditionPrunedGraphs: [graph]) {
         case let .success(value): pairPlan = value
@@ -2957,7 +2890,7 @@ enum Harness {
         ]
     }
 
-    static func xRayStage(layerID: Int) -> SceneEffectStageExecutionPlan {
+    static func pairLeafStage(layerID: Int) -> SceneEffectStageExecutionPlan {
         let effectKey = Graph.EffectKey(
             layerID: layerID,
             effectIndex: 0,
@@ -2976,8 +2909,8 @@ enum Harness {
             materialOrdinal: 0,
             instancePassIndex: 0,
             kind: .material,
-            materialPath: "materials/effects/xray.json",
-            materialPassID: "materials/effects/xray.json#0",
+            materialPath: "materials/fixture/pair.json",
+            materialPassID: "materials/fixture/pair.json#0",
             target: output,
             bindings: [],
             commandSource: nil,
@@ -2987,7 +2920,7 @@ enum Harness {
         )
         let effect = Graph.Effect(
             key: effectKey,
-            definitionPath: "effects/xray/effect.json",
+            definitionPath: "effects/fixture/pair/effect.json",
             input: input,
             output: output,
             nodeIndices: [0]
@@ -3003,8 +2936,15 @@ enum Harness {
         let stage = SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
-            backend: .xRay(SceneXRayExecutionPlan(
-                declaration: SceneXRayRuntimePlanner.Declaration()
+            backend: .pulse(ScenePulseExecutionPlan(
+                effectKey: effectKey,
+                shaderProfile: .stock,
+                blendMode: 0,
+                pulseColor: true,
+                pulseAlpha: false,
+                maskTexturePath: nil,
+                requiresNoiseTexture: false,
+                values: [:]
             )),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
@@ -3273,8 +3213,7 @@ enum Harness {
     static func authoredEffectMasks() -> SceneImageLayerMasks {
         SceneImageLayerMasks(
             standardBlurEffects: [:],
-            pulseEffects: [:],
-            xRay: nil
+            pulseEffects: [:]
         )
     }
 
@@ -3718,7 +3657,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "waterWavesWrongPassMasked",
                 "waterWavesStaticSourceConsumer",
                 "mask-standardBlur",
-                "mask-xray",
             },
         )
         for key, result in rejected.items():

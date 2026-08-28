@@ -78,11 +78,6 @@ extension SceneEffectProgramCompiler {
             (.standardBlur, {
                 SceneAuthoredStandardBlurPlanner.compile(input)
             }),
-            (.xRay, {
-                SceneAuthoredXRayPlanner.compile(input).mapAccepted {
-                    stage(.xRay($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
-            }),
             (.pulse, {
                 SceneAuthoredPulsePlanner.compile(input).mapAccepted {
                     stage(.pulse($0), stageGraph: stageGraph, inputRole: inputRole)

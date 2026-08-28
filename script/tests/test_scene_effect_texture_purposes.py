@@ -14,7 +14,6 @@ TEXTURE_LOADING = (
     RESOURCE_ROOT / "SceneLayerEffectTextureLoader+TextureLoading.swift"
 )
 EFFECT_TEXTURE_LOAD_RESULT = RESOURCE_ROOT / "SceneEffectTextureLoadResult.swift"
-XRAY_LOADER = RESOURCE_ROOT / "SceneXRayEffectTextureLoader.swift"
 TEXTURE_CANDIDATE = RESOURCE_ROOT / "SceneTextureCandidate.swift"
 SLOT_BINDING = RESOURCE_ROOT / "SceneTextureSlotBinding.swift"
 STANDARD_BLUR_LOADER = RESOURCE_ROOT / "SceneStandardBlurEffectTextureLoader.swift"
@@ -36,9 +35,6 @@ EXPECTED_PURPOSES = {
     "pulse noise": "noise",
     "pulse effect mask": "mask",
     "standard blur mask": "mask",
-    "xray blend": "straightAlbedo",
-    "xray halo": "preservedChannels",
-    "xray opacity": "mask",
 }
 CALL_PATTERN = re.compile(
     r"(?:SceneLayerEffectTextureLoader\.)?loadTexture(?:Candidate)?\("
@@ -86,23 +82,6 @@ class SceneEffectTexturePurposeTests(unittest.TestCase):
             "static func loadTextureCandidate(", maxsplit=1
         )[0]
         self.assertNotIn("loadCandidate(", legacy_body)
-
-    def test_xray_property_inputs_use_role_typed_texture_maps(self) -> None:
-        xray = XRAY_LOADER.read_text(encoding="utf-8")
-        view = METAL_VIEW.read_text(encoding="utf-8")
-        self.assertEqual(xray.count("straightAlbedoUserPropertyTextures[$0]"), 1)
-        self.assertEqual(xray.count("preservedUserPropertyTextures[$0]"), 1)
-        self.assertNotIn("userPropertyTextures[$0]", xray)
-        self.assertIn(r"\.blendPropertyKey", view)
-        self.assertIn(r"\.haloPropertyKey", view)
-        self.assertIn(
-            "straightAlbedoUserPropertyTextures: userPropertyTextureLoad.straightAlbedoTextures",
-            view,
-        )
-        self.assertIn(
-            "preservedUserPropertyTextures: userPropertyTextureLoad.preservedTextures",
-            view,
-        )
 
     def test_typed_candidate_and_slot_binding_reach_bounded_consumers(self) -> None:
         candidate = TEXTURE_CANDIDATE.read_text(encoding="utf-8")

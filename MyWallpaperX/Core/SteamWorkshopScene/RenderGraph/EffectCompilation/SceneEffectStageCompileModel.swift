@@ -127,7 +127,6 @@ nonisolated struct SceneEffectStageCompileInput {
 /// compiler probes may intentionally produce the same execution backend.
 nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable {
     case standardBlur = "standard-blur"
-    case xRay = "x-ray"
     case pulse
 }
 

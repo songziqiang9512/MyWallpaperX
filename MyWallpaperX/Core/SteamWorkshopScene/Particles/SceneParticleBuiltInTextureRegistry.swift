@@ -193,7 +193,7 @@ final class SceneParticleBuiltInTextureRegistry {
     }
 
     private func halo6Alpha(x: Float, y: Float) -> Float {
-        // 与 SceneXRayPipeline 共用同一条实测校准曲线：纯白盘，仅 alpha 随半径衰减。
+        // 共享 halo_6 实测校准曲线：纯白盘，仅 alpha 随半径衰减。
         let stops: [(Float, Float)] = [
             (0.50, 1.000),
             (0.625, 0.969),

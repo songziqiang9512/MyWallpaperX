@@ -42,8 +42,7 @@
           "SceneEffectStageGraph.swift",
           "SceneEffectStageProgram.swift",
           "SceneEffectStagePulseDirectPropertyOwnerAdmission.swift",
-          "SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
-          "SceneEffectStageXRayScalarOwnerAdmission.swift"
+          "SceneEffectStageStandardBlurScalarOwnerAdmission.swift"
         ],
         "responsibility": "Effect-stage compilation and admission lifecycle, from authored stage-graph slicing and dedicated candidate/backend compilation through stage Program/ExecutionPlan and whole-chain catalog/reporting; excludes complete effect-specific planner admission, MaterialProgram production, GPU encoding, and target/resource lifecycles."
       },
@@ -285,7 +284,7 @@
         "role": "inventory",
         "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
         "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 2,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
         ],
@@ -300,7 +299,7 @@
         "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
         "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
         "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 2,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
         ],
@@ -315,7 +314,7 @@
         "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
         "start_marker": "extension SceneEffectStageExecutionPlan {",
         "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 3,
+        "baseline_occurrences": 2,
         "scope_files": [
           "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
         ],
@@ -341,7 +340,7 @@
         "baseline_occurrences": 16,
         "allowed_files": [
           "RenderGraph/SceneAuthoredPulsePlanner.swift",
-          "RenderGraph/SceneAuthoredXRayPlanner.swift",
+          "RenderGraph/SceneAuthoredXRayPlanner+StockIdentity.swift",
           "RenderGraph/ScenePulseShaderProfile.swift"
         ]
       },

@@ -525,7 +525,39 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 renamed_scene_files.get(path, path)
                 for path in old_rule["allowed_files"]
             }
-            if not set(new_rule["allowed_files"]).issubset(renamed_allowed):
+            new_allowed = set(new_rule["allowed_files"])
+            new_only_allowed = new_allowed - renamed_allowed
+            old_only_allowed = renamed_allowed - new_allowed
+            preexisting_new_allowed = all(
+                subprocess.run(
+                    [
+                        "git", "cat-file", "-e",
+                        f"HEAD:MyWallpaperX/Core/SteamWorkshopScene/{path}",
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    check=False,
+                    capture_output=True,
+                ).returncode == 0
+                for path in new_only_allowed
+            )
+            removed_old_allowed = all(
+                not (SCENE_SOURCE_ROOT / path).exists()
+                for path in old_only_allowed
+            )
+            inventory_consolidated_without_growth = (
+                old_rule.get("role") == "inventory"
+                and int(new_rule["baseline_occurrences"])
+                    <= int(old_rule["baseline_occurrences"])
+                and len(new_allowed) <= len(renamed_allowed)
+                and bool(new_only_allowed)
+                and bool(old_only_allowed)
+                and preexisting_new_allowed
+                and removed_old_allowed
+            )
+            if (
+                not new_allowed.issubset(renamed_allowed)
+                and not inventory_consolidated_without_growth
+            ):
                 violations.append(f"{rule_id}: allowed file set increased")
             renamed_scope = {
                 renamed_scene_files.get(path, path)
@@ -560,7 +592,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 old_rule.get("role") == "inventory"
                 and int(new_rule["baseline_occurrences"])
                     == int(old_rule["baseline_occurrences"])
-                and set(new_rule["allowed_files"]) == renamed_allowed
+                and (
+                    new_allowed == renamed_allowed
+                    or inventory_consolidated_without_growth
+                )
                 and set(new_rule.get("scope_files", [])) == renamed_scope
             )
             if not reaches_retirement_target and not definition_moved_without_authority_growth:

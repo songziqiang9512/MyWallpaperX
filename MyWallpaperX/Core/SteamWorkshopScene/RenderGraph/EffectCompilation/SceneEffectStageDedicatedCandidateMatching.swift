@@ -33,12 +33,3 @@ private nonisolated enum SceneEffectStageDedicatedCandidateMatcher {
         value.replacingOccurrences(of: "\\", with: "/").lowercased()
     }
 }
-
-extension SceneAuthoredXRayPlanner {
-    nonisolated static func containsCandidate(graph: Graph) -> Bool {
-        SceneEffectStageDedicatedCandidateMatcher.matches(
-            graph: graph,
-            definitionPath: "effects/xray/effect.json"
-        )
-    }
-}

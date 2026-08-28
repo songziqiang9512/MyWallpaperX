@@ -45,8 +45,7 @@ struct SceneEffectStageExecutionPlan {
     var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
 }
 """,
-        """struct SceneXRayExecutionPlan {}
-struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
+        """struct HarnessDedicatedAudioExecutionPlan { let audio: Bool? }
 
 struct SceneEffectStageExecutionPlan {
     let layerID: Int
@@ -54,7 +53,6 @@ struct SceneEffectStageExecutionPlan {
     let logicalRenderTargetCount: Int
     let inputRole: SceneAuthoredEffectInputRole
     var fixtureLiveConsumerTargets: Set<SceneDynamicTarget> = []
-    var xRay: SceneXRayExecutionPlan? = nil
     var supportsUnifiedLogicalTargetStage = false
     var supportsUnifiedHistoryTargetStage = false
     var supportsUnifiedFullFrameComposeStage = false
@@ -88,7 +86,6 @@ struct SceneEffectStageExecutionPlan {
 """,
         """            inputRole: inputRole,
             fixtureLiveConsumerTargets: liveConsumerTargets,
-            xRay: fallbackOwner == "xray" ? .init() : nil,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
             supportsUtilityCapture: supportsUtilityCapture,
@@ -124,9 +121,6 @@ struct SceneEffectStageExecutionPlan {
         }
         let pulseMissingProducer = missingProducerDedicatedCatalog(
             fallbackOwner: "pulse"
-        )
-        let xRayMissingProducer = missingProducerDedicatedCatalog(
-            fallbackOwner: "xray"
         )
         let requiredLiveMissingProducer = missingProducerDedicatedCatalog(
             fallbackOwner: nil
@@ -188,10 +182,6 @@ struct SceneEffectStageExecutionPlan {
                 "pulseMissingProducerUsesDedicated": pulseMissingProducer
                     .claim(layerID: layerID).flatMap {
                         pulseMissingProducer.resolve($0.token)
-                    }?.stages.first?.subject?.family == "fixture-dedicated",
-                "xRayMissingProducerUsesDedicated": xRayMissingProducer
-                    .claim(layerID: layerID).flatMap {
-                        xRayMissingProducer.resolve($0.token)
                     }?.stages.first?.subject?.family == "fixture-dedicated",
                 "requiredLiveMissingProducerRejected": reportHas(
                     requiredLiveMissingProducer,

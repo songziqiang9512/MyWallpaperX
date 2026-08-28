@@ -4,10 +4,16 @@ import Metal
 struct SceneUserPropertyTextureLoadResult {
     let textures: [String: MTLTexture]
     let textureCandidates: [String: SceneTextureCandidate]
-    let straightAlbedoTextures: [String: MTLTexture]
-    let preservedTextures: [String: MTLTexture]
     let providerStates: [SceneUserPropertyTextureIdentity: SceneTextureProviderState]
     let reportLines: [String]
+
+    var straightAlbedoTextures: [String: MTLTexture] {
+        publishedTextures(for: .straightAlbedo)
+    }
+
+    var preservedTextures: [String: MTLTexture] {
+        publishedTextures(for: .preservedChannels)
+    }
 
     var publications: [
         SceneUserPropertyTextureIdentity: SceneTextureProviderPublication
@@ -15,6 +21,15 @@ struct SceneUserPropertyTextureLoadResult {
         providerStates.reduce(into: [:]) { result, pair in
             guard case let .ready(publication) = pair.value else { return }
             result[pair.key] = publication
+        }
+    }
+
+    private func publishedTextures(
+        for purpose: SceneTextureLoadPurpose
+    ) -> [String: MTLTexture] {
+        publications.reduce(into: [:]) { result, pair in
+            guard pair.key.purpose == purpose else { return }
+            result[pair.key.propertyKey] = pair.value.texture
         }
     }
 }
@@ -29,16 +44,12 @@ struct SceneUserPropertyTextureLoader {
     func load(
         urlsByPropertyKey: [String: URL],
         requestedIdentities: Set<SceneUserPropertyTextureIdentity> = [],
-        straightAlbedoPropertyKeys: Set<String> = [],
-        preservedPropertyKeys: Set<String> = [],
         device: MTLDevice
     ) -> SceneUserPropertyTextureLoadResult {
         guard !urlsByPropertyKey.isEmpty || !requestedIdentities.isEmpty else {
             return SceneUserPropertyTextureLoadResult(
                 textures: [:],
                 textureCandidates: [:],
-                straightAlbedoTextures: [:],
-                preservedTextures: [:],
                 providerStates: [:],
                 reportLines: []
             )
@@ -46,21 +57,15 @@ struct SceneUserPropertyTextureLoader {
         let loader = SceneTextureLoader()
         var textures: [String: MTLTexture] = [:]
         var textureCandidates: [String: SceneTextureCandidate] = [:]
-        var straightAlbedoTextures: [String: MTLTexture] = [:]
-        var preservedTextures: [String: MTLTexture] = [:]
         var providerStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ] = [:]
-        let requestedStraightAlbedoKeys = straightAlbedoPropertyKeys.union(
-            requestedIdentities.compactMap {
-                $0.purpose == .straightAlbedo ? $0.propertyKey : nil
-            }
-        )
-        let requestedPreservedKeys = preservedPropertyKeys.union(
-            requestedIdentities.compactMap {
-                $0.purpose == .preservedChannels ? $0.propertyKey : nil
-            }
-        )
+        let requestedStraightAlbedoKeys = Set(requestedIdentities.compactMap {
+            $0.purpose == .straightAlbedo ? $0.propertyKey : nil
+        })
+        let requestedPreservedKeys = Set(requestedIdentities.compactMap {
+            $0.purpose == .preservedChannels ? $0.propertyKey : nil
+        })
         for identity in requestedIdentities {
             providerStates[identity] = urlsByPropertyKey[identity.propertyKey] == nil
                 ? .absent
@@ -129,7 +134,6 @@ struct SceneUserPropertyTextureLoader {
                     device: device
                 ) {
                 case let .loaded(candidate):
-                    straightAlbedoTextures[key] = candidate.texture
                     publish(candidate, propertyKey: key, into: &providerStates)
                     reportLines.append(
                         "scene user texture \(key) straight albedo: OK "
@@ -163,7 +167,6 @@ struct SceneUserPropertyTextureLoader {
                     device: device
                 ) {
                 case let .loaded(candidate):
-                    preservedTextures[key] = candidate.texture
                     publish(candidate, propertyKey: key, into: &providerStates)
                     reportLines.append(
                         "scene user texture \(key) preserved: OK "
@@ -213,17 +216,22 @@ struct SceneUserPropertyTextureLoader {
             }
         }
         reportLines.append("sceneUserTextureLoadedCount: \(textures.count)")
+        let readyPurposeCount: (SceneTextureLoadPurpose) -> Int = { purpose in
+            providerStates.reduce(into: 0) { count, pair in
+                guard pair.key.purpose == purpose,
+                      case .ready = pair.value else { return }
+                count += 1
+            }
+        }
         reportLines.append(
-            "sceneUserTextureStraightAlbedoLoadedCount: \(straightAlbedoTextures.count)"
+            "sceneUserTextureStraightAlbedoLoadedCount: \(readyPurposeCount(.straightAlbedo))"
         )
         reportLines.append(
-            "sceneUserTexturePreservedLoadedCount: \(preservedTextures.count)"
+            "sceneUserTexturePreservedLoadedCount: \(readyPurposeCount(.preservedChannels))"
         )
         return SceneUserPropertyTextureLoadResult(
             textures: textures,
             textureCandidates: textureCandidates,
-            straightAlbedoTextures: straightAlbedoTextures,
-            preservedTextures: preservedTextures,
             providerStates: providerStates,
             reportLines: reportLines
         )

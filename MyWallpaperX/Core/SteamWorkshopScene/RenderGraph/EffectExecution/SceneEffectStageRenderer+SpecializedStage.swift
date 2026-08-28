@@ -23,14 +23,6 @@ extension SceneEffectStageRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> MTLTexture? {
         switch stage.backend {
-        case .xRay(let xRay):
-            return renderXRay(
-                xRay, sourceTexture: sourceTexture, masks: masks,
-targets: targets, dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                pipelines: pipelines, cursorUV: cursorUV,
-                pointerIsInside: pointerIsInside, commandBuffer: commandBuffer
-            )
         case .pulse(let pulse):
             guard let pulsePipeline = pipelines.pulse else { return nil }
             return renderPulse(

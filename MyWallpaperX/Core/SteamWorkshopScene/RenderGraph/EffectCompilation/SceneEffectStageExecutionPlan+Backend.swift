@@ -3,12 +3,11 @@ import Foundation
 extension SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
-        case xRay(SceneXRayExecutionPlan)
         case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
             switch self {
-            case .xRay, .pulse:
+            case .pulse:
                 return true
             default:
                 return false
@@ -36,11 +35,6 @@ extension SceneEffectStageExecutionPlan {
         return plan
     }
 
-    nonisolated var xRay: SceneXRayExecutionPlan? {
-        guard case .xRay(let plan) = backend else { return nil }
-        return plan
-    }
-
     nonisolated var pulse: ScenePulseExecutionPlan? {
         guard case .pulse(let plan) = backend else { return nil }
         return plan
@@ -52,7 +46,6 @@ extension SceneEffectStageExecutionPlan {
 
     nonisolated var liveConsumerTargets: Set<SceneDynamicTarget> {
         var targets = Set<SceneDynamicTarget>()
-        if let xRay { targets.formUnion(xRay.liveConsumerTargets) }
         if let pulse { targets.formUnion(pulse.liveConsumerTargets) }
         return targets
     }

@@ -4,21 +4,11 @@ import simd
 struct SceneImageLayerMasks {
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
     let pulseEffects: [String: ScenePulseEffectTextures]
-    let xRay: SceneXRayEffectTextures?
 
     static let empty = SceneImageLayerMasks(
         standardBlurEffects: [:],
-        pulseEffects: [:],
-        xRay: nil
+        pulseEffects: [:]
     )
-
-    static func xRayOnly(_ xRay: SceneXRayEffectTextures?) -> SceneImageLayerMasks {
-        SceneImageLayerMasks(
-            standardBlurEffects: [:],
-            pulseEffects: [:],
-            xRay: xRay
-        )
-    }
 
     func blocksLayerSourcePassthrough(
         forVisibleEffects effects: [SceneRenderDescriptor.EffectDescriptor]
@@ -52,9 +42,6 @@ struct SceneImageLayerMasks {
             || hasUnprovenPulseResource
             || hasEffectOutsideLocalDisplacementContract
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
-            || (xRay.map {
-                effectIDs.contains($0.effectID) && $0.opacityMask != nil
-            } ?? false)
     }
 
     private static func pulsePreservesSourceCoverage(
