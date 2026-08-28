@@ -249,17 +249,25 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func successObservationsLocked(
-        ledgerIDs: [UInt64]
+        ledgerIDs: [UInt64],
+        rejectionReason: inout String?
     ) -> [UInt64: [SceneGraphExecutionObservation]]? {
         var result: [UInt64: [SceneGraphExecutionObservation]] = [:]
         for identity in ledgerIDs {
             guard let ledger = activeByID[identity],
                   let blueprint = ledger.blueprint,
-                  ledger.phase == .outputConsumed else { return nil }
+                  ledger.phase == .outputConsumed else {
+                rejectionReason = "frame-success-ledger-incomplete"
+                return nil
+            }
             var observations: [SceneGraphExecutionObservation] = []
             for value in ledger.prepared.stages {
                 guard let mappingGeneration = blueprint
-                    .mappingGenerations[value.effect] else { return nil }
+                    .mappingGenerations[value.effect] else {
+                    rejectionReason =
+                        "frame-success-mapping-generation-missing"
+                    return nil
+                }
                 do {
                     observations.append(try
                         SceneResolvedMaterialGraphObservationBuilder.make(
@@ -279,7 +287,23 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             gpu: .completed
                         )
                     )
-                } catch { return nil }
+                } catch let failure as
+                    SceneResolvedMaterialGraphObservationBuilder.Failure {
+                    rejectionReason =
+                        "frame-success-observation-\(failure.rawValue)"
+                        + "-layer-\(value.effect.layerID)"
+                        + "-effect-\(value.effect.effectIndex)"
+                    return nil
+                } catch let failure as SceneGraphExecutionObservationError {
+                    rejectionReason =
+                        "frame-success-observation-\(failure.rawValue)"
+                        + "-layer-\(value.effect.layerID)"
+                        + "-effect-\(value.effect.effectIndex)"
+                    return nil
+                } catch {
+                    rejectionReason = "frame-success-observation-unknown"
+                    return nil
+                }
             }
             result[identity] = observations
         }

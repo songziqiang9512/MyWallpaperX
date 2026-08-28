@@ -692,6 +692,46 @@ enum Harness {
                 composeSlotAfter: .secondary
             )
         }
+        let rejectedPassthroughNodes = [0, 1].map { index in
+            SceneGraphExecutionNodeObservation(
+                nodeIndex: index,
+                kind: .material,
+                materialOrdinal: index,
+                commandOrdinal: nil,
+                commandSource: nil,
+                commandTarget: nil,
+                advancesComposePair: false,
+                disposition: .rejected(reasonCode: "visual unavailable")
+            )
+        }
+        let rejectedPassthroughSameSlotError = errorCode {
+            _ = try observation(
+                programIdentity:
+                    "visual-failure-passthrough:visual-unavailable",
+                frame: 1,
+                customNodes: rejectedPassthroughNodes,
+                counts: .init(
+                    authored: 2, material: 0, copy: 0,
+                    swap: 0, compose: 0, rejected: 2
+                ),
+                mappingAfter: mappingBefore,
+                composeSlotBefore: .primary,
+                composeSlotAfter: .primary
+            )
+        }
+        let ordinaryRejectedSameSlotError = errorCode {
+            _ = try observation(
+                frame: 1,
+                customNodes: rejectedPassthroughNodes,
+                counts: .init(
+                    authored: 2, material: 0, copy: 0,
+                    swap: 0, compose: 0, rejected: 2
+                ),
+                mappingAfter: mappingBefore,
+                composeSlotBefore: .primary,
+                composeSlotAfter: .primary
+            )
+        }
         let copyAdvanceError = errorCode {
             _ = try observation(
                 frame: 1,
@@ -940,6 +980,9 @@ enum Harness {
             "descendingMaterialOrdinalError": descendingMaterialOrdinalError,
             "negativeMaterialOrdinalError": negativeMaterialOrdinalError,
             "composeTransitionError": composeTransitionError,
+            "rejectedPassthroughSameSlotError":
+                rejectedPassthroughSameSlotError,
+            "ordinaryRejectedSameSlotError": ordinaryRejectedSameSlotError,
             "copyAdvanceError": copyAdvanceError,
             "swapNoAdvanceError": swapNoAdvanceError,
             "rejectedSwapAdvanceError": rejectedSwapAdvanceError,
@@ -1043,6 +1086,11 @@ class SceneGraphExecutionTelemetryTests(unittest.TestCase):
         self.assertEqual(
             self.result["negativeMaterialOrdinalError"],
             "invalidOrdinals",
+        )
+        self.assertEqual(self.result["rejectedPassthroughSameSlotError"], "none")
+        self.assertEqual(
+            self.result["ordinaryRejectedSameSlotError"],
+            "invalidCompose",
         )
 
     def test_node_indices_exactly_match_authoritative_stage_sequence(self) -> None:

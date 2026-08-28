@@ -173,6 +173,15 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
               expectedNodeCounts.compose <= expectedNodeCounts.material else {
             throw SceneGraphExecutionObservationError.invalidNodeConservation
         }
+        let effectPassthrough =
+            expectedNodeCounts.authored > 0
+            && expectedNodeCounts.rejected == expectedNodeCounts.authored
+            && expectedNodeCounts.material == 0
+            && expectedNodeCounts.copy == 0
+            && expectedNodeCounts.swap == 0
+            && expectedNodeCounts.compose == 0
+            && (programIdentity.hasPrefix("visual-failure-passthrough:")
+                || programIdentity.hasPrefix("activation-passthrough:"))
         let mappingEvidence = try Self.validateMappingTransition(
             before: logicalMappingBefore,
             after: logicalMappingAfter,
@@ -195,7 +204,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             count: expectedNodeCounts.compose,
             before: composeSlotBefore,
             after: composeSlotAfter,
-            outcome: outcome
+            outcome: outcome,
+            successfulRejectedPassthrough: effectPassthrough
         )
         if let finalOutput {
             guard Self.hasText(finalOutput.identity),
@@ -211,15 +221,6 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
 
         switch outcome {
         case .succeeded:
-            let effectPassthrough =
-                expectedNodeCounts.authored > 0
-                && expectedNodeCounts.rejected == expectedNodeCounts.authored
-                && expectedNodeCounts.material == 0
-                && expectedNodeCounts.copy == 0
-                && expectedNodeCounts.swap == 0
-                && expectedNodeCounts.compose == 0
-                && (programIdentity.hasPrefix("visual-failure-passthrough:")
-                    || programIdentity.hasPrefix("activation-passthrough:"))
             guard (expectedNodeCounts.rejected == 0
                     || effectPassthrough),
                   finalOutput != nil,
@@ -497,10 +498,17 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         count: Int,
         before: SceneGraphExecutionComposeSlot,
         after: SceneGraphExecutionComposeSlot,
-        outcome: SceneGraphExecutionOutcome
+        outcome: SceneGraphExecutionOutcome,
+        successfulRejectedPassthrough: Bool
     ) throws {
         if case .failed = outcome {
             guard count == 0, before == .none, after == .none else {
+                throw SceneGraphExecutionObservationError.invalidCompose
+            }
+            return
+        }
+        if successfulRejectedPassthrough {
+            guard before != .none, after != .none else {
                 throw SceneGraphExecutionObservationError.invalidCompose
             }
             return

@@ -396,6 +396,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             return true
         }
         let commandBufferIdentity = ObjectIdentifier(commandBuffer)
+        var observationRejectionReason: String?
         guard let observedBuffer = commandBufferRecords[commandBufferIdentity],
               observedBuffer.buffer === commandBuffer,
               activeTransactions.allSatisfy({ identity in
@@ -404,11 +405,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 && ledger.commandBuffer === commandBuffer
         }), tailsAreValid(scheduledTails),
             let observations = successObservationsLocked(
-                ledgerIDs: activeTransactions
+                ledgerIDs: activeTransactions,
+                rejectionReason: &observationRejectionReason
             ) else {
             frameFailures += 1
             emission = failActiveFrameLocked(
-                reason: "frame-success-blueprint-rejected"
+                reason: observationRejectionReason
+                    ?? "frame-success-blueprint-rejected"
             )
             lock.unlock()
             emit(emission)

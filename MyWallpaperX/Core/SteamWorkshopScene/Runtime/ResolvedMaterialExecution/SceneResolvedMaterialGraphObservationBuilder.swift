@@ -8,10 +8,10 @@ enum SceneResolvedMaterialGraphObservationBuilder {
     typealias State = SceneGraphExecutionState
     typealias Prepared = SceneResolvedMaterialGraphExecutor.PreparedStage
 
-    enum Failure: Error {
-        case invalidGraph
-        case invalidProgram
-        case invalidFinalPublication
+    enum Failure: String, Error {
+        case invalidGraph = "invalid-graph"
+        case invalidProgram = "invalid-program"
+        case invalidFinalPublication = "invalid-final-publication"
     }
 
     static func make(
