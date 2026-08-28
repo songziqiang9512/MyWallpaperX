@@ -768,7 +768,11 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             self.assertIn(supported_pair, source_scale_gate)
         for permissive_escape in ("default:", "false"):
             self.assertNotIn(permissive_escape, source_scale_gate)
-        self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
+        self.assertIn(
+            "SceneResolvedMaterialDirectUserBindingContract.matches(",
+            owner_gate,
+        )
+        self.assertNotIn('scale.bindingKeys == ["user", "value"]', owner_gate)
         self.assertIn("components.count == 1 || components.count == 2", owner_gate)
         self.assertIn("components.count == 1 || components[0] == components[1]", owner_gate)
         for source_prefix in (
@@ -809,7 +813,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             "userPropertyScalarSplatConsumersAdmit(", "[1, 2].allSatisfy",
             "dynamic.target == expectedTarget", "producers.filter",
             "dynamic.valueContributors == [.userProperty(propertyKey)]",
-            'dynamic.authoredBindingKeys == ["user", "value"]',
+            "SceneResolvedMaterialDirectUserBindingContract.matches(",
         ):
             self.assertIn(producer_boundary, revocation_gate)
         self.assertIn('materialKey: "scale"', revocation_gate)

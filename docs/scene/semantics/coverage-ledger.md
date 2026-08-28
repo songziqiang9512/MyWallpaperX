@@ -1,5 +1,7 @@
 # Scene 官方语义与实现覆盖台账
 
+2026-08-28 的 Standard Blur wrapper-metadata 后继让两个 Gaussian `scale` consumer 与其他 direct-user Program 共用 `SceneResolvedMaterialDirectUserBindingContract`：未知、非 producer metadata 保真并不再授予旧 Blur candidate，`animation/script/scriptproperties`、duplicate、缺 required key 与既有 producer/definition/ABI/topology 漂移仍保留 incumbent 或失败关闭。真实隔离 `9000001070:148#effect#151` default/recovery 均严格 **1/1 PASS / 4/4/0 Program / 0 dedicated**；profile disable严格 NON-PASS，但 raw frame0/next-frame 为4/0/4 previous-current、GPU/publication/compositor继续且旧 owner 不复活。route与dedicated census仍为 **38/4/1**、**3/3**；只闭合该 opaque metadata cohort，不证明完整Standard Blur、ROI/fidelity、V1或V2。见 [E-V1-STANDARD-BLUR-OPAQUE-WRAPPER-METADATA-OWNER](runtime-evidence-index.md#e-v1-standard-blur-opaque-wrapper-metadata-owner)。
+
 > 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
 > 最近核对：2026-08-28

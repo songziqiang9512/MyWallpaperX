@@ -485,10 +485,12 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   dynamic.target == expectedTarget,
                   dynamic.valueContributors == [.userProperty(propertyKey)],
                   dynamic.scriptAttachments.isEmpty,
-                  dynamic.authoredBindingKeys == ["user", "value"],
                   let fallback = dynamic.authoredFallback,
                   fallback.valueKind.localizedLowercase == "binding",
-                  fallback.authoredBindingKeys == ["user", "value"] else {
+                  SceneResolvedMaterialDirectUserBindingContract.matches(
+                      dynamic: dynamic,
+                      fallback: fallback
+                  ) else {
                 return false
             }
             let fallbackComponents = fallback.componentBitPatterns.map {
@@ -709,7 +711,9 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
               !key.isEmpty,
               key == key.trimmingCharacters(in: .whitespacesAndNewlines),
               scale.userValueKind == .string,
-              scale.bindingKeys == ["user", "value"],
+              SceneResolvedMaterialDirectUserBindingContract.matches(
+                  scale.bindingKeys
+              ),
               components.count == 1 || components[0] == components[1] else {
             return nil
         }

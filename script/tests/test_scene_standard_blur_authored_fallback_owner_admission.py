@@ -23,7 +23,8 @@ RESULT_MARKER = "        var result: [String: Any] = [\n"
 FALLBACK_FUNCTIONS = r'''
 
 private func fallbackUserScalar(
-    _ components: [Double]
+    _ components: [Double],
+    bindingKeys: [String] = ["user", "value"]
 ) -> SceneDocument.ShaderValue {
     SceneDocument.ShaderValue(
         rawValue: components.map { String($0) }.joined(separator: " "),
@@ -31,7 +32,7 @@ private func fallbackUserScalar(
         userBinding: "blurScale",
         userValueKind: .string,
         components: components,
-        bindingKeys: ["user", "value"]
+        bindingKeys: bindingKeys
     )
 }
 
@@ -128,6 +129,34 @@ FALLBACK_RESULTS = r'''            "fallbackEqualPair": fallbackCompileOutcome(
             "fallbackSingleScalar": fallbackCompileOutcome(
                 root: stock,
                 horizontal: fallbackUserScalar([0.19]),
+                definitions: fallbackDefinitions()
+            ),
+            "opaqueWrapperMetadata": fallbackCompileOutcome(
+                root: stock,
+                horizontal: fallbackUserScalar(
+                    [0.19],
+                    bindingKeys: ["unexpected", "user", "value"]
+                ),
+                definitions: fallbackDefinitions()
+            ),
+            "semanticWrapperMetadata": [
+                "animation", "script", "scriptproperties"
+            ].map { key in
+                fallbackCompileOutcome(
+                    root: stock,
+                    horizontal: fallbackUserScalar(
+                        [0.19],
+                        bindingKeys: [key, "user", "value"]
+                    ),
+                    definitions: fallbackDefinitions()
+                )
+            },
+            "duplicateWrapperKey": fallbackCompileOutcome(
+                root: stock,
+                horizontal: fallbackUserScalar(
+                    [0.19],
+                    bindingKeys: ["user", "value", "value"]
+                ),
                 definitions: fallbackDefinitions()
             ),
             "signedZeroPairRejected": fallbackCompileOutcome(
@@ -434,6 +463,13 @@ class SceneStandardBlurAuthoredFallbackOwnerAdmissionTests(_Base):
             self.result["signedZeroPairRejected"],
             "rejected:dedicated-profile-rejected:",
         )
+
+    def test_opaque_wrapper_metadata_uses_the_shared_direct_user_contract(
+        self,
+    ) -> None:
+        self.assertEqual(self.result["opaqueWrapperMetadata"], self.FALLBACK_REVOKED)
+        self.assertEqual(self.result["semanticWrapperMetadata"], ["accepted"] * 3)
+        self.assertEqual(self.result["duplicateWrapperKey"], "accepted")
 
     def test_existing_sole_live_producer_reason_is_unchanged(self) -> None:
         self.assertEqual(self.result["existingLiveProducer"], self.LIVE_REVOKED)
