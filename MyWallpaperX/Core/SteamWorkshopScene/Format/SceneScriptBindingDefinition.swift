@@ -230,8 +230,9 @@ nonisolated struct SceneScriptBindingParseResult: Equatable, Sendable {
 
 nonisolated enum SceneScriptBindingIRParser {
     /// 只遍历正式静态取证已确认的 owner/target 形态：
-    /// scene `general.*`、object 顶层 property、effect `visible` 与 pass constants。
-    /// `instanceoverride` 等 nested wrapper 不会因递归 presence 被误挂到 object owner。
+    /// scene `general.*`、object 顶层 property、已确认的
+    /// `instanceoverride.rate`、effect `visible` 与 pass constants。
+    /// 其他 nested wrapper 不会因递归 presence 被误挂到 object owner。
     nonisolated static func parse(
         document root: [String: Any]
     ) -> SceneScriptBindingParseResult {
@@ -276,6 +277,19 @@ nonisolated enum SceneScriptBindingIRParser {
                     object[key],
                     owner: objectOwner,
                     path: [.key("objects"), .index(objectIndex), .key(key)],
+                    bindings: &bindings,
+                    diagnostics: &diagnostics
+                )
+            }
+            if let instanceOverride = object["instanceoverride"]
+                as? [String: Any] {
+                append(
+                    instanceOverride["rate"],
+                    owner: objectOwner,
+                    path: [
+                        .key("objects"), .index(objectIndex),
+                        .key("instanceoverride"), .key("rate"),
+                    ],
                     bindings: &bindings,
                     diagnostics: &diagnostics
                 )

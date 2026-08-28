@@ -14,7 +14,6 @@ extension SceneDesktopWallpaperHost {
             resolvedMaterialExecutionCapabilities:
                 context.resolvedMaterialExecutionCapabilities,
             hasParticleAudioConsumer: hasParticleAudioConsumer
-                || !context.audioScaledValueProgram.bindings.isEmpty
                 || context.propertyVectorScriptProgram.hasAudioConsumers
                 || context.sceneScriptScalarProgram.hasAudioConsumers
                 || context.sceneScriptStringProgram.hasAudioConsumers
@@ -30,8 +29,7 @@ extension SceneDesktopWallpaperHost {
     ///
     /// 当前 consumer 包括 stock Shake/Pulse 的 `AUDIOPROCESSING` 分支、
     /// 统一 Program 的 active audio host uniforms、surface 资源装载后确认
-    /// 可执行的 bounded particle audio plan，以及已准入的 particle-rate 16-band
-    /// SceneScript typed producer；
+    /// 可执行的 bounded particle audio plan，以及通用 SceneScript audio host；
     /// 新增 consumer 时必须同批扩充这里，否则采集不会启动。
     static func requiresAudioSpectrum(
         resolvedMaterialExecutionCapabilities:

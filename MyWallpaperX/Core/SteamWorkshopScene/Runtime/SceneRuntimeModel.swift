@@ -9,7 +9,6 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
-    let audioScaledValueProgram: SceneAudioScaledValueProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptDomain: SceneScriptQuickJSDomain?
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
@@ -108,9 +107,6 @@ struct SceneRuntimeModelBuilder {
                 ) else {
             throw BuildError.missingRenderDescriptor
         }
-        let audioScaledValueProgram = SceneAudioScaledValueProgramCompiler.compile(
-            descriptor: renderDescriptor
-        )
         let sceneScriptDomain: SceneScriptQuickJSDomain? = {
             guard let domain = try? SceneScriptQuickJSDomain(),
                   (try? domain.configureLayerCatalog(renderDescriptor)) != nil else {
@@ -159,15 +155,25 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             sourceEvidence: sceneDocument.scriptSourceEvidence
         )
-        let audioProjectedDescriptor = SceneAudioScaledValueProjection.apply(
-            program: audioScaledValueProgram,
+        let projectedScalarTargets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: renderDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets
+        )
+        let admittedParticleRateLayerIDs = Set(
+            projectedScalarTargets.compactMap { target -> Int? in
+                guard case let .particle(layerID, .rate) = target else { return nil }
+                return layerID
+            }
+        )
+        let particleProjectedDescriptor = SceneScriptParticleProjection.apply(
+            admittedRateLayerIDs: admittedParticleRateLayerIDs,
             to: mediaProjectedDescriptor
         )
         let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
-            audioScaledValueProgram: audioScaledValueProgram,
             admittedSceneScriptScaleLayerIDs:
                 propertyVectorScriptProgram.admittedScaleLayerIDs,
-            to: audioProjectedDescriptor
+            to: particleProjectedDescriptor
         )
         let runtimeInput = SceneRuntimeInput(
             renderDescriptor: runtimeDescriptor,
@@ -187,7 +193,6 @@ struct SceneRuntimeModelBuilder {
             capabilityProfile: capabilityProfile,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
-            audioScaledValueProgram: audioScaledValueProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             sceneScriptDomain: sceneScriptDomain,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,

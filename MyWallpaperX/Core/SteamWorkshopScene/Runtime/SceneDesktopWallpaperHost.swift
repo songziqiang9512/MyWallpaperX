@@ -19,20 +19,6 @@ final class SceneDesktopWallpaperHost {
         let isFrameDriverActive: Bool
     }
 
-    struct DebugAudioScaledValueBindingSnapshot: Encodable {
-        let layerID: Int
-        let target: String
-        let effectiveValue: [Double]
-        let liveParticleCount: Int?
-    }
-
-    struct DebugAudioScaledValueSnapshot: Encodable {
-        let schemaVersion = 1
-        let frameIndex: UInt64
-        let audioGeneration: UInt64
-        let audioWasSilent: Bool
-        let bindings: [DebugAudioScaledValueBindingSnapshot]
-    }
 #endif
 
     private final class HostWindow: NSWindow {
@@ -76,8 +62,6 @@ final class SceneDesktopWallpaperHost {
         SceneMediaColorTransitionRuntime(program: .empty)
     var sharedLayerAlphaRuntime =
         SceneSharedLayerAlphaRuntime(program: .empty)
-    var audioScaledValueRuntime =
-        SceneAudioScaledValueRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
     var nextSceneScriptGeneration: UInt64 = 0
@@ -94,10 +78,6 @@ final class SceneDesktopWallpaperHost {
     var debugDropDynamicValuesFrameIndex: UInt64?
     var debugDidDropDynamicValues = false
     var debugDidLogDynamicValuesRecovery = false
-    var debugAudioScaledValueValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
-    var debugAudioScaledValueFrameIndex: UInt64 = 0
-    var debugAudioScaledValueGeneration: UInt64 = 0
-    var debugAudioScaledValueWasSilent = true
 #endif
 
     var activeRecordID: String? { launchContext?.recordID }
@@ -128,26 +108,19 @@ final class SceneDesktopWallpaperHost {
         launchContext?.sceneScriptStringProgram.invalidate()
         launchContext?.propertyVectorScriptProgram.invalidate()
         launchContext = context
-#if DEBUG
-        debugAudioScaledValueValues = [:]
-        debugAudioScaledValueFrameIndex = 0
-        debugAudioScaledValueGeneration = 0
-        debugAudioScaledValueWasSilent = true
-#endif
         mediaColorTransitionRuntime = .init(
             program: context.mediaColorTransitionProgram
         )
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
-        audioScaledValueRuntime = .init(
-            program: context.audioScaledValueProgram
-        )
         SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
             resolvedMaterialExecutionCapabilities:
                 context.resolvedMaterialExecutionCapabilities,
             hasParticleAudioConsumer:
-                !context.audioScaledValueProgram.bindings.isEmpty
+                context.propertyVectorScriptProgram.hasAudioConsumers
+                || context.sceneScriptScalarProgram.hasAudioConsumers
+                || context.sceneScriptStringProgram.hasAudioConsumers
         ))
         guard rebuildSurfaces(
             resetClock: true,
@@ -201,60 +174,6 @@ final class SceneDesktopWallpaperHost {
             windowNumbers: surfaces.values.map { $0.window.windowNumber }.sorted(),
             isPlaybackPaused: sceneClock.isPaused,
             isFrameDriverActive: frameTimer?.isValid == true
-        )
-    }
-
-    func debugAudioScaledValueSnapshot() -> DebugAudioScaledValueSnapshot {
-        let liveCounts = surfaces.values.reduce(into: [Int: Int]()) { result, surface in
-            guard let batches = surface.metalView.particlePlayback?.batches else { return }
-            for batch in batches {
-                result[batch.layerID, default: 0] += batch.instances.count
-            }
-        }
-        let bindings = launchContext?.audioScaledValueProgram.bindings.compactMap {
-            binding -> DebugAudioScaledValueBindingSnapshot? in
-            let layerID: Int
-            let target: String
-            let liveParticleCount: Int?
-            switch binding.definition.target {
-            case let .particle(id, .rate):
-                layerID = id
-                target = "particle.rate"
-                liveParticleCount = liveCounts[id, default: 0]
-            case let .layer(id, .scale):
-                layerID = id
-                target = "layer.scale"
-                liveParticleCount = nil
-            default:
-                return nil
-            }
-            guard let value = debugAudioScaledValueValues[
-                binding.definition.target
-            ] else { return nil }
-            let components: [Double]
-            switch value {
-            case let .scalar(scalar):
-                components = [scalar]
-            case let .vector3(x, y, z):
-                components = [x, y, z]
-            default:
-                return nil
-            }
-            return DebugAudioScaledValueBindingSnapshot(
-                layerID: layerID,
-                target: target,
-                effectiveValue: components,
-                liveParticleCount: liveParticleCount
-            )
-        }.sorted {
-            if $0.layerID != $1.layerID { return $0.layerID < $1.layerID }
-            return $0.target < $1.target
-        } ?? []
-        return DebugAudioScaledValueSnapshot(
-            frameIndex: debugAudioScaledValueFrameIndex,
-            audioGeneration: debugAudioScaledValueGeneration,
-            audioWasSilent: debugAudioScaledValueWasSilent,
-            bindings: bindings
         )
     }
 
@@ -423,17 +342,13 @@ final class SceneDesktopWallpaperHost {
 
         teardownSurfaces(clearContext: false, reason: teardownReason)
 
-        let initialAudioScaledValueValues =
-            SceneAudioScaledValueRuntime.initialValues(
-                program: launchContext.audioScaledValueProgram
-            )
         let initialParticleDynamicValues = SceneDynamicSnapshotResolver().resolve(
             frameIndex: 0,
             generation: 0,
-            definitions: launchContext.audioScaledValueProgram.definitions,
+            definitions: launchContext.sceneScriptScalarProgram.definitions,
             userValues: [:],
             timelineValues: [:],
-            sceneScriptValues: initialAudioScaledValueValues
+            sceneScriptValues: [:]
         ).snapshot
 
         var created = false

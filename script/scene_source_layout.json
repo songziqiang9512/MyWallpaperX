@@ -181,10 +181,11 @@
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptLayerHandleBridge.swift",
           "SceneScriptMediaEventBridge.swift",
+          "SceneScriptParticleProjection.swift",
           "SceneScriptVectorProgram.swift",
           "SceneScriptVectorRuntime.swift"
         ],
-        "responsibility": "SceneScript VM owners and typed scalar/String/Vec plus callback-scoped effect/scene/layer/object-animation and media-event bridges; excludes QuickJS core source, remaining host event API breadth, and GPU rendering consumers."
+        "responsibility": "SceneScript VM owners, typed scalar/String/Vec and particle target projection plus callback-scoped effect/scene/layer/object-animation and media-event bridges; excludes QuickJS core source, remaining host event API breadth, and GPU rendering consumers."
       },
       "ResolvedMaterialExecution": {
         "file_globs": [

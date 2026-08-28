@@ -240,12 +240,6 @@ enum DebugScenePlaybackRunner {
                 model: model,
                 to: evidenceDirectory
             )
-            if let evidenceDirectory {
-                scheduleAudioScaledValueEvidence(
-                    outputDirectory: evidenceDirectory
-                )
-            }
-
             let snapshot = SceneDesktopWallpaperHost.shared.debugSnapshot()
             let imageLayerCount = model.renderDescriptor.layers.filter(\.isImageRenderable).count
             let startupElapsedMS = (
@@ -335,49 +329,6 @@ enum DebugScenePlaybackRunner {
             options: [.atomic]
         )
         return outputURL
-    }
-
-    private static func scheduleAudioScaledValueEvidence(
-        outputDirectory: URL
-    ) {
-        let delay = min(
-            max(2, requestedAfterSnapshotDelay + 0.25),
-            requestedDuration - 0.75
-        )
-        guard delay > 0 else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            let snapshot = SceneDesktopWallpaperHost.shared
-                .debugAudioScaledValueSnapshot()
-            guard !snapshot.bindings.isEmpty else { return }
-            let outputURL = outputDirectory.appendingPathComponent(
-                "scene-audio-scaled-value-evidence.json"
-            )
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                try encoder.encode(snapshot).write(to: outputURL, options: [.atomic])
-                let bindings = snapshot.bindings.map {
-                    let value = $0.effectiveValue.map { String($0) }
-                        .joined(separator: ":")
-                    let particleCount = $0.liveParticleCount.map(String.init) ?? "-"
-                    return "\($0.layerID):\($0.target):\(value):"
-                        + particleCount
-                }.joined(separator: ",")
-                NSLog(
-                    "MWX DEBUG SCENE: phase=audio-scaled-value frame=%llu audioGeneration=%llu silent=%@ bindings=%@ evidence=%@",
-                    snapshot.frameIndex,
-                    snapshot.audioGeneration,
-                    snapshot.audioWasSilent ? "true" : "false",
-                    bindings,
-                    outputURL.path
-                )
-            } catch {
-                NSLog(
-                    "MWX DEBUG SCENE: phase=audio-scaled-value-failed error=%@",
-                    error.localizedDescription
-                )
-            }
-        }
     }
 
     private static func scheduleStop(after duration: TimeInterval) {

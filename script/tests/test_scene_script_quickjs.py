@@ -1151,10 +1151,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             launch.index("let sceneScriptScalarProgram =")
         ]
         for producer in (
-            "launch-origin", "hover-origin", "audio-scaled", "property-vector",
-            "media-color",
+            "launch-origin", "hover-origin", "property-vector", "media-color",
         ):
             self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertNotIn('("audio-scaled"', bounded_ownership)
         self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
         self.assertIn(

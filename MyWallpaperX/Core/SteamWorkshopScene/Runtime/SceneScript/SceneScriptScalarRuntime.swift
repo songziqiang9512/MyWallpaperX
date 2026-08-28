@@ -76,6 +76,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let authoredValue: Double
     let hasAudioRegistration: Bool
+    private let scriptPropertiesJSON: String
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -85,6 +86,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         source: String,
         target: SceneDynamicTarget,
         authoredValue: Double,
+        scriptPropertiesJSON: String = "",
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         generation: UInt64,
@@ -97,6 +99,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         self.domain = domain
         self.target = target
         self.authoredValue = authoredValue
+        self.scriptPropertiesJSON = scriptPropertiesJSON
         self.generation = generation
         self.budget = budget
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -176,18 +179,22 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             runtime: frame.runtime
         )
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = userPropertiesJSON.withCString { userProperties in
-            mwx_scene_quickjs_owner_update_scalar_with_user_properties(
-                handle,
-                expectedGeneration,
-                input,
-                &frameInput,
-                userProperties,
-                userPropertiesJSON.utf8.count,
-                &output,
-                &diagnostic,
-                diagnostic.count
-            )
+        let result = scriptPropertiesJSON.withCString { scriptProperties in
+            userPropertiesJSON.withCString { userProperties in
+                mwx_scene_quickjs_owner_update_scalar_with_properties(
+                    handle,
+                    expectedGeneration,
+                    input,
+                    &frameInput,
+                    scriptProperties,
+                    scriptPropertiesJSON.utf8.count,
+                    userProperties,
+                    userPropertiesJSON.utf8.count,
+                    &output,
+                    &diagnostic,
+                    diagnostic.count
+                )
+            }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
             return .failure(Self.failure(
@@ -200,7 +207,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         }
         let layerID: Int
         switch target {
-        case let .effectConstant(value, _, _, _), let .layer(value, _):
+        case let .effectConstant(value, _, _, _), let .layer(value, _),
+             let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
@@ -236,7 +244,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         let layerID: Int
         switch target {
-        case let .effectConstant(value, _, _, _), let .layer(value, _):
+        case let .effectConstant(value, _, _, _), let .layer(value, _),
+             let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
@@ -261,7 +270,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         let layerID: Int
         switch target {
-        case let .effectConstant(value, _, _, _), let .layer(value, _):
+        case let .effectConstant(value, _, _, _), let .layer(value, _),
+             let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))

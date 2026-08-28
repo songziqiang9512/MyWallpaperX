@@ -69,12 +69,7 @@ extension SceneDesktopWallpaperHost {
         if clearContext {
             SceneAudioSpectrumInbox.shared.setDemand(false)
             sharedLayerAlphaRuntime = .init(program: .empty)
-            audioScaledValueRuntime = .init(program: .empty)
 #if DEBUG
-            debugAudioScaledValueValues = [:]
-            debugAudioScaledValueFrameIndex = 0
-            debugAudioScaledValueGeneration = 0
-            debugAudioScaledValueWasSilent = true
             debugDropDynamicValuesFrameIndex = nil
             debugDidDropDynamicValues = false
             debugDidLogDynamicValuesRecovery = false
@@ -226,7 +221,6 @@ extension SceneDesktopWallpaperHost {
             ) + launchContext.sharedLayerAlphaProgram.definitions
                 + launchContext.launchOriginTransitionProgram.definitions
                 + launchContext.hoverOriginTransitionProgram.definitions
-                + launchContext.audioScaledValueProgram.definitions
                 + launchContext.propertyVectorScriptProgram.definitions
                 + launchContext.sceneScriptScalarProgram.definitions
                 + launchContext.sceneScriptStringProgram.definitions
@@ -263,26 +257,11 @@ extension SceneDesktopWallpaperHost {
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frameTime: timing.simulationFrameTime
         )
-        let audioScaledValueValues = audioScaledValueRuntime.values(
-            audioSpectrum: audioSpectrum,
-            frameTime: timing.simulationFrameTime
-        )
-#if DEBUG
-        if Self.usesDebugEvidenceWindow {
-            debugAudioScaledValueValues = audioScaledValueValues
-            debugAudioScaledValueFrameIndex = timing.frameIndex
-            debugAudioScaledValueGeneration = audioSpectrum.generation
-            debugAudioScaledValueWasSilent = audioSpectrum.isSilent
-        }
-#endif
         var commonSceneScriptValues = textScriptValues.merging(
             mediaColorTransitionValues,
             uniquingKeysWith: { existing, _ in existing }
         ).merging(
             sharedLayerAlphaValues,
-            uniquingKeysWith: { existing, _ in existing }
-        ).merging(
-            audioScaledValueValues,
             uniquingKeysWith: { existing, _ in existing }
         )
         let boundedSceneScriptValues = commonSceneScriptValues

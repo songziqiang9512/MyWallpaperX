@@ -80,6 +80,36 @@ struct SceneTimelinePlaybackMutation: Equatable, Sendable {
     let command: SceneTimelinePlaybackCommand
 }
 
+enum SceneParticleNumericValue: Equatable, Sendable {
+    case scalar(Double)
+    case vector([Double])
+    var scalarValue: Double? {
+        guard case let .scalar(value) = self else { return nil }
+        return value
+    }
+}
+
+struct SceneParticleBoundValue: Equatable, Sendable {
+    let value: SceneParticleNumericValue?
+    let userPropertyKey: String?
+    let hasScript: Bool
+    let hasAnimation: Bool
+}
+
+struct SceneParticleInstanceOverride: Equatable, Sendable {
+    let alpha: SceneParticleBoundValue?
+    let size: SceneParticleBoundValue?
+    let lifetime: SceneParticleBoundValue?
+    let rate: SceneParticleBoundValue?
+    let speed: SceneParticleBoundValue?
+    let count: SceneParticleBoundValue?
+    let brightness: SceneParticleBoundValue?
+    let color: SceneParticleBoundValue?
+    let normalizedColor: SceneParticleBoundValue?
+    let controlPoints: [Int: SceneParticleBoundValue]
+    let controlPointAngles: [Int: SceneParticleBoundValue]
+}
+
 struct SceneRenderDescriptor {
     struct ShaderValue {
         let scriptSource: String?
@@ -116,6 +146,7 @@ struct SceneRenderDescriptor {
         let alpha: Double?
         let effects: [EffectDescriptor]
         var contentKind: String = "image"
+        var particleInstanceOverride: SceneParticleInstanceOverride? = nil
         var textScript: SceneTextScriptDefinition? = nil
         var text: String? = nil
     }
@@ -155,6 +186,22 @@ enum Harness {
                 contentKind: "text",
                 textScript: .init(source: mediaPropertiesSource),
                 text: "Placeholder"
+            ),
+            .init(
+                id: 139, layerIndex: 3, name: "Audio particles", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                scaleHasScript: false, alpha: nil, effects: [],
+                contentKind: "particle",
+                particleInstanceOverride: .init(
+                    alpha: nil, size: nil, lifetime: nil,
+                    rate: .init(
+                        value: .scalar(2), userPropertyKey: nil,
+                        hasScript: true, hasAnimation: false
+                    ),
+                    speed: nil, count: nil, brightness: nil, color: nil,
+                    normalizedColor: nil, controlPoints: [:],
+                    controlPointAngles: [:]
+                )
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -212,6 +259,22 @@ enum Harness {
         let audioScaleResult = audioScaleProgram.evaluate(
             inputs: [.layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5)],
             effectivePropertyValues: [:],
+            frame: frame,
+            audioSpectrum: audioSnapshot
+        )
+        let particleAudioTarget = SceneDynamicTarget.particle(
+            layerID: 139, field: .rate
+        )
+        let particleAudioProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [particleRateBinding(
+                source: particleAudioSource, value: 2
+            )],
+            generation: 19
+        )
+        let particleAudioResult = particleAudioProgram.evaluate(
+            inputs: [particleAudioTarget: .scalar(2)],
             frame: frame,
             audioSpectrum: audioSnapshot
         )
@@ -460,6 +523,12 @@ enum Harness {
                 .layer(layerID: 10, field: .scale)
             ]),
             "audioScaleFailures": audioScaleResult.failures.count,
+            "particleAudioBindings": particleAudioProgram.bindings.count,
+            "particleAudioDemand": particleAudioProgram.hasAudioConsumers,
+            "particleAudioValue": scalar(
+                particleAudioResult.values[particleAudioTarget]
+            ),
+            "particleAudioFailures": particleAudioResult.failures.count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -559,6 +628,29 @@ enum Harness {
             authoredValue: .number(value),
             valueType: .number,
             wrapperKeys: ["script", "value"]
+        )
+    }
+
+    static func particleRateBinding(
+        source: String,
+        value: Double
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object, objectIndex: 3, objectID: 139,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
+            ),
+            targetPath: [
+                .key("objects"), .index(3),
+                .key("instanceoverride"), .key("rate"),
+            ],
+            properties: [
+                "frequency": .number(0), "minvalue": .number(1),
+            ],
+            authoredValue: .number(value),
+            valueType: .number,
+            wrapperKeys: ["script", "scriptproperties", "value"]
         )
     }
 
@@ -667,6 +759,22 @@ enum Harness {
         );
     }
     """
+
+    static let particleAudioSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: "frequency", value: 0})
+        .addSlider({name: "minvalue", value: 1})
+        .finish();
+    const audioBuffer = engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_16);
+    let initialValue = 0;
+    export function init(value) { initialValue = value; return value; }
+    export function update() {
+        return initialValue * (
+            scriptProperties.minvalue
+            + audioBuffer.average[scriptProperties.frequency]
+        );
+    }
+    """
 }
 '''
 
@@ -762,6 +870,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["audioScaleDemand"])
         self.assertEqual(value["audioScaleValue"], [2.25, 2.25, 2.25])
         self.assertEqual(value["audioScaleFailures"], 0)
+
+    def test_audio_buffers_update_generic_particle_rate_owner(self) -> None:
+        value = self.result()
+        self.assertEqual(value["particleAudioBindings"], 1)
+        self.assertTrue(value["particleAudioDemand"])
+        self.assertEqual(value["particleAudioValue"], 3.0)
+        self.assertEqual(value["particleAudioFailures"], 0)
 
 
 if __name__ == "__main__":

@@ -71,7 +71,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
     let hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
-    let audioScaledValueProgram: SceneAudioScaledValueProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
@@ -117,13 +116,6 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " bindings=\(hoverOriginTransitionProgram.bindings.count)"
                 + " layerIDs=\(hoverOriginTransitionProgram.layerIDs)"
                 + " interaction=cursor-enter-leave",
-            "scene audio scaled value: schema=bounded-audio-scaled-value-v1"
-                + " bindings=\(audioScaledValueProgram.bindings.count)"
-                + " rejectedParticleLayerIDs="
-                + "\(audioScaledValueProgram.rejectedParticleLayerIDs)"
-                + " rejectedScaleLayerIDs="
-                + "\(audioScaledValueProgram.rejectedScaleLayerIDs)"
-                + " resolution=16",
             "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " route=generic-only fallback=previous-current"
@@ -356,6 +348,8 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
         }
         let runtimeInput = model.runtimeInput
+        let authoredRenderDescriptor = model.diagnostics.renderDescriptor
+            ?? runtimeInput.renderDescriptor
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
@@ -380,11 +374,14 @@ extension SceneDesktopWallpaperHost {
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
         )
-        let audioScaledValueProgram = model.audioScaledValueProgram.excluding(
-            propertyVectorScriptTargets
+        let timelineDefinitions = Set(
+            timelineProgram.bindings.map(\.definition)
         )
-        let audioScaledValueTargets = Set(
-            audioScaledValueProgram.definitions.map(\.target)
+        let timelineTargets = Set(timelineDefinitions.map(\.target))
+        let projectedScalarTargets = SceneScriptScalarProgram.projectedTargets(
+            descriptor: authoredRenderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets
         )
         let propertyBindingDefinitions =
             runtimeInput.propertyBindingProgram.definitions
@@ -400,10 +397,6 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         )
-        let timelineDefinitions = Set(
-            timelineProgram.bindings.map(\.definition)
-        )
-        let timelineTargets = Set(timelineDefinitions.map(\.target))
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
@@ -460,8 +453,6 @@ extension SceneDesktopWallpaperHost {
              launchOriginTransitionProgram.definitions.count, []),
             ("hover-origin", hoverOriginTransitionTargets,
              hoverOriginTransitionProgram.definitions.count, []),
-            ("audio-scaled", audioScaledValueTargets,
-             audioScaledValueProgram.definitions.count, []),
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count,
              model.propertyVectorScriptProgram.animationTargets),
@@ -495,7 +486,7 @@ extension SceneDesktopWallpaperHost {
         }
         let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
             domain: model.sceneScriptDomain,
-            descriptor: runtimeInput.renderDescriptor,
+            descriptor: authoredRenderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
             excludedTargets: boundedSceneScriptTargets,
@@ -636,7 +627,6 @@ extension SceneDesktopWallpaperHost {
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,
             hoverOriginTransitionProgram: hoverOriginTransitionProgram,
-            audioScaledValueProgram: audioScaledValueProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,

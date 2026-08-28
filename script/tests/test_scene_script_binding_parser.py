@@ -26,7 +26,6 @@ DOCUMENT_SOURCES = [
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Properties/SceneAudioScaledValueScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
@@ -34,7 +33,6 @@ DOCUMENT_SOURCES = [
 ]
 LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
-    SOURCE_ROOT / "Properties/SceneAudioScaledValueScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
@@ -96,6 +94,14 @@ SCENE_FIXTURE = {
             "name": "Nested script only",
             "image": "models/user/b.json",
             "instanceoverride": {
+                "rate": {
+                    "script": "fixture-particle-rate",
+                    "scriptproperties": {
+                        "frequency": 1,
+                        "smoothing": 8,
+                    },
+                    "value": 2.5,
+                },
                 "nested": {
                     "script": "particle-script",
                     "scriptproperties": {"channel": 1},
@@ -147,6 +153,14 @@ GENERIC_SCENE_FIXTURE = {
                 "value": "1920 1080",
             },
             "instanceoverride": {
+                "rate": {
+                    "script": "fixture-particle-rate",
+                    "scriptproperties": {
+                        "frequency": 1,
+                        "smoothing": 8,
+                    },
+                    "value": 2.5,
+                },
                 "nested": {
                     "script": "fixture-nested-unsupported-owner",
                     "value": 1,
@@ -865,9 +879,9 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertEqual(self.objects[20]["displayScriptFields"], [])
         self.assertEqual(self.objects[30]["displayScriptFields"], [])
 
-    def test_document_ir_preserves_all_thirteen_verified_target_shapes(self) -> None:
+    def test_document_ir_preserves_all_fourteen_verified_target_shapes(self) -> None:
         bindings = self.generic["bindings"]
-        self.assertEqual(len(bindings), 13)
+        self.assertEqual(len(bindings), 14)
         owner_counts = {}
         for binding in bindings:
             owner_counts[binding["ownerKind"]] = (
@@ -875,7 +889,7 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             )
         self.assertEqual(
             owner_counts,
-            {"scene": 1, "object": 2, "effect": 1, "pass": 9},
+            {"scene": 1, "object": 3, "effect": 1, "pass": 9},
         )
         self.assertEqual(
             bindings[0]["targetPath"],
@@ -883,6 +897,23 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         )
         self.assertEqual(bindings[0]["ownerKind"], "scene")
         self.assertNotIn("objectID", bindings[0])
+
+        particle_rate = next(
+            binding
+            for binding in bindings
+            if binding["source"] == "fixture-particle-rate"
+        )
+        self.assertEqual(
+            particle_rate["targetPath"],
+            ["objects", "[0]", "instanceoverride", "rate"],
+        )
+        self.assertEqual(particle_rate["ownerKind"], "object")
+        self.assertEqual(particle_rate["objectID"], 100)
+        self.assertEqual(particle_rate["properties"], {
+            "frequency": 1,
+            "smoothing": 8,
+        })
+        self.assertEqual(particle_rate["authoredValue"], 2.5)
 
         effect = next(
             binding
@@ -973,8 +1004,15 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         evidence = {
             entry["source"]: entry for entry in all_evidence
         }
-        self.assertEqual(len(all_evidence), 22)
-        self.assertEqual(len(evidence), 21)
+        self.assertEqual(len(all_evidence), 23)
+        self.assertEqual(len(evidence), 22)
+
+        particle_rate = evidence["fixture-particle-rate"]
+        self.assertEqual(particle_rate["ownerKind"], "object")
+        self.assertEqual(
+            particle_rate["targetPath"],
+            ["objects", "[0]", "instanceoverride", "rate"],
+        )
 
         scene_root = evidence["fixture-scene-root"]
         self.assertEqual(scene_root["ownerKind"], "scene")

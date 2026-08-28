@@ -468,7 +468,11 @@ class SceneFrameContextTests(unittest.TestCase):
             "materialFunctionMutations.append(contentsOf: callbackMaterialMutations)",
             scalar_program,
         )
-        self.assertIn("case let .effectConstant(value, _, _, _), let .layer(value, _):", scalar_runtime)
+        self.assertIn(
+            "case let .effectConstant(value, _, _, _), let .layer(value, _),",
+            scalar_runtime,
+        )
+        self.assertIn("let .particle(value, _):", scalar_runtime)
         self.assertIn("mutationOverflow", scalar_runtime)
         self.assertIn("invalid-effect-index-\\(mutation.effectIndex)", preflight)
 

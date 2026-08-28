@@ -11,7 +11,6 @@ extension SceneRenderDescriptor {
         let particlePath: String?
         var spotLight: SceneSpotLightDefinition? = nil
         var particleInstanceOverride: SceneParticleInstanceOverride?
-        var particleRateAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
         var authoredDependencies: [SceneObjectDependency] = []
@@ -33,7 +32,6 @@ extension SceneRenderDescriptor {
         let size: String?
         let scale: String?
         var scaleHasScript: Bool? = nil
-        var scaleAudioScript: SceneAudioScaledValueScriptDefinition? = nil
         let angles: String?
         // Numeric transform fields parsed from the corresponding string fields.
         // originXYZ: world-space center (3 floats, defaults to [0,0,0]).

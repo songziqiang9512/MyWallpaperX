@@ -355,11 +355,19 @@ void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner) {
     domain->callback_active = false;
 }
 
+static bool assign_script_properties(
+    MWXSceneQuickJSOwner *owner,
+    const char *json,
+    size_t length
+);
+
 static MWXSceneQuickJSResult call_scalar(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
     double input,
     const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
     double *output,
@@ -367,6 +375,15 @@ static MWXSceneQuickJSResult call_scalar(
     size_t diagnostic_capacity
 ) {
     MWXSceneQuickJSDomain *domain = owner->domain;
+    if (!assign_script_properties(
+            owner, script_properties_json, script_properties_length
+        )) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript properties unavailable"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     mwx_scene_quickjs_begin_callback(owner);
     JSValue previous_global_layer = JS_UNDEFINED;
     JSValue previous_global_scene = JS_UNDEFINED;
@@ -1050,6 +1067,34 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
+    return mwx_scene_quickjs_owner_update_scalar_with_properties(
+        owner,
+        expected_generation,
+        input,
+        frame,
+        NULL,
+        0,
+        user_properties_json,
+        user_properties_length,
+        output,
+        diagnostic,
+        diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || frame == NULL || output == NULL || !isfinite(input) ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
@@ -1081,6 +1126,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
         if (JS_IsFunction(domain->context, init)) {
             MWXSceneQuickJSResult result = call_scalar(
                 owner, init, input, frame,
+                script_properties_json, script_properties_length,
                 user_properties_json, user_properties_length,
                 output, diagnostic, diagnostic_capacity
             );
@@ -1104,6 +1150,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
     }
     MWXSceneQuickJSResult result = call_scalar(
         owner, update, input, frame,
+        script_properties_json, script_properties_length,
         user_properties_json, user_properties_length,
         output, diagnostic, diagnostic_capacity
     );

@@ -5,17 +5,14 @@ import Foundation
 /// the serialized Vec3 as if it were static author intent.
 nonisolated enum SceneScriptedLayerTransformProjection {
     nonisolated static func apply(
-        audioScaledValueProgram: SceneAudioScaledValueProgram,
         admittedSceneScriptScaleLayerIDs: Set<Int>,
         to descriptor: SceneRenderDescriptor
     ) -> SceneRenderDescriptor {
-        let admittedScale = audioScaledValueProgram.admittedScaleLayerIDs.union(
-            admittedSceneScriptScaleLayerIDs
-        )
         var result = descriptor
         result.layers = descriptor.layers.map { source in
             var layer = source
-            if layer.scaleHasScript == true, !admittedScale.contains(layer.id) {
+            if layer.scaleHasScript == true,
+               !admittedSceneScriptScaleLayerIDs.contains(layer.id) {
                 layer.visible = false
             }
             return layer

@@ -17,6 +17,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let generation: UInt64
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
+    private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
 
@@ -58,7 +59,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         } else {
             return empty(budget: budget, generation: generation)
         }
-        let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double)] =
+        let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double, String)] =
             scriptBindings.compactMap { binding in
                 guard let target = projection(
                           binding,
@@ -67,16 +68,18 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       ),
                       !excludedTargets.contains(target),
                       let authored = binding.authoredValue?.numberValue,
+                      let propertiesJSON = staticPropertiesJSON(binding.properties),
                       authored.isFinite else { return nil }
-                return (binding, target, authored)
+                return (binding, target, authored, propertiesJSON)
             }
         let counts = Dictionary(grouping: candidates, by: { $0.1 })
             .mapValues(\.count)
         var owners: [SceneScriptScalarOwner] = []
-        for (binding, target, authored) in candidates {
+        for (binding, target, authored, propertiesJSON) in candidates {
             let layerID: Int
             switch target {
-            case let .effectConstant(value, _, _, _), let .layer(value, _):
+            case let .effectConstant(value, _, _, _), let .layer(value, _),
+                 let .particle(value, _):
                 layerID = value
             default:
                 continue
@@ -88,6 +91,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       source: binding.source,
                       target: target,
                       authoredValue: authored,
+                      scriptPropertiesJSON: propertiesJSON,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: timelineTargets.contains(target),
                       generation: generation,
@@ -100,6 +104,23 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             bindings: owners,
             generation: generation
         )
+    }
+
+    static func projectedTargets(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = []
+    ) -> Set<SceneDynamicTarget> {
+        let targets = scriptBindings.compactMap { binding -> SceneDynamicTarget? in
+            guard staticPropertiesJSON(binding.properties) != nil else { return nil }
+            return projection(
+                binding,
+                descriptor: descriptor,
+                timelineTargets: timelineTargets
+            )
+        }
+        let counts = Dictionary(grouping: targets, by: { $0 }).mapValues(\.count)
+        return Set(targets.filter { counts[$0] == 1 })
     }
 
     func evaluate(
@@ -137,7 +158,24 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                   case let .scalar(value) = input else { continue }
             if binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
-                case .success: break
+                case .success:
+                    if audioSpectrum.generation > 0, !audioSpectrum.isSilent,
+                       reportedAudioTargets.insert(binding.target).inserted {
+                        let peak = [
+                            audioSpectrum.left.max() ?? 0,
+                            audioSpectrum.right.max() ?? 0,
+                            audioSpectrum.left32.max() ?? 0,
+                            audioSpectrum.right32.max() ?? 0,
+                            audioSpectrum.left64.max() ?? 0,
+                            audioSpectrum.right64.max() ?? 0,
+                        ].max() ?? 0
+                        NSLog(
+                            "MWX SceneScript VM: target=%@ callback=audioBuffersUpdated generation=%llu peak=%.9g route=generic-only",
+                            String(describing: binding.target),
+                            audioSpectrum.generation,
+                            peak
+                        )
+                    }
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -273,8 +311,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>
     ) -> SceneDynamicTarget? {
-        guard binding.properties.isEmpty,
-              binding.valueType == .number,
+        guard binding.valueType == .number,
               let authored = binding.authoredValue?.numberValue,
               authored.isFinite,
               let objectIndex = binding.owner.objectIndex,
@@ -285,8 +322,27 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             return nil
         }
         if binding.owner.kind == .object {
+            if binding.targetPath == [
+                .key("objects"), .index(objectIndex),
+                .key("instanceoverride"), .key("rate"),
+            ] {
+                let layer = descriptor.layers[objectIndex]
+                guard binding.targetKey == "rate",
+                      binding.wrapperKeys == ["script", "scriptproperties", "value"],
+                      layer.contentKind == "particle",
+                      let override = layer.particleInstanceOverride,
+                      override.hasOnlyGenericRateScript,
+                      let rate = override.rate,
+                      rate.userPropertyKey == nil,
+                      !rate.hasAnimation,
+                      rate.value?.scalarValue?.bitPattern == authored.bitPattern else {
+                    return nil
+                }
+                return .particle(layerID: layerID, field: .rate)
+            }
             let target = SceneDynamicTarget.layer(layerID: layerID, field: .alpha)
-            guard binding.targetKey == "alpha",
+            guard binding.properties.isEmpty,
+                  binding.targetKey == "alpha",
                   binding.wrapperKeys == ["animation", "script", "value"],
                   binding.targetPath == [
                       .key("objects"), .index(objectIndex), .key("alpha"),
@@ -296,7 +352,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             else { return nil }
             return target
         }
-        guard binding.owner.kind == .pass,
+        guard binding.properties.isEmpty,
+              binding.owner.kind == .pass,
               let effectIndex = binding.owner.effectIndex,
               let passIndex = binding.owner.passIndex,
               descriptor.layers[objectIndex].effects.indices.contains(effectIndex) else {
@@ -342,5 +399,39 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             .key("passes"), .index(passIndex),
             .key("constantshadervalues"), .key(name),
         ]
+    }
+
+    private static func staticPropertiesJSON(
+        _ properties: [String: SceneJSONValue]
+    ) -> String? {
+        if properties.isEmpty { return "" }
+        var object: [String: Any] = [:]
+        for (key, value) in properties {
+            switch value {
+            case let .bool(item): object[key] = item
+            case let .number(item) where item.isFinite: object[key] = item
+            case let .string(item): object[key] = item
+            default: return nil
+            }
+        }
+        guard JSONSerialization.isValidJSONObject(object),
+              let data = try? JSONSerialization.data(
+                  withJSONObject: object,
+                  options: [.sortedKeys]
+              ) else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private nonisolated extension SceneParticleInstanceOverride {
+    var hasOnlyGenericRateScript: Bool {
+        guard rate?.hasScript == true else { return false }
+        let otherValues = [
+            alpha, size, lifetime, speed, count, brightness,
+            color, normalizedColor,
+        ]
+        return !otherValues.compactMap { $0 }.contains(where: \.hasScript)
+            && !controlPoints.values.contains(where: \.hasScript)
+            && !controlPointAngles.values.contains(where: \.hasScript)
     }
 }

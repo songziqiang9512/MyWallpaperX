@@ -13,9 +13,8 @@ import os.lock
 ///
 /// 频段边界、幅度归一化与平滑策略官方均未公开，当前实现是工程选择而非官方合同，
 /// 不能据此宣称与 Wallpaper Engine 数值等价。该唯一快照也发布给通用
-/// SceneScript `registerAudioBuffers` 的 16/32/64 档 retained arrays；遗留的
-/// particle-rate native plan 仍消费同一份 16 档输入，等待其 nested binding IR
-/// 进入 QuickJS 后撤权。
+/// SceneScript `registerAudioBuffers` 的 16/32/64 档 retained arrays；object
+/// scale 与 particle-rate QuickJS owners 复用同一份 typed snapshot。
 nonisolated struct SceneAudioSpectrumSnapshot: Equatable {
     static let bandCount = 16
     static let mediumBandCount = 32
