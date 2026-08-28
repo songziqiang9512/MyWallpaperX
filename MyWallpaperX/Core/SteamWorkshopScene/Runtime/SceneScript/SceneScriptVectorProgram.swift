@@ -69,6 +69,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
+    private var lastEffectivePropertyValues: [String: SceneUserPropertyValue]?
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
@@ -199,6 +200,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         let userJSON = userPropertiesJSON(
             effectiveValues: effectivePropertyValues
         )
+        let changedUserPropertiesJSON = Self.changedUserPropertiesJSON(
+            previous: lastEffectivePropertyValues,
+            current: effectivePropertyValues,
+            kinds: userPropertyKinds
+        )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
@@ -240,6 +246,25 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       binding.properties,
                       effectiveValues: effectivePropertyValues
                   ) else { continue }
+            if let changedUserPropertiesJSON {
+                switch binding.owner.dispatchUserProperties(
+                    changedPropertiesJSON: changedUserPropertiesJSON,
+                    scriptPropertiesJSON: propertiesJSON,
+                    frame: frame,
+                    userPropertiesJSON: userJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    materialFunctionMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    animationMutations.append(contentsOf: eventMutations.animations)
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
             if binding.owner.hasAudioRegistration {
                 switch binding.owner.refreshAudio(audioSpectrum) {
                 case .success:
@@ -370,6 +395,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 disabledTargets.insert(target)
             }
         }
+        lastEffectivePropertyValues = effectivePropertyValues
         return .init(
             values: values,
             failures: failures,
@@ -534,6 +560,37 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             }
         }
         return json(object) ?? "{}"
+    }
+
+    private static func changedUserPropertiesJSON(
+        previous: [String: SceneUserPropertyValue]?,
+        current: [String: SceneUserPropertyValue],
+        kinds: [String: SceneUserPropertyKind]
+    ) -> String? {
+        guard let previous else {
+            return userPropertiesJSON(values: current, kinds: kinds)
+        }
+        let changedKeys = Set(previous.keys).union(current.keys).filter {
+            previous[$0] != current[$0]
+        }
+        guard !changedKeys.isEmpty else { return nil }
+        var object: [String: Any] = [:]
+        for key in changedKeys where validName(key) {
+            guard let value = current[key] else {
+                object[key] = NSNull()
+                continue
+            }
+            let encoded = userPropertiesJSON(
+                values: [key: value],
+                kinds: kinds
+            )
+            guard let data = encoded.data(using: .utf8),
+                  let item = try? JSONSerialization.jsonObject(with: data),
+                  let dictionary = item as? [String: Any],
+                  let encodedValue = dictionary[key] else { continue }
+            object[key] = encodedValue
+        }
+        return object.isEmpty ? nil : json(object)
     }
 
     private static func json(_ object: [String: Any]) -> String? {

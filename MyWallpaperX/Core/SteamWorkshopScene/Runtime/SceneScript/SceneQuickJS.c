@@ -36,6 +36,32 @@ static JSValue wemath_smooth_step(
     );
 }
 
+static JSValue wemath_mix(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    if (argc != 3) {
+        return JS_ThrowTypeError(context, "WEMath.mix expects three numbers");
+    }
+    double start = 0;
+    double end = 0;
+    double amount = 0;
+    if (JS_ToFloat64(context, &start, argv[0]) < 0 ||
+        JS_ToFloat64(context, &end, argv[1]) < 0 ||
+        JS_ToFloat64(context, &amount, argv[2]) < 0 ||
+        !isfinite(start) || !isfinite(end) || !isfinite(amount)) {
+        return JS_ThrowTypeError(context, "WEMath.mix arguments are invalid");
+    }
+    const double result = start + ((end - start) * amount);
+    if (!isfinite(result)) {
+        return JS_ThrowRangeError(context, "WEMath.mix result is not finite");
+    }
+    return JS_NewFloat64(context, result);
+}
+
 static int initialize_wemath_module(JSContext *context, JSModuleDef *module) {
     JSValue smooth_step = JS_NewCFunction(
         context,
@@ -46,14 +72,23 @@ static int initialize_wemath_module(JSContext *context, JSModuleDef *module) {
     if (JS_IsException(smooth_step)) {
         return -1;
     }
-    return JS_SetModuleExport(context, module, "smoothStep", smooth_step);
+    if (JS_SetModuleExport(context, module, "smoothStep", smooth_step) < 0) {
+        return -1;
+    }
+    JSValue mix = JS_NewCFunction(context, wemath_mix, "mix", 3);
+    if (JS_IsException(mix)) {
+        return -1;
+    }
+    return JS_SetModuleExport(context, module, "mix", mix);
 }
 
 static bool install_value_host(MWXSceneQuickJSDomain *domain) {
     static const char source[] =
         "(() => {"
         "class Vec3 {"
-        "constructor(x=0,y=x,z=x){this.x=Number(x);this.y=Number(y);this.z=Number(z);}"
+        "constructor(x=0,y=x,z=x){if(x&&typeof x==='object'){"
+        "this.x=Number(x.x);this.y=Number(x.y);this.z=Number(x.z);return;}"
+        "this.x=Number(x);this.y=Number(y);this.z=Number(z);}"
         "copy(){return new Vec3(this.x,this.y,this.z);}"
         "add(v){if(typeof v==='number'){return new Vec3(this.x+v,this.y+v,this.z+v);}"
         "return new Vec3(this.x+v.x,this.y+v.y,this.z+v.z);}"
@@ -118,8 +153,12 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
         media_playback,
         read_only
     );
+    int shared_result = JS_SetPropertyStr(
+        context, global, "shared", JS_NewObject(context)
+    );
     JS_FreeValue(context, global);
-    return vec_result >= 0 && builder_result >= 0 && media_playback_result >= 0;
+    return vec_result >= 0 && builder_result >= 0
+        && media_playback_result >= 0 && shared_result >= 0;
 }
 
 static JSModuleDef *load_allowlisted_module(
@@ -141,7 +180,8 @@ static JSModuleDef *load_allowlisted_module(
         module_name,
         initialize_wemath_module
     );
-    if (module == NULL || JS_AddModuleExport(context, module, "smoothStep") < 0) {
+    if (module == NULL || JS_AddModuleExport(context, module, "smoothStep") < 0 ||
+        JS_AddModuleExport(context, module, "mix") < 0) {
         return NULL;
     }
     return module;
@@ -355,7 +395,7 @@ void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner) {
     domain->callback_active = false;
 }
 
-static bool assign_script_properties(
+bool mwx_scene_quickjs_assign_script_properties(
     MWXSceneQuickJSOwner *owner,
     const char *json,
     size_t length
@@ -375,7 +415,7 @@ static MWXSceneQuickJSResult call_scalar(
     size_t diagnostic_capacity
 ) {
     MWXSceneQuickJSDomain *domain = owner->domain;
-    if (!assign_script_properties(
+    if (!mwx_scene_quickjs_assign_script_properties(
             owner, script_properties_json, script_properties_length
         )) {
         write_diagnostic(
@@ -601,7 +641,7 @@ static MWXSceneQuickJSResult call_string(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-static bool assign_script_properties(
+bool mwx_scene_quickjs_assign_script_properties(
     MWXSceneQuickJSOwner *owner,
     const char *json,
     size_t length
@@ -675,7 +715,9 @@ static MWXSceneQuickJSResult call_vec3(
     size_t diagnostic_capacity
 ) {
     MWXSceneQuickJSDomain *domain = owner->domain;
-    if (!assign_script_properties(owner, script_properties_json, script_properties_length)) {
+    if (!mwx_scene_quickjs_assign_script_properties(
+            owner, script_properties_json, script_properties_length
+        )) {
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript properties unavailable");
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }

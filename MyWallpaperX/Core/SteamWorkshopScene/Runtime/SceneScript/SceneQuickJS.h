@@ -52,6 +52,20 @@ typedef struct MWXSceneQuickJSMediaPropertiesEvent {
     size_t artist_length;
 } MWXSceneQuickJSMediaPropertiesEvent;
 
+typedef enum MWXSceneQuickJSCursorEventKind {
+    MWX_SCENE_QUICKJS_CURSOR_ENTER = 1,
+    MWX_SCENE_QUICKJS_CURSOR_LEAVE = 2
+} MWXSceneQuickJSCursorEventKind;
+
+typedef struct MWXSceneQuickJSCursorEvent {
+    double world_x;
+    double world_y;
+    double world_z;
+    double local_x;
+    double local_y;
+    double local_z;
+} MWXSceneQuickJSCursorEvent;
+
 MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
     size_t stack_limit,
@@ -249,6 +263,32 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const MWXSceneQuickJSMediaPropertiesEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_user_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *changed_properties_json,
+    size_t changed_properties_length,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    MWXSceneQuickJSCursorEventKind kind,
+    const MWXSceneQuickJSCursorEvent *event,
     const MWXSceneQuickJSFrameInput *frame,
     const char *user_properties_json,
     size_t user_properties_length,

@@ -128,6 +128,63 @@ static int media_properties(
     return check(actual == expected, label, diagnostic);
 }
 
+static int user_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    const char *changed,
+    const char *script_properties,
+    const char *all_properties,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_dispatch_user_properties(
+            owner, generation,
+            changed, strlen(changed),
+            script_properties, strlen(script_properties),
+            &frame,
+            all_properties, strlen(all_properties),
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
+static int cursor_event(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    MWXSceneQuickJSCursorEventKind kind,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSCursorEvent event = {
+        .world_x = 10,
+        .world_y = 20,
+        .world_z = 0,
+        .local_x = 0.5,
+        .local_y = 0.25,
+        .local_z = 0,
+    };
+    const char *properties = "{\"enabled\":true}";
+    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_dispatch_cursor(
+        owner, generation, kind, &event, &frame,
+        properties, strlen(properties),
+        diagnostic, sizeof(diagnostic)
+    );
+    return check(actual == expected, label, diagnostic);
+}
+
 static int update_string(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -441,6 +498,40 @@ int main(void) {
     failures += update(
         time_of_day, 11, 0, MWX_SCENE_QUICKJS_OK, 1,
         "WEMath engine.timeOfDay"
+    );
+
+    MWXSceneQuickJSOwner *wemath_mix = mwx_scene_quickjs_owner_create(
+        domain,
+        "import * as WEMath from 'WEMath';\n"
+        "export function update(value) { return WEMath.mix(value, 10, 0.25); }",
+        strlen(
+            "import * as WEMath from 'WEMath';\n"
+            "export function update(value) { return WEMath.mix(value, 10, 0.25); }"
+        ),
+        28, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(wemath_mix != NULL, "WEMath.mix compile", diagnostic);
+    failures += update(
+        wemath_mix, 28, 2, MWX_SCENE_QUICKJS_OK, 4,
+        "WEMath.mix scalar interpolation"
+    );
+
+    MWXSceneQuickJSOwner *invalid_wemath_mix = mwx_scene_quickjs_owner_create(
+        domain,
+        "import * as WEMath from 'WEMath';\n"
+        "export function update(value) { return WEMath.mix(value, Infinity, 0.5); }",
+        strlen(
+            "import * as WEMath from 'WEMath';\n"
+            "export function update(value) { return WEMath.mix(value, Infinity, 0.5); }"
+        ),
+        29, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        invalid_wemath_mix != NULL, "invalid WEMath.mix compile", diagnostic
+    );
+    failures += update(
+        invalid_wemath_mix, 29, 2, MWX_SCENE_QUICKJS_EXCEPTION, 2,
+        "WEMath.mix rejects non-finite input"
     );
 
     const char *scalar_user_source =
@@ -926,6 +1017,60 @@ int main(void) {
         MWX_SCENE_QUICKJS_STALE_OWNER, "stale media properties owner"
     );
 
+    const char *cursor_source =
+        "export function cursorEnter(event){"
+        "if(!Object.isFrozen(event)||!Object.isFrozen(event.worldPosition)||"
+        "!Object.isFrozen(event.localPosition))throw new Error('mutable cursor');"
+        "shared.hover=event.worldPosition.x===10&&event.localPosition.y===0.25;}"
+        "export function cursorLeave(event){shared.hover=false;}";
+    MWXSceneQuickJSOwner *cursor_owner = mwx_scene_quickjs_owner_create(
+        domain, cursor_source, strlen(cursor_source),
+        26, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(cursor_owner != NULL, "cursor owner compile", diagnostic);
+    const char *cursor_consumer_source =
+        "export var scriptProperties=createScriptProperties()"
+        ".addSlider({name:'factor',value:2}).finish();"
+        "let enabled=false;"
+        "export function applyUserProperties(changed){"
+        "if(!Object.isFrozen(changed))throw new Error('mutable properties');"
+        "const copied=new Vec3(new Vec3(scriptProperties.factor));"
+        "enabled=changed.enabled===true&&copied.x===3&&copied.y===3&&copied.z===3;}"
+        "export function update(value){"
+        "return shared.hover&&enabled?value*scriptProperties.factor:value;}";
+    MWXSceneQuickJSOwner *cursor_consumer = mwx_scene_quickjs_owner_create(
+        domain, cursor_consumer_source, strlen(cursor_consumer_source),
+        27, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        cursor_consumer != NULL, "cursor consumer compile", diagnostic
+    );
+    failures += user_properties(
+        cursor_consumer, 27, "{\"enabled\":true}", "{\"factor\":3}",
+        "{\"enabled\":true}", MWX_SCENE_QUICKJS_OK,
+        "initial user properties event"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_ENTER,
+        MWX_SCENE_QUICKJS_OK, "cursor enter event"
+    );
+    failures += update(
+        cursor_consumer, 27, 2, MWX_SCENE_QUICKJS_OK, 6,
+        "cursor shared state reaches property owner"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_LEAVE,
+        MWX_SCENE_QUICKJS_OK, "cursor leave event"
+    );
+    failures += update(
+        cursor_consumer, 27, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "cursor leave restores authored value"
+    );
+    failures += cursor_event(
+        cursor_owner, 28, MWX_SCENE_QUICKJS_CURSOR_ENTER,
+        MWX_SCENE_QUICKJS_STALE_OWNER, "stale cursor owner"
+    );
+
     const char *bad_string_source =
         "export function update(){return 42;}";
     MWXSceneQuickJSOwner *bad_string = mwx_scene_quickjs_owner_create(
@@ -1050,6 +1195,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(media_playback_owner);
     mwx_scene_quickjs_owner_destroy(media_properties_owner);
     mwx_scene_quickjs_owner_destroy(bad_string);
+    mwx_scene_quickjs_owner_destroy(cursor_consumer);
+    mwx_scene_quickjs_owner_destroy(cursor_owner);
     mwx_scene_quickjs_owner_destroy(audio_owner);
     mwx_scene_quickjs_owner_destroy(callback_audio);
     mwx_scene_quickjs_owner_destroy(stale_animation);
@@ -1064,6 +1211,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(positive);
     mwx_scene_quickjs_owner_destroy(metadata_only);
     mwx_scene_quickjs_owner_destroy(time_of_day);
+    mwx_scene_quickjs_owner_destroy(invalid_wemath_mix);
+    mwx_scene_quickjs_owner_destroy(wemath_mix);
     mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_owner_destroy(vec3);
     mwx_scene_quickjs_owner_destroy(immutable_user);
@@ -1144,6 +1293,14 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
+        model = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntimeModel.swift"
+        ).read_text(encoding="utf-8")
+        cursor = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift"
+        ).read_text(encoding="utf-8")
         self.assertIn("excludedTargets: boundedSceneScriptTargets", launch)
         self.assertIn("route=generic-only fallback=previous-current", launch)
         bounded_ownership = launch[
@@ -1151,12 +1308,20 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             launch.index("let sceneScriptScalarProgram =")
         ]
         for producer in (
-            "launch-origin", "hover-origin", "property-vector", "media-color",
+            "launch-origin", "property-vector", "media-color",
         ):
             self.assertIn(f'("{producer}"', bounded_ownership)
         self.assertNotIn('("audio-scaled"', bounded_ownership)
+        self.assertNotIn('("hover-origin"', bounded_ownership)
         self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
+        self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
+        self.assertIn("events=cursorEnter,cursorLeave route=generic-only", launch)
+        self.assertIn("owner.exports(\"cursorEnter\")", cursor)
+        self.assertIn("owner.exports(\"cursorLeave\")", cursor)
+        self.assertIn("previousHits", cursor)
+        self.assertIn("excludedTargets: launchTransitionTargets", model)
+        self.assertNotIn("SceneHoverOriginTransition", model + launch + frame)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",
             bounded_ownership,
@@ -1169,6 +1334,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertIn(
             "targets.isDisjoint(with: boundedSceneScriptTargets)",
             bounded_ownership,
+        )
+        self.assertLess(
+            frame.index("sceneScriptCursorProgram.dispatch"),
+            frame.index("propertyVectorScriptProgram.evaluate"),
         )
         scalar_ownership = launch[
             launch.index("let sceneScriptScalarTargets ="):

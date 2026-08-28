@@ -686,6 +686,13 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)",
             source,
         )
+        prelaunch_outside = source.index(
+            "SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())"
+        )
+        launch = source.index(
+            "let model = try SceneDesktopWallpaperHost.shared.launch("
+        )
+        self.assertLess(prelaunch_outside, launch)
         before = source.index('requestSnapshot(reason: "before"')
         move_state = source.index("movePointer(to: hoverPointer)", before)
         hold_state = source.index("holdPointer(at: hoverPointer)", move_state)

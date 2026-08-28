@@ -70,7 +70,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
-    let hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
+    let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
@@ -110,12 +110,10 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " scalarBindings=\(launchOriginTransitionProgram.scalarBindings.count)"
                 + " layerIDs=\(launchOriginTransitionProgram.layerIDs)"
                 + " interaction=cursor-click",
-            "scene hover origin transition: schema=bounded-hover-origin-v1"
-                + " cohorts=\(hoverOriginTransitionProgram.cohorts.count)"
-                + " owners=\(hoverOriginTransitionProgram.ownerLayerIDs)"
-                + " bindings=\(hoverOriginTransitionProgram.bindings.count)"
-                + " layerIDs=\(hoverOriginTransitionProgram.layerIDs)"
-                + " interaction=cursor-enter-leave",
+            "scene cursor events: schema=quickjs-ng-cursor-v1"
+                + " owners=\(sceneScriptCursorProgram.ownerCount)"
+                + " layerIDs=\(sceneScriptCursorProgram.ownerLayerIDs.sorted())"
+                + " events=cursorEnter,cursorLeave route=generic-only",
             "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " route=generic-only fallback=previous-current"
@@ -362,15 +360,6 @@ extension SceneDesktopWallpaperHost {
         let launchOriginTransitionTargets = Set(
             launchOriginTransitionProgram.definitions.map(\.target)
         )
-        let hoverOriginTransitionProgram =
-            SceneHoverOriginTransitionProgramCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor,
-                scriptBindings: model.sceneDocument.scriptBindings,
-                scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence
-            )
-        let hoverOriginTransitionTargets = Set(
-            hoverOriginTransitionProgram.definitions.map(\.target)
-        )
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
         )
@@ -378,11 +367,6 @@ extension SceneDesktopWallpaperHost {
             timelineProgram.bindings.map(\.definition)
         )
         let timelineTargets = Set(timelineDefinitions.map(\.target))
-        let projectedScalarTargets = SceneScriptScalarProgram.projectedTargets(
-            descriptor: authoredRenderDescriptor,
-            scriptBindings: model.sceneDocument.scriptBindings,
-            timelineTargets: timelineTargets
-        )
         let propertyBindingDefinitions =
             runtimeInput.propertyBindingProgram.definitions
         let propertyBindingTargets = Set(
@@ -451,8 +435,6 @@ extension SceneDesktopWallpaperHost {
         )] = [
             ("launch-origin", launchOriginTransitionTargets,
              launchOriginTransitionProgram.definitions.count, []),
-            ("hover-origin", hoverOriginTransitionTargets,
-             hoverOriginTransitionProgram.definitions.count, []),
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count,
              model.propertyVectorScriptProgram.animationTargets),
@@ -626,7 +608,7 @@ extension SceneDesktopWallpaperHost {
             mediaColorTransitionProgram: mediaColorTransitionProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,
-            hoverOriginTransitionProgram: hoverOriginTransitionProgram,
+            sceneScriptCursorProgram: model.sceneScriptCursorProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,

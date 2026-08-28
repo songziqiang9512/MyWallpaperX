@@ -235,6 +235,36 @@ enum Harness {
             ],
             frame: frame
         )
+        let propertyEventProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin",
+                source: propertyEventSource,
+                value: "20 2250 0",
+                properties: ["step": .number(3)]
+            )],
+            userPropertyDefinitions: [],
+            generation: 17
+        )
+        let propertyEventTarget = SceneDynamicTarget.layer(
+            layerID: 10, field: .origin
+        )
+        let propertyEventFirst = propertyEventProgram.evaluate(
+            inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: ["mode": .number(2)],
+            frame: frame
+        )
+        let propertyEventStable = propertyEventProgram.evaluate(
+            inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: ["mode": .number(2)],
+            frame: frame
+        )
+        let propertyEventChanged = propertyEventProgram.evaluate(
+            inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: ["mode": .number(4)],
+            frame: frame
+        )
         let audioScaleProgram = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -529,6 +559,18 @@ enum Harness {
                 particleAudioResult.values[particleAudioTarget]
             ),
             "particleAudioFailures": particleAudioResult.failures.count,
+            "propertyEventFirst": vector(
+                propertyEventFirst.values[propertyEventTarget]
+            ),
+            "propertyEventStable": vector(
+                propertyEventStable.values[propertyEventTarget]
+            ),
+            "propertyEventChanged": vector(
+                propertyEventChanged.values[propertyEventTarget]
+            ),
+            "propertyEventFailures": propertyEventFirst.failures.count
+                + propertyEventStable.failures.count
+                + propertyEventChanged.failures.count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -664,6 +706,21 @@ enum Harness {
       thisLayer.getEffect('history').executeMaterialFunction('clearHistory');
       value.x = scriptProperties.x;
       value.y = scriptProperties.y - 0;
+      return value;
+    }
+    """
+
+    static let propertyEventSource = """
+    export var scriptProperties = createScriptProperties()
+      .addSlider({name:'step',value:1}).finish();
+    let applied = 0;
+    export function applyUserProperties(changed) {
+      if (changed.hasOwnProperty('mode')) {
+        applied = scriptProperties.step + engine.userProperties.mode;
+      }
+    }
+    export function update(value) {
+      value.x = applied;
       return value;
     }
     """
@@ -877,6 +934,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["particleAudioDemand"])
         self.assertEqual(value["particleAudioValue"], 3.0)
         self.assertEqual(value["particleAudioFailures"], 0)
+
+    def test_apply_user_properties_uses_initial_full_then_changed_delta(self) -> None:
+        value = self.result()
+        self.assertEqual(value["propertyEventFirst"], [5, 2250, 0])
+        self.assertEqual(value["propertyEventStable"], [5, 2250, 0])
+        self.assertEqual(value["propertyEventChanged"], [7, 2250, 0])
+        self.assertEqual(value["propertyEventFailures"], 0)
 
 
 if __name__ == "__main__":

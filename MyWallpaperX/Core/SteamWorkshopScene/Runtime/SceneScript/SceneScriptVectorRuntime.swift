@@ -179,6 +179,67 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         )
     }
 
+    func dispatchUserProperties(
+        changedPropertiesJSON: String,
+        scriptPropertiesJSON: String,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard case let .layer(layerID, _) = target else {
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchUserProperties(
+            owner: handle,
+            target: target,
+            layerID: layerID,
+            ownerGeneration: generation,
+            changedPropertiesJSON: changedPropertiesJSON,
+            scriptPropertiesJSON: scriptPropertiesJSON,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
+    func dispatchCursor(
+        _ event: SceneScriptCursorEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard case let .layer(layerID, _) = target,
+              layerID == event.layerID else {
+            return .failure(.invalidArgument("cursor owner identity mismatch"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchCursor(
+            owner: handle,
+            target: target,
+            ownerGeneration: generation,
+            event: event,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
+    func exports(_ name: String) -> Bool {
+        guard !name.isEmpty, name.utf8.count <= 128 else { return false }
+        var available: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = name.withCString {
+            mwx_scene_quickjs_owner_has_function(
+                handle,
+                $0,
+                name.utf8.count,
+                &available,
+                &diagnostic,
+                diagnostic.count
+            )
+        }
+        return result == MWX_SCENE_QUICKJS_OK && available == 1
+    }
+
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }
 
     private static func failure(

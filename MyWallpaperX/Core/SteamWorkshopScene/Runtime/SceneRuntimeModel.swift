@@ -9,6 +9,7 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
+    let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptDomain: SceneScriptQuickJSDomain?
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
@@ -114,15 +115,14 @@ struct SceneRuntimeModelBuilder {
             }
             return domain
         }()
+        let sceneScriptCursorProgram = SceneScriptCursorProgram.compile(
+            domain: sceneScriptDomain,
+            descriptor: renderDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            generation: sceneScriptGeneration
+        )
         let launchTransitionTargets = Set(
             SceneLaunchOriginTransitionProgramCompiler.compile(
-                descriptor: renderDescriptor,
-                scriptBindings: sceneDocument.scriptBindings,
-                scriptSourceEvidence: sceneDocument.scriptSourceEvidence
-            ).definitions.map(\.target)
-        )
-        let hoverTransitionTargets = Set(
-            SceneHoverOriginTransitionProgramCompiler.compile(
                 descriptor: renderDescriptor,
                 scriptBindings: sceneDocument.scriptBindings,
                 scriptSourceEvidence: sceneDocument.scriptSourceEvidence
@@ -138,8 +138,7 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             userPropertyDefinitions: project.userProperties.definitions,
             timelineTargets: timelineTargets,
-            excludedTargets: launchTransitionTargets
-                .union(hoverTransitionTargets),
+            excludedTargets: launchTransitionTargets,
             generation: sceneScriptGeneration
         )
         let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(
@@ -193,6 +192,7 @@ struct SceneRuntimeModelBuilder {
             capabilityProfile: capabilityProfile,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
+            sceneScriptCursorProgram: sceneScriptCursorProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             sceneScriptDomain: sceneScriptDomain,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,

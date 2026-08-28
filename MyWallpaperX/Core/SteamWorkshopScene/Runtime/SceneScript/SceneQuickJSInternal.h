@@ -133,5 +133,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_exception_result(
     char *diagnostic,
     size_t diagnostic_capacity
 );
+bool mwx_scene_quickjs_assign_script_properties(
+    MWXSceneQuickJSOwner *owner,
+    const char *json,
+    size_t length
+);
 
 #endif

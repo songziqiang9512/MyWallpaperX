@@ -3,21 +3,6 @@ import QuartzCore
 import simd
 
 extension SceneMetalView {
-    /// Uses the same cover camera, authored world frames and quad inverse as
-    /// rendering. Hidden transparent interaction owners remain hit-testable;
-    /// visibility is intentionally not consulted here.
-    func hoveredOriginOwnerLayerIDs(
-        program: SceneHoverOriginTransitionProgram,
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
-    ) -> Set<Int> {
-        originInteractionOwnerLayerIDs(
-            Set(program.cohorts.map(\.ownerLayerID)),
-            timing: timing,
-            dynamicValues: dynamicValues
-        )
-    }
-
     /// Dispatches cursorClick only to an admitted master owner under the
     /// pointer. The runtime owns edge detection and flag lifetime per surface.
     func launchOriginInteractionOwnerLayerIDs(
@@ -31,22 +16,37 @@ extension SceneMetalView {
             }
             return layerID
         })
-        return originInteractionOwnerLayerIDs(
+        return Set(originInteractionHits(
             owners,
+            timing: timing,
+            dynamicValues: dynamicValues
+        ).keys)
+    }
+
+    /// Uses the same cover camera, authored world frames and quad inverse as
+    /// rendering. Hidden transparent interaction owners remain hit-testable;
+    /// visibility is intentionally not consulted here.
+    func sceneScriptCursorHits(
+        ownerLayerIDs: Set<Int>,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> [Int: SceneScriptCursorHit] {
+        originInteractionHits(
+            ownerLayerIDs,
             timing: timing,
             dynamicValues: dynamicValues
         )
     }
 
-    private func originInteractionOwnerLayerIDs(
+    private func originInteractionHits(
         _ ownerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
-    ) -> Set<Int> {
+    ) -> [Int: SceneScriptCursorHit] {
         guard pointerState.isInside,
               metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
-              !ownerLayerIDs.isEmpty else { return [] }
+              !ownerLayerIDs.isEmpty else { return [:] }
         let frameContext = makeFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
@@ -64,7 +64,7 @@ extension SceneMetalView {
             cameraFrame: cameraFrame,
             viewportSize: frameContext.screenSize
         )
-        var hovered: Set<Int> = []
+        var hits: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {
             guard let layer = renderer.layersByID[ownerLayerID] else { continue }
             let model = renderer.imageModelMatrix(
@@ -74,12 +74,32 @@ extension SceneMetalView {
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents
             )
-            guard let uv = SceneLayerCursorGeometry.layerUV(
+            let modelViewProjection = cameraFrame.orthographicViewProjection * model
+            guard let local = SceneLayerCursorGeometry.layerPoint(
                 mouseNormalized: pointerState.current,
-                modelViewProjection: cameraFrame.orthographicViewProjection * model
-            ), uv.x >= 0, uv.x <= 1, uv.y >= 0, uv.y <= 1 else { continue }
-            hovered.insert(ownerLayerID)
+                modelViewProjection: modelViewProjection
+            ), local.x >= -0.5, local.x <= 0.5,
+               local.y >= -0.5, local.y <= 0.5 else { continue }
+            let projectedWorld = model * SIMD4(local.x, local.y, local.z, 1)
+            guard projectedWorld.w.isFinite, abs(projectedWorld.w) > 1e-8 else {
+                continue
+            }
+            let world = SIMD3(
+                projectedWorld.x, projectedWorld.y, projectedWorld.z
+            ) / projectedWorld.w
+            guard world.x.isFinite, world.y.isFinite, world.z.isFinite else {
+                continue
+            }
+            hits[ownerLayerID] = .init(
+                layerID: ownerLayerID,
+                worldPosition: SIMD3(
+                    Double(world.x), Double(world.y), Double(world.z)
+                ),
+                localPosition: SIMD3(
+                    Double(local.x), Double(local.y), Double(local.z)
+                )
+            )
         }
-        return hovered
+        return hits
     }
 }

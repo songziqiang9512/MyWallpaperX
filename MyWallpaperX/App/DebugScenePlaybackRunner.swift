@@ -225,6 +225,12 @@ enum DebugScenePlaybackRunner {
                 }
                 return
             }
+            if requestedHoverPointer != nil {
+                // Freeze the synthetic pointer outside before surface creation so
+                // the first authored edge belongs to the declared benchmark step,
+                // not to the operator's current mouse location.
+                SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())
+            }
             let model = try SceneDesktopWallpaperHost.shared.launch(
                 rootURL: rootURL,
                 propertyOverrides: requestedPropertyOverrides,

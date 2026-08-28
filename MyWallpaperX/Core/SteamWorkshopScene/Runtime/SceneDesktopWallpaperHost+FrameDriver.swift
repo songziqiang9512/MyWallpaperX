@@ -78,6 +78,7 @@ extension SceneDesktopWallpaperHost {
             videoTextureSourceRegistry = nil
             launchContext?.sceneScriptScalarProgram.invalidate()
             launchContext?.sceneScriptStringProgram.invalidate()
+            launchContext?.sceneScriptCursorProgram.invalidate()
             launchContext?.propertyVectorScriptProgram.invalidate()
             launchContext = nil
 #if DEBUG
@@ -220,7 +221,6 @@ extension SceneDesktopWallpaperHost {
                 \.definition
             ) + launchContext.sharedLayerAlphaProgram.definitions
                 + launchContext.launchOriginTransitionProgram.definitions
-                + launchContext.hoverOriginTransitionProgram.definitions
                 + launchContext.propertyVectorScriptProgram.definitions
                 + launchContext.sceneScriptScalarProgram.definitions
                 + launchContext.sceneScriptStringProgram.definitions
@@ -273,6 +273,30 @@ extension SceneDesktopWallpaperHost {
             timelineValues: timelineValues,
             sceneScriptValues: boundedSceneScriptValues
         ).snapshot
+        let userPropertiesJSON = launchContext.propertyVectorScriptProgram
+            .userPropertiesJSON(effectiveValues: launchContext.liveState.effectiveValues)
+        let cursorHits = surfaces.values.reduce(
+            into: [Int: SceneScriptCursorHit]()
+        ) { result, surface in
+            result.merge(surface.metalView.sceneScriptCursorHits(
+                ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
+                timing: timing,
+                dynamicValues: preliminaryForSceneScript
+            )) { existing, _ in existing }
+        }
+        let cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
+            hits: cursorHits,
+            frame: SceneScriptFrameInput(timing: timing),
+            userPropertiesJSON: userPropertiesJSON
+        )
+        for (layerID, failure) in cursorResult.failures {
+            NSLog(
+                "MWX SceneScript VM: layerID=%d event=cursor failure=%@ code=%@ fallback=previous-current",
+                layerID,
+                String(describing: failure),
+                failure.code
+            )
+        }
         let sceneScriptVectorInputs = launchContext.propertyVectorScriptProgram.bindings
             .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
                 let target = binding.definition.target
@@ -307,8 +331,6 @@ extension SceneDesktopWallpaperHost {
                       case .string = resolved.value else { return }
                 inputs[binding.target] = resolved.value
             }
-        let userPropertiesJSON = launchContext.propertyVectorScriptProgram
-            .userPropertiesJSON(effectiveValues: launchContext.liveState.effectiveValues)
         let sceneScriptStringResult = launchContext.sceneScriptStringProgram.evaluate(
             inputs: sceneScriptStringInputs,
             frame: SceneScriptFrameInput(timing: timing),
@@ -359,7 +381,8 @@ extension SceneDesktopWallpaperHost {
             sceneScriptResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
-        let animationMutations = sceneScriptVectorResult.animationMutations
+        let animationMutations = cursorResult.animationMutations
+            + sceneScriptVectorResult.animationMutations
             + sceneScriptStringResult.animationMutations
             + sceneScriptResult.animationMutations
         if !animationMutations.isEmpty {
@@ -395,7 +418,6 @@ extension SceneDesktopWallpaperHost {
             )
             let needsInteractionSnapshot =
                 !launchContext.launchOriginTransitionProgram.cohorts.isEmpty
-                || !launchContext.hoverOriginTransitionProgram.cohorts.isEmpty
             let preliminary: SceneDynamicSnapshot? = needsInteractionSnapshot
                 ? SceneDynamicSnapshotResolver().resolve(
                     frameIndex: timing.frameIndex,
@@ -421,32 +443,12 @@ extension SceneDesktopWallpaperHost {
                     effectivePropertyValues:
                         launchContext.liveState.effectiveValues
                 )
-            let hoverOriginTransitionValues: [SceneDynamicTarget: SceneDynamicValue]
-            if let preliminary,
-               !launchContext.hoverOriginTransitionProgram.cohorts.isEmpty {
-                let hovered = surface.metalView.hoveredOriginOwnerLayerIDs(
-                    program: launchContext.hoverOriginTransitionProgram,
-                    timing: timing,
-                    dynamicValues: preliminary
-                )
-                hoverOriginTransitionValues =
-                    surface.hoverOriginTransitionRuntime.values(
-                        hoveredOwnerLayerIDs: hovered,
-                        effectivePropertyValues:
-                            launchContext.liveState.effectiveValues
-                    )
-            } else {
-                hoverOriginTransitionValues = [:]
-            }
             let resolvedDynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex, definitions: definitions,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
                 sceneScriptValues: commonSceneScriptValues.merging(
                     launchOriginTransitionValues,
-                    uniquingKeysWith: { existing, _ in existing }
-                ).merging(
-                    hoverOriginTransitionValues,
                     uniquingKeysWith: { existing, _ in existing }
                 )
             ).snapshot
@@ -489,7 +491,8 @@ extension SceneDesktopWallpaperHost {
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
                 materialFunctionMutations:
-                    sceneScriptVectorResult.materialFunctionMutations
+                    cursorResult.materialFunctionMutations
+                    + sceneScriptVectorResult.materialFunctionMutations
                     + sceneScriptStringResult.materialFunctionMutations
                     + sceneScriptResult.materialFunctionMutations,
                 mediaInput: mediaInput,

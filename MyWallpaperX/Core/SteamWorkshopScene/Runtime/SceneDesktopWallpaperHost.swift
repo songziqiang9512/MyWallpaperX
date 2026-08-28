@@ -31,21 +31,16 @@ final class SceneDesktopWallpaperHost {
         let metalView: SceneMetalView
         var evaluationTransaction = SceneSurfaceEvaluationTransaction()
         var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime
-        var hoverOriginTransitionRuntime: SceneHoverOriginTransitionRuntime
 
         init(
             window: NSWindow,
             metalView: SceneMetalView,
-            launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram,
-            hoverOriginTransitionProgram: SceneHoverOriginTransitionProgram
+            launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
         ) {
             self.window = window
             self.metalView = metalView
             launchOriginTransitionRuntime = .init(
                 program: launchOriginTransitionProgram
-            )
-            hoverOriginTransitionRuntime = .init(
-                program: hoverOriginTransitionProgram
             )
         }
     }
@@ -106,6 +101,7 @@ final class SceneDesktopWallpaperHost {
         )
         launchContext?.sceneScriptScalarProgram.invalidate()
         launchContext?.sceneScriptStringProgram.invalidate()
+        launchContext?.sceneScriptCursorProgram.invalidate()
         launchContext?.propertyVectorScriptProgram.invalidate()
         launchContext = context
         mediaColorTransitionRuntime = .init(
@@ -422,9 +418,7 @@ final class SceneDesktopWallpaperHost {
                 window: window,
                 metalView: metalView,
                 launchOriginTransitionProgram:
-                    launchContext.launchOriginTransitionProgram,
-                hoverOriginTransitionProgram:
-                    launchContext.hoverOriginTransitionProgram
+                    launchContext.launchOriginTransitionProgram
             )
             created = true
         }

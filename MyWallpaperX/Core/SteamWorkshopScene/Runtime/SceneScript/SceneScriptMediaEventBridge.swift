@@ -59,7 +59,110 @@ nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let animations: [SceneTimelinePlaybackMutation]
 }
 
+nonisolated enum SceneScriptCursorEventKind: Equatable, Sendable {
+    case enter
+    case leave
+}
+
+nonisolated struct SceneScriptCursorEventInput: Equatable, Sendable {
+    let kind: SceneScriptCursorEventKind
+    let layerID: Int
+    let worldPosition: SIMD3<Double>
+    let localPosition: SIMD3<Double>
+}
+
 nonisolated enum SceneScriptMediaEventBridge {
+    static func dispatchUserProperties(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        layerID: Int,
+        ownerGeneration: UInt64,
+        changedPropertiesJSON: String,
+        scriptPropertiesJSON: String,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard !changedPropertiesJSON.isEmpty,
+              changedPropertiesJSON.utf8.count <= 65_536 else {
+            return .failure(.invalidArgument("invalid user properties payload"))
+        }
+        var rawFrame = rawFrame(frame)
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let raw = changedPropertiesJSON.withCString { changed in
+            scriptPropertiesJSON.withCString { scriptProperties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_dispatch_user_properties(
+                        owner,
+                        ownerGeneration,
+                        changed,
+                        changedPropertiesJSON.utf8.count,
+                        scriptProperties,
+                        scriptPropertiesJSON.utf8.count,
+                        &rawFrame,
+                        userProperties,
+                        userPropertiesJSON.utf8.count,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                }
+            }
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return .failure(failure(raw, diagnostic))
+        }
+        return mutations(owner: owner, target: target, layerID: layerID)
+    }
+
+    static func dispatchCursor(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        ownerGeneration: UInt64,
+        event: SceneScriptCursorEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard event.layerID >= 0,
+              event.worldPosition.allFinite,
+              event.localPosition.allFinite else {
+            return .failure(.invalidArgument("invalid cursor event payload"))
+        }
+        var rawEvent = MWXSceneQuickJSCursorEvent(
+            world_x: event.worldPosition.x,
+            world_y: event.worldPosition.y,
+            world_z: event.worldPosition.z,
+            local_x: event.localPosition.x,
+            local_y: event.localPosition.y,
+            local_z: event.localPosition.z
+        )
+        var rawFrame = rawFrame(frame)
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let kind = switch event.kind {
+        case .enter: MWX_SCENE_QUICKJS_CURSOR_ENTER
+        case .leave: MWX_SCENE_QUICKJS_CURSOR_LEAVE
+        }
+        let raw = userPropertiesJSON.withCString { userProperties in
+            mwx_scene_quickjs_owner_dispatch_cursor(
+                owner,
+                ownerGeneration,
+                kind,
+                &rawEvent,
+                &rawFrame,
+                userProperties,
+                userPropertiesJSON.utf8.count,
+                &diagnostic,
+                diagnostic.count
+            )
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return .failure(failure(raw, diagnostic))
+        }
+        return mutations(
+            owner: owner,
+            target: target,
+            layerID: event.layerID
+        )
+    }
+
     static func dispatchThumbnail(
         owner: OpaquePointer,
         target: SceneDynamicTarget,
@@ -227,4 +330,18 @@ nonisolated enum SceneScriptMediaEventBridge {
         default: .invalidArgument(diagnostic)
         }
     }
+
+    private static func rawFrame(
+        _ frame: SceneScriptFrameInput
+    ) -> MWXSceneQuickJSFrameInput {
+        MWXSceneQuickJSFrameInput(
+            time_of_day: frame.timeOfDay,
+            frame_time: frame.frameTime,
+            runtime: frame.runtime
+        )
+    }
+}
+
+private nonisolated extension SIMD3 where Scalar == Double {
+    var allFinite: Bool { x.isFinite && y.isFinite && z.isFinite }
 }
