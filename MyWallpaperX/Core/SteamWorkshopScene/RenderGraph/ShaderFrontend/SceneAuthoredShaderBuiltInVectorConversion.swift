@@ -24,17 +24,6 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         )
     }
 
-    static func requiresZeroLowerBoundBroadcastRewrite(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> Bool {
-        let scalarMixOnly = rewriteScalarMixBroadcasts(source, stage: stage)
-        return rewriteZeroLowerBoundBroadcasts(
-            scalarMixOnly,
-            stage: stage
-        ) != scalarMixOnly
-    }
-
     static func suffix(
         forIdentifierAt index: Int,
         in tokens: [SceneAuthoredShaderToken],

@@ -373,8 +373,7 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
     ) -> Bool {
         typealias Graph = SceneAuthoredEffectRenderPlan
         // Profile identity only admits analysis. The shared source facts below
-        // decide the exact RGB/alpha shape; current historical saturation does
-        // not satisfy them, while CAST3 and literal-zero static forms do.
+        // decide the exact RGB/alpha shape and terminal color transfer.
         let supportedProfiles: [ScenePulseShaderProfile] = [
             .stock2842,
             .directPhaseSaturateV1,
@@ -439,18 +438,6 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             ) {
             case let .accepted(value): prepared = value
             case .notApplicable, .rejected: return false
-            }
-            if !plan.bindings.isEmpty {
-                guard !SceneAuthoredShaderBuiltInVectorConversion
-                        .requiresZeroLowerBoundBroadcastRewrite(
-                            prepared.vertex.source,
-                            stage: .vertex
-                        ),
-                      !SceneAuthoredShaderBuiltInVectorConversion
-                        .requiresZeroLowerBoundBroadcastRewrite(
-                            prepared.fragment.source,
-                            stage: .fragment
-                        ) else { return false }
             }
             let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: prepared.vertex.source,

@@ -79,14 +79,12 @@ class ScenePulseHistoricalRGBAlphaOwnerBoundaryTests(unittest.TestCase):
         self.assertEqual(self.result["legacyStaticRGBAlpha"], expected)
         self.assertEqual(self.result["legacyMaskedStaticRGBAlpha"], expected)
 
-    def test_live_saturate_and_cast3_revoke_while_literal_zero_stays_incumbent(
-        self,
-    ) -> None:
+    def test_all_live_terminal_clamps_revoke_with_or_without_mask(self) -> None:
         revoked = (
             "revoked:typed-user-property-rgb-alpha-"
             "owner-revoked-to-material-program"
         )
-        expected = [revoked, revoked, "incumbent"]
+        expected = [revoked] * 3
         self.assertEqual(self.result["legacyBoundRGBAlpha"], expected)
         self.assertEqual(self.result["legacyMaskedBoundRGBAlpha"], expected)
 
