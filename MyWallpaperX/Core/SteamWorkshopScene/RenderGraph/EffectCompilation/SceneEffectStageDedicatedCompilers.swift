@@ -435,6 +435,18 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
             case let .accepted(value): prepared = value
             case .notApplicable, .rejected: return false
             }
+            if !plan.bindings.isEmpty {
+                guard !SceneAuthoredShaderBuiltInVectorConversion
+                        .requiresZeroLowerBoundBroadcastRewrite(
+                            prepared.vertex.source,
+                            stage: .vertex
+                        ),
+                      !SceneAuthoredShaderBuiltInVectorConversion
+                        .requiresZeroLowerBoundBroadcastRewrite(
+                            prepared.fragment.source,
+                            stage: .fragment
+                        ) else { return false }
+            }
             let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: prepared.vertex.source,
                 fragment: prepared.fragment.source

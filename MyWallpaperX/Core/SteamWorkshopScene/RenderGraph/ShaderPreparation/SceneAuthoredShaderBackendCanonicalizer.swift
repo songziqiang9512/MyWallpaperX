@@ -27,9 +27,9 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
         let original = Pair(vertex: vertex, fragment: fragment)
         var result = Pair(
             vertex: SceneAuthoredShaderBuiltInVectorConversion
-                .rewriteScalarMixBroadcasts(vertex, stage: .vertex),
+                .rewriteScalarVectorBroadcasts(vertex, stage: .vertex),
             fragment: SceneAuthoredShaderBuiltInVectorConversion
-                .rewriteScalarMixBroadcasts(fragment, stage: .fragment)
+                .rewriteScalarVectorBroadcasts(fragment, stage: .fragment)
         )
         let arrays = linkedVaryingArrays(
             vertex: result.vertex,

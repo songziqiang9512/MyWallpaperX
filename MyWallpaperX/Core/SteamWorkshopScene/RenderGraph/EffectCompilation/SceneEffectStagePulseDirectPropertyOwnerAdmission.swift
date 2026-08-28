@@ -60,8 +60,10 @@ nonisolated enum SceneEffectStagePulseDirectPropertyOwnerAdmission {
     }
 
     /// Existing live cohorts retain their proven scalar/vector stage sets.
-    /// Definition-only transfer is deliberately narrower: exact stock,
-    /// non-audio, color-only, mask-free, fragment-only scalar/vector3 inputs.
+    /// Definition-only transfer stays non-audio, color-only, and mask-free.
+    /// Stock may combine staged scalar inputs with the previously proven
+    /// fragment scalar/vector3 inputs; historical profiles admit only their
+    /// exact staged scalar consumers.
     static func bindingCohortIsProven(
         plan: ScenePulseExecutionPlan,
         input: SceneEffectStageCompileInput,
@@ -87,13 +89,12 @@ nonisolated enum SceneEffectStagePulseDirectPropertyOwnerAdmission {
                     $0 == .tintLow || $0 == .tintHigh
                 }
         case .authoredFallback:
-            return plan.shaderProfile == .stock2842
-                && plan.audio == nil
+            return plan.audio == nil
                 && !alphaWriting
                 && plan.pulseColor
                 && !plan.pulseAlpha
                 && plan.maskTexturePath == nil
-                && plan.bindings.keys.allSatisfy(fragmentFallbackConstants.contains)
+                && authoredFallbackConstantsAreProven(plan)
         }
     }
 
@@ -108,7 +109,17 @@ nonisolated enum SceneEffectStagePulseDirectPropertyOwnerAdmission {
         ), ownerSource(plan: plan, input: input) == .authoredFallback else {
             return nil
         }
+        let constants = Set(plan.bindings.keys)
         let valueTypes = Set(plan.bindings.keys.map(\.valueType))
+        if !constants.isDisjoint(with: stagedScalarFallbackConstants) {
+            if valueTypes == [.scalar] {
+                return "authored-fallback-profile-staged-scalar-owner-revoked-to-material-program"
+            }
+            if valueTypes == [.scalar, .vector3] {
+                return "authored-fallback-profile-staged-scalar-vector3-owner-revoked-to-material-program"
+            }
+            return nil
+        }
         if valueTypes == [.scalar] {
             return "authored-fallback-fragment-scalar-owner-revoked-to-material-program"
         }
@@ -192,6 +203,21 @@ nonisolated enum SceneEffectStagePulseDirectPropertyOwnerAdmission {
         plan.bindings.keys.allSatisfy(liveDirectConstants.contains)
     }
 
+    private static func authoredFallbackConstantsAreProven(
+        _ plan: ScenePulseExecutionPlan
+    ) -> Bool {
+        let constants = Set(plan.bindings.keys)
+        guard !constants.isEmpty,
+              constants.isSubset(
+                  of: stagedScalarFallbackConstants
+                    .union(fragmentFallbackConstants)
+              ) else { return false }
+        if plan.shaderProfile != .stock2842 {
+            return constants == [.phase]
+        }
+        return true
+    }
+
     private static func componentValues(
         _ value: SIMD3<Double>,
         valueType: SceneDynamicValueType
@@ -213,6 +239,9 @@ nonisolated enum SceneEffectStagePulseDirectPropertyOwnerAdmission {
 
     private static let fragmentFallbackConstants: Set<Constant> = [
         .noiseSpeed, .noiseAmount, .power, .tintLow, .tintHigh,
+    ]
+    private static let stagedScalarFallbackConstants: Set<Constant> = [
+        .speed, .amount, .phase,
     ]
     private static let liveDirectConstants: Set<Constant> = [
         .speed, .phase, .amount,

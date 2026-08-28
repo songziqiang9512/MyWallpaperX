@@ -620,10 +620,15 @@ class ScenePulseAuthoredFallbackOwnerAdmissionTests(_Base):
         )
         self.assertEqual(self.result["mixedSourceRemainder"], "incumbent")
 
-    def test_unmigrated_constants_alpha_and_mask_retain_owner(self) -> None:
+    def test_staged_scalars_revoke_while_bounds_and_visual_remainders_stay(
+        self,
+    ) -> None:
         self.assertEqual(
             self.result["excludedConstantRemainders"],
-            ["incumbent"] * 4,
+            [
+                "revoked:authored-fallback-profile-staged-scalar-"
+                "owner-revoked-to-material-program"
+            ] * 3 + ["incumbent"],
         )
         self.assertEqual(
             self.result["alphaAndMaskRemainders"],

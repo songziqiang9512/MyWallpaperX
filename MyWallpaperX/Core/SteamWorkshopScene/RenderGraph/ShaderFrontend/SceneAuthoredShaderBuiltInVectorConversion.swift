@@ -14,6 +14,27 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         let directlyNarrowable: Bool
     }
 
+    static func rewriteScalarVectorBroadcasts(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        rewriteZeroLowerBoundBroadcasts(
+            rewriteScalarMixBroadcasts(source, stage: stage),
+            stage: stage
+        )
+    }
+
+    static func requiresZeroLowerBoundBroadcastRewrite(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> Bool {
+        let scalarMixOnly = rewriteScalarMixBroadcasts(source, stage: stage)
+        return rewriteZeroLowerBoundBroadcasts(
+            scalarMixOnly,
+            stage: stage
+        ) != scalarMixOnly
+    }
+
     static func suffix(
         forIdentifierAt index: Int,
         in tokens: [SceneAuthoredShaderToken],
@@ -146,6 +167,100 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                 return normalized
             }
             result.insert(contentsOf: insertion.text, at: stringIndex)
+        }
+        return result
+    }
+
+    /// Stock authored shaders use `max(0, float-vector)` as an exact
+    /// component-wise nonnegative bound. Vulkan GLSL has no scalar-first
+    /// overload and will not promote the integer zero. Preserve that bounded
+    /// authored form without opening other implicit numeric conversions.
+    private static func rewriteZeroLowerBoundBroadcasts(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let analysisSource = normalized.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
+                ? "" : line
+        }.joined(separator: "\n")
+        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexer,
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
+            return normalized
+        }
+
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
+            guard unit.tokens.indices.contains(index) else { return nil }
+            let token = unit.tokens[index]
+            guard token.line > 0, token.line <= lineStarts.count else { return nil }
+            return lineStarts[token.line - 1] + token.column - 1
+                + (afterToken ? token.text.unicodeScalars.count : 0)
+        }
+        var replacements: [(start: Int, end: Int, text: String)] = []
+        for index in unit.tokens.indices {
+            guard unit.tokens[index].text == "max",
+                  !unit.functions.contains(where: { $0.name == "max" }),
+                  index + 1 < unit.tokens.count,
+                  unit.tokens[index + 1].text == "(",
+                  let closing = matchingParenthesis(
+                      tokens: unit.tokens,
+                      opening: index + 1
+                  ),
+                  let arguments = argumentRanges(
+                      opening: index + 1,
+                      closing: closing,
+                      tokens: unit.tokens
+                  ), arguments.count == 2,
+                  arguments[0].count == 1,
+                  unit.tokens[arguments[0].lowerBound].kind == .number,
+                  unit.tokens[arguments[0].lowerBound].text == "0",
+                  let second = standaloneType(
+                      arguments[1], before: index,
+                      tokens: unit.tokens, unit: unit
+                  ), let vectorWidth = floatVectorWidth(second) else { continue }
+            guard let start = tokenOffset(
+                      arguments[0].lowerBound,
+                      afterToken: false
+                  ),
+                  let end = tokenOffset(
+                      arguments[0].upperBound - 1,
+                      afterToken: true
+                  ) else { continue }
+            replacements.append((start, end, "vec\(vectorWidth)(0.0)"))
+        }
+        guard !replacements.isEmpty else { return normalized }
+
+        var result = normalized
+        for replacement in replacements.sorted(by: { $0.start > $1.start }) {
+            guard replacement.start <= replacement.end,
+                  replacement.end <= result.unicodeScalars.count else {
+                return normalized
+            }
+            let startScalar = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: replacement.start
+            )
+            let endScalar = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: replacement.end
+            )
+            guard let startIndex = String.Index(startScalar, within: result),
+                  let endIndex = String.Index(endScalar, within: result) else {
+                return normalized
+            }
+            result.replaceSubrange(startIndex..<endIndex, with: replacement.text)
         }
         return result
     }

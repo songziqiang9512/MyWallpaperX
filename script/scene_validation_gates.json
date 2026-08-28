@@ -208,6 +208,8 @@
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
         "script/tests/test_scene_property_binding_program.py",
         "script/tests/test_scene_pulse_authored_fallback_owner_admission.py",
+        "script/tests/test_scene_pulse_literal_zero_bound_alpha_owner_boundary.py",
+        "script/tests/test_scene_pulse_staged_scalar_authored_fallback_owner_admission.py",
         "script/tests/test_scene_standard_blur_authored_fallback_owner_admission.py",
         "script/tests/test_scene_standard_blur_static_scalar_owner_admission.py",
         "script/tests/test_scene_standard_blur_startup_false_direct_bool_owner_admission.py",
@@ -222,6 +224,8 @@
         "test_scene_generic_shader_incumbent_owner_deferred",
         "test_scene_property_binding_program",
         "test_scene_pulse_authored_fallback_owner_admission",
+        "test_scene_pulse_literal_zero_bound_alpha_owner_boundary",
+        "test_scene_pulse_staged_scalar_authored_fallback_owner_admission",
         "test_scene_standard_blur_authored_fallback_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
         "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
@@ -286,6 +290,7 @@
         "test_scene_xray_visible_graph_output_owner",
         "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
+        "test_scene_pulse_literal_zero_bound_alpha_owner_boundary",
         "test_scene_standard_blur_authored_fallback_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
         "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
@@ -417,6 +422,7 @@
         "test_scene_generic_shader_matrix_cast",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
+        "test_scene_shader_scalar_vector_builtin_canonicalization",
         "test_scene_swift_source_sets"
       ]
     },
@@ -443,6 +449,7 @@
         "test_scene_source_proven_noise_purpose",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_generic_shader_typed_input_lowering",
+        "test_scene_shader_scalar_vector_builtin_canonicalization",
         "test_scene_swift_source_sets"
       ]
     },
@@ -568,6 +575,7 @@
         "test_scene_shader_compiler_artifact_foundation",
         "test_scene_shader_compiler_harness",
         "test_scene_generic_shader_typed_input_lowering",
+        "test_scene_shader_scalar_vector_builtin_canonicalization",
         "test_scene_shader_compiler_product_manifest"
       ]
     },
