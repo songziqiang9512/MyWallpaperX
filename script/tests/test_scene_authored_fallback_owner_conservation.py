@@ -58,8 +58,6 @@ struct SceneEffectStageExecutionPlan {
     var supportsUnifiedFullFrameComposeStage = false
     var supportsUtilityCapture = true
     var shake: HarnessDedicatedAudioExecutionPlan? { nil }
-    var fixturePulse: HarnessDedicatedAudioExecutionPlan? = nil
-    var pulse: HarnessDedicatedAudioExecutionPlan? { fixturePulse }
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         fixtureLiveConsumerTargets
     }
@@ -72,8 +70,7 @@ struct SceneEffectStageExecutionPlan {
 ) -> SceneEffectStageProgram {
 """,
         """    supportsUtilityCapture: Bool = false,
-    liveConsumerTargets: Set<SceneDynamicTarget> = [],
-    fallbackOwner: String? = nil
+    liveConsumerTargets: Set<SceneDynamicTarget> = []
 ) -> SceneEffectStageProgram {
 """,
     )
@@ -88,23 +85,19 @@ struct SceneEffectStageExecutionPlan {
             fixtureLiveConsumerTargets: liveConsumerTargets,
             supportsUnifiedLogicalTargetStage: logicalTargetStage,
             supportsUnifiedFullFrameComposeStage: fullFrameComposeStage,
-            supportsUtilityCapture: supportsUtilityCapture,
-            fixturePulse: fallbackOwner == "pulse" ? .init(audio: nil) : nil
+            supportsUtilityCapture: supportsUtilityCapture
 """,
     )
     harness = replace_once(
         harness,
         """        let fallbackDedicatedLeafCatalog = Catalog(
 """,
-        """        func missingProducerDedicatedCatalog(
-            fallbackOwner: String?
-        ) -> Catalog {
+        """        func missingProducerDedicatedCatalog() -> Catalog {
             let program = dedicatedProgram(
                 graph: pairGraph,
                 effectIndex: 0,
                 inputRole: .layerSource,
-                liveConsumerTargets: [dynamicTarget()],
-                fallbackOwner: fallbackOwner
+                liveConsumerTargets: [dynamicTarget()]
             )
             let candidates =
                 SceneResolvedMaterialExecutionCapabilityAdmission.compile(
@@ -119,12 +112,7 @@ struct SceneEffectStageExecutionPlan {
                 dedicatedLeafKeys: [firstKey]
             )
         }
-        let pulseMissingProducer = missingProducerDedicatedCatalog(
-            fallbackOwner: "pulse"
-        )
-        let requiredLiveMissingProducer = missingProducerDedicatedCatalog(
-            fallbackOwner: nil
-        )
+        let requiredLiveMissingProducer = missingProducerDedicatedCatalog()
         let directUniforms = [0: [dynamicUniform(
             contributors: [.userProperty("strength-property")],
             directComponentCount: 1
@@ -179,10 +167,10 @@ struct SceneEffectStageExecutionPlan {
         """            "rejections": [
 """,
         """            "fallbackOwnerConservation": [
-                "pulseMissingProducerUsesDedicated": pulseMissingProducer
-                    .claim(layerID: layerID).flatMap {
-                        pulseMissingProducer.resolve($0.token)
-                    }?.stages.first?.subject?.family == "fixture-dedicated",
+                "missingProducerCannotUseRetiredFallback": reportHas(
+                    requiredLiveMissingProducer,
+                    "dedicated-leaf-unsupported"
+                ) && requiredLiveMissingProducer.claim(layerID: layerID) == nil,
                 "requiredLiveMissingProducerRejected": reportHas(
                     requiredLiveMissingProducer,
                     "dedicated-leaf-unsupported"

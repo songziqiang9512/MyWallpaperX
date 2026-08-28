@@ -134,15 +134,6 @@ extension SceneEffectStageRenderer {
                 return "standard-blur-resource-missing"
             }
             return nil
-        case .pulse(let plan):
-            guard let resources = inputs.masks.pulseEffects[
-                plan.effectKey.descriptorID
-            ], resources.matches(plan) else {
-                return "pulse-resource-missing"
-            }
-            let bounds = plan.resolvedComponents(.bounds, in: inputs.dynamicValues)
-            guard bounds.x < bounds.y else { return "pulse-bounds-invalid" }
-            return pipelines.pulse == nil ? "pulse-pipeline-missing" : nil
         }
     }
 

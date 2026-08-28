@@ -3,11 +3,9 @@ import simd
 
 struct SceneImageLayerMasks {
     let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
-    let pulseEffects: [String: ScenePulseEffectTextures]
 
     static let empty = SceneImageLayerMasks(
-        standardBlurEffects: [:],
-        pulseEffects: [:]
+        standardBlurEffects: [:]
     )
 
     func blocksLayerSourcePassthrough(
@@ -28,18 +26,11 @@ struct SceneImageLayerMasks {
             Self.normalized(effect.file) == "effects/pulse/effect.json"
                 && !Self.pulsePreservesSourceCoverage(effect)
         }
-        let hasUnprovenPulseResource = effectIDs.contains { id in
-            guard pulseEffects[id] != nil else { return false }
-            return visibleEffects.first(where: { $0.id == id }).map {
-                !Self.pulsePreservesSourceCoverage($0)
-            } ?? true
-        }
         let hasEffectOutsideLocalDisplacementContract = visibleEffects.contains { effect in
             Self.isAuthoredLocalDisplacementDefinition(effect.file)
                 && !Self.effectUsesOnlyLocalDisplacementInputs(effect)
         }
         return hasCoverageMutatingPulse
-            || hasUnprovenPulseResource
             || hasEffectOutsideLocalDisplacementContract
             || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
     }

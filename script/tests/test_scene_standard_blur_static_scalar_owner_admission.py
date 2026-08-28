@@ -626,7 +626,6 @@ class SceneStandardBlurStaticScalarOwnerAdmissionTests(unittest.TestCase):
         source = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
         product_compiler.write_text(source[
             source.index("extension SceneAuthoredStandardBlurPlanner"):
-            source.index("extension SceneAuthoredPulsePlanner")
         ], encoding="utf-8")
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")

@@ -24,17 +24,10 @@ FRAME_DRIVER_SOURCE = (
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
 CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"
-SPECIALIZED_STAGE_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift"
-)
 FRAME_PREFLIGHT_SOURCE = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
 AUDIO_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph/SceneAudioResponseAdmission.swift"
-PULSE_CONSTANTS_SOURCE = (
-    SCENE_ROOT / "RenderGraph/SceneAuthoredPulsePlanner+Constants.swift"
-)
 RESOLVED_CAPABILITY_SOURCE = (
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
@@ -60,7 +53,6 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
     def test_demand_is_driven_by_actual_consumers(self) -> None:
         source = DEMAND_SOURCE.read_text(encoding="utf-8")
         capability = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("program.executionPlan.pulse?.audio != nil", capability)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)
         self.assertNotIn("workshopAudioBars", capability)
         self.assertIn(
@@ -150,35 +142,21 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "统一 GraphExecutor 的 dedicated inputs 必须收到同一帧频谱",
         )
 
-    def test_unified_dedicated_audio_consumer_source_contract(self) -> None:
+    def test_unified_program_audio_consumer_source_contract(self) -> None:
         source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
         self.assertIn("case .resolved(_, let materials, _):", body)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
-        self.assertIn("case .dedicated(_, let program, _):", body)
-        self.assertIn("program.executionPlan.pulse?.audio != nil", body)
+        self.assertIn("case .dedicated:", body)
+        self.assertIn("return false", body)
         self.assertNotIn("workshopAudioBars", body)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
-    def test_compiled_unified_dedicated_audio_consumer_truth_table(self) -> None:
+    def test_compiled_unified_program_audio_consumer_truth_table(self) -> None:
         """Compile the production property body against a minimal typed catalog."""
         source = RESOLVED_CAPABILITY_SOURCE.read_text(encoding="utf-8")
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
         harness = """
-struct AudioParameters {}
-
-struct PulsePlan {
-    let audio: AudioParameters?
-}
-
-struct ExecutionPlan {
-    let pulse: PulsePlan?
-}
-
-struct Program {
-    let executionPlan: ExecutionPlan
-}
-
 struct VariantCapabilities {
     let hasAudioSpectrumConsumer: Bool
 }
@@ -189,8 +167,9 @@ struct MaterialCapability {
 
 enum StageCapability {
     case resolved(Int, [String: MaterialCapability], Int?)
-    case dedicated(Int, Program, Int)
+    case dedicated
     case visualFailurePassthrough
+    case initiallyInactivePassthrough
 }
 
 struct LayerCapability {
@@ -214,9 +193,6 @@ func demandsAudio(_ stage: StageCapability) -> Bool {
 @main
 enum AudioDemandHarness {
     static func main() {
-        let audio = AudioParameters()
-        let silent = ExecutionPlan(pulse: PulsePlan(audio: nil))
-        let pulse = ExecutionPlan(pulse: PulsePlan(audio: audio))
         let checks: [(String, Bool, Bool)] = [
             (
                 "resolved-positive",
@@ -245,21 +221,8 @@ enum AudioDemandHarness {
                 false
             ),
             (
-                "dedicated-pulse-audio",
-                demandsAudio(.dedicated(
-                    1,
-                    Program(executionPlan: pulse),
-                    1
-                )),
-                true
-            ),
-            (
                 "dedicated-without-audio",
-                demandsAudio(.dedicated(
-                    1,
-                    Program(executionPlan: silent),
-                    1
-                )),
+                demandsAudio(.dedicated),
                 false
             )
         ]
@@ -311,7 +274,7 @@ enum AudioDemandHarness {
 
 
 class SceneAudioResponseContractTests(unittest.TestCase):
-    def test_shared_defaults_remain_parameterized_for_pulse(self) -> None:
+    def test_shared_defaults_remain_parameterized(self) -> None:
         shared = AUDIO_ADMISSION_SOURCE.read_text(encoding="utf-8")
         for pattern in (
             r'values\["frequencymin"\], range: 0 ?\.\.\. ?15, fallback: 0',
@@ -320,11 +283,6 @@ class SceneAudioResponseContractTests(unittest.TestCase):
             r'values\["audioamount"\], range: 0 ?\.\.\. ?2, fallback: 1',
         ):
             self.assertRegex(shared, pattern)
-        self.assertIn(
-            "defaultBounds: SIMD2(0.5, 1)",
-            PULSE_CONSTANTS_SOURCE.read_text(encoding="utf-8"),
-            "stock pulse.vert 的 audiobounds 默认值是 0.5 1.0",
-        )
         self.assertNotIn("SIMD2(0.5, 1)", shared)
 
 

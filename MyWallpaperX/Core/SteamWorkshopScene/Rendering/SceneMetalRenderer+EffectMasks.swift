@@ -4,8 +4,7 @@ extension SceneMetalRenderer {
         in store: SceneLayerEffectTextureStore
     ) -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            standardBlurEffects: store.standardBlurEffects,
-            pulseEffects: store.pulseEffects
+            standardBlurEffects: store.standardBlurEffects
         )
     }
 }

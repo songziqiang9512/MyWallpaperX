@@ -35,20 +35,6 @@ enum SceneEffectStageRenderer {
                 standardBlurPipeline: standardBlurPipeline,
                 commandBuffer: commandBuffer
             )
-        case .pulse:
-            return renderSpecializedStage(
-                stage, sourceTexture: sourceTexture, masks: masks,
-targets: targets, dynamicValues: dynamicValues,
-                sourceUniforms: sourceUniforms, pipeline: pipeline,
-                pipelines: pipelines, cursorUV: cursorUV,
-                previousCursorUV: previousCursorUV,
-                pointerIsInside: pointerIsInside,
-                previousPointerIsInside: previousPointerIsInside,
-                pointerMovement: pointerMovement,
-                primaryButtonIsDown: primaryButtonIsDown,
-                frameTime: frameTime, time: time, audioSpectrum: audioSpectrum,
-                dependencyEffect: dependencyEffect, commandBuffer: commandBuffer
-            )
         }
     }
 }

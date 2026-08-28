@@ -48,8 +48,7 @@ final class SceneStandardBlurPipeline {
     }
 }
 final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
-final class SceneSpotLightPipeline { init?(device: MTLDevice) {} }
-final class ScenePulsePipeline {
+final class SceneSpotLightPipeline {
     static let attempts = Counter()
 
     init?(device: MTLDevice) {
@@ -99,7 +98,7 @@ enum Harness {
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if repository.pulse() != nil {
+                if repository.spotLight() != nil {
                     successes.increment()
                 }
                 group.leave()
@@ -116,7 +115,7 @@ enum Harness {
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
         let attemptsAfterConstruction = SceneStandardBlurPipeline.attempts.read()
-            + ScenePulsePipeline.attempts.read()
+            + SceneSpotLightPipeline.attempts.read()
 
         let firstValues = concurrentStandardBlur(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
@@ -130,7 +129,7 @@ enum Harness {
             "standardBlurAttemptsAcrossTwoRepositories":
                 SceneStandardBlurPipeline.attempts.read(),
             "failedSuccesses": failedSuccesses,
-            "failedAttempts": ScenePulsePipeline.attempts.read(),
+            "failedAttempts": SceneSpotLightPipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
                 $0.deviceRegistryID == device.registryID
             },

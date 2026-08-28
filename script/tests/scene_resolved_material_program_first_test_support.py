@@ -24,8 +24,7 @@ def assert_authored_material_families_use_program_first_pair_adapters(
     logical_end = source.index("\n    nonisolated var standardBlur:", logical_start)
     logical_body = source[logical_start:logical_end]
 
-    for backend_name in (".pulse",):
-        test_case.assertIn(backend_name, leaf_body)
+    test_case.assertNotIn(".pulse", source)
     test_case.assertNotIn(".xRay", source)
     test_case.assertNotIn(".blend", leaf_body)
     test_case.assertNotIn(".waterWaves", leaf_body)

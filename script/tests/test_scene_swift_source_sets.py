@@ -119,9 +119,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "script/tests/test_scene_runtime_input.py",
             "script/tests/test_scene_shader_contract.py",
         ]
-        planning_consumers = [
-            "script/tests/test_scene_pulse_planner.py",
-        ]
+        planning_consumers = []
         for relative in resolution_consumers:
             text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
             with self.subTest(source_set="resolution", consumer=relative):

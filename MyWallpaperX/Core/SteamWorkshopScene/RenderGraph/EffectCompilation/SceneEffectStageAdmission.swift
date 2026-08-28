@@ -200,7 +200,6 @@ extension SceneEffectStageExecutionPlan.Backend {
     nonisolated var stableName: String {
         switch self {
         case .standardBlur: "standard-blur"
-        case .pulse: "pulse"
         }
     }
 }

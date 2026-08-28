@@ -127,7 +127,6 @@ nonisolated struct SceneEffectStageCompileInput {
 /// compiler probes may intentionally produce the same execution backend.
 nonisolated enum SceneEffectStageCompilerBackend: String, CaseIterable, Hashable {
     case standardBlur = "standard-blur"
-    case pulse
 }
 
 /// Stable failure emitted by one migrated backend compiler. `details` carries

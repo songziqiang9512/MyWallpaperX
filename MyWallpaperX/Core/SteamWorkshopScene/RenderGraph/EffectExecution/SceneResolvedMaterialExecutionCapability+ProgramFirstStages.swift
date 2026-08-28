@@ -507,9 +507,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             .union(producers.sceneScriptTargets)
         let unavailable = program.executionPlan.liveConsumerTargets
             .subtracting(available)
-        let authoredFallbackSafeTargets = program.executionPlan.pulse != nil
-            ? program.executionPlan.liveConsumerTargets : []
-        return unavailable.isSubset(of: authoredFallbackSafeTargets)
+        return unavailable.isEmpty
     }
 
     private static func dependencyOwnershipMatches(

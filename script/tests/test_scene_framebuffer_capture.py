@@ -55,7 +55,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Effects/SceneStandardBlurRenderer.swift",
     SOURCE_ROOT / "Effects/SceneBlendModeShaderSource.swift",
     SOURCE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift",
-    SOURCE_ROOT / "Effects/ScenePulsePipeline.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectMaskSemantics.swift",
     SOURCE_ROOT / "Rendering/SceneTextureMappedUVScale.swift",
     SOURCE_ROOT / "Effects/SceneEffectStageRuntimeDisposition.swift",
@@ -64,9 +63,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Runtime/SceneAudioSpectrum.swift",
     SOURCE_ROOT / "Runtime/SceneAudioResponse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift",
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift",
-    SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Pulse.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift",
     SOURCE_ROOT / "Rendering/SceneImageEffectPipelineRepository.swift",
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneAuthoredEffectPipelineSet.swift",
@@ -546,21 +542,14 @@ struct SceneAuthoredShaderFrameInputs: Sendable {}
     struct SceneEffectStageExecutionPlan {
     enum Backend {
         case standardBlur(SceneStandardBlurPlan)
-        case pulse(ScenePulseExecutionPlan)
 
         var supportsUnifiedPairLeaf: Bool {
-            switch self {
-            case .pulse:
-                return true
-            default:
-                return false
-            }
+            false
         }
 
         var stableName: String {
             switch self {
             case .standardBlur: "standard-blur"
-            case .pulse: "pulse"
             }
         }
     }
@@ -612,63 +601,6 @@ struct SceneAuthoredShaderFrameInputs: Sendable {}
 
 struct SceneSpotLightPipeline {
     init?(device: MTLDevice, pixelFormat: MTLPixelFormat = .bgra8Unorm) {}
-}
-
-struct ScenePulseShaderProfile {
-    let phaseOffset: Float
-    let noiseUVScale: SIMD2<Float>
-    let saturatesOutput: Bool
-
-    static let stock = ScenePulseShaderProfile(
-        phaseOffset: -1.57079632679,
-        noiseUVScale: SIMD2(0.08333333, 0.02777777),
-        saturatesOutput: false
-    )
-}
-
-struct ScenePulseExecutionPlan {
-    enum Constant: String {
-        case speed, phase, amount, bounds, power
-        case noiseSpeed = "noisespeed"
-        case noiseAmount = "noiseamount"
-        case tintLow = "tintlow"
-        case tintHigh = "tinthigh"
-    }
-
-    let effectKey: SceneAuthoredEffectRenderPlan.EffectKey
-    let shaderProfile: ScenePulseShaderProfile
-    let blendMode: Int
-    let pulseColor: Bool
-    let pulseAlpha: Bool
-    let maskTexturePath: String?
-    let requiresNoiseTexture: Bool
-    let values: [Constant: SIMD3<Double>]
-    var audio: SceneAudioResponse.Parameters? = nil
-
-    func resolvedComponents(
-        _ constant: Constant,
-        in snapshot: SceneDynamicSnapshot
-    ) -> SIMD3<Double> {
-        values[constant] ?? SIMD3(repeating: 0)
-    }
-}
-
-struct ScenePulseEffectTextures {
-    let noise: MTLTexture?
-    let mask: MTLTexture?
-    let maskUVScale: SIMD2<Float>
-    let maskPath: String?
-
-    func matches(_ plan: ScenePulseExecutionPlan) -> Bool {
-        let maskSatisfied = plan.maskTexturePath.map { path in
-            mask != nil && normalized(maskPath ?? "") == normalized(path)
-        } ?? true
-        return maskSatisfied && (!plan.requiresNoiseTexture || noise != nil)
-    }
-
-    private func normalized(_ path: String) -> String {
-        path.replacingOccurrences(of: "\\", with: "/").lowercased()
-    }
 }
 
 struct SceneDynamicSnapshot {
@@ -1471,12 +1403,10 @@ enum Harness {
             texture: dependency
         )
         func masks(
-            standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:],
-            pulseEffects: [String: ScenePulseEffectTextures] = [:]
+            standardBlurEffects: [String: SceneStandardBlurEffectTextures] = [:]
         ) -> SceneImageLayerMasks {
             SceneImageLayerMasks(
-                standardBlurEffects: standardBlurEffects,
-                pulseEffects: pulseEffects
+                standardBlurEffects: standardBlurEffects
             )
         }
         func draw(
@@ -1607,18 +1537,6 @@ enum Harness {
 
         let exactStaticFile = publication(staticFileCandidate)
         let exactCurrentMedia = publication(currentMediaCandidate)
-        func pulseMasks(
-            effectID: String = "effects/pulse/effect.json"
-        ) -> SceneImageLayerMasks {
-            masks(pulseEffects: [
-                effectID: ScenePulseEffectTextures(
-                    noise: nil,
-                    mask: dependency,
-                    maskUVScale: SIMD2(repeating: 1),
-                    maskPath: "fixture/pulse-mask"
-                ),
-            ])
-        }
         func waterWavesPass(
             passIndex: Int = 0,
             combos: [String: Int] = [:],
@@ -1655,7 +1573,7 @@ enum Harness {
                 )]
             )
         }
-        let exactPulseMasks = pulseMasks()
+        let exactPulseMasks = SceneImageLayerMasks.empty
         let pulseAlphaZeroCombos = [
             "AUDIOPROCESSING": 0,
             "BLENDMODE": 9,
@@ -1733,6 +1651,11 @@ enum Harness {
             "pulseCurrentMediaWithStaticBlock": pulseCurrentMediaWithStaticBlock,
             "pulseStaticFileAlphaZero": pulseStaticFileAlphaZero,
             "pulseStaticFileAlphaZeroNextFrame": pulseStaticFileAlphaZeroNextFrame,
+            "pulseWrongDefinitionMasked": try run(
+                publication: exactCurrentMedia,
+                layer: pulseLayer(file: "effects/fixture/pulse/effect.json"),
+                masks: .empty
+            ),
             "waterWavesMaskStaticFile": waterWavesMaskStaticFile,
             "waterWavesMaskStaticFileNextFrame":
                 waterWavesMaskStaticFileNextFrame,
@@ -1921,11 +1844,6 @@ enum Harness {
                 publication: exactCurrentMedia,
                 layer: pulseLayer(passIndices: [0, 1]),
                 masks: exactPulseMasks
-            ),
-            "pulseWrongDefinitionMasked": try run(
-                publication: exactCurrentMedia,
-                layer: pulseLayer(file: "effects/fixture/pulse/effect.json"),
-                masks: pulseMasks(effectID: "effects/fixture/pulse/effect.json")
             ),
             "pulseStaticSourceConsumer": try run(
                 publication: exactStaticFile,
@@ -2540,7 +2458,6 @@ enum Harness {
                     maskPath: path
                 ),
             ],
-            pulseEffects: [:]
         )
     }
 
@@ -2936,15 +2853,12 @@ enum Harness {
         let stage = SceneEffectStageExecutionPlan(
             layerID: layerID,
             renderGraph: graph,
-            backend: .pulse(ScenePulseExecutionPlan(
-                effectKey: effectKey,
-                shaderProfile: .stock,
-                blendMode: 0,
-                pulseColor: true,
-                pulseAlpha: false,
-                maskTexturePath: nil,
-                requiresNoiseTexture: false,
-                values: [:]
+            backend: .standardBlur(SceneStandardBlurPlan(
+                horizontalStep: 0.6,
+                verticalStep: 0.6,
+                renderTargetScale: 4,
+                effectDescriptorID: effectKey.descriptorID,
+                maskTexturePath: nil
             )),
             materialNodeCount: 1,
             logicalRenderTargetCount: 0
@@ -3212,8 +3126,7 @@ enum Harness {
 
     static func authoredEffectMasks() -> SceneImageLayerMasks {
         SceneImageLayerMasks(
-            standardBlurEffects: [:],
-            pulseEffects: [:]
+            standardBlurEffects: [:]
         )
     }
 
@@ -3545,6 +3458,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "pulseCurrentMediaWithStaticBlock",
                 "pulseStaticFileAlphaZero",
                 "pulseStaticFileAlphaZeroNextFrame",
+                "pulseWrongDefinitionMasked",
                 "waterWavesMaskStaticFile",
                 "waterWavesMaskStaticFileNextFrame",
             },
@@ -3575,6 +3489,7 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
             "pulseCurrentMediaWithStaticBlock",
             "pulseStaticFileAlphaZero",
             "pulseStaticFileAlphaZeroNextFrame",
+            "pulseWrongDefinitionMasked",
             "waterWavesMaskStaticFile",
             "waterWavesMaskStaticFileNextFrame",
         ):
@@ -3646,7 +3561,6 @@ class SceneFramebufferCaptureTests(unittest.TestCase):
                 "pulseMissingPassMasked",
                 "pulseWrongPassMasked",
                 "pulseMultiplePassesMasked",
-                "pulseWrongDefinitionMasked",
                 "pulseStaticSourceConsumer",
                 "waterWavesRelocatedDefinition",
                 "waterWavesTimeOffset",

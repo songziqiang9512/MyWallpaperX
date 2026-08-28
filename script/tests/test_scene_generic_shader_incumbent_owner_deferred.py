@@ -61,9 +61,6 @@ STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanne
 DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
 )
-PULSE_DIRECT_OWNER_SOURCE = SCENE_ROOT / (
-    "RenderGraph/EffectCompilation/SceneEffectStagePulseDirectPropertyOwnerAdmission.swift"
-)
 STAGE_COMPILE_MODEL_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
 )
@@ -647,7 +644,6 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         )
         standard_blur = STANDARD_BLUR_SOURCE.read_text(encoding="utf-8")
         dedicated_compilers = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
-        pulse_direct_owner = PULSE_DIRECT_OWNER_SOURCE.read_text(encoding="utf-8")
         stage_compile_model = STAGE_COMPILE_MODEL_SOURCE.read_text(encoding="utf-8")
         dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
@@ -833,9 +829,6 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         self.assertIn('combos["KERNEL", default: 0] == 0', standard_blur)
         standard_compiler = dedicated_compilers[
             dedicated_compilers.index("extension SceneAuthoredStandardBlurPlanner"):
-            dedicated_compilers.index(
-                "extension SceneAuthoredPulsePlanner"
-            )
         ]
         self.assertNotIn("SceneAuthoredWaterWavesPlanner", dedicated_compilers)
         self.assertNotIn(".waterWaves", dedicated_compilers)
@@ -875,126 +868,9 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         self.assertIn(".activeOrdinaryRootTargets(", launch)
         self.assertGreaterEqual(launch.count("userPropertyProducers: userPropertyProducers"), 2)
 
-        pulse_compiler = dedicated_compilers[
-            dedicated_compilers.index("extension SceneAuthoredPulsePlanner"):
-        ]
-        self.assertIn("colorOnlyRGBProgramOwnerIsProven(", pulse_compiler)
-        self.assertIn("scalarAlphaProgramOwnerIsProven(", pulse_compiler)
-        for static_profile in (
-            ".stock2842",
-            ".directPhaseSaturateV1",
-            ".directPhaseMaxClampV1",
-        ):
-            self.assertIn(static_profile, pulse_compiler)
-        self.assertIn(
-            "supportedProfiles.contains(plan.shaderProfile)", pulse_compiler
-        )
-        for static_guard in (
-            "plan.audio == nil || plan.shaderProfile == .stock2842",
-            "plan.pulseColor",
-            "!plan.pulseAlpha",
-        ):
-            self.assertIn(static_guard, pulse_compiler)
-        self.assertIn(".bindingCohortIsProven(", pulse_compiler)
-        self.assertIn(".ownerDisposition(", pulse_compiler)
-        for direct_constant in (
-            ".speed", ".phase", ".amount",
-            ".noiseSpeed", ".noiseAmount", ".power", ".tintLow", ".tintHigh",
-        ):
-            self.assertIn(direct_constant, pulse_direct_owner)
-        self.assertIn("case .authoredFallback:", pulse_direct_owner)
-        self.assertIn("plan.shaderProfile == .stock2842", pulse_direct_owner)
-        self.assertIn("&& !alphaWriting", pulse_direct_owner)
-        self.assertIn("&& plan.maskTexturePath == nil", pulse_direct_owner)
-        self.assertIn("case .bounds:", pulse_direct_owner)
-        self.assertIn("exactActiveUniforms(", pulse_direct_owner)
-        self.assertIn("hasExactNumericDefinition(", pulse_direct_owner)
         shader_schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
         self.assertIn("static func exactActiveUniforms(", shader_schema)
         self.assertIn("matches.count == stages.count", shader_schema)
-        self.assertIn("propertyKey: binding.propertyKey", pulse_direct_owner)
-        self.assertIn("target: binding.dynamicTarget", pulse_direct_owner)
-        self.assertIn("valueType: constant.valueType", pulse_direct_owner)
-        self.assertIn("exactUserPropertyBindingsAreProven(", pulse_compiler)
-        self.assertIn("activeConsumersAreProven(", pulse_direct_owner)
-        self.assertIn(
-            "SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(",
-            pulse_compiler,
-        )
-        self.assertIn(
-            ".straightRGBScalarAlphaFact(",
-            pulse_compiler,
-        )
-        self.assertIn(
-            ".rgbBlendScalarAlphaFact(",
-            pulse_compiler,
-        )
-        for alpha_guard in (
-            "plan.audio == nil || plan.shaderProfile == .stock2842",
-            "plan.bindings.isEmpty",
-            "plan.pulseAlpha",
-            "auxiliaryShapeIsProven",
-            "activeMaskSlots == sourceMaskSlots",
-            "plan.shaderProfile == .stock2842",
-            "sourceShape.scalarAuxiliarySlots.isEmpty",
-            "Set(samplers.keys)",
-            "graphTargetSlots.isEmpty",
-            ".sourceProvenGraphInputStraightRGBScalarAlpha",
-            ".sourceProvenGraphInputRGBBlendScalarAlpha",
-        ):
-            self.assertIn(alpha_guard, pulse_compiler)
-        alpha_owner_start = pulse_compiler.index("scalarAlphaProgramOwnerIsProven(")
-        alpha_owner_end = pulse_compiler.index(
-            "private nonisolated static func exactGenericParametersAreProven(",
-            alpha_owner_start,
-        )
-        alpha_owner = pulse_compiler[alpha_owner_start:alpha_owner_end]
-        self.assertIn("if plan.audio == nil {", alpha_owner)
-        self.assertIn(
-            "!sourceShape.scalarAuxiliarySlots.isEmpty", alpha_owner
-        )
-        self.assertIn(
-            "plan.shaderProfile == .stock2842\n"
-            "                    && sourceShape.scalarAuxiliarySlots.isEmpty",
-            alpha_owner,
-        )
-        self.assertNotIn("plan.maskTexturePath == nil", alpha_owner)
-        self.assertIn("fact.maskSlot", alpha_owner)
-        self.assertNotIn(
-            "graphTargetSlots.isEmpty,\n"
-            "                  !sourceShape.auxiliarySlots.isEmpty,",
-            alpha_owner,
-        )
-        self.assertIn("typedStaticDataAuxiliarySlots(", pulse_compiler)
-        self.assertIn("typedAuxiliary == fact.auxiliarySlots", pulse_compiler)
-        self.assertIn("exactGenericParametersAreProven(", pulse_compiler)
-        self.assertIn(
-            "material.combos.keys.allSatisfy(comboNames.contains)",
-            pulse_compiler,
-        )
-        self.assertIn(
-            "material.constants.keys.allSatisfy(constantNames.contains)",
-            pulse_compiler,
-        )
-        self.assertIn("template.comboValues == material.combos", pulse_compiler)
-        self.assertIn("audioParameters(", pulse_compiler)
-        self.assertIn("audio.parameters == plan.audio", pulse_compiler)
-        self.assertIn(
-            "constantNames.formUnion(SceneAudioResponseAdmission.constantKeys)",
-            pulse_compiler,
-        )
-        self.assertIn(".defaultRouteState == .genericOnly", pulse_compiler)
-        self.assertIn(".validatedRollbackOwner == .none", pulse_compiler)
-        for revocation_detail in (
-            "static-rgb-preserving", "audio-color-only-rgb",
-            "typed-user-property-rgb",
-            "static-alpha-only", "audio-alpha-only",
-            "static-rgb-alpha", "audio-rgb-alpha",
-        ):
-            self.assertIn(
-                f'"{revocation_detail}-owner-revoked-to-material-program"',
-                pulse_compiler,
-            )
         finalizer = FINALIZER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("directUserPropertyRangedValue(", finalizer)
         self.assertIn("guard let liveEncoded else { return nil }", finalizer)

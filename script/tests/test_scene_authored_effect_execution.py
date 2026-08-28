@@ -44,10 +44,6 @@ CHAIN_BACKEND_SOURCE = (
 CHAIN_RENDERER_SOURCE = (
     SOURCE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"
 )
-CHAIN_SPECIALIZED_STAGE_SOURCE = (
-    SOURCE_ROOT
-    / "RenderGraph/EffectExecution/SceneEffectStageRenderer+SpecializedStage.swift"
-)
 CHAIN_TOPOLOGY_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
@@ -85,22 +81,6 @@ struct SceneDocument {
 
 struct SceneEffectTextureInput {
     let name: String
-}
-
-struct ScenePulseExecutionPlan {
-    var liveConsumerTargets: Set<SceneDynamicTarget> { [] }
-}
-
-enum SceneAuthoredPulsePlanner {
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole = .layerSource
-    ) -> ScenePulseExecutionPlan? {
-        graph.effects.first?.definitionPath.lowercased()
-            == "effects/pulse/effect.json" ? ScenePulseExecutionPlan() : nil
-    }
 }
 
 struct SceneRenderDescriptor {
@@ -147,38 +127,6 @@ struct SceneRenderDescriptor {
     let materialPasses: [MaterialPassDescriptor]
 }
 
-nonisolated protocol HarnessDedicatedPlanner {
-    associatedtype DedicatedPlan
-
-    static var compilerBackend: SceneEffectStageCompilerBackend { get }
-
-    static func plan(
-        graph: SceneAuthoredEffectRenderPlan,
-        descriptor: SceneRenderDescriptor,
-        shaderContracts: [SceneShaderContract],
-        inputRole: SceneAuthoredEffectInputRole
-    ) -> DedicatedPlan?
-}
-
-extension HarnessDedicatedPlanner {
-    nonisolated static func compile(
-        _ input: SceneEffectStageCompileInput
-    ) -> SceneEffectStageBackendCompileResult<DedicatedPlan> {
-        SceneEffectStageDedicatedCompilerAdapter.compile(
-            backend: compilerBackend,
-            candidate: { false },
-            plan: {
-                plan(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor,
-                    shaderContracts: input.shaderContracts,
-                    inputRole: input.inputRole
-                )
-            }
-        )
-    }
-}
-
 extension SceneAuthoredStandardBlurPlanner {
     nonisolated static func compile(
         _ input: SceneEffectStageCompileInput
@@ -197,10 +145,6 @@ extension SceneAuthoredStandardBlurPlanner {
     }
 }
 
-extension SceneAuthoredPulsePlanner: HarnessDedicatedPlanner {
-    typealias DedicatedPlan = ScenePulseExecutionPlan
-    nonisolated static var compilerBackend: SceneEffectStageCompilerBackend { .pulse }
-}
 enum SceneLayerVisibility {
     static func visibleLayerIDs(in descriptor: SceneRenderDescriptor) -> Set<Int> {
         let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
@@ -1025,7 +969,6 @@ enum Harness {
             let backend: String
             switch stage.backend {
             case .standardBlur: backend = "standardBlur"
-            case .pulse: backend = "pulse"
             }
             return [effectIndex, backend]
         }
@@ -1186,7 +1129,7 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         self.assertNotIn(".waterWaves", leaf_body)
         self.assertNotIn(".transform", leaf_body)
         self.assertNotIn("case .transform", topology)
-        self.assertIn(".pulse", leaf_body)
+        self.assertNotIn(".pulse", leaf_body)
         self.assertNotIn("proceduralNoise", leaf_body)
         self.assertNotIn(".xRay", leaf_body)
         self.assertNotIn("case .xRay", topology)
@@ -1331,8 +1274,8 @@ class SceneAuthoredEffectExecutionTests(unittest.TestCase):
         source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("authoredEffectResourcesOnly", source)
         self.assertNotIn("waterWavesEffects", source)
-        for resource in ("standardBlurEffects", "pulseEffects"):
-            self.assertIn(f"let {resource}", source)
+        self.assertIn("let standardBlurEffects", source)
+        self.assertNotIn("pulseEffects", source)
 
         layer_loader = EFFECT_TEXTURE_LOADER_SOURCE.read_text(encoding="utf-8")
         self.assertNotIn("SceneShakeEffectTextureLoader", layer_loader)

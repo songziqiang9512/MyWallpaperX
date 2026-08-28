@@ -16,19 +16,9 @@ enum SceneLayerEffectTextureLoader {
             loader: loader,
             device: device
         )
-        let pulseEffects = ScenePulseEffectTextureLoader.load(
-            for: layer,
-            resolver: resolver,
-            loader: loader,
-            device: device
-        )
         return SceneLayerEffectTextures(
             standardBlurEffects: standardBlur.textures,
-            pulseEffects: pulseEffects.textures,
-            message: [
-                standardBlur.message,
-                pulseEffects.message,
-            ].joined()
+            message: standardBlur.message
         )
     }
 

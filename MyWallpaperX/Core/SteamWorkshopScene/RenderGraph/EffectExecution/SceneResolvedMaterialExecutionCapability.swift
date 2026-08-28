@@ -621,8 +621,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 switch stage {
                 case .resolved(_, let materials, _):
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
-                case .dedicated(_, let program, _):
-                    return program.executionPlan.pulse?.audio != nil
+                case .dedicated:
+                    return false
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     return false
                 }

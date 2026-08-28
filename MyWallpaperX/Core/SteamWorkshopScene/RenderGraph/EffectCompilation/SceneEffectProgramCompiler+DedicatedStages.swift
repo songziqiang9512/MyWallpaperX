@@ -64,8 +64,6 @@ extension SceneEffectProgramCompiler {
     nonisolated static func resolveDedicatedStage(
         _ input: SceneEffectStageCompileInput
     ) -> SceneEffectDedicatedStageResolution {
-        let stageGraph = input.stageGraph
-        let inputRole = input.inputRole
         typealias Probe = (
             backend: SceneEffectStageCompilerBackend,
             compile: () -> SceneEffectStageBackendCompileResult<SceneEffectStageExecutionPlan>
@@ -77,11 +75,6 @@ extension SceneEffectProgramCompiler {
         let probes: [Probe] = [
             (.standardBlur, {
                 SceneAuthoredStandardBlurPlanner.compile(input)
-            }),
-            (.pulse, {
-                SceneAuthoredPulsePlanner.compile(input).mapAccepted {
-                    stage(.pulse($0), stageGraph: stageGraph, inputRole: inputRole)
-                }
             }),
         ]
 
