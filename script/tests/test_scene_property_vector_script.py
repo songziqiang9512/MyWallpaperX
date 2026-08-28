@@ -25,6 +25,7 @@ SOURCES = [
     VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
+    VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
@@ -37,6 +38,13 @@ struct SceneFrameTiming {
     let wallDate: Date
     let simulationFrameTime: TimeInterval
     let sceneTime: TimeInterval
+}
+
+final class SceneMediaThumbnailInbox {
+    struct Snapshot {
+        let current: Data?
+        let generation: UInt64
+    }
 }
 
 struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
@@ -245,6 +253,32 @@ enum Harness {
             inputs: [animatedAlphaTarget: .scalar(0.75)],
             frame: frame
         )
+        let mediaOrigin = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: mediaAnimationSource, value: "20 2250 0",
+                properties: [:],
+                wrapperKeys: ["animation", "script", "value"]
+            )],
+            userPropertyDefinitions: [],
+            timelineTargets: [animatedOriginTarget],
+            generation: 15
+        )
+        let mediaEvent = SceneScriptMediaThumbnailEventInput(
+            hasThumbnail: true,
+            generation: 8
+        )
+        let mediaOriginResult = mediaOrigin.evaluate(
+            inputs: [animatedOriginTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: [:], frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        let duplicateMediaOriginResult = mediaOrigin.evaluate(
+            inputs: [animatedOriginTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: [:], frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -274,6 +308,11 @@ enum Harness {
             "alphaAnimationCommands": animatedAlphaResult.animationMutations.map {
                 $0.command.rawValue
             },
+            "mediaAnimationCommands": mediaOriginResult.animationMutations.map {
+                $0.command.rawValue
+            },
+            "mediaGenerationDeduplicated":
+                duplicateMediaOriginResult.animationMutations.isEmpty,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -364,6 +403,16 @@ enum Harness {
       return value;
     }
     """
+
+    static let mediaAnimationSource = """
+    export function mediaThumbnailChanged(event) {
+      if (event.hasThumbnail) {
+        const animation = thisObject.getAnimation();
+        animation.stop();
+        animation.play();
+      }
+    }
+    """
 }
 '''
 
@@ -379,6 +428,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         objects: list[Path] = []
         for source in [
             VM / "SceneQuickJS.c", VM / "SceneQuickJSAnimationHost.c",
+            VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
             QUICKJS / "libregexp.c", QUICKJS / "libunicode.c",
@@ -436,6 +486,8 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["alphaAnimationBindings"], 1)
         self.assertEqual(value["alphaAnimationValue"], 0.75)
         self.assertEqual(value["alphaAnimationCommands"], ["play"])
+        self.assertEqual(value["mediaAnimationCommands"], ["stop", "play"])
+        self.assertTrue(value["mediaGenerationDeduplicated"])
 
 
 if __name__ == "__main__":

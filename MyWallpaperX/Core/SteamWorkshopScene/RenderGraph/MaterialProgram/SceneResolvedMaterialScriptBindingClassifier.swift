@@ -28,13 +28,20 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
             guard let value = normalizedProviderValue(raw) else { return nil }
             sources.append(.userProperty(value))
         }
-        if authored?.timeline != nil { sources.append(.timeline) }
-        if let authored,
-           let projection = classify(
-               authored: authored,
-               target: target,
-               provenSceneScriptValueTargets: provenSceneScriptValueTargets
-           ) {
+        let projection = authored.flatMap {
+            classify(
+                authored: $0,
+                target: target,
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+            )
+        }
+        if case .value = projection {
+            // The VM consumes Timeline as callback input and publishes the
+            // single SceneScript result channel for this target.
+        } else if authored?.timeline != nil {
+            sources.append(.timeline)
+        }
+        if let projection {
             switch projection {
             case let .value(source): sources.append(source)
             case let .scriptAttachment(attachment): attachments.append(attachment)
@@ -58,17 +65,12 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         if let target,
            authored.valueKind.localizedLowercase == "binding",
            authored.userBinding == nil,
-           authored.timeline == nil,
            authored.timelineDiagnostics.isEmpty,
            isProvenValueWrapper(authored),
            provenSceneScriptValueTargets.contains(target) {
             return .value(.sceneScript)
         }
-        return .scriptAttachment(
-            isKnownMediaRestartControl(source)
-                ? .mediaThumbnailAnimationRestart
-                : .unproven
-        )
+        return .scriptAttachment(.unproven)
     }
 
     private static func isProvenValueWrapper(
@@ -77,31 +79,14 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         switch authored.bindingKeys {
         case ["script", "value"],
              ["script", "scriptproperties", "value"]:
-            authored.userValueKind == nil
+            authored.userValueKind == nil && authored.timeline == nil
         case ["script", "user", "value"]:
-            authored.userValueKind == .null
+            authored.userValueKind == .null && authored.timeline == nil
+        case ["animation", "script", "value"]:
+            authored.userValueKind == nil && authored.timeline != nil
         default:
             false
         }
-    }
-
-    /// The existing control-only profile remains deliberately limited to the
-    /// modeled stop/play restart shape.
-    private static func isKnownMediaRestartControl(_ source: String) -> Bool {
-        let compact = source
-            .replacingOccurrences(
-                of: #"/\*[\s\S]*?\*/"#,
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(
-                of: #"//[^\n\r]*"#,
-                with: "",
-                options: .regularExpression
-            )
-            .replacingOccurrences(of: #"\s+"#, with: "", options: .regularExpression)
-        let pattern = #"^exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{if\(\1\.hasThumbnail\)\{(?:var|let|const)([A-Za-z_$][A-Za-z0-9_$]*)=thisObject\.getAnimation\(\);\2\.stop\(\);\2\.play\(\);?\}\}$"#
-        return compact.range(of: pattern, options: .regularExpression) != nil
     }
 
     private static func normalizedProviderValue(_ rawValue: String) -> String? {

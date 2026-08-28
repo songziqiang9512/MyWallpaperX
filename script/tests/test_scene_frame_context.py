@@ -464,7 +464,10 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("frameEpoch: textureRegistry.frameEpoch", preflight)
         self.assertIn("effectIndex: mutation.effectIndex", preflight)
         self.assertIn("functionName: mutation.functionName", preflight)
-        self.assertIn("materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)", scalar_program)
+        self.assertIn(
+            "materialFunctionMutations.append(contentsOf: callbackMaterialMutations)",
+            scalar_program,
+        )
         self.assertIn("case let .effectConstant(value, _, _, _), let .layer(value, _):", scalar_runtime)
         self.assertIn("mutationOverflow", scalar_runtime)
         self.assertIn("invalid-effect-index-\\(mutation.effectIndex)", preflight)

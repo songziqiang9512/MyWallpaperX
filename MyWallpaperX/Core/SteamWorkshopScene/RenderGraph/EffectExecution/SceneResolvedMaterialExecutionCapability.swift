@@ -744,13 +744,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             if dynamic.scriptAttachments == [.unproven] {
                 return rejection("material-dynamic-uniform-script-attachment-unproven")
             }
-            guard
-                Set(dynamic.scriptAttachments).count
-                    == dynamic.scriptAttachments.count,
-                dynamic.scriptAttachments.allSatisfy({
-                    $0 == .mediaThumbnailAnimationRestart
-                        && contributor == .timeline
-                }) else { return rejection("dynamic-uniform-unavailable") }
+            guard dynamic.scriptAttachments.isEmpty else {
+                return rejection("dynamic-uniform-unavailable")
+            }
         }
         return nil
     }

@@ -509,9 +509,17 @@ enum Harness {
             )],
             userShaderValues: ["g_Strength": "strength"]
         )))
-        let timelineControl = template(compile(material(constants: [
-            "g_Time": .init(
+        let boundedScriptTarget = SceneDynamicTarget.effectConstant(
+            layerID: 42,
+            effectIndex: 2,
+            passIndex: 3,
+            name: "g_Fade"
+        )
+        let timelineControl = template(compile(
+            material(constants: [
+            "g_Fade": .init(
                 rawValue: "0.5",
+                valueKind: "binding",
                 components: [0.5],
                 timeline: true,
                 scriptSource: """
@@ -522,9 +530,12 @@ enum Harness {
                             animation.play();
                         }
                     }
-                    """
+                    """,
+                bindingKeys: ["animation", "script", "value"]
             ),
-        ])))
+            ]),
+            provenSceneScriptValueTargets: [boundedScriptTarget]
+        ))
         let unknownTimelineScript = template(compile(material(constants: [
             "g_Time": .init(
                 rawValue: "0.5",
@@ -533,12 +544,6 @@ enum Harness {
                 scriptSource: "return 1"
             ),
         ])))
-        let boundedScriptTarget = SceneDynamicTarget.effectConstant(
-            layerID: 42,
-            effectIndex: 2,
-            passIndex: 3,
-            name: "g_Fade"
-        )
         let boundedScriptValue = SceneDocument.ShaderValue(
             rawValue: "1",
             valueKind: "binding",
@@ -889,9 +894,8 @@ enum Harness {
             "timelineControlSeparated": timelineControl?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.timeline]
-                        && value.scriptAttachments
-                            == [.mediaThumbnailAnimationRestart]
+                    return value.valueContributors == [.sceneScript]
+                        && value.scriptAttachments.isEmpty
                 } == true,
             "unknownScriptTypedUnproven": unknownTimelineScript?
                 .uniformDeclarations.first.map { declaration in

@@ -4589,14 +4589,11 @@ private enum Harness {
                     diagonal: SIMD4(.nan, 1, 1, 1)
                 )
             )),
-            "knownTimelineScriptControl": failureToken(finalize(
-                shader: contract(revision: "timeline-script-control"),
+            "provenTimelineScriptValue": failureToken(finalize(
+                shader: contract(revision: "timeline-script-value"),
                 device: device,
-                uniformDeclarations: [dynamicDeclaration(
-                    [.timeline],
-                    attachments: [.mediaThumbnailAnimationRestart]
-                )],
-                dynamicSource: .timeline
+                uniformDeclarations: [dynamicDeclaration([.sceneScript])],
+                dynamicSource: .sceneScript
             )),
             "unknownTimelineScriptAttachment": failureToken(finalize(
                 shader: contract(revision: "unknown-timeline-script-attachment"),
@@ -5580,7 +5577,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             "hostUniformDeclarationConflict":
                 "uniform/hostUniformDeclarationConflict",
             "hostUniformBindingInvalid": "uniform/hostUniformBindingInvalid",
-            "knownTimelineScriptControl": "success",
+            "provenTimelineScriptValue": "success",
             "unknownTimelineScriptAttachment": "uniform/uniformScriptAttachmentUnproven",
             "authoredDynamicFallback": "success",
             "dynamicSourceMismatch": "uniform/dynamicUniformBindingInvalid",

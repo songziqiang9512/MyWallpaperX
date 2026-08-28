@@ -71,6 +71,11 @@ void mwx_scene_quickjs_write_diagnostic(
     size_t capacity,
     const char *message
 );
+void mwx_scene_quickjs_write_exception(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t capacity
+);
 
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
@@ -86,6 +91,24 @@ bool mwx_scene_quickjs_restore_owner_handles(
     JSValue previous_layer,
     JSValue previous_scene,
     JSValue previous_object
+);
+bool mwx_scene_quickjs_bind_frame_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    JSValue *previous_global_engine
+);
+bool mwx_scene_quickjs_restore_frame_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue previous_global_engine
+);
+void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_exception_result(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
 );
 
 #endif

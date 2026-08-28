@@ -210,7 +210,6 @@ nonisolated struct SceneResolvedMaterialTemplate {
     }
 
     enum DynamicUniformScriptAttachment: Hashable {
-        case mediaThumbnailAnimationRestart
         case unproven
     }
 

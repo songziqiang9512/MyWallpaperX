@@ -54,6 +54,30 @@ static int update(
     );
 }
 
+static int media_thumbnail(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    int has_thumbnail,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSMediaThumbnailEvent event = {
+        .has_thumbnail = has_thumbnail ? 1 : 0,
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_dispatch_media_thumbnail(
+            owner, generation, &event, &frame, "{}", 2,
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
 static int update_vec3(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -646,6 +670,49 @@ int main(void) {
         "named animation lookup rejected"
     );
 
+    const char *media_animation_source =
+        "export function mediaThumbnailChanged(event){"
+        "if(event.hasThumbnail){const a=thisObject.getAnimation();a.stop();a.play();}}";
+    MWXSceneQuickJSOwner *media_animation = mwx_scene_quickjs_owner_create(
+        domain, media_animation_source, strlen(media_animation_source),
+        19, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(media_animation != NULL, "media animation compile", diagnostic);
+    failures += check(
+        mwx_scene_quickjs_owner_configure_current_animation(
+            media_animation, 1, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "media animation configure", diagnostic
+    );
+    failures += update(
+        media_animation, 19, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "media animation initialize"
+    );
+    failures += media_thumbnail(
+        media_animation, 19, 0, MWX_SCENE_QUICKJS_OK,
+        "media thumbnail absent event"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_animation_command_count(media_animation) == 0,
+        "media absent command count", diagnostic
+    );
+    failures += media_thumbnail(
+        media_animation, 19, 1, MWX_SCENE_QUICKJS_OK,
+        "media thumbnail present event"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_animation_command_count(media_animation) == 2,
+        "media present command count", diagnostic
+    );
+    failures += animation_command(
+        media_animation, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP,
+        "media animation stop mutation"
+    );
+    failures += animation_command(
+        media_animation, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY,
+        "media animation play mutation"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -656,6 +723,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(immutable_handle);
     mwx_scene_quickjs_owner_destroy(stale_effect);
     mwx_scene_quickjs_owner_destroy(named_animation);
+    mwx_scene_quickjs_owner_destroy(media_animation);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -701,6 +769,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(QUICKJS / "quickjs.c"),
             str(QUICKJS / "dtoa.c"),

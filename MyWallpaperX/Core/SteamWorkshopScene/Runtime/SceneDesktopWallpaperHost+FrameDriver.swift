@@ -236,6 +236,8 @@ extension SceneDesktopWallpaperHost {
             sceneTime: timing.sceneTime
         )
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
+        let sceneScriptMediaThumbnailEvent =
+            SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)
         let mediaProperties = mediaInput.properties.map {
             SceneTextMediaPropertiesSnapshot(
                 title: $0.title,
@@ -307,7 +309,8 @@ extension SceneDesktopWallpaperHost {
             inputs: sceneScriptVectorInputs,
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frame: SceneScriptFrameInput(timing: timing),
-            layerSnapshot: preliminaryForSceneScript
+            layerSnapshot: preliminaryForSceneScript,
+            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent
         )
         for (target, failure) in sceneScriptVectorResult.failures {
             NSLog(
@@ -334,7 +337,8 @@ extension SceneDesktopWallpaperHost {
             userPropertiesJSON: launchContext.propertyVectorScriptProgram
                 .userPropertiesJSON(
                     effectiveValues: launchContext.liveState.effectiveValues
-                )
+                ),
+            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent
         )
         if !sceneScriptResult.failures.isEmpty {
             for (target, failure) in sceneScriptResult.failures {

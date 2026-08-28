@@ -216,6 +216,31 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         ))
     }
 
+    func dispatchMediaThumbnail(
+        _ event: SceneScriptMediaThumbnailEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        let layerID: Int
+        switch target {
+        case let .effectConstant(value, _, _, _), let .layer(value, _):
+            layerID = value
+        default:
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchThumbnail(
+            owner: handle,
+            target: target,
+            layerID: layerID,
+            ownerGeneration: generation,
+            event: event,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     func invalidate() {
         mwx_scene_quickjs_owner_invalidate(handle)
     }

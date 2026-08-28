@@ -608,11 +608,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         contributor: Template.DynamicUniformSource,
         name: String
     ) throws {
-        guard Set(attachments).count == attachments.count,
-              attachments.allSatisfy({ attachment in
-                  attachment == .mediaThumbnailAnimationRestart
-                      && contributor == .timeline
-              }) else {
+        guard attachments.isEmpty else {
             throw failure(.uniform, .uniformScriptAttachmentUnproven, details: [name])
         }
     }

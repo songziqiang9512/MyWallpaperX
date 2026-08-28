@@ -125,6 +125,27 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         ))
     }
 
+    func dispatchMediaThumbnail(
+        _ event: SceneScriptMediaThumbnailEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard case let .layer(layerID, _) = target else {
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchThumbnail(
+            owner: handle,
+            target: target,
+            layerID: layerID,
+            ownerGeneration: generation,
+            event: event,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }
 
     private static func failure(
