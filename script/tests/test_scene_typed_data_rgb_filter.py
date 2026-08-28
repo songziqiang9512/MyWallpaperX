@@ -300,8 +300,7 @@ private enum TypedDataRGBFilterHarness {
                 r8TextureSlots: [],
                 hasDefaultedOpacityMaskSampler: false,
                 hasStageScopedUniformBindings: false,
-                hasStereoAudioSpectrumArrays: false,
-                hasLocalizedMutableFragmentVarying: false
+                hasStereoAudioSpectrumArrays: false
             )
         }
         func reconstructedProfile(
@@ -333,8 +332,7 @@ private enum TypedDataRGBFilterHarness {
                 r8TextureSlots: [],
                 hasDefaultedOpacityMaskSampler: false,
                 hasStageScopedUniformBindings: false,
-                hasStereoAudioSpectrumArrays: false,
-                hasLocalizedMutableFragmentVarying: false
+                hasStereoAudioSpectrumArrays: false
             )
         }
 

@@ -180,8 +180,7 @@ private func makeProducerProfile(
         hasDefaultedOpacityMaskSampler: false,
         hasOnlyGraphInputSampler: false,
         hasStageScopedUniformBindings: true,
-        hasStereoAudioSpectrumArrays: false,
-        hasLocalizedMutableFragmentVarying: false
+        hasStereoAudioSpectrumArrays: false
     )
 }
 
@@ -229,8 +228,7 @@ private enum Harness {
             hasDefaultedOpacityMaskSampler: false,
             hasOnlyGraphInputSampler: true,
             hasStageScopedUniformBindings: true,
-            hasStereoAudioSpectrumArrays: false,
-            hasLocalizedMutableFragmentVarying: false
+            hasStereoAudioSpectrumArrays: false
         )
         let tampered = built.map {
             artifact(

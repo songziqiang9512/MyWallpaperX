@@ -368,10 +368,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     "g_AudioSpectrum\(count)Left",
                     "g_AudioSpectrum\(count)Right",
                 ])
-            },
-            hasLocalizedMutableFragmentVarying:
-                normalizedRouteFacts?.localizedMutableFragmentVaryings.isEmpty
-                    == false
+            }
         )
         let expectedColorTransfer = SceneGenericShaderExpectedColorTransfer(
             colorTransfer,
@@ -379,6 +376,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             permitsStraightAlphaPreserving:
                 profile
                     == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+                    || profile
+                        == .sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary
         )
         let premultipliedColorInputSlots = Set(
             profile == .providerBackedGraphInputSpatialWeightedColorBlend

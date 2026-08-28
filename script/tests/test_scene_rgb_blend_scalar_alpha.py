@@ -276,8 +276,7 @@ private func profile(
         r8TextureSlots: [],
         hasDefaultedOpacityMaskSampler: false,
         hasStageScopedUniformBindings: false,
-        hasStereoAudioSpectrumArrays: false,
-        hasLocalizedMutableFragmentVarying: false
+        hasStereoAudioSpectrumArrays: false
     )
 }
 

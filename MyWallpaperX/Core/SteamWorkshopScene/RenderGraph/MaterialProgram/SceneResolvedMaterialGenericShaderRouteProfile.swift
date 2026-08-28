@@ -116,6 +116,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-straight-alpha-preserving"
     case sourceProvenGraphInputStageUniformStraightAlphaPreserving =
         "source-proven-graph-input-stage-uniform-straight-alpha-preserving"
+    case sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary =
+        "source-proven-graph-input-stage-uniform-straight-alpha-preserving-static-auxiliary"
     case sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary =
         "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary"
     case sourceProvenGraphInputStageUniformPassthrough =
@@ -174,8 +176,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         hasOnlyGraphInputSampler: Bool = false,
         outputIsRGBA8Unorm: Bool = false,
         hasStageScopedUniformBindings: Bool,
-        hasStereoAudioSpectrumArrays: Bool,
-        hasLocalizedMutableFragmentVarying: Bool
+        hasStereoAudioSpectrumArrays: Bool
     ) {
         let conditionalGeneratedRGBFact =
             SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
@@ -508,8 +509,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]),
                   hasOnlyGraphInputSampler,
                   hasStageScopedUniformBindings,
-                  hasStereoAudioSpectrumArrays,
-                  hasLocalizedMutableFragmentVarying {
+                  hasStereoAudioSpectrumArrays {
             self = .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
@@ -539,6 +539,18 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   hasOnlyGraphInputSampler,
                   hasStageScopedUniformBindings {
             self = .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  !typedStaticDataAuxiliarySlots.isEmpty,
+                  activeTextureSlots
+                    == typedStaticDataAuxiliarySlots.union([sourceSlot]),
+                  activeOpacityMaskSlots.isEmpty,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]),
+                  hasStageScopedUniformBindings {
+            self =
+                .sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -605,6 +617,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving,
              .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary,
              .sourceProvenGraphInputStageUniformStraightAlphaPreserving,
+             .sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary,
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly

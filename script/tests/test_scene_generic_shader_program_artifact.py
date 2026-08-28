@@ -2930,6 +2930,39 @@ void main() {
 }
 """
 
+STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_Time;
+uniform float g_Amount;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(
+    const int mode,
+    in vec3 base,
+    in vec3 blend,
+    in float opacity
+) {
+    return mix(base, blend, opacity);
+}
+void main() {
+    vec4 carrier = texSample2D(g_Texture0, v_TexCoord);
+    float signal0 = texSample2DLod(
+        g_Texture1,
+        v_TexCoord + vec2(g_Time * 0.001, 0.0),
+        0.0
+    ).r;
+    float signal1 = texSample2DLod(
+        g_Texture1,
+        v_TexCoord.yx - vec2(0.0, g_Time * 0.001),
+        0.0
+    ).r;
+    float weight = smoothstep(0.1, 0.8, signal0 * signal1) * g_Amount;
+    vec3 generated = mix(vec3(0.2), vec3(0.9), weight) * signal0 * signal1;
+    carrier.rgb = ApplyBlending(0, carrier.rgb, generated, weight);
+    gl_FragColor = carrier;
+}
+"""
+
 FILM_GRAIN_STOCK_FRAGMENT = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1; // {"default":"util/noise"}
@@ -4809,12 +4842,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         without_right = AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT.replace(
             "uniform float g_AudioSpectrum64Right[64];\n", ""
         ).replace(" + g_AudioSpectrum64Right[bin]", "")
-        without_mutation = AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT.replace(
-            "    v_TexCoord.y = 1.0 - v_TexCoord.y;\n", ""
-        )
         cases = [
             (without_right, {"graph_input_slots": (0,), "has_only_graph_input_sampler": True}),
-            (without_mutation, {"graph_input_slots": (0,), "has_only_graph_input_sampler": True}),
             (
                 AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT,
                 {"graph_input_slots": (0,)},
@@ -4846,6 +4875,164 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 self.assertNotEqual(result["routeProfile"], profile)
                 self.assertTrue(result["permitsBoundedFrontend"])
                 self.assertIn("state=prefer-generic", log)
+
+    def test_audio_stage_uniform_straight_alpha_without_varying_mutation_has_narrow_product_authority(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-audio-stage-uniform-straight-alpha-"
+            "no-auxiliary"
+        )
+        fragment = AUDIO_STAGE_UNIFORM_MUTABLE_STRAIGHT_ALPHA_FRAGMENT.replace(
+            "    v_TexCoord.y = 1.0 - v_TexCoord.y;\n", ""
+        )
+        facts = {
+            "graph_input_slots": (0,),
+            "has_only_graph_input_sampler": True,
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            artifact = self.artifact(
+                observed["requestKey"], color_transfer="straight-alpha"
+            )
+            (cache / f"{observed['requestKey']}.json").write_text(
+                json.dumps(artifact), encoding="utf-8"
+            )
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeProfile"], profile)
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+    def test_stage_uniform_static_auxiliary_straight_alpha_preserving_has_narrow_product_authority(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-stage-uniform-straight-alpha-"
+            "preserving-static-auxiliary"
+        )
+        facts = {
+            "graph_input_slots": (0,),
+            "active_slots": (0, 1),
+            "typed_static_data_auxiliary_slots": (1,),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, _, cache, observed_log = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            self.assertFalse(observed["permitsBoundedFrontend"])
+            self.assertIn(f"profile={profile} outcome=observed", observed_log)
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha-preserving",
+                auxiliary_channel_uses={1: "redOnly"},
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            rejected, _, _, rejected_log = self.run_harness(
+                root,
+                route=None,
+                fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rejected["code"], "artifact-contract-rejected")
+            self.assertFalse(rejected["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=rejected",
+                rejected_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback",
+                rollback_log,
+            )
+
+        negative_facts = [
+            {"graph_input_slots": (0,), "active_slots": (0, 1)},
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (2,),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "active_opacity_mask_slots": (1,),
+                "typed_static_data_auxiliary_slots": (1,),
+            },
+            {
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (1,),
+                "has_external_provider": True,
+            },
+            {
+                "graph_input_slots": (0,),
+                "graph_slots": (2,),
+                "active_slots": (0, 1),
+                "typed_static_data_auxiliary_slots": (1,),
+            },
+        ]
+        for invalid_facts in negative_facts:
+            with self.subTest(facts=invalid_facts), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                result, _, _, _ = self.run_harness(
+                    Path(directory),
+                    route=None,
+                    fragment=STATIC_AUXILIARY_STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                    **invalid_facts,
+                )
+                self.assertNotEqual(result["routeProfile"], profile)
 
     def test_interpolated_color_artifact_requires_sorted_bound_slots(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:

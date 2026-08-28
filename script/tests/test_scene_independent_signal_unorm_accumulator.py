@@ -128,8 +128,7 @@ private func profile(
         hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
         outputIsRGBA8Unorm: outputIsRGBA8Unorm,
         hasStageScopedUniformBindings: false,
-        hasStereoAudioSpectrumArrays: false,
-        hasLocalizedMutableFragmentVarying: false
+        hasStereoAudioSpectrumArrays: false
     )
 }
 

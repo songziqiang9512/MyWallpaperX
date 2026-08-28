@@ -208,8 +208,7 @@ private func profile(
         hasDefaultedOpacityMaskSampler: false,
         hasOnlyGraphInputSampler: alphaSlot != nil,
         hasStageScopedUniformBindings: false,
-        hasStereoAudioSpectrumArrays: false,
-        hasLocalizedMutableFragmentVarying: false
+        hasStereoAudioSpectrumArrays: false
     )
 }
 

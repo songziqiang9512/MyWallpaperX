@@ -225,8 +225,7 @@ private func profile(
         hasDefaultedOpacityMaskSampler: false,
         hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
         hasStageScopedUniformBindings: false,
-        hasStereoAudioSpectrumArrays: false,
-        hasLocalizedMutableFragmentVarying: false
+        hasStereoAudioSpectrumArrays: false
     )
 }
 

@@ -305,8 +305,7 @@ private struct PreservedAlphaRGBFilterHarness {
                 hasDefaultedOpacityMaskSampler: false,
                 hasOnlyGraphInputSampler: false,
                 hasStageScopedUniformBindings: false,
-                hasStereoAudioSpectrumArrays: false,
-                hasLocalizedMutableFragmentVarying: false
+                hasStereoAudioSpectrumArrays: false
             )
         }
         let profile = routeProfile(sourceSlot: 0, textureSlots: [0, 1, 2])
