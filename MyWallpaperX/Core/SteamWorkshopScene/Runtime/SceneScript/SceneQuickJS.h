@@ -46,6 +46,39 @@ void mwx_scene_quickjs_domain_reset_budget(
     uint64_t interrupt_budget
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    int64_t layer_id,
+    const char *name,
+    size_t name_length,
+    const double origin[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
+    MWXSceneQuickJSDomain *domain,
+    uint64_t generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_origin(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    const double origin[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     MWXSceneQuickJSDomain *domain,
     const char *source,

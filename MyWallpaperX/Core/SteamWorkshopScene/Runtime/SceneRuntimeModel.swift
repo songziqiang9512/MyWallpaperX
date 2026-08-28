@@ -111,7 +111,13 @@ struct SceneRuntimeModelBuilder {
         let audioScaledValueProgram = SceneAudioScaledValueProgramCompiler.compile(
             descriptor: renderDescriptor
         )
-        let sceneScriptDomain = try? SceneScriptQuickJSDomain()
+        let sceneScriptDomain: SceneScriptQuickJSDomain? = {
+            guard let domain = try? SceneScriptQuickJSDomain(),
+                  (try? domain.configureLayerCatalog(renderDescriptor)) != nil else {
+                return nil
+            }
+            return domain
+        }()
         let launchTransitionTargets = Set(
             SceneLaunchOriginTransitionProgramCompiler.compile(
                 descriptor: renderDescriptor,

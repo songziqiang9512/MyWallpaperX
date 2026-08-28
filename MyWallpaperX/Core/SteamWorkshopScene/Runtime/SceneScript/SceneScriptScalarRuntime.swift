@@ -236,6 +236,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
 nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     let handle: OpaquePointer
     let budget: SceneScriptScalarBudget
+    var layerCatalogSignature: String?
+    var layerSnapshotGeneration: UInt64 = 0
 
     init(budget: SceneScriptScalarBudget = .default) throws {
         self.budget = budget

@@ -444,6 +444,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             [0.0, 0.0],
         )
 
+    def test_scene_script_typed_metrics_keep_vec3_layer_completions(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-typed-v2 bindings=0 "
+            "vec3Bindings=3 targets=0 route=generic-only "
+            "fallback=previous-current",
+            "MWX SceneScript VM: target=layer(layerID: 235, field: "
+            "MyWallpaperX.SceneDynamicLayerField.origin) callback=completed "
+            "type=Vec3 input=(-81,41,0) output=(-81,-43,0) "
+            "route=generic-only",
+        )
+        self.assertEqual(metrics["binding_count"], 0)
+        self.assertEqual(metrics["vec3_binding_count"], 3)
+        self.assertEqual(metrics["vec3_completions"], [{
+            "layer_id": 235,
+            "field": "origin",
+            "input": "(-81,41,0)",
+            "output": "(-81,-43,0)",
+            "route": "generic-only",
+        }])
+
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
             root = Path(directory)

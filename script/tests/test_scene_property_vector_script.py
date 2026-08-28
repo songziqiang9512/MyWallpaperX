@@ -23,6 +23,7 @@ SOURCES = [
     SCENE / "Properties/SceneUserProperty.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
+    VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
@@ -49,6 +50,7 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let layerIndex: Int
+        let name: String?
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
@@ -63,9 +65,14 @@ enum Harness {
     static func main() throws {
         let descriptor = SceneRenderDescriptor(layers: [
             .init(
-                id: 10, layerIndex: 0, visible: true,
+                id: 10, layerIndex: 0, name: "anchor", visible: true,
                 originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
                 scaleHasScript: true, effects: [.init(name: "history")]
+            ),
+            .init(
+                id: 42, layerIndex: 1, name: "C1", visible: true,
+                originXYZ: [10, 20, 30], scaleXYZ: [1, 1, 1],
+                scaleHasScript: false, effects: []
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -99,6 +106,33 @@ enum Harness {
             ],
             frame: frame
         )
+        let layerProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: layerSource, value: "20 2250 0",
+                properties: [:]
+            )],
+            userPropertyDefinitions: [],
+            generation: 10
+        )
+        let layerTarget = SceneDynamicTarget.layer(layerID: 42, field: .origin)
+        let layerSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: [.init(
+                target: layerTarget,
+                valueType: .vector3,
+                authoredValue: .vector3(10, 20, 30)
+            )],
+            timelineValues: [layerTarget: .vector3(4, 5, 6)]
+        ).snapshot
+        let layerResult = layerProgram.evaluate(
+            inputs: [.layer(layerID: 10, field: .origin): .vector3(20, 2250, 0)],
+            effectivePropertyValues: [:],
+            frame: frame,
+            layerSnapshot: layerSnapshot
+        )
         let bad = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -130,6 +164,16 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 9
         )
+        let wrongOwner = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: originSource, value: "20 2250 0",
+                properties: ["x": .number(20)], ownerKind: .pass
+            )],
+            userPropertyDefinitions: [],
+            generation: 11
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -139,9 +183,14 @@ enum Harness {
                 ["layerID": $0.layerID, "effectIndex": $0.effectIndex,
                  "name": $0.functionName] as [String: Any]
             },
+            "layerOrigin": vector(
+                layerResult.values[.layer(layerID: 10, field: .origin)]
+            ),
+            "layerFailures": layerResult.failures.count,
             "badReturn": badResult.failures.values.first?.code ?? "",
             "badPublished": !badResult.values.isEmpty,
             "duplicateRejected": duplicate.bindings.isEmpty,
+            "wrongOwnerRejected": wrongOwner.bindings.isEmpty,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -156,19 +205,22 @@ enum Harness {
         key: String,
         source: String,
         value: String,
-        properties: [String: SceneJSONValue]
+        properties: [String: SceneJSONValue],
+        ownerKind: SceneScriptBindingOwner.Kind = .object
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
             owner: .init(
-                kind: .object, objectIndex: 0, objectID: 10,
+                kind: ownerKind, objectIndex: 0, objectID: 10,
                 effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
             ),
             targetPath: [.key("objects"), .index(0), .key(key)],
             properties: properties,
             authoredValue: .string(value),
             valueType: .string,
-            wrapperKeys: ["script", "scriptproperties", "value"]
+            wrapperKeys: properties.isEmpty
+                ? ["script", "value"]
+                : ["script", "scriptproperties", "value"]
         )
     }
 
@@ -193,6 +245,14 @@ enum Harness {
       .finish();
     export function update(value) { return scriptProperties.size; }
     """
+
+    static let layerSource = """
+    export function update(value) {
+      const day = 1;
+      const destination = thisScene.getLayer(`C${day}`).origin;
+      return destination.copy();
+    }
+    """
 }
 '''
 
@@ -207,7 +267,8 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         temp = Path(cls.temp_dir.name)
         objects: list[Path] = []
         for source in [
-            VM / "SceneQuickJS.c", QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
+            VM / "SceneQuickJS.c", VM / "SceneQuickJSHandleHost.c",
+            QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
             QUICKJS / "libregexp.c", QUICKJS / "libunicode.c",
         ]:
             output = temp / f"{source.stem}.o"
@@ -246,12 +307,15 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["mutations"], [
             {"layerID": 10, "effectIndex": 0, "name": "clearHistory"},
         ])
+        self.assertEqual(value["layerOrigin"], [4, 5, 6])
+        self.assertEqual(value["layerFailures"], 0)
 
     def test_bad_return_is_local_and_duplicate_target_is_rejected(self) -> None:
         value = self.result()
         self.assertEqual(value["badReturn"], "bad-return")
         self.assertFalse(value["badPublished"])
         self.assertTrue(value["duplicateRejected"])
+        self.assertTrue(value["wrongOwnerRejected"])
 
 
 if __name__ == "__main__":

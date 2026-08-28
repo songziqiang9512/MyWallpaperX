@@ -131,6 +131,39 @@ static int configure_effects(
     return check(result == MWX_SCENE_QUICKJS_OK, label, diagnostic);
 }
 
+static int configure_layers(MWXSceneQuickJSDomain *domain) {
+    char diagnostic[512] = {0};
+    const double authored_zero[3] = {1, 2, 3};
+    const double authored_day[3] = {10, 20, 30};
+    const double current_day[3] = {4, 5, 6};
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_configure_layer_catalog(
+        domain, 2, diagnostic, sizeof(diagnostic)
+    );
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            domain, 0, 17, "anchor", strlen("anchor"), authored_zero,
+            diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            domain, 1, 42, "C1", strlen("C1"), authored_day,
+            diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+            domain, 1, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_set_layer_origin(
+            domain, 1, current_day, diagnostic, sizeof(diagnostic)
+        );
+    }
+    return check(result == MWX_SCENE_QUICKJS_OK, "layer catalog", diagnostic);
+}
+
 int main(void) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
@@ -139,6 +172,7 @@ int main(void) {
     if (check(domain != NULL, "domain", diagnostic)) return 1;
 
     int failures = 0;
+    failures += configure_layers(domain);
     MWXSceneQuickJSOwner *positive = mwx_scene_quickjs_owner_create(
         domain,
         "'use strict';\n"
@@ -468,6 +502,64 @@ int main(void) {
         "immutable handle method"
     );
 
+    const char *layer_source =
+        "export function update(value) {"
+        "const day=1; const layer=thisScene.getLayer(`C${day}`);"
+        "if(thisScene.getLayerCount()!==2||thisScene.getLayer(1).id!==42||"
+        "thisScene.getLayerByID(42).name!=='C1')throw new Error('layer identity');"
+        "return layer.origin.copy().add(new Vec3(1,1,1));}";
+    MWXSceneQuickJSOwner *layer_owner = mwx_scene_quickjs_owner_create(
+        domain, layer_source, strlen(layer_source),
+        13, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(layer_owner != NULL, "layer handle compile", diagnostic);
+    const double layer_input[3] = {0, 0, 0};
+    const double layer_output[3] = {5, 6, 7};
+    failures += update_vec3(
+        layer_owner, 13, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+        layer_output, "layer current origin"
+    );
+
+    const char *stale_layer_source =
+        "let saved; export function update(value){"
+        "if(!saved){saved=thisScene.getLayer('C1');return saved.origin;}"
+        "return saved.origin;}";
+    MWXSceneQuickJSOwner *stale_layer = mwx_scene_quickjs_owner_create(
+        domain, stale_layer_source, strlen(stale_layer_source),
+        14, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(stale_layer != NULL, "stale layer compile", diagnostic);
+    const double current_layer[3] = {4, 5, 6};
+    failures += update_vec3(
+        stale_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+        current_layer, "layer handle callback scope"
+    );
+    failures += update_vec3(
+        stale_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_EXCEPTION,
+        layer_input, "stale layer handle rejected"
+    );
+
+    const char *stale_effect_source =
+        "let saved; export function update(value){"
+        "if(!saved){saved=thisLayer.getEffect(0);return value;}"
+        "saved.executeMaterialFunction('stale');return value;}";
+    MWXSceneQuickJSOwner *stale_effect = mwx_scene_quickjs_owner_create(
+        domain, stale_effect_source, strlen(stale_effect_source),
+        15, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(stale_effect != NULL, "stale effect compile", diagnostic);
+    failures += configure_effects(
+        stale_effect, 1, 0, "known", "stale effect catalog"
+    );
+    failures += update(
+        stale_effect, 15, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "effect handle callback scope"
+    );
+    failures += update(
+        stale_effect, 15, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "stale effect handle rejected"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -476,6 +568,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(budget);
     mwx_scene_quickjs_owner_destroy(invalid_effect);
     mwx_scene_quickjs_owner_destroy(immutable_handle);
+    mwx_scene_quickjs_owner_destroy(stale_effect);
+    mwx_scene_quickjs_owner_destroy(stale_layer);
+    mwx_scene_quickjs_owner_destroy(layer_owner);
     mwx_scene_quickjs_owner_destroy(cross_owner);
     mwx_scene_quickjs_owner_destroy(mutation_overflow);
     mwx_scene_quickjs_owner_destroy(bad_return);
@@ -516,6 +611,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             "-I",
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(QUICKJS / "quickjs.c"),
             str(QUICKJS / "dtoa.c"),
             str(QUICKJS / "libregexp.c"),

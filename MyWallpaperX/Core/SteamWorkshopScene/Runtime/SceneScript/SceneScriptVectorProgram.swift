@@ -60,17 +60,20 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     let bindings: [SceneScriptVectorBinding]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
+    private let descriptor: SceneRenderDescriptor
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
 
     private init(
         domain: SceneScriptQuickJSDomain?,
+        descriptor: SceneRenderDescriptor,
         bindings: [SceneScriptVectorBinding],
         generation: UInt64,
         userPropertyDefinitions: [SceneUserPropertyDefinition]
     ) {
         self.domain = domain
+        self.descriptor = descriptor
         self.bindings = bindings
         self.generation = generation
         definitions = bindings.map(\.definition)
@@ -99,7 +102,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     ) -> SceneScriptVectorProgram {
         guard let domain else {
             return .init(
-                domain: nil, bindings: [], generation: generation,
+                domain: nil, descriptor: descriptor,
+                bindings: [], generation: generation,
+                userPropertyDefinitions: userPropertyDefinitions
+            )
+        }
+        guard (try? domain.configureLayerCatalog(descriptor)) != nil else {
+            return .init(
+                domain: nil, descriptor: descriptor,
+                bindings: [], generation: generation,
                 userPropertyDefinitions: userPropertyDefinitions
             )
         }
@@ -130,7 +141,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 < String(describing: $1.definition.target)
         }
         return .init(
-            domain: domain,
+            domain: domain, descriptor: descriptor,
             bindings: bindings,
             generation: generation,
             userPropertyDefinitions: userPropertyDefinitions
@@ -141,6 +152,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
+        layerSnapshot: SceneDynamicSnapshot? = nil,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptVectorFrameResult {
         let userJSON = userPropertiesJSON(
@@ -149,6 +161,32 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
+        if let domain {
+            do {
+                try domain.publishLayerSnapshot(
+                    layerSnapshot ?? .empty(frameIndex: 0),
+                    descriptor: descriptor
+                )
+            } catch let failure as SceneScriptScalarRuntimeFailure {
+                for binding in bindings {
+                    failures[binding.definition.target] = failure
+                }
+                return .init(
+                    values: [:], failures: failures,
+                    materialFunctionMutations: []
+                )
+            } catch {
+                for binding in bindings {
+                    failures[binding.definition.target] = .invalidArgument(
+                        String(describing: error)
+                    )
+                }
+                return .init(
+                    values: [:], failures: failures,
+                    materialFunctionMutations: []
+                )
+            }
+        }
         for binding in bindings {
             let target = binding.definition.target
             guard !disabledTargets.contains(target),
@@ -219,8 +257,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         guard binding.owner.kind == .object,
               binding.targetKey == "origin" || binding.targetKey == "scale",
               binding.valueType == .string,
-              binding.wrapperKeys == ["script", "scriptproperties", "value"]
-                || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"],
+              (
+                  (binding.wrapperKeys == ["script", "value"]
+                      && binding.properties.isEmpty)
+                    || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+                    || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+              ),
               let sourceValue = binding.authoredValue?.stringValue,
               let authored = vector3(sourceValue),
               let objectIndex = binding.owner.objectIndex,

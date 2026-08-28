@@ -112,10 +112,17 @@ TEXT_SCRIPT_BINDING_RE = re.compile(
     re.MULTILINE,
 )
 SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE = re.compile(
-    r"^scene script VM: schema=quickjs-ng-scalar-v1 "
-    r"bindings=(?P<count>\d+) targets=(?P<targets>\d+) "
+    r"^scene script VM: schema=quickjs-ng-(?:scalar-v1|typed-v2) "
+    r"bindings=(?P<count>\d+)(?: vec3Bindings=(?P<vec3_count>\d+))? "
+    r"targets=(?P<targets>\d+) "
     r"route=(?P<route>\S+) fallback=(?P<fallback>\S+)$",
     re.MULTILINE,
+)
+SCENE_SCRIPT_VEC3_COMPLETION_RE = re.compile(
+    r"MWX SceneScript VM: target=layer\(layerID: (?P<layer>\d+), "
+    r"field: [^)]*\.(?P<field>origin|scale)\) callback=completed type=Vec3 "
+    r"input=(?P<input>\([^)]*\)) output=(?P<output>\([^)]*\)) "
+    r"route=(?P<route>\S+)"
 )
 SCENE_SCRIPT_SCALAR_COMPLETION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
@@ -1453,12 +1460,29 @@ def scene_script_scalar_runtime_metrics(
         value["pass_index"],
         value["constant"],
     ))
+    vec3_completions = [
+        {
+            "layer_id": int(match.group("layer")),
+            "field": match.group("field"),
+            "input": match.group("input"),
+            "output": match.group("output"),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_VEC3_COMPLETION_RE.finditer(log_text)
+    ]
+    vec3_completions.sort(key=lambda value: (value["layer_id"], value["field"]))
     return {
         "binding_count": int(count_match.group("count")) if count_match else None,
+        "vec3_binding_count": (
+            int(count_match.group("vec3_count"))
+            if count_match and count_match.group("vec3_count") is not None
+            else None
+        ),
         "target_count": int(count_match.group("targets")) if count_match else None,
         "route": count_match.group("route") if count_match else None,
         "fallback": count_match.group("fallback") if count_match else None,
         "completions": completions,
+        "vec3_completions": vec3_completions,
         "bindings": [
             {
                 "layer_id": completion["layer_id"],
@@ -6054,6 +6078,12 @@ def run_sample(
             ),
             "scene_script_scalar_completions": (
                 scene_script_scalar_runtime["completions"]
+            ),
+            "scene_script_vec3_binding_count": (
+                scene_script_scalar_runtime["vec3_binding_count"]
+            ),
+            "scene_script_vec3_completions": (
+                scene_script_scalar_runtime["vec3_completions"]
             ),
             "media_thumbnail_current_binding_count": (
                 media_thumbnail_runtime["current_binding_count"]

@@ -306,7 +306,8 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptVectorResult = launchContext.propertyVectorScriptProgram.evaluate(
             inputs: sceneScriptVectorInputs,
             effectivePropertyValues: launchContext.liveState.effectiveValues,
-            frame: SceneScriptFrameInput(timing: timing)
+            frame: SceneScriptFrameInput(timing: timing),
+            layerSnapshot: preliminaryForSceneScript
         )
         for (target, failure) in sceneScriptVectorResult.failures {
             NSLog(
