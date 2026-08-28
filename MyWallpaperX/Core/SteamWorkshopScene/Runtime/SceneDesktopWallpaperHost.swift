@@ -72,8 +72,6 @@ final class SceneDesktopWallpaperHost {
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
-    var mediaPlaybackPlaceholderFadeRuntime =
-        SceneMediaPlaybackPlaceholderFadeRuntime(program: .empty)
     var mediaColorTransitionRuntime =
         SceneMediaColorTransitionRuntime(program: .empty)
     var sharedLayerAlphaRuntime =
@@ -135,9 +133,6 @@ final class SceneDesktopWallpaperHost {
         debugAudioScaledValueGeneration = 0
         debugAudioScaledValueWasSilent = true
 #endif
-        mediaPlaybackPlaceholderFadeRuntime = .init(
-            program: context.mediaPlaybackPlaceholderFadeProgram
-        )
         mediaColorTransitionRuntime = .init(
             program: context.mediaColorTransitionProgram
         )

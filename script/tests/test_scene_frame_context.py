@@ -495,31 +495,32 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("let timing = advancedTiming", frame_driver)
         render_position = frame_driver.index("private func renderFrame()")
         broadcast_position = frame_driver.index("for surface in surfaces.values", render_position)
-        fade_position = frame_driver.index(
-            "mediaPlaybackPlaceholderFadeRuntime.values(", render_position
-        )
         media_input_position = frame_driver.index(
             "let mediaInput = SceneMediaThumbnailInbox.shared.latest()", render_position
+        )
+        playback_event_position = frame_driver.index(
+            "SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)", render_position
+        )
+        scalar_vm_position = frame_driver.index(
+            "launchContext.sceneScriptScalarProgram.evaluate(", render_position
         )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
-        self.assertLess(fade_position, broadcast_position)
-        self.assertLess(media_input_position, fade_position)
+        self.assertLess(media_input_position, playback_event_position)
+        self.assertLess(playback_event_position, scalar_vm_position)
+        self.assertLess(scalar_vm_position, broadcast_position)
         self.assertLess(broadcast_position, snapshot_position)
-        self.assertEqual(
-            frame_driver.count("mediaPlaybackPlaceholderFadeRuntime.values("), 1
-        )
         self.assertEqual(
             frame_driver.count("SceneMediaThumbnailInbox.shared.latest()"), 1
         )
-        self.assertIn("playbackEventState: mediaInput.playbackState", frame_driver)
+        self.assertIn(
+            "mediaPlaybackEvent: sceneScriptMediaPlaybackEvent", frame_driver
+        )
         self.assertIn("mediaInput: mediaInput", frame_driver)
         self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
-        self.assertIn(
-            "launchContext.mediaPlaybackPlaceholderFadeProgram.bindings", frame_driver
-        )
-        self.assertEqual(host.count("SceneMediaPlaybackPlaceholderFadeRuntime"), 1)
+        self.assertNotIn("mediaPlaybackPlaceholderFade", frame_driver)
+        self.assertNotIn("SceneMediaPlaybackPlaceholderFadeRuntime", host)
         self.assertNotIn(
             "SceneDynamicSnapshot.empty(frameIndex: timing.frameIndex)", frame_driver
         )

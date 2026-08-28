@@ -16,6 +16,24 @@ nonisolated struct SceneScriptMediaThumbnailEventInput: Equatable, Sendable {
     }
 }
 
+nonisolated struct SceneScriptMediaPlaybackEventInput: Equatable, Sendable {
+    let state: Int
+    let generation: UInt64
+
+    init(state: Int, generation: UInt64) {
+        self.state = state
+        self.generation = generation
+    }
+
+    init?(snapshot: SceneMediaThumbnailInbox.Snapshot) {
+        guard snapshot.playbackGeneration > 0,
+              let state = snapshot.playbackState,
+              (0...2).contains(state) else { return nil }
+        self.state = state
+        generation = snapshot.playbackGeneration
+    }
+}
+
 nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
     let animations: [SceneTimelinePlaybackMutation]
@@ -55,6 +73,53 @@ nonisolated enum SceneScriptMediaEventBridge {
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
         }
+        return mutations(owner: owner, target: target, layerID: layerID)
+    }
+
+    static func dispatchPlayback(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        layerID: Int,
+        ownerGeneration: UInt64,
+        event: SceneScriptMediaPlaybackEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard (0...2).contains(event.state) else {
+            return .failure(.invalidArgument("invalid media playback state"))
+        }
+        var rawEvent = MWXSceneQuickJSMediaPlaybackEvent(
+            state: UInt32(event.state)
+        )
+        var rawFrame = MWXSceneQuickJSFrameInput(
+            time_of_day: frame.timeOfDay,
+            frame_time: frame.frameTime,
+            runtime: frame.runtime
+        )
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let raw = userPropertiesJSON.withCString { userProperties in
+            mwx_scene_quickjs_owner_dispatch_media_playback(
+                owner,
+                ownerGeneration,
+                &rawEvent,
+                &rawFrame,
+                userProperties,
+                userPropertiesJSON.utf8.count,
+                &diagnostic,
+                diagnostic.count
+            )
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return .failure(failure(raw, diagnostic))
+        }
+        return mutations(owner: owner, target: target, layerID: layerID)
+    }
+
+    private static func mutations(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        layerID: Int
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         let materialFunctions: [SceneScriptMaterialFunctionMutation]
         switch SceneScriptEffectHandleBridge.mutations(
             owner: owner,

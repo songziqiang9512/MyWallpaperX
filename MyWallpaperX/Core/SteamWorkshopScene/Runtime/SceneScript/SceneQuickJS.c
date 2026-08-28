@@ -68,7 +68,8 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
         "return builder;"
         "}"
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
-        "return {Vec3,createScriptProperties,deepFreeze};"
+        "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
+        "return {Vec3,createScriptProperties,deepFreeze,MediaPlaybackEvent};"
         "})()";
     JSContext *context = domain->context;
     JSValue host = JS_Eval(
@@ -84,12 +85,17 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
     }
     JSValue vec3 = JS_GetPropertyStr(context, host, "Vec3");
     JSValue builder = JS_GetPropertyStr(context, host, "createScriptProperties");
+    JSValue media_playback = JS_GetPropertyStr(
+        context, host, "MediaPlaybackEvent"
+    );
     domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
     JS_FreeValue(context, host);
     if (!JS_IsFunction(context, vec3) || !JS_IsFunction(context, builder) ||
+        !JS_IsObject(media_playback) ||
         !JS_IsFunction(context, domain->deep_freeze)) {
         JS_FreeValue(context, vec3);
         JS_FreeValue(context, builder);
+        JS_FreeValue(context, media_playback);
         JS_FreeValue(context, domain->deep_freeze);
         domain->deep_freeze = JS_UNDEFINED;
         return false;
@@ -105,8 +111,15 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
         builder,
         read_only
     );
+    int media_playback_result = JS_DefinePropertyValueStr(
+        context,
+        global,
+        "MediaPlaybackEvent",
+        media_playback,
+        read_only
+    );
     JS_FreeValue(context, global);
-    return vec_result >= 0 && builder_result >= 0;
+    return vec_result >= 0 && builder_result >= 0 && media_playback_result >= 0;
 }
 
 static JSModuleDef *load_allowlisted_module(

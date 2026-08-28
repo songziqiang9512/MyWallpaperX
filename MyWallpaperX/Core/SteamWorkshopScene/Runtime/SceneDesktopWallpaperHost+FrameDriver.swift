@@ -220,9 +220,7 @@ extension SceneDesktopWallpaperHost {
             propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: launchContext.timelineProgram,
             textScriptProgram: launchContext.textScriptProgram,
-            additionalDefinitions: launchContext.mediaPlaybackPlaceholderFadeProgram.bindings.map(
-                \.definition
-            ) + launchContext.mediaColorTransitionProgram.bindings.map(
+            additionalDefinitions: launchContext.mediaColorTransitionProgram.bindings.map(
                 \.definition
             ) + launchContext.sharedLayerAlphaProgram.definitions
                 + launchContext.launchOriginTransitionProgram.definitions
@@ -238,6 +236,8 @@ extension SceneDesktopWallpaperHost {
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
         let sceneScriptMediaThumbnailEvent =
             SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)
+        let sceneScriptMediaPlaybackEvent =
+            SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)
         let mediaProperties = mediaInput.properties.map {
             SceneTextMediaPropertiesSnapshot(
                 title: $0.title,
@@ -250,11 +250,6 @@ extension SceneDesktopWallpaperHost {
             wallDate: timing.wallDate,
             mediaProperties: mediaProperties
         )
-        let mediaPlaybackPlaceholderFadeValues =
-            mediaPlaybackPlaceholderFadeRuntime.values(
-                playbackEventState: mediaInput.playbackState,
-                frameTime: timing.simulationFrameTime
-            )
         let mediaColorTransitionValues = mediaColorTransitionRuntime.values(
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             mediaInput: mediaInput,
@@ -277,9 +272,6 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
         var commonSceneScriptValues = textScriptValues.merging(
-            mediaPlaybackPlaceholderFadeValues,
-            uniquingKeysWith: { textValue, _ in textValue }
-        ).merging(
             mediaColorTransitionValues,
             uniquingKeysWith: { existing, _ in existing }
         ).merging(
@@ -310,7 +302,8 @@ extension SceneDesktopWallpaperHost {
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frame: SceneScriptFrameInput(timing: timing),
             layerSnapshot: preliminaryForSceneScript,
-            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent
+            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
+            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent
         )
         for (target, failure) in sceneScriptVectorResult.failures {
             NSLog(
@@ -338,7 +331,8 @@ extension SceneDesktopWallpaperHost {
                 .userPropertiesJSON(
                     effectiveValues: launchContext.liveState.effectiveValues
                 ),
-            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent
+            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
+            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent
         )
         if !sceneScriptResult.failures.isEmpty {
             for (target, failure) in sceneScriptResult.failures {

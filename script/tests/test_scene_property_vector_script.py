@@ -44,6 +44,8 @@ final class SceneMediaThumbnailInbox {
     struct Snapshot {
         let current: Data?
         let generation: UInt64
+        let playbackState: Int?
+        let playbackGeneration: UInt64
     }
 }
 
@@ -76,8 +78,18 @@ struct SceneRenderDescriptor {
     }
     struct EffectDescriptor {
         let name: String?
-        let effectID: Int? = nil
-        let passes: [PassDescriptor] = []
+        let effectID: Int?
+        let passes: [PassDescriptor]
+
+        init(
+            name: String?,
+            effectID: Int? = nil,
+            passes: [PassDescriptor] = []
+        ) {
+            self.name = name
+            self.effectID = effectID
+            self.passes = passes
+        }
     }
     struct Layer {
         let id: Int
@@ -101,7 +113,18 @@ enum Harness {
                 id: 10, layerIndex: 0, name: "anchor", visible: true,
                 originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
                 scaleHasScript: true, alpha: 0.75,
-                effects: [.init(name: "history")]
+                effects: [.init(
+                    name: "history", effectID: 100,
+                    passes: [.init(
+                        passIndex: 0, id: 200,
+                        constantShaderValues: [
+                            "alpha": .init(
+                                scriptSource: mediaPlaybackSource,
+                                components: [1]
+                            ),
+                        ]
+                    )]
+                )]
             ),
             .init(
                 id: 42, layerIndex: 1, name: "C1", visible: true,
@@ -279,6 +302,34 @@ enum Harness {
             effectivePropertyValues: [:], frame: frame,
             mediaThumbnailEvent: mediaEvent
         )
+        let playbackTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "alpha"
+        )
+        let playbackProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "alpha", source: mediaPlaybackSource, value: 1
+            )],
+            generation: 16
+        )
+        let playbackFrame = SceneScriptFrameInput(timing: .init(
+            wallDate: Date(timeIntervalSince1970: 0),
+            simulationFrameTime: 0.25,
+            sceneTime: 2
+        ), timeZone: TimeZone(secondsFromGMT: 0)!)
+        let playing = playbackProgram.evaluate(
+            inputs: [playbackTarget: .scalar(1)], frame: playbackFrame,
+            mediaPlaybackEvent: .init(state: 1, generation: 1)
+        )
+        let playingNextFrame = playbackProgram.evaluate(
+            inputs: [playbackTarget: .scalar(1)], frame: playbackFrame,
+            mediaPlaybackEvent: .init(state: 1, generation: 1)
+        )
+        let stopped = playbackProgram.evaluate(
+            inputs: [playbackTarget: .scalar(1)], frame: playbackFrame,
+            mediaPlaybackEvent: .init(state: 0, generation: 2)
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -313,6 +364,12 @@ enum Harness {
             },
             "mediaGenerationDeduplicated":
                 duplicateMediaOriginResult.animationMutations.isEmpty,
+            "playbackBindings": playbackProgram.bindings.count,
+            "playbackPlaying": scalar(playing.values[playbackTarget]),
+            "playbackNextFrame": scalar(playingNextFrame.values[playbackTarget]),
+            "playbackStopped": scalar(stopped.values[playbackTarget]),
+            "playbackFailures": playing.failures.count
+                + playingNextFrame.failures.count + stopped.failures.count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -367,6 +424,29 @@ enum Harness {
         )
     }
 
+    static func passBinding(
+        key: String,
+        source: String,
+        value: Double
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .pass, objectIndex: 0, objectID: 10,
+                effectIndex: 0, effectID: 100, passIndex: 0, passID: 200
+            ),
+            targetPath: [
+                .key("objects"), .index(0), .key("effects"), .index(0),
+                .key("passes"), .index(0), .key("constantshadervalues"),
+                .key(key),
+            ],
+            properties: [:],
+            authoredValue: .number(value),
+            valueType: .number,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
     static let originSource = """
     'use strict';
     export var scriptProperties = createScriptProperties()
@@ -411,6 +491,42 @@ enum Harness {
         animation.stop();
         animation.play();
       }
+    }
+    """
+
+    static let mediaPlaybackSource = """
+    'use strict'
+    var secondsPerFade = 1
+    var resultScale = 1
+    var unusedPlaybackSlot = 0
+    var scalarAccumulator = 0
+    secondsPerFade = 1 / secondsPerFade
+    var playbackBranch = MediaPlaybackEvent.PLAYBACK_STOPPED
+
+    export function mediaPlaybackChanged(playbackEvent) {
+        if (playbackEvent.state == MediaPlaybackEvent.PLAYBACK_STOPPED) {
+            playbackBranch = 0
+        } else if (playbackEvent.state == MediaPlaybackEvent.PLAYBACK_PLAYING) {
+            playbackBranch = 1
+        } else if (playbackEvent.state == MediaPlaybackEvent.PLAYBACK_PAUSED) {
+            playbackBranch = 2
+        } else {
+            playbackBranch = 3
+        }
+    }
+
+    export function update(authoredScalar) {
+        if (playbackBranch == 0) {
+            scalarAccumulator = scalarAccumulator - (secondsPerFade * engine.frametime * 2)
+            if (scalarAccumulator < 0) { scalarAccumulator = 0 }
+        } else if (playbackBranch == 1) {
+            scalarAccumulator = scalarAccumulator + (secondsPerFade * engine.frametime * 2)
+            if (scalarAccumulator > 1) { scalarAccumulator = 1 }
+        } else if (playbackBranch == 2) {
+            scalarAccumulator = scalarAccumulator + (secondsPerFade * engine.frametime * 2)
+            if (scalarAccumulator > 1) { scalarAccumulator = 1 }
+        }
+        return scalarAccumulator * resultScale
     }
     """
 }
@@ -488,6 +604,11 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["alphaAnimationCommands"], ["play"])
         self.assertEqual(value["mediaAnimationCommands"], ["stop", "play"])
         self.assertTrue(value["mediaGenerationDeduplicated"])
+        self.assertEqual(value["playbackBindings"], 1)
+        self.assertEqual(value["playbackPlaying"], 0.5)
+        self.assertEqual(value["playbackNextFrame"], 1.0)
+        self.assertEqual(value["playbackStopped"], 0.5)
+        self.assertEqual(value["playbackFailures"], 0)
 
 
 if __name__ == "__main__":

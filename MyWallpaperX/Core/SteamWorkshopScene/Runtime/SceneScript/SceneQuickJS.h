@@ -41,6 +41,10 @@ typedef struct MWXSceneQuickJSMediaThumbnailEvent {
     uint32_t has_thumbnail;
 } MWXSceneQuickJSMediaThumbnailEvent;
 
+typedef struct MWXSceneQuickJSMediaPlaybackEvent {
+    uint32_t state;
+} MWXSceneQuickJSMediaPlaybackEvent;
+
 MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
     size_t stack_limit,
@@ -163,6 +167,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const MWXSceneQuickJSMediaThumbnailEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaPlaybackEvent *event,
     const MWXSceneQuickJSFrameInput *frame,
     const char *user_properties_json,
     size_t user_properties_length,

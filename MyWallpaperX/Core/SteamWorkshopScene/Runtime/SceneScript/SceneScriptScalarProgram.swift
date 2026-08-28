@@ -18,6 +18,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
+    private var consumedMediaPlaybackGeneration: UInt64 = 0
 
     private init(
         domain: SceneScriptQuickJSDomain?,
@@ -102,6 +103,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
+        mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
         var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
@@ -112,6 +114,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         } else {
             pendingMediaEvent = nil
         }
+        var pendingPlaybackEvent: SceneScriptMediaPlaybackEventInput?
+        if let event = mediaPlaybackEvent,
+           event.generation != consumedMediaPlaybackGeneration {
+            consumedMediaPlaybackGeneration = event.generation
+            pendingPlaybackEvent = event
+        } else {
+            pendingPlaybackEvent = nil
+        }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
@@ -120,6 +130,31 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             guard !disabledTargets.contains(binding.target) else { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
+            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
+            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var playbackMutationCount = 0
+            if let pendingPlaybackEvent {
+                switch binding.dispatchMediaPlayback(
+                    pendingPlaybackEvent,
+                    frame: frame,
+                    userPropertiesJSON: userPropertiesJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    playbackMutationCount = eventMutations.materialFunctions.count
+                        + eventMutations.animations.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             switch binding.evaluate(
                 input: value,
                 frame: frame,
@@ -128,8 +163,13 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
-                var callbackMaterialMutations = evaluation.materialFunctionMutations
-                var callbackAnimationMutations = evaluation.animationMutations
+                callbackMaterialMutations.append(
+                    contentsOf: evaluation.materialFunctionMutations
+                )
+                callbackAnimationMutations.append(
+                    contentsOf: evaluation.animationMutations
+                )
+                var thumbnailMutationCount = 0
                 if let pendingMediaEvent {
                     switch binding.dispatchMediaThumbnail(
                         pendingMediaEvent,
@@ -138,6 +178,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         interruptBudget: interruptBudget
                     ) {
                     case let .success(eventMutations):
+                        thumbnailMutationCount = eventMutations.materialFunctions.count
+                            + eventMutations.animations.count
                         callbackMaterialMutations.append(
                             contentsOf: eventMutations.materialFunctions
                         )
@@ -159,7 +201,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         String(describing: binding.target),
                         pendingMediaEvent?.generation ?? 0,
                         pendingMediaEvent?.hasThumbnail == true ? "true" : "false",
-                        callbackMaterialMutations.count + callbackAnimationMutations.count
+                        thumbnailMutationCount
+                    )
+                }
+                if pendingPlaybackEvent != nil {
+                    NSLog(
+                        "MWX SceneScript VM: target=%@ event=mediaPlaybackChanged generation=%llu state=%d mutations=%d route=generic-only",
+                        String(describing: binding.target),
+                        pendingPlaybackEvent?.generation ?? 0,
+                        pendingPlaybackEvent?.state ?? -1,
+                        playbackMutationCount
                     )
                 }
                 if reportedTargets.insert(binding.target).inserted,

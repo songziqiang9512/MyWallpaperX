@@ -45,10 +45,49 @@ static MWXSceneQuickJSResult callback_failure(
     return result;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
+typedef JSValue (*MWXSceneQuickJSEventArgumentFactory)(
+    JSContext *context,
+    const void *payload
+);
+
+static JSValue thumbnail_argument(JSContext *context, const void *payload) {
+    const MWXSceneQuickJSMediaThumbnailEvent *event = payload;
+    JSValue argument = JS_NewObject(context);
+    if (JS_IsException(argument) || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "hasThumbnail",
+            JS_NewBool(context, event->has_thumbnail != 0),
+            JS_PROP_ENUMERABLE
+        ) < 0) {
+        JS_FreeValue(context, argument);
+        return JS_EXCEPTION;
+    }
+    return argument;
+}
+
+static JSValue playback_argument(JSContext *context, const void *payload) {
+    const MWXSceneQuickJSMediaPlaybackEvent *event = payload;
+    JSValue argument = JS_NewObject(context);
+    if (JS_IsException(argument) || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "state",
+            JS_NewUint32(context, event->state),
+            JS_PROP_ENUMERABLE
+        ) < 0) {
+        JS_FreeValue(context, argument);
+        return JS_EXCEPTION;
+    }
+    return argument;
+}
+
+static MWXSceneQuickJSResult dispatch_event(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
-    const MWXSceneQuickJSMediaThumbnailEvent *event,
+    const char *callback_name,
+    MWXSceneQuickJSEventArgumentFactory argument_factory,
+    const void *payload,
     const MWXSceneQuickJSFrameInput *frame,
     const char *user_properties_json,
     size_t user_properties_length,
@@ -56,10 +95,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || event == NULL || event->has_thumbnail > 1 ||
-        !valid_frame(frame)) {
+    if (owner == NULL || callback_name == NULL || argument_factory == NULL ||
+        payload == NULL || !valid_frame(frame)) {
         mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity, "invalid media thumbnail event"
+            diagnostic, diagnostic_capacity, "invalid SceneScript media event"
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
@@ -85,7 +124,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     owner->animation_command_overflow = false;
 
     JSValue function = JS_GetPropertyStr(
-        context, owner->module, "mediaThumbnailChanged"
+        context, owner->module, callback_name
     );
     if (JS_IsException(function)) {
         JS_FreeValue(context, function);
@@ -130,16 +169,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
 
-    JSValue argument = JS_NewObject(context);
-    int argument_result = JS_IsException(argument) ? -1 :
-        JS_DefinePropertyValueStr(
-            context,
-            argument,
-            "hasThumbnail",
-            JS_NewBool(context, event->has_thumbnail != 0),
-            JS_PROP_ENUMERABLE
-        );
-    JSValue result = argument_result < 0
+    JSValue argument = argument_factory(context, payload);
+    JSValue result = JS_IsException(argument)
         ? JS_EXCEPTION
         : JS_Call(context, function, owner->module, 1, &argument);
     JS_FreeValue(context, argument);
@@ -166,4 +197,64 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     }
     JS_FreeValue(context, result);
     return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaThumbnailEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (event == NULL || event->has_thumbnail > 1) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid media thumbnail event"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    return dispatch_event(
+        owner,
+        expected_generation,
+        "mediaThumbnailChanged",
+        thumbnail_argument,
+        event,
+        frame,
+        user_properties_json,
+        user_properties_length,
+        diagnostic,
+        diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaPlaybackEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (event == NULL || event->state > 2) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid media playback event"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    return dispatch_event(
+        owner,
+        expected_generation,
+        "mediaPlaybackChanged",
+        playback_argument,
+        event,
+        frame,
+        user_properties_json,
+        user_properties_length,
+        diagnostic,
+        diagnostic_capacity
+    );
 }

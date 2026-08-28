@@ -67,8 +67,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
-    let mediaPlaybackPlaceholderFadeProgram:
-        SceneMediaPlaybackPlaceholderFadeProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
@@ -97,9 +95,6 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
                 + " reason=snapshot-lifecycle-unproven",
-            "scene media placeholder fade: schema=bounded-playback-fade-v1"
-                + " bindings=\(mediaPlaybackPlaceholderFadeProgram.bindings.count)"
-                + " input=typed-inbox liveProvider=unavailable initialMode=stopped",
             "scene media color transition: schema=bounded-thumbnail-palette-v2"
                 + " bindings=\(mediaColorTransitionProgram.bindings.count)"
                 + " input=typed-inbox liveProvider=unavailable",
@@ -437,17 +432,6 @@ extension SceneDesktopWallpaperHost {
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
                 definitions: propertyBindingDefinitions
             )
-        guard let mediaPlaybackPlaceholderFadeCandidates =
-                SceneMediaPlaybackPlaceholderFadeProgramCompiler.compile(
-                    descriptor: runtimeInput.renderDescriptor,
-                    scriptBindings: model.sceneDocument.scriptBindings
-                ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("media-placeholder-candidates")
-        }
-        let mediaPlaybackPlaceholderFadeCandidateTargets = Set(
-            mediaPlaybackPlaceholderFadeCandidates.bindings.map(\.definition.target)
-        )
         guard let mediaColorTransitionCandidates =
                 SceneMediaColorTransitionProgramCompiler.compile(
                     descriptor: runtimeInput.renderDescriptor,
@@ -471,8 +455,6 @@ extension SceneDesktopWallpaperHost {
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count,
              model.propertyVectorScriptProgram.animationTargets),
-            ("media-placeholder", mediaPlaybackPlaceholderFadeCandidateTargets,
-             mediaPlaybackPlaceholderFadeCandidates.bindings.count, []),
             ("media-color", mediaColorTransitionCandidateTargets,
              mediaColorTransitionCandidates.bindings.count, []),
         ]
@@ -518,8 +500,7 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
         }
-        let provenSceneScriptValueTargets = mediaPlaybackPlaceholderFadeCandidateTargets
-            .union(mediaColorTransitionCandidateTargets)
+        let provenSceneScriptValueTargets = mediaColorTransitionCandidateTargets
             .union(launchOriginTransitionProgram.scalarBindings.map {
                 $0.definition.target
             })
@@ -590,17 +571,6 @@ extension SceneDesktopWallpaperHost {
         )
         let sceneScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
-        guard let mediaPlaybackPlaceholderFadeProgram =
-                SceneMediaPlaybackPlaceholderFadeProgram.validated(
-                    bindings: mediaPlaybackPlaceholderFadeCandidates.bindings.filter {
-                        sceneScriptConsumerTargets.contains(
-                            $0.definition.target
-                        )
-                    }
-                ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("media-placeholder-consumers")
-        }
         guard let mediaColorTransitionProgram =
                 SceneMediaColorTransitionProgram.validated(
                     bindings: mediaColorTransitionCandidates.bindings.filter {
@@ -632,8 +602,6 @@ extension SceneDesktopWallpaperHost {
             textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),
-            mediaPlaybackPlaceholderFadeProgram:
-                mediaPlaybackPlaceholderFadeProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,

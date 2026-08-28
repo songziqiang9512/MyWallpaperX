@@ -78,6 +78,28 @@ static int media_thumbnail(
     return check(actual == expected, label, diagnostic);
 }
 
+static int media_playback(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    uint32_t state,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSMediaPlaybackEvent event = {.state = state};
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_dispatch_media_playback(
+            owner, generation, &event, &frame, "{}", 2,
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
 static int update_vec3(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -713,6 +735,82 @@ int main(void) {
         "media animation play mutation"
     );
 
+    const char *media_playback_source =
+        "let state=MediaPlaybackEvent.PLAYBACK_STOPPED;"
+        "export function mediaPlaybackChanged(event){state=event.state;}"
+        "export function update(value){"
+        "if(MediaPlaybackEvent.PLAYBACK_PLAYING!==1||"
+        "MediaPlaybackEvent.PLAYBACK_PAUSED!==2)throw new Error('enum');"
+        "return value+state;}";
+    MWXSceneQuickJSOwner *media_playback_owner = mwx_scene_quickjs_owner_create(
+        domain, media_playback_source, strlen(media_playback_source),
+        20, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        media_playback_owner != NULL, "media playback compile", diagnostic
+    );
+    failures += update(
+        media_playback_owner, 20, 3, MWX_SCENE_QUICKJS_OK, 3,
+        "media playback stopped initial state"
+    );
+    failures += media_playback(
+        media_playback_owner, 20, 1, MWX_SCENE_QUICKJS_OK,
+        "media playback playing event"
+    );
+    failures += update(
+        media_playback_owner, 20, 3, MWX_SCENE_QUICKJS_OK, 4,
+        "media playback event updates same owner state"
+    );
+    failures += media_playback(
+        media_playback_owner, 20, 3, MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "invalid media playback state"
+    );
+    failures += media_playback(
+        media_playback_owner, 21, 2, MWX_SCENE_QUICKJS_STALE_OWNER,
+        "stale media playback owner"
+    );
+
+    const char *immutable_media_playback_source =
+        "'use strict';export function update(value){"
+        "MediaPlaybackEvent.PLAYBACK_STOPPED=9;return value;}";
+    MWXSceneQuickJSOwner *immutable_media_playback =
+        mwx_scene_quickjs_owner_create(
+            domain, immutable_media_playback_source,
+            strlen(immutable_media_playback_source),
+            21, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        immutable_media_playback != NULL,
+        "immutable media playback compile", diagnostic
+    );
+    failures += update(
+        immutable_media_playback, 21, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "MediaPlaybackEvent is immutable"
+    );
+
+    const char *playback_error_source =
+        "export function mediaPlaybackChanged(){throw new Error('playback');}"
+        "export function update(value){return value;}";
+    MWXSceneQuickJSOwner *playback_error = mwx_scene_quickjs_owner_create(
+        domain, playback_error_source, strlen(playback_error_source),
+        22, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        playback_error != NULL, "media playback error compile", diagnostic
+    );
+    failures += media_playback(
+        playback_error, 22, 1, MWX_SCENE_QUICKJS_EXCEPTION,
+        "media playback callback exception"
+    );
+    failures += update(
+        playback_error, 22, 1, MWX_SCENE_QUICKJS_DISABLED, 0,
+        "media playback callback disables only its owner"
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "media playback failure preserves peer owner"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -724,6 +822,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(stale_effect);
     mwx_scene_quickjs_owner_destroy(named_animation);
     mwx_scene_quickjs_owner_destroy(media_animation);
+    mwx_scene_quickjs_owner_destroy(immutable_media_playback);
+    mwx_scene_quickjs_owner_destroy(playback_error);
+    mwx_scene_quickjs_owner_destroy(media_playback_owner);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -823,9 +924,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         ]
         for producer in (
             "launch-origin", "hover-origin", "audio-scaled", "property-vector",
-            "media-placeholder", "media-color",
+            "media-color",
         ):
             self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",

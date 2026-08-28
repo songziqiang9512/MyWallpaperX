@@ -67,6 +67,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
+    private var consumedMediaPlaybackGeneration: UInt64 = 0
 
     private init(
         domain: SceneScriptQuickJSDomain?,
@@ -170,6 +171,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         frame: SceneScriptFrameInput,
         layerSnapshot: SceneDynamicSnapshot? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
+        mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptVectorFrameResult {
         var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
@@ -179,6 +181,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             pendingMediaEvent = event
         } else {
             pendingMediaEvent = nil
+        }
+        var pendingPlaybackEvent: SceneScriptMediaPlaybackEventInput?
+        if let event = mediaPlaybackEvent,
+           event.generation != consumedMediaPlaybackGeneration {
+            consumedMediaPlaybackGeneration = event.generation
+            pendingPlaybackEvent = event
+        } else {
+            pendingPlaybackEvent = nil
         }
         let userJSON = userPropertiesJSON(
             effectiveValues: effectivePropertyValues
@@ -224,6 +234,31 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       binding.properties,
                       effectiveValues: effectivePropertyValues
                   ) else { continue }
+            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
+            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var playbackMutationCount = 0
+            if let pendingPlaybackEvent {
+                switch binding.owner.dispatchMediaPlayback(
+                    pendingPlaybackEvent,
+                    frame: frame,
+                    userPropertiesJSON: userJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    playbackMutationCount = eventMutations.materialFunctions.count
+                        + eventMutations.animations.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
             switch binding.owner.evaluate(
                 input: SIMD3(x, y, z),
                 frame: frame,
@@ -234,8 +269,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             ) {
             case let .success(evaluation):
                 let value = evaluation.value
-                var callbackMaterialMutations = evaluation.materialFunctionMutations
-                var callbackAnimationMutations = evaluation.animationMutations
+                callbackMaterialMutations.append(
+                    contentsOf: evaluation.materialFunctionMutations
+                )
+                callbackAnimationMutations.append(
+                    contentsOf: evaluation.animationMutations
+                )
+                var thumbnailMutationCount = 0
                 if let pendingMediaEvent {
                     switch binding.owner.dispatchMediaThumbnail(
                         pendingMediaEvent,
@@ -244,6 +284,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         interruptBudget: interruptBudget
                     ) {
                     case let .success(eventMutations):
+                        thumbnailMutationCount = eventMutations.materialFunctions.count
+                            + eventMutations.animations.count
                         callbackMaterialMutations.append(
                             contentsOf: eventMutations.materialFunctions
                         )
@@ -267,7 +309,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         String(describing: target),
                         pendingMediaEvent?.generation ?? 0,
                         pendingMediaEvent?.hasThumbnail == true ? "true" : "false",
-                        callbackMaterialMutations.count + callbackAnimationMutations.count
+                        thumbnailMutationCount
+                    )
+                }
+                if pendingPlaybackEvent != nil {
+                    NSLog(
+                        "MWX SceneScript VM: target=%@ event=mediaPlaybackChanged generation=%llu state=%d mutations=%d route=generic-only",
+                        String(describing: target),
+                        pendingPlaybackEvent?.generation ?? 0,
+                        pendingPlaybackEvent?.state ?? -1,
+                        playbackMutationCount
                     )
                 }
                 if reportedTargets.insert(target).inserted,
