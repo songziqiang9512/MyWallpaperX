@@ -43,6 +43,7 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
 nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
 }
 
 nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
@@ -84,6 +85,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         target: SceneDynamicTarget,
         authoredValue: Double,
         effectNames: [String?],
+        hasCurrentAnimation: Bool = false,
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) throws {
@@ -117,6 +119,10 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
+            )
+            try SceneScriptAnimationHandleBridge.configure(
+                owner: created,
+                hasCurrentAnimation: hasCurrentAnimation
             )
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
@@ -180,8 +186,12 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         guard output.isFinite else {
             return .failure(.badReturn("non-finite output"))
         }
-        guard case let .effectConstant(layerID, _, _, _) = target else {
-            return .failure(.invalidArgument("material function owner identity unavailable"))
+        let layerID: Int
+        switch target {
+        case let .effectConstant(value, _, _, _), let .layer(value, _):
+            layerID = value
+        default:
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         let mutations: [SceneScriptMaterialFunctionMutation]
         switch SceneScriptEffectHandleBridge.mutations(
@@ -191,9 +201,18 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         case let .success(value): mutations = value
         case let .failure(failure): return .failure(failure)
         }
+        let animationMutations: [SceneTimelinePlaybackMutation]
+        switch SceneScriptAnimationHandleBridge.mutations(
+            owner: handle,
+            target: target
+        ) {
+        case let .success(value): animationMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             value: .scalar(output),
-            materialFunctionMutations: mutations
+            materialFunctionMutations: mutations,
+            animationMutations: animationMutations
         ))
     }
 

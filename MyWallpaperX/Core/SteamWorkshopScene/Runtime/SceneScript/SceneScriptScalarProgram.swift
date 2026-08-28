@@ -4,6 +4,7 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
 }
 
 /// Generic pass-constant SceneScript owners. The program is deliberately
@@ -38,6 +39,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         domain sharedDomain: SceneScriptQuickJSDomain? = nil,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64 = 1,
         budget: SceneScriptScalarBudget = .default
@@ -52,7 +54,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         }
         let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double)] =
             scriptBindings.compactMap { binding in
-                guard let target = projection(binding, descriptor: descriptor),
+                guard let target = projection(
+                          binding,
+                          descriptor: descriptor,
+                          timelineTargets: timelineTargets
+                      ),
                       !excludedTargets.contains(target),
                       let authored = binding.authoredValue?.numberValue,
                       authored.isFinite else { return nil }
@@ -62,8 +68,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             .mapValues(\.count)
         var owners: [SceneScriptScalarOwner] = []
         for (binding, target, authored) in candidates {
+            let layerID: Int
+            switch target {
+            case let .effectConstant(value, _, _, _), let .layer(value, _):
+                layerID = value
+            default:
+                continue
+            }
             guard counts[target] == 1,
-                  case let .effectConstant(layerID, _, _, _) = target,
                   let layer = descriptor.layers.first(where: { $0.id == layerID }),
                   let owner = try? SceneScriptScalarOwner(
                       domain: domain,
@@ -71,6 +83,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       target: target,
                       authoredValue: authored,
                       effectNames: layer.effects.map(\.name),
+                      hasCurrentAnimation: timelineTargets.contains(target),
                       generation: generation,
                       budget: budget
                   ) else { continue }
@@ -92,6 +105,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
+        var animationMutations: [SceneTimelinePlaybackMutation] = []
         for binding in bindings {
             guard !disabledTargets.contains(binding.target) else { continue }
             guard let input = inputs[binding.target],
@@ -106,6 +120,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             case let .success(evaluation):
                 values[binding.target] = evaluation.value
                 materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
+                animationMutations.append(contentsOf: evaluation.animationMutations)
                 if reportedTargets.insert(binding.target).inserted,
                    case let .scalar(inputValue) = input,
                    case let .scalar(outputValue) = evaluation.value {
@@ -129,7 +144,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         return .init(
             values: values,
             failures: failures,
-            materialFunctionMutations: materialFunctionMutations
+            materialFunctionMutations: materialFunctionMutations,
+            animationMutations: animationMutations
         )
     }
 
@@ -148,20 +164,35 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     private static func projection(
         _ binding: SceneScriptBindingIR,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        timelineTargets: Set<SceneDynamicTarget>
     ) -> SceneDynamicTarget? {
-        guard binding.owner.kind == .pass,
-              binding.properties.isEmpty,
+        guard binding.properties.isEmpty,
               binding.valueType == .number,
               let authored = binding.authoredValue?.numberValue,
               authored.isFinite,
               let objectIndex = binding.owner.objectIndex,
               let layerID = binding.owner.objectID,
-              let effectIndex = binding.owner.effectIndex,
-              let passIndex = binding.owner.passIndex,
               descriptor.layers.indices.contains(objectIndex),
               descriptor.layers[objectIndex].id == layerID,
-              descriptor.layers[objectIndex].layerIndex == objectIndex,
+              descriptor.layers[objectIndex].layerIndex == objectIndex else {
+            return nil
+        }
+        if binding.owner.kind == .object {
+            let target = SceneDynamicTarget.layer(layerID: layerID, field: .alpha)
+            guard binding.targetKey == "alpha",
+                  binding.wrapperKeys == ["animation", "script", "value"],
+                  binding.targetPath == [
+                      .key("objects"), .index(objectIndex), .key("alpha"),
+                  ],
+                  descriptor.layers[objectIndex].alpha?.bitPattern == authored.bitPattern,
+                  timelineTargets.contains(target)
+            else { return nil }
+            return target
+        }
+        guard binding.owner.kind == .pass,
+              let effectIndex = binding.owner.effectIndex,
+              let passIndex = binding.owner.passIndex,
               descriptor.layers[objectIndex].effects.indices.contains(effectIndex) else {
             return nil
         }

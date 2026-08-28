@@ -112,6 +112,24 @@ static int mutation(
     );
 }
 
+static int animation_command(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSAnimationCommand expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSAnimationCommand command = 0;
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_animation_command_at(
+        owner, index, &command, diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        result == MWX_SCENE_QUICKJS_OK && command == expected,
+        label,
+        diagnostic
+    );
+}
+
 static int configure_effects(
     MWXSceneQuickJSOwner *owner,
     uint32_t count,
@@ -560,6 +578,74 @@ int main(void) {
         "stale effect handle rejected"
     );
 
+    const char *animation_source =
+        "export function init(value){thisObject.getAnimation().play();return value;}";
+    MWXSceneQuickJSOwner *animation_owner = mwx_scene_quickjs_owner_create(
+        domain, animation_source, strlen(animation_source),
+        16, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(animation_owner != NULL, "animation handle compile", diagnostic);
+    failures += check(
+        mwx_scene_quickjs_owner_configure_current_animation(
+            animation_owner, 1, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "animation handle configure", diagnostic
+    );
+    failures += update(
+        animation_owner, 16, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "animation play callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_animation_command_count(animation_owner) == 1,
+        "animation command count", diagnostic
+    );
+    failures += animation_command(
+        animation_owner, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY,
+        "animation play mutation"
+    );
+
+    const char *stale_animation_source =
+        "let saved;export function update(value){"
+        "if(!saved){saved=thisObject.getAnimation();return value;}"
+        "saved.pause();return value;}";
+    MWXSceneQuickJSOwner *stale_animation = mwx_scene_quickjs_owner_create(
+        domain, stale_animation_source, strlen(stale_animation_source),
+        17, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(stale_animation != NULL, "stale animation compile", diagnostic);
+    failures += check(
+        mwx_scene_quickjs_owner_configure_current_animation(
+            stale_animation, 1, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "stale animation configure", diagnostic
+    );
+    failures += update(
+        stale_animation, 17, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "animation handle callback scope"
+    );
+    failures += update(
+        stale_animation, 17, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "stale animation handle rejected"
+    );
+
+    const char *named_animation_source =
+        "export function update(value){thisObject.getAnimation('named');return value;}";
+    MWXSceneQuickJSOwner *named_animation = mwx_scene_quickjs_owner_create(
+        domain, named_animation_source, strlen(named_animation_source),
+        18, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(named_animation != NULL, "named animation compile", diagnostic);
+    failures += check(
+        mwx_scene_quickjs_owner_configure_current_animation(
+            named_animation, 1, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "named animation configure", diagnostic
+    );
+    failures += update(
+        named_animation, 18, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "named animation lookup rejected"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -569,6 +655,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(invalid_effect);
     mwx_scene_quickjs_owner_destroy(immutable_handle);
     mwx_scene_quickjs_owner_destroy(stale_effect);
+    mwx_scene_quickjs_owner_destroy(named_animation);
+    mwx_scene_quickjs_owner_destroy(stale_animation);
+    mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
     mwx_scene_quickjs_owner_destroy(layer_owner);
     mwx_scene_quickjs_owner_destroy(cross_owner);
@@ -611,6 +700,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             "-I",
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(QUICKJS / "quickjs.c"),
             str(QUICKJS / "dtoa.c"),
@@ -663,12 +753,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             launch.index("let sceneScriptScalarProgram =")
         ]
         for producer in (
-            "launch-origin",
-            "hover-origin",
-            "audio-scaled",
-            "property-vector",
-            "media-placeholder",
-            "media-color",
+            "launch-origin", "hover-origin", "audio-scaled", "property-vector",
+            "media-placeholder", "media-color",
         ):
             self.assertIn(f'("{producer}"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
@@ -677,9 +763,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             bounded_ownership,
         )
         self.assertIn(
-            "targets.isDisjoint(with: timelineTargets)",
+            "targets.intersection(timelineTargets)",
             bounded_ownership,
         )
+        self.assertIn(".subtracting(allowedTimelineTargets)", bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: boundedSceneScriptTargets)",
             bounded_ownership,
@@ -696,7 +783,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertNotIn("timelineProgram", scalar_ownership)
         self.assertNotIn("SceneTimeOfDayEffectScriptProgram", launch)
         self.assertIn("SceneScriptFrameInput(timing: timing)", frame)
-        timeline = frame.index("let timelineValues = SceneTimelineRuntime.values")
+        timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")
         final_snapshot = frame.index("let resolvedDynamicValues = surface.evaluationTransaction.evaluate")

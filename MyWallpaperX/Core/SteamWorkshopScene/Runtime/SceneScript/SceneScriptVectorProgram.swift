@@ -4,6 +4,7 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
 }
 
 nonisolated enum SceneScriptHostValue: Equatable, Sendable {
@@ -49,6 +50,7 @@ nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
 nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
     let definition: SceneDynamicTargetDefinition
     let properties: [String: SceneScriptPropertyInput]
+    let hasCurrentAnimation: Bool
     let owner: SceneScriptVectorOwner
 }
 
@@ -91,11 +93,18 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         })
     }
 
+    var animationTargets: Set<SceneDynamicTarget> {
+        Set(bindings.compactMap { binding in
+            binding.hasCurrentAnimation ? binding.definition.target : nil
+        })
+    }
+
     static func compile(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
         userPropertyDefinitions: [SceneUserPropertyDefinition],
+        timelineTargets: Set<SceneDynamicTarget> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
@@ -115,7 +124,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             )
         }
         let candidates = scriptBindings.compactMap {
-            projection($0, descriptor: descriptor)
+            projection(
+                $0,
+                descriptor: descriptor,
+                timelineTargets: timelineTargets
+            )
         }.filter { !excludedTargets.contains($0.definition.target) }
         let counts = Dictionary(grouping: candidates, by: { $0.definition.target })
             .mapValues(\.count)
@@ -128,12 +141,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       source: candidate.source,
                       target: candidate.definition.target,
                       effectNames: layer.effects.map(\.name),
+                      hasCurrentAnimation: candidate.hasCurrentAnimation,
                       generation: generation,
                       budget: budget
                   ) else { return nil }
             return .init(
                 definition: candidate.definition,
                 properties: candidate.properties,
+                hasCurrentAnimation: candidate.hasCurrentAnimation,
                 owner: owner
             )
         }.sorted {
@@ -161,6 +176,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
+        var animationMutations: [SceneTimelinePlaybackMutation] = []
         if let domain {
             do {
                 try domain.publishLayerSnapshot(
@@ -173,7 +189,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
                 return .init(
                     values: [:], failures: failures,
-                    materialFunctionMutations: []
+                    materialFunctionMutations: [],
+                    animationMutations: []
                 )
             } catch {
                 for binding in bindings {
@@ -183,7 +200,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
                 return .init(
                     values: [:], failures: failures,
-                    materialFunctionMutations: []
+                    materialFunctionMutations: [],
+                    animationMutations: []
                 )
             }
         }
@@ -210,6 +228,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 materialFunctionMutations.append(
                     contentsOf: evaluation.materialFunctionMutations
                 )
+                animationMutations.append(contentsOf: evaluation.animationMutations)
                 if reportedTargets.insert(target).inserted,
                    case let .vector3(outputX, outputY, outputZ) = value {
                     NSLog(
@@ -227,7 +246,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         return .init(
             values: values,
             failures: failures,
-            materialFunctionMutations: materialFunctionMutations
+            materialFunctionMutations: materialFunctionMutations,
+            animationMutations: animationMutations
         )
     }
 
@@ -248,21 +268,17 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         let source: String
         let definition: SceneDynamicTargetDefinition
         let properties: [String: SceneScriptPropertyInput]
+        let hasCurrentAnimation: Bool
     }
 
     private static func projection(
         _ binding: SceneScriptBindingIR,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        timelineTargets: Set<SceneDynamicTarget>
     ) -> Candidate? {
         guard binding.owner.kind == .object,
               binding.targetKey == "origin" || binding.targetKey == "scale",
               binding.valueType == .string,
-              (
-                  (binding.wrapperKeys == ["script", "value"]
-                      && binding.properties.isEmpty)
-                    || binding.wrapperKeys == ["script", "scriptproperties", "value"]
-                    || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
-              ),
               let sourceValue = binding.authoredValue?.stringValue,
               let authored = vector3(sourceValue),
               let objectIndex = binding.owner.objectIndex,
@@ -285,6 +301,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         default:
             return nil
         }
+        let hasCurrentAnimation = timelineTargets.contains(target)
+        let validWrapper =
+            (binding.wrapperKeys == ["script", "value"] && binding.properties.isEmpty)
+            || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+            || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+            || (binding.wrapperKeys == ["animation", "script", "value"]
+                && binding.properties.isEmpty && hasCurrentAnimation)
+        guard validWrapper else { return nil }
         guard let descriptorValue, descriptorValue.count == 3,
               Float(authored.x).bitPattern == descriptorValue[0].bitPattern,
               Float(authored.y).bitPattern == descriptorValue[1].bitPattern,
@@ -304,7 +328,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 valueType: .vector3,
                 authoredValue: .vector3(authored.x, authored.y, authored.z)
             ),
-            properties: properties
+            properties: properties,
+            hasCurrentAnimation: hasCurrentAnimation
         )
     }
 

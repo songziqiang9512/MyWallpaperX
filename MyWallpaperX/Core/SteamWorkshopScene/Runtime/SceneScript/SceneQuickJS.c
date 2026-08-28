@@ -372,8 +372,10 @@ static MWXSceneQuickJSResult call_scalar(
     begin_callback(owner);
     JSValue previous_global_layer = JS_UNDEFINED;
     JSValue previous_global_scene = JS_UNDEFINED;
+    JSValue previous_global_object = JS_UNDEFINED;
     if (!mwx_scene_quickjs_bind_owner_handles(
-            owner, &previous_global_layer, &previous_global_scene
+            owner, &previous_global_layer, &previous_global_scene,
+            &previous_global_object
         )) {
         end_callback(owner);
         write_diagnostic(
@@ -392,7 +394,8 @@ static MWXSceneQuickJSResult call_scalar(
             &previous_global_engine
         )) {
         mwx_scene_quickjs_restore_owner_handles(
-            owner, previous_global_layer, previous_global_scene
+            owner, previous_global_layer, previous_global_scene,
+            previous_global_object
         );
         end_callback(owner);
         write_diagnostic(
@@ -416,7 +419,8 @@ static MWXSceneQuickJSResult call_scalar(
         previous_global_engine
     );
     const bool handles_restored = mwx_scene_quickjs_restore_owner_handles(
-        owner, previous_global_layer, previous_global_scene
+        owner, previous_global_layer, previous_global_scene,
+        previous_global_object
     );
     end_callback(owner);
     const bool restored = engine_restored && handles_restored;
@@ -434,11 +438,13 @@ static MWXSceneQuickJSResult call_scalar(
             domain, diagnostic, diagnostic_capacity
         );
         JS_FreeValue(domain->context, result);
-        if (owner->material_function_overflow) {
+        if (owner->material_function_overflow || owner->animation_command_overflow) {
             write_diagnostic(
                 diagnostic,
                 diagnostic_capacity,
-                "material function mutation buffer exceeded"
+                owner->animation_command_overflow
+                    ? "animation command buffer exceeded"
+                    : "material function mutation buffer exceeded"
             );
             return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
         }
@@ -545,8 +551,10 @@ static MWXSceneQuickJSResult call_vec3(
     begin_callback(owner);
     JSValue previous_global_layer = JS_UNDEFINED;
     JSValue previous_global_scene = JS_UNDEFINED;
+    JSValue previous_global_object = JS_UNDEFINED;
     if (!mwx_scene_quickjs_bind_owner_handles(
-            owner, &previous_global_layer, &previous_global_scene
+            owner, &previous_global_layer, &previous_global_scene,
+            &previous_global_object
         )) {
         end_callback(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript typed handle host unavailable");
@@ -561,7 +569,8 @@ static MWXSceneQuickJSResult call_vec3(
             &previous_global_engine
         )) {
         mwx_scene_quickjs_restore_owner_handles(
-            owner, previous_global_layer, previous_global_scene
+            owner, previous_global_layer, previous_global_scene,
+            previous_global_object
         );
         end_callback(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript frame engine host unavailable");
@@ -583,7 +592,8 @@ static MWXSceneQuickJSResult call_vec3(
     JS_FreeValue(domain->context, callback_argument);
     const bool engine_restored = restore_frame_engine_host(owner, previous_global_engine);
     const bool handles_restored = mwx_scene_quickjs_restore_owner_handles(
-        owner, previous_global_layer, previous_global_scene
+        owner, previous_global_layer, previous_global_scene,
+        previous_global_object
     );
     end_callback(owner);
     if (!engine_restored || !handles_restored) {
@@ -596,7 +606,7 @@ static MWXSceneQuickJSResult call_vec3(
         JS_FreeValue(domain->context, argument);
         MWXSceneQuickJSResult failure = exception_result(domain, diagnostic, diagnostic_capacity);
         JS_FreeValue(domain->context, result);
-        return owner->material_function_overflow
+        return owner->material_function_overflow || owner->animation_command_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
@@ -681,17 +691,6 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         JS_FreeRuntime(domain->runtime);
     }
     free(domain);
-}
-
-void mwx_scene_quickjs_domain_reset_budget(
-    MWXSceneQuickJSDomain *domain,
-    uint64_t interrupt_budget
-) {
-    if (domain == NULL) {
-        return;
-    }
-    domain->interrupt_budget = interrupt_budget;
-    domain->interrupted = false;
 }
 
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
@@ -785,6 +784,7 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     owner->generation = generation;
     owner->material_function_layer = JS_UNDEFINED;
     owner->scene_handle = JS_UNDEFINED;
+    owner->object_handle = JS_UNDEFINED;
     owner->effect_names = calloc(1, sizeof(*owner->effect_names));
     if (owner->effect_names == NULL || !mwx_scene_quickjs_install_owner_handles(owner)) {
         mwx_scene_quickjs_destroy_owner_handles(owner);
@@ -860,6 +860,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
     if (!owner->initialized) {
         JSValue init = JS_UNDEFINED;
         if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
@@ -936,6 +938,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
     double current[3] = {input[0], input[1], input[2]};
     if (!owner->initialized) {
         JSValue init = JS_UNDEFINED;
@@ -978,11 +982,4 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
         owner->disabled = true;
     }
     return result;
-}
-
-void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
-    if (owner != NULL) {
-        owner->generation += 1;
-        owner->disabled = true;
-    }
 }

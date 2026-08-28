@@ -55,6 +55,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler.swift",
     SOURCE_ROOT / "Properties/SceneTimelineTargetCompiler+Camera.swift",
     SOURCE_ROOT / "Properties/SceneTimelineRuntime.swift",
+    SOURCE_ROOT / "Properties/SceneTimelinePlaybackRuntime.swift",
 ]
 
 
@@ -396,6 +397,45 @@ enum Harness {
             samples[label] = entry
         }
         payload["samples"] = samples
+
+        let pausedTarget = SceneDynamicTarget.layer(layerID: 30, field: .alpha)
+        let playback = SceneTimelinePlaybackRuntime(program: program)
+        func playbackScalar(_ time: Double, _ target: SceneDynamicTarget) -> Double? {
+            guard case let .scalar(value)? = playback.values(sceneTime: time)[target]
+            else { return nil }
+            return value
+        }
+        var playbackPayload: [String: Any] = [
+            "paused": playbackScalar(5, pausedTarget) ?? -1,
+            "autoplay": playbackScalar(1, sharedTarget) ?? -1,
+        ]
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .play)],
+            sceneTime: 5
+        )
+        playbackPayload["played"] = playbackScalar(6, pausedTarget) ?? -1
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .pause)],
+            sceneTime: 6
+        )
+        playbackPayload["held"] = playbackScalar(9, pausedTarget) ?? -1
+        _ = playback.apply(
+            [.init(target: pausedTarget, command: .stop)],
+            sceneTime: 9
+        )
+        playbackPayload["stopped"] = playbackScalar(10, pausedTarget) ?? -1
+        let invalidTarget = SceneDynamicTarget.layer(layerID: 999, field: .alpha)
+        let atomic = playback.apply([
+            .init(target: pausedTarget, command: .play),
+            .init(target: invalidTarget, command: .pause),
+        ], sceneTime: 10)
+        if case .failure = atomic {
+            playbackPayload["atomicRejected"] = true
+        } else {
+            playbackPayload["atomicRejected"] = false
+        }
+        playbackPayload["afterRejected"] = playbackScalar(11, pausedTarget) ?? -1
+        payload["playback"] = playbackPayload
         print(String(decoding: try JSONSerialization.data(
             withJSONObject: payload, options: [.sortedKeys]
         ), as: UTF8.self))
@@ -478,6 +518,16 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
                 self.assertAlmostEqual(entry["value"], 1.0)
                 # 仍然由 timeline 提供，只是值恒定——不是回落到 authored
                 self.assertEqual(entry["source"], "timeline")
+
+    def test_playback_runtime_resumes_pauses_stops_and_rejects_atomically(self) -> None:
+        playback = self.result["playback"]
+        self.assertAlmostEqual(playback["paused"], 1.0)
+        self.assertAlmostEqual(playback["autoplay"], 1.0)
+        self.assertAlmostEqual(playback["played"], 0.5)
+        self.assertAlmostEqual(playback["held"], 0.5)
+        self.assertAlmostEqual(playback["stopped"], 1.0)
+        self.assertTrue(playback["atomicRejected"])
+        self.assertAlmostEqual(playback["afterRejected"], 1.0)
 
     def test_relative_transform_adds_lane_values_to_authored_base(self) -> None:
         self.assertEqual(

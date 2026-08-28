@@ -38,7 +38,33 @@ nonisolated enum SceneTimelineRuntime {
         of binding: SceneTimelineBinding,
         sceneTime: Double
     ) -> SceneDynamicValue? {
-        var lanes = SceneTimelineEvaluator.values(of: binding.animation, sceneTime: sceneTime)
+        value(
+            of: binding,
+            lanes: SceneTimelineEvaluator.values(
+                of: binding.animation,
+                sceneTime: sceneTime
+            )
+        )
+    }
+
+    nonisolated static func value(
+        of binding: SceneTimelineBinding,
+        elapsedFrames: Double
+    ) -> SceneDynamicValue? {
+        value(
+            of: binding,
+            lanes: SceneTimelineEvaluator.values(
+                of: binding.animation,
+                elapsedFrames: elapsedFrames
+            )
+        )
+    }
+
+    private nonisolated static func value(
+        of binding: SceneTimelineBinding,
+        lanes sourceLanes: [Double]
+    ) -> SceneDynamicValue? {
+        var lanes = sourceLanes
         guard lanes.allSatisfy(\.isFinite) else { return nil }
         if binding.composition == .additive {
             guard let authored = components(of: binding.definition.authoredValue),

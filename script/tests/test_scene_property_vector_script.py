@@ -22,8 +22,10 @@ SOURCES = [
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
+    VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
@@ -43,9 +45,31 @@ struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let functionName: String
 }
 
+enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
+    case play
+    case pause
+    case stop
+}
+
+struct SceneTimelinePlaybackMutation: Equatable, Sendable {
+    let target: SceneDynamicTarget
+    let command: SceneTimelinePlaybackCommand
+}
+
 struct SceneRenderDescriptor {
+    struct ShaderValue {
+        let scriptSource: String?
+        let components: [Double]?
+    }
+    struct PassDescriptor {
+        let passIndex: Int
+        let id: Int?
+        let constantShaderValues: [String: ShaderValue]
+    }
     struct EffectDescriptor {
         let name: String?
+        let effectID: Int? = nil
+        let passes: [PassDescriptor] = []
     }
     struct Layer {
         let id: Int
@@ -55,6 +79,7 @@ struct SceneRenderDescriptor {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let scaleHasScript: Bool?
+        let alpha: Double?
         let effects: [EffectDescriptor]
     }
     var layers: [Layer]
@@ -67,12 +92,13 @@ enum Harness {
             .init(
                 id: 10, layerIndex: 0, name: "anchor", visible: true,
                 originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
-                scaleHasScript: true, effects: [.init(name: "history")]
+                scaleHasScript: true, alpha: 0.75,
+                effects: [.init(name: "history")]
             ),
             .init(
                 id: 42, layerIndex: 1, name: "C1", visible: true,
                 originXYZ: [10, 20, 30], scaleXYZ: [1, 1, 1],
-                scaleHasScript: false, effects: []
+                scaleHasScript: false, alpha: nil, effects: []
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -174,6 +200,51 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 11
         )
+        let animatedOriginTarget = SceneDynamicTarget.layer(
+            layerID: 10, field: .origin
+        )
+        let animatedOrigin = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: animationSource, value: "20 2250 0",
+                properties: [:],
+                wrapperKeys: ["animation", "script", "value"]
+            )],
+            userPropertyDefinitions: [],
+            timelineTargets: [animatedOriginTarget],
+            generation: 12
+        )
+        let animatedOriginResult = animatedOrigin.evaluate(
+            inputs: [animatedOriginTarget: .vector3(20, 2250, 0)],
+            effectivePropertyValues: [:],
+            frame: frame
+        )
+        let rejectedWithoutTimeline = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: animationSource, value: "20 2250 0",
+                properties: [:],
+                wrapperKeys: ["animation", "script", "value"]
+            )],
+            userPropertyDefinitions: [],
+            generation: 13
+        )
+        let animatedAlphaTarget = SceneDynamicTarget.layer(
+            layerID: 10, field: .alpha
+        )
+        let animatedAlpha = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [alphaBinding(source: animationSource, value: 0.75)],
+            timelineTargets: [animatedAlphaTarget],
+            generation: 14
+        )
+        let animatedAlphaResult = animatedAlpha.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.75)],
+            frame: frame
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -191,6 +262,18 @@ enum Harness {
             "badPublished": !badResult.values.isEmpty,
             "duplicateRejected": duplicate.bindings.isEmpty,
             "wrongOwnerRejected": wrongOwner.bindings.isEmpty,
+            "animationBindings": animatedOrigin.bindings.count,
+            "animationCommands": animatedOriginResult.animationMutations.map {
+                $0.command.rawValue
+            },
+            "animationWithoutTimelineRejected": rejectedWithoutTimeline.bindings.isEmpty,
+            "alphaAnimationBindings": animatedAlpha.bindings.count,
+            "alphaAnimationValue": scalar(
+                animatedAlphaResult.values[animatedAlphaTarget]
+            ),
+            "alphaAnimationCommands": animatedAlphaResult.animationMutations.map {
+                $0.command.rawValue
+            },
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -201,12 +284,33 @@ enum Harness {
         return [x, y, z]
     }
 
+    static func scalar(_ value: SceneDynamicValue?) -> Double {
+        guard case let .scalar(number)? = value else { return -1 }
+        return number
+    }
+
+    static func alphaBinding(source: String, value: Double) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object, objectIndex: 0, objectID: 10,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("alpha")],
+            properties: [:],
+            authoredValue: .number(value),
+            valueType: .number,
+            wrapperKeys: ["animation", "script", "value"]
+        )
+    }
+
     static func binding(
         key: String,
         source: String,
         value: String,
         properties: [String: SceneJSONValue],
-        ownerKind: SceneScriptBindingOwner.Kind = .object
+        ownerKind: SceneScriptBindingOwner.Kind = .object,
+        wrapperKeys: [String]? = nil
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
@@ -218,9 +322,9 @@ enum Harness {
             properties: properties,
             authoredValue: .string(value),
             valueType: .string,
-            wrapperKeys: properties.isEmpty
+            wrapperKeys: wrapperKeys ?? (properties.isEmpty
                 ? ["script", "value"]
-                : ["script", "scriptproperties", "value"]
+                : ["script", "scriptproperties", "value"])
         )
     }
 
@@ -253,6 +357,13 @@ enum Harness {
       return destination.copy();
     }
     """
+
+    static let animationSource = """
+    export function init(value) {
+      thisObject.getAnimation().play();
+      return value;
+    }
+    """
 }
 '''
 
@@ -267,7 +378,8 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         temp = Path(cls.temp_dir.name)
         objects: list[Path] = []
         for source in [
-            VM / "SceneQuickJS.c", VM / "SceneQuickJSHandleHost.c",
+            VM / "SceneQuickJS.c", VM / "SceneQuickJSAnimationHost.c",
+            VM / "SceneQuickJSHandleHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
             QUICKJS / "libregexp.c", QUICKJS / "libunicode.c",
         ]:
@@ -280,13 +392,15 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         harness = temp / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = temp / "property-vector-script"
-        subprocess.run([
+        compilation = subprocess.run([
             "xcrun", "swiftc", "-parse-as-library", "-O",
             "-import-objc-header", str(VM / "SceneQuickJS.h"),
             "-Xcc", f"-I{VM}",
             "-o", str(cls.binary), *map(str, SOURCES), str(harness),
             *map(str, objects), "-Xlinker", "-lm",
-        ], check=True, capture_output=True, text=True)
+        ], capture_output=True, text=True)
+        if compilation.returncode != 0:
+            raise AssertionError(compilation.stdout + compilation.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -316,6 +430,12 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertFalse(value["badPublished"])
         self.assertTrue(value["duplicateRejected"])
         self.assertTrue(value["wrongOwnerRejected"])
+        self.assertEqual(value["animationBindings"], 1)
+        self.assertEqual(value["animationCommands"], ["play"])
+        self.assertTrue(value["animationWithoutTimelineRejected"])
+        self.assertEqual(value["alphaAnimationBindings"], 1)
+        self.assertEqual(value["alphaAnimationValue"], 0.75)
+        self.assertEqual(value["alphaAnimationCommands"], ["play"])
 
 
 if __name__ == "__main__":

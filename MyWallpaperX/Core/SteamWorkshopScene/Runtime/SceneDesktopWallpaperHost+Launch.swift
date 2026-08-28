@@ -65,6 +65,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let pipelineRepository: SceneImageEffectPipelineRepository
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let timelineProgram: SceneTimelineProgram
+    let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
@@ -458,30 +459,35 @@ extension SceneDesktopWallpaperHost {
         let mediaColorTransitionCandidateTargets = Set(
             mediaColorTransitionCandidates.bindings.map(\.definition.target)
         )
-        let boundedProducerTargets: [(String, Set<SceneDynamicTarget>, Int)] = [
+        let boundedProducerTargets: [(
+            String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>
+        )] = [
             ("launch-origin", launchOriginTransitionTargets,
-             launchOriginTransitionProgram.definitions.count),
+             launchOriginTransitionProgram.definitions.count, []),
             ("hover-origin", hoverOriginTransitionTargets,
-             hoverOriginTransitionProgram.definitions.count),
+             hoverOriginTransitionProgram.definitions.count, []),
             ("audio-scaled", audioScaledValueTargets,
-             model.audioScaledValueProgram.definitions.count),
+             model.audioScaledValueProgram.definitions.count, []),
             ("property-vector", propertyVectorScriptTargets,
-             model.propertyVectorScriptProgram.definitions.count),
+             model.propertyVectorScriptProgram.definitions.count,
+             model.propertyVectorScriptProgram.animationTargets),
             ("media-placeholder", mediaPlaybackPlaceholderFadeCandidateTargets,
-             mediaPlaybackPlaceholderFadeCandidates.bindings.count),
+             mediaPlaybackPlaceholderFadeCandidates.bindings.count, []),
             ("media-color", mediaColorTransitionCandidateTargets,
-             mediaColorTransitionCandidates.bindings.count),
+             mediaColorTransitionCandidates.bindings.count, []),
         ]
         var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
         var boundedProducerConflicts: [String] = []
-        for (name, targets, definitionCount) in boundedProducerTargets {
+        for (name, targets, definitionCount, allowedTimelineTargets) in boundedProducerTargets {
             if targets.count != definitionCount {
                 boundedProducerConflicts.append("\(name)/duplicate")
             }
             if !targets.isDisjoint(with: propertyBindingTargets) {
                 boundedProducerConflicts.append("\(name)/property")
             }
-            if !targets.isDisjoint(with: timelineTargets) {
+            let unownedTimelineOverlap = targets.intersection(timelineTargets)
+                .subtracting(allowedTimelineTargets)
+            if !unownedTimelineOverlap.isEmpty {
                 boundedProducerConflicts.append("\(name)/timeline")
             }
             if !targets.isDisjoint(with: boundedSceneScriptTargets) {
@@ -499,6 +505,7 @@ extension SceneDesktopWallpaperHost {
             domain: model.sceneScriptDomain,
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets,
             excludedTargets: boundedSceneScriptTargets,
             generation: sceneScriptGeneration
         )
@@ -619,6 +626,9 @@ extension SceneDesktopWallpaperHost {
             pipelineRepository: SceneImageEffectPipelineRepository(device: device),
             spriteTextureLoader: SceneMultiImageSpriteTextureLoader(),
             timelineProgram: timelineProgram,
+            timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
+                program: timelineProgram
+            ),
             textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),

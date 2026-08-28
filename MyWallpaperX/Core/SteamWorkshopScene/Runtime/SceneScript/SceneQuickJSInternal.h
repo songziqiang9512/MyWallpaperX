@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
+#define MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS 16
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
 #define MWX_SCENE_QUICKJS_MAX_EFFECTS 1024
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
@@ -49,12 +50,19 @@ struct MWXSceneQuickJSOwner {
     bool disabled;
     JSValue material_function_layer;
     JSValue scene_handle;
+    JSValue object_handle;
     size_t material_function_count;
     bool material_function_overflow;
+    size_t animation_command_count;
+    bool animation_command_overflow;
+    bool current_animation_available;
     uint32_t effect_count;
     char **effect_names;
     MWXSceneQuickJSMaterialFunctionMutationRecord material_functions[
         MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS
+    ];
+    MWXSceneQuickJSAnimationCommand animation_commands[
+        MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS
     ];
 };
 
@@ -65,16 +73,19 @@ void mwx_scene_quickjs_write_diagnostic(
 );
 
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,
-    JSValue *previous_scene
+    JSValue *previous_scene,
+    JSValue *previous_object
 );
 bool mwx_scene_quickjs_restore_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue previous_layer,
-    JSValue previous_scene
+    JSValue previous_scene,
+    JSValue previous_object
 );
 
 #endif

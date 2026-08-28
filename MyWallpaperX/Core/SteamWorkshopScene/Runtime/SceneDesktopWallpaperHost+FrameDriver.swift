@@ -232,8 +232,8 @@ extension SceneDesktopWallpaperHost {
                 + launchContext.sceneScriptScalarProgram.definitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
-        let timelineValues = SceneTimelineRuntime.values(
-            program: launchContext.timelineProgram, sceneTime: timing.sceneTime
+        let timelineValues = launchContext.timelinePlaybackRuntime.values(
+            sceneTime: timing.sceneTime
         )
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
         let mediaProperties = mediaInput.properties.map {
@@ -350,6 +350,26 @@ extension SceneDesktopWallpaperHost {
             sceneScriptResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
+        let animationMutations = sceneScriptVectorResult.animationMutations
+            + sceneScriptResult.animationMutations
+        if !animationMutations.isEmpty {
+            switch launchContext.timelinePlaybackRuntime.apply(
+                animationMutations,
+                sceneTime: timing.sceneTime
+            ) {
+            case .success:
+                NSLog(
+                    "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
+                    animationMutations.count
+                )
+            case let .failure(failure):
+                NSLog(
+                    "MWX SceneScript VM: animationCommands=%d callback=rejected failure=%@ fallback=previous-current",
+                    animationMutations.count,
+                    String(describing: failure)
+                )
+            }
+        }
         for surface in surfaces.values {
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime

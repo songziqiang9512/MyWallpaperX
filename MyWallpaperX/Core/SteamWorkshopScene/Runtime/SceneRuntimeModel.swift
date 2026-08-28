@@ -132,11 +132,16 @@ struct SceneRuntimeModelBuilder {
                 scriptSourceEvidence: sceneDocument.scriptSourceEvidence
             ).definitions.map(\.target)
         )
+        let timelineTargets = Set(
+            SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
+                .bindings.map(\.target)
+        )
         let propertyVectorScriptProgram = SceneScriptVectorProgram.compile(
             domain: sceneScriptDomain,
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             userPropertyDefinitions: project.userProperties.definitions,
+            timelineTargets: timelineTargets,
             excludedTargets: Set(audioScaledValueProgram.definitions.map(\.target))
                 .union(launchTransitionTargets)
                 .union(hoverTransitionTargets),

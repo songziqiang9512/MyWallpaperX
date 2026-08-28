@@ -394,7 +394,8 @@ static bool install_scene_handle(MWXSceneQuickJSOwner *owner) {
 }
 
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner) {
-    return owner != NULL && install_effect_handle(owner) && install_scene_handle(owner);
+    return owner != NULL && install_effect_handle(owner) &&
+        install_scene_handle(owner) && mwx_scene_quickjs_install_object_handle(owner);
 }
 
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
@@ -402,6 +403,7 @@ void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->material_function_layer);
         JS_FreeValue(owner->domain->context, owner->scene_handle);
+        JS_FreeValue(owner->domain->context, owner->object_handle);
     }
     if (owner->effect_names != NULL) {
         for (uint32_t index = 0; index < owner->effect_count; ++index) {
@@ -414,18 +416,23 @@ void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,
-    JSValue *previous_scene
+    JSValue *previous_scene,
+    JSValue *previous_object
 ) {
     if (owner == NULL || previous_layer == NULL || previous_scene == NULL ||
+        previous_object == NULL ||
         JS_IsUndefined(owner->material_function_layer) ||
-        JS_IsUndefined(owner->scene_handle)) return false;
+        JS_IsUndefined(owner->scene_handle) || JS_IsUndefined(owner->object_handle)) return false;
     JSContext *context = owner->domain->context;
     JSValue global = JS_GetGlobalObject(context);
     *previous_layer = JS_GetPropertyStr(context, global, "thisLayer");
     *previous_scene = JS_GetPropertyStr(context, global, "thisScene");
-    if (JS_IsException(*previous_layer) || JS_IsException(*previous_scene)) {
+    *previous_object = JS_GetPropertyStr(context, global, "thisObject");
+    if (JS_IsException(*previous_layer) || JS_IsException(*previous_scene) ||
+        JS_IsException(*previous_object)) {
         JS_FreeValue(context, *previous_layer);
         JS_FreeValue(context, *previous_scene);
+        JS_FreeValue(context, *previous_object);
         JS_FreeValue(context, global);
         return false;
     }
@@ -435,6 +442,7 @@ bool mwx_scene_quickjs_bind_owner_handles(
         ) < 0) {
         JS_FreeValue(context, *previous_layer);
         JS_FreeValue(context, *previous_scene);
+        JS_FreeValue(context, *previous_object);
         JS_FreeValue(context, global);
         return false;
     }
@@ -444,6 +452,17 @@ bool mwx_scene_quickjs_bind_owner_handles(
         ) < 0) {
         JS_SetPropertyStr(context, global, "thisLayer", *previous_layer);
         JS_FreeValue(context, *previous_scene);
+        JS_FreeValue(context, *previous_object);
+        JS_FreeValue(context, global);
+        return false;
+    }
+    if (JS_SetPropertyStr(
+            context, global, "thisObject",
+            JS_DupValue(context, owner->object_handle)
+        ) < 0) {
+        JS_SetPropertyStr(context, global, "thisLayer", *previous_layer);
+        JS_SetPropertyStr(context, global, "thisScene", *previous_scene);
+        JS_FreeValue(context, *previous_object);
         JS_FreeValue(context, global);
         return false;
     }
@@ -454,15 +473,17 @@ bool mwx_scene_quickjs_bind_owner_handles(
 bool mwx_scene_quickjs_restore_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue previous_layer,
-    JSValue previous_scene
+    JSValue previous_scene,
+    JSValue previous_object
 ) {
     if (owner == NULL) return false;
     JSContext *context = owner->domain->context;
     JSValue global = JS_GetGlobalObject(context);
     int layer_result = JS_SetPropertyStr(context, global, "thisLayer", previous_layer);
     int scene_result = JS_SetPropertyStr(context, global, "thisScene", previous_scene);
+    int object_result = JS_SetPropertyStr(context, global, "thisObject", previous_object);
     JS_FreeValue(context, global);
-    return layer_result >= 0 && scene_result >= 0;
+    return layer_result >= 0 && scene_result >= 0 && object_result >= 0;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
@@ -655,4 +676,19 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(
     *effect_index = record->effect_index;
     memcpy(function_name, record->function_name, length + 1);
     return MWX_SCENE_QUICKJS_OK;
+}
+
+void mwx_scene_quickjs_domain_reset_budget(
+    MWXSceneQuickJSDomain *domain,
+    uint64_t interrupt_budget
+) {
+    if (domain == NULL) return;
+    domain->interrupt_budget = interrupt_budget;
+    domain->interrupted = false;
+}
+
+void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
+    if (owner == NULL) return;
+    owner->generation += 1;
+    owner->disabled = true;
 }

@@ -25,7 +25,21 @@ nonisolated enum SceneTimelineEvaluator {
         let options = animation.options
         guard !options.startsPaused else { return 0 }
         guard sceneTime.isFinite, options.fps > 0, options.length > 0 else { return 0 }
-        let elapsed = max(0, sceneTime) * options.fps
+        return framePosition(
+            of: animation,
+            elapsedFrames: max(0, sceneTime) * options.fps
+        )
+    }
+
+    /// 把已由播放状态机累计的本地帧映射到作者 mode。播放、暂停和 stop 只改变
+    /// `elapsedFrames`；关键帧插值仍由同一纯函数执行。
+    nonisolated static func framePosition(
+        of animation: SceneTimelineAnimation,
+        elapsedFrames: Double
+    ) -> Double {
+        let options = animation.options
+        guard elapsedFrames.isFinite, options.length > 0 else { return 0 }
+        let elapsed = max(0, elapsedFrames)
         switch options.mode {
         case .single:
             return min(elapsed, options.length)
@@ -60,6 +74,18 @@ nonisolated enum SceneTimelineEvaluator {
         sceneTime: Double
     ) -> [Double] {
         let frame = framePosition(of: animation, sceneTime: sceneTime)
+        let wrappingLength = wrappingLength(of: animation)
+        return animation.lanes.map {
+            value(in: $0, atFrame: frame, wrappingLength: wrappingLength)
+        }
+    }
+
+    /// 用显式本地播放帧求全部 component，供唯一 Timeline playback state 消费。
+    nonisolated static func values(
+        of animation: SceneTimelineAnimation,
+        elapsedFrames: Double
+    ) -> [Double] {
+        let frame = framePosition(of: animation, elapsedFrames: elapsedFrames)
         let wrappingLength = wrappingLength(of: animation)
         return animation.lanes.map {
             value(in: $0, atFrame: frame, wrappingLength: wrappingLength)

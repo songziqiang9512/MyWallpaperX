@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
 }
 
 nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
@@ -17,6 +18,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         source: String,
         target: SceneDynamicTarget,
         effectNames: [String?],
+        hasCurrentAnimation: Bool = false,
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
@@ -40,6 +42,10 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
+            )
+            try SceneScriptAnimationHandleBridge.configure(
+                owner: created,
+                hasCurrentAnimation: hasCurrentAnimation
             )
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
@@ -104,9 +110,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case let .success(value): mutations = value
         case let .failure(failure): return .failure(failure)
         }
+        let animationMutations: [SceneTimelinePlaybackMutation]
+        switch SceneScriptAnimationHandleBridge.mutations(
+            owner: handle,
+            target: target
+        ) {
+        case let .success(value): animationMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             value: .vector3(output[0], output[1], output[2]),
-            materialFunctionMutations: mutations
+            materialFunctionMutations: mutations,
+            animationMutations: animationMutations
         ))
     }
 

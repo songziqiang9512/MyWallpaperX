@@ -25,6 +25,12 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutation {
     const char *function_name;
 } MWXSceneQuickJSMaterialFunctionMutation;
 
+typedef enum MWXSceneQuickJSAnimationCommand {
+    MWX_SCENE_QUICKJS_ANIMATION_PLAY = 1,
+    MWX_SCENE_QUICKJS_ANIMATION_PAUSE = 2,
+    MWX_SCENE_QUICKJS_ANIMATION_STOP = 3
+} MWXSceneQuickJSAnimationCommand;
+
 typedef struct MWXSceneQuickJSFrameInput {
     double time_of_day;
     double frame_time;
@@ -104,6 +110,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_effect_name(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t available,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner);
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
@@ -152,6 +165,18 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(
     uint32_t *effect_index,
     char *function_name,
     size_t function_name_capacity,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+size_t mwx_scene_quickjs_owner_animation_command_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSAnimationCommand *command,
     char *diagnostic,
     size_t diagnostic_capacity
 );
