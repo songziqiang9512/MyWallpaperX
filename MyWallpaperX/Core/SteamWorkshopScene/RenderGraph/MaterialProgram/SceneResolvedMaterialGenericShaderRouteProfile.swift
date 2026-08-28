@@ -576,11 +576,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
 
     var defaultRouteState: SceneGenericShaderRouteState {
         switch self {
-        case .sourceProvenGraphInputStraightAlphaPreserving:
-            .preferGeneric
         case .ordinaryShader,
              .providerBackedScalarColorInterpolation,
              .sourceProvenGraphInputStraightAlpha,
+             .sourceProvenGraphInputStraightAlphaPreserving,
              .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
@@ -632,6 +631,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         self == .ordinaryShader
             || self == .providerBackedScalarColorInterpolation
             || self == .sourceProvenGraphInputStraightAlpha
+            || self == .sourceProvenGraphInputStraightAlphaPreserving
             || self
                 == .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
             || self == .sourceProvenGraphTargetOpaqueLoopSampleAverage
@@ -674,6 +674,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         return self == .ordinaryShader
             || self == .providerBackedScalarColorInterpolation
             || self == .sourceProvenGraphInputStraightAlpha
+            || self == .sourceProvenGraphInputStraightAlphaPreserving
             || routeState != .genericOnly
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary

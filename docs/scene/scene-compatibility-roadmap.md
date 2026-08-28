@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：V1-A correctness 已按专项表闭合；正在清零 V1-B 产品 owner 债务。每个 cohort 只由提交后的代码、专项表与 fresh 运行事实重选；V1-B 完成门成立前仍不进入 V2
+> 当前主线：V1-A correctness 与 V1-B 产品 owner debt 已按专项表及 fresh 运行证据闭合；现役主线进入 V2 真实 SceneScript VM。V4 typed input/provider 继续作为 V2 consumer 的横切轨，不提前进入 V3/V5
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
@@ -44,7 +44,7 @@ V1 当前已闭合和仍缺的精确 shape、route state 与升级门只查[Rend
 
 V0 的目标链和首个 `slice-visible` 结论已经由[能力台账](semantics/coverage-ledger.md)、[Effect 覆盖表](semantics/effect-execution-coverage.md)、[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)与[运行证据索引](semantics/runtime-evidence-index.md)接管。V0 不再保留“第一批”清单，也不从历史断点续接；后续 shader/frontend 缺口只有在服务当前 V1–V5 纵向结果时进入对应批次。
 
-### V1：Effect graph、FBO 与 command——现在
+### V1：Effect graph、FBO 与 command——已闭合门
 
 #### V1-A：剩余 correctness atom
 
@@ -68,11 +68,13 @@ V1-A 完成门：以[Render Graph / Shader 覆盖表](semantics/render-graph-sha
 
 V1-A 不自动撤销旧 owner。完成 correctness 后，按[能力台账](semantics/coverage-ledger.md)和[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)逐项审计仍为 `observe-only`、`prefer-generic`、dedicated fallback 或重复 publication/graph owner 的产品路径；每个 profile 独立迁移，不用一个 bounded `generic-only` 外推整个 family。
 
+当前段位：2026-08-29 已通过完成门。现役 registry 为 43 个缺省 `generic-only`、0 个 `prefer-generic`、1 个 `observe-only`；唯一 observe-only 是无 graph owner token 的 Standard Blur unowned 隔离桶，在 Program/GPU 前 typed fail-closed且不持有产品输出，因此不是遗留产品 fallback。V1 完成不把该不安全 shape 扩权为支持，也不代表 graph/shader 全兼容、视觉 parity 或发行完成；精确代码、正反/回滚与真实消费者证据只查专项表和运行证据索引。
+
 V1-B 完成门：所有纳入 V1 完成范围的 profile 都有显式 route state、typed fallback 统计、新组合门和一次 `disable-generic` 回滚演练；产品 route 原子切到 `generic-only`，旧产品引用、执行 owner 与实现耦合测试 owner 已删除或隔离为无产品执行权的独立 oracle，能力与证据权威同步。仍承担产品 fallback 的 profile 必须登记 owner、reason、退出条件，并使 V1 保持未完成。
 
 只有 V1-A 与 V1-B 同时通过，主线才进入 V2。
 
-### V2：真实 SceneScript VM
+### V2：真实 SceneScript VM——现在
 
 首条纵向链：
 
@@ -261,21 +263,21 @@ remaining_deviation_and_exit_condition:
 
 没有统一 collector 的字段必须明确写 `not-collected`，不能填零或推测；本轮治理只建立字段合同，不声称已有自动 collector。指标只使用可实际采集的分母，不提前写百分比目标。compile success、route count、matrix PASS、非黑截图和进程存活均不能单独证明效果或兼容性。
 
-## 8. 当前 V1 选择协议
+## 8. 当前 V2 选择协议
 
-当前主线只从[能力台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V1 公共 correctness atom。已完成批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
+当前主线只从[能力台账](semantics/coverage-ledger.md)、[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)、typed input/provider 对应专项表和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V2 公共 VM/API 纵向结果。已完成 V1 批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
 
 下一批必须同时满足：
 
-1. 对应一个真实 authored graph/FBO/command/dependency 输入，并能指出统一链上的首断点；
-2. 通过普通 authored schema、typed topology、resource/state bounds 和共享执行 identity 定义 `capability_profile`，不以 effect/sample/layer/path/hash 命名产品算法；
-3. 复用现有 Program、GraphExecutor、GraphTargets、LayerDependencies、publication、rollback 和 compositor owner，不新增第二产品链；
-4. 能在一个批次内闭合正门、局部失败反例、新组合/未见 fixture、局部回滚与真实隔离运行；
-5. 能明确本批只达到 `slice-visible`，还是还包含同一 profile 的 `generic-only / owner-migration-complete`；没有旧 owner 撤权证据时不得宣告后者。
+1. 对应一个真实 authored SceneScript source、attachment 或 API consumer，并能指出 source→VM→typed snapshot→现有 consumer 主链上的首断点；
+2. 通过普通 authored schema、ECMAScript 语义、typed ABI/domain 和共享 execution identity 定义 capability，不以 effect/sample/layer/path/hash 固化脚本结果；
+3. 复用唯一 per-scene VM、property/frame snapshot、Program、GraphExecutor、publication、rollback 和 compositor owner，不新增第二 property state、clock 或输出链；
+4. 能在一个批次内闭合正常返回、exception/timeout或bad-return局部失败、新组合/未见 fixture与真实隔离运行；
+5. 能明确本批只达到 `slice-executable`、`slice-visible`，还是还包含旧固定脚本/profile owner撤权；没有真实VM执行和consumer闭合不得只凭parse/IR/API census宣告完成。
 
-候选只从[Render Graph / Shader 覆盖表](semantics/render-graph-shader-coverage.md)仍未闭合的 V1 shape 与[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个 atom；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V0 历史断点，也不以新增专用实现制造可见结果。
+候选只从[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)、[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)和[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个纵向结果；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V1 历史断点，也不以新增固定脚本profile制造可见结果。
 
-当专项表不存在尚可独立闭合的 V1 correctness atom 时，先审计并完成第 3 节 V1-B owner debt；不得直接把主线切到 V2。V1-A/V1-B 完成事实由能力台账、专项表与运行证据索引同步证明，roadmap 只据此推进段位。
+V1-A/V1-B 完成事实已由能力台账、专项表与运行证据索引同步证明；若后续发现V1回归，按失败半径撤回对应产品route并修共享路径，不把V2主线改写成回收旧专用owner。V2完成门成立前不得进入V3，roadmap只据权威当前事实推进段位。
 
 ## 9. 完成与退役
 

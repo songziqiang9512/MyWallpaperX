@@ -5507,6 +5507,16 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha",
             ),
+            (
+                CHANNEL_RECONSTRUCTION_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-straight-alpha-preserving",
+            ),
+            (
+                STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
+                {"graph_input_slots": (0,)},
+                "source-proven-graph-input-straight-alpha-preserving",
+            ),
         ]
         for fragment, facts, profile in generic_only_graph_input_cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
@@ -5563,64 +5573,6 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     profile_routes=f"{profile}=disable-generic",
                     fragment=fragment,
                     **facts,
-                )
-                self.assertEqual(rolled_back["code"], "route-disabled")
-                self.assertTrue(rolled_back["permitsBoundedFrontend"])
-                self.assertIn(
-                    f"state=disable-generic profile={profile} "
-                    "outcome=fallback reason=route-disabled",
-                    rollback_log,
-                )
-
-        preferred_graph_input_cases = [
-            (
-                CHANNEL_RECONSTRUCTION_FRAGMENT,
-                {"graph_input_slots": (0,)},
-                "source-proven-graph-input-straight-alpha-preserving",
-            ),
-            (
-                STAGE_UNIFORM_STRAIGHT_PRESERVING_FRAGMENT,
-                {"graph_input_slots": (0,)},
-                "source-proven-graph-input-straight-alpha-preserving",
-            ),
-        ]
-        for fragment, facts, profile in preferred_graph_input_cases:
-            with self.subTest(profile=profile), tempfile.TemporaryDirectory(
-                prefix="mwx-generic-artifact-test-"
-            ) as directory:
-                root = Path(directory)
-                unavailable, _, _, fallback_log = self.run_harness(
-                    root, route=None, fragment=fragment, **facts
-                )
-                self.assertEqual(unavailable["status"], "unavailable")
-                self.assertTrue(unavailable["permitsBoundedFrontend"])
-                self.assertIn(
-                    f"state=prefer-generic profile={profile} outcome=fallback",
-                    fallback_log,
-                )
-                self.assertIn("reason=compiler-configuration-", fallback_log)
-                self.assertIn("count=1", fallback_log)
-
-                observed, _, _, _ = self.run_harness(
-                    root, route="observe-only", fragment=fragment, **facts
-                )
-                self.assertEqual(observed["code"], "route-observe-only")
-                self.assertTrue(observed["permitsBoundedFrontend"])
-
-                invalid, _, _, _ = self.run_harness(
-                    root, route="unknown-route", fragment=fragment, **facts
-                )
-                self.assertEqual(invalid["code"], "route-invalid")
-                self.assertTrue(invalid["permitsBoundedFrontend"])
-
-                forced, _, _, _ = self.run_harness(
-                    root, route="generic-only", fragment=fragment, **facts
-                )
-                self.assertEqual(forced["code"], "route-invalid")
-                self.assertTrue(forced["permitsBoundedFrontend"])
-
-                rolled_back, _, _, rollback_log = self.run_harness(
-                    root, route="disable-generic", fragment=fragment, **facts
                 )
                 self.assertEqual(rolled_back["code"], "route-disabled")
                 self.assertTrue(rolled_back["permitsBoundedFrontend"])
@@ -6298,8 +6250,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"graph_input_slots": (0,)},
                 "straight-alpha-preserving",
                 "source-proven-graph-input-straight-alpha-preserving",
-                "prefer-generic",
-                "fallback",
+                "generic-only",
+                "shared-backend-fallback",
             ),
         ]
         for (
