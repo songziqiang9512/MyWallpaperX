@@ -132,7 +132,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ))
                     continue
                 }
-                if programFailure.revokesDedicatedProductOwner
+                let retainedDedicatedProgram = programsByKey[effect.key]?.first
+                if retainedDedicatedProgram == nil,
+                   programFailure.revokesDedicatedProductOwner
                     || programFailure.code == "material-generic-owner-revoked" {
                     if product.clearFunctions.functions.isEmpty,
                        visualFailureMayPassthrough(
@@ -152,7 +154,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 guard product.clearFunctions.functions.isEmpty else {
                     return .failure(programFailure)
                 }
-                guard let program = programsByKey[effect.key]?.first else {
+                guard let program = retainedDedicatedProgram else {
                     if visualFailureMayPassthrough(
                         programFailure,
                         product: product,
@@ -451,6 +453,20 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return components.map(\.bitPattern)
     }
 
+    static func soleUserPropertyProducerMatches(
+        _ propertyKey: String,
+        dynamic: Template.DynamicUniform,
+        producers: DynamicProducerCatalog
+    ) -> Bool {
+        let targetProducers = producers.userProperties.filter {
+            $0.target == dynamic.target
+        }
+        guard targetProducers.count == 1,
+              let producer = targetProducers.first else { return false }
+        return producer.propertyKey == propertyKey
+            && userPropertyValueTypeMatches(producer.valueType, dynamic: dynamic)
+    }
+
     /// Exact direct bindings conserve the producer type before Program claims
     /// product output. Legacy/test catalogs without a type retain the previous
     /// identity-only behavior; product launch always publishes the real type.
@@ -477,9 +493,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     }
 
     /// Dedicated stages consume the same launch-scoped producer catalog as
-    /// Program-backed materials. A typed plan may retain a dynamic target, but
-    /// it cannot obtain execution ownership until exactly one proven producer
-    /// family publishes that target.
+    /// Program-backed materials. Only plans with an explicit authored fallback
+    /// contract may execute while a target has no live producer at all.
     private static func dedicatedDynamicTargetsAreExecutable(
         _ program: SceneEffectStageProgram,
         producers: DynamicProducerCatalog
@@ -488,7 +503,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let available = userTargets
             .union(producers.timelineTargets)
             .union(producers.sceneScriptTargets)
-        return program.executionPlan.liveConsumerTargets.isSubset(of: available)
+        let unavailable = program.executionPlan.liveConsumerTargets
+            .subtracting(available)
+        let authoredFallbackSafeTargets =
+            program.executionPlan.xRay != nil
+                || program.executionPlan.pulse != nil
+            ? program.executionPlan.liveConsumerTargets : []
+        return unavailable.isSubset(of: authoredFallbackSafeTargets)
     }
 
     private static func dependencyOwnershipMatches(

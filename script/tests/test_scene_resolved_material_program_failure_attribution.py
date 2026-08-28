@@ -77,7 +77,7 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         self.assertNotIn("WorkshopShadow", generic_cache)
 
         owner_start = program_first.index(
-            "if programFailure.revokesDedicatedProductOwner"
+            "let retainedDedicatedProgram = programsByKey[effect.key]?.first"
         )
         owner_end = program_first.index(
             "guard product.clearFunctions.functions.isEmpty else",
@@ -91,6 +91,8 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         )
         hard_rejection = "return .failure(programFailure)"
         for contract in (
+            "retainedDedicatedProgram == nil",
+            "programFailure.revokesDedicatedProductOwner",
             'programFailure.code == "material-generic-owner-revoked"',
             clear_guard,
             passthrough_call,
@@ -110,6 +112,10 @@ class SceneResolvedMaterialProgramFailureAttributionTests(unittest.TestCase):
         self.assertLess(
             owner_branch.index(passthrough_call),
             owner_branch.index(hard_rejection),
+        )
+        self.assertIn(
+            "guard let program = retainedDedicatedProgram else",
+            program_first[owner_end:],
         )
 
         passthrough_start = program_first.index(

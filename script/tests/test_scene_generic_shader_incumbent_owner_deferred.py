@@ -53,6 +53,10 @@ CAPABILITY_SOURCE = EFFECT_EXECUTION_ROOT / (
 OWNER_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph" / (
     "SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift"
 )
+STANDARD_BLUR_SCALAR_OWNER_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectCompilation/"
+    "SceneEffectStageStandardBlurScalarOwnerAdmission.swift"
+)
 STANDARD_BLUR_SOURCE = SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift"
 DEDICATED_COMPILERS_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift"
@@ -635,6 +639,9 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         cache = CACHE_SOURCE.read_text(encoding="utf-8")
         route = ROUTE_SOURCE.read_text(encoding="utf-8")
         owner_admission = OWNER_ADMISSION_SOURCE.read_text(encoding="utf-8")
+        scalar_owner = STANDARD_BLUR_SCALAR_OWNER_SOURCE.read_text(
+            encoding="utf-8"
+        )
         standard_blur = STANDARD_BLUR_SOURCE.read_text(encoding="utf-8")
         dedicated_compilers = DEDICATED_COMPILERS_SOURCE.read_text(encoding="utf-8")
         stage_compile_model = STAGE_COMPILE_MODEL_SOURCE.read_text(encoding="utf-8")
@@ -659,7 +666,8 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         ):]
         self.assertNotIn("material-generic-incumbent-owner-deferred", passthrough)
         for incumbent_gate in (
-            "guard let program = programsByKey[effect.key]?.first else",
+            "let retainedDedicatedProgram = programsByKey[effect.key]?.first",
+            "guard let program = retainedDedicatedProgram else",
             "let pairLeaf = dedicatedLeafKeys.contains(effect.key)",
             "let logicalTargetStage = dedicatedGraphStageKeys.contains(effect.key)",
             "let identityMatches = program.effectKey == effect.key",
@@ -670,7 +678,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         ):
             self.assertIn(incumbent_gate, program_first)
         no_incumbent = program_first.index(
-            "guard let program = programsByKey[effect.key]?.first else"
+            "guard let program = retainedDedicatedProgram else"
         )
         incumbent = program_first.index("let pairLeaf =", no_incumbent)
         self.assertIn("return .failure(programFailure)", program_first[
@@ -759,32 +767,23 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         self.assertIn('scale.bindingKeys == ["user", "value"]', owner_gate)
         self.assertIn("components.count == 1 || components.count == 2", owner_gate)
         self.assertIn("components.count == 1 || components[0] == components[1]", owner_gate)
+        for source_prefix in (
+            'case .ordinary: ""',
+            'case .capturedMain: "captured-main-"',
+            'case .copyOnlyCapturedMain: "captured-main-copy-only-"',
+            '"captured-main-passthrough-only-"',
+            '"captured-main-copy-passthrough-"',
+        ):
+            self.assertIn(source_prefix, owner_gate)
+        self.assertIn("return sourcePrefix + scaleToken", owner_gate)
+        self.assertIn('"-owner-revoked-to-material-program"', owner_gate)
+        self.assertIn('case .liveProducer: "typed-user-scalar-splat"', scalar_owner)
         self.assertIn(
-            '"typed-user-scalar-splat-owner-revoked-to-material-program"',
-            owner_gate,
+            'case .authoredFallback: "authored-fallback-scalar-splat"',
+            scalar_owner,
         )
-        self.assertIn(
-            '"captured-main-copy-passthrough-static-owner-revoked-to-material-program"',
-            owner_gate,
-        )
-        self.assertIn(
-            '"captured-main-copy-passthrough-typed-user-scalar-splat-'
-            'owner-revoked-to-material-program"',
-            owner_gate,
-        )
-        self.assertIn(
-            '"captured-main-copy-only-static-owner-revoked-to-material-program"',
-            owner_gate,
-        )
-        self.assertIn(
-            '"captured-main-passthrough-only-static-'
-            'owner-revoked-to-material-program"',
-            owner_gate,
-        )
-        self.assertIn("captured-main-copy-only-typed-user-scalar", owner_gate)
-        self.assertIn(
-            "captured-main-passthrough-only-typed-user-scalar", owner_gate
-        )
+        self.assertIn("sources.count == 2, sources[0] == sources[1]", scalar_owner)
+        self.assertIn("matches.count == 1", scalar_owner)
         self.assertIn(
             "case .ordinary, .capturedMain:",
             owner_gate,
@@ -837,6 +836,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
             standard_compiler,
         )
         self.assertIn("userPropertyProducers: input.userPropertyProducers", standard_compiler)
+        self.assertIn("propertyDefinitions: input.propertyDefinitions", standard_compiler)
         self.assertIn("dedicatedRevocationDetail(", standard_compiler)
         self.assertIn(
             "!input.hasFrameDrivenEffectVisibilityOwner(for: effect.key)",
@@ -1013,15 +1013,15 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         dedicated_stages = DEDICATED_STAGES_SOURCE.read_text(encoding="utf-8")
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "userPropertyProducers: Set<SceneDynamicUserPropertyProducer>",
+            "propertyDefinitions: [SceneDynamicTargetDefinition]",
             compile_model,
         )
         self.assertIn(
-            "userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = []",
+            "propertyDefinitions: [SceneDynamicTargetDefinition] = []",
             dedicated_stages,
         )
-        self.assertIn("valueType: $0.valueType", launch)
-        self.assertIn("userPropertyProducers: userPropertyProducers", launch)
+        self.assertEqual(launch.count("executablePropertyFallbackTargets"), 2)
+        self.assertEqual(launch.count("propertyDefinitions: propertyBindingDefinitions"), 2)
 
         capability = "\n".join([
             CAPABILITY_SOURCE.read_text(encoding="utf-8"),

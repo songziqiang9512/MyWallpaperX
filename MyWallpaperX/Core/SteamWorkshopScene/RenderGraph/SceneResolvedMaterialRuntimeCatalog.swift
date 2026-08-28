@@ -179,6 +179,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         admissionCandidates: [AdmissionCandidate],
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        propertyDefinitions: [SceneDynamicTargetDefinition] = [],
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
     ) {
@@ -286,6 +287,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                         graph: record.graph,
                         descriptor: descriptor,
                         userPropertyProducers: userPropertyProducers,
+                        propertyDefinitions: propertyDefinitions,
                         timelineDefinitions: timelineDefinitions
                     ),
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets

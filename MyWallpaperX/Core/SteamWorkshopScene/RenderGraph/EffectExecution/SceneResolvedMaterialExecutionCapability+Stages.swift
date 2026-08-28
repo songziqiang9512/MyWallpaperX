@@ -211,7 +211,10 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamic: Template.DynamicUniform,
         producers: DynamicProducerCatalog
     ) -> Bool {
-        guard case .userProperty = contributor,
+        guard case let .userProperty(propertyKey) = contributor,
+              !producers.userProperties.contains(where: {
+                  $0.propertyKey == propertyKey || $0.target == dynamic.target
+              }),
               producers.authoredFallbackTargets.contains(dynamic.target),
               dynamic.authoredBindingKeys == ["user", "value"],
               let fallback = dynamic.authoredFallback,

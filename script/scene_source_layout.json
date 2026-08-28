@@ -31,6 +31,7 @@
           "SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
           "SceneEffectAdmissionCatalog.swift",
           "SceneEffectProgramCompiler+DedicatedStages.swift",
+          "SceneEffectStageAuthoredFallbackOwnerPartition.swift",
           "SceneEffectStageAdmission.swift",
           "SceneEffectStageCompileModel.swift",
           "SceneEffectStageCompiler.swift",
@@ -40,6 +41,7 @@
           "SceneEffectStageExecutionPlan.swift",
           "SceneEffectStageGraph.swift",
           "SceneEffectStageProgram.swift",
+          "SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
           "SceneEffectStageXRayScalarOwnerAdmission.swift"
         ],
         "responsibility": "Effect-stage compilation and admission lifecycle, from authored stage-graph slicing and dedicated candidate/backend compilation through stage Program/ExecutionPlan and whole-chain catalog/reporting; excludes complete effect-specific planner admission, MaterialProgram production, GPU encoding, and target/resource lifecycles."

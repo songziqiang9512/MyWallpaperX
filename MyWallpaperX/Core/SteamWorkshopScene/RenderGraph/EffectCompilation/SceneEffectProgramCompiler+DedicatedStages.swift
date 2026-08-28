@@ -18,6 +18,7 @@ extension SceneEffectProgramCompiler {
         descriptor: SceneRenderDescriptor,
         shaderContracts: [SceneShaderContract],
         userPropertyProducers: Set<SceneDynamicUserPropertyProducer> = [],
+        propertyDefinitions: [SceneDynamicTargetDefinition] = [],
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = [],
         activeEffectLocalDirectBoolVisibilityTargets:
             Set<SceneDynamicTarget> = [],
@@ -38,6 +39,7 @@ extension SceneEffectProgramCompiler {
                 descriptor: descriptor,
                 shaderContracts: shaderContracts,
                 userPropertyProducers: userPropertyProducers,
+                propertyDefinitions: propertyDefinitions,
                 timelineDefinitions: timelineDefinitions,
                 activeEffectLocalDirectBoolVisibilityTargets:
                     activeEffectLocalDirectBoolVisibilityTargets,

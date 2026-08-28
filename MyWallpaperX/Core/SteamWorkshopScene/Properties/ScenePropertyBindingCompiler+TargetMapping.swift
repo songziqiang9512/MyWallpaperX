@@ -98,11 +98,30 @@ extension ScenePropertyBindingCompiler {
         switch (propertyKind, fallback) {
         case (_, .number), (.slider, _):
             (.scalar, .slider)
-        case (_, .string), (.color, _):
+        case (.color, _):
+            (.vector3, .color)
+        case let (_, .string(rawValue)) where scalarShaderFallback(rawValue) != nil:
+            (.scalar, .slider)
+        case (_, .string):
             (.vector3, .color)
         default:
             nil
         }
+    }
+
+    nonisolated static func scalarShaderFallback(
+        _ rawValue: String,
+        allowsSingleComponent: Bool = true
+    ) -> Double? {
+        let components = rawValue.split(whereSeparator: \Character.isWhitespace)
+        guard components.count == 2 || (allowsSingleComponent && components.count == 1),
+              let first = Double(components[0]),
+              first.isFinite else { return nil }
+        guard components.count == 2 else { return first }
+        guard let second = Double(components[1]),
+              second.isFinite,
+              first.bitPattern == second.bitPattern else { return nil }
+        return first
     }
 
     private nonisolated static func particleScalar(

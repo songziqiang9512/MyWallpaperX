@@ -379,8 +379,10 @@ extension SceneDesktopWallpaperHost {
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
         )
+        let propertyBindingDefinitions =
+            runtimeInput.propertyBindingProgram.definitions
         let propertyBindingTargets = Set(
-            runtimeInput.propertyBindingProgram.definitions.map(\.target)
+            propertyBindingDefinitions.map(\.target)
         )
         let userPropertyProducers = Set(
             runtimeInput.propertyBindingProgram.instructions.map {
@@ -450,6 +452,7 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 shaderContracts: runtimeInput.shaderContracts,
                 userPropertyProducers: userPropertyProducers,
+                propertyDefinitions: propertyBindingDefinitions,
                 timelineDefinitions: timelineDefinitions,
                 activeEffectLocalDirectBoolVisibilityTargets:
                     activeEffectLocalDirectBoolVisibilityTargets,
@@ -459,6 +462,14 @@ extension SceneDesktopWallpaperHost {
                     stageCompileEffectVisibilityOwners
             )
         }
+        let executablePropertyFallbackTargets =
+            SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
+                definitions: propertyBindingDefinitions,
+                liveTargets: Set(userPropertyProducers.map(\.target)),
+                retainedDedicatedEffects: Set(
+                    dedicatedStageLeaves.map(\.effectKey)
+                )
+            )
         let dedicatedStageFamilies = Dictionary(
             uniqueKeysWithValues: dedicatedStageLeaves.map {
                 ($0.effectKey, $0.executionPlan.backend.stableName)
@@ -595,6 +606,7 @@ extension SceneDesktopWallpaperHost {
             admissionCandidates: resolvedMaterialAdmissionCandidates,
             shaderContracts: runtimeInput.shaderContracts,
             userPropertyProducers: userPropertyProducers,
+            propertyDefinitions: propertyBindingDefinitions,
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provenSceneScriptValueTargets
         )
@@ -615,7 +627,8 @@ extension SceneDesktopWallpaperHost {
                 materialCatalog: resolvedMaterialCatalog,
                 dynamicProducers: .init(
                     userProperties: userPropertyProducers,
-                    authoredFallbackTargets: propertyBindingTargets,
+                    authoredFallbackTargets:
+                        executablePropertyFallbackTargets,
                     timelineDefinitions: timelineDefinitions,
                     sceneScriptTargets: provenSceneScriptValueTargets
                 ),

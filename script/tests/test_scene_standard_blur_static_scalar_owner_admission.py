@@ -56,6 +56,8 @@ SWIFT_SOURCES = unique_sources([
     / "RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
     SCENE_ROOT
     / "RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectCompilation/SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
     SCENE_ROOT / "Resources/SceneResourceIndex.swift",
     SCENE_ROOT / "Resources/SceneResourceView.swift",
     SCENE_ROOT / "Resources/SceneShaderSourceResolver.swift",

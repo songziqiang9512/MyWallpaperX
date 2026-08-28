@@ -76,12 +76,6 @@ extension SceneAuthoredStandardBlurPlanner {
                 ? input.supportsStartupInactiveUserPropertyVisibility(for: effect.key)
                 : input.supportsEffectLocalUserPropertyVisibility(for: effect.key)),
               let terminalNodeIndex = effect.nodeIndices.last else { return result }
-        let baseRevocationDetail =
-            SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
-                .dedicatedRevocationDetail(
-                    graph: input.stageGraph,
-                    descriptor: input.descriptor
-                )
         let sourceAccepted =
             SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                 .acceptsDedicatedRevocation(
@@ -94,9 +88,18 @@ extension SceneAuthoredStandardBlurPlanner {
                     inputRole: input.inputRole,
                     shaderContracts: input.shaderContracts,
                     userPropertyProducers: input.userPropertyProducers,
+                    propertyDefinitions: input.propertyDefinitions,
                     timelineDefinitions: input.timelineDefinitions
                 )
-        guard sourceAccepted, let baseRevocationDetail else { return result }
+        guard sourceAccepted,
+              let baseRevocationDetail =
+                SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
+                    .dedicatedRevocationDetail(
+                        graph: input.stageGraph,
+                        descriptor: input.descriptor,
+                        userPropertyProducers: input.userPropertyProducers,
+                        propertyDefinitions: input.propertyDefinitions
+                    ) else { return result }
         let revocationDetail = startupInactive
             ? "startup-inactive-direct-bool-\(baseRevocationDetail)"
             : baseRevocationDetail

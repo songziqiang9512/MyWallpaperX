@@ -7265,10 +7265,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
     static func accepts(
         key: SceneResolvedMaterialRuntimeCatalog.Key, graph: SceneAuthoredEffectRenderPlan,
         descriptor: SceneRenderDescriptor,
-        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>,
+        userPropertyProducers: Set<SceneDynamicUserPropertyProducer>, propertyDefinitions: [SceneDynamicTargetDefinition] = [],
         timelineDefinitions: Set<SceneDynamicTargetDefinition> = []
     ) -> Bool {
-        _ = userPropertyProducers
+        _ = (userPropertyProducers, propertyDefinitions)
         _ = timelineDefinitions
         return false
     }

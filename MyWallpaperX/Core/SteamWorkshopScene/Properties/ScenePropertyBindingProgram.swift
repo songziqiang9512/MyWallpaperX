@@ -408,16 +408,9 @@ nonisolated struct ScenePropertyBindingCompiler {
     ) -> Result<SceneDynamicValue, ScenePropertyBindingProgram.ValueError> {
         if case .shaderValue = target,
            valueType == .scalar,
-           case let .string(rawValue) = fallback {
-            let components = rawValue.split(whereSeparator: \Character.isWhitespace)
-            if components.count == 2,
-               let first = Double(components[0]),
-               let second = Double(components[1]),
-               first.isFinite,
-               second.isFinite,
-               first == second {
-                return .success(.scalar(first))
-            }
+           case let .string(rawValue) = fallback,
+           let value = scalarShaderFallback(rawValue) {
+            return .success(.scalar(value))
         }
         return ScenePropertyBindingProgram.convert(fallback, as: valueType)
     }

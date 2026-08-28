@@ -124,6 +124,7 @@
       "modules": [
         "test_scene_launch_origin_transition",
         "test_scene_media_color_transition",
+        "test_scene_property_binding_program",
         "test_scene_time_of_day_effect_script"
       ]
     },
@@ -189,18 +190,31 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingProgram.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
         "script/tests/fixtures/SceneStandardBlurStaticScalarOwnerAdmissionSupport.swift",
+        "script/tests/test_scene_authored_fallback_owner_conservation.py",
+        "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
+        "script/tests/test_scene_property_binding_program.py",
+        "script/tests/test_scene_standard_blur_authored_fallback_owner_admission.py",
         "script/tests/test_scene_standard_blur_static_scalar_owner_admission.py",
         "script/tests/test_scene_standard_blur_startup_false_direct_bool_owner_admission.py",
         "script/tests/test_scene_standard_blur_timeline_vector2_owner_admission.py"
       ],
       "modules": [
         "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
+        "test_scene_authored_fallback_owner_conservation",
+        "test_scene_generic_shader_incumbent_owner_deferred",
+        "test_scene_property_binding_program",
+        "test_scene_standard_blur_authored_fallback_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
         "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
         "test_scene_standard_blur_timeline_vector2_owner_admission"
@@ -260,6 +274,7 @@
         "test_scene_xray_visible_graph_output_owner",
         "test_scene_pulse_audio_direct_tint_alpha_owner_admission",
         "test_scene_pulse_direct_user_property_owner_admission",
+        "test_scene_standard_blur_authored_fallback_owner_admission",
         "test_scene_standard_blur_static_scalar_owner_admission",
         "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
         "test_scene_standard_blur_timeline_vector2_owner_admission",
@@ -283,6 +298,7 @@
         "test_scene_independent_signal_feedback",
         "test_scene_effect_local_texture_purpose_fallback",
         "test_scene_animated_material_visual_failure",
+        "test_scene_authored_fallback_owner_conservation",
         "test_scene_captured_main_source_conservation",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_fbo_stage_activation",

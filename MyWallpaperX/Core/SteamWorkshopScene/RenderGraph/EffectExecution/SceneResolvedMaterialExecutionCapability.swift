@@ -703,14 +703,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             let hasProducer: (Template.DynamicUniformSource) -> Bool = { contributor in
                 switch contributor {
                 case let .userProperty(propertyKey):
-                    return producers.userProperties.contains {
-                        $0.propertyKey == propertyKey
-                            && $0.target == dynamic.target
-                            && userPropertyValueTypeMatches(
-                                $0.valueType,
-                                dynamic: dynamic
-                            )
-                    }
+                    return soleUserPropertyProducerMatches(
+                        propertyKey, dynamic: dynamic, producers: producers
+                    )
                 case .timeline:
                     return timelineDefinitionMatches(
                         dynamic,
