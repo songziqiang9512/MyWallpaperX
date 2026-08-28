@@ -5158,10 +5158,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 rollback_log,
             )
 
-    def test_provider_backed_interpolation_keeps_typed_bounded_fallback(self):
+    def test_provider_backed_interpolation_uses_shared_product_owner(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
             root = Path(directory)
-            unavailable, _, _, log = self.run_harness(
+            profile = "provider-backed-scalar-color-interpolation"
+            unavailable, _, cache, log = self.run_harness(
                 root,
                 route=None,
                 fragment=INTERPOLATED_FRAGMENT,
@@ -5169,12 +5170,76 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertEqual(unavailable["status"], "unavailable")
             self.assertTrue(unavailable["permitsBoundedFrontend"])
-            self.assertIn("state=prefer-generic", log)
             self.assertIn(
-                "profile=provider-backed-scalar-color-interpolation",
+                f"state=generic-only profile={profile} "
+                "outcome=shared-backend-fallback",
                 log,
             )
-            self.assertIn("outcome=fallback", log)
+            self.assertIn("reason=compiler-configuration-", log)
+
+            artifact = self.artifact(
+                unavailable["requestKey"],
+                color_transfer="interpolated-color",
+                auxiliary_channel_use="unproven",
+            )
+            artifact_path = cache / f"{unavailable['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=INTERPOLATED_FRAGMENT,
+                has_external_provider=True,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["backend"], "genericCompilerArtifact")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            legacy_disabled, _, _, legacy_log = self.run_harness(
+                root,
+                route="disable-generic",
+                fragment=INTERPOLATED_FRAGMENT,
+                has_external_provider=True,
+            )
+            self.assertEqual(legacy_disabled["status"], "accepted")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                legacy_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            fallback, _, _, fallback_log = self.run_harness(
+                root,
+                route=None,
+                fragment=INTERPOLATED_FRAGMENT,
+                has_external_provider=True,
+            )
+            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertTrue(fallback["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=generic-only profile={profile} "
+                "outcome=shared-backend-fallback "
+                "reason=artifact-contract-rejected",
+                fallback_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=INTERPOLATED_FRAGMENT,
+                has_external_provider=True,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertIn(
+                f"state=disable-generic profile={profile} "
+                "outcome=fallback reason=route-disabled",
+                rollback_log,
+            )
 
     def test_profile_local_route_rollback_does_not_disable_other_profiles(self):
         profile_routes = "source-proven-opaque-scalar-output=disable-generic"
