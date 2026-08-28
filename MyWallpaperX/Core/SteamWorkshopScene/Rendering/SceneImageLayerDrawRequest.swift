@@ -2,37 +2,41 @@ import Metal
 import simd
 
 struct SceneImageLayerMasks {
-    let standardBlurEffects: [String: SceneStandardBlurEffectTextures]
-
-    static let empty = SceneImageLayerMasks(
-        standardBlurEffects: [:]
-    )
+    static let empty = SceneImageLayerMasks()
 
     func blocksLayerSourcePassthrough(
         forVisibleEffects effects: [SceneRenderDescriptor.EffectDescriptor]
     ) -> Bool {
         let visibleEffects = effects.filter { $0.visible != false }
-        let effectIDs = Set(visibleEffects.map(\.id))
-        guard !effectIDs.isEmpty else { return false }
-        func hasValue<Value>(
-            _ values: [String: Value],
-            _ predicate: (Value) -> Bool
-        ) -> Bool {
-            effectIDs.contains { id in
-                values[id].map(predicate) ?? false
-            }
-        }
+        guard !visibleEffects.isEmpty else { return false }
         let hasCoverageMutatingPulse = visibleEffects.contains { effect in
             Self.normalized(effect.file) == "effects/pulse/effect.json"
                 && !Self.pulsePreservesSourceCoverage(effect)
+        }
+        let hasAuthoredStandardBlurMask = visibleEffects.contains {
+            Self.standardBlurHasAuthoredMask($0)
         }
         let hasEffectOutsideLocalDisplacementContract = visibleEffects.contains { effect in
             Self.isAuthoredLocalDisplacementDefinition(effect.file)
                 && !Self.effectUsesOnlyLocalDisplacementInputs(effect)
         }
         return hasCoverageMutatingPulse
+            || hasAuthoredStandardBlurMask
             || hasEffectOutsideLocalDisplacementContract
-            || hasValue(standardBlurEffects) { $0.maskCandidate != nil }
+    }
+
+    private static func standardBlurHasAuthoredMask(
+        _ effect: SceneRenderDescriptor.EffectDescriptor
+    ) -> Bool {
+        // Preserve the prior masked-Blur passthrough boundary after removing
+        // its renderer-specific texture registry. This reads authored resource
+        // shape only; MaterialProgram remains the sole resource/output owner.
+        guard normalized(effect.file) == "effects/blur/effect.json",
+              effect.passes.count == 4,
+              let combine = effect.passes.first(where: { $0.passIndex == 3 }),
+              combine.textureSlots.indices.contains(1),
+              let mask = combine.textureSlots[1] else { return false }
+        return !normalized(mask).isEmpty
     }
 
     private static func pulsePreservesSourceCoverage(

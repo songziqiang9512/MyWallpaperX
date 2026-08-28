@@ -84,7 +84,6 @@ AUTHORED_EFFECT_PLANNING_SOURCES = scene_swift_source_relpaths_by_basename(
 CURRENT_SOURCE_PATHS = (
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneJSONValue.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredEffectRenderPlan.swift"],
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredMaterialResolver.swift"],
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneMaterialRenderState.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneShaderSourceGraph.swift"],
@@ -766,6 +765,7 @@ private enum CorpusHarness {
     }
 #endif
 
+#if !R2_CURRENT
     private static func outcome<Value>(
         _ result: SceneEffectStageBackendCompileResult<Value>
     ) -> Outcome {
@@ -799,6 +799,7 @@ private enum CorpusHarness {
             details: failure.details
         )
     }
+#endif
 
 #if R2_CURRENT
     private static func failureOutcome(

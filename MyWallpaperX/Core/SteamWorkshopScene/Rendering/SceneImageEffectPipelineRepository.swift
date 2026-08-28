@@ -34,15 +34,12 @@ final class ScenePipelineSlot<Value>: @unchecked Sendable {
 final class SceneImageEffectPipelineRepository {
     let device: MTLDevice
 
-    private let standardBlurSlot: ScenePipelineSlot<SceneStandardBlurPipeline>
     private let spotLightSlot: ScenePipelineSlot<SceneSpotLightPipeline>
 
     init(device: MTLDevice) {
         self.device = device
-        standardBlurSlot = .init { SceneStandardBlurPipeline(device: device) }
         spotLightSlot = .init { SceneSpotLightPipeline(device: device) }
     }
 
-    func standardBlur() -> SceneStandardBlurPipeline? { standardBlurSlot.resolve() }
     func spotLight() -> SceneSpotLightPipeline? { spotLightSlot.resolve() }
 }

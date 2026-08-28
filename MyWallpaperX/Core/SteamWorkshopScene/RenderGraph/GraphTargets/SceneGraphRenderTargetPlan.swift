@@ -125,29 +125,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     }
 #endif
 
-    static func make(
-        executionPlan: SceneEffectStageExecutionPlan,
-        graph: Graph,
-        inputWidth: Int,
-        inputHeight: Int,
-        materialFunctionTargets: Set<Graph.TextureIdentity> = []
-    ) -> Result<Self, Failure> {
-        let materialNodeCount = graph.nodes.filter { $0.kind == .material }.count
-        guard executionPlan.layerID == graph.layerID,
-              executionPlan.materialNodeCount == materialNodeCount,
-              executionPlan.logicalRenderTargetCount == graph.renderTargets.count else {
-            return .failure(.executionMismatch)
-        }
-        return makeValidated(
-            graph: graph,
-            inputRole: executionPlan.inputRole,
-            inputWidth: inputWidth,
-            inputHeight: inputHeight,
-            stageExecutionPlan: executionPlan,
-            materialFunctionTargets: materialFunctionTargets
-        )
-    }
-
     /// R4 entry point for one immutable condition-pruned authored graph.
     /// Dedicated backends are not consulted for target or history semantics.
     static func make(
@@ -162,7 +139,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             inputRole: inputRole,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
-            stageExecutionPlan: nil,
             materialFunctionTargets: materialFunctionTargets
         )
     }
@@ -172,7 +148,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
         inputRole: SceneAuthoredEffectInputRole,
         inputWidth: Int,
         inputHeight: Int,
-        stageExecutionPlan: SceneEffectStageExecutionPlan?,
         materialFunctionTargets: Set<Graph.TextureIdentity>
     ) -> Result<Self, Failure> {
         guard inputWidth > 0, inputHeight > 0 else {
@@ -273,9 +248,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
             case nil, .some(.bool(false)): composes = false
             case .some(.bool(true)): composes = true
             default: return .failure(.executionMismatch)
-            }
-            if composes, stageExecutionPlan != nil {
-                return .failure(.executionMismatch)
             }
             if let previousNodeIndex, node.nodeIndex <= previousNodeIndex {
                 return .failure(.invalidNodeOrder)

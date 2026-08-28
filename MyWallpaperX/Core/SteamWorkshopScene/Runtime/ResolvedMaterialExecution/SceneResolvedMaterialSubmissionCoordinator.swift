@@ -256,7 +256,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   capability.effectSubjectsAreConserved,
                   capability.dependencyOwnership == claim.dependencyOwnership,
                   dependencyReservationMatches(
-                      request.dedicatedInputs.dependencyEffect,
+                      request.frameInputs.dependencyEffect,
                       ownership: claim.dependencyOwnership
                   ), sceneBackgroundReservationMatches(
                       request.sceneBackgroundResource,
@@ -289,9 +289,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let preparedDependencyEffect: SceneDependencyEffectInput?
             switch claim.dependencyOwnership {
             case .none, .graphInternal:
-                preparedDependencyEffect = request.dedicatedInputs.dependencyEffect
+                preparedDependencyEffect = request.frameInputs.dependencyEffect
             case let .externalPrimary(binding):
-                let original = request.dedicatedInputs.dependencyEffect
+                let original = request.frameInputs.dependencyEffect
                 let providerCandidates = candidates.filter {
                     $0.layerID == binding.providerLayerID
                 }
@@ -325,7 +325,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     preparedDependencyEffect = original
                 }
             }
-            let dedicatedInputs = request.dedicatedInputs
+            let frameInputs = request.frameInputs
                 .withDependencyEffect(preparedDependencyEffect)
             let result = executor.prepare(
                 token: claim.token,
@@ -337,7 +337,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 sourceTexture: request.sourceTexture,
                 sourceUniforms: request.sourceUniforms,
                 sourcePipeline: request.sourcePipeline,
-                dedicatedInputs: dedicatedInputs,
+                frameInputs: frameInputs,
                 commandBuffer: commandBuffer,
                 previousStates: provisionalTails.mapValues(\.state),
                 previousGraphResources:

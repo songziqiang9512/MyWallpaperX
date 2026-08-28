@@ -9,7 +9,6 @@ enum SceneUtilityPlanFrameRenderer {
         dependencyRuntime: SceneDependencyFrameRuntime,
         imageCompositor: SceneImageLayerCompositor,
         utilityCaptureTelemetry: SceneGPUCompletionTelemetry,
-        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline,
         offscreenTexturePool: SceneOffscreenTexturePool,
         frameContext: SceneFrameContext,
@@ -62,10 +61,7 @@ enum SceneUtilityPlanFrameRenderer {
                         authoredValue: layer.alpha,
                         snapshot: frameContext.dynamicValues
                     ),
-                    masks: renderer.effectMasks(
-                        for: layer.id,
-                        in: effectTextures
-                    ),
+                    masks: .empty,
                     cursorUV: cursorUV ?? .zero,
                     pointerIsInside: frameContext.pointer.isInside && cursorUV != nil,
                     dynamicValues: frameContext.dynamicValues,

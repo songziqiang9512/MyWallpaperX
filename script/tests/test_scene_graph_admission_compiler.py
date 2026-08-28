@@ -315,15 +315,9 @@ enum Harness {
     }
 
     static func renderTargetPlan(_ graph: Graph) -> SceneGraphRenderTargetPlan {
-        let execution = SceneEffectStageExecutionPlan(
-            layerID: layerID,
-            materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
-            logicalRenderTargetCount: graph.renderTargets.count,
-            inputRole: .layerSource
-        )
         guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-            executionPlan: execution,
             graph: graph,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         ) else { fatalError("admitted graph must reach RT planning") }

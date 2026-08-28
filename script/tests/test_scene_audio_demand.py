@@ -23,7 +23,6 @@ FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
-CHAIN_RENDERER_SOURCE = SCENE_ROOT / "RenderGraph/EffectExecution/SceneEffectStageRenderer.swift"
 FRAME_PREFLIGHT_SOURCE = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
@@ -139,7 +138,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self.assertIn(
             "audioSpectrum: frameContext.audioSpectrum",
             frame_preflight,
-            "统一 GraphExecutor 的 dedicated inputs 必须收到同一帧频谱",
+            "统一 GraphExecutor 的 frame inputs 必须收到同一帧频谱",
         )
 
     def test_unified_program_audio_consumer_source_contract(self) -> None:
@@ -147,8 +146,7 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         body = swift_body(source, "var hasAudioSpectrumConsumer: Bool")
         self.assertIn("case .resolved(_, let materials, _):", body)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", body)
-        self.assertIn("case .dedicated:", body)
-        self.assertIn("return false", body)
+        self.assertNotIn("case .dedicated:", body)
         self.assertNotIn("workshopAudioBars", body)
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
@@ -167,7 +165,6 @@ struct MaterialCapability {
 
 enum StageCapability {
     case resolved(Int, [String: MaterialCapability], Int?)
-    case dedicated
     case visualFailurePassthrough
     case initiallyInactivePassthrough
 }
@@ -218,11 +215,6 @@ enum AudioDemandHarness {
                     )],
                     nil
                 )),
-                false
-            ),
-            (
-                "dedicated-without-audio",
-                demandsAudio(.dedicated),
                 false
             )
         ]

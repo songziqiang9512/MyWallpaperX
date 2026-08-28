@@ -871,12 +871,12 @@ class SceneGraphRenderTargetTableTests(unittest.TestCase):
 
     def test_target_table_does_not_encode_initialization_outside_transaction(self) -> None:
         table_source = SWIFT_SOURCES[6].read_text(encoding="utf-8")
-        topology_source = (
+        preparation_source = (
             SOURCE_ROOT
-            / "RenderGraph/EffectExecution/SceneEffectStageRenderer+Topology.swift"
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
         ).read_text(encoding="utf-8")
         self.assertNotIn("encodeInitialTargetClear", table_source)
-        self.assertNotIn("encodeInitialTargetClear", topology_source)
+        self.assertNotIn("encodeInitialTargetClear", preparation_source)
 
     def test_r8_uses_single_channel_storage_and_exact_logical_budget(self) -> None:
         self.assertEqual(self.result["r8ResidentBytes"], 9)

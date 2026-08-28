@@ -395,12 +395,10 @@ private func pairPlan(for graph: Graph) -> SceneLayerFullFramePairPlan {
 private func framePlan(
     pool: SceneOffscreenTexturePool,
     graph: Graph,
-    executionPlan: SceneEffectStageExecutionPlan,
     commandBuffer: MTLCommandBuffer
 ) -> ScenePersistentGraphTargetFramePlan {
     guard let allocation = pool.framePlanForPersistentGraphTargets(
         admittedGraphs: [graph],
-        targetExecutionPlans: [executionPlan],
         pairPlan: pairPlan(for: graph),
         requestedWidth: extent.width,
         requestedHeight: extent.height,
@@ -622,7 +620,6 @@ private func submitCoordinatorFrame(
     let allocation = framePlan(
         pool: pool,
         graph: graph,
-        executionPlan: executionPlan,
         commandBuffer: commandBuffer
     )
     let targetPlan = SceneResolvedMaterialFrameTargetPlan(
@@ -635,7 +632,7 @@ private func submitCoordinatorFrame(
         sourceTexture: source,
         sourceUniforms: .neutral(),
         sourcePipeline: pipeline,
-        dedicatedInputs: .init()
+        frameInputs: .init()
     )
     switch coordinator.prepareFrame(
         [request],

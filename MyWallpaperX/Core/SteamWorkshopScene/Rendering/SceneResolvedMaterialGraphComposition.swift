@@ -221,7 +221,6 @@ enum SceneResolvedMaterialGraphComposition {
             let allocation: ScenePersistentGraphTargetFramePlan
             switch pool.framePlanResultForPersistentGraphTargets(
                 admittedGraphs: request.claim.admittedGraphs,
-                targetExecutionPlans: request.claim.targetExecutionPlans,
                 materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                 pairPlan: request.claim.pairPlan,
                 extentPolicy: request.fullFrameExtentPolicy,

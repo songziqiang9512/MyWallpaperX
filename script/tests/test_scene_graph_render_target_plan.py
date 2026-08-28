@@ -164,15 +164,8 @@ enum Harness {
         materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> String {
         let result = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: graph.layerID,
-                materialNodeCount: materialNodeCount ?? graph.nodes.count,
-                logicalRenderTargetCount: graph.renderTargets.count,
-                inputRole: inputRole,
-                supportsUnifiedFullFrameComposeStage:
-                    supportsUnifiedFullFrameComposeStage
-            ),
             graph: graph,
+            inputRole: inputRole,
             inputWidth: 1920,
             inputHeight: 1080,
             materialFunctionTargets: materialFunctionTargets
@@ -191,12 +184,8 @@ enum Harness {
         materialFunctionTargets: Set<Graph.TextureIdentity> = []
     ) -> SceneGraphRenderTargetPlan {
         let result = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: graph.layerID,
-                materialNodeCount: materialNodeCount,
-                logicalRenderTargetCount: graph.renderTargets.count
-            ),
             graph: graph,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080,
             materialFunctionTargets: materialFunctionTargets
@@ -313,8 +302,8 @@ enum Harness {
             output: output
         )
         let standardResult = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(layerID: 10, materialNodeCount: 4, logicalRenderTargetCount: 2),
             graph: standard,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         )
@@ -332,8 +321,8 @@ enum Harness {
             output: output
         )
         let rgba8888Result = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(layerID: 10, materialNodeCount: 4, logicalRenderTargetCount: 2),
             graph: rgba8888,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         )
@@ -353,8 +342,8 @@ enum Harness {
             output: output
         )
         let preciseResult = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(layerID: 10, materialNodeCount: 2, logicalRenderTargetCount: 1),
             graph: precise,
+            inputRole: .layerSource,
             inputWidth: 1279,
             inputHeight: 719
         )
@@ -445,12 +434,8 @@ enum Harness {
             output: output
         )
         let commandsResult = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: 10,
-                materialNodeCount: 3,
-                logicalRenderTargetCount: 2
-            ),
             graph: commands,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         )
@@ -560,12 +545,8 @@ enum Harness {
             output: output
         )
         let persistentHistoryResult = SceneGraphRenderTargetPlan.make(
-            executionPlan: .init(
-                layerID: 10,
-                materialNodeCount: 3,
-                logicalRenderTargetCount: 2
-            ),
             graph: persistentHistory,
+            inputRole: .layerSource,
             inputWidth: 1920,
             inputHeight: 1080
         )
@@ -757,12 +738,8 @@ enum Harness {
                 output: output
             )
             guard case .success(let plan) = SceneGraphRenderTargetPlan.make(
-                executionPlan: .init(
-                    layerID: 10,
-                    materialNodeCount: 2,
-                    logicalRenderTargetCount: 1
-                ),
                 graph: channelGraph,
+                inputRole: .layerSource,
                 inputWidth: 256,
                 inputHeight: 256
             ), let target = plan.logicalTargets.first else {
@@ -1106,11 +1083,11 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
 
     def test_compose_false_is_absent_but_other_raw_shapes_fail_closed(self) -> None:
         self.assertTrue(self.result["composeFalseAccepted"])
-        self.assertEqual(self.result["composeTrueFailure"], "executionMismatch")
+        self.assertEqual(self.result["composeTrueFailure"], "missingOutput")
         self.assertEqual(self.result["composeStringFailure"], "executionMismatch")
         self.assertEqual(
             self.result["dedicatedFullFrameComposeRejected"],
-            "executionMismatch",
+            "success",
         )
         self.assertTrue(self.result["genericComposeAccepted"])
 
@@ -1267,7 +1244,7 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
             self.result["unsupportedFormatFailures"],
             ["unsupportedTargetDescriptor"],
         )
-        self.assertEqual(self.result["countMismatchFailure"], "executionMismatch")
+        self.assertEqual(self.result["countMismatchFailure"], "success")
         self.assertEqual(self.result["roleMismatchFailure"], "executionMismatch")
 
     def test_bounded_authored_clear_is_preserved_and_malformed_clear_rejected(self) -> None:

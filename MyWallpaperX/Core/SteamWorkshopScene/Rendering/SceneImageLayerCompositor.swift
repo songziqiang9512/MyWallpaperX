@@ -24,7 +24,6 @@ struct SceneImageLayerCompositor {
         }
     }
 
-    let authoredEffectPipelines: SceneAuthoredEffectPipelineSet
     private let colorBlendPipelineSlot: ScenePipelineSlot<SceneLayerColorBlendPipeline>
     let resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge?
 
@@ -36,7 +35,6 @@ struct SceneImageLayerCompositor {
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
         self.resolvedMaterialRuntime = resolvedMaterialRuntime
-        authoredEffectPipelines = .init(repository: pipelineRepository)
         let device = pipelineRepository.device
         colorBlendPipelineSlot = .init {
             SceneLayerColorBlendPipeline(device: device)

@@ -299,7 +299,7 @@ private func prepareSignalGraph(
         sourceTexture: makeSource(device),
         sourceUniforms: .neutral(),
         sourcePipeline: makeSourcePipeline(device),
-        dedicatedInputs: .init(),
+        frameInputs: .init(),
         commandBuffer: buffer,
         previousStates: previousState.map { [effect: $0] } ?? [:],
         previousGraphResources: previousState == nil
@@ -365,7 +365,7 @@ private enum Harness {
                     sourceTexture: makeSource(device),
                     sourceUniforms: .neutral(),
                     sourcePipeline: makeSourcePipeline(device),
-                    dedicatedInputs: .init(),
+                    frameInputs: .init(),
                     commandBuffer: nextBuffer,
                     previousStates: [effect: stage.transition.nextState],
                     previousGraphResources: [

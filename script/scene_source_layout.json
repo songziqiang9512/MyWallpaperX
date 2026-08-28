@@ -30,24 +30,13 @@
           "SceneEffectAdmissionCatalog+Reporting.swift",
           "SceneEffectAdmissionCatalog+ResolvedMaterial.swift",
           "SceneEffectAdmissionCatalog.swift",
-          "SceneEffectProgramCompiler+DedicatedStages.swift",
           "SceneEffectStageAuthoredFallbackOwnerPartition.swift",
-          "SceneEffectStageAdmission.swift",
-          "SceneEffectStageCompileModel.swift",
-          "SceneEffectStageCompiler.swift",
-          "SceneEffectStageDedicatedCompilers.swift",
-          "SceneEffectStageExecutionPlan+Backend.swift",
-          "SceneEffectStageExecutionPlan.swift",
-          "SceneEffectStageGraph.swift",
-          "SceneEffectStageProgram.swift",
-          "SceneEffectStageStandardBlurScalarOwnerAdmission.swift"
+          "SceneEffectStageAdmission.swift"
         ],
-        "responsibility": "Effect-stage compilation and admission lifecycle, from authored stage-graph slicing and dedicated candidate/backend compilation through stage Program/ExecutionPlan and whole-chain catalog/reporting; excludes complete effect-specific planner admission, MaterialProgram production, GPU encoding, and target/resource lifecycles."
+        "responsibility": "Effect admission, fallback-disposition accounting, and whole-chain catalog/reporting; MaterialProgram production and GraphExecutor own product execution."
       },
       "EffectExecution": {
         "file_globs": [
-          "SceneAuthoredEffectPipelineSet.swift",
-          "SceneEffectStageRenderer*.swift",
           "SceneGraphResourcePassEncoder.swift",
           "SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
           "SceneResolvedMaterialExecutionCapability+EnvelopeDiagnostics.swift",
@@ -65,7 +54,7 @@
           "SceneResolvedMaterialAttachment*.swift",
           "SceneResolvedMaterialPassEncoder*.swift"
         ],
-        "responsibility": "Authored-effect GPU execution type families, including the launch-scoped pipeline view, ordered stages, resolved material graphs, and resource commands."
+        "responsibility": "Shared MaterialProgram and GraphExecutor GPU execution, including ordered stages, attachment storage, pass encoding, and resource commands."
       },
       "GraphTargets": {
         "file_globs": [
@@ -278,49 +267,6 @@
         ]
       },
       {
-        "id": "dedicated-probes",
-        "role": "inventory",
-        "description": "Ordered dedicated compiler probes are frozen until their product owner is transferred.",
-        "pattern": "^\\s*\\(\\.[A-Za-z][A-Za-z0-9_]*,\\s*\\{",
-        "baseline_occurrences": 1,
-        "scope_files": [
-          "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
-        ]
-      },
-      {
-        "id": "compiler-identities",
-        "role": "inventory",
-        "description": "Compiler identity enum cases are a ratcheted inventory, not an extensible fallback list.",
-        "pattern": "^    case [A-Za-z][A-Za-z0-9_]*(?:\\s*=|\\s*$)",
-        "start_marker": "nonisolated enum SceneEffectStageCompilerBackend",
-        "end_marker": "nonisolated struct SceneEffectStageCompilerFailure",
-        "baseline_occurrences": 1,
-        "scope_files": [
-          "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
-        ]
-      },
-      {
-        "id": "runtime-backends",
-        "role": "inventory",
-        "description": "Dedicated runtime backend cases are frozen until their execution owner is removed.",
-        "pattern": "^        case [A-Za-z][A-Za-z0-9_]*\\(",
-        "start_marker": "extension SceneEffectStageExecutionPlan {",
-        "end_marker": "    var gaussianBlur:",
-        "baseline_occurrences": 1,
-        "scope_files": [
-          "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
-        ],
-        "allowed_files": [
-          "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
-        ]
-      },
-      {
         "id": "legacy-recovery-kinds",
         "role": "retirement",
         "description": "Product source must not reconstruct or execute partial authored graphs through Iris, X-Ray, Cursor Ripple, or Shine recovery surfaces.",
@@ -462,7 +408,7 @@
       {
         "id": "stage-renderer-product-call",
         "role": "retirement",
-        "description": "Only GraphExecutor-owned preparation may call the typed stage renderer; direct whole-stage render calls remain forbidden.",
+        "description": "The retired dedicated stage renderer must not re-enter product execution.",
         "pattern": "SceneEffectStageRenderer\\.render\\(",
         "baseline_occurrences": 0,
         "completion_phase": "r5",

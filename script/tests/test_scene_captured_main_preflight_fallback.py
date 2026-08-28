@@ -70,14 +70,14 @@ def augmented_harness(source: str) -> str:
         (
             "        Self.prepareCallCount += 1\n"
             "        Self.prepareTokens.append(token.value)\n"
-            "        if let texture = dedicatedInputs.dependencyEffect?.texture {"
+            "        if let texture = frameInputs.dependencyEffect?.texture {"
         ): (
             "        Self.prepareCallCount += 1\n"
             "        Self.prepareTokens.append(token.value)\n"
             "        if let failure = Self.failureByToken[token.value] {\n"
             "            return .failure(failure)\n"
             "        }\n"
-            "        if let texture = dedicatedInputs.dependencyEffect?.texture {"
+            "        if let texture = frameInputs.dependencyEffect?.texture {"
         ),
     }
     for old, new in replacements.items():
@@ -172,7 +172,7 @@ def augmented_harness(source: str) -> str:
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     )
                 },
                 pool: pool,
@@ -324,7 +324,7 @@ def augmented_harness(source: str) -> str:
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                     .init(
                         claim: claim8,
@@ -339,7 +339,7 @@ def augmented_harness(source: str) -> str:
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                             .replacingDependencyEffect(dependency)
                     ),
                 ],

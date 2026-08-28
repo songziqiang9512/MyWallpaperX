@@ -1,7 +1,7 @@
 import Metal
 import simd
 
-extension SceneOffscreenEffectRenderer {
+enum SceneOffscreenEffectRenderer {
     static func beginEncoder(
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture

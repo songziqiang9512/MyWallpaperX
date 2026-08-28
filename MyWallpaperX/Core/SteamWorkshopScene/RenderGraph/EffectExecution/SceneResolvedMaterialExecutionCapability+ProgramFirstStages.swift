@@ -1,8 +1,7 @@
 import Foundation
 
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
-    /// Compiles each authored stage through Program first. A typed backend may
-    /// fill only the exact stage whose Program compilation failed.
+    /// Compiles every authored stage through the shared Program owner.
     static func compileProgramFirstStages(
         _ admitted: SceneResolvedMaterialAdmittedLayer,
         materialCatalog: SceneResolvedMaterialRuntimeCatalog,
@@ -10,17 +9,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog,
         assetFormatFacts: [String: Int],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState],
-        dedicatedStagePrograms: [SceneEffectStageProgram],
-        dedicatedStageFamilies: [Graph.EffectKey: String],
-        dedicatedLeafKeys: Set<Graph.EffectKey>,
-        dedicatedGraphStageKeys: Set<Graph.EffectKey>,
         maximumVariantsPerMaterial: Int
     ) -> Result<CompiledStages, Rejection> {
-        let programsByKey = Dictionary(grouping: dedicatedStagePrograms, by: \.effectKey)
-        guard programsByKey.values.allSatisfy({ $0.count == 1 }) else {
-            return .failure(rejection("dedicated-leaf-identity-ambiguous"))
-        }
-
         var stages: [StageCapability] = []
         var allMaterials: [MaterialKey: MaterialCapability] = [:]
         for product in admitted.products {
@@ -132,74 +122,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     ))
                     continue
                 }
-                let retainedDedicatedProgram = programsByKey[effect.key]?.first
-                if retainedDedicatedProgram == nil,
-                   programFailure.revokesDedicatedProductOwner
-                    || programFailure.code == "material-generic-owner-revoked" {
-                    if product.clearFunctions.functions.isEmpty,
-                       visualFailureMayPassthrough(
-                           programFailure,
-                           product: product,
-                           pairPlan: admitted.pairPlan,
-                           dependencyOwnership: admitted.dependencyOwnership
-                       ) {
-                        stages.append(.visualFailurePassthrough(
-                            product: product,
-                            reasonCode: programFailure.code
-                        ))
-                        continue
-                    }
-                    return .failure(programFailure)
-                }
-                guard product.clearFunctions.functions.isEmpty else {
-                    return .failure(programFailure)
-                }
-                guard let program = retainedDedicatedProgram else {
-                    if visualFailureMayPassthrough(
-                        programFailure,
-                        product: product,
-                        pairPlan: admitted.pairPlan,
-                        dependencyOwnership: admitted.dependencyOwnership
-                    ) {
-                        stages.append(.visualFailurePassthrough(
-                            product: product,
-                            reasonCode: programFailure.code
-                        ))
-                        continue
-                    }
-                    return .failure(programFailure)
-                }
-                let pairLeaf = dedicatedLeafKeys.contains(effect.key)
-                    && program.executionPlan.logicalRenderTargetCount == 0
-                    && product.graph.nodes.count == 1
-                    && product.graph.renderTargets.isEmpty
-                let logicalTargetStage = dedicatedGraphStageKeys.contains(effect.key)
-                    && program.executionPlan.supportsUnifiedLogicalTargetStage
-                    && program.executionPlan.logicalRenderTargetCount > 0
-                    && product.graph.nodes.count > 1
-                    && product.graph.renderTargets.count
-                        == program.executionPlan.logicalRenderTargetCount
-                    && product.graph.renderTargets.allSatisfy { !$0.declaredUnique }
-                let identityMatches = program.effectKey == effect.key
-                    && program.stageGraph.effects.first?.key == effect.key
-                let dynamicTargetsExecutable = dedicatedDynamicTargetsAreExecutable(
-                    program,
-                    producers: dynamicProducers
-                )
-                let sourceRouteExecutable =
-                    stageSourceRoute != .capturedMainTargetTexture
-                    || ((pairLeaf || logicalTargetStage)
-                        && program.executionPlan.supportsUtilityCapture)
-                guard pairLeaf || logicalTargetStage,
-                      identityMatches,
-                      dynamicTargetsExecutable,
-                      sourceRouteExecutable else {
-                    return .failure(rejection("dedicated-leaf-unsupported"))
-                }
-                stages.append(.dedicated(
+                guard product.clearFunctions.functions.isEmpty,
+                      visualFailureMayPassthrough(
+                          programFailure,
+                          product: product,
+                          pairPlan: admitted.pairPlan,
+                          dependencyOwnership: admitted.dependencyOwnership
+                      ) else { return .failure(programFailure) }
+                stages.append(.visualFailurePassthrough(
                     product: product,
-                    program: program,
-                    family: dedicatedStageFamilies[effect.key] ?? "dedicated-leaf"
+                    reasonCode: programFailure.code
                 ))
             }
         }
@@ -492,22 +424,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         default: return true
         }
         return producerType == expected
-    }
-
-    /// Dedicated stages consume the same launch-scoped producer catalog as
-    /// Program-backed materials. Only plans with an explicit authored fallback
-    /// contract may execute while a target has no live producer at all.
-    private static func dedicatedDynamicTargetsAreExecutable(
-        _ program: SceneEffectStageProgram,
-        producers: DynamicProducerCatalog
-    ) -> Bool {
-        let userTargets = Set(producers.userProperties.map(\.target))
-        let available = userTargets
-            .union(producers.timelineTargets)
-            .union(producers.sceneScriptTargets)
-        let unavailable = program.executionPlan.liveConsumerTargets
-            .subtracting(available)
-        return unavailable.isEmpty
     }
 
     private static func dependencyOwnershipMatches(

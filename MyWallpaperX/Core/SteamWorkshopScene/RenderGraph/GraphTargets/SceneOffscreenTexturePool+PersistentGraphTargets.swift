@@ -217,7 +217,6 @@ extension SceneOffscreenTexturePool {
 
     func framePlanForPersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
-        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
@@ -228,7 +227,6 @@ extension SceneOffscreenTexturePool {
     ) -> ScenePersistentGraphTargetFramePlan? {
         guard case let .success(plan) = framePlanResultForPersistentGraphTargets(
             admittedGraphs: admittedGraphs,
-            targetExecutionPlans: targetExecutionPlans,
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
             pairPlan: pairPlan,
             extentPolicy: extentPolicy,
@@ -242,7 +240,6 @@ extension SceneOffscreenTexturePool {
 
     func framePlanResultForPersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
-        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
@@ -260,7 +257,6 @@ extension SceneOffscreenTexturePool {
         )
         switch persistentTargetPlansResult(
             admittedGraphs: admittedGraphs,
-            targetExecutionPlans: targetExecutionPlans,
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
             pairPlan: pairPlan,
             extentPolicy: extentPolicy,

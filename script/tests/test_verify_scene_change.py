@@ -155,7 +155,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("resolved-material-runtime-execution", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_framebuffer_capture",
             "test_scene_graph_execution_telemetry",
             "test_scene_graph_texture_publication",
             "test_scene_resolved_material_execution_capability",
@@ -193,7 +192,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("rendering", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_framebuffer_capture",
             "test_scene_resolved_material_runtime_bridge",
             "test_scene_source_update_transaction",
         ):
@@ -214,7 +212,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("layer-source-passthrough", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_framebuffer_capture",
             "test_scene_resolved_material_runtime_bridge",
             "test_scene_source_update_transaction",
             "test_scene_texture_candidate",
@@ -314,7 +311,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         gates, groups = verify.build_plan(
             [
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "EffectCompilation/SceneEffectStageCompiler.swift"
+                "EffectCompilation/SceneEffectStageAdmission.swift"
             ],
             arguments(),
             self.registry,
@@ -322,10 +319,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("effect-compilation", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_authored_effect_execution",
             "test_scene_effect_execution_telemetry",
             "test_scene_effect_render_graph",
-            "test_scene_framebuffer_capture",
             "test_scene_graph_admission_compiler",
             "test_scene_graph_texture_publication",
             "test_scene_resolved_material_execution_capability",
@@ -351,7 +346,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
             "test_scene_dependency_graph_output_runtime",
             "test_scene_dependency_render_plan",
             "test_scene_named_render_target_pool",
-            "test_scene_framebuffer_capture",
             "test_scene_utility_layers",
         ):
             with self.subTest(module=module):
@@ -361,7 +355,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         gates, groups = verify.build_plan(
             [
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
-                "EffectExecution/SceneAuthoredEffectPipelineSet.swift"
+                "EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
             ],
             arguments(),
             self.registry,
@@ -369,8 +363,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("effect-execution", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_authored_effect_execution",
-            "test_scene_framebuffer_capture",
             "test_scene_graph_resource_pass_encoder",
             "test_scene_graph_texture_publication",
             "test_scene_resolved_material_execution_capability",
@@ -394,7 +386,6 @@ class SceneValidationSelectionTests(unittest.TestCase):
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         self.assertIn("test_scene_swift_source_sets", focused.command)
         for module in (
-            "test_scene_effect_texture_purposes",
             "test_scene_graph_texture_publication",
             "test_scene_material_program_census",
             "test_scene_resolved_material_execution_capability",

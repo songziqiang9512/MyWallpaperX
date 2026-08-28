@@ -1,8 +1,30 @@
 import Foundation
 
 nonisolated struct SceneAuthoredShaderPreparationFailure {
-    let phase: SceneEffectStageCompilerFailure.Phase
-    let code: SceneEffectStageCompilerFailure.Code
+    enum Phase: String {
+        case shaderPreprocessor = "shader-preprocessor"
+        case invariant
+    }
+
+    enum Code: String {
+        case shaderStageMissing = "shader-stage-missing"
+        case shaderSourceGraphMissing = "shader-source-graph-missing"
+        case shaderSourceIdentityMismatch = "shader-source-identity-mismatch"
+        case shaderVariantInvalid = "shader-variant-invalid"
+        case shaderIncludeMissing = "shader-include-missing"
+        case shaderIncludeAmbiguous = "shader-include-ambiguous"
+        case shaderIncludeCycle = "shader-include-cycle"
+        case shaderDirectiveUnsupported = "shader-directive-unsupported"
+        case shaderModuleResolutionRejected = "shader-module-resolution-rejected"
+        case shaderConditionInvalid = "shader-condition-invalid"
+        case shaderPreprocessorBudgetExceeded =
+            "shader-preprocessor-budget-exceeded"
+        case shaderPreprocessorDiagnostic = "shader-preprocessor-diagnostic"
+        case shaderPreparationInvariant = "shader-preparation-invariant"
+    }
+
+    let phase: Phase
+    let code: Code
     let details: [String]
 }
 
@@ -694,7 +716,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 code: .shaderPreparationInvariant
             )
         }
-        let code: SceneEffectStageCompilerFailure.Code
+        let code: SceneAuthoredShaderPreparationFailure.Code
         switch diagnostic.code {
         case .missingRoot: code = .shaderSourceGraphMissing
         case .sourceIdentityMismatch: code = .shaderSourceIdentityMismatch

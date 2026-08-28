@@ -431,57 +431,10 @@ extension SceneDesktopWallpaperHost {
                 effectIndex: effectIndex
             ))
         }
-        let stageCompileEffectVisibilityOwners = Set(
-            frameDrivenEffectVisibilityOwners.map {
-                SceneEffectStageCompileInput.DynamicEffectVisibilityOwner(
-                    layerID: $0.layerID,
-                    effectIndex: $0.effectIndex
-                )
-            }
-        )
-        let activeEffectLocalDirectBoolVisibilityTargets =
-            SceneDirectBoolEffectVisibilityRouteAdmission
-                .activeOrdinaryRootTargets(
-                    in: runtimeInput.renderDescriptor,
-                    candidates: runtimeInput.propertyBindingProgram
-                        .effectLocalDirectBoolEffectVisibilityTargets
-                )
-        let dedicatedStageLeaves = runtimeInput.authoredEffectRenderPlans.flatMap {
-            SceneEffectProgramCompiler.compileDedicatedLeaves(
-                graph: $0,
-                descriptor: runtimeInput.renderDescriptor,
-                shaderContracts: runtimeInput.shaderContracts,
-                userPropertyProducers: userPropertyProducers,
-                propertyDefinitions: propertyBindingDefinitions,
-                timelineDefinitions: timelineDefinitions,
-                activeEffectLocalDirectBoolVisibilityTargets:
-                    activeEffectLocalDirectBoolVisibilityTargets,
-                startupInactiveEffectVisibilityTargets:
-                    runtimeInput.startupInactiveEffectVisibilityTargets,
-                frameDrivenEffectVisibilityOwners:
-                    stageCompileEffectVisibilityOwners
-            )
-        }
         let executablePropertyFallbackTargets =
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
-                definitions: propertyBindingDefinitions,
-                liveTargets: Set(userPropertyProducers.map(\.target)),
-                retainedDedicatedEffects: Set(
-                    dedicatedStageLeaves.map(\.effectKey)
-                )
+                definitions: propertyBindingDefinitions
             )
-        let dedicatedStageFamilies = Dictionary(
-            uniqueKeysWithValues: dedicatedStageLeaves.map {
-                ($0.effectKey, $0.executionPlan.backend.stableName)
-            }
-        )
-        let dedicatedLeafKeys = Set(dedicatedStageLeaves.compactMap {
-            $0.executionPlan.backend.supportsUnifiedPairLeaf ? $0.effectKey : nil
-        })
-        let dedicatedGraphStageKeys = Set(dedicatedStageLeaves.compactMap {
-            $0.executionPlan.supportsUnifiedLogicalTargetStage
-                ? $0.effectKey : nil
-        })
         let timeOfDayEffectScriptCandidateProgram: SceneTimeOfDayEffectScriptProgram
         let timeOfDayEffectScriptAdmissionDiagnostic: String?
         switch SceneTimeOfDayEffectScriptProgramCompiler.compile(
@@ -589,7 +542,6 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
-                dedicatedStagePrograms: dedicatedStageLeaves,
                 dynamicEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners,
                 startupInactiveEffectVisibilityTargets:
@@ -633,10 +585,7 @@ extension SceneDesktopWallpaperHost {
                     sceneScriptTargets: provenSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
-                assetStates: materialAssetCatalog.launchStates,
-                dedicatedStageFamilies: dedicatedStageFamilies,
-                dedicatedLeafKeys: dedicatedLeafKeys,
-                dedicatedGraphStageKeys: dedicatedGraphStageKeys
+                assetStates: materialAssetCatalog.launchStates
             )
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)

@@ -27,10 +27,7 @@ DEPENDENCY_RUNTIME_SOURCE = (
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
 )
 AUTHORED_CATALOG_SOURCE = (
-    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan.swift"
-)
-METAL_RENDERER_MASKS_SOURCE = (
-    SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectMasks.swift"
+    SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift"
 )
 METAL_VIEW_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalView.swift"
 IMAGE_COMPOSITOR_SOURCE = (
@@ -46,9 +43,9 @@ SUBMISSION_COORDINATOR_SOURCE = (
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
-BACKEND_SOURCE = (
+CAPABILITY_SOURCE = (
     SOURCE_ROOT
-    / "RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan+Backend.swift"
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
 )
 CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SOURCE_ROOT
@@ -142,38 +139,24 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("disposition = .capture", runtime_plan)
         self.assertNotIn("supportsCompleteAuthoredCapture", runtime_plan)
         self.assertNotIn("partialEffects", runtime_plan)
-        backend = BACKEND_SOURCE.read_text(encoding="utf-8")
-        self.assertNotIn(
-            "case .opacity:",
-            backend,
-            "retired Opacity owner must not remain a utility-capture backend",
-        )
-        self.assertNotIn(
-            "case .simple = plan.profile",
-            backend,
-            "migrated Simple Audio Bars must not keep a dedicated utility owner",
-        )
-        self.assertIn("default:", backend)
-        self.assertIn("return false", backend)
+        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        self.assertNotIn("case dedicated", capability)
+        self.assertNotIn("SceneEffectStageExecutionPlan", capability)
 
     def test_planned_utility_chain_loads_and_receives_effect_resources(self) -> None:
         metal_view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
         metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer_masks = METAL_RENDERER_MASKS_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "renderer.utilityCaptureLayerIDs.contains(layer.id)",
+            "resolvedMaterialRuntime.userPropertyDemands",
             metal_view,
-            "a unified utility owner must still load its effect resources",
+            "shared MaterialProgram demands must drive resource loading",
         )
         self.assertIn(
-            "masks: renderer.effectMasks(",
+            "masks: .empty",
             metal_renderer,
-            "utility capture must receive the same planned effect-instance resources",
+            "utility capture must use the shared Program texture bindings",
         )
-        self.assertNotIn("xRay", metal_renderer_masks)
-        self.assertIn("standardBlurEffects: store.standardBlurEffects", metal_renderer_masks)
-        self.assertNotIn("pulseEffects", metal_renderer_masks)
 
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
@@ -256,27 +239,9 @@ class SceneUtilityLayerTests(unittest.TestCase):
         compositor = IMAGE_COMPOSITOR_SOURCE.read_text(encoding="utf-8")
 
         compact_program = "".join(program_first.split())
-        start = compact_program.index(
-            "letsourceRouteExecutable="
-        )
-        end = compact_program.index(
-            "guardpairLeaf||logicalTargetStage,", start
-        )
-        captured_main_gate = compact_program[start:end]
-        self.assertIn(
-            "stageSourceRoute!=.capturedMainTargetTexture||"
-            "((pairLeaf||logicalTargetStage)&&"
-            "program.executionPlan.supportsUtilityCapture)",
-            captured_main_gate,
-        )
-        self.assertNotIn(
-            "fullFrameComposeStage",
-            captured_main_gate,
-        )
-        self.assertIn(
-            "dynamicTargetsExecutable,sourceRouteExecutableelse",
-            compact_program[end:],
-        )
+        self.assertNotIn("SceneEffectStageExecutionPlan", compact_program)
+        self.assertNotIn("supportsUtilityCapture", compact_program)
+        self.assertIn("compileStages(", compact_program)
 
         compact_compositor = "".join(compositor.split())
         self.assertIn(

@@ -33,7 +33,6 @@ final class SceneResolvedMaterialGraphExecutor {
             programKey: String,
             failure: SceneResolvedMaterialPassEncoder.PreparationFailure
         )
-        case dedicatedLeafRejected(reason: String)
         case resourceCommandRejected
         case functionInvocationStaleFrame
         case functionInvocationUnknownEffect
@@ -104,7 +103,6 @@ final class SceneResolvedMaterialGraphExecutor {
             targetOrdinal: Int
         )
         case material(SceneResolvedMaterialPassEncoder.PreparedPass)
-        case dedicated(SceneEffectStageRenderer.PreparedStage)
     }
 
     typealias StageBoundaryObserver = (
@@ -154,7 +152,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
-        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
         previousGraphResources: [
@@ -321,9 +319,7 @@ final class SceneResolvedMaterialGraphExecutor {
                 capability: capability,
                 lease: lease,
                 frame: executionFrame,
-                sourcePipeline: sourcePipeline,
-                time: dedicatedInputs.time,
-                dedicatedInputs: dedicatedInputs,
+                frameInputs: frameInputs,
                 pair: &pair,
                 publications: &publications,
                 commands: &stageCommands,
@@ -514,11 +510,6 @@ final class SceneResolvedMaterialGraphExecutor {
             resourceEncoder?.encode(value, commandBuffer: commandBuffer) == true
         case let .material(value):
             materialEncoder.encode(value, commandBuffer: commandBuffer)
-        case let .dedicated(value):
-            SceneEffectStageRenderer.encodePreparedStage(
-                value,
-                commandBuffer: commandBuffer
-            )
         }
     }
 

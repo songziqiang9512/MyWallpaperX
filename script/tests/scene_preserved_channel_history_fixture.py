@@ -433,13 +433,8 @@ private func capabilities(
 
 private func plan(_ graph: Graph) -> Plan {
     switch Plan.make(
-        executionPlan: .init(
-            layerID: graph.layerID,
-            materialNodeCount: graph.nodes.count,
-            logicalRenderTargetCount: graph.renderTargets.count,
-            inputRole: .layerSource
-        ),
         graph: graph,
+        inputRole: .layerSource,
         inputWidth: extent.width,
         inputHeight: extent.height
     ) {
@@ -664,7 +659,7 @@ private func prepare(
         sourceTexture: source,
         sourceUniforms: .neutral(),
         sourcePipeline: pipeline,
-        dedicatedInputs: .init(),
+        frameInputs: .init(),
         commandBuffer: command,
         previousStates: previous.map { [effect: $0.transition.nextState] } ?? [:],
         previousGraphResources: previous.map {

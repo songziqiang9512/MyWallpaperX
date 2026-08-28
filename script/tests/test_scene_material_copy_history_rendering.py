@@ -99,14 +99,22 @@ SUPPORT = (
     )
     .replace(
         """final class SceneResolvedMaterialRuntimeBridge {
-    struct DedicatedFrameInputs {
+    struct FrameInputs {
         let time: Float
+        let dynamicValues: SceneDynamicSnapshot
+        let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
 
-        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+        init(
+            dependencyEffect: SceneDependencyEffectInput? = nil,
+            dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+            pointerIsInside: Bool = true
+        ) {
             time = 0
+            self.dynamicValues = dynamicValues
+            self.pointerIsInside = pointerIsInside
             layerModelMatrix = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
             self.dependencyEffect = dependencyEffect
@@ -130,20 +138,32 @@ SUPPORT = (
         case rejected(reasonCode: String)
         case claimed(ClaimedExecution)
     }
-    struct DedicatedFrameInputs {
+    struct FrameInputs {
         let time: Float = 0
+        let dynamicValues: SceneDynamicSnapshot
+        let pointerIsInside: Bool
         let layerModelMatrix = matrix_identity_float4x4
         let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
 
-        init(dependencyEffect: SceneDependencyEffectInput? = nil) {
+        init(
+            dependencyEffect: SceneDependencyEffectInput? = nil,
+            dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+            pointerIsInside: Bool = true
+        ) {
+            self.dynamicValues = dynamicValues
+            self.pointerIsInside = pointerIsInside
             self.dependencyEffect = dependencyEffect
         }
 
         func withDependencyEffect(
             _ dependencyEffect: SceneDependencyEffectInput?
         ) -> Self {
-            .init(dependencyEffect: dependencyEffect)
+            .init(
+                dependencyEffect: dependencyEffect,
+                dynamicValues: dynamicValues,
+                pointerIsInside: pointerIsInside
+            )
         }
     }
     struct FramePreparationRequest {
@@ -155,7 +175,7 @@ SUPPORT = (
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
-        let dedicatedInputs: DedicatedFrameInputs
+        let frameInputs: FrameInputs
     }
     enum FramePreparationResult {
         case ready

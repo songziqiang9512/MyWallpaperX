@@ -162,14 +162,8 @@ enum Harness {
         materialNodeCount: Int
     ) -> Result<Plan, Plan.Failure> {
         Plan.make(
-            executionPlan: .init(
-                layerID: layerID,
-                materialNodeCount: materialNodeCount,
-                logicalRenderTargetCount: graph.renderTargets.count,
-                inputRole: .layerSource,
-                supportsUnifiedFullFrameComposeStage: false
-            ),
             graph: graph,
+            inputRole: .layerSource,
             inputWidth: 64,
             inputHeight: 64
         )

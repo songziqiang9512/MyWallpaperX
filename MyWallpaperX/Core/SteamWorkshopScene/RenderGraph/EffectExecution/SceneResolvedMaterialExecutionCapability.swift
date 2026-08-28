@@ -169,12 +169,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let code: String
         let programFailureAttribution: ProgramFailureAttribution?
 
-        var revokesDedicatedProductOwner: Bool {
-            guard let attribution = programFailureAttribution,
-                  case let .launchEnvelope(.material(failure)) =
-                    attribution.cause else { return false }
-            return failure.genericOwnerFailure != nil
-        }
     }
 
     struct Token: Hashable {
@@ -210,11 +204,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             product: SceneGraphAdmissionProduct,
             materials: [MaterialKey: MaterialCapability],
             activation: SceneResolvedMaterialStageActivationPolicy?
-        )
-        case dedicated(
-            product: SceneGraphAdmissionProduct,
-            program: SceneEffectStageProgram,
-            family: String
         )
         case visualFailurePassthrough(
             product: SceneGraphAdmissionProduct,
@@ -326,9 +315,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamicProducers: DynamicProducerCatalog = .empty,
         assetFormatFacts: [String: Int] = [:],
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
-        dedicatedStageFamilies: [Graph.EffectKey: String] = [:],
-        dedicatedLeafKeys: Set<Graph.EffectKey> = [],
-        dedicatedGraphStageKeys: Set<Graph.EffectKey> = [],
         maximumVariantsPerMaterial: Int = 16
     ) {
         let demandIssues = materialCatalog.resourceDemandIssues
@@ -355,10 +341,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 dynamicProducers: dynamicProducers,
                 assetFormatFacts: assetFormatFacts,
                 assetStates: assetStates,
-                dedicatedStagePrograms: candidate.dedicatedStagePrograms,
-                dedicatedStageFamilies: dedicatedStageFamilies,
-                dedicatedLeafKeys: dedicatedLeafKeys,
-                dedicatedGraphStageKeys: dedicatedGraphStageKeys,
                 maximumVariantsPerMaterial: maximumVariantsPerMaterial
             )
             preparationLock.withLock { preparations[index] = result }
@@ -423,7 +405,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     /// A hidden graph-output provider has product execution authority only
     /// while it remains reachable from an admitted visible consumer. The
-    /// closure is recomputed after Program/dedicated stage compilation so a
+    /// closure is recomputed after Program compilation so a
     /// rejected consumer cannot leave an orphan provider transaction that has
     /// no named-target reservation and would otherwise drop the whole frame.
     private static func retainExecutableDependencyClosure(
@@ -579,8 +561,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                             targets.insert(dynamic.target)
                         }
                     }
-                case .dedicated(_, let program, _):
-                    targets.formUnion(program.executionPlan.liveConsumerTargets)
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     break
                 }
@@ -588,8 +568,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
 
-    /// SceneScript value producers must survive when their material stage moves
-    /// from the dedicated catalog into the shared Program executor.
+    /// SceneScript value producers remain live through the shared Program executor.
     var sceneScriptConsumerTargets: Set<SceneDynamicTarget> {
         capabilitiesByLayerID.values.reduce(into: Set<SceneDynamicTarget>()) {
             targets, capability in
@@ -605,8 +584,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                             targets.insert(dynamic.target)
                         }
                     }
-                case .dedicated(_, let program, _):
-                    targets.formUnion(program.executionPlan.liveConsumerTargets)
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     break
                 }
@@ -621,8 +598,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 switch stage {
                 case .resolved(_, let materials, _):
                     return materials.values.contains { $0.variants.hasAudioSpectrumConsumer }
-                case .dedicated:
-                    return false
                 case .visualFailurePassthrough, .initiallyInactivePassthrough:
                     return false
                 }

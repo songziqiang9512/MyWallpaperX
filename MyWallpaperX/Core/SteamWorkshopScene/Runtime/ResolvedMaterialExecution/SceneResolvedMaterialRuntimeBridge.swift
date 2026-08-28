@@ -16,9 +16,6 @@ final class SceneResolvedMaterialRuntimeBridge {
         let layerID: Int
         let admittedGraphs: [Graph]
         let clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry]
-        /// Stage-aligned target semantics. A non-nil entry is accepted only
-        /// after the same dedicated typed program won capability ownership.
-        let targetExecutionPlans: [SceneEffectStageExecutionPlan?]
         let pairPlan: SceneLayerFullFramePairPlan
         let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
@@ -32,7 +29,6 @@ final class SceneResolvedMaterialRuntimeBridge {
             layerID: Int,
             admittedGraphs: [Graph],
             clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry],
-            targetExecutionPlans: [SceneEffectStageExecutionPlan?],
             pairPlan: SceneLayerFullFramePairPlan,
             fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
@@ -45,7 +41,6 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.layerID = layerID
             self.admittedGraphs = admittedGraphs
             self.clearFunctionsByEffect = clearFunctionsByEffect
-            self.targetExecutionPlans = targetExecutionPlans
             self.pairPlan = pairPlan
             self.fullFrameExtentPolicy = fullFrameExtentPolicy
             self.dependencyOwnership = dependencyOwnership
@@ -96,7 +91,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sourceTexture: MTLTexture?
         let sourceUniforms: SceneLayerFragmentUniforms?
         let sourcePipeline: SceneImageLayerPipeline
-        let dedicatedInputs: DedicatedFrameInputs
+        let frameInputs: FrameInputs
 
         init(
             claim: ClaimedExecution,
@@ -107,7 +102,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceTexture: MTLTexture?,
             sourceUniforms: SceneLayerFragmentUniforms?,
             sourcePipeline: SceneImageLayerPipeline,
-            dedicatedInputs: DedicatedFrameInputs
+            frameInputs: FrameInputs
         ) {
             self.claim = claim
             self.targetPlan = targetPlan
@@ -116,14 +111,12 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.sourceTexture = sourceTexture
             self.sourceUniforms = sourceUniforms
             self.sourcePipeline = sourcePipeline
-            self.dedicatedInputs = dedicatedInputs
+            self.frameInputs = frameInputs
         }
     }
 
-    struct DedicatedFrameInputs {
-        let masks: SceneImageLayerMasks
+    struct FrameInputs {
         let dynamicValues: SceneDynamicSnapshot
-        let pipelines: SceneAuthoredEffectPipelineSet
         let cursorUV: SIMD2<Float>
         let previousCursorUV: SIMD2<Float>
         let pointerIsInside: Bool
@@ -141,9 +134,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             _ dependencyEffect: SceneDependencyEffectInput?
         ) -> Self {
             .init(
-                masks: masks,
                 dynamicValues: dynamicValues,
-                pipelines: pipelines,
                 cursorUV: cursorUV,
                 previousCursorUV: previousCursorUV,
                 pointerIsInside: pointerIsInside,
@@ -354,19 +345,6 @@ final class SceneResolvedMaterialRuntimeBridge {
         )
     }
 
-    /// Returns dedicated leaf plans owned by the unified capability for a
-    /// layer. This projection keeps resource loading on the same owner as
-    /// runtime admission.
-    func dedicatedEffectStages(
-        for layerID: Int
-    ) -> [SceneEffectStageExecutionPlan] {
-        guard let claimed = capabilities.claim(layerID: layerID),
-              let runtimeClaim = capabilities.resolve(claimed.token) else {
-            return []
-        }
-        return runtimeClaim.stages.compactMap(\.dedicatedExecutionPlan)
-    }
-
     var executionEvidenceReportLines: [String] {
         executionEvidenceLock.lock()
         defer { executionEvidenceLock.unlock() }
@@ -500,7 +478,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 guard let effect = $0.graph.effects.first?.key else { return nil }
                 return (effect, $0.clearFunctions)
             }),
-            targetExecutionPlans: capability.stages.map(\.dedicatedExecutionPlan),
             pairPlan: capability.pairPlan,
             fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
             dependencyOwnership: capability.dependencyOwnership,

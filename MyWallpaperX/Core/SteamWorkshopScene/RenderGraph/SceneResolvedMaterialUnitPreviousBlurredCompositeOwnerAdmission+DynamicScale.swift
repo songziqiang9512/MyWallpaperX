@@ -13,9 +13,7 @@ extension SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
         }
     }
 
-    /// The whole Standard Blur stage must use one input mode. A mixed
-    /// live/fallback stage keeps its incumbent because the two Gaussian passes
-    /// would otherwise cross different failure and rebuild boundaries.
+    /// Both shared blur passes must use the same launch-scoped scalar source.
     nonisolated static func userPropertyScalarOwnerSource(
         propertyKey: String,
         effect: Graph.Effect,
@@ -62,9 +60,6 @@ extension SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
         }
     }
 
-    /// Owner admission and the typed revocation token consume the same
-    /// launch-scoped producer/definition facts. Exact duplicate definitions
-    /// remain visible because this path intentionally receives an Array.
     nonisolated static func scaleProducerCohortIsProven(
         scale: ScaleCohort,
         effect: Graph.Effect,

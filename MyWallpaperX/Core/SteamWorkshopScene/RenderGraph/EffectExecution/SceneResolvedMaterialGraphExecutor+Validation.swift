@@ -27,16 +27,7 @@ extension SceneResolvedMaterialGraphExecutor {
             let graph = products[index].graph
             let step = pairPlan.effects[index]
             let lease = leases[index]
-            let targetPlanResult = capability.stages[index].dedicatedExecutionPlan.map {
-                SceneGraphRenderTargetPlan.make(
-                    executionPlan: $0,
-                    graph: graph,
-                    inputWidth: lease.table.plan.inputExtent.width,
-                    inputHeight: lease.table.plan.inputExtent.height,
-                    materialFunctionTargets:
-                        materialFunctionTargetsByEffect[step.effect] ?? []
-                )
-            } ?? SceneGraphRenderTargetPlan.make(
+            let targetPlanResult = SceneGraphRenderTargetPlan.make(
                 graph: graph,
                 inputRole: index == 0 ? .layerSource : .priorEffectOutput,
                 inputWidth: lease.table.plan.inputExtent.width,
@@ -443,8 +434,6 @@ extension SceneResolvedMaterialGraphExecutor.Failure {
         ):
             "stage-\(stageIndex)-node-\(nodeIndex)-material-\(ordinal)-"
                 + "program-\(programKey.prefix(12))-pass-\(failure.code)-rejected"
-        case .dedicatedLeafRejected(let reason):
-            "dedicated-leaf-rejected-\(reason)"
         case .resourceCommandRejected: "resource-command-rejected"
         case .functionInvocationStaleFrame: "function-invocation-stale-frame"
         case .functionInvocationUnknownEffect: "function-invocation-unknown-effect"

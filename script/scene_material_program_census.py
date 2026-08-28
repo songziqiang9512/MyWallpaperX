@@ -55,7 +55,6 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneEffectTextureInput.swift",
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneEffectDefinition.swift"],
     AUTHORED_EFFECT_PLANNING_SOURCES["SceneAuthoredEffectRenderPlan.swift"],
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageExecutionPlan.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Clear.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphRenderTargetPlan+Extent.swift",
@@ -90,7 +89,6 @@ CURRENT_SOURCE_PATHS = (
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialEffectIngress.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift",
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
     *AUTHORED_SHADER_PREPARATION_SOURCES,
 )
 
@@ -189,10 +187,6 @@ enum SceneDynamicTarget: Hashable {
     case effectConstant(
         layerID: Int, effectIndex: Int, passIndex: Int, name: String
     )
-}
-
-extension SceneEffectStageExecutionPlan {
-    enum Backend {}
 }
 
 enum SceneDynamicSource: Hashable {

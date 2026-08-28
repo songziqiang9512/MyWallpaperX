@@ -12,9 +12,7 @@ extension SceneResolvedMaterialGraphExecutor {
         capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         lease: SceneGraphRenderTargetLease,
         frame: SceneResolvedMaterialFrameSnapshot,
-        sourcePipeline: SceneImageLayerPipeline,
-        time: Float,
-        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
@@ -30,8 +28,8 @@ extension SceneResolvedMaterialGraphExecutor {
         )
         if let activation = stageCapability.activationPolicy {
             switch activation.evaluate(
-                dynamicValues: dedicatedInputs.dynamicValues,
-                pointerIsInside: dedicatedInputs.pointerIsInside
+                dynamicValues: frameInputs.dynamicValues,
+                pointerIsInside: frameInputs.pointerIsInside
             ) {
             case .active:
                 break
@@ -102,29 +100,8 @@ extension SceneResolvedMaterialGraphExecutor {
                 effectLocalFailureReasonCode: &effectLocalFailureReasonCode
             )
         }
-        if case let .dedicated(_, program, _) = stageCapability {
-            let failure = prepareDedicated(
-                program: program,
-                transition: transition,
-                graph: graph,
-                pairStep: pairStep,
-                lease: lease,
-                sourcePipeline: sourcePipeline,
-                time: time,
-                inputs: dedicatedInputs,
-                pair: &pair,
-                publications: &publications,
-                commands: &commands
-            )
-            if failure == nil {
-                programKeys.append(
-                    "dedicated:\(SceneShaderStableDigest.hash(program.stageGraph))"
-                )
-            }
-            return failure
-        }
         let dependencyFrame: SceneResolvedMaterialFrameSnapshot
-        if let dependency = dedicatedInputs.dependencyEffect {
+        if let dependency = frameInputs.dependencyEffect {
             guard dependency.frameEpoch > 0,
                   let resource = dependency.reservedMaterialResource,
                   let replacement = frameTextureSnapshot(
@@ -210,9 +187,9 @@ extension SceneResolvedMaterialGraphExecutor {
                         template: material.template,
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: Self.fullTargetMVP(target),
-                        layerModelMatrix: dedicatedInputs.layerModelMatrix,
+                        layerModelMatrix: frameInputs.layerModelMatrix,
                         effectTextureProjectionMatrixInverse:
-                            dedicatedInputs.effectTextureProjectionMatrixInverse,
+                            frameInputs.effectTextureProjectionMatrixInverse,
                         implicitFramebufferIdentity: pairStep.inputIdentity
                     ),
                     variantCache: material.variants,

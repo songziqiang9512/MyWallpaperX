@@ -79,7 +79,7 @@ HARNESS = replace_once(
             )
         }
         let externalDependencyInput = providerResource.map {
-            SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
+            SceneResolvedMaterialRuntimeBridge.FrameInputs(
                 dependencyEffect: .init(
                     frameEpoch: 60,
                     namedReference: namedReference,
@@ -132,7 +132,7 @@ HARNESS = replace_once(
                 sourceTexture: makeSource(device, width: 2, height: 2),
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
-                dedicatedInputs: externalDependencyInput,
+                frameInputs: externalDependencyInput,
                 commandBuffer: command,
                 previousStates: [:],
                 previousGraphResources: [:],
@@ -205,7 +205,7 @@ HARNESS = replace_once(
                 sourceTexture: makeSource(device, width: 2, height: 2),
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
-                dedicatedInputs: externalDependencyInput,
+                frameInputs: externalDependencyInput,
                 commandBuffer: command,
                 previousStates: [:],
                 previousGraphResources: [:],
@@ -276,7 +276,7 @@ HARNESS = replace_once(
                 sourceTexture: makeSource(device, width: 2, height: 2),
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
-                dedicatedInputs: externalDependencyInput,
+                frameInputs: externalDependencyInput,
                 commandBuffer: command,
                 previousStates: [:],
                 previousGraphResources: [:],

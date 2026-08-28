@@ -7,7 +7,6 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         dynamicTextRenderSizes: [Int: [Float]],
         spriteAnimations: [Int: SceneSpriteAnimation],
-        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         userPropertyTextures: [String: MTLTexture],
         userPropertyStates: [
@@ -52,7 +51,6 @@ extension SceneMetalRenderer {
                 imageTextures: imageTextures,
                 dynamicTextRenderSizes: dynamicTextRenderSizes,
                 spriteAnimations: spriteAnimations,
-                effectTextures: effectTextures,
                 imagePipeline: imagePipeline,
                 offscreenTexturePool: offscreenTexturePool,
                 frameContext: frameContext,
@@ -287,7 +285,6 @@ extension SceneMetalRenderer {
         imageTextures: SceneBaseImageTextureSnapshot,
         dynamicTextRenderSizes: [Int: [Float]],
         spriteAnimations: [Int: SceneSpriteAnimation],
-        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -440,14 +437,13 @@ extension SceneMetalRenderer {
                 mouseNormalized: frameContext.pointer.previous,
                 modelViewProjection: sourceMVP
             )
-            let masks = effectMasks(for: layerID, in: effectTextures)
             if let texture = sourceTexture {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
                     baseTextureCandidate: capturesMainTarget ? nil
                         : imageTextures.candidate(for: layerID, matching: texture),
-                    masks: masks,
+                    masks: .empty,
                     textureFrame: textureFrame,
                     mvp: outputMVP,
                     uniforms: .init(
@@ -502,29 +498,25 @@ extension SceneMetalRenderer {
             } else {
                 sceneBackgroundResource = nil
             }
-            let dedicatedInputs =
-                SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs(
-                    masks: masks,
-                    dynamicValues: frameContext.dynamicValues,
-                    pipelines: imageCompositor.authoredEffectPipelines,
-                    cursorUV: cursor ?? .zero,
-                    previousCursorUV: previousCursor ?? cursor ?? .zero,
-                    pointerIsInside: frameContext.pointer.isInside && cursor != nil,
-                    previousPointerIsInside:
-                        frameContext.pointer.isInside && previousCursor != nil,
-                    pointerMovement: simd_length(
-                        frameContext.pointer.current - frameContext.pointer.previous
-                    ) * 0.5,
-                    primaryButtonIsDown:
-                        frameContext.pointer.isPrimaryButtonDown,
-                    layerModelMatrix: layerModelMatrix,
-                    effectTextureProjectionMatrixInverse:
-                        effectTextureProjectionMatrixInverse,
-                    frameTime: Float(frameContext.frameTime),
-                    time: time,
-                    audioSpectrum: frameContext.audioSpectrum,
-                    dependencyEffect: dependencyEffect
-                )
+            let frameInputs = SceneResolvedMaterialRuntimeBridge.FrameInputs(
+                dynamicValues: frameContext.dynamicValues,
+                cursorUV: cursor ?? .zero,
+                previousCursorUV: previousCursor ?? cursor ?? .zero,
+                pointerIsInside: frameContext.pointer.isInside && cursor != nil,
+                previousPointerIsInside:
+                    frameContext.pointer.isInside && previousCursor != nil,
+                pointerMovement: simd_length(
+                    frameContext.pointer.current - frameContext.pointer.previous
+                ) * 0.5,
+                primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
+                layerModelMatrix: layerModelMatrix,
+                effectTextureProjectionMatrixInverse:
+                    effectTextureProjectionMatrixInverse,
+                frameTime: Float(frameContext.frameTime),
+                time: time,
+                audioSpectrum: frameContext.audioSpectrum,
+                dependencyEffect: dependencyEffect
+            )
             let materialFunctionInvocations = frameContext.materialFunctionMutations
                 .filter { $0.layerID == layerID }
                 .map { mutation in
@@ -552,7 +544,7 @@ extension SceneMetalRenderer {
                 sourceTexture: sourceTexture,
                 sourceUniforms: sourceUniforms,
                 sourcePipeline: imagePipeline,
-                dedicatedInputs: dedicatedInputs
+                frameInputs: frameInputs
             )
             result.append(request)
         }

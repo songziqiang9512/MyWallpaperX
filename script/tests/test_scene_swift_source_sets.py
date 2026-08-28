@@ -351,10 +351,6 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
 
     def test_material_program_indirect_consumers_inherit_canonical_fixtures(self) -> None:
         inherited = {
-            "script/tests/test_scene_resolved_material_execution_capability.py": (
-                "runpy.run_path",
-                "test_scene_resolved_material_program_finalizer.py",
-            ),
             "script/tests/test_scene_resolved_material_graph_executor.py": (
                 "runpy.run_path",
                 "test_scene_resolved_material_graph_visual_failure_contract.py",

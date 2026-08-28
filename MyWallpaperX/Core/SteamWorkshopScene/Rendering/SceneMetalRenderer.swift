@@ -82,7 +82,6 @@ struct SceneMetalRenderer {
         ] = [:],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
         spriteAnimations: [Int: SceneSpriteAnimation],
-        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         particleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
@@ -123,7 +122,6 @@ struct SceneMetalRenderer {
             imageTextures: imageTextures,
             dynamicTextRenderSizes: dynamicTextRenderSizes,
             spriteAnimations: spriteAnimations,
-            effectTextures: effectTextures,
             imagePipeline: imagePipeline,
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyTextureStates,
@@ -145,7 +143,7 @@ struct SceneMetalRenderer {
         frameLayers: for layer in orderedLayers {
             defer {
                 if !stopsAfterClaimedFailure { renderUtilityPlans(triggeredBy: layer.id,
-                    effectTextures: effectTextures, imagePipeline: imagePipeline,
+                    imagePipeline: imagePipeline,
                     offscreenTexturePool: offscreenTexturePool, frameContext: frameContext,
                     worldFramesByLayerID: frameWorldFrames, cameraFrame: cameraFrame,
                     parallaxConfiguration: parallaxConfiguration, viewportSize: viewportSize,
@@ -252,7 +250,7 @@ struct SceneMetalRenderer {
                         for: layer.id,
                         matching: texture
                     ),
-                    masks: effectMasks(for: layer.id, in: effectTextures),
+                    masks: .empty,
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,
                     uniforms: SceneImageLayerUniformValues(

@@ -170,7 +170,7 @@ private enum Harness {
                 sourceTexture: makeSource(device),
                 sourceUniforms: .neutral(),
                 sourcePipeline: makeSourcePipeline(device),
-                dedicatedInputs: .init(),
+                frameInputs: .init(),
                 commandBuffer: firstBuffer,
                 previousStates: [:],
                 previousGraphResources: [:],
@@ -216,7 +216,7 @@ private enum Harness {
                         sourceTexture: makeSource(device),
                         sourceUniforms: .neutral(),
                         sourcePipeline: makeSourcePipeline(device),
-                        dedicatedInputs: .init(),
+                        frameInputs: .init(),
                         commandBuffer: nextBuffer,
                         previousStates: [effect: firstState],
                         previousGraphResources: [

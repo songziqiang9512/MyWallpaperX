@@ -964,11 +964,9 @@ struct SceneMaterialAssetTextureCatalog {
     func makeFrameProvider() -> FrameProvider { .init(catalog: self) }
 }
 
-extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
+extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
     static let fixture = Self(
-        masks: .init(),
         dynamicValues: .init(),
-        pipelines: .init(),
         cursorUV: .zero,
         previousCursorUV: .zero,
         pointerIsInside: false,
@@ -989,9 +987,7 @@ extension SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs {
         _ dependencyEffect: SceneDependencyEffectInput?
     ) -> Self {
         .init(
-            masks: masks,
             dynamicValues: dynamicValues,
-            pipelines: pipelines,
             cursorUV: cursorUV,
             previousCursorUV: previousCursorUV,
             pointerIsInside: pointerIsInside,
@@ -1057,7 +1053,7 @@ final class SceneResolvedMaterialGraphExecutor {
         sourceTexture: MTLTexture?,
         sourceUniforms: SceneLayerFragmentUniforms?,
         sourcePipeline: SceneImageLayerPipeline,
-        dedicatedInputs: SceneResolvedMaterialRuntimeBridge.DedicatedFrameInputs,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,
         previousStates: [Graph.EffectKey: State],
         previousGraphResources: [Graph.EffectKey: [Graph.TextureIdentity: SceneFrameTextureResource]],
@@ -1069,12 +1065,12 @@ final class SceneResolvedMaterialGraphExecutor {
         _ = token; _ = leases; _ = historyRehydrateCopiesByEffect; _ = frame
         _ = materialFunctionInvocations; _ = sceneBackgroundResource
         _ = sourceTexture; _ = sourceUniforms; _ = sourcePipeline
-        _ = dedicatedInputs; _ = commandBuffer
+        _ = frameInputs; _ = commandBuffer
         _ = previousStates; _ = previousGraphResources
         _ = effectGeneration; _ = resetGeneration
         Self.prepareCallCount += 1
         Self.prepareTokens.append(token.value)
-        if let texture = dedicatedInputs.dependencyEffect?.texture {
+        if let texture = frameInputs.dependencyEffect?.texture {
             Self.preparedDependencyTextureByToken[token.value] =
                 ObjectIdentifier(texture)
         }
@@ -2387,7 +2383,7 @@ enum Harness {
                     sourceTexture: makeTexture(device, "discard-source"),
                     sourceUniforms: .init(),
                     sourcePipeline: .init(),
-                    dedicatedInputs: .fixture
+                    frameInputs: .fixture
                 )],
                 pool: pool,
                 commandBuffer: buffer
@@ -2438,7 +2434,7 @@ enum Harness {
                     sourceTexture: makeTexture(device, "forged-discard-source"),
                     sourceUniforms: .init(),
                     sourcePipeline: .init(),
-                    dedicatedInputs: .fixture
+                    frameInputs: .fixture
                 )],
                 pool: pool,
                 commandBuffer: buffer
@@ -2499,7 +2495,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "atomic-source-7"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                     .init(
                         claim: claim8,
@@ -2510,7 +2506,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "atomic-source-8"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                 ],
                 pool: pool,
@@ -2647,7 +2643,7 @@ enum Harness {
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: dependencies[claim.layerID].map {
+                        frameInputs: dependencies[claim.layerID].map {
                             .fixture.replacingDependencyEffect($0)
                         } ?? .fixture
                     )
@@ -2812,7 +2808,7 @@ enum Harness {
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                     .init(
                         claim: consumerClaim,
@@ -2828,7 +2824,7 @@ enum Harness {
                         ),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                             .replacingDependencyEffect(provisionalInput)
                     ),
                 ],
@@ -3002,7 +2998,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "local-source-7"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture.replacingDependencyEffect(
+                        frameInputs: .fixture.replacingDependencyEffect(
                             dependency
                         )
                     ),
@@ -3017,7 +3013,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "local-source-8"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                 ],
                 pool: pool,
@@ -3145,7 +3141,7 @@ enum Harness {
                     sourceTexture: makeTexture(device, "repeat-terminal-source"),
                     sourceUniforms: .init(),
                     sourcePipeline: .init(),
-                    dedicatedInputs: .fixture
+                    frameInputs: .fixture
                 )],
                 pool: pool,
                 commandBuffer: buffer
@@ -3250,7 +3246,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "success-source-7"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                     .init(
                         claim: preflight8,
@@ -3261,7 +3257,7 @@ enum Harness {
                         sourceTexture: makeTexture(device, "success-source-8"),
                         sourceUniforms: .init(),
                         sourcePipeline: .init(),
-                        dedicatedInputs: .fixture
+                        frameInputs: .fixture
                     ),
                 ],
                 pool: pool,
@@ -3583,7 +3579,7 @@ enum Harness {
                     sourceTexture: makeTexture(device, "preflight-source"),
                     sourceUniforms: .init(),
                     sourcePipeline: .init(),
-                    dedicatedInputs: .fixture
+                    frameInputs: .fixture
                 )],
                 pool: .init(),
                 commandBuffer: buffer
@@ -4340,7 +4336,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         compact_coordinator = "".join(coordinator.split())
         self.assertIn(
             "dependencyReservationMatches("
-            "request.dedicatedInputs.dependencyEffect,"
+            "request.frameInputs.dependencyEffect,"
             "ownership:claim.dependencyOwnership)",
             compact_coordinator,
         )
@@ -4421,16 +4417,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         start = host.index("startFrameDriver()", register)
         self.assertLess(load, register)
         self.assertLess(register, start)
-        self.assertIn("func dedicatedEffectStages(", bridge)
-        self.assertIn("compactMap(\\.dedicatedExecutionPlan)", bridge)
-        self.assertIn("func unifiedDedicatedEffectStages(", renderer)
-        self.assertIn("func dedicatedEffectResourceStages(", renderer)
-        self.assertIn("renderer.dedicatedEffectResourceStages(for: layer.id)", view)
-        self.assertIn('where layer.contentKind == "text"', view)
-        self.assertIn(
-            "&& !renderer.dedicatedEffectResourceStages(for: layer.id).isEmpty",
-            view,
-        )
+        self.assertIn("struct FrameInputs", bridge)
+        self.assertNotIn("func dedicatedEffectStages(", bridge)
+        self.assertNotIn("dedicatedEffectResourceStages", renderer)
+        self.assertNotIn("dedicatedEffectResourceStages", view)
     def test_retired_chain_types_and_routes_are_absent(self) -> None:
         compositor = COMPOSITOR.read_text(encoding="utf-8")
         renderer = METAL_RENDERER.read_text(encoding="utf-8")

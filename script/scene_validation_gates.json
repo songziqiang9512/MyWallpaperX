@@ -106,14 +106,12 @@
       "id": "resolved-material-runtime-execution",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**"],
       "modules": [
-        "test_scene_framebuffer_capture",
         "test_scene_graph_execution_telemetry",
         "test_scene_graph_texture_publication",
         "test_scene_background_material_provider",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_runtime_bridge",
-        "test_scene_visible_graph_output_compositor",
         "test_scene_utility_layers"
       ]
     },
@@ -151,11 +149,10 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Rendering/**"],
       "keywords": ["rendering", "framebuffer", "image_layer", "capture"],
       "modules": [
-        "test_scene_framebuffer_capture",
         "test_scene_background_material_provider",
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_source_update_transaction",
-        "test_scene_visible_graph_output_compositor"
+        "test_scene_visible_graph_output_render_plan"
       ]
     },
     {
@@ -169,7 +166,6 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneFrameLayerTextureAssembly.swift"
       ],
       "modules": [
-        "test_scene_framebuffer_capture",
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_source_update_transaction",
         "test_scene_texture_candidate",
@@ -177,7 +173,7 @@
         "test_scene_media_thumbnail_provider",
         "test_scene_media_thumbnail_binding",
         "test_scene_wallpaper_benchmark",
-        "test_scene_visible_graph_output_compositor"
+        "test_scene_visible_graph_output_render_plan"
       ]
     },
     {
@@ -189,39 +185,26 @@
       "id": "authored-fallback-owner-revocation",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneAuthoredStandardBlurPlanner.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingProgram.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageAuthoredFallbackOwnerPartition.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageDedicatedCompilers.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/SceneEffectStageStandardBlurScalarOwnerAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift",
-        "script/tests/fixtures/SceneStandardBlurStaticScalarOwnerAdmissionSupport.swift",
-        "script/tests/test_scene_authored_fallback_owner_conservation.py",
         "script/tests/test_scene_generic_shader_incumbent_owner_deferred.py",
         "script/tests/test_scene_property_binding_program.py",
-        "script/tests/test_scene_standard_blur_authored_fallback_owner_admission.py",
-        "script/tests/test_scene_standard_blur_static_scalar_owner_admission.py",
-        "script/tests/test_scene_standard_blur_startup_false_direct_bool_owner_admission.py",
-        "script/tests/test_scene_standard_blur_timeline_vector2_owner_admission.py",
         "script/tests/test_scene_pulse_dedicated_family_retirement.py",
+        "script/tests/test_scene_standard_blur_dedicated_family_retirement.py",
         "script/tests/test_scene_xray_dedicated_family_retirement.py"
       ],
       "modules": [
         "test_scene_resolved_material_unit_previous_blurred_composite_graph_admission",
-        "test_scene_authored_fallback_owner_conservation",
         "test_scene_generic_shader_incumbent_owner_deferred",
         "test_scene_property_binding_program",
         "test_scene_pulse_dedicated_family_retirement",
-        "test_scene_standard_blur_authored_fallback_owner_admission",
-        "test_scene_standard_blur_static_scalar_owner_admission",
-        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
-        "test_scene_standard_blur_timeline_vector2_owner_admission",
+        "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_xray_dedicated_family_retirement"
       ]
     },
@@ -266,21 +249,16 @@
       "id": "effect-compilation",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/**"],
       "modules": [
-        "test_scene_authored_effect_execution",
         "test_scene_effect_execution_telemetry",
         "test_scene_pulse_dedicated_family_retirement",
+        "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_xray_dedicated_family_retirement",
         "test_scene_effect_render_graph",
-        "test_scene_framebuffer_capture",
         "test_scene_graph_admission_compiler",
         "test_scene_graph_texture_publication",
         "test_scene_background_material_provider",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
-        "test_scene_standard_blur_authored_fallback_owner_admission",
-        "test_scene_standard_blur_static_scalar_owner_admission",
-        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
-        "test_scene_standard_blur_timeline_vector2_owner_admission",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_utility_layers"
       ]
@@ -289,8 +267,6 @@
       "id": "effect-execution",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/**"],
       "modules": [
-        "test_scene_authored_effect_execution",
-        "test_scene_framebuffer_capture",
         "test_scene_graph_resource_pass_encoder",
         "test_scene_graph_texture_publication",
         "test_scene_preserved_channel_history",
@@ -299,16 +275,13 @@
         "test_scene_preserved_channel_feedback_pair",
         "test_scene_preserved_channel_ordered_feedback",
         "test_scene_independent_signal_feedback",
-        "test_scene_effect_local_texture_purpose_fallback",
         "test_scene_animated_material_visual_failure",
-        "test_scene_authored_fallback_owner_conservation",
-        "test_scene_captured_main_source_conservation",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_fbo_stage_activation",
         "test_scene_resolved_material_stage_activation",
         "test_scene_pulse_dedicated_family_retirement",
+        "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_xray_dedicated_family_retirement",
-        "test_scene_resolved_material_program_failure_attribution",
         "test_scene_resolved_material_graph_executor",
         "test_scene_external_primary_visual_failure_passthrough",
         "test_scene_persistent_history_visual_failure_rollback",
@@ -325,8 +298,6 @@
         "test_scene_dependency_graph_output_runtime",
         "test_scene_dependency_render_plan",
         "test_scene_named_render_target_pool",
-        "test_scene_framebuffer_capture",
-        "test_scene_visible_graph_output_compositor",
         "test_scene_visible_graph_output_render_plan",
         "test_scene_utility_layers"
       ]
@@ -340,7 +311,6 @@
         "test_scene_opaque_alpha_weighted_loop_average_owner",
         "test_scene_conditional_opaque_alpha_weighted_rgb_owner",
         "test_scene_same_slot_color_replacement_owner",
-        "test_scene_effect_texture_purposes",
         "test_scene_animated_material_visual_failure",
         "test_scene_generic_shader_program_artifact",
         "test_scene_generic_shader_incumbent_owner_deferred",
@@ -357,18 +327,14 @@
         "test_scene_material_texture_transform",
         "test_scene_preserved_alpha_rgb_color_inputs",
         "test_scene_background_material_provider",
-        "test_scene_captured_main_source_conservation",
         "test_scene_resolved_material_execution_capability",
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_pass_encoder",
         "test_scene_resolved_material_program_derivation",
-        "test_scene_standard_blur_static_scalar_owner_admission",
-        "test_scene_standard_blur_startup_false_direct_bool_owner_admission",
-        "test_scene_standard_blur_timeline_vector2_owner_admission",
+        "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",
         "test_scene_source_proven_noise_purpose",
-        "test_scene_slot_chain_texture_purpose",
         "test_scene_resolved_material_template"
       ]
     },
@@ -427,7 +393,6 @@
         "test_scene_independent_signal_unorm_accumulator",
         "test_scene_generic_shader_texture_transform_compiler",
         "test_scene_material_texture_transform",
-        "test_scene_preserved_output_initialization_capability",
         "test_scene_rgb_blend_scalar_alpha",
         "test_scene_rgb_difference_enhancement",
         "test_scene_source_proven_noise_purpose",

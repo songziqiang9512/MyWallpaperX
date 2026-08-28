@@ -40,13 +40,6 @@ class ScenePulseDedicatedFamilyRetirementTests(unittest.TestCase):
             self.assertNotIn(symbol, product)
 
     def test_shared_program_and_fail_soft_contract_remain(self) -> None:
-        compiler = (
-            SCENE
-            / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
-        ).read_text(encoding="utf-8")
-        backend = (
-            SCENE / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
-        ).read_text(encoding="utf-8")
         capability = (
             SCENE
             / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
@@ -55,8 +48,6 @@ class ScenePulseDedicatedFamilyRetirementTests(unittest.TestCase):
             SCENE / "Rendering/SceneImageLayerDrawRequest.swift"
         ).read_text(encoding="utf-8")
 
-        self.assertNotIn("(.pulse,", compiler)
-        self.assertNotIn("case pulse", backend)
         self.assertIn("$0.variants.hasAudioSpectrumConsumer", capability)
         self.assertIn('"effects/pulse/effect.json"', masks)
         self.assertIn("pulsePreservesSourceCoverage", masks)

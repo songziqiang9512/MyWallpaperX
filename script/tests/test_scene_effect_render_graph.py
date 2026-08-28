@@ -355,13 +355,8 @@ enum Harness {
         height: Int = 32
     ) -> Result<TargetPlan, TargetPlan.Failure> {
         TargetPlan.make(
-            executionPlan: .init(
-                layerID: graph.layerID,
-                materialNodeCount: graph.nodes.filter { $0.kind == .material }.count,
-                logicalRenderTargetCount: graph.renderTargets.count,
-                inputRole: .layerSource
-            ),
             graph: graph,
+            inputRole: .layerSource,
             inputWidth: width,
             inputHeight: height
         )

@@ -24,10 +24,10 @@ GRAPH_COMPOSITION_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/"
     "SceneResolvedMaterialGraphComposition.swift"
 )
-PLAN_BACKEND_SOURCE = (
+GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectCompilation/"
-    "SceneEffectStageExecutionPlan+Backend.swift"
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
+    "SceneResolvedMaterialGraphExecutor.swift"
 )
 
 HARNESS = r'''
@@ -88,11 +88,11 @@ enum Harness {
         )
         successThenFailure.recordExact(
             identity: identityB, origin: .text, family: "Opacity",
-            backend: "dedicated", outcome: .encodedOutput
+            backend: "program", outcome: .encodedOutput
         )
         successThenFailure.recordExact(
             identity: identityB, origin: .text, family: "Opacity",
-            backend: "dedicated", outcome: .failed(reasonCode: "late-failure")
+            backend: "program", outcome: .failed(reasonCode: "late-failure")
         )
 
         let concurrentDuplicates = telemetry.makeFrame(frameIndex: 3)
@@ -102,7 +102,7 @@ enum Harness {
         DispatchQueue.concurrentPerform(iterations: 32) { _ in
             concurrentDuplicates.recordExact(
                 identity: identityC, origin: .quad, family: "Godrays",
-                backend: "dedicated", outcome: .encodedOutput
+                backend: "program", outcome: .encodedOutput
             )
         }
 
@@ -442,14 +442,14 @@ class SceneEffectExecutionTelemetryTests(unittest.TestCase):
 
     def test_unified_execution_uses_single_backend_identity(self) -> None:
         composition = GRAPH_COMPOSITION_SOURCE.read_text(encoding="utf-8")
-        plan_backend = PLAN_BACKEND_SOURCE.read_text(encoding="utf-8")
+        executor = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
             "family: runtime.executionEvidenceFamily(for: subject.key)",
             composition,
         )
         self.assertIn('backend: "resolved-material-graph"', composition)
-        self.assertIn("backend.stableName", plan_backend)
-        self.assertNotIn("authoredShader", plan_backend)
+        self.assertNotIn("SceneEffectStageRenderer", executor)
+        self.assertNotIn("case dedicated", executor)
 
     @staticmethod
     def _field(line: str, name: str) -> str:

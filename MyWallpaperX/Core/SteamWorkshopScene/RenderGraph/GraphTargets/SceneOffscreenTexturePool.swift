@@ -129,7 +129,6 @@ final class SceneOffscreenTexturePool {
     /// residency. The coordinator commits and pins only after graph preflight.
     func preparePersistentGraphTargets(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
-        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
@@ -139,7 +138,6 @@ final class SceneOffscreenTexturePool {
         guard pixelFormat == .bgra8Unorm,
               let prepared = persistentTargetPlans(
                   admittedGraphs: admittedGraphs,
-                  targetExecutionPlans: targetExecutionPlans,
                   materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                   pairPlan: pairPlan,
                   extentPolicy: extentPolicy,
@@ -157,7 +155,6 @@ final class SceneOffscreenTexturePool {
 
     func persistentTargetPlans(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
-        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
@@ -166,7 +163,6 @@ final class SceneOffscreenTexturePool {
     ) -> (plans: [SceneGraphRenderTargetPlan], width: Int, height: Int)? {
         guard case let .success(value) = persistentTargetPlansResult(
             admittedGraphs: admittedGraphs,
-            targetExecutionPlans: targetExecutionPlans,
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
             pairPlan: pairPlan,
             extentPolicy: extentPolicy,
@@ -178,7 +174,6 @@ final class SceneOffscreenTexturePool {
 
     func persistentTargetPlansResult(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
-        targetExecutionPlans: [SceneEffectStageExecutionPlan?] = [],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
@@ -189,8 +184,6 @@ final class SceneOffscreenTexturePool {
     ), ScenePersistentGraphTargetPlanningFailure> {
         guard !admittedGraphs.isEmpty,
               admittedGraphs.count == pairPlan.effects.count,
-              (targetExecutionPlans.isEmpty
-                || targetExecutionPlans.count == admittedGraphs.count),
               admittedGraphs.allSatisfy({ $0.layerID == pairPlan.layerID }) else {
             return .failure(.invalidRequest)
         }
@@ -206,17 +199,7 @@ final class SceneOffscreenTexturePool {
             let (graph, pairStep) = values
             let inputRole: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput
-            let targetExecutionPlan = targetExecutionPlans.isEmpty
-                ? nil : targetExecutionPlans[index]
-            let planResult = targetExecutionPlan.map {
-                SceneGraphRenderTargetPlan.make(
-                    executionPlan: $0,
-                    graph: graph,
-                    inputWidth: size.0,
-                    inputHeight: size.1,
-                    materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
-                )
-            } ?? SceneGraphRenderTargetPlan.make(
+            let planResult = SceneGraphRenderTargetPlan.make(
                 graph: graph,
                 inputRole: inputRole,
                 inputWidth: size.0,

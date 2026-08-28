@@ -38,13 +38,6 @@ class SceneXRayDedicatedFamilyRetirementTests(unittest.TestCase):
             self.assertNotIn(symbol, product)
 
     def test_shared_program_and_provider_contract_remain(self) -> None:
-        compiler = (
-            SCENE
-            / "RenderGraph/EffectCompilation/SceneEffectProgramCompiler+DedicatedStages.swift"
-        ).read_text(encoding="utf-8")
-        backend = (
-            SCENE / "RenderGraph/EffectCompilation/SceneEffectStageCompileModel.swift"
-        ).read_text(encoding="utf-8")
         launch = (
             SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
@@ -52,8 +45,6 @@ class SceneXRayDedicatedFamilyRetirementTests(unittest.TestCase):
             SCENE / "RenderGraph/SceneAuthoredXRayPlanner+StockIdentity.swift"
         ).read_text(encoding="utf-8")
 
-        self.assertNotIn("(.xRay,", compiler)
-        self.assertNotIn('case xRay = "x-ray"', backend)
         self.assertIn("SceneResolvedMaterialExecutionCapabilityAdmission.compile(", launch)
         self.assertIn("SceneXRayStockIdentityVerifier.verifiedStockIdentityEffectKeys(", launch)
         self.assertIn("nonisolated enum SceneXRayStockIdentityVerifier", identity)
@@ -64,15 +55,13 @@ class SceneXRayDedicatedFamilyRetirementTests(unittest.TestCase):
         loader = (
             SCENE / "Properties/SceneUserPropertyTextureLoader.swift"
         ).read_text(encoding="utf-8")
-        layer_loader = (
-            SCENE / "Resources/SceneLayerEffectTextureLoader.swift"
-        ).read_text(encoding="utf-8")
-
         self.assertIn("resolvedMaterialRuntime.userPropertyDemands", view)
         self.assertNotIn("SceneXRayRuntimePlanner", view)
         self.assertIn("requestedIdentities.compactMap", loader)
         self.assertNotIn("straightAlbedoPropertyKeys:", loader)
-        self.assertNotIn("SceneXRayEffectTextureLoader", layer_loader)
+        self.assertFalse(
+            (SCENE / "Resources/SceneLayerEffectTextureLoader.swift").exists()
+        )
 
 
 if __name__ == "__main__":

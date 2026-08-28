@@ -25,22 +25,8 @@ extension SceneMetalRenderer {
             + spotLightRuntime.reportLines(candidateCount: candidateCount)
     }
 
-    func unifiedDedicatedEffectStages(
-        for layerID: Int
-    ) -> [SceneEffectStageExecutionPlan] {
-        imageCompositor.resolvedMaterialRuntime?.dedicatedEffectStages(
-            for: layerID
-        ) ?? []
-    }
-
     var resolvedMaterialExecutionLayerIDs: Set<Int> {
         imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
-    }
-
-    func dedicatedEffectResourceStages(
-        for layerID: Int
-    ) -> [SceneEffectStageExecutionPlan] {
-        unifiedDedicatedEffectStages(for: layerID)
     }
 
     func debugPlacementSummary(for layer: SceneRenderDescriptor.Layer) -> String {

@@ -11,7 +11,6 @@ class SceneMetalView: NSView {
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
     private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
-    private var effectTextures = SceneLayerEffectTextureStore()
     private var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
@@ -92,21 +91,7 @@ class SceneMetalView: NSView {
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
-        var loadedEffectTextures = SceneLayerEffectTextureStore()
         var puppetRecomposeBytes = 0
-        // 所有渲染层都要装载 effect 实例资源，mp4 payload 视频层也不能遗漏。
-        func loadEffectTextures(for layer: SceneRenderDescriptor.Layer) -> SceneLayerEffectTextures {
-            let stages = renderer.dedicatedEffectResourceStages(for: layer.id)
-            let textures = SceneLayerEffectTextureLoader.load(
-                for: layer,
-                stages: stages,
-                resolver: resolver,
-                loader: loader,
-                device: metalDevice
-            )
-            loadedEffectTextures.merge(layerID: layer.id, textures: textures)
-            return textures
-        }
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
@@ -125,13 +110,11 @@ class SceneMetalView: NSView {
                     continue
                 }
                 loaded.set(texture, candidate: nil, layerID: layer.id)
-                let effectTextures = loadEffectTextures(for: layer)
                 let color = SIMD3(layer.colorRGB ?? [], fill: 1)
                 var message = String(
                     format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
                     layer.id, name, color.x, color.y, color.z
                 )
-                message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
                 }
@@ -151,10 +134,8 @@ class SceneMetalView: NSView {
                 loader: loader
             ) {
                 loadedVideoSources[layer.id] = videoSource
-                let effectTextures = loadEffectTextures(for: layer)
                 var message = "layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent))"
                 message += " [\(resourceView.displayPath(for: url))]"
-                message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
                 }
@@ -205,8 +186,6 @@ class SceneMetalView: NSView {
                     loadedSpriteAnimations[layer.id] = animation
                     message += animation.reportSummary
                 }
-                let effectTextures = loadEffectTextures(for: layer)
-                message += effectTextures.message
                 if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                     message += "; \(effectSummary)"
                 }
@@ -221,17 +200,6 @@ class SceneMetalView: NSView {
                 ))
             }
         }
-        let effectOnlyLayers = renderer.renderDescriptor.layers.filter { layer in
-            return renderer.utilityCaptureLayerIDs.contains(layer.id)
-                || !renderer.unifiedDedicatedEffectStages(for: layer.id).isEmpty
-        }
-        for layer in effectOnlyLayers {
-            let effectTextures = loadEffectTextures(for: layer)
-            report.append(
-                "effect-only layer \(layer.id) \"\(layer.name ?? "(unnamed)")\""
-                    + effectTextures.message
-            )
-        }
         imageTextures = loaded
         spriteAnimations = loadedSpriteAnimations
         let textLoad = SceneTextTextureLoader.load(
@@ -241,18 +209,6 @@ class SceneMetalView: NSView {
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures)
-        // CoreText text layers also load resources for the selected effect stages.
-        for layer in renderer.renderDescriptor.layers
-        where layer.contentKind == "text"
-            && !renderer.dedicatedEffectResourceStages(for: layer.id).isEmpty {
-            let effectTextures = loadEffectTextures(for: layer)
-            if !effectTextures.message.isEmpty {
-                report.append(
-                    "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\" effect resources"
-                        + effectTextures.message
-                )
-            }
-        }
         report.append(contentsOf: renderer.runtimeReportLines())
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
@@ -263,7 +219,6 @@ class SceneMetalView: NSView {
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
         puppetPlaybackStates = loadedPuppetPlaybackStates
-        effectTextures = loadedEffectTextures
         particlePlayback = SceneParticlePlaybackState(
             descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory,
             device: metalDevice, resourceView: resourceView, textureLoader: loader,
@@ -335,7 +290,6 @@ class SceneMetalView: NSView {
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,
             mediaThumbnail: mediaThumbnailSnapshot,
             spriteAnimations: spriteAnimations,
-            effectTextures: effectTextures,
             imagePipeline: imagePipeline,
             particleBatches: particleBatches,
             particlePipeline: particlePlayback?.pipeline,

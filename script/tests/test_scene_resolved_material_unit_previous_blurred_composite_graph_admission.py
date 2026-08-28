@@ -473,7 +473,7 @@ class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
         )
         self.assertNotIn("SceneAuthoredStandardBlurPlanner.plan(", owner_source)
         self.assertNotIn(DEDICATED_PLANNER_SOURCE, SWIFT_SOURCES)
-        self.assertTrue(DEDICATED_PLANNER_SOURCE.exists())
+        self.assertFalse(DEDICATED_PLANNER_SOURCE.exists())
 
 
 if __name__ == "__main__":

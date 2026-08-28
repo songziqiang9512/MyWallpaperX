@@ -6,7 +6,6 @@ import simd
 extension SceneMetalRenderer {
     func renderUtilityPlans(
         triggeredBy layerID: Int,
-        effectTextures: SceneLayerEffectTextureStore,
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -34,7 +33,6 @@ extension SceneMetalRenderer {
             dependencyRuntime: dependencyRuntime,
             imageCompositor: imageCompositor,
             utilityCaptureTelemetry: utilityCaptureTelemetry,
-            effectTextures: effectTextures,
             imagePipeline: imagePipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,

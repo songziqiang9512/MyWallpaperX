@@ -172,33 +172,25 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     struct Candidate {
         let layerID: Int
         let result: Result<SceneResolvedMaterialAdmittedLayer, Failure>
-        let dedicatedStagePrograms: [SceneEffectStageProgram]
 
         init(
             layerID: Int,
-            result: Result<SceneResolvedMaterialAdmittedLayer, Failure>,
-            dedicatedStagePrograms: [SceneEffectStageProgram] = []
+            result: Result<SceneResolvedMaterialAdmittedLayer, Failure>
         ) {
             self.layerID = layerID
             self.result = result
-            self.dedicatedStagePrograms = dedicatedStagePrograms
         }
     }
 
     static func compile(
         descriptor: SceneRenderDescriptor,
         authoredPlans: [Graph],
-        dedicatedStagePrograms: [SceneEffectStageProgram] = [],
         dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
         startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence] = [:]
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
-        let dedicatedGroups = Dictionary(
-            grouping: dedicatedStagePrograms,
-            by: \.effectKey.layerID
-        )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let structuralUtilityDependencyConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
@@ -372,8 +364,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         )
                     }(),
                     conditionSchemaEvidence: conditionSchemaEvidence
-                ),
-                dedicatedStagePrograms: dedicatedGroups[layerID] ?? []
+                )
             )
         }
     }
