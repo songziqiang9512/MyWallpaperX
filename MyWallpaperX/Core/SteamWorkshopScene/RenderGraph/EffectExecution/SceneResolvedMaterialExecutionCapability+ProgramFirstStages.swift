@@ -475,10 +475,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dynamic: Template.DynamicUniform
     ) -> Bool {
         guard let producerType else { return true }
-        guard dynamic.authoredBindingKeys == ["user", "value"],
-              let fallback = dynamic.authoredFallback,
+        guard let fallback = dynamic.authoredFallback,
               fallback.valueKind.localizedLowercase == "binding",
-              fallback.authoredBindingKeys == ["user", "value"] else {
+              SceneResolvedMaterialDirectUserBindingContract.matches(
+                  dynamic: dynamic,
+                  fallback: fallback
+              ) else {
             return true
         }
         let expected: SceneDynamicValueType

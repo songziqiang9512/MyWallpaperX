@@ -42,7 +42,8 @@ extension SceneDocument {
         let timelineDiagnostics: [String]
         /// Property-bound SceneScript source. Execution remains gated by a bounded compiler.
         let scriptSource: String?
-        /// Full wrapper shape used to reject omitted or additional binding fields.
+        /// Full wrapper shape used to preserve unknown metadata and reject
+        /// omitted or additional producer-semantic fields where unmodeled.
         let bindingKeys: [String]
 
         /// 两个 Timeline 字段有默认值：官方 Timeline 挂在 scene object 的属性上，

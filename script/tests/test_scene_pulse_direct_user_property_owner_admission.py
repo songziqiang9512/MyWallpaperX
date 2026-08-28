@@ -133,7 +133,8 @@ private let shaderIdentity = "effects/pulse"
 
 private func value(
     _ components: [Double],
-    propertyKey: String
+    propertyKey: String,
+    bindingKeys: [String] = ["user", "value"]
 ) -> SceneDocument.ShaderValue {
     .init(
         rawValue: components.map { String($0) }.joined(separator: " "),
@@ -141,7 +142,7 @@ private func value(
         userBinding: propertyKey,
         userValueKind: .string,
         components: components,
-        bindingKeys: ["user", "value"]
+        bindingKeys: bindingKeys
     )
 }
 
@@ -183,6 +184,7 @@ private func definition() -> SceneEffectDefinition {
 private func descriptor(
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]] = [:],
+    bindingKeyOverrides: [Constant: [String]] = [:],
     combos: [String: Int] = [:],
     maskPath: String? = nil
 ) -> SceneRenderDescriptor {
@@ -190,7 +192,15 @@ private func descriptor(
         constant, propertyKey in
         let components = fallbackOverrides[constant]
             ?? constant.defaultComponents(for: .stock2842)
-        return (constant.rawValue, value(components, propertyKey: propertyKey))
+        return (
+            constant.rawValue,
+            value(
+                components,
+                propertyKey: propertyKey,
+                bindingKeys: bindingKeyOverrides[constant]
+                    ?? ["user", "value"]
+            )
+        )
     })
     let textureSlots: [String?] = maskPath.map { [nil, nil, $0] } ?? []
     let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -297,6 +307,7 @@ private func compileInput(
     contracts: [SceneShaderContract],
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]] = [:],
+    bindingKeyOverrides: [Constant: [String]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer>? = nil,
     combos: [String: Int] = [:],
     maskPath: String? = nil
@@ -312,6 +323,7 @@ private func compileInput(
         descriptor: descriptor(
             bindings: bindings,
             fallbackOverrides: fallbackOverrides,
+            bindingKeyOverrides: bindingKeyOverrides,
             combos: combos,
             maskPath: maskPath
         ),
@@ -333,13 +345,16 @@ private func compileOutcome(
     _ contracts: [SceneShaderContract],
     bindings: [Constant: String] = [:],
     fallbackOverrides: [Constant: [Double]] = [:],
+    bindingKeyOverrides: [Constant: [String]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer>? = nil,
     combos: [String: Int] = [:],
     maskPath: String? = nil
 ) -> String {
     outcome(compileInput(
         contracts: contracts, bindings: bindings,
-        fallbackOverrides: fallbackOverrides, producers: producers,
+        fallbackOverrides: fallbackOverrides,
+        bindingKeyOverrides: bindingKeyOverrides,
+        producers: producers,
         combos: combos, maskPath: maskPath
     ))
 }

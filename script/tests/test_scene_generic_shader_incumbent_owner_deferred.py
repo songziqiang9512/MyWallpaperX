@@ -1016,7 +1016,8 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
         ])
         self.assertIn("userPropertyValueTypeMatches(", capability)
         self.assertIn(
-            'dynamic.authoredBindingKeys == ["user", "value"]', capability
+            "SceneResolvedMaterialDirectUserBindingContract.matches(",
+            capability,
         )
         for typed_component_count in (
             "case 1: expected = .scalar",

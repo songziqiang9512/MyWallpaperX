@@ -64,6 +64,7 @@ private func fallbackInput(
     contracts: [SceneShaderContract],
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]],
+    bindingKeyOverrides: [Constant: [String]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer> = [],
     definitions: [SceneDynamicTargetDefinition] = [],
     combos: [String: Int] = [:],
@@ -73,6 +74,7 @@ private func fallbackInput(
         contracts: contracts,
         bindings: bindings,
         fallbackOverrides: fallbackOverrides,
+        bindingKeyOverrides: bindingKeyOverrides,
         producers: producers,
         combos: combos,
         maskPath: maskPath
@@ -101,6 +103,7 @@ private func fallbackOutcome(
     _ contracts: [SceneShaderContract],
     bindings: [Constant: String],
     fallbackOverrides: [Constant: [Double]],
+    bindingKeyOverrides: [Constant: [String]] = [:],
     producers: Set<SceneDynamicUserPropertyProducer> = [],
     definitions: [SceneDynamicTargetDefinition] = [],
     combos: [String: Int] = [:],
@@ -110,6 +113,7 @@ private func fallbackOutcome(
         contracts: contracts,
         bindings: bindings,
         fallbackOverrides: fallbackOverrides,
+        bindingKeyOverrides: bindingKeyOverrides,
         producers: producers,
         definitions: definitions,
         combos: combos,
@@ -162,6 +166,43 @@ private func fallbackOwnerPartitionTargetNames() -> [[String]] {
     }
 }
 
+private func wrapperMetadataOwnerPartition(
+    _ contracts: [SceneShaderContract]
+) -> [String] {
+    let definition = fallbackDefinition(
+        .noiseAmount,
+        authoredValue: .scalar(0.25)
+    )
+    let wrapperOutcomes = [
+        ["unexpected", "user", "value"],
+        ["animation", "user", "value"],
+        ["script", "user", "value"],
+        ["user"],
+    ].map { keys in
+        fallbackOutcome(
+            contracts,
+            bindings: [.noiseAmount: "pulseNoiseAmount"],
+            fallbackOverrides: [.noiseAmount: [0.25]],
+            bindingKeyOverrides: [.noiseAmount: keys],
+            definitions: [definition]
+        )
+    }
+    return wrapperOutcomes + [fallbackOutcome(
+        contracts,
+        bindings: [.noiseAmount: "pulseNoiseAmount"],
+        fallbackOverrides: [.noiseAmount: [0.25]],
+        bindingKeyOverrides: [
+            .noiseAmount: ["unexpected", "user", "value"],
+        ],
+        producers: [fallbackProducer(
+            .noiseAmount,
+            propertyKey: "pulseNoiseAmount",
+            valueType: .vector3
+        )],
+        definitions: [definition]
+    )]
+}
+
 private func tintConsumerDriftDispositions(
     _ contract: SceneShaderContract
 ) -> [String] {
@@ -196,7 +237,9 @@ private func tintConsumerDriftDispositions(
 }
 '''
 
-FALLBACK_RESULTS = r'''            "fallbackScalarConstants": [
+FALLBACK_RESULTS = r'''            "wrapperMetadataOwnerPartition":
+                wrapperMetadataOwnerPartition(contracts),
+            "fallbackScalarConstants": [
                 fallbackOutcome(
                     contracts,
                     bindings: [.noiseSpeed: "pulseNoiseSpeed"],
@@ -587,6 +630,14 @@ class ScenePulseAuthoredFallbackOwnerAdmissionTests(_Base):
         self.assertEqual(
             self.result["fallbackOwnerPartitionTargetNames"],
             [[], ["tintlow"], ["noiseamount", "tintlow"]],
+        )
+
+    def test_opaque_wrapper_metadata_revokes_without_bypassing_semantics(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["wrapperMetadataOwnerPartition"],
+            [self.SCALAR_REVOKED] + ["incumbent"] * 4,
         )
 
     def test_missing_duplicate_or_wrong_identity_definitions_retain_owner(

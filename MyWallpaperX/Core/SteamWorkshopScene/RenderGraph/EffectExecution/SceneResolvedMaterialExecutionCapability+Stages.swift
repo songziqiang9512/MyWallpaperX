@@ -226,10 +226,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   $0.propertyKey == propertyKey || $0.target == dynamic.target
               }),
               producers.authoredFallbackTargets.contains(dynamic.target),
-              dynamic.authoredBindingKeys == ["user", "value"],
               let fallback = dynamic.authoredFallback,
               fallback.valueKind.localizedLowercase == "binding",
-              fallback.authoredBindingKeys == ["user", "value"],
+              SceneResolvedMaterialDirectUserBindingContract.matches(
+                  dynamic: dynamic,
+                  fallback: fallback
+              ),
               (1 ... 4).contains(fallback.componentBitPatterns.count) else {
             return false
         }

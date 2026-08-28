@@ -663,10 +663,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
               [.float, .float2, .float3].contains(field.type),
               field.arrayCount == nil,
               declaration.scriptAttachments.isEmpty,
-              declaration.authoredBindingKeys == ["user", "value"],
               let fallback,
               fallback.valueKind.localizedLowercase == "binding",
-              fallback.authoredBindingKeys == ["user", "value"],
+              SceneResolvedMaterialDirectUserBindingContract.matches(
+                  dynamic: declaration,
+                  fallback: fallback
+              ),
               let range = schema.authoredRange else {
             return liveEncoded
         }
@@ -759,10 +761,12 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     ) -> Bool {
         guard case .userProperty = contributor,
               declaration.scriptAttachments.isEmpty,
-              declaration.authoredBindingKeys == ["user", "value"],
               let fallback = declaration.authoredFallback,
               fallback.valueKind.localizedLowercase == "binding",
-              fallback.authoredBindingKeys == ["user", "value"],
+              SceneResolvedMaterialDirectUserBindingContract.matches(
+                  dynamic: declaration,
+                  fallback: fallback
+              ),
               SceneResolvedMaterialUniformProjection.isIsotropicFloat2Consumer(
                   schema: schema,
                   field: field

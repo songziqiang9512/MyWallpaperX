@@ -357,6 +357,34 @@ nonisolated struct SceneResolvedMaterialTemplate {
     }
 }
 
+/// Classifies the authored shape of a direct user-property value wrapper.
+/// Unknown keys remain loss-preserving metadata; keys with producer semantics
+/// stay fail-closed until their producer is modeled by the shared Program.
+nonisolated enum SceneResolvedMaterialDirectUserBindingContract {
+    typealias Template = SceneResolvedMaterialTemplate
+
+    private static let requiredKeys: Set<String> = ["user", "value"]
+    private static let producerKeys: Set<String> = [
+        "animation", "script", "scriptproperties",
+    ]
+
+    static func matches(_ keys: [String]) -> Bool {
+        let keySet = Set(keys)
+        return keySet.count == keys.count
+            && requiredKeys.isSubset(of: keySet)
+            && keySet.isDisjoint(with: producerKeys)
+    }
+
+    static func matches(
+        dynamic: Template.DynamicUniform,
+        fallback: Template.StaticUniformValue
+    ) -> Bool {
+        dynamic.authoredBindingKeys == fallback.authoredBindingKeys
+            && matches(dynamic.authoredBindingKeys)
+            && matches(fallback.authoredBindingKeys)
+    }
+}
+
 /// One fully resolved material pass for one immutable resource/dynamic snapshot.
 nonisolated struct SceneResolvedMaterialProgram {
     enum OutputStorage: Hashable {

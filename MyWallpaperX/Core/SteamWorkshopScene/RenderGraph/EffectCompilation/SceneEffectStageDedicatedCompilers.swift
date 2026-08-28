@@ -640,10 +640,12 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
                       .userProperty(binding.propertyKey),
                   ],
                   dynamic.scriptAttachments.isEmpty,
-                  dynamic.authoredBindingKeys == ["user", "value"],
                   let fallback = dynamic.authoredFallback,
                   fallback.valueKind.localizedLowercase == "binding",
-                  fallback.authoredBindingKeys == ["user", "value"] else {
+                  SceneResolvedMaterialDirectUserBindingContract.matches(
+                      dynamic: dynamic,
+                      fallback: fallback
+                  ) else {
                 return false
             }
             let actual = fallback.componentBitPatterns.map {
