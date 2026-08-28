@@ -25,6 +25,12 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutation {
     const char *function_name;
 } MWXSceneQuickJSMaterialFunctionMutation;
 
+typedef struct MWXSceneQuickJSFrameInput {
+    double time_of_day;
+    double frame_time;
+    double runtime;
+} MWXSceneQuickJSFrameInput;
+
 MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
     size_t stack_limit,
@@ -55,6 +61,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     double input,
+    const MWXSceneQuickJSFrameInput *frame,
     double *output,
     char *diagnostic,
     size_t diagnostic_capacity

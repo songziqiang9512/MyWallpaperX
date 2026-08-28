@@ -187,6 +187,7 @@ GENERIC_SCENE_FIXTURE = {
                             "constantshadervalues": {
                                 "a": {
                                     "script": "fixture-constant-a",
+                                    "user": None,
                                     "value": 0,
                                 },
                                 "b": {
@@ -918,6 +919,15 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertEqual(
             constant["properties"],
             {"enabled": True, "weights": [0, 0.5, None]},
+        )
+        explicit_null = next(
+            binding
+            for binding in bindings
+            if binding["source"] == "fixture-constant-a"
+        )
+        self.assertEqual(
+            explicit_null["wrapperKeys"],
+            ["script", "user", "value"],
         )
 
     def test_authored_json_value_type_is_retained_without_vector_guessing(self) -> None:

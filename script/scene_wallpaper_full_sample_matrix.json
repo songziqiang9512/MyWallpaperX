@@ -652,8 +652,8 @@
       "expected_authored_effect_graph_transform_static_fallback_count": 0,
       "expected_authored_effect_graph_transform_static_fallback_diagnostics": [],
       "expected_authored_effect_graph_authored_shader_count": 0,
-      "expected_time_of_day_effect_script_binding_count": 4,
-      "required_time_of_day_effect_script_bindings": [
+      "expected_scene_script_scalar_binding_count": 11,
+      "required_scene_script_scalar_bindings": [
         {
           "layer_id": 238,
           "effect_index": 0,
@@ -674,6 +674,48 @@
         },
         {
           "layer_id": 301,
+          "effect_index": 1,
+          "pass_index": 0,
+          "constant": "multiply"
+        },
+        {
+          "layer_id": 526,
+          "effect_index": 1,
+          "pass_index": 0,
+          "constant": "multiply"
+        },
+        {
+          "layer_id": 526,
+          "effect_index": 4,
+          "pass_index": 0,
+          "constant": "alpha"
+        },
+        {
+          "layer_id": 642,
+          "effect_index": 1,
+          "pass_index": 0,
+          "constant": "multiply"
+        },
+        {
+          "layer_id": 674,
+          "effect_index": 1,
+          "pass_index": 0,
+          "constant": "multiply"
+        },
+        {
+          "layer_id": 674,
+          "effect_index": 4,
+          "pass_index": 0,
+          "constant": "alpha"
+        },
+        {
+          "layer_id": 695,
+          "effect_index": 1,
+          "pass_index": 0,
+          "constant": "multiply"
+        },
+        {
+          "layer_id": 774,
           "effect_index": 1,
           "pass_index": 0,
           "constant": "multiply"

@@ -43,6 +43,72 @@ typedef struct MWXSceneQuickJSEffectHandle {
     uint32_t effect_index;
 } MWXSceneQuickJSEffectHandle;
 
+static JSValue wemath_smooth_step(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    if (argc != 3) {
+        return JS_ThrowTypeError(context, "WEMath.smoothStep expects three numbers");
+    }
+    double minimum = 0;
+    double maximum = 0;
+    double value = 0;
+    if (JS_ToFloat64(context, &minimum, argv[0]) < 0 ||
+        JS_ToFloat64(context, &maximum, argv[1]) < 0 ||
+        JS_ToFloat64(context, &value, argv[2]) < 0 ||
+        !isfinite(minimum) || !isfinite(maximum) || !isfinite(value) ||
+        minimum == maximum) {
+        return JS_ThrowTypeError(context, "WEMath.smoothStep arguments are invalid");
+    }
+    double normalized = (value - minimum) / (maximum - minimum);
+    normalized = fmin(fmax(normalized, 0), 1);
+    return JS_NewFloat64(
+        context,
+        normalized * normalized * (3 - 2 * normalized)
+    );
+}
+
+static int initialize_wemath_module(JSContext *context, JSModuleDef *module) {
+    JSValue smooth_step = JS_NewCFunction(
+        context,
+        wemath_smooth_step,
+        "smoothStep",
+        3
+    );
+    if (JS_IsException(smooth_step)) {
+        return -1;
+    }
+    return JS_SetModuleExport(context, module, "smoothStep", smooth_step);
+}
+
+static JSModuleDef *load_allowlisted_module(
+    JSContext *context,
+    const char *module_name,
+    void *opaque
+) {
+    (void)opaque;
+    if (module_name == NULL || strcmp(module_name, "WEMath") != 0) {
+        JS_ThrowReferenceError(
+            context,
+            "SceneScript module is not allowlisted: %s",
+            module_name != NULL ? module_name : "<null>"
+        );
+        return NULL;
+    }
+    JSModuleDef *module = JS_NewCModule(
+        context,
+        module_name,
+        initialize_wemath_module
+    );
+    if (module == NULL || JS_AddModuleExport(context, module, "smoothStep") < 0) {
+        return NULL;
+    }
+    return module;
+}
+
 static void clear_diagnostic(char *diagnostic, size_t capacity) {
     if (diagnostic != NULL && capacity > 0) {
         diagnostic[0] = '\0';
@@ -247,6 +313,80 @@ static bool restore_material_function_host(
     return result >= 0;
 }
 
+static bool bind_frame_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSFrameInput *frame,
+    JSValue *previous_global_engine
+) {
+    if (owner == NULL || frame == NULL || previous_global_engine == NULL) {
+        return false;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue engine = JS_NewObject(context);
+    if (JS_IsException(engine)) {
+        return false;
+    }
+    const int read_only = JS_PROP_ENUMERABLE;
+    if (JS_DefinePropertyValueStr(
+            context,
+            engine,
+            "timeOfDay",
+            JS_NewFloat64(context, frame->time_of_day),
+            read_only
+        ) < 0 ||
+        JS_DefinePropertyValueStr(
+            context,
+            engine,
+            "frametime",
+            JS_NewFloat64(context, frame->frame_time),
+            read_only
+        ) < 0 ||
+        JS_DefinePropertyValueStr(
+            context,
+            engine,
+            "runtime",
+            JS_NewFloat64(context, frame->runtime),
+            read_only
+        ) < 0) {
+        JS_FreeValue(context, engine);
+        return false;
+    }
+    JSValue global = JS_GetGlobalObject(context);
+    JSValue previous = JS_GetPropertyStr(context, global, "engine");
+    if (JS_IsException(previous)) {
+        JS_FreeValue(context, engine);
+        JS_FreeValue(context, global);
+        return false;
+    }
+    if (JS_SetPropertyStr(context, global, "engine", engine) < 0) {
+        JS_FreeValue(context, previous);
+        JS_FreeValue(context, global);
+        return false;
+    }
+    *previous_global_engine = previous;
+    JS_FreeValue(context, global);
+    return true;
+}
+
+static bool restore_frame_engine_host(
+    MWXSceneQuickJSOwner *owner,
+    JSValue previous_global_engine
+) {
+    if (owner == NULL) {
+        return false;
+    }
+    JSContext *context = owner->domain->context;
+    JSValue global = JS_GetGlobalObject(context);
+    int result = JS_SetPropertyStr(
+        context,
+        global,
+        "engine",
+        previous_global_engine
+    );
+    JS_FreeValue(context, global);
+    return result >= 0;
+}
+
 static int interrupt_handler(JSRuntime *runtime, void *opaque) {
     (void)runtime;
     MWXSceneQuickJSDomain *domain = (MWXSceneQuickJSDomain *)opaque;
@@ -299,6 +439,7 @@ static MWXSceneQuickJSResult call_scalar(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
     double input,
+    const MWXSceneQuickJSFrameInput *frame,
     double *output,
     char *diagnostic,
     size_t diagnostic_capacity
@@ -313,6 +454,16 @@ static MWXSceneQuickJSResult call_scalar(
         );
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
+    JSValue previous_global_engine = JS_UNDEFINED;
+    if (!bind_frame_engine_host(owner, frame, &previous_global_engine)) {
+        restore_material_function_host(owner, previous_global_layer);
+        write_diagnostic(
+            diagnostic,
+            diagnostic_capacity,
+            "SceneScript frame engine host unavailable"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     JSValue argument = JS_NewFloat64(domain->context, input);
     JSValue result = JS_Call(
         domain->context,
@@ -322,7 +473,15 @@ static MWXSceneQuickJSResult call_scalar(
         &argument
     );
     JS_FreeValue(domain->context, argument);
-    const bool restored = restore_material_function_host(owner, previous_global_layer);
+    const bool engine_restored = restore_frame_engine_host(
+        owner,
+        previous_global_engine
+    );
+    const bool layer_restored = restore_material_function_host(
+        owner,
+        previous_global_layer
+    );
+    const bool restored = engine_restored && layer_restored;
     if (!restored) {
         JS_FreeValue(domain->context, result);
         write_diagnostic(
@@ -394,6 +553,12 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     JS_SetMemoryLimit(domain->runtime, heap_limit);
     JS_SetMaxStackSize(domain->runtime, stack_limit);
     JS_SetInterruptHandler(domain->runtime, interrupt_handler, domain);
+    JS_SetModuleLoaderFunc(
+        domain->runtime,
+        NULL,
+        load_allowlisted_module,
+        domain
+    );
     domain->context = JS_NewContext(domain->runtime);
     if (domain->context == NULL) {
         JS_FreeRuntime(domain->runtime);
@@ -519,9 +684,10 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     owner->generation = generation;
     owner->material_function_layer = JS_UNDEFINED;
     if (!install_material_function_host(owner)) {
+        JS_FreeValue(domain->context, owner->material_function_layer);
         JS_FreeValue(domain->context, owner->module);
         free(owner);
-        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript material function host unavailable");
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript host globals unavailable");
         return NULL;
     }
     return owner;
@@ -542,12 +708,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     double input,
+    const MWXSceneQuickJSFrameInput *frame,
     double *output,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
-    if (owner == NULL || output == NULL || !isfinite(input)) {
+    if (owner == NULL || frame == NULL || output == NULL || !isfinite(input) ||
+        !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
+        frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
+        frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
         write_diagnostic(diagnostic, diagnostic_capacity, "invalid SceneScript update argument");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
@@ -571,7 +741,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
         }
         if (JS_IsFunction(domain->context, init)) {
             MWXSceneQuickJSResult result = call_scalar(
-                owner, init, input, output, diagnostic, diagnostic_capacity
+                owner, init, input, frame, output, diagnostic, diagnostic_capacity
             );
             JS_FreeValue(domain->context, init);
             if (result != MWX_SCENE_QUICKJS_OK) {
@@ -592,7 +762,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
         return MWX_SCENE_QUICKJS_OK;
     }
     MWXSceneQuickJSResult result = call_scalar(
-        owner, update, input, output, diagnostic, diagnostic_capacity
+        owner, update, input, frame, output, diagnostic, diagnostic_capacity
     );
     JS_FreeValue(domain->context, update);
     if (result != MWX_SCENE_QUICKJS_OK) {

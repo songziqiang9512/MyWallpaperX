@@ -25,6 +25,14 @@ extension SceneDesktopWallpaperHost {
               value >= 0 else { return nil }
         return value
     }()
+
+    static let debugWallDateOverride: Date? = {
+        guard usesDebugEvidenceWindow,
+              let rawValue = ProcessInfo.processInfo.environment[
+                "MYWALLPAPERX_SCENE_DEBUG_WALL_DATE"
+              ] else { return nil }
+        return ISO8601DateFormatter().date(from: rawValue)
+    }()
 #endif
 
     func teardownSurfaces(
@@ -211,9 +219,7 @@ extension SceneDesktopWallpaperHost {
             propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
             timelineProgram: launchContext.timelineProgram,
             textScriptProgram: launchContext.textScriptProgram,
-            additionalDefinitions: launchContext.timeOfDayEffectScriptProgram.bindings.map(
-                \.definition
-            ) + launchContext.mediaPlaybackPlaceholderFadeProgram.bindings.map(
+            additionalDefinitions: launchContext.mediaPlaybackPlaceholderFadeProgram.bindings.map(
                 \.definition
             ) + launchContext.mediaColorTransitionProgram.bindings.map(
                 \.definition
@@ -240,10 +246,6 @@ extension SceneDesktopWallpaperHost {
             program: launchContext.textScriptProgram,
             wallDate: timing.wallDate,
             mediaProperties: mediaProperties
-        )
-        let timeOfDayEffectScriptValues = SceneTimeOfDayEffectScriptRuntime.values(
-            program: launchContext.timeOfDayEffectScriptProgram,
-            wallDate: timing.wallDate
         )
         let mediaPlaybackPlaceholderFadeValues =
             mediaPlaybackPlaceholderFadeRuntime.values(
@@ -276,11 +278,8 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
         var commonSceneScriptValues = textScriptValues.merging(
-            timeOfDayEffectScriptValues,
-            uniquingKeysWith: { textValue, _ in textValue }
-        ).merging(
             mediaPlaybackPlaceholderFadeValues,
-            uniquingKeysWith: { existing, _ in existing }
+            uniquingKeysWith: { textValue, _ in textValue }
         ).merging(
             mediaColorTransitionValues,
             uniquingKeysWith: { existing, _ in existing }
@@ -311,7 +310,8 @@ extension SceneDesktopWallpaperHost {
             inputs[binding.target] = resolved.value
         }
         let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
-            inputs: sceneScriptInputs
+            inputs: sceneScriptInputs,
+            frame: SceneScriptFrameInput(timing: timing)
         )
         if !sceneScriptResult.failures.isEmpty {
             for (target, failure) in sceneScriptResult.failures {

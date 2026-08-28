@@ -90,8 +90,8 @@ inline/file source
 
 依次扩展：
 
-1. primitive/Vec typed conversion、exception 和 source diagnostics；
-2. `engine` time/frame/user-property；
+1. primitive scalar typed conversion、exception/source diagnostics 与 `engine` time/frame immutable input；
+2. Vec typed conversion 与 `engine.userProperties` snapshot；
 3. layer/scene/effect/animation typed handles；
 4. cursor、audio、media events；
 5. timers/jobs、dynamic asset/layer API；

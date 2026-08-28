@@ -45,6 +45,28 @@ nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
 }
 
+nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
+    let timeOfDay: Double
+    let frameTime: TimeInterval
+    let runtime: TimeInterval
+
+    init(timing: SceneFrameTiming, timeZone: TimeZone = .current) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let components = calendar.dateComponents(
+            [.hour, .minute, .second, .nanosecond],
+            from: timing.wallDate
+        )
+        let seconds = Double(components.hour ?? 0) * 3_600
+            + Double(components.minute ?? 0) * 60
+            + Double(components.second ?? 0)
+            + Double(components.nanosecond ?? 0) / 1_000_000_000
+        timeOfDay = min(max(seconds / 86_400, 0), 1)
+        frameTime = max(timing.simulationFrameTime, 0)
+        runtime = max(timing.sceneTime, 0)
+    }
+}
+
 /// Owns one scalar property binding inside a shared per-scene QuickJS domain.
 /// The opaque C handles never escape this owner and are generation-checked on
 /// every callback before the value enters the Swift snapshot channel.
@@ -99,22 +121,37 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
 
     func evaluate(
         input: Double,
+        frame: SceneScriptFrameInput,
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptScalarEvaluation, SceneScriptScalarRuntimeFailure> {
         guard input.isFinite else {
             return .failure(.invalidArgument("non-finite input"))
         }
+        guard frame.timeOfDay.isFinite,
+              (0...1).contains(frame.timeOfDay),
+              frame.frameTime.isFinite,
+              frame.frameTime >= 0,
+              frame.runtime.isFinite,
+              frame.runtime >= 0 else {
+            return .failure(.invalidArgument("invalid frame input"))
+        }
         guard expectedGeneration == generation else {
             return .failure(.staleOwner)
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var output = 0.0
+        var frameInput = MWXSceneQuickJSFrameInput(
+            time_of_day: frame.timeOfDay,
+            frame_time: frame.frameTime,
+            runtime: frame.runtime
+        )
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = mwx_scene_quickjs_owner_update_scalar(
             handle,
             expectedGeneration,
             input,
+            &frameInput,
             &output,
             &diagnostic,
             diagnostic.count

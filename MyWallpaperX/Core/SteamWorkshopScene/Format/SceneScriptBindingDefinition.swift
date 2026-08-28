@@ -348,7 +348,7 @@ nonisolated enum SceneScriptBindingIRParser {
     ) {
         guard let wrapper = rawValue as? [String: Any],
               wrapper.keys.contains("script") else { return }
-        guard !wrapper.keys.contains("user") else {
+        if let userValue = wrapper["user"], !(userValue is NSNull) {
             diagnostics.append(.init(code: .conflictingSources, targetPath: path))
             return
         }

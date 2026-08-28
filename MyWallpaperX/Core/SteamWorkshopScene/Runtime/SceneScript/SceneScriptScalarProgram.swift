@@ -7,8 +7,8 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
 }
 
 /// Generic pass-constant SceneScript owners. The program is deliberately
-/// source/identity based rather than effect-name based; bounded Swift profiles
-/// remain available as a typed fallback when an owner fails at runtime.
+/// source/identity based rather than effect-name based; runtime failure keeps
+/// the lower-priority authored/property/Timeline value for the affected owner.
 nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptScalarOwner]
@@ -79,6 +79,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
+        frame: SceneScriptFrameInput,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
@@ -90,6 +91,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                   case let .scalar(value) = input else { continue }
             switch binding.evaluate(
                 input: value,
+                frame: frame,
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
             ) {
@@ -103,7 +105,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         "\($0.effectIndex):\($0.functionName)"
                     }.joined(separator: ",")
                     NSLog(
-                        "MWX SceneScript VM: target=%@ callback=completed input=%.9g output=%.9g mutations=%d mutationTargets=%@ route=prefer-generic",
+                        "MWX SceneScript VM: target=%@ callback=completed input=%.9g output=%.9g mutations=%d mutationTargets=%@ route=generic-only",
                         String(describing: binding.target),
                         inputValue,
                         outputValue,

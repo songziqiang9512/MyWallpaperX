@@ -111,18 +111,18 @@ TEXT_SCRIPT_BINDING_RE = re.compile(
     r"value@fixture=(?P<value>.+)$",
     re.MULTILINE,
 )
-TIME_OF_DAY_EFFECT_SCRIPT_BINDING_COUNT_RE = re.compile(
-    r"^timeOfDayEffectScriptBindingCount: (?P<count>\d+)$",
+SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE = re.compile(
+    r"^scene script VM: schema=quickjs-ng-scalar-v1 "
+    r"bindings=(?P<count>\d+) targets=(?P<targets>\d+) "
+    r"route=(?P<route>\S+) fallback=(?P<fallback>\S+)$",
     re.MULTILINE,
 )
-TIME_OF_DAY_EFFECT_SCRIPT_DEBUG_WALL_DATE_RE = re.compile(
-    r"^timeOfDayEffectScriptDebugWallDate: (?P<value>\S+)$",
-    re.MULTILINE,
-)
-TIME_OF_DAY_EFFECT_SCRIPT_BINDING_RE = re.compile(
-    r"^time-of-day effect script: layer=(?P<layer>\d+) "
-    r"effect=(?P<effect>\d+) pass=(?P<pass>\d+) constant=(?P<constant>\S+)$",
-    re.MULTILINE,
+SCENE_SCRIPT_SCALAR_COMPLETION_RE = re.compile(
+    r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<constant>[^"]+)"\) callback=completed '
+    r"input=(?P<input>\S+) output=(?P<output>\S+) mutations=(?P<mutations>\d+) "
+    r"mutationTargets=(?P<mutation_targets>\S*) route=(?P<route>\S+)"
 )
 MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE = re.compile(
     r"^mediaThumbnailCurrentBindingCount: (?P<count>\d+)$",
@@ -1429,22 +1429,45 @@ def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
     }
 
 
-def time_of_day_effect_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
-    count_match = TIME_OF_DAY_EFFECT_SCRIPT_BINDING_COUNT_RE.search(preview_text)
-    wall_date_match = TIME_OF_DAY_EFFECT_SCRIPT_DEBUG_WALL_DATE_RE.search(preview_text)
-    bindings = [
+def scene_script_scalar_runtime_metrics(
+    preview_text: str,
+    log_text: str,
+) -> dict[str, Any]:
+    count_match = SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE.search(preview_text)
+    completions = [
         {
             "layer_id": int(match.group("layer")),
             "effect_index": int(match.group("effect")),
             "pass_index": int(match.group("pass")),
             "constant": match.group("constant"),
+            "input": float(match.group("input")),
+            "output": float(match.group("output")),
+            "mutation_count": int(match.group("mutations")),
+            "route": match.group("route"),
         }
-        for match in TIME_OF_DAY_EFFECT_SCRIPT_BINDING_RE.finditer(preview_text)
+        for match in SCENE_SCRIPT_SCALAR_COMPLETION_RE.finditer(log_text)
     ]
+    completions.sort(key=lambda value: (
+        value["layer_id"],
+        value["effect_index"],
+        value["pass_index"],
+        value["constant"],
+    ))
     return {
         "binding_count": int(count_match.group("count")) if count_match else None,
-        "debug_wall_date": wall_date_match.group("value") if wall_date_match else None,
-        "bindings": bindings,
+        "target_count": int(count_match.group("targets")) if count_match else None,
+        "route": count_match.group("route") if count_match else None,
+        "fallback": count_match.group("fallback") if count_match else None,
+        "completions": completions,
+        "bindings": [
+            {
+                "layer_id": completion["layer_id"],
+                "effect_index": completion["effect_index"],
+                "pass_index": completion["pass_index"],
+                "constant": completion["constant"],
+            }
+            for completion in completions
+        ],
     }
 
 
@@ -5338,8 +5361,9 @@ def run_sample(
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
     text_script_runtime = text_script_runtime_metrics(preview_text)
-    time_of_day_effect_script_runtime = time_of_day_effect_script_runtime_metrics(
-        preview_text
+    scene_script_scalar_runtime = scene_script_scalar_runtime_metrics(
+        preview_text,
+        log_text,
     )
     media_thumbnail_runtime = media_thumbnail_runtime_metrics(preview_text)
     media_thumbnail_store = media_thumbnail_store_metrics(log_text)
@@ -5834,20 +5858,20 @@ def run_sample(
     if required_text_script_binding_layer_ids:
         if text_script_runtime["binding_layer_ids"] != required_text_script_binding_layer_ids:
             failures.append("text script binding layer IDs mismatch")
-    expected_time_of_day_binding_count = sample.get(
-        "expected_time_of_day_effect_script_binding_count"
+    expected_scene_script_scalar_binding_count = sample.get(
+        "expected_scene_script_scalar_binding_count"
     )
-    if expected_time_of_day_binding_count is not None:
-        if time_of_day_effect_script_runtime["binding_count"] != int(
-            expected_time_of_day_binding_count
+    if expected_scene_script_scalar_binding_count is not None:
+        if scene_script_scalar_runtime["binding_count"] != int(
+            expected_scene_script_scalar_binding_count
         ):
-            failures.append("time-of-day effect script binding count mismatch")
-    required_time_of_day_bindings = sample.get(
-        "required_time_of_day_effect_script_bindings", []
+            failures.append("SceneScript scalar binding count mismatch")
+    required_scene_script_scalar_bindings = sample.get(
+        "required_scene_script_scalar_bindings", []
     )
-    if required_time_of_day_bindings:
-        if time_of_day_effect_script_runtime["bindings"] != required_time_of_day_bindings:
-            failures.append("time-of-day effect script bindings mismatch")
+    if required_scene_script_scalar_bindings:
+        if scene_script_scalar_runtime["bindings"] != required_scene_script_scalar_bindings:
+            failures.append("SceneScript scalar bindings mismatch")
     expected_media_thumbnail_count = sample.get(
         "expected_media_thumbnail_current_binding_count"
     )
@@ -6017,14 +6041,19 @@ def run_sample(
             "text_script_diagnostic_count": text_script_runtime["diagnostic_count"],
             "text_script_binding_layer_ids": text_script_runtime["binding_layer_ids"],
             "text_script_bindings": text_script_runtime["bindings"],
-            "time_of_day_effect_script_binding_count": (
-                time_of_day_effect_script_runtime["binding_count"]
+            "scene_script_scalar_binding_count": (
+                scene_script_scalar_runtime["binding_count"]
             ),
-            "time_of_day_effect_script_debug_wall_date": (
-                time_of_day_effect_script_runtime["debug_wall_date"]
+            "scene_script_scalar_target_count": (
+                scene_script_scalar_runtime["target_count"]
             ),
-            "time_of_day_effect_script_bindings": (
-                time_of_day_effect_script_runtime["bindings"]
+            "scene_script_scalar_route": scene_script_scalar_runtime["route"],
+            "scene_script_scalar_fallback": scene_script_scalar_runtime["fallback"],
+            "scene_script_scalar_bindings": (
+                scene_script_scalar_runtime["bindings"]
+            ),
+            "scene_script_scalar_completions": (
+                scene_script_scalar_runtime["completions"]
             ),
             "media_thumbnail_current_binding_count": (
                 media_thumbnail_runtime["current_binding_count"]

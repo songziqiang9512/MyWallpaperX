@@ -122,8 +122,7 @@
       "modules": [
         "test_scene_launch_origin_transition",
         "test_scene_media_color_transition",
-        "test_scene_property_binding_program",
-        "test_scene_time_of_day_effect_script"
+        "test_scene_property_binding_program"
       ]
     },
     {

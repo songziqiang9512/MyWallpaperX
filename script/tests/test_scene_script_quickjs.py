@@ -38,8 +38,13 @@ static int update(
 ) {
     char diagnostic[512] = {0};
     double output = 0;
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_scalar(
-        owner, generation, input, &output, diagnostic, sizeof(diagnostic)
+        owner, generation, input, &frame, &output, diagnostic, sizeof(diagnostic)
     );
     return check(
         actual == expected
@@ -169,13 +174,65 @@ int main(void) {
         metadata_only, 7, 5, MWX_SCENE_QUICKJS_OK, 5, "missing callbacks preserve input"
     );
 
-    MWXSceneQuickJSOwner *unresolved_import = mwx_scene_quickjs_owner_create(
+    MWXSceneQuickJSOwner *time_of_day = mwx_scene_quickjs_owner_create(
         domain,
         "import * as WEMath from 'WEMath';\n"
-        "export function update(value) { return WEMath.abs(value); }",
+        "'use strict';\n"
+        "export function update(value) {\n"
+        "  if (engine.frametime <= 0 || engine.runtime !== 2) return -1;\n"
+        "  return Math.max(\n"
+        "    WEMath.smoothStep(7 / 24, 6.996 / 24, engine.timeOfDay),\n"
+        "    WEMath.smoothStep(17.996 / 24, 18 / 24, engine.timeOfDay)\n"
+        "  );\n"
+        "}",
         strlen(
             "import * as WEMath from 'WEMath';\n"
-            "export function update(value) { return WEMath.abs(value); }"
+            "'use strict';\n"
+            "export function update(value) {\n"
+            "  if (engine.frametime <= 0 || engine.runtime !== 2) return -1;\n"
+            "  return Math.max(\n"
+            "    WEMath.smoothStep(7 / 24, 6.996 / 24, engine.timeOfDay),\n"
+            "    WEMath.smoothStep(17.996 / 24, 18 / 24, engine.timeOfDay)\n"
+            "  );\n"
+            "}"
+        ),
+        11, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(time_of_day != NULL, "WEMath compile", diagnostic);
+    failures += update(
+        time_of_day, 11, 0, MWX_SCENE_QUICKJS_OK, 1,
+        "WEMath engine.timeOfDay"
+    );
+
+    MWXSceneQuickJSOwner *immutable_frame = mwx_scene_quickjs_owner_create(
+        domain,
+        "'use strict';\n"
+        "export function update(value) {\n"
+        "  engine.timeOfDay = 0.75;\n"
+        "  return value;\n"
+        "}",
+        strlen(
+            "'use strict';\n"
+            "export function update(value) {\n"
+            "  engine.timeOfDay = 0.75;\n"
+            "  return value;\n"
+            "}"
+        ),
+        12, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(immutable_frame != NULL, "immutable frame compile", diagnostic);
+    failures += update(
+        immutable_frame, 12, 0, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "engine frame is immutable"
+    );
+
+    MWXSceneQuickJSOwner *unresolved_import = mwx_scene_quickjs_owner_create(
+        domain,
+        "import * as Unsupported from 'Unsupported';\n"
+        "export function update(value) { return Unsupported.abs(value); }",
+        strlen(
+            "import * as Unsupported from 'Unsupported';\n"
+            "export function update(value) { return Unsupported.abs(value); }"
         ),
         8, diagnostic, sizeof(diagnostic)
     );
@@ -265,6 +322,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(isolated);
     mwx_scene_quickjs_owner_destroy(positive);
     mwx_scene_quickjs_owner_destroy(metadata_only);
+    mwx_scene_quickjs_owner_destroy(time_of_day);
+    mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_domain_destroy(domain);
     return failures == 0 ? 0 : 1;
 }
@@ -338,7 +397,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("excludedTargets: boundedSceneScriptTargets", launch)
-        self.assertIn("fallback=bounded-swift-prefer-generic", launch)
+        self.assertIn("route=generic-only fallback=previous-current", launch)
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
             launch.index("let sceneScriptScalarProgram =")
@@ -375,30 +434,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertNotIn("propertyBindingProgram", scalar_ownership)
         self.assertNotIn("timelineProgram", scalar_ownership)
-        time_of_day_ownership = launch[
-            launch.index("let sceneScriptConsumerTargets ="):
-            launch.index("guard let mediaPlaybackPlaceholderFadeProgram =")
-        ]
-        self.assertIn(
-            "SceneTimeOfDayEffectScriptProgram.validatedConsumers(",
-            time_of_day_ownership,
-        )
-        self.assertIn(
-            "candidates: timeOfDayEffectScriptCandidates",
-            time_of_day_ownership,
-        )
-        self.assertIn(
-            "consumerTargets: sceneScriptConsumerTargets",
-            time_of_day_ownership,
-        )
-        self.assertIn(
-            "conflictingTargets: timeOfDayEffectScriptConflictingTargets",
-            time_of_day_ownership,
-        )
-        self.assertLess(
-            launch.index("let sceneScriptConsumerTargets ="),
-            launch.index("SceneTimeOfDayEffectScriptProgram.validatedConsumers("),
-        )
+        self.assertNotIn("SceneTimeOfDayEffectScriptProgram", launch)
+        self.assertIn("SceneScriptFrameInput(timing: timing)", frame)
         timeline = frame.index("let timelineValues = SceneTimelineRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")

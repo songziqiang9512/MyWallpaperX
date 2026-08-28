@@ -26,11 +26,6 @@ HOST_FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
-HOST_TIME_OF_DAY_REPORT_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
-    / "SceneDesktopWallpaperHost+TimeOfDayEffectScriptReport.swift"
-)
 HOST_VIDEO_PROVIDERS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
@@ -686,36 +681,29 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("commonSceneScriptValues", surface_loop)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
-        report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        override = swift_body(report, "static let debugWallDateOverride: Date?")
+        override = swift_body(
+            frame_driver, "static let debugWallDateOverride: Date?"
+        )
         self.assertIn("usesDebugEvidenceWindow", override)
         self.assertIn("MYWALLPAPERX_SCENE_DEBUG_WALL_DATE", override)
         self.assertIn("ISO8601DateFormatter().date", override)
         self.assertIn(
-            "#if DEBUG", report[:report.index("static let debugWallDateOverride")]
+            "#if DEBUG",
+            frame_driver[:frame_driver.index("static let debugWallDateOverride")],
         )
         self.assertIn("Self.debugWallDateOverride ?? Date()", frame_driver)
         self.assertEqual(frame_driver.count("sceneClock.advance("), 1)
         self.assertIn("wallDate: wallDate", frame_driver)
 
-    def test_time_of_day_budget_rejection_is_typed_and_reported(self) -> None:
-        report = HOST_TIME_OF_DAY_REPORT_SOURCE.read_text(encoding="utf-8")
+    def test_time_of_day_is_a_typed_generic_vm_frame_input(self) -> None:
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        self.assertIn(
-            "timeOfDayEffectScriptAdmission: status=budget-rejected reason=",
-            report,
-        )
-        self.assertIn(
-            "timeOfDayEffectScriptAdmission: status=admitted reason=none",
-            report,
-        )
-        self.assertIn("failure.isDescriptorIntegrityFailure", launch)
-        self.assertIn("timeOfDayEffectScriptCandidateProgram = .empty", launch)
-        self.assertIn(
-            "timeOfDayEffectScriptAdmissionDiagnostic = failure.diagnostic",
-            launch,
-        )
+        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("struct SceneScriptFrameInput", scalar_runtime)
+        self.assertIn("timeOfDay = min(max(seconds / 86_400, 0), 1)", scalar_runtime)
+        self.assertIn("frameTime = max(timing.simulationFrameTime, 0)", scalar_runtime)
+        self.assertIn("runtime = max(timing.sceneTime, 0)", scalar_runtime)
+        self.assertNotIn("SceneTimeOfDayEffectScript", launch)
 
     def test_host_pause_state_controls_clock_and_frame_driver(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")

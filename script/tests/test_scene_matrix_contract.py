@@ -353,8 +353,8 @@ class SceneMatrixContractTests(unittest.TestCase):
         runtime["particle_skipped_transparent"] = 2
         runtime["text_script_binding_count"] = 1
         runtime["text_script_binding_layer_ids"] = [42]
-        runtime["time_of_day_effect_script_binding_count"] = 1
-        runtime["time_of_day_effect_script_bindings"] = [{
+        runtime["scene_script_scalar_binding_count"] = 1
+        runtime["scene_script_scalar_bindings"] = [{
             "layer_id": 42,
             "effect_index": 0,
             "pass_index": 0,
@@ -367,8 +367,8 @@ class SceneMatrixContractTests(unittest.TestCase):
                 "expected_particle_skipped_transparent": 0,
                 "expected_text_script_binding_count": 0,
                 "required_text_script_binding_layer_ids": [],
-                "expected_time_of_day_effect_script_binding_count": 0,
-                "required_time_of_day_effect_script_bindings": [],
+                "expected_scene_script_scalar_binding_count": 0,
+                "required_scene_script_scalar_bindings": [],
             },
         )
         self.assertEqual(sample["expected_particle_refract_loaded"], 3)
@@ -379,11 +379,11 @@ class SceneMatrixContractTests(unittest.TestCase):
             [42],
         )
         self.assertEqual(
-            sample["expected_time_of_day_effect_script_binding_count"], 1
+            sample["expected_scene_script_scalar_binding_count"], 1
         )
         self.assertEqual(
-            sample["required_time_of_day_effect_script_bindings"],
-            runtime["time_of_day_effect_script_bindings"],
+            sample["required_scene_script_scalar_bindings"],
+            runtime["scene_script_scalar_bindings"],
         )
 
     def test_puppet_animation_contract_is_refreshed_when_tracked(self) -> None:

@@ -99,11 +99,11 @@ OPTIONAL_RUNTIME_EXPECTATION_GROUPS = {
         "required_text_script_binding_layer_ids":
             "text_script_binding_layer_ids",
     },
-    "time_of_day_effect_script_binding": {
-        "expected_time_of_day_effect_script_binding_count":
-            "time_of_day_effect_script_binding_count",
-        "required_time_of_day_effect_script_bindings":
-            "time_of_day_effect_script_bindings",
+    "scene_script_scalar_binding": {
+        "expected_scene_script_scalar_binding_count":
+            "scene_script_scalar_binding_count",
+        "required_scene_script_scalar_bindings":
+            "scene_script_scalar_bindings",
     },
 }
 

@@ -406,17 +406,25 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "current_binding_layer_ids": [10, 20, 30],
         })
 
-    def test_time_of_day_effect_script_metrics_keep_typed_targets(self) -> None:
-        metrics = benchmark.time_of_day_effect_script_runtime_metrics(
+    def test_scene_script_scalar_metrics_keep_typed_targets_and_values(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-scalar-v1 bindings=2 targets=2 "
+            "route=generic-only fallback=previous-current",
             "\n".join([
-                "timeOfDayEffectScriptBindingCount: 2",
-                "timeOfDayEffectScriptDebugWallDate: 2026-07-31T22:00:00Z",
-                "time-of-day effect script: layer=301 effect=0 pass=0 constant=multiply",
-                "time-of-day effect script: layer=301 effect=1 pass=0 constant=multiply",
-            ])
+                "MWX SceneScript VM: target=effectConstant(layerID: 301, "
+                'effectIndex: 1, passIndex: 0, name: "multiply") '
+                "callback=completed input=1 output=0 mutations=0 "
+                "mutationTargets= route=generic-only",
+                "MWX SceneScript VM: target=effectConstant(layerID: 301, "
+                'effectIndex: 0, passIndex: 0, name: "multiply") '
+                "callback=completed input=1 output=0 mutations=0 "
+                "mutationTargets= route=generic-only",
+            ]),
         )
         self.assertEqual(metrics["binding_count"], 2)
-        self.assertEqual(metrics["debug_wall_date"], "2026-07-31T22:00:00Z")
+        self.assertEqual(metrics["target_count"], 2)
+        self.assertEqual(metrics["route"], "generic-only")
+        self.assertEqual(metrics["fallback"], "previous-current")
         self.assertEqual(metrics["bindings"], [
             {
                 "layer_id": 301,
@@ -431,6 +439,10 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                 "constant": "multiply",
             },
         ])
+        self.assertEqual(
+            [completion["output"] for completion in metrics["completions"]],
+            [0.0, 0.0],
+        )
 
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:

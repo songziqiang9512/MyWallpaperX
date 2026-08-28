@@ -66,8 +66,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let timelineProgram: SceneTimelineProgram
     let textScriptProgram: SceneTextScriptProgram
-    let timeOfDayEffectScriptProgram: SceneTimeOfDayEffectScriptProgram
-    let timeOfDayEffectScriptAdmissionDiagnostic: String?
     let mediaPlaybackPlaceholderFadeProgram:
         SceneMediaPlaybackPlaceholderFadeProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
@@ -92,7 +90,7 @@ struct SceneDesktopWallpaperLaunchContext {
             "scene script VM: schema=quickjs-ng-scalar-v1"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
                 + " targets=\(sceneScriptScalarProgram.definitions.count)"
-                + " fallback=bounded-swift-prefer-generic",
+                + " route=generic-only fallback=previous-current",
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
@@ -435,28 +433,6 @@ extension SceneDesktopWallpaperHost {
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
                 definitions: propertyBindingDefinitions
             )
-        let timeOfDayEffectScriptCandidateProgram: SceneTimeOfDayEffectScriptProgram
-        let timeOfDayEffectScriptAdmissionDiagnostic: String?
-        switch SceneTimeOfDayEffectScriptProgramCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor
-        ) {
-        case let .success(program):
-            timeOfDayEffectScriptCandidateProgram = program
-            timeOfDayEffectScriptAdmissionDiagnostic = nil
-        case let .failure(failure) where failure.isDescriptorIntegrityFailure:
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt(
-                    "time-of-day-candidates-\(failure.code.rawValue)"
-                )
-        case let .failure(failure):
-            timeOfDayEffectScriptCandidateProgram = .empty
-            timeOfDayEffectScriptAdmissionDiagnostic = failure.diagnostic
-        }
-        let timeOfDayEffectScriptCandidates =
-            timeOfDayEffectScriptCandidateProgram.bindings
-        let timeOfDayEffectScriptCandidateTargets = Set(
-            timeOfDayEffectScriptCandidates.map(\.definition.target)
-        )
         guard let mediaPlaybackPlaceholderFadeCandidates =
                 SceneMediaPlaybackPlaceholderFadeProgramCompiler.compile(
                     descriptor: runtimeInput.renderDescriptor,
@@ -531,8 +507,7 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
         }
-        let provenSceneScriptValueTargets = timeOfDayEffectScriptCandidateTargets
-            .union(mediaPlaybackPlaceholderFadeCandidateTargets)
+        let provenSceneScriptValueTargets = mediaPlaybackPlaceholderFadeCandidateTargets
             .union(mediaColorTransitionCandidateTargets)
             .union(launchOriginTransitionProgram.scalarBindings.map {
                 $0.definition.target
@@ -604,21 +579,6 @@ extension SceneDesktopWallpaperHost {
         )
         let sceneScriptConsumerTargets =
             resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
-        let timeOfDayEffectScriptConflictingTargets = propertyBindingTargets
-            .union(timelineTargets)
-            .union(boundedSceneScriptTargets)
-            .union(sceneScriptScalarTargets)
-        guard let timeOfDayEffectScriptProgram =
-                SceneTimeOfDayEffectScriptProgram.validatedConsumers(
-                    candidates: timeOfDayEffectScriptCandidates,
-                    consumerTargets: sceneScriptConsumerTargets,
-                    conflictingTargets: timeOfDayEffectScriptConflictingTargets
-                ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .conflictingBoundedSceneScriptTargets(
-                    " phases=time-of-day/consumer-ownership"
-                )
-        }
         guard let mediaPlaybackPlaceholderFadeProgram =
                 SceneMediaPlaybackPlaceholderFadeProgram.validated(
                     bindings: mediaPlaybackPlaceholderFadeCandidates.bindings.filter {
@@ -658,9 +618,6 @@ extension SceneDesktopWallpaperHost {
             textScriptProgram: SceneTextScriptCompiler.compile(
                 descriptor: runtimeInput.renderDescriptor
             ),
-            timeOfDayEffectScriptProgram: timeOfDayEffectScriptProgram,
-            timeOfDayEffectScriptAdmissionDiagnostic:
-                timeOfDayEffectScriptAdmissionDiagnostic,
             mediaPlaybackPlaceholderFadeProgram:
                 mediaPlaybackPlaceholderFadeProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
