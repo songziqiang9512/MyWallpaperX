@@ -372,9 +372,14 @@ extension SceneAuthoredPulsePlanner: SceneEffectStageGraphCandidatePlanner {
         input: SceneEffectStageCompileInput
     ) -> Bool {
         typealias Graph = SceneAuthoredEffectRenderPlan
-        let supportedProfiles: [ScenePulseShaderProfile] = plan.pulseColor
-            ? [.stock2842]
-            : [.stock2842, .directPhaseSaturateV1, .directPhaseMaxClampV1]
+        // Profile identity only admits analysis. The shared source facts below
+        // decide the exact RGB/alpha shape; current historical saturation does
+        // not satisfy them, while CAST3 and literal-zero static forms do.
+        let supportedProfiles: [ScenePulseShaderProfile] = [
+            .stock2842,
+            .directPhaseSaturateV1,
+            .directPhaseMaxClampV1,
+        ]
         let bindingCohortIsProven = plan.bindings.isEmpty
             || SceneEffectStagePulseDirectPropertyOwnerAdmission
                 .bindingCohortIsProven(
