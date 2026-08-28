@@ -577,10 +577,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     var defaultRouteState: SceneGenericShaderRouteState {
         switch self {
         case .providerBackedScalarColorInterpolation,
-             .sourceProvenGraphInputStraightAlpha,
              .sourceProvenGraphInputStraightAlphaPreserving:
             .preferGeneric
         case .ordinaryShader,
+             .sourceProvenGraphInputStraightAlpha,
              .sourceProvenScalarColorInterpolation,
              .sourceProvenOpaqueScalarOutput,
              .sourceProvenStraightAlphaR8Signal,
@@ -630,6 +630,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
     /// the legacy process-wide switch must not revoke their product owner.
     var ignoresLegacyProcessRoute: Bool {
         self == .ordinaryShader
+            || self == .sourceProvenGraphInputStraightAlpha
             || self
                 == .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
             || self == .sourceProvenGraphTargetOpaqueLoopSampleAverage
@@ -669,7 +670,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         routeState: SceneGenericShaderRouteState
     ) -> Bool {
         guard validatedRollbackOwner == .boundedFrontend else { return false }
-            return self == .ordinaryShader
+        return self == .ordinaryShader
+            || self == .sourceProvenGraphInputStraightAlpha
             || routeState != .genericOnly
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary

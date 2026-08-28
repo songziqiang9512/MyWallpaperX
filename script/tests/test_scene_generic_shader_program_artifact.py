@@ -4769,7 +4769,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                             result["routeProfile"],
                             "source-proven-graph-input-straight-alpha",
                         )
-                        self.assertIn("state=prefer-generic", log)
+                        self.assertIn(
+                            "state=generic-only profile="
+                            "source-proven-graph-input-straight-alpha",
+                            log,
+                        )
 
     def test_straight_alpha_artifact_maps_color_source_slot(self):
         with tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
@@ -4906,7 +4910,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                         result["routeProfile"],
                         "source-proven-graph-input-straight-alpha",
                     )
-                    self.assertIn("state=prefer-generic", log)
+                    self.assertIn(
+                        "state=generic-only profile="
+                        "source-proven-graph-input-straight-alpha",
+                        log,
+                    )
 
     def test_audio_stage_uniform_straight_alpha_without_varying_mutation_has_narrow_product_authority(
         self,
@@ -5428,12 +5436,78 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                     rollback_log,
                 )
 
-        preferred_cases = [
+        generic_only_graph_input_cases = [
             (
                 STRAIGHT_ALPHA_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "source-proven-graph-input-straight-alpha",
             ),
+        ]
+        for fragment, facts, profile in generic_only_graph_input_cases:
+            with self.subTest(profile=profile), tempfile.TemporaryDirectory(
+                prefix="mwx-generic-artifact-test-"
+            ) as directory:
+                root = Path(directory)
+                unavailable, _, _, fallback_log = self.run_harness(
+                    root, route=None, fragment=fragment, **facts
+                )
+                self.assertEqual(unavailable["status"], "unavailable")
+                self.assertTrue(unavailable["permitsBoundedFrontend"])
+                self.assertIn(
+                    f"state=generic-only profile={profile} "
+                    "outcome=shared-backend-fallback",
+                    fallback_log,
+                )
+                self.assertIn("reason=compiler-configuration-", fallback_log)
+                self.assertIn("count=1", fallback_log)
+
+                observed, _, _, _ = self.run_harness(
+                    root,
+                    route=None,
+                    profile_routes=f"{profile}=observe-only",
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertEqual(observed["code"], "route-invalid")
+                self.assertFalse(observed["permitsBoundedFrontend"])
+
+                invalid, _, _, _ = self.run_harness(
+                    root,
+                    route=None,
+                    profile_routes=f"{profile}=unknown-route",
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertEqual(invalid["code"], "route-invalid")
+                self.assertFalse(invalid["permitsBoundedFrontend"])
+
+                legacy_disabled, _, _, legacy_disabled_log = self.run_harness(
+                    root, route="disable-generic", fragment=fragment, **facts
+                )
+                self.assertNotEqual(legacy_disabled["code"], "route-disabled")
+                self.assertTrue(legacy_disabled["permitsBoundedFrontend"])
+                self.assertIn(
+                    f"state=generic-only profile={profile} "
+                    "outcome=shared-backend-fallback",
+                    legacy_disabled_log,
+                )
+
+                rolled_back, _, _, rollback_log = self.run_harness(
+                    root,
+                    route=None,
+                    profile_routes=f"{profile}=disable-generic",
+                    fragment=fragment,
+                    **facts,
+                )
+                self.assertEqual(rolled_back["code"], "route-disabled")
+                self.assertTrue(rolled_back["permitsBoundedFrontend"])
+                self.assertIn(
+                    f"state=disable-generic profile={profile} "
+                    "outcome=fallback reason=route-disabled",
+                    rollback_log,
+                )
+
+        preferred_graph_input_cases = [
             (
                 CHANNEL_RECONSTRUCTION_FRAGMENT,
                 {"graph_input_slots": (0,)},
@@ -5445,7 +5519,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 "source-proven-graph-input-straight-alpha-preserving",
             ),
         ]
-        for fragment, facts, profile in preferred_cases:
+        for fragment, facts, profile in preferred_graph_input_cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
                 prefix="mwx-generic-artifact-test-"
             ) as directory:
@@ -6136,9 +6210,13 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                         result["routeProfile"],
                         "source-proven-graph-input-straight-alpha",
                     )
-                    self.assertIn("state=prefer-generic", log)
+                    self.assertIn(
+                        "state=generic-only profile="
+                        "source-proven-graph-input-straight-alpha",
+                        log,
+                    )
 
-    def test_preferred_graph_input_profiles_accept_generic_then_fallback_locally(
+    def test_graph_input_profiles_use_expected_artifact_route(
         self,
     ):
         cases = [
@@ -6147,15 +6225,26 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 {"graph_input_slots": (0,)},
                 "straight-alpha",
                 "source-proven-graph-input-straight-alpha",
+                "generic-only",
+                "shared-backend-fallback",
             ),
             (
                 CHANNEL_RECONSTRUCTION_FRAGMENT,
                 {"graph_input_slots": (0,)},
                 "straight-alpha-preserving",
                 "source-proven-graph-input-straight-alpha-preserving",
+                "prefer-generic",
+                "fallback",
             ),
         ]
-        for fragment, facts, transfer, profile in cases:
+        for (
+            fragment,
+            facts,
+            transfer,
+            profile,
+            route_state,
+            fallback_outcome,
+        ) in cases:
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(
                 prefix="mwx-generic-artifact-test-"
             ) as directory:
@@ -6176,7 +6265,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 self.assertEqual(accepted["status"], "accepted")
                 self.assertEqual(accepted["backend"], "genericCompilerArtifact")
                 self.assertIn(
-                    f"state=prefer-generic profile={profile} outcome=accepted",
+                    f"state={route_state} profile={profile} outcome=accepted",
                     accepted_log,
                 )
 
@@ -6188,7 +6277,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 self.assertEqual(fallback["code"], "artifact-contract-rejected")
                 self.assertTrue(fallback["permitsBoundedFrontend"])
                 self.assertIn(
-                    f"state=prefer-generic profile={profile} outcome=fallback "
+                    f"state={route_state} profile={profile} "
+                    f"outcome={fallback_outcome} "
                     "reason=artifact-contract-rejected",
                     fallback_log,
                 )
