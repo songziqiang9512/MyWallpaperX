@@ -121,6 +121,28 @@ struct SceneResolvedMaterialTemplate {
     let uniformDeclarations: [UniformDeclaration]
 }
 
+enum SceneResolvedMaterialDirectUserBindingContract {
+    typealias Template = SceneResolvedMaterialTemplate
+
+    static func matches(_ keys: [String]) -> Bool {
+        let keySet = Set(keys)
+        return keySet.count == keys.count
+            && Set(["user", "value"]).isSubset(of: keySet)
+            && keySet.isDisjoint(with: [
+                "animation", "script", "scriptproperties",
+            ])
+    }
+
+    static func matches(
+        dynamic: Template.DynamicUniform,
+        fallback: Template.StaticUniformValue
+    ) -> Bool {
+        dynamic.authoredBindingKeys == fallback.authoredBindingKeys
+            && matches(dynamic.authoredBindingKeys)
+            && matches(fallback.authoredBindingKeys)
+    }
+}
+
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
@@ -216,7 +238,8 @@ private func dynamicMaterial(
     propertyKey: String = "xraySize",
     value: Double = 0.25,
     componentCount: Int = 1,
-    provesPointer: Bool = true
+    provesPointer: Bool = true,
+    bindingKeys: [String] = ["user", "value"]
 ) -> Catalog.MaterialCapability {
     let bits = Array(repeating: value.bitPattern, count: componentCount)
     return .init(
@@ -229,9 +252,9 @@ private func dynamicMaterial(
                 authoredFallback: .init(
                     valueKind: "binding",
                     componentBitPatterns: bits,
-                    authoredBindingKeys: ["user", "value"]
+                    authoredBindingKeys: bindingKeys
                 ),
-                authoredBindingKeys: ["user", "value"]
+                authoredBindingKeys: bindingKeys
             ))
         )]),
         variants: .init(
@@ -385,6 +408,22 @@ enum Harness {
             "launchEnvelopeRequired": activationPolicy(
                 material: dynamicMaterial(provesPointer: false),
                 dynamicProducers: producerCatalog(fallbackTargets: [sizeTarget])
+            ) == nil,
+            "opaqueMetadataPreserved": activationPolicy(
+                material: dynamicMaterial(
+                    bindingKeys: ["opaque", "user", "value"]
+                ),
+                dynamicProducers: producerCatalog(
+                    fallbackTargets: [sizeTarget]
+                )
+            ) != nil,
+            "semanticMetadataRejected": activationPolicy(
+                material: dynamicMaterial(
+                    bindingKeys: ["script", "user", "value"]
+                ),
+                dynamicProducers: producerCatalog(
+                    fallbackTargets: [sizeTarget]
+                )
             ) == nil,
             "pairLeafTopologyRequired": activationPolicy(
                 material: dynamicMaterial(),

@@ -575,11 +575,14 @@ class SceneXRayAuthoredFallbackOwnerAdmissionTests(_Base):
     ) -> None:
         self.assertEqual(self.result["rangeRemainders"], ["rejected"] * 2)
 
-    def test_conflicting_producers_wrappers_and_scripts_retain_incumbent(
+    def test_conflicting_producers_and_scripts_retain_incumbent(
         self,
     ) -> None:
         self.assertEqual(self.result["producerConflictRemainders"], ["accepted"] * 5)
-        self.assertEqual(self.result["wrapperAndScriptRemainders"], ["accepted"] * 2)
+        self.assertEqual(
+            self.result["wrapperAndScriptRemainders"],
+            [self.FALLBACK_REVOKED, "accepted"],
+        )
 
 
 del _Base

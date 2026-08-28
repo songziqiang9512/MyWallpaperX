@@ -662,6 +662,28 @@ struct SceneResolvedMaterialTemplate {
     let shaderContract: ShaderContract
 }
 
+enum SceneResolvedMaterialDirectUserBindingContract {
+    typealias Template = SceneResolvedMaterialTemplate
+
+    static func matches(_ keys: [String]) -> Bool {
+        let keySet = Set(keys)
+        return keySet.count == keys.count
+            && Set(["user", "value"]).isSubset(of: keySet)
+            && keySet.isDisjoint(with: [
+                "animation", "script", "scriptproperties",
+            ])
+    }
+
+    static func matches(
+        dynamic: Template.DynamicUniform,
+        fallback: Template.StaticUniformValue
+    ) -> Bool {
+        dynamic.authoredBindingKeys == fallback.authoredBindingKeys
+            && matches(dynamic.authoredBindingKeys)
+            && matches(fallback.authoredBindingKeys)
+    }
+}
+
 enum SceneResolvedMaterialShaderSchema {
     struct Sampler {
         let defaultTexture: SceneResolvedMaterialTemplate.TextureReference?

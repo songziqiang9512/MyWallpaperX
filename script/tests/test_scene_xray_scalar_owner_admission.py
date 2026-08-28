@@ -715,6 +715,7 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
         self.assertTrue(self.result["multiply"])
         self.assertTrue(self.result["both"])
         self.assertTrue(self.result["dynamicVisibility"])
+        self.assertTrue(self.result["extraWrapperField"])
 
     def test_non_cohort_shapes_retain_the_incumbent(self) -> None:
         for key in (
@@ -724,7 +725,6 @@ class SceneXRayScalarOwnerAdmissionTests(unittest.TestCase):
             "unvalidatedVisibility",
             "frameDrivenVisibility",
             "siblingFrameDrivenVisibility",
-            "extraWrapperField",
             "scriptAttachment",
             "wrongRange",
             "nonSpatial",

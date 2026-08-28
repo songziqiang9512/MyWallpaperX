@@ -344,14 +344,14 @@ class ScenePulseStagedScalarAuthoredFallbackOwnerAdmissionTests(_Base):
             ["incumbent"] * 6,
         )
 
-    def test_vertex_domain_and_wrapper_drift_retain_owner(self) -> None:
+    def test_vertex_domain_and_semantic_wrapper_drift_retain_owner(self) -> None:
         self.assertEqual(
             self.result["stagedStockVertexPhaseDomain"],
             "incumbent",
         )
         self.assertEqual(
             self.result["stagedWrapperAndScript"],
-            ["incumbent"] * 2,
+            [self.STAGED_SCALAR_REVOKED, "incumbent"],
         )
 
 

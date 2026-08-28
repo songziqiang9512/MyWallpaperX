@@ -178,10 +178,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   case let .userProperty(propertyKey) =
                     dynamic.valueContributors[0],
                   dynamic.scriptAttachments.isEmpty,
-                  dynamic.authoredBindingKeys == ["user", "value"],
                   let authored = dynamic.authoredFallback,
                   authored.valueKind.localizedLowercase == "binding",
-                  authored.authoredBindingKeys == ["user", "value"]
+                  SceneResolvedMaterialDirectUserBindingContract.matches(
+                      dynamic: dynamic,
+                      fallback: authored
+                  )
             else { return nil }
             let expectedProducer = SceneDynamicUserPropertyProducer(
                 propertyKey: propertyKey,

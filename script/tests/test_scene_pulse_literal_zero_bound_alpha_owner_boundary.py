@@ -63,12 +63,12 @@ class ScenePulseLiteralZeroBoundAlphaOwnerBoundaryTests(unittest.TestCase):
         finally:
             cls.base_globals["HARNESS"] = cls.original_harness
 
-    def test_literal_zero_dynamic_alpha_remains_with_the_incumbent(self) -> None:
+    def test_literal_zero_dynamic_alpha_uses_the_shared_program(self) -> None:
         revoked = (
             "revoked:typed-user-property-alpha-only-"
             "owner-revoked-to-material-program"
         )
-        expected = ["incumbent", revoked, "incumbent"]
+        expected = [revoked] * 3
         self.assertEqual(self.result["legacyBoundAlphaOnly"], expected)
         self.assertEqual(self.result["legacyMaskedBoundAlphaOnly"], expected)
 

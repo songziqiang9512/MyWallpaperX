@@ -220,7 +220,9 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                 let targetProducers = producers.filter { $0.target == target }
                 guard authored.valueKind.localizedLowercase == "binding",
                       authored.userValueKind == .string,
-                      authored.bindingKeys == ["user", "value"],
+                      SceneResolvedMaterialDirectUserBindingContract.matches(
+                          authored.bindingKeys
+                      ),
                       !propertyKey.isEmpty,
                       propertyKey == propertyKey.trimmingCharacters(
                           in: .whitespacesAndNewlines
@@ -229,10 +231,12 @@ nonisolated enum SceneEffectStageXRayScalarOwnerAdmission {
                       dynamic.target == target,
                       dynamic.valueContributors == [.userProperty(propertyKey)],
                       dynamic.scriptAttachments.isEmpty,
-                      dynamic.authoredBindingKeys == ["user", "value"],
                       let fallback = dynamic.authoredFallback,
                       fallback.valueKind.localizedLowercase == "binding",
-                      fallback.authoredBindingKeys == ["user", "value"],
+                      SceneResolvedMaterialDirectUserBindingContract.matches(
+                          dynamic: dynamic,
+                          fallback: fallback
+                      ),
                       fallback.componentBitPatterns == [component.bitPattern]
                 else { return nil }
                 if targetProducers == [expected] {

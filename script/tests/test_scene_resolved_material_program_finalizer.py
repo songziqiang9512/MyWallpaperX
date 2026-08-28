@@ -3885,6 +3885,18 @@ private enum Harness {
             )],
             dynamicSource: .userProperty
         )
+        let scriptKeyScalarSplat = finalize(
+            shader: contract(
+                revision: "user-property-scalar-float2-script-key",
+                semanticProbes: false,
+                scalarSplatScale: true
+            ),
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(
+                bindingKeys: ["script", "user", "value"]
+            )],
+            dynamicSource: .userProperty
+        )
         let overlayPath = SceneVFSAssetPath("textures/overlay-data.tex")!
         let overlayIdentity = SceneFrameTextureIdentity.asset(.init(
             path: overlayPath,
@@ -4795,6 +4807,7 @@ private enum Harness {
                 nonUserScalarSplatContributor
             ),
             "extraKeyScalarSplat": failureToken(extraKeyScalarSplat),
+            "scriptKeyScalarSplat": failureToken(scriptKeyScalarSplat),
             "unequalDefaultStaticScalarSplat": failureToken(
                 unequalDefaultStaticScalarSplat
             ),
@@ -5576,7 +5589,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "uniform/dynamicUniformBindingInvalid",
             "nonUserScalarSplatContributor":
                 "uniform/dynamicUniformBindingInvalid",
-            "extraKeyScalarSplat": "uniform/dynamicUniformBindingInvalid",
+            "extraKeyScalarSplat": "success",
+            "scriptKeyScalarSplat": "uniform/dynamicUniformBindingInvalid",
             "unequalDefaultStaticScalarSplat":
                 "uniform/staticUniformBindingInvalid",
             "missingDefaultStaticScalarSplat":
