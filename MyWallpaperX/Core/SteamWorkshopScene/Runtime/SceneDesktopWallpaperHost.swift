@@ -125,6 +125,7 @@ final class SceneDesktopWallpaperHost {
             epoch: nextVideoProviderEpoch
         )
         launchContext?.sceneScriptScalarProgram.invalidate()
+        launchContext?.sceneScriptStringProgram.invalidate()
         launchContext?.propertyVectorScriptProgram.invalidate()
         launchContext = context
 #if DEBUG

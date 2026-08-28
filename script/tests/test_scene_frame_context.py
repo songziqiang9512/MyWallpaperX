@@ -501,6 +501,12 @@ class SceneFrameContextTests(unittest.TestCase):
         playback_event_position = frame_driver.index(
             "SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)", render_position
         )
+        properties_event_position = frame_driver.index(
+            "SceneScriptMediaPropertiesEventInput(snapshot: mediaInput)", render_position
+        )
+        string_vm_position = frame_driver.index(
+            "launchContext.sceneScriptStringProgram.evaluate(", render_position
+        )
         scalar_vm_position = frame_driver.index(
             "launchContext.sceneScriptScalarProgram.evaluate(", render_position
         )
@@ -508,6 +514,9 @@ class SceneFrameContextTests(unittest.TestCase):
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
         self.assertLess(media_input_position, playback_event_position)
+        self.assertLess(playback_event_position, properties_event_position)
+        self.assertLess(properties_event_position, string_vm_position)
+        self.assertLess(string_vm_position, scalar_vm_position)
         self.assertLess(playback_event_position, scalar_vm_position)
         self.assertLess(scalar_vm_position, broadcast_position)
         self.assertLess(broadcast_position, snapshot_position)
@@ -516,6 +525,9 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertIn(
             "mediaPlaybackEvent: sceneScriptMediaPlaybackEvent", frame_driver
+        )
+        self.assertIn(
+            "mediaPropertiesEvent: sceneScriptMediaPropertiesEvent", frame_driver
         )
         self.assertIn("mediaInput: mediaInput", frame_driver)
         self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)

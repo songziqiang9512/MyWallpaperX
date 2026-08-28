@@ -6,13 +6,18 @@ import Foundation
 /// Unsupported scripts keep their authored fallback text and are fingerprinted only
 /// for diagnostics; source identity never selects product execution.
 nonisolated enum SceneTextScriptCompiler {
-    nonisolated static func compile(descriptor: SceneRenderDescriptor) -> SceneTextScriptProgram {
+    nonisolated static func compile(
+        descriptor: SceneRenderDescriptor,
+        excludedTargets: Set<SceneDynamicTarget> = []
+    ) -> SceneTextScriptProgram {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         var bindings: [SceneTextScriptProgram.Binding] = []
         var diagnostics: [SceneTextScriptProgram.Diagnostic] = []
 
         for layer in descriptor.layers where
             layer.contentKind == "text" && visibleLayerIDs.contains(layer.id) {
+            let target = SceneDynamicTarget.text(layerID: layer.id, field: .content)
+            guard !excludedTargets.contains(target) else { continue }
             guard let script = layer.textScript else { continue }
             let configuration: SceneTextScriptProgram.Configuration
             let profile: SceneTextScriptProgram.Profile
@@ -39,7 +44,7 @@ nonisolated enum SceneTextScriptCompiler {
                 profile: profile,
                 configuration: configuration,
                 definition: .init(
-                    target: .text(layerID: layer.id, field: .content),
+                    target: target,
                     valueType: .string,
                     authoredValue: .string(layer.text ?? "")
                 )

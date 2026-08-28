@@ -82,6 +82,28 @@ static JSValue playback_argument(JSContext *context, const void *payload) {
     return argument;
 }
 
+static JSValue properties_argument(JSContext *context, const void *payload) {
+    const MWXSceneQuickJSMediaPropertiesEvent *event = payload;
+    JSValue argument = JS_NewObject(context);
+    if (JS_IsException(argument) || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "title",
+            JS_NewStringLen(context, event->title, event->title_length),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "artist",
+            JS_NewStringLen(context, event->artist, event->artist_length),
+            JS_PROP_ENUMERABLE
+        ) < 0) {
+        JS_FreeValue(context, argument);
+        return JS_EXCEPTION;
+    }
+    return argument;
+}
+
 static MWXSceneQuickJSResult dispatch_event(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -250,6 +272,39 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
         expected_generation,
         "mediaPlaybackChanged",
         playback_argument,
+        event,
+        frame,
+        user_properties_json,
+        user_properties_length,
+        diagnostic,
+        diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaPropertiesEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (event == NULL || event->title == NULL || event->artist == NULL ||
+        event->title_length > 65536 || event->artist_length > 65536 ||
+        memchr(event->title, '\0', event->title_length) != NULL ||
+        memchr(event->artist, '\0', event->artist_length) != NULL) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid media properties event"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    return dispatch_event(
+        owner,
+        expected_generation,
+        "mediaPropertiesChanged",
+        properties_argument,
         event,
         frame,
         user_properties_json,

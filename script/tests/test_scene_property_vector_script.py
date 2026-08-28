@@ -27,6 +27,8 @@ SOURCES = [
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptScalarProgram.swift",
+    VM / "SceneScriptStringProgram.swift",
+    VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
@@ -42,11 +44,21 @@ struct SceneFrameTiming {
 
 final class SceneMediaThumbnailInbox {
     struct Snapshot {
+        struct Properties {
+            let title: String
+            let artist: String
+        }
         let current: Data?
         let generation: UInt64
         let playbackState: Int?
         let playbackGeneration: UInt64
+        let properties: Properties?
+        let propertiesGeneration: UInt64
     }
+}
+
+struct SceneTextScriptDefinition {
+    let source: String
 }
 
 struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
@@ -101,6 +113,9 @@ struct SceneRenderDescriptor {
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]
+        var contentKind: String = "image"
+        var textScript: SceneTextScriptDefinition? = nil
+        var text: String? = nil
     }
     var layers: [Layer]
 }
@@ -130,6 +145,14 @@ enum Harness {
                 id: 42, layerIndex: 1, name: "C1", visible: true,
                 originXYZ: [10, 20, 30], scaleXYZ: [1, 1, 1],
                 scaleHasScript: false, alpha: nil, effects: []
+            ),
+            .init(
+                id: 77, layerIndex: 2, name: "Song Title", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                scaleHasScript: false, alpha: nil, effects: [],
+                contentKind: "text",
+                textScript: .init(source: mediaPropertiesSource),
+                text: "Placeholder"
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -330,6 +353,33 @@ enum Harness {
             inputs: [playbackTarget: .scalar(1)], frame: playbackFrame,
             mediaPlaybackEvent: .init(state: 0, generation: 2)
         )
+        let stringTarget = SceneDynamicTarget.text(
+            layerID: 77, field: .content
+        )
+        let stringProgram = SceneScriptStringProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [textBinding(
+                source: mediaPropertiesSource,
+                value: "Placeholder"
+            )],
+            generation: 17
+        )
+        let stringEvent = SceneScriptMediaPropertiesEventInput(
+            title: "春日歌",
+            artist: "Artist",
+            generation: 1
+        )
+        let stringResult = stringProgram.evaluate(
+            inputs: [stringTarget: .string("Placeholder")],
+            frame: frame,
+            mediaPropertiesEvent: stringEvent
+        )
+        let duplicateStringResult = stringProgram.evaluate(
+            inputs: [stringTarget: .string("Placeholder")],
+            frame: frame,
+            mediaPropertiesEvent: stringEvent
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -370,6 +420,11 @@ enum Harness {
             "playbackStopped": scalar(stopped.values[playbackTarget]),
             "playbackFailures": playing.failures.count
                 + playingNextFrame.failures.count + stopped.failures.count,
+            "stringBindings": stringProgram.bindings.count,
+            "stringValue": string(stringResult.values[stringTarget]),
+            "stringFailures": stringResult.failures.count,
+            "stringGenerationDeduplicated":
+                string(duplicateStringResult.values[stringTarget]) == "春日歌 / Artist",
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -383,6 +438,31 @@ enum Harness {
     static func scalar(_ value: SceneDynamicValue?) -> Double {
         guard case let .scalar(number)? = value else { return -1 }
         return number
+    }
+
+    static func string(_ value: SceneDynamicValue?) -> String {
+        guard case let .string(text)? = value else { return "" }
+        return text
+    }
+
+    static func textBinding(source: String, value: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 2,
+                objectID: 77,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(2), .key("text")],
+            properties: [:],
+            authoredValue: .string(value),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
     }
 
     static func alphaBinding(source: String, value: Double) -> SceneScriptBindingIR {
@@ -529,6 +609,14 @@ enum Harness {
         return scalarAccumulator * resultScale
     }
     """
+
+    static let mediaPropertiesSource = """
+    let mediaData = "";
+    export function update(value) { return mediaData || value; }
+    export function mediaPropertiesChanged(event) {
+        mediaData = event.title + " / " + event.artist;
+    }
+    """
 }
 '''
 
@@ -609,6 +697,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["playbackNextFrame"], 1.0)
         self.assertEqual(value["playbackStopped"], 0.5)
         self.assertEqual(value["playbackFailures"], 0)
+
+    def test_media_properties_event_updates_generic_string_owner(self) -> None:
+        value = self.result()
+        self.assertEqual(value["stringBindings"], 1)
+        self.assertEqual(value["stringValue"], "春日歌 / Artist")
+        self.assertEqual(value["stringFailures"], 0)
+        self.assertTrue(value["stringGenerationDeduplicated"])
 
 
 if __name__ == "__main__":

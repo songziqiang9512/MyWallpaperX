@@ -82,6 +82,7 @@ extension SceneDesktopWallpaperHost {
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
             launchContext?.sceneScriptScalarProgram.invalidate()
+            launchContext?.sceneScriptStringProgram.invalidate()
             launchContext?.propertyVectorScriptProgram.invalidate()
             launchContext = nil
 #if DEBUG
@@ -228,6 +229,7 @@ extension SceneDesktopWallpaperHost {
                 + launchContext.audioScaledValueProgram.definitions
                 + launchContext.propertyVectorScriptProgram.definitions
                 + launchContext.sceneScriptScalarProgram.definitions
+                + launchContext.sceneScriptStringProgram.definitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
@@ -238,6 +240,8 @@ extension SceneDesktopWallpaperHost {
             SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)
         let sceneScriptMediaPlaybackEvent =
             SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)
+        let sceneScriptMediaPropertiesEvent =
+            SceneScriptMediaPropertiesEventInput(snapshot: mediaInput)
         let mediaProperties = mediaInput.properties.map {
             SceneTextMediaPropertiesSnapshot(
                 title: $0.title,
@@ -317,6 +321,34 @@ extension SceneDesktopWallpaperHost {
             sceneScriptVectorResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
+        let sceneScriptStringInputs = launchContext.sceneScriptStringProgram.bindings
+            .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
+                guard let resolved = preliminaryForSceneScript[binding.target],
+                      case .string = resolved.value else { return }
+                inputs[binding.target] = resolved.value
+            }
+        let userPropertiesJSON = launchContext.propertyVectorScriptProgram
+            .userPropertiesJSON(effectiveValues: launchContext.liveState.effectiveValues)
+        let sceneScriptStringResult = launchContext.sceneScriptStringProgram.evaluate(
+            inputs: sceneScriptStringInputs,
+            frame: SceneScriptFrameInput(timing: timing),
+            userPropertiesJSON: userPropertiesJSON,
+            mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
+            mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
+            mediaPropertiesEvent: sceneScriptMediaPropertiesEvent
+        )
+        for (target, failure) in sceneScriptStringResult.failures {
+            NSLog(
+                "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=previous-current",
+                String(describing: target),
+                String(describing: failure),
+                failure.code
+            )
+        }
+        commonSceneScriptValues.merge(
+            sceneScriptStringResult.values,
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
         let sceneScriptInputs = launchContext.sceneScriptScalarProgram.bindings.reduce(
             into: [SceneDynamicTarget: SceneDynamicValue]()
         ) { inputs, binding in
@@ -327,10 +359,7 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
             inputs: sceneScriptInputs,
             frame: SceneScriptFrameInput(timing: timing),
-            userPropertiesJSON: launchContext.propertyVectorScriptProgram
-                .userPropertiesJSON(
-                    effectiveValues: launchContext.liveState.effectiveValues
-                ),
+            userPropertiesJSON: userPropertiesJSON,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
             mediaPlaybackEvent: sceneScriptMediaPlaybackEvent
         )
@@ -349,6 +378,7 @@ extension SceneDesktopWallpaperHost {
             uniquingKeysWith: { _, genericValue in genericValue }
         )
         let animationMutations = sceneScriptVectorResult.animationMutations
+            + sceneScriptStringResult.animationMutations
             + sceneScriptResult.animationMutations
         if !animationMutations.isEmpty {
             switch launchContext.timelinePlaybackRuntime.apply(
@@ -478,6 +508,7 @@ extension SceneDesktopWallpaperHost {
                 timing: timing, dynamicValues: dynamicValues,
                 materialFunctionMutations:
                     sceneScriptVectorResult.materialFunctionMutations
+                    + sceneScriptStringResult.materialFunctionMutations
                     + sceneScriptResult.materialFunctionMutations,
                 mediaInput: mediaInput,
                 audioSpectrum: audioSpectrum,

@@ -45,6 +45,13 @@ typedef struct MWXSceneQuickJSMediaPlaybackEvent {
     uint32_t state;
 } MWXSceneQuickJSMediaPlaybackEvent;
 
+typedef struct MWXSceneQuickJSMediaPropertiesEvent {
+    const char *title;
+    size_t title_length;
+    const char *artist;
+    size_t artist_length;
+} MWXSceneQuickJSMediaPropertiesEvent;
+
 MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
     size_t stack_limit,
@@ -98,6 +105,15 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     const char *source,
     size_t source_length,
     uint64_t generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_has_function(
+    MWXSceneQuickJSOwner *owner,
+    const char *name,
+    size_t name_length,
+    uint32_t *available,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -163,6 +179,21 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *input,
+    size_t input_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *output,
+    size_t output_capacity,
+    size_t *output_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -178,6 +209,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const MWXSceneQuickJSMediaPlaybackEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaPropertiesEvent *event,
     const MWXSceneQuickJSFrameInput *frame,
     const char *user_properties_json,
     size_t user_properties_length,

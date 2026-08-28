@@ -100,6 +100,66 @@ static int media_playback(
     return check(actual == expected, label, diagnostic);
 }
 
+static int media_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    const char *title,
+    const char *artist,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSMediaPropertiesEvent event = {
+        .title = title,
+        .title_length = strlen(title),
+        .artist = artist,
+        .artist_length = strlen(artist),
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_dispatch_media_properties(
+            owner, generation, &event, &frame, "{}", 2,
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
+static int update_string(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    const char *input,
+    MWXSceneQuickJSResult expected,
+    const char *expected_output,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    char output[65537] = {0};
+    size_t output_length = 0;
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_string(
+        owner, generation, input, strlen(input), &frame, "{}", 2,
+        output, sizeof(output), &output_length, diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        actual == expected && (
+            expected != MWX_SCENE_QUICKJS_OK || (
+                output_length == strlen(expected_output) &&
+                memcmp(output, expected_output, output_length) == 0
+            )
+        ),
+        label,
+        diagnostic
+    );
+}
+
 static int update_vec3(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -811,6 +871,55 @@ int main(void) {
         "media playback failure preserves peer owner"
     );
 
+    const char *media_properties_source =
+        "let text='';"
+        "export function mediaPropertiesChanged(event){"
+        "text=event.title+' / '+event.artist;}"
+        "export function update(value){return text||value;}";
+    MWXSceneQuickJSOwner *media_properties_owner = mwx_scene_quickjs_owner_create(
+        domain, media_properties_source, strlen(media_properties_source),
+        23, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        media_properties_owner != NULL, "media properties compile", diagnostic
+    );
+    uint32_t string_update_available = 0;
+    failures += check(
+        mwx_scene_quickjs_owner_has_function(
+            media_properties_owner, "update", 6, &string_update_available,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK && string_update_available == 1,
+        "string update export", diagnostic
+    );
+    failures += update_string(
+        media_properties_owner, 23, "Placeholder", MWX_SCENE_QUICKJS_OK,
+        "Placeholder", "string authored fallback"
+    );
+    failures += media_properties(
+        media_properties_owner, 23, "Song", "Artist", MWX_SCENE_QUICKJS_OK,
+        "media properties event"
+    );
+    failures += update_string(
+        media_properties_owner, 23, "Placeholder", MWX_SCENE_QUICKJS_OK,
+        "Song / Artist", "media properties update string"
+    );
+    failures += media_properties(
+        media_properties_owner, 24, "Stale", "Artist",
+        MWX_SCENE_QUICKJS_STALE_OWNER, "stale media properties owner"
+    );
+
+    const char *bad_string_source =
+        "export function update(){return 42;}";
+    MWXSceneQuickJSOwner *bad_string = mwx_scene_quickjs_owner_create(
+        domain, bad_string_source, strlen(bad_string_source),
+        24, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(bad_string != NULL, "bad string compile", diagnostic);
+    failures += update_string(
+        bad_string, 24, "safe", MWX_SCENE_QUICKJS_BAD_RETURN, "",
+        "non-string callback return rejected"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -825,6 +934,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(immutable_media_playback);
     mwx_scene_quickjs_owner_destroy(playback_error);
     mwx_scene_quickjs_owner_destroy(media_playback_owner);
+    mwx_scene_quickjs_owner_destroy(media_properties_owner);
+    mwx_scene_quickjs_owner_destroy(bad_string);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -952,6 +1063,13 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertNotIn("propertyBindingProgram", scalar_ownership)
         self.assertNotIn("timelineProgram", scalar_ownership)
+        string_compile = launch.index("let sceneScriptStringProgram =")
+        legacy_text_compile = launch.index("let textScriptProgram =")
+        self.assertLess(string_compile, legacy_text_compile)
+        self.assertIn(
+            "excludedTargets: sceneScriptStringTargets",
+            launch[legacy_text_compile:launch.index("let provenSceneScriptValueTargets =")],
+        )
         self.assertNotIn("SceneTimeOfDayEffectScriptProgram", launch)
         self.assertIn("SceneScriptFrameInput(timing: timing)", frame)
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")

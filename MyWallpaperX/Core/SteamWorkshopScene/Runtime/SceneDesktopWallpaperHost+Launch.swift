@@ -74,6 +74,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let audioScaledValueProgram: SceneAudioScaledValueProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
+    let sceneScriptStringProgram: SceneScriptStringProgram
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -89,7 +90,8 @@ struct SceneDesktopWallpaperLaunchContext {
             "scene script VM: schema=quickjs-ng-typed-v2"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
                 + " vec3Bindings=\(propertyVectorScriptProgram.bindings.count)"
-                + " targets=\(sceneScriptScalarProgram.definitions.count)"
+                + " stringBindings=\(sceneScriptStringProgram.bindings.count)"
+                + " targets=\(sceneScriptTargetCount)"
                 + " route=generic-only fallback=previous-current",
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
@@ -128,6 +130,11 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " scaleLayerIDs="
                 + "\(Array(propertyVectorScriptProgram.admittedScaleLayerIDs).sorted())"
         ]
+    }
+
+    private var sceneScriptTargetCount: Int {
+        sceneScriptScalarProgram.definitions.count
+            + sceneScriptStringProgram.definitions.count
     }
 
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
@@ -500,11 +507,33 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
         }
+        let sceneScriptStringProgram = SceneScriptStringProgram.compile(
+            domain: model.sceneScriptDomain,
+            descriptor: runtimeInput.renderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets,
+            generation: sceneScriptGeneration
+        )
+        let sceneScriptStringTargets = Set(
+            sceneScriptStringProgram.definitions.map(\.target)
+        )
+        guard sceneScriptStringTargets.count
+                == sceneScriptStringProgram.definitions.count,
+              sceneScriptStringTargets.isDisjoint(with: boundedSceneScriptTargets),
+              sceneScriptStringTargets.isDisjoint(with: sceneScriptScalarTargets) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("string-target-ownership")
+        }
+        let textScriptProgram = SceneTextScriptCompiler.compile(
+            descriptor: runtimeInput.renderDescriptor,
+            excludedTargets: sceneScriptStringTargets
+        )
         let provenSceneScriptValueTargets = mediaColorTransitionCandidateTargets
             .union(launchOriginTransitionProgram.scalarBindings.map {
                 $0.definition.target
             })
             .union(sceneScriptScalarTargets)
+            .union(sceneScriptStringTargets)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
@@ -599,9 +628,7 @@ extension SceneDesktopWallpaperHost {
             timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
                 program: timelineProgram
             ),
-            textScriptProgram: SceneTextScriptCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor
-            ),
+            textScriptProgram: textScriptProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             launchOriginTransitionProgram: launchOriginTransitionProgram,
@@ -609,6 +636,7 @@ extension SceneDesktopWallpaperHost {
             audioScaledValueProgram: model.audioScaledValueProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
+            sceneScriptStringProgram: sceneScriptStringProgram,
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

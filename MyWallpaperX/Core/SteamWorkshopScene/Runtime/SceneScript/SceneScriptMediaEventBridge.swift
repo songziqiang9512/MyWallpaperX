@@ -34,6 +34,26 @@ nonisolated struct SceneScriptMediaPlaybackEventInput: Equatable, Sendable {
     }
 }
 
+nonisolated struct SceneScriptMediaPropertiesEventInput: Equatable, Sendable {
+    let title: String
+    let artist: String
+    let generation: UInt64
+
+    init(title: String, artist: String, generation: UInt64) {
+        self.title = title
+        self.artist = artist
+        self.generation = generation
+    }
+
+    init?(snapshot: SceneMediaThumbnailInbox.Snapshot) {
+        guard snapshot.propertiesGeneration > 0,
+              let properties = snapshot.properties else { return nil }
+        title = properties.title
+        artist = properties.artist
+        generation = snapshot.propertiesGeneration
+    }
+}
+
 nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
     let animations: [SceneTimelinePlaybackMutation]
@@ -108,6 +128,55 @@ nonisolated enum SceneScriptMediaEventBridge {
                 &diagnostic,
                 diagnostic.count
             )
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return .failure(failure(raw, diagnostic))
+        }
+        return mutations(owner: owner, target: target, layerID: layerID)
+    }
+
+    static func dispatchProperties(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        layerID: Int,
+        ownerGeneration: UInt64,
+        event: SceneScriptMediaPropertiesEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard event.title.utf8.count <= 65_536,
+              event.artist.utf8.count <= 65_536,
+              !event.title.contains("\0"),
+              !event.artist.contains("\0") else {
+            return .failure(.invalidArgument("invalid media properties payload"))
+        }
+        var rawFrame = MWXSceneQuickJSFrameInput(
+            time_of_day: frame.timeOfDay,
+            frame_time: frame.frameTime,
+            runtime: frame.runtime
+        )
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let raw = event.title.withCString { title in
+            event.artist.withCString { artist in
+                var rawEvent = MWXSceneQuickJSMediaPropertiesEvent(
+                    title: title,
+                    title_length: event.title.utf8.count,
+                    artist: artist,
+                    artist_length: event.artist.utf8.count
+                )
+                return userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_dispatch_media_properties(
+                        owner,
+                        ownerGeneration,
+                        &rawEvent,
+                        &rawFrame,
+                        userProperties,
+                        userPropertiesJSON.utf8.count,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                }
+            }
         }
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))
