@@ -11,6 +11,8 @@
 
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_NAME 128
+#define MWX_SCENE_QUICKJS_MAX_EFFECTS 1024
+#define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -34,6 +36,8 @@ struct MWXSceneQuickJSOwner {
     JSValue material_function_layer;
     size_t material_function_count;
     bool material_function_overflow;
+    uint32_t effect_count;
+    char **effect_names;
     MWXSceneQuickJSMaterialFunctionMutationRecord material_functions[
         MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS
     ];
@@ -268,12 +272,36 @@ static JSValue get_effect(
     (void)this_value;
     (void)magic;
     MWXSceneQuickJSOwner *owner = (MWXSceneQuickJSOwner *)opaque;
-    if (owner == NULL || argc != 1) {
-        return JS_ThrowTypeError(context, "getEffect expects one index");
+    if (owner == NULL || argc != 1 || owner->effect_names == NULL) {
+        return JS_ThrowTypeError(context, "getEffect host is unavailable");
     }
     int64_t index = -1;
-    if (JS_ToInt64(context, &index, argv[0]) < 0 || index < 0 || index > UINT32_MAX) {
-        return JS_ThrowTypeError(context, "getEffect index is invalid");
+    if (JS_IsString(argv[0])) {
+        const char *name = JS_ToCString(context, argv[0]);
+        if (name == NULL) {
+            return JS_EXCEPTION;
+        }
+        for (uint32_t candidate = 0; candidate < owner->effect_count; ++candidate) {
+            if (owner->effect_names[candidate] != NULL &&
+                strcmp(owner->effect_names[candidate], name) == 0) {
+                index = candidate;
+                break;
+            }
+        }
+        JS_FreeCString(context, name);
+    } else if (JS_IsNumber(argv[0])) {
+        double numeric_index = -1;
+        if (JS_ToFloat64(context, &numeric_index, argv[0]) < 0 ||
+            !isfinite(numeric_index) || floor(numeric_index) != numeric_index ||
+            numeric_index < 0 || numeric_index > UINT32_MAX) {
+            return JS_ThrowRangeError(context, "getEffect index is invalid");
+        }
+        index = (int64_t)numeric_index;
+    } else {
+        return JS_ThrowTypeError(context, "getEffect expects one name or index");
+    }
+    if (index < 0 || index >= owner->effect_count) {
+        return JS_ThrowRangeError(context, "getEffect target does not exist");
     }
     JSValue effect = JS_NewObject(context);
     if (JS_IsException(effect)) {
@@ -296,11 +324,48 @@ static JSValue get_effect(
         handle
     );
     if (JS_IsException(callback) ||
-        JS_SetPropertyStr(context, effect, "executeMaterialFunction", callback) < 0) {
+        JS_DefinePropertyValueStr(
+            context,
+            effect,
+            "executeMaterialFunction",
+            callback,
+            JS_PROP_ENUMERABLE
+        ) < 0) {
+        JS_FreeValue(context, effect);
+        return JS_EXCEPTION;
+    }
+    const char *effect_name = owner->effect_names[index];
+    if (effect_name != NULL &&
+        JS_DefinePropertyValueStr(
+            context,
+            effect,
+            "name",
+            JS_NewString(context, effect_name),
+            JS_PROP_ENUMERABLE
+        ) < 0) {
         JS_FreeValue(context, effect);
         return JS_EXCEPTION;
     }
     return effect;
+}
+
+static JSValue get_effect_count(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    MWXSceneQuickJSOwner *owner = (MWXSceneQuickJSOwner *)opaque;
+    if (owner == NULL || owner->effect_names == NULL) {
+        return JS_ThrowTypeError(context, "getEffectCount host is unavailable");
+    }
+    return JS_NewUint32(context, owner->effect_count);
 }
 
 static bool install_material_function_host(MWXSceneQuickJSOwner *owner) {
@@ -318,8 +383,22 @@ static bool install_material_function_host(MWXSceneQuickJSOwner *owner) {
         0,
         owner
     );
-    if (JS_IsException(getter) ||
-        JS_SetPropertyStr(context, layer, "getEffect", getter) < 0) {
+    JSValue count = JS_NewCClosure(
+        context,
+        get_effect_count,
+        "getEffectCount",
+        NULL,
+        0,
+        0,
+        owner
+    );
+    if (JS_IsException(getter) || JS_IsException(count) ||
+        JS_DefinePropertyValueStr(
+            context, layer, "getEffect", getter, JS_PROP_ENUMERABLE
+        ) < 0 ||
+        JS_DefinePropertyValueStr(
+            context, layer, "getEffectCount", count, JS_PROP_ENUMERABLE
+        ) < 0) {
         JS_FreeValue(context, layer);
         return false;
     }
@@ -928,7 +1007,9 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     owner->module = namespace;
     owner->generation = generation;
     owner->material_function_layer = JS_UNDEFINED;
-    if (!install_material_function_host(owner)) {
+    owner->effect_names = calloc(1, sizeof(*owner->effect_names));
+    if (owner->effect_names == NULL || !install_material_function_host(owner)) {
+        free(owner->effect_names);
         JS_FreeValue(domain->context, owner->material_function_layer);
         JS_FreeValue(domain->context, owner->module);
         free(owner);
@@ -938,6 +1019,60 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     return owner;
 }
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_catalog(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t effect_count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || owner->effect_names == NULL || owner->effect_count != 0 ||
+        effect_count > MWX_SCENE_QUICKJS_MAX_EFFECTS) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "invalid effect catalog");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (effect_count == 0) {
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    char **effect_names = calloc(effect_count, sizeof(*effect_names));
+    if (effect_names == NULL) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "effect catalog allocation failed");
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    free(owner->effect_names);
+    owner->effect_names = effect_names;
+    owner->effect_count = effect_count;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_effect_name(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t effect_index,
+    const char *name,
+    size_t name_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || owner->effect_names == NULL || name == NULL ||
+        effect_index >= owner->effect_count || name_length == 0 ||
+        name_length > MWX_SCENE_QUICKJS_MAX_EFFECT_NAME ||
+        memchr(name, '\0', name_length) != NULL ||
+        owner->effect_names[effect_index] != NULL) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "invalid effect name");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    char *copy = malloc(name_length + 1);
+    if (copy == NULL) {
+        write_diagnostic(diagnostic, diagnostic_capacity, "effect name allocation failed");
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    memcpy(copy, name, name_length);
+    copy[name_length] = '\0';
+    owner->effect_names[effect_index] = copy;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) {
         return;
@@ -945,6 +1080,12 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->material_function_layer);
         JS_FreeValue(owner->domain->context, owner->module);
+    }
+    if (owner->effect_names != NULL) {
+        for (uint32_t index = 0; index < owner->effect_count; ++index) {
+            free(owner->effect_names[index]);
+        }
+        free(owner->effect_names);
     }
     free(owner);
 }

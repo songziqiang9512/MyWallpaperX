@@ -63,11 +63,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var owners: [SceneScriptScalarOwner] = []
         for (binding, target, authored) in candidates {
             guard counts[target] == 1,
+                  case let .effectConstant(layerID, _, _, _) = target,
+                  let layer = descriptor.layers.first(where: { $0.id == layerID }),
                   let owner = try? SceneScriptScalarOwner(
                       domain: domain,
                       source: binding.source,
                       target: target,
                       authoredValue: authored,
+                      effectNames: layer.effects.map(\.name),
                       generation: generation,
                       budget: budget
                   ) else { continue }

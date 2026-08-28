@@ -55,6 +55,22 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_catalog(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t effect_count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_effect_name(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t effect_index,
+    const char *name,
+    size_t name_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner);
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(

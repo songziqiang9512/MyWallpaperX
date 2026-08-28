@@ -3,6 +3,7 @@ import Foundation
 nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let values: [SceneDynamicTarget: SceneDynamicValue]
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
 }
 
 nonisolated enum SceneScriptHostValue: Equatable, Sendable {
@@ -109,10 +110,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             .mapValues(\.count)
         let bindings = candidates.compactMap { candidate -> SceneScriptVectorBinding? in
             guard counts[candidate.definition.target] == 1,
+                  case let .layer(layerID, _) = candidate.definition.target,
+                  let layer = descriptor.layers.first(where: { $0.id == layerID }),
                   let owner = try? SceneScriptVectorOwner(
                       domain: domain,
                       source: candidate.source,
                       target: candidate.definition.target,
+                      effectNames: layer.effects.map(\.name),
                       generation: generation,
                       budget: budget
                   ) else { return nil }
@@ -144,6 +148,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         for binding in bindings {
             let target = binding.definition.target
             guard !disabledTargets.contains(target),
@@ -161,8 +166,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
             ) {
-            case let .success(value):
+            case let .success(evaluation):
+                let value = evaluation.value
                 values[target] = value
+                materialFunctionMutations.append(
+                    contentsOf: evaluation.materialFunctionMutations
+                )
                 if reportedTargets.insert(target).inserted,
                    case let .vector3(outputX, outputY, outputZ) = value {
                     NSLog(
@@ -177,7 +186,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 disabledTargets.insert(target)
             }
         }
-        return .init(values: values, failures: failures)
+        return .init(
+            values: values,
+            failures: failures,
+            materialFunctionMutations: materialFunctionMutations
+        )
     }
 
     func userPropertiesJSON(

@@ -83,6 +83,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         source: String,
         target: SceneDynamicTarget,
         authoredValue: Double,
+        effectNames: [String?],
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) throws {
@@ -111,6 +112,15 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 raw: MWX_SCENE_QUICKJS_COMPILE_ERROR,
                 diagnostic: Self.diagnostic(diagnostic)
             )
+        }
+        do {
+            try SceneScriptEffectHandleBridge.configure(
+                owner: created,
+                effectNames: effectNames
+            )
+        } catch {
+            mwx_scene_quickjs_owner_destroy(created)
+            throw error
         }
         self.handle = created
     }
@@ -170,38 +180,16 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         guard output.isFinite else {
             return .failure(.badReturn("non-finite output"))
         }
-        var mutations: [SceneScriptMaterialFunctionMutation] = []
-        let count = mwx_scene_quickjs_owner_material_function_count(handle)
-        for index in 0..<count {
-            var effectIndex: UInt32 = 0
-            var name = [CChar](repeating: 0, count: 128)
-            var mutationDiagnostic = [CChar](repeating: 0, count: 256)
-            let mutationResult = mwx_scene_quickjs_owner_material_function_at(
-                handle,
-                index,
-                &effectIndex,
-                &name,
-                name.count,
-                &mutationDiagnostic,
-                mutationDiagnostic.count
-            )
-            guard mutationResult == MWX_SCENE_QUICKJS_OK else {
-                return .failure(Self.failure(
-                    raw: mutationResult,
-                    diagnostic: Self.diagnostic(mutationDiagnostic)
-                ))
-            }
-            let nameBytes = name.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
-            let functionName = String(decoding: nameBytes, as: UTF8.self)
-            guard !functionName.isEmpty,
-                  case let .effectConstant(layerID, _, _, _) = target else {
-                return .failure(.invalidArgument("material function owner identity unavailable"))
-            }
-            mutations.append(.init(
-                layerID: layerID,
-                effectIndex: Int(effectIndex),
-                functionName: functionName
-            ))
+        guard case let .effectConstant(layerID, _, _, _) = target else {
+            return .failure(.invalidArgument("material function owner identity unavailable"))
+        }
+        let mutations: [SceneScriptMaterialFunctionMutation]
+        switch SceneScriptEffectHandleBridge.mutations(
+            owner: handle,
+            layerID: layerID
+        ) {
+        case let .success(value): mutations = value
+        case let .failure(failure): return .failure(failure)
         }
         return .success(.init(
             value: .scalar(output),

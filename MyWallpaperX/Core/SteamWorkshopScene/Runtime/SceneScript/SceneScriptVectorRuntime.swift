@@ -1,5 +1,10 @@
 import Foundation
 
+nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
+    let value: SceneDynamicValue
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+}
+
 nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
@@ -11,6 +16,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         domain: SceneScriptQuickJSDomain,
         source: String,
         target: SceneDynamicTarget,
+        effectNames: [String?],
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
@@ -30,6 +36,15 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         guard let created else {
             throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
         }
+        do {
+            try SceneScriptEffectHandleBridge.configure(
+                owner: created,
+                effectNames: effectNames
+            )
+        } catch {
+            mwx_scene_quickjs_owner_destroy(created)
+            throw error
+        }
         handle = created
     }
 
@@ -42,7 +57,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?
-    ) -> Result<SceneDynamicValue, SceneScriptScalarRuntimeFailure> {
+    ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
         guard input.x.isFinite, input.y.isFinite, input.z.isFinite else {
             return .failure(.invalidArgument("non-finite Vec3 input"))
         }
@@ -78,7 +93,21 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         guard output.allSatisfy(\.isFinite) else {
             return .failure(.badReturn("non-finite Vec3 output"))
         }
-        return .success(.vector3(output[0], output[1], output[2]))
+        guard case let .layer(layerID, _) = target else {
+            return .failure(.invalidArgument("effect handle layer identity unavailable"))
+        }
+        let mutations: [SceneScriptMaterialFunctionMutation]
+        switch SceneScriptEffectHandleBridge.mutations(
+            owner: handle,
+            layerID: layerID
+        ) {
+        case let .success(value): mutations = value
+        case let .failure(failure): return .failure(failure)
+        }
+        return .success(.init(
+            value: .vector3(output[0], output[1], output[2]),
+            materialFunctionMutations: mutations
+        ))
     }
 
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }

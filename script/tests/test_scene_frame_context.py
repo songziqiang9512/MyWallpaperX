@@ -35,6 +35,11 @@ HOST_LAUNCH_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
 )
+EFFECT_HANDLE_BRIDGE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+    / "SceneScriptEffectHandleBridge.swift"
+)
 PLAYBACK_CONTROL_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+PlaybackControl.swift"
 )
@@ -466,9 +471,10 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_material_mutation_failure_remains_typed_and_local(self) -> None:
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        effect_bridge = EFFECT_HANDLE_BRIDGE_SOURCE.read_text(encoding="utf-8")
         preflight = PREPFLIGHT_SOURCE.read_text(encoding="utf-8")
         self.assertIn("case .mutationOverflow: \"mutation-overflow\"", scalar_runtime)
-        self.assertIn("guard !functionName.isEmpty", scalar_runtime)
+        self.assertIn("guard !functionName.isEmpty", effect_bridge)
         self.assertIn('return invalid("plan-count-mismatch")', preflight)
         self.assertIn("SceneGraphMaterialFunctionInvocationRequest", preflight)
 

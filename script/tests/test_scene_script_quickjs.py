@@ -112,6 +112,25 @@ static int mutation(
     );
 }
 
+static int configure_effects(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t count,
+    uint32_t named_index,
+    const char *name,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_configure_effect_catalog(
+        owner, count, diagnostic, sizeof(diagnostic)
+    );
+    if (result == MWX_SCENE_QUICKJS_OK && name != NULL) {
+        result = mwx_scene_quickjs_owner_set_effect_name(
+            owner, named_index, name, strlen(name), diagnostic, sizeof(diagnostic)
+        );
+    }
+    return check(result == MWX_SCENE_QUICKJS_OK, label, diagnostic);
+}
+
 int main(void) {
     char diagnostic[512] = {0};
     MWXSceneQuickJSDomain *domain = mwx_scene_quickjs_domain_create(
@@ -126,7 +145,10 @@ int main(void) {
         "export let __workshopId = 'contract';\n"
         "export function init(value) { return value + 1; }\n"
         "export function update(value) {\n"
-        "  thisLayer.getEffect(2).executeMaterialFunction('clearHistory');\n"
+        "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
+        "  const effect = thisLayer.getEffect('history');\n"
+        "  if (effect.name !== 'history') throw new Error('effect name');\n"
+        "  effect.executeMaterialFunction('clearHistory');\n"
         "  return value * 2;\n"
         "}",
         strlen(
@@ -134,7 +156,10 @@ int main(void) {
             "export let __workshopId = 'contract';\n"
             "export function init(value) { return value + 1; }\n"
             "export function update(value) {\n"
-            "  thisLayer.getEffect(2).executeMaterialFunction('clearHistory');\n"
+            "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
+            "  const effect = thisLayer.getEffect('history');\n"
+            "  if (effect.name !== 'history') throw new Error('effect name');\n"
+            "  effect.executeMaterialFunction('clearHistory');\n"
             "  return value * 2;\n"
             "}"
         ),
@@ -143,6 +168,7 @@ int main(void) {
         sizeof(diagnostic)
     );
     failures += check(positive != NULL, "positive compile", diagnostic);
+    failures += configure_effects(positive, 3, 2, "history", "positive effect catalog");
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_OK, 8, "init/update"
     );
@@ -168,6 +194,7 @@ int main(void) {
         10, diagnostic, sizeof(diagnostic)
     );
     failures += check(cross_owner != NULL, "cross-owner compile", diagnostic);
+    failures += configure_effects(cross_owner, 10, 0, NULL, "cross-owner catalog");
     failures += update(
         cross_owner, 10, 3, MWX_SCENE_QUICKJS_OK, 3, "cross-owner callback"
     );
@@ -403,9 +430,42 @@ int main(void) {
         9, diagnostic, sizeof(diagnostic)
     );
     failures += check(mutation_overflow != NULL, "mutation overflow compile", diagnostic);
+    failures += configure_effects(
+        mutation_overflow, 17, 0, NULL, "mutation overflow catalog"
+    );
     failures += update(
         mutation_overflow, 9, 1, MWX_SCENE_QUICKJS_MUTATION_OVERFLOW, 0,
         "mutation overflow"
+    );
+
+    MWXSceneQuickJSOwner *invalid_effect = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value) { thisLayer.getEffect('missing'); return value; }",
+        strlen("export function update(value) { thisLayer.getEffect('missing'); return value; }"),
+        11, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(invalid_effect != NULL, "invalid effect compile", diagnostic);
+    failures += configure_effects(
+        invalid_effect, 1, 0, "known", "invalid effect catalog"
+    );
+    failures += update(
+        invalid_effect, 11, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "invalid effect rejected at handle lookup"
+    );
+
+    MWXSceneQuickJSOwner *immutable_handle = mwx_scene_quickjs_owner_create(
+        domain,
+        "'use strict'; export function update(value) { thisLayer.getEffect = null; return value; }",
+        strlen("'use strict'; export function update(value) { thisLayer.getEffect = null; return value; }"),
+        12, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(immutable_handle != NULL, "immutable handle compile", diagnostic);
+    failures += configure_effects(
+        immutable_handle, 1, 0, "known", "immutable handle catalog"
+    );
+    failures += update(
+        immutable_handle, 12, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "immutable handle method"
     );
 
     mwx_scene_quickjs_owner_invalidate(positive);
@@ -414,6 +474,8 @@ int main(void) {
     );
 
     mwx_scene_quickjs_owner_destroy(budget);
+    mwx_scene_quickjs_owner_destroy(invalid_effect);
+    mwx_scene_quickjs_owner_destroy(immutable_handle);
     mwx_scene_quickjs_owner_destroy(cross_owner);
     mwx_scene_quickjs_owner_destroy(mutation_overflow);
     mwx_scene_quickjs_owner_destroy(bad_return);

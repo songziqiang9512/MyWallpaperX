@@ -22,6 +22,7 @@ SOURCES = [
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
@@ -42,6 +43,9 @@ struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
+    struct EffectDescriptor {
+        let name: String?
+    }
     struct Layer {
         let id: Int
         let layerIndex: Int
@@ -49,6 +53,7 @@ struct SceneRenderDescriptor {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let scaleHasScript: Bool?
+        let effects: [EffectDescriptor]
     }
     var layers: [Layer]
 }
@@ -60,7 +65,7 @@ enum Harness {
             .init(
                 id: 10, layerIndex: 0, visible: true,
                 originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
-                scaleHasScript: true
+                scaleHasScript: true, effects: [.init(name: "history")]
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -130,6 +135,10 @@ enum Harness {
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
             "scale": vector(result.values[.layer(layerID: 10, field: .scale)]),
             "failures": result.failures.count,
+            "mutations": result.materialFunctionMutations.map {
+                ["layerID": $0.layerID, "effectIndex": $0.effectIndex,
+                 "name": $0.functionName] as [String: Any]
+            },
             "badReturn": badResult.failures.values.first?.code ?? "",
             "badPublished": !badResult.values.isEmpty,
             "duplicateRejected": duplicate.bindings.isEmpty,
@@ -170,6 +179,7 @@ enum Harness {
       .addSlider({name:'y',label:'Y',value:2250,min:0,max:3800,integer:false})
       .finish();
     export function update(value) {
+      thisLayer.getEffect('history').executeMaterialFunction('clearHistory');
       value.x = scriptProperties.x;
       value.y = scriptProperties.y - 0;
       return value;
@@ -233,6 +243,9 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["origin"], [40, 2100, 0])
         self.assertEqual(value["scale"], [1.25, 1.25, 1.25])
         self.assertEqual(value["failures"], 0)
+        self.assertEqual(value["mutations"], [
+            {"layerID": 10, "effectIndex": 0, "name": "clearHistory"},
+        ])
 
     def test_bad_return_is_local_and_duplicate_target_is_rejected(self) -> None:
         value = self.result()

@@ -458,7 +458,8 @@ extension SceneDesktopWallpaperHost {
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
                 materialFunctionMutations:
-                    sceneScriptResult.materialFunctionMutations,
+                    sceneScriptVectorResult.materialFunctionMutations
+                    + sceneScriptResult.materialFunctionMutations,
                 mediaInput: mediaInput,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
