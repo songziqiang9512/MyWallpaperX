@@ -81,6 +81,8 @@ extension SceneDesktopWallpaperHost {
 #endif
             videoTextureSourceRegistry?.stop()
             videoTextureSourceRegistry = nil
+            soundPlaybackRegistry?.stop()
+            soundPlaybackRegistry = nil
             launchContext = nil
 #if DEBUG
             debugPointerOverride = nil

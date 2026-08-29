@@ -76,6 +76,8 @@ extension ScenePropertyBindingCompiler {
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil
             }
+        case let .soundVolume(layerID):
+            (.layer(layerID: layerID, field: .volume), .scalar, .slider)
         case let .effectVisibility(layerID, effectIndex, _)
             where layerID >= 0 && effectIndex >= 0:
             (

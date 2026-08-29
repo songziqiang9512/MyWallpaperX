@@ -137,6 +137,8 @@ class ScenePkgCacheExtractorTests(unittest.TestCase):
             [
                 ("scene.json", b"{}"),
                 ("materials/shared.tex", b"package-texture"),
+                ("sounds/loop.flac", b"audio-payload"),
+                ("sounds/unsafe.exe", b"not-audio"),
                 ("ignored.bin", b"ignored"),
             ]
         )
@@ -144,6 +146,8 @@ class ScenePkgCacheExtractorTests(unittest.TestCase):
             [
                 ("scene.json", b"{}"),
                 ("materials/shared.tex", b"updated-texture"),
+                ("sounds/loop.flac", b"audio-payload"),
+                ("sounds/unsafe.exe", b"not-audio"),
                 ("ignored.bin", b"ignored"),
             ]
         )
@@ -186,7 +190,8 @@ class ScenePkgCacheExtractorTests(unittest.TestCase):
 
     def test_extracts_only_supported_paths_and_writes_completion_marker(self) -> None:
         self.assertEqual(
-            self.result["paths"], ["materials/shared.tex", "scene.json"]
+            self.result["paths"],
+            ["materials/shared.tex", "scene.json", "sounds/loop.flac"],
         )
         self.assertTrue(self.result["markerExists"])
 

@@ -114,7 +114,9 @@ struct SceneDocumentLoader {
             throw LoadError.duplicateObjectIDs(sourceURL, duplicateObjectIDs)
         }
         let referencedPaths = Set(objects.flatMap { object in
-            [object.imagePath, object.particlePath].compactMap { $0 } + object.effectFiles + object.texturePaths
+            [object.imagePath, object.particlePath].compactMap { $0 }
+                + (object.sound?.paths ?? [])
+                + object.effectFiles + object.texturePaths
         })
 
         return SceneDocument(
@@ -163,6 +165,10 @@ struct SceneDocumentLoader {
             cameraPath: SceneDocument.Scene2DCameraPathDefinition.parse(root),
             imagePath: imagePath,
             particlePath: normalizedPath(root["particle"] as? String),
+            sound: SceneDocument.SceneSoundLayerDefinition.parse(
+                resolvedObject: root,
+                authoredObject: authoredRoot
+            ),
             spotLight: SceneSpotLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]

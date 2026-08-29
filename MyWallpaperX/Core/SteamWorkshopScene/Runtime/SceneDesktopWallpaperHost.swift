@@ -55,7 +55,9 @@ final class SceneDesktopWallpaperHost {
     var sharedLayerAlphaRuntime =
         SceneSharedLayerAlphaRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
+    var soundPlaybackRegistry: SceneSoundPlaybackRegistry?
     var nextVideoProviderEpoch: UInt64 = 0
+    var nextSoundPlaybackEpoch: UInt64 = 0
     var nextSceneScriptGeneration: UInt64 = 0
     let launchPreparationQueue = DispatchQueue(
         label: "com.mywallpaperx.scene-launch-preparation",
@@ -93,6 +95,8 @@ final class SceneDesktopWallpaperHost {
         screenReconciliationWorkItem?.cancel()
         screenReconciliationWorkItem = nil
         videoTextureSourceRegistry?.stop()
+        soundPlaybackRegistry?.stop()
+        soundPlaybackRegistry = nil
         nextVideoProviderEpoch &+= 1
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
             epoch: nextVideoProviderEpoch
@@ -122,6 +126,16 @@ final class SceneDesktopWallpaperHost {
             stop()
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        nextSoundPlaybackEpoch &+= 1
+        let soundPlaybackRegistry = SceneSoundPlaybackRegistry(
+            program: context.soundPlaybackProgram,
+            epoch: nextSoundPlaybackEpoch
+        )
+        self.soundPlaybackRegistry = soundPlaybackRegistry
+        soundPlaybackRegistry.start(
+            paused: sceneClock.isPaused,
+            userValues: context.liveState.userValues
+        )
         installPointerEventMonitorsIfNeeded()
     }
 
@@ -152,6 +166,12 @@ final class SceneDesktopWallpaperHost {
               ) else {
             return false
         }
+        guard soundPlaybackRegistry?.canApply(
+            userValues: context.liveState.userValues
+        ) != false else {
+            return false
+        }
+        soundPlaybackRegistry?.apply(userValues: context.liveState.userValues)
         launchContext = context
         return true
     }

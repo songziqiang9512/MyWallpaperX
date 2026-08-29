@@ -1,6 +1,86 @@
 import Foundation
 
 extension SceneDocument {
+    /// Loss-preserving authored Sound layer input. Product admission stays in
+    /// `SceneSoundPlaybackProgram`; parsing does not silently erase unsupported
+    /// multi-source, spatial, or delayed-playback forms.
+    struct SceneSoundLayerDefinition: Equatable {
+        let paths: [String]
+        let authoredPathCount: Int
+        let playbackMode: String?
+        let startsSilent: Bool?
+        let muteInEditor: Bool?
+        let volume: Double?
+        let volumePropertyKey: String?
+        let minimumTime: Double?
+        let maximumTime: Double?
+        let spatialization: Bool?
+        let attenuation: Double?
+        let minimumDistance: Double?
+
+        nonisolated static func parse(
+            resolvedObject: [String: Any],
+            authoredObject: [String: Any]
+        ) -> SceneSoundLayerDefinition? {
+            guard resolvedObject.keys.contains("sound") else { return nil }
+            let rawPaths: [Any]
+            if let values = resolvedObject["sound"] as? [Any] {
+                rawPaths = values
+            } else if let value = resolvedObject["sound"] {
+                rawPaths = [value]
+            } else {
+                rawPaths = []
+            }
+            let paths = rawPaths.compactMap { value -> String? in
+                guard let string = value as? String else { return nil }
+                let normalized = string.replacingOccurrences(of: "\\", with: "/")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                return normalized.isEmpty ? nil : normalized
+            }
+            let authoredVolume = authoredObject["volume"] as? [String: Any]
+            return SceneSoundLayerDefinition(
+                paths: paths,
+                authoredPathCount: rawPaths.count,
+                playbackMode: string(resolvedObject["playbackmode"]),
+                startsSilent: boolean(resolvedObject["startsilent"]),
+                muteInEditor: boolean(resolvedObject["muteineditor"]),
+                volume: number(resolvedObject["volume"]),
+                volumePropertyKey: nonEmptyString(authoredVolume?["user"]),
+                minimumTime: number(resolvedObject["mintime"]),
+                maximumTime: number(resolvedObject["maxtime"]),
+                spatialization: boolean(resolvedObject["spatialization"]),
+                attenuation: number(resolvedObject["attenuation"]),
+                minimumDistance: number(resolvedObject["mindistance"])
+            )
+        }
+
+        private nonisolated static func string(_ value: Any?) -> String? {
+            if let value = value as? String { return value }
+            if let wrapper = value as? [String: Any] { return string(wrapper["value"]) }
+            return nil
+        }
+
+        private nonisolated static func nonEmptyString(_ value: Any?) -> String? {
+            guard let value = string(value)?.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ), !value.isEmpty else { return nil }
+            return value
+        }
+
+        private nonisolated static func boolean(_ value: Any?) -> Bool? {
+            if let value = value as? Bool { return value }
+            if let wrapper = value as? [String: Any] { return boolean(wrapper["value"]) }
+            return nil
+        }
+
+        private nonisolated static func number(_ value: Any?) -> Double? {
+            if let value = value as? Double { return value }
+            if let value = value as? Int { return Double(value) }
+            if let wrapper = value as? [String: Any] { return number(wrapper["value"]) }
+            return nil
+        }
+    }
+
     /// 编辑器生成的 2D camera path record。它没有可绘制内容，`path` 是作者路径身份；
     /// Timeline consumer 只在单一 default-camera record 上准入 bounded origin/zoom 组。
     struct Scene2DCameraPathDefinition: Codable, Equatable {
@@ -111,6 +191,7 @@ extension SceneDocument {
         var cameraPath: Scene2DCameraPathDefinition? = nil
         let imagePath: String?
         let particlePath: String?
+        let sound: SceneSoundLayerDefinition?
         var spotLight: SceneSpotLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?

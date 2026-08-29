@@ -2,7 +2,8 @@ extension SceneDesktopWallpaperHost {
     static func activeLiveConsumerTargets(
         in descriptor: SceneRenderDescriptor,
         resolvedMaterialExecutionCapabilities:
-            SceneResolvedMaterialExecutionCapabilityCatalog
+            SceneResolvedMaterialExecutionCapabilityCatalog,
+        soundPlaybackProgram: SceneSoundPlaybackProgram
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: descriptor,
@@ -11,7 +12,9 @@ extension SceneDesktopWallpaperHost {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
-        return descriptor.layers.reduce(into: effectTargets) { targets, layer in
+        return descriptor.layers.reduce(
+            into: effectTargets.union(soundPlaybackProgram.liveConsumerTargets)
+        ) { targets, layer in
             switch layer.contentKind {
             case "image":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))

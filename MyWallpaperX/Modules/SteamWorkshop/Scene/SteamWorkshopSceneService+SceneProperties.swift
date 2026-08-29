@@ -217,7 +217,7 @@ extension SteamWorkshopService {
         in renderDescriptor: SceneRenderDescriptor
     ) -> Bool {
         switch target {
-        case .layerVisibility, .layerAlpha, .text:
+        case .layerVisibility, .layerAlpha, .text, .soundVolume:
             return true
         case let .puppetAnimationVisibility(layerID, animationLayerID):
             return renderDescriptor.layers.contains { layer in

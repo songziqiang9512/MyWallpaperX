@@ -37,6 +37,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case camera(field: String)
     case text(layerID: Int, field: TextField)
     case particle(layerID: Int, field: ParticleField)
+    case soundVolume(layerID: Int)
     case shaderValue(
         layerID: Int,
         effectIndex: Int,
@@ -52,7 +53,8 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .layerAlpha, .layerColor, .text, .particle, .shaderValue, .unsupported:
+        case .layerAlpha, .layerColor, .text, .particle, .soundVolume,
+             .shaderValue, .unsupported:
             return false
         }
     }
@@ -189,6 +191,11 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "alpha" {
             return .layerAlpha(layerID: layerID)
+        }
+        if components.count == 3,
+           Self.key(components[2]) == "volume",
+           object["sound"] != nil {
+            return .soundVolume(layerID: layerID)
         }
         if components.count == 3,
            Self.key(components[2]) == "color",

@@ -259,6 +259,7 @@ enum Harness {
         case .camera: "camera"
         case .text: "text"
         case .particle: "particle"
+        case .soundVolume: "soundVolume"
         case .shaderValue: "shaderValue"
         case .unsupported: "unsupported"
         }

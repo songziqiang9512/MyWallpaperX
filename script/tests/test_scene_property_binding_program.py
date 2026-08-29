@@ -650,6 +650,32 @@ enum Harness {
                 property("particleColor", .color, .string("1 1 1")),
             ])
         )
+        let soundVolumeTarget = SceneDynamicTarget.layer(layerID: 257, field: .volume)
+        let soundVolume = compiler.compile(
+            report: .init(bindings: [binding(
+                "music",
+                .number(0.5),
+                257,
+                .soundVolume(layerID: 257)
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("music", .slider, .number(0.5)),
+            ])
+        )
+        let soundVolumeAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 11,
+            generation: 11,
+            definitions: soundVolume.program.definitions
+        ).snapshot
+        let soundVolumeEvaluation = soundVolume.program.evaluate(effectiveValues: [
+            "music": .number(0.2),
+        ])
+        let soundVolumeUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 12,
+            generation: 12,
+            definitions: soundVolume.program.definitions,
+            userValues: soundVolumeEvaluation.userValues
+        ).snapshot
         let puppetVisibilityTarget = ScenePuppetAnimationPropertyTarget.visibility(
             layerID: 21,
             animationLayerID: 756
@@ -858,6 +884,13 @@ enum Harness {
             "particleRuntimeCodes": codes(particleEvaluation.diagnostics),
             "directParticleColorCount": directParticleColor.program.instructions.count,
             "directParticleColorCodes": codes(directParticleColor.diagnostics),
+            "soundVolumeCount": soundVolume.program.instructions.count,
+            "soundVolumeTarget":
+                soundVolume.program.instructions.first?.target == soundVolumeTarget,
+            "soundVolumeCodes": codes(soundVolume.diagnostics),
+            "soundVolumeAuthored": resolved(soundVolumeAuthored[soundVolumeTarget]),
+            "soundVolumeUser": resolved(soundVolumeUser[soundVolumeTarget]),
+            "soundVolumeRuntimeCodes": codes(soundVolumeEvaluation.diagnostics),
             "puppetVisibilityCount": puppetVisibility.program.instructions.count,
             "puppetVisibilityCodes": codes(puppetVisibility.diagnostics),
             "puppetVisibilityAuthored":
@@ -1108,6 +1141,20 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["particleRuntimeCodes"], [])
         self.assertEqual(self.result["directParticleColorCount"], 0)
         self.assertEqual(self.result["directParticleColorCodes"], ["unsupportedTarget"])
+
+    def test_sound_volume_reuses_the_shared_live_scalar_state(self) -> None:
+        self.assertEqual(self.result["soundVolumeCount"], 1)
+        self.assertTrue(self.result["soundVolumeTarget"])
+        self.assertEqual(self.result["soundVolumeCodes"], [])
+        self.assertEqual(
+            self.result["soundVolumeAuthored"],
+            ["scalar(0.5)", "authored"],
+        )
+        self.assertEqual(
+            self.result["soundVolumeUser"],
+            ["scalar(0.2)", "userProperty"],
+        )
+        self.assertEqual(self.result["soundVolumeRuntimeCodes"], [])
 
     def test_puppet_animation_visibility_is_a_live_typed_target(self) -> None:
         self.assertEqual(self.result["puppetVisibilityCount"], 1)

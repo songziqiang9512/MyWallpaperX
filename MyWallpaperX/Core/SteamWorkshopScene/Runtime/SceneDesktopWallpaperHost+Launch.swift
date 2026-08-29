@@ -75,6 +75,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
     let cacheDirectory: URL
@@ -114,7 +115,7 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " route=generic-only fallback=previous-current"
                 + " scaleLayerIDs="
                 + "\(Array(propertyVectorScriptProgram.admittedScaleLayerIDs).sorted())"
-        ]
+        ] + soundPlaybackProgram.reportLines
     }
 
     private var sceneScriptTargetCount: Int {
@@ -583,6 +584,10 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
         )
+        let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
+            document: model.sceneDocument,
+            resourceView: model.diagnostics.resourceView
+        )
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
             effectAdmissionCatalog: effectAdmissionCatalog,
@@ -608,13 +613,15 @@ extension SceneDesktopWallpaperHost {
                 authoredTransformLayerIDs: sceneScriptOwnerLayerIDs
             ),
             mediaThumbnailBindings: mediaThumbnailBindings,
+            soundPlaybackProgram: soundPlaybackProgram,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,
                 effectiveValues: runtimeInput.effectivePropertyValues,
                 activeConsumerTargets: Self.activeLiveConsumerTargets(
                     in: runtimeInput.renderDescriptor,
                     resolvedMaterialExecutionCapabilities:
-                        resolvedMaterialExecutionCapabilities
+                        resolvedMaterialExecutionCapabilities,
+                    soundPlaybackProgram: soundPlaybackProgram
                 )
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,

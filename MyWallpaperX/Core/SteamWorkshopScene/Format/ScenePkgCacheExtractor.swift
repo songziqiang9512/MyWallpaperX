@@ -203,6 +203,10 @@ struct ScenePkgCacheExtractor {
         }
 
         let imageExtensions: Set<String> = ["png", "jpg", "jpeg"]
+        let audioExtensions: Set<String> = ["flac", "mp3", "wav"]
+        if normalized.hasPrefix("sounds/"), audioExtensions.contains(ext) {
+            return true
+        }
         return imageExtensions.contains(ext)
     }
 

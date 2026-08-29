@@ -19,6 +19,7 @@ extension SceneDesktopWallpaperHost {
                 sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
                 hostTime: hostTime
             )
+            soundPlaybackRegistry?.pause()
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
@@ -29,6 +30,7 @@ extension SceneDesktopWallpaperHost {
                 sceneTime: sceneClock.currentSceneTime(hostTime: hostTime),
                 hostTime: hostTime
             )
+            soundPlaybackRegistry?.resume()
             if launchContext != nil {
                 startFrameDriver()
             }
