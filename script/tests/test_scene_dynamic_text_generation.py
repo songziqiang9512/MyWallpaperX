@@ -146,8 +146,12 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             "generation: .provider(contentGeneration: generation)",
             "purpose: .premultipliedColor",
             "content: .color(.resolved(.premultipliedAlpha))",
+            "SceneLayerSourcePublication(",
+            "renderSizeWH: renderSizeWH",
+            "return Snapshot(layerSources: layerSources)",
         ):
             self.assertIn(token, source)
+        self.assertNotIn("let renderSizes:", source)
 
 
 if __name__ == "__main__":

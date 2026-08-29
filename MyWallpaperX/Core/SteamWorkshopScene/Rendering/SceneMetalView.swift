@@ -291,7 +291,6 @@ class SceneMetalView: NSView {
         renderer.renderFrame(
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
-            dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,
             mediaThumbnail: mediaThumbnailSnapshot,

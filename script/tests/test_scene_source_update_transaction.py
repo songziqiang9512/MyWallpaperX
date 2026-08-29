@@ -294,6 +294,128 @@ enum Harness {
         )
         self.assertIn("return false", outcome)
 
+    def test_base_snapshot_preserves_legacy_video_but_requires_atomic_text_extent(self) -> None:
+        if shutil.which("swiftc") is None:
+            self.skipTest("swiftc is unavailable")
+        snapshot = BASE_IMAGE_TEXTURE_LOAD.read_text(encoding="utf-8").split(
+            "struct SceneBaseImageTextureStore", maxsplit=1
+        )[0]
+        harness = snapshot + r'''
+
+enum SceneFrameTextureIdentity: Equatable {
+    case layerSource(Int)
+}
+
+struct SceneTextureCandidate {
+    let texture: MTLTexture
+}
+
+struct SceneTextureProviderPublication {
+    let requestIdentity: SceneFrameTextureIdentity
+    let texture: MTLTexture
+    let isComplete: Bool
+}
+
+struct SceneLayerSourcePublication {
+    let publication: SceneTextureProviderPublication
+    let renderSizeWH: [Float]?
+
+    static func supportsDirectTextureLane(
+        layerID: Int,
+        publication: SceneTextureProviderPublication
+    ) -> Bool {
+        publication.requestIdentity == .layerSource(layerID)
+    }
+
+    func isComplete(layerID: Int, matching texture: MTLTexture) -> Bool {
+        publication.requestIdentity == .layerSource(layerID)
+            && publication.texture === texture
+            && publication.isComplete
+    }
+}
+
+@main
+enum Harness {
+    static func main() {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            fatalError("Metal unavailable")
+        }
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: 4,
+            height: 4,
+            mipmapped: false
+        )
+        let video = device.makeTexture(descriptor: descriptor)!
+        let replacement = device.makeTexture(descriptor: descriptor)!
+        let unresolvedVideo = SceneTextureProviderPublication(
+            requestIdentity: .layerSource(13),
+            texture: video,
+            isComplete: false
+        )
+        let videoSnapshot = SceneBaseImageTextureSnapshot(
+            textures: [13: video],
+            explicitLayerSources: [13: unresolvedVideo],
+            candidates: [:]
+        )
+        guard videoSnapshot[13] === video,
+              videoSnapshot.layerSourceRenderSize(for: 13) == nil,
+              videoSnapshot.explicitLayerSourcePublication(
+                for: 13, matching: video
+              ) == nil else {
+            fatalError("legacy video lane regressed")
+        }
+
+        let completeText = SceneTextureProviderPublication(
+            requestIdentity: .layerSource(13),
+            texture: replacement,
+            isComplete: true
+        )
+        let textAtom = SceneLayerSourcePublication(
+            publication: completeText,
+            renderSizeWH: [640, 320]
+        )
+        let textSnapshot = SceneBaseImageTextureSnapshot(
+            textures: [13: replacement],
+            explicitLayerSources: [13: unresolvedVideo],
+            layerSourcePublications: [13: textAtom],
+            candidates: [:]
+        )
+        guard textSnapshot[13] === replacement,
+              textSnapshot.layerSourceRenderSize(for: 13) == [640, 320],
+              textSnapshot.explicitLayerSourcePublication(
+                for: 13, matching: replacement
+              )?.texture === replacement else {
+            fatalError("atomic text lane was not preferred")
+        }
+        let mismatchedAtomSnapshot = SceneBaseImageTextureSnapshot(
+            textures: [13: video],
+            layerSourcePublications: [13: textAtom],
+            candidates: [:]
+        )
+        guard mismatchedAtomSnapshot[13] == nil,
+              mismatchedAtomSnapshot.layerSourceRenderSize(for: 13) == nil else {
+            fatalError("mismatched atom did not fail closed")
+        }
+        print("preserved")
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="mwx-base-layer-source-") as directory:
+            source = Path(directory) / "main.swift"
+            binary = Path(directory) / "base-layer-source"
+            source.write_text(harness, encoding="utf-8")
+            subprocess.run(
+                [
+                    "xcrun", "--sdk", "macosx", "swiftc",
+                    "-parse-as-library", str(source), "-o", str(binary),
+                ],
+                check=True,
+                cwd=ROOT,
+            )
+            output = subprocess.check_output([str(binary)], text=True).strip()
+        self.assertEqual(output, "preserved")
+
     def test_every_mutating_source_producer_registers_exact_rollback(self) -> None:
         view = VIEW.read_text(encoding="utf-8")
         puppet = PUPPET.read_text(encoding="utf-8")

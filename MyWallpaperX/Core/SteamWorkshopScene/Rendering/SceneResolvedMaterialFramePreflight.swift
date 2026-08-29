@@ -5,7 +5,6 @@ import simd
 extension SceneMetalRenderer {
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        dynamicTextRenderSizes: [Int: [Float]],
         spriteAnimations: [Int: SceneSpriteAnimation],
         imagePipeline: SceneImageLayerPipeline?,
         userPropertyTextures: [String: MTLTexture],
@@ -23,7 +22,6 @@ extension SceneMetalRenderer {
     ) -> [Int: SceneResolvedMaterialFrameTargetPlan]? {
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
-            dynamicTextRenderSizes: dynamicTextRenderSizes,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,
             worldFramesByLayerID: worldFramesByLayerID,
@@ -49,7 +47,6 @@ extension SceneMetalRenderer {
             guard let requests = resolvedMaterialFramePreparationRequests(
                 plans: plans,
                 imageTextures: imageTextures,
-                dynamicTextRenderSizes: dynamicTextRenderSizes,
                 spriteAnimations: spriteAnimations,
                 imagePipeline: imagePipeline,
                 offscreenTexturePool: offscreenTexturePool,
@@ -104,7 +101,6 @@ extension SceneMetalRenderer {
 
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
-        dynamicTextRenderSizes: [Int: [Float]],
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
@@ -174,7 +170,9 @@ extension SceneMetalRenderer {
                 let model = imageModelMatrix(
                     for: layer,
                     worldFramesByLayerID: worldFramesByLayerID,
-                    renderSizeOverride: dynamicTextRenderSizes[layer.id],
+                    renderSizeOverride: imageTextures.layerSourceRenderSize(
+                        for: layer.id
+                    ),
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents
@@ -283,7 +281,6 @@ extension SceneMetalRenderer {
     func resolvedMaterialFramePreparationRequests(
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
-        dynamicTextRenderSizes: [Int: [Float]],
         spriteAnimations: [Int: SceneSpriteAnimation],
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
@@ -340,7 +337,7 @@ extension SceneMetalRenderer {
                 }
                 let providerMVP = imageMVP(
                     providerLayer,
-                    dynamicTextRenderSizes[providerLayer.id]
+                    imageTextures.layerSourceRenderSize(for: providerLayer.id)
                 )
                 var dependencyFailureReason: String?
                 guard let reservedInput = dependencyRuntime.reserveEffectInput(
@@ -378,7 +375,7 @@ extension SceneMetalRenderer {
                 }
                 sourceMVP = imageMVP(
                     layer,
-                    dynamicTextRenderSizes[layerID]
+                    imageTextures.layerSourceRenderSize(for: layerID)
                 )
                 outputMVP = sourceMVP
                 sourceTexture = texture

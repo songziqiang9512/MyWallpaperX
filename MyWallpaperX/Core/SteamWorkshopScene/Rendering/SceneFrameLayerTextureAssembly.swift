@@ -11,11 +11,12 @@ enum SceneFrameLayerTextureAssembly {
     ) -> SceneBaseImageTextureSnapshot {
         var textures = base.textures
         var publications: [Int: SceneTextureProviderPublication] = [:]
+        var layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
 
         if let dynamicText {
-            for (layerID, publication) in dynamicText.publications {
-                textures[layerID] = publication.texture
-                publications[layerID] = publication
+            for (layerID, layerSource) in dynamicText.layerSources {
+                textures[layerID] = layerSource.texture
+                layerSourcePublications[layerID] = layerSource
             }
         }
         // System media remains a separate provider. Authored material slots may
@@ -25,11 +26,19 @@ enum SceneFrameLayerTextureAssembly {
         for (layerID, source) in videoSources {
             guard let frame = source.currentFrame(for: timing) else { continue }
             textures[layerID] = frame.texture
-            publications[layerID] = frame.publication
+            if let layerSource = SceneLayerSourcePublication(
+                layerID: layerID,
+                publication: frame.publication
+            ) {
+                layerSourcePublications[layerID] = layerSource
+            } else {
+                publications[layerID] = frame.publication
+            }
         }
         return base.snapshot(
             textures: textures,
-            explicitLayerSources: publications
+            explicitLayerSources: publications,
+            layerSourcePublications: layerSourcePublications
         )
     }
 }

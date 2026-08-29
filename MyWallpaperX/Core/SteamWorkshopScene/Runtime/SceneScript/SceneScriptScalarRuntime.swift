@@ -137,6 +137,12 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
               generation > 0 else {
             throw SceneScriptScalarRuntimeFailure.invalidSource
         }
+        guard Self.supports(target),
+              Self.accepts(authoredValue) else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "invalid scalar owner target or authored value"
+            )
+        }
         self.domain = domain
         self.target = target
         self.authoredValue = authoredValue
@@ -199,8 +205,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptScalarEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard input.isFinite else {
-            return .failure(.invalidArgument("non-finite input"))
+        guard Self.accepts(input) else {
+            return .failure(.invalidArgument("invalid scalar input"))
         }
         guard frame.timeOfDay.isFinite,
               (0...1).contains(frame.timeOfDay),
@@ -240,13 +246,13 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
-        guard output.isFinite else {
-            return .failure(.badReturn("non-finite output"))
+        guard Self.accepts(output) else {
+            return .failure(.badReturn("invalid scalar output"))
         }
         let layerID: Int
         switch target {
         case let .effectConstant(value, _, _, _), let .layer(value, _),
-             let .particle(value, _):
+             let .text(value, .pointSize), let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
@@ -289,7 +295,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         let layerID: Int
         switch target {
         case let .effectConstant(value, _, _, _), let .layer(value, _),
-             let .particle(value, _):
+             let .text(value, .pointSize), let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
@@ -315,7 +321,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         let layerID: Int
         switch target {
         case let .effectConstant(value, _, _, _), let .layer(value, _),
-             let .particle(value, _):
+             let .text(value, .pointSize), let .particle(value, _):
             layerID = value
         default:
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
@@ -330,6 +336,15 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
+    }
+
+    static func supports(_ target: SceneDynamicTarget) -> Bool {
+        guard case let .text(_, field) = target else { return true }
+        return field == .pointSize
+    }
+
+    static func accepts(_ value: Double) -> Bool {
+        value.isFinite
     }
 
     func invalidate() {

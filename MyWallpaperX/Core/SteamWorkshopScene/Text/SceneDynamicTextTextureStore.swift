@@ -4,9 +4,7 @@ import Metal
 
 final class SceneDynamicTextTextureStore: @unchecked Sendable {
     struct Snapshot {
-        let textures: [Int: MTLTexture]
-        let renderSizes: [Int: [Float]]
-        let publications: [Int: SceneTextureProviderPublication]
+        let layerSources: [Int: SceneLayerSourcePublication]
     }
 
     private let cacheDirectory: URL
@@ -97,38 +95,37 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
-        let publications = Dictionary(uniqueKeysWithValues: currentTextures.compactMap {
+        let pairs: [(Int, SceneLayerSourcePublication)] = currentTextures.compactMap {
             layerID, texture in
-            generationState.readyGeneration(layerID: layerID).map { generation in
-                let size = CGSize(
-                    width: texture.width,
-                    height: texture.height
-                )
-                return (
-                    layerID,
-                    SceneTextureProviderPublication(
-                        requestIdentity: .layerSource(layerID),
-                        candidate: SceneTextureCandidate(
-                            texture: texture,
-                            identity: .provider(.dynamicText(layerID: layerID)),
-                            generation: .provider(contentGeneration: generation),
-                            purpose: .premultipliedColor,
-                            content: .color(.resolved(.premultipliedAlpha)),
-                            physicalSize: size,
-                            mappedSize: size,
-                            uvTransform: .identity,
-                            sampling: .linearClamp,
-                        ),
-                        contentGeneration: generation
-                    )
-                )
+            guard let generation = generationState.readyGeneration(layerID: layerID),
+                  let renderSizeWH = currentRenderSizes[layerID] else {
+                return nil
             }
-        })
-        return Snapshot(
-            textures: currentTextures,
-            renderSizes: currentRenderSizes,
-            publications: publications
-        )
+            let size = CGSize(width: texture.width, height: texture.height)
+            let publication = SceneTextureProviderPublication(
+                requestIdentity: .layerSource(layerID),
+                candidate: SceneTextureCandidate(
+                    texture: texture,
+                    identity: .provider(.dynamicText(layerID: layerID)),
+                    generation: .provider(contentGeneration: generation),
+                    purpose: .premultipliedColor,
+                    content: .color(.resolved(.premultipliedAlpha)),
+                    physicalSize: size,
+                    mappedSize: size,
+                    uvTransform: .identity,
+                    sampling: .linearClamp,
+                ),
+                contentGeneration: generation
+            )
+            guard let layerSource = SceneLayerSourcePublication(
+                layerID: layerID,
+                publication: publication,
+                renderSizeWH: renderSizeWH
+            ) else { return nil }
+            return (layerID, layerSource)
+        }
+        let layerSources = Dictionary(uniqueKeysWithValues: pairs)
+        return Snapshot(layerSources: layerSources)
     }
 
     deinit {
@@ -156,7 +153,16 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             device: device
         )
 #if DEBUG
-        var debugPublication: (layerID: Int, generation: UInt64, maxWidth: Float)?
+        var debugPublication: (
+            layerID: Int,
+            generation: UInt64,
+            pointSize: Float,
+            maxWidth: Float,
+            logicalWidth: Float,
+            logicalHeight: Float,
+            textureWidth: Int,
+            textureHeight: Int
+        )?
 #endif
         lock.lock()
         let completion = generationState.finish(request, succeeded: rendered != nil)
@@ -166,7 +172,14 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 #if DEBUG
             if debugLoggedDynamicLayers.insert(request.layerID).inserted {
                 debugPublication = (
-                    request.layerID, request.generation, request.signature.maxWidth
+                    request.layerID,
+                    request.generation,
+                    request.signature.pointSize,
+                    request.signature.maxWidth,
+                    rendered.renderSizeWH[0],
+                    rendered.renderSizeWH[1],
+                    rendered.texture.width,
+                    rendered.texture.height
                 )
             }
 #endif
@@ -175,10 +188,15 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 #if DEBUG
         if let debugPublication {
             NSLog(
-                "MWX DEBUG SCENE: phase=dynamic-text-published layer=%d generation=%llu maxWidth=%.3f",
+                "MWX DEBUG SCENE: phase=dynamic-text-published layer=%d generation=%llu pointSize=%.3f maxWidth=%.3f logicalSize=%.3fx%.3f textureSize=%dx%d",
                 debugPublication.layerID,
                 debugPublication.generation,
-                debugPublication.maxWidth
+                debugPublication.pointSize,
+                debugPublication.maxWidth,
+                debugPublication.logicalWidth,
+                debugPublication.logicalHeight,
+                debugPublication.textureWidth,
+                debugPublication.textureHeight
             )
         }
 #endif

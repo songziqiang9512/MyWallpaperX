@@ -135,7 +135,7 @@ V4 是横切 producer/provider 轨，不是另建一套输入平台。V1–V3 �
 | dynamic text | resource publication；尺寸变化另触发 geometry/extent invalidation | Text compositor、V2 mutation | 内容、baseline/bounds、空值/字体失败 | consumer 不再绕过 provider publication |
 | nested/effectful provider | provider publication + topology transaction | V1 dependency graph | named identity、dependency failure、teardown | provider 不再拥有私有 graph/current/history |
 
-当前段位：V4 已有 single-surface pointer/cursor/authored-transform、direct user-property bool activation/scalar uniform与scalar→isotropic `float2` uniform、pass-owned typed scalar + static `scriptProperties`/audio、Vec2/audio 与 Vec3/颜色模块 → MaterialProgram，以及 authored Sound 单音源循环/共享property音量及其与真实audio consumer共存时的shared spectrum provider bounded纵向原子；精确 consumer、数量、route、证据与剩余缺口只查运行输入专项表和运行证据索引。V4 完成门尚未成立，不能进入 V5。
+当前段位：V4 已有 single-surface pointer/cursor/authored-transform、direct user-property bool activation/scalar uniform与scalar→isotropic `float2` uniform、pass-owned typed scalar + static `scriptProperties`/audio、Vec2/audio 与 Vec3/颜色模块 → MaterialProgram、object-authored text `pointsize` → shared QuickJS → 同代动态文字纹理/逻辑尺寸 publication，以及 authored Sound 单音源循环/共享property音量及其与真实audio consumer共存时的shared spectrum provider bounded纵向原子；精确 consumer、数量、route、证据与剩余缺口只查运行输入专项表和运行证据索引。V4 完成门尚未成立，不能进入 V5。
 
 V4 完成门：以[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)为当前事实，每个纳入范围的 input/provider 都至少有一个真实 consumer，证明 typed producer → 正确 frame-commit channel → consumer → next-frame/event、generation/cancel/last-ready/teardown 与局部失败；consumer 内重复采样、私有值副本、私有 provider/graph owner 已撤销。尚无平台 producer 或产品策略的输入必须在专项表明确保持 unsupported，不能用另一个输入族的通过替代。V4 收口后才逐项进入 V5。
 

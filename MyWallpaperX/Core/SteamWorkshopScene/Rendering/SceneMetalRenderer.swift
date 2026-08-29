@@ -76,7 +76,6 @@ struct SceneMetalRenderer {
     func renderFrame(
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,
-        dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
         userPropertyTextureStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
@@ -136,7 +135,6 @@ struct SceneMetalRenderer {
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
-            dynamicTextRenderSizes: dynamicTextRenderSizes,
             spriteAnimations: spriteAnimations,
             imagePipeline: imagePipeline,
             userPropertyTextures: userPropertyTextures,
@@ -186,7 +184,9 @@ struct SceneMetalRenderer {
             if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
                 let providerModel = imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
-                    renderSizeOverride: dynamicTextRenderSizes[layer.id],
+                    renderSizeOverride: imageTextures.layerSourceRenderSize(
+                        for: layer.id
+                    ),
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents
@@ -245,7 +245,9 @@ struct SceneMetalRenderer {
                 )
                 let model = imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
-                    renderSizeOverride: dynamicTextRenderSizes[layer.id],
+                    renderSizeOverride: imageTextures.layerSourceRenderSize(
+                        for: layer.id
+                    ),
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents

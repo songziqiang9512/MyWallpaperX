@@ -8,7 +8,7 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let layerMutations: [SceneScriptLayerMutation]
 }
 
-/// Generic pass-constant SceneScript owners. The program is deliberately
+/// Generic scalar SceneScript owners. The program is deliberately
 /// source/identity based rather than effect-name based; runtime failure keeps
 /// the lower-priority authored/property/Timeline value for the affected owner.
 nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
@@ -81,7 +81,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             let layerID: Int
             switch target {
             case let .effectConstant(value, _, _, _), let .layer(value, _),
-                 let .particle(value, _):
+                 let .text(value, .pointSize), let .particle(value, _):
                 layerID = value
             default:
                 continue
@@ -353,11 +353,31 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             return nil
         }
         if binding.owner.kind == .object {
+            let layer = descriptor.layers[objectIndex]
+            if binding.targetPath == [
+                .key("objects"), .index(objectIndex), .key("pointsize"),
+            ] {
+                let target = SceneDynamicTarget.text(
+                    layerID: layerID,
+                    field: .pointSize
+                )
+                guard binding.targetKey == "pointsize",
+                      binding.properties.isEmpty,
+                      binding.wrapperKeys == ["script", "value"],
+                      layer.contentKind == "text",
+                      layer.text != nil,
+                      let descriptorPointSize = layer.textStyle?.pointSize,
+                      descriptorPointSize.isFinite,
+                      SceneScriptScalarOwner.accepts(authored),
+                      Float(authored).bitPattern == descriptorPointSize.bitPattern else {
+                    return nil
+                }
+                return target
+            }
             if binding.targetPath == [
                 .key("objects"), .index(objectIndex),
                 .key("instanceoverride"), .key("rate"),
             ] {
-                let layer = descriptor.layers[objectIndex]
                 guard binding.targetKey == "rate",
                       binding.wrapperKeys == ["script", "scriptproperties", "value"],
                       layer.contentKind == "particle",

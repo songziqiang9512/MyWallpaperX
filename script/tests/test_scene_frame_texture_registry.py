@@ -1161,10 +1161,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
         base = BASE_IMAGE_SOURCE.read_text(encoding="utf-8")
         assembly = FRAME_ASSEMBLY_SOURCE.read_text(encoding="utf-8")
         self.assertIn("requestIdentity: .layerSource(layerID)", base)
-        self.assertIn("publication.requestIdentity == .layerSource(layerID)", base)
-        self.assertIn("publications[layerID] = publication", assembly)
-        self.assertIn("publications[layerID] = frame.publication", assembly)
-        self.assertIn("explicitLayerSources: publications", assembly)
+        self.assertIn("layerSource.isComplete(layerID: layerID, matching: texture)", base)
+        self.assertIn("dynamicText.layerSources", assembly)
+        self.assertIn("layerSourcePublications[layerID] = layerSource", assembly)
+        self.assertIn("layerSourcePublications: layerSourcePublications", assembly)
         self.assertNotIn("textures[layerID] = mediaThumbnail", assembly)
 
 

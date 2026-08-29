@@ -77,6 +77,92 @@ nonisolated struct SceneTextureProviderPublication {
     }
 }
 
+/// One immutable layer-source publication. Provider-backed layers such as
+/// dynamic text can have a logical authored extent that is larger than the
+/// physical texture used for bounded rasterization. Keeping that extent on the
+/// same atom as the texture prevents a frame from pairing a new texture with
+/// stale geometry (or the inverse).
+nonisolated struct SceneLayerSourcePublication {
+    let publication: SceneTextureProviderPublication
+    let logicalRenderSize: SIMD2<Float>?
+
+    init?(
+        layerID: Int,
+        publication: SceneTextureProviderPublication,
+        renderSizeWH: [Float]? = nil
+    ) {
+        guard publication.requestIdentity == .layerSource(layerID),
+              Self.matchesLayerIdentity(
+                layerID: layerID,
+                publication: publication
+              ),
+              publication.isComplete else {
+            return nil
+        }
+        let logicalRenderSize: SIMD2<Float>?
+        if let renderSizeWH {
+            guard renderSizeWH.count == 2,
+                  renderSizeWH[0].isFinite, renderSizeWH[0] > 0,
+                  renderSizeWH[1].isFinite, renderSizeWH[1] > 0 else {
+                return nil
+            }
+            logicalRenderSize = SIMD2(renderSizeWH[0], renderSizeWH[1])
+        } else {
+            logicalRenderSize = nil
+        }
+        self.publication = publication
+        self.logicalRenderSize = logicalRenderSize
+    }
+
+    var texture: MTLTexture { publication.texture }
+
+    var renderSizeWH: [Float]? {
+        logicalRenderSize.map { [$0.x, $0.y] }
+    }
+
+    func isComplete(layerID: Int, matching texture: MTLTexture) -> Bool {
+        publication.requestIdentity == .layerSource(layerID)
+            && Self.matchesLayerIdentity(
+                layerID: layerID,
+                publication: publication
+            )
+            && publication.texture === texture
+            && publication.isComplete
+    }
+
+    static func supportsDirectTextureLane(
+        layerID: Int,
+        publication: SceneTextureProviderPublication
+    ) -> Bool {
+        guard publication.requestIdentity == .layerSource(layerID) else {
+            return false
+        }
+        switch publication.candidate.identity {
+        case .file, .builtIn:
+            return true
+        case let .provider(.video(candidateLayerID, _)):
+            return candidateLayerID == layerID
+        case .provider:
+            return false
+        }
+    }
+
+    private static func matchesLayerIdentity(
+        layerID: Int,
+        publication: SceneTextureProviderPublication
+    ) -> Bool {
+        switch publication.candidate.identity {
+        case .file, .builtIn:
+            return true
+        case let .provider(.dynamicText(candidateLayerID)),
+             let .provider(.video(candidateLayerID, _)):
+            return candidateLayerID == layerID
+        case .provider:
+            return false
+        }
+    }
+}
+
 nonisolated enum SceneTextureProviderLifecycleIdentity: Hashable {
     case versionedResource(
         identity: SceneTextureResourceIdentity,

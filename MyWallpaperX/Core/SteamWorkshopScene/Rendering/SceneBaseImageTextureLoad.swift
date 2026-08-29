@@ -4,26 +4,49 @@ import Metal
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
     let explicitLayerSources: [Int: SceneTextureProviderPublication]
+    private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
 
     init(
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
+        layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
         candidates: [Int: SceneTextureCandidate]
     ) {
         var validatedTextures = textures
-        var validatedPublications: [Int: SceneTextureProviderPublication] = [:]
-        for (layerID, publication) in explicitLayerSources {
+        var validatedExplicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
+        var validatedLayerSources: [Int: SceneLayerSourcePublication] = [:]
+        let atomicLayerIDs = Set(layerSourcePublications.keys)
+        for (layerID, publication) in explicitLayerSources
+            where !atomicLayerIDs.contains(layerID) {
             guard let texture = textures[layerID],
                   texture === publication.texture,
-                  publication.requestIdentity == .layerSource(layerID) else {
+                  publication.requestIdentity == .layerSource(layerID),
+                  SceneLayerSourcePublication.supportsDirectTextureLane(
+                    layerID: layerID,
+                    publication: publication
+                  ) else {
                 validatedTextures[layerID] = nil
                 continue
             }
-            validatedPublications[layerID] = publication
+            // Existing direct-video publications intentionally carry
+            // unresolved color metadata. Preserve their texture lane; typed
+            // registry/material lookup remains incomplete for that metadata.
+            validatedExplicitLayerSources[layerID] = publication
+        }
+        for (layerID, layerSource) in layerSourcePublications {
+            guard let texture = textures[layerID],
+                  layerSource.isComplete(layerID: layerID, matching: texture) else {
+                validatedTextures[layerID] = nil
+                validatedExplicitLayerSources[layerID] = nil
+                continue
+            }
+            validatedLayerSources[layerID] = layerSource
+            validatedExplicitLayerSources[layerID] = layerSource.publication
         }
         self.textures = validatedTextures
-        self.explicitLayerSources = validatedPublications
+        self.explicitLayerSources = validatedExplicitLayerSources
+        self.layerSourcePublications = validatedLayerSources
         self.candidates = candidates.filter { layerID, candidate in
             validatedTextures[layerID] === candidate.texture
         }
@@ -55,6 +78,15 @@ struct SceneBaseImageTextureSnapshot {
             return nil
         }
         return publication
+    }
+
+    func layerSourceRenderSize(for layerID: Int) -> [Float]? {
+        guard let texture = textures[layerID],
+              let layerSource = layerSourcePublications[layerID],
+              layerSource.isComplete(layerID: layerID, matching: texture) else {
+            return nil
+        }
+        return layerSource.renderSizeWH
     }
 
 }
@@ -104,7 +136,8 @@ struct SceneBaseImageTextureStore {
 
     func snapshot(
         textures: [Int: MTLTexture],
-        explicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
+        explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
+        layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
     ) -> SceneBaseImageTextureSnapshot {
         var combinedPublications = publications.filter { layerID, publication in
             textures[layerID] === publication.texture
@@ -115,6 +148,7 @@ struct SceneBaseImageTextureStore {
         return SceneBaseImageTextureSnapshot(
             textures: textures,
             explicitLayerSources: combinedPublications,
+            layerSourcePublications: layerSourcePublications,
             candidates: candidates
         )
     }
