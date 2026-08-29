@@ -560,6 +560,34 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             },
         ])
 
+    def test_typed_user_property_scalar_splat_publications_keep_projection(self) -> None:
+        publications = (
+            benchmark.typed_user_property_scalar_splat_uniform_publications(
+                "MWX typed input publication: channel=user-property "
+                "consumer=material-uniform layer=525 effect=0 "
+                "descriptor=525#effect#528 node=0 property=blurbackground "
+                "pass=0 constant=scale uniform=g_Scale stage=vertex "
+                "type=float2-scalar-splat frame=0 generation=1 value=0,0"
+            )
+        )
+        self.assertEqual(publications, [{
+            "layer_id": 525,
+            "effect_index": 0,
+            "descriptor_id": "525#effect#528",
+            "node_index": 0,
+            "property_key": "blurbackground",
+            "pass_index": 0,
+            "constant": "scale",
+            "uniform": "g_Scale",
+            "stage": "vertex",
+            "type": "float2",
+            "source_type": "scalar",
+            "projection": "isotropic-splat",
+            "frame": 0,
+            "generation": 1,
+            "value": [0.0, 0.0],
+        }])
+
     def test_typed_user_property_bool_activation_publications_keep_decision(self) -> None:
         publications = benchmark.typed_user_property_bool_activation_publications(
             "MWX typed input publication: channel=user-property "

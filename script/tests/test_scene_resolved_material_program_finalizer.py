@@ -220,6 +220,7 @@ private func fragmentSource(
     scalarSplatScale: Bool = false,
     scalarSplatType: String = "vec2",
     scalarSplatDefault: String? = "1 1",
+    scalarSplatRange: String? = nil,
     scalarSplatArray: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false
@@ -315,9 +316,12 @@ private func fragmentSource(
     let alphaUniform = maskedAlpha
         ? "uniform float g_UserAlpha; // {\"material\":\"alpha\",\"default\":1.0,\"range\":[0,1]}"
         : ""
+    let scalarSplatRangeMetadata = scalarSplatRange.map {
+        ",\"range\":\($0)"
+    } ?? ""
     let scalarSplatMetadata = scalarSplatDefault.map {
-        "{\"material\":\"scale\",\"default\":\"\($0)\"}"
-    } ?? "{\"material\":\"scale\"}"
+        "{\"material\":\"scale\",\"default\":\"\($0)\"\(scalarSplatRangeMetadata)}"
+    } ?? "{\"material\":\"scale\"\(scalarSplatRangeMetadata)}"
     let scalarSplatArraySuffix = scalarSplatArray ? "[2]" : ""
     let scalarSplatUniform = scalarSplatScale
         ? "uniform \(scalarSplatType) u_Scale\(scalarSplatArraySuffix); // \(scalarSplatMetadata)"
@@ -437,6 +441,7 @@ private func contract(
     scalarSplatScale: Bool = false,
     scalarSplatType: String = "vec2",
     scalarSplatDefault: String? = "1 1",
+    scalarSplatRange: String? = nil,
     scalarSplatArray: Bool = false,
     colorBlend: Bool = false,
     legacyMaskOverride: Bool = false,
@@ -497,6 +502,7 @@ private func contract(
                 scalarSplatScale: scalarSplatScale,
                 scalarSplatType: scalarSplatType,
                 scalarSplatDefault: scalarSplatDefault,
+                scalarSplatRange: scalarSplatRange,
                 scalarSplatArray: scalarSplatArray,
                 colorBlend: colorBlend,
                 legacyMaskOverride: legacyMaskOverride
@@ -3695,6 +3701,36 @@ private enum Harness {
             dynamicSource: nil,
             authoredScaleValue: .scalar(0.6)
         )
+        let rangedScalarSplatShader = contract(
+            revision: "user-property-scalar-float2-authored-range-sentinel",
+            semanticProbes: false,
+            scalarSplatScale: true,
+            scalarSplatRange: "[0.01,2]"
+        )
+        let authoredRangeSentinelProgram = finalize(
+            shader: rangedScalarSplatShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0, 0])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(0),
+            authoredScaleValue: .scalar(0)
+        )
+        let outOfRangeLiveFallsBackToAuthoredSentinel = finalize(
+            shader: rangedScalarSplatShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0, 0])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(-0.5),
+            authoredScaleValue: .scalar(0)
+        )
+        let mismatchedOutOfRangeAuthoredSentinel = finalize(
+            shader: rangedScalarSplatShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0, 0])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(-0.5),
+            authoredScaleValue: .scalar(-0.25)
+        )
         let staticScalarSplatProgram = finalize(
             shader: scalarSplatShader,
             device: device,
@@ -3717,6 +3753,22 @@ private enum Harness {
                 && float(program.uniformBytes, at: field.offset + 4) == 0.6
                 && float(authored.uniformBytes, at: field.offset) == 0.6
                 && float(authored.uniformBytes, at: field.offset + 4) == 0.6
+        }()
+        let authoredOutOfRangeScalarFloat2SentinelPreserved: Bool = {
+            guard case let .success(authored) = authoredRangeSentinelProgram,
+                  case let .success(fallback) =
+                    outOfRangeLiveFallsBackToAuthoredSentinel,
+                  let authoredField = authored.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ), let fallbackField = fallback.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ) else { return false }
+            return float(authored.uniformBytes, at: authoredField.offset) == 0
+                && float(authored.uniformBytes, at: authoredField.offset + 4) == 0
+                && float(fallback.uniformBytes, at: fallbackField.offset) == 0
+                && float(fallback.uniformBytes, at: fallbackField.offset + 4) == 0
+                && failureToken(mismatchedOutOfRangeAuthoredSentinel)
+                    == "uniform/dynamicUniformBindingInvalid"
         }()
         let staticScalarFloat2SplatEncoded: Bool = {
             guard case let .success(program) = staticScalarSplatProgram,
@@ -4891,6 +4943,8 @@ private enum Harness {
                     timelineVectorUpdatesProgramWithoutTopologyChange,
                 "userPropertyScalarFloat2SplatEncoded":
                     userPropertyScalarFloat2SplatEncoded,
+                "authoredOutOfRangeScalarFloat2SentinelPreserved":
+                    authoredOutOfRangeScalarFloat2SentinelPreserved,
                 "staticScalarFloat2SplatEncoded":
                     staticScalarFloat2SplatEncoded,
                 "exactStaticFloat2Preserved": exactStaticFloat2Preserved,

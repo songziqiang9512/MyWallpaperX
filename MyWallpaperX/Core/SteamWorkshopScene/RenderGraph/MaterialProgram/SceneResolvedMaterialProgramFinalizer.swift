@@ -670,16 +670,27 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         }
         if value(liveValue, isWithin: range) { return liveEncoded }
         guard let authoredValue,
-              value(authoredValue, isWithin: range) else {
-            return nil
-        }
-        return encodeDynamicUniform(
+              let authoredEncoded = encodeDynamicUniform(
             authoredValue,
             contributor: contributor,
             declaration: declaration,
             schema: schema,
             field: field
-        )
+        ) else { return nil }
+        if value(authoredValue, isWithin: range) { return authoredEncoded }
+
+        // A direct property wrapper may author an equal-lane float2 sentinel
+        // outside shader editor metadata (for example zero to disable blur).
+        // Preserve only an exact fallback projection; arbitrary live values
+        // and every other ABI/source shape stay range-gated.
+        guard scalarSplatEligible(
+                  contributor: contributor, declaration: declaration,
+                  schema: schema, field: field
+              ), let fallbackEncoded = encodeDynamicFallback(
+                  fallback, contributor: contributor,
+                  declaration: declaration, schema: schema, field: field
+              ), authoredEncoded == fallbackEncoded else { return nil }
+        return authoredEncoded
     }
 
     /// Slider properties are scalar producers. A float2 shader consumer with

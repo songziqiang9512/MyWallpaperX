@@ -164,6 +164,17 @@ TYPED_USER_PROPERTY_SCALAR_UNIFORM_PUBLICATION_RE = re.compile(
     r"type=float frame=(?P<frame>\d+) generation=(?P<generation>\d+) "
     rf"value=(?P<value>{FLOAT_PATTERN})"
 )
+TYPED_USER_PROPERTY_SCALAR_SPLAT_UNIFORM_PUBLICATION_RE = re.compile(
+    r"MWX typed input publication: channel=user-property "
+    r"consumer=material-uniform layer=(?P<layer>-?\d+) "
+    r"effect=(?P<effect>-?\d+) descriptor=(?P<descriptor>\S+) "
+    r"node=(?P<node>\d+) property=(?P<property>\S+) "
+    r"pass=(?P<pass>\d+) constant=(?P<constant>\S+) "
+    r"uniform=(?P<uniform>\S+) stage=(?P<stage>vertex|fragment|shared) "
+    r"type=float2-scalar-splat frame=(?P<frame>\d+) "
+    r"generation=(?P<generation>\d+) "
+    rf"value=(?P<x>{FLOAT_PATTERN}),(?P<y>{FLOAT_PATTERN})"
+)
 TYPED_USER_PROPERTY_BOOL_ACTIVATION_PUBLICATION_RE = re.compile(
     r"MWX typed input publication: channel=user-property "
     r"consumer=effect-activation layer=(?P<layer>-?\d+) "
@@ -1694,6 +1705,38 @@ def typed_user_property_scalar_uniform_publications(
             "value": float(match.group("value")),
         }
         for match in TYPED_USER_PROPERTY_SCALAR_UNIFORM_PUBLICATION_RE.finditer(
+            log_text
+        )
+    ]
+    publications.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["node_index"],
+        value["property_key"], value["uniform"], value["stage"],
+    ))
+    return publications
+
+
+def typed_user_property_scalar_splat_uniform_publications(
+    log_text: str,
+) -> list[dict[str, Any]]:
+    publications = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "descriptor_id": match.group("descriptor"),
+            "node_index": int(match.group("node")),
+            "property_key": match.group("property"),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "uniform": match.group("uniform"),
+            "stage": match.group("stage"),
+            "type": "float2",
+            "source_type": "scalar",
+            "projection": "isotropic-splat",
+            "frame": int(match.group("frame")),
+            "generation": int(match.group("generation")),
+            "value": [float(match.group("x")), float(match.group("y"))],
+        }
+        for match in TYPED_USER_PROPERTY_SCALAR_SPLAT_UNIFORM_PUBLICATION_RE.finditer(
             log_text
         )
     ]
@@ -5641,6 +5684,9 @@ def run_sample(
     user_property_scalar_uniform_publications = (
         typed_user_property_scalar_uniform_publications(log_text)
     )
+    user_property_scalar_splat_uniform_publications = (
+        typed_user_property_scalar_splat_uniform_publications(log_text)
+    )
     user_property_bool_activation_publications = (
         typed_user_property_bool_activation_publications(log_text)
     )
@@ -6347,6 +6393,9 @@ def run_sample(
             ),
             "typed_user_property_scalar_uniform_publications": (
                 user_property_scalar_uniform_publications
+            ),
+            "typed_user_property_scalar_splat_uniform_publications": (
+                user_property_scalar_splat_uniform_publications
             ),
             "typed_user_property_bool_activation_publications": (
                 user_property_bool_activation_publications

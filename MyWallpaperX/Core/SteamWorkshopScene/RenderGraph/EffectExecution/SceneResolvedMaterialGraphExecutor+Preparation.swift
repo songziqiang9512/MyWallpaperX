@@ -303,7 +303,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
                 commands.append(.material(prepared))
                 programKeys.append(program.preparedShader.cacheKey)
-                recordTypedUserPropertyScalarUniformPublications(
+                recordTypedUserPropertyUniformPublications(
                     program: program,
                     effect: node.effect,
                     nodeIndex: nodeIndex,
@@ -445,16 +445,14 @@ extension SceneResolvedMaterialGraphExecutor {
         return nil
     }
 
-    private func recordTypedUserPropertyScalarUniformPublications(
+    private func recordTypedUserPropertyUniformPublications(
         program: SceneResolvedMaterialProgram,
         effect: Graph.EffectKey,
         nodeIndex: Int,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
     ) {
         for uniform in program.resolvedUniforms {
-            guard uniform.field.type == .float,
-                  uniform.field.arrayCount == nil,
-                  uniform.encodedValue.count == MemoryLayout<Float>.size,
+            guard uniform.field.arrayCount == nil,
                   case let .dynamic(
                       declared: .userProperty(propertyKey),
                       target: target,
@@ -467,22 +465,49 @@ extension SceneResolvedMaterialGraphExecutor {
                   ) = target,
                   layerID == effect.layerID,
                   effectIndex == effect.effectIndex else { continue }
-            let value = uniform.encodedValue.withUnsafeBytes {
-                $0.loadUnaligned(as: Float.self)
+            let values: [Float]
+            let type: String
+            switch uniform.field.type {
+            case .float where uniform.encodedValue.count == MemoryLayout<Float>.size:
+                values = [uniform.encodedValue.withUnsafeBytes {
+                    $0.loadUnaligned(as: Float.self)
+                }]
+                type = "float"
+            case .float2 where uniform.encodedValue.count == 2 * MemoryLayout<Float>.size:
+                guard let resolved = frameInputs.dynamicValues[target],
+                      resolved.source == .userProperty,
+                      case let .scalar(sourceValue) = resolved.value else { continue }
+                values = uniform.encodedValue.withUnsafeBytes { bytes in
+                    [
+                        bytes.loadUnaligned(fromByteOffset: 0, as: Float.self),
+                        bytes.loadUnaligned(
+                            fromByteOffset: MemoryLayout<Float>.size,
+                            as: Float.self
+                        ),
+                    ]
+                }
+                guard values[0].bitPattern == values[1].bitPattern,
+                      values[0].bitPattern == Float(sourceValue).bitPattern else { continue }
+                type = "float2-scalar-splat"
+            default:
+                continue
             }
-            guard value.isFinite else { continue }
+            guard values.allSatisfy(\.isFinite) else { continue }
             let stage = uniform.field.stage?.rawValue ?? "shared"
             let identity = [
                 String(layerID), String(effectIndex), String(passIndex),
                 constant, propertyKey, uniform.field.name, stage,
-                String(value.bitPattern),
+                type,
+                values.map { String($0.bitPattern) }.joined(separator: ","),
             ].joined(separator: "\u{1f}")
             typedUniformPublicationLock.lock()
             let inserted = typedUniformPublicationIdentities.insert(identity).inserted
             typedUniformPublicationLock.unlock()
             guard inserted else { continue }
+            let valueToken = values.map { String(format: "%.9g", $0) }
+                .joined(separator: ",")
             NSLog(
-                "MWX typed input publication: channel=user-property consumer=material-uniform layer=%d effect=%d descriptor=%@ node=%d property=%@ pass=%d constant=%@ uniform=%@ stage=%@ type=float frame=%llu generation=%llu value=%.9g",
+                "MWX typed input publication: channel=user-property consumer=material-uniform layer=%d effect=%d descriptor=%@ node=%d property=%@ pass=%d constant=%@ uniform=%@ stage=%@ type=%@ frame=%llu generation=%llu value=%@",
                 layerID,
                 effectIndex,
                 effect.descriptorID,
@@ -492,9 +517,10 @@ extension SceneResolvedMaterialGraphExecutor {
                 constant,
                 uniform.field.name,
                 stage,
+                type,
                 frameInputs.dynamicValues.frameIndex,
                 frameInputs.dynamicValues.generation,
-                value
+                valueToken
             )
         }
     }
