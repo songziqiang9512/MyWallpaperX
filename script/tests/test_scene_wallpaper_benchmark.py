@@ -635,6 +635,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 benchmark.load_matrix(path)
 
+    def test_load_matrix_requires_click_for_subframe_click(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-matrix-") as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(
+                json.dumps({
+                    "schema_version": 1,
+                    "name": "fixture",
+                    "samples": [{
+                        "id": "1",
+                        "cursor_primary_click_subframe": True,
+                    }],
+                }),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "cursor_primary_click_subframe requires cursor_primary_click",
+            ):
+                benchmark.load_matrix(path)
+
     def test_select_matrix_samples_reuses_tracked_matrix_for_targeted_runs(self) -> None:
         matrix = {
             "schema_version": 1,
@@ -686,11 +706,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "cursor_primary_click": value
                     })
 
+    def test_cursor_primary_click_subframe_accepts_only_boolean(self) -> None:
+        self.assertFalse(benchmark.cursor_primary_click_subframe({}))
+        self.assertTrue(benchmark.cursor_primary_click_subframe({
+            "cursor_primary_click_subframe": True
+        }))
+        for value in (0, 1, "true", None, []):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.cursor_primary_click_subframe({
+                        "cursor_primary_click_subframe": value
+                    })
+
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
         self.assertIn("--mwx-debug-scene-hover-pointer-stationary-entry", source)
         self.assertIn("--mwx-debug-scene-primary-click", source)
+        self.assertIn("--mwx-debug-scene-primary-click-subframe", source)
         self.assertIn("--mwx-debug-scene-after-snapshot-delay", source)
         self.assertIn("--mwx-debug-scene-periodic-snapshot-interval", source)
         self.assertIn('String(format: "series-%04d", index)', source)
@@ -724,6 +757,16 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         release = source.index('state: "release"', press)
         self.assertLess(press, release)
         self.assertLess(release, hover)
+        subframe_branch = source.index("if requestedPrimaryClickSubframe", press)
+        subframe_release = source.index(
+            'primaryButtonIsDown: false, state: "release"',
+            subframe_branch,
+        )
+        subframe_wait = source.index(
+            "DispatchQueue.main.asyncAfter",
+            subframe_release,
+        )
+        self.assertLess(subframe_release, subframe_wait)
 
     def test_cursor_ripple_persistence_accepts_expansion_and_decay_after_exit(
         self,

@@ -6,11 +6,33 @@ nonisolated struct SceneScriptCursorHit: Equatable, Sendable {
     let localPosition: SIMD3<Double>
 }
 
+nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
+    let hits: [Int: SceneScriptCursorHit]
+    let primaryButtonIsDown: Bool
+    let surface: SceneScriptSurfaceInput?
+
+    init(
+        hits: [Int: SceneScriptCursorHit],
+        primaryButtonIsDown: Bool,
+        surface: SceneScriptSurfaceInput? = nil
+    ) {
+        self.hits = hits
+        self.primaryButtonIsDown = primaryButtonIsDown
+        self.surface = surface
+    }
+}
+
+nonisolated struct SceneScriptCursorFrameBatch: Equatable, Sendable {
+    let samples: [SceneScriptCursorFrameSample]
+    let overflowed: Bool
+}
+
 nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
     let failures: [Int: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let inputBatchOverflowed: Bool
 }
 
 private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
@@ -99,19 +121,26 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     func dispatch(
-        hits: [Int: SceneScriptCursorHit],
-        primaryButtonIsDown: Bool,
+        batch: SceneScriptCursorFrameBatch,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
-        let admittedHits = hits.filter {
-            ownerLayerIDs.contains($0.key) && !disabledLayerIDs.contains($0.key)
+        if batch.overflowed {
+            if let latest = batch.samples.last {
+                synchronize(
+                    hits: latest.hits,
+                    primaryButtonIsDown: latest.primaryButtonIsDown
+                )
+            } else {
+                synchronize(hits: [:], primaryButtonIsDown: false)
+            }
+            return .init(
+                failures: [:], materialFunctionMutations: [],
+                animationMutations: [], layerMutations: [],
+                inputBatchOverflowed: true
+            )
         }
-        let leaving = Set(previousHits.keys).subtracting(admittedHits.keys)
-        let entering = Set(admittedHits.keys).subtracting(previousHits.keys)
-        let pressed = primaryButtonIsDown && !previousPrimaryButtonIsDown
-        let released = !primaryButtonIsDown && previousPrimaryButtonIsDown
         var failures: [Int: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
         var animations: [SceneTimelinePlaybackMutation] = []
@@ -119,7 +148,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         func emit(
             _ kind: SceneScriptCursorEventKind,
             binding: SceneScriptCursorBinding,
-            hit: SceneScriptCursorHit
+            hit: SceneScriptCursorHit,
+            callbackFrame: SceneScriptFrameInput
         ) {
             guard binding.events.contains(kind),
                   !disabledLayerIDs.contains(binding.layerID) else { return }
@@ -130,7 +160,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 localPosition: hit.localPosition
             )
             switch binding.owner.dispatchCursor(
-                event, frame: frame, userPropertiesJSON: userPropertiesJSON,
+                event, frame: callbackFrame,
+                userPropertiesJSON: userPropertiesJSON,
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
@@ -146,44 +177,90 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 disabledLayerIDs.insert(binding.layerID)
             }
         }
-        for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
-            if leaving.contains(binding.layerID), let hit = previousHits[binding.layerID] {
-                emit(.leave, binding: binding, hit: hit)
+        for sample in batch.samples {
+            let callbackFrame = SceneScriptFrameInput(
+                replacingSurfaceOf: frame,
+                with: sample.surface
+            )
+            let admittedHits = sample.hits.filter {
+                ownerLayerIDs.contains($0.key)
+                    && !disabledLayerIDs.contains($0.key)
             }
-            if entering.contains(binding.layerID), let hit = admittedHits[binding.layerID] {
-                emit(.enter, binding: binding, hit: hit)
-            }
-            if pressed, let hit = admittedHits[binding.layerID] {
-                emit(.down, binding: binding, hit: hit)
-                if !disabledLayerIDs.contains(binding.layerID) {
-                    capturedHits[binding.layerID] = hit
+            let leaving = Set(previousHits.keys).subtracting(admittedHits.keys)
+            let entering = Set(admittedHits.keys).subtracting(previousHits.keys)
+            let pressed = sample.primaryButtonIsDown
+                && !previousPrimaryButtonIsDown
+            let released = !sample.primaryButtonIsDown
+                && previousPrimaryButtonIsDown
+            for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
+                if leaving.contains(binding.layerID),
+                   let hit = previousHits[binding.layerID] {
+                    emit(
+                        .leave, binding: binding, hit: hit,
+                        callbackFrame: callbackFrame
+                    )
+                }
+                if entering.contains(binding.layerID),
+                   let hit = admittedHits[binding.layerID] {
+                    emit(
+                        .enter, binding: binding, hit: hit,
+                        callbackFrame: callbackFrame
+                    )
+                }
+                if pressed, let hit = admittedHits[binding.layerID] {
+                    emit(
+                        .down, binding: binding, hit: hit,
+                        callbackFrame: callbackFrame
+                    )
+                    if !disabledLayerIDs.contains(binding.layerID) {
+                        capturedHits[binding.layerID] = hit
+                    }
+                }
+                if released, let captured = capturedHits[binding.layerID] {
+                    let releaseHit = admittedHits[binding.layerID] ?? captured
+                    emit(
+                        .up, binding: binding, hit: releaseHit,
+                        callbackFrame: callbackFrame
+                    )
+                    if admittedHits[binding.layerID] != nil {
+                        emit(
+                            .click, binding: binding, hit: releaseHit,
+                            callbackFrame: callbackFrame
+                        )
+                    }
                 }
             }
-            if released, let captured = capturedHits[binding.layerID] {
-                let releaseHit = admittedHits[binding.layerID] ?? captured
-                emit(.up, binding: binding, hit: releaseHit)
-                if admittedHits[binding.layerID] != nil {
-                    emit(.click, binding: binding, hit: releaseHit)
-                }
+            if released { capturedHits = [:] }
+            previousPrimaryButtonIsDown = sample.primaryButtonIsDown
+            previousHits = admittedHits.filter {
+                !disabledLayerIDs.contains($0.key)
             }
-        }
-        if released { capturedHits = [:] }
-        previousPrimaryButtonIsDown = primaryButtonIsDown
-        previousHits = admittedHits.filter {
-            !disabledLayerIDs.contains($0.key)
         }
         return .init(
             failures: failures,
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layers
+            layerMutations: layers,
+            inputBatchOverflowed: false
         )
+    }
+
+    private func synchronize(
+        hits: [Int: SceneScriptCursorHit],
+        primaryButtonIsDown: Bool
+    ) {
+        previousHits = hits.filter {
+            ownerLayerIDs.contains($0.key) && !disabledLayerIDs.contains($0.key)
+        }
+        previousPrimaryButtonIsDown = primaryButtonIsDown
+        capturedHits = [:]
     }
 
     func invalidate() {
         bindings.filter(\.ownsOwner).forEach { $0.owner.invalidate() }
         previousHits = [:]
         capturedHits = [:]
+        previousPrimaryButtonIsDown = false
     }
 
     func teardown(
@@ -199,6 +276,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         previousHits = [:]
         capturedHits = [:]
+        previousPrimaryButtonIsDown = false
         return outcomes
     }
 

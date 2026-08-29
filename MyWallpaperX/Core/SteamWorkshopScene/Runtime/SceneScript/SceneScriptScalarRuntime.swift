@@ -74,6 +74,13 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
         self.surface = surface
     }
 
+    init(replacingSurfaceOf frame: SceneScriptFrameInput, with surface: SceneScriptSurfaceInput?) {
+        timeOfDay = frame.timeOfDay
+        frameTime = frame.frameTime
+        runtime = frame.runtime
+        self.surface = surface
+    }
+
     var quickJSValue: MWXSceneQuickJSFrameInput {
         MWXSceneQuickJSFrameInput(
             time_of_day: timeOfDay,

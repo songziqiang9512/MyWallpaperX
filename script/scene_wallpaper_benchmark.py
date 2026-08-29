@@ -680,6 +680,7 @@ def load_matrix(path: Path) -> dict[str, Any]:
         hover_pointer = hover_pointer_normalized(sample)
         stationary_entry = hover_pointer_stationary_entry(sample)
         primary_click = cursor_primary_click(sample)
+        subframe_click = cursor_primary_click_subframe(sample)
         if stationary_entry and hover_pointer is None:
             raise ValueError(
                 "hover_pointer_stationary_entry requires hover_pointer_normalized"
@@ -687,6 +688,10 @@ def load_matrix(path: Path) -> dict[str, Any]:
         if primary_click and hover_pointer is None:
             raise ValueError(
                 "cursor_primary_click requires hover_pointer_normalized"
+            )
+        if subframe_click and not primary_click:
+            raise ValueError(
+                "cursor_primary_click_subframe requires cursor_primary_click"
             )
     return payload
 
@@ -741,6 +746,13 @@ def cursor_primary_click(sample: dict[str, Any]) -> bool:
     raw = sample.get("cursor_primary_click", False)
     if type(raw) is not bool:
         raise ValueError("cursor_primary_click must be a boolean")
+    return raw
+
+
+def cursor_primary_click_subframe(sample: dict[str, Any]) -> bool:
+    raw = sample.get("cursor_primary_click_subframe", False)
+    if type(raw) is not bool:
+        raise ValueError("cursor_primary_click_subframe must be a boolean")
     return raw
 
 
@@ -5337,6 +5349,7 @@ def run_sample(
     hover_pointer = hover_pointer_normalized(sample)
     hover_pointer_stationary = hover_pointer_stationary_entry(sample)
     primary_click = cursor_primary_click(sample)
+    subframe_click = cursor_primary_click_subframe(sample)
     if hover_pointer is not None:
         command.extend([
             "--mwx-debug-scene-hover-pointer-json",
@@ -5349,6 +5362,8 @@ def run_sample(
             command.append("--mwx-debug-scene-hover-pointer-stationary-entry")
         if primary_click:
             command.append("--mwx-debug-scene-primary-click")
+            if subframe_click:
+                command.append("--mwx-debug-scene-primary-click-subframe")
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -6073,6 +6088,7 @@ def run_sample(
             ),
             "hover_pointer_stationary_entry": hover_pointer_stationary,
             "cursor_primary_click": primary_click,
+            "cursor_primary_click_subframe": subframe_click,
             "cursor_ripple_persistence": cursor_ripple_persistence,
             "cursor_ripple_visible": cursor_ripple_visible,
             "live_property_update": live_property_update,

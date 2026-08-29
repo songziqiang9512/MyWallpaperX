@@ -26,6 +26,11 @@ HOST_FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_POINTER_EVENTS_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+PointerEvents.swift"
+)
 HOST_VIDEO_PROVIDERS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
@@ -59,6 +64,11 @@ VIEW_FRAME_CONTEXT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+FrameContext.swift"
 )
+VIEW_CURSOR_INTERACTION_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering"
+    / "SceneMetalView+SceneScriptCursorInteraction.swift"
+)
 PREPFLIGHT_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneResolvedMaterialFramePreflight.swift"
@@ -70,6 +80,11 @@ SCALAR_PROGRAM_SOURCE = (
 SCALAR_RUNTIME_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptScalarRuntime.swift"
+)
+CURSOR_PROGRAM_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+    / "SceneScriptCursorProgram.swift"
 )
 PARTICLE_PLAYBACK_SOURCE = (
     REPOSITORY_ROOT
@@ -672,6 +687,35 @@ class SceneFrameContextTests(unittest.TestCase):
             host_render.index("propertyVectorScriptProgram.evaluate("),
         )
         self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
+
+    def test_cursor_event_monitors_follow_host_lifecycle_and_single_surface_route(
+        self,
+    ) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        pointer_events = HOST_POINTER_EVENTS_SOURCE.read_text(encoding="utf-8")
+        interaction = VIEW_CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
+        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        cursor_program = CURSOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("installPointerEventMonitorsIfNeeded()", host)
+        self.assertIn("removePointerEventMonitors()", host)
+        self.assertIn("removePointerEventMonitors()", frame_driver)
+        self.assertIn("NSEvent.addLocalMonitorForEvents", pointer_events)
+        self.assertIn("NSEvent.addGlobalMonitorForEvents", pointer_events)
+        self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)
+        self.assertIn("guard debugPointerOverride == nil", pointer_events)
+        self.assertIn("recordSceneScriptPointerEvent(", pointer_events)
+        self.assertIn(
+            "if surfaces.count == 1, let metalView",
+            frame_driver,
+        )
+        self.assertIn("sceneScriptCursorFrameBatch(", frame_driver)
+        self.assertIn("drainSceneScriptPointerEvents()", frame_driver)
+        self.assertIn("surface: sceneScriptSurfaceInput(", interaction)
+        self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
+        self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)
+        self.assertIn("with: sample.surface", cursor_program)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

@@ -466,10 +466,17 @@ enum DebugScenePlaybackRunner {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
             if primaryClick {
                 setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                if requestedPrimaryClickSubframe {
                     setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
                         capturePointerResult(outputDirectory: outputDirectory)
+                    }
+                } else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                        setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                            capturePointerResult(outputDirectory: outputDirectory)
+                        }
                     }
                 }
             } else {
@@ -685,6 +692,12 @@ enum DebugScenePlaybackRunner {
     private static var requestedPrimaryClick: Bool {
         ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-primary-click"
+        )
+    }
+
+    private static var requestedPrimaryClickSubframe: Bool {
+        ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-primary-click-subframe"
         )
     }
 

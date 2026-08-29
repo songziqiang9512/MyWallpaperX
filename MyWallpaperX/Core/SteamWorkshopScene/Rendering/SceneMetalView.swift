@@ -17,6 +17,7 @@ class SceneMetalView: NSView {
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
+    var sceneScriptPointerEvents = SceneSurfacePointerEventBuffer()
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
     var trackingArea: NSTrackingArea?
 #if DEBUG

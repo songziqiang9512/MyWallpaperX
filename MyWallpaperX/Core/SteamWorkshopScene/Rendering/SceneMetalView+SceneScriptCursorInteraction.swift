@@ -10,6 +10,22 @@ extension SceneMetalView {
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
     ) -> SceneScriptSurfaceInput? {
+        sceneScriptSurfaceInput(
+            pointer: .init(
+                normalizedPosition: pointerState.sceneScriptCurrent,
+                isInside: pointerState.isInside,
+                primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
+            ),
+            timing: timing,
+            dynamicValues: dynamicValues
+        )
+    }
+
+    private func sceneScriptSurfaceInput(
+        pointer: SceneSurfacePointerEvent,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> SceneScriptSurfaceInput? {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0 else { return nil }
         let frameContext = makeFrameContext(
@@ -20,7 +36,7 @@ extension SceneMetalView {
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         guard let world = SceneLayerCursorGeometry.layerPoint(
-            mouseNormalized: pointerState.sceneScriptCurrent,
+            mouseNormalized: pointer.normalizedPosition,
             modelViewProjection: cameraFrame.orthographicViewProjection
         ) else { return nil }
         let screenWidth = Double(frameContext.screenSize.width)
@@ -28,8 +44,8 @@ extension SceneMetalView {
         let canvasWidth = Double(frameContext.canvasSize.width)
         let canvasHeight = Double(frameContext.canvasSize.height)
         let cursorScreen = SIMD2<Double>(
-            (Double(pointerState.sceneScriptCurrent.x) + 1) * 0.5 * screenWidth,
-            (1 - Double(pointerState.sceneScriptCurrent.y)) * 0.5 * screenHeight
+            (Double(pointer.normalizedPosition.x) + 1) * 0.5 * screenWidth,
+            (1 - Double(pointer.normalizedPosition.y)) * 0.5 * screenHeight
         )
         guard screenWidth.isFinite, screenWidth > 0,
               screenHeight.isFinite, screenHeight > 0,
@@ -43,7 +59,7 @@ extension SceneMetalView {
                 Double(world.x), Double(world.y), Double(world.z)
             ),
             cursorScreenPosition: cursorScreen,
-            cursorLeftDown: pointerState.sceneScriptPrimaryButtonIsDown
+            cursorLeftDown: pointer.primaryButtonIsDown
         )
     }
 
@@ -57,17 +73,58 @@ extension SceneMetalView {
     ) -> [Int: SceneScriptCursorHit] {
         originInteractionHits(
             ownerLayerIDs,
+            pointer: .init(
+                normalizedPosition: pointerState.current,
+                isInside: pointerState.isInside,
+                primaryButtonIsDown: pointerState.isPrimaryButtonDown
+            ),
             timing: timing,
             dynamicValues: dynamicValues
         )
     }
 
+    func sceneScriptCursorFrameBatch(
+        ownerLayerIDs: Set<Int>,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> SceneScriptCursorFrameBatch {
+        let drained = drainSceneScriptPointerEvents()
+        let current = SceneSurfacePointerEvent(
+            normalizedPosition: pointerState.sceneScriptCurrent,
+            isInside: pointerState.isInside,
+            primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
+        )
+        var events = drained.events
+        if events.last != current { events.append(current) }
+        if events.isEmpty { events = [current] }
+        return .init(
+            samples: events.map { pointer in
+                .init(
+                    hits: originInteractionHits(
+                        ownerLayerIDs,
+                        pointer: pointer,
+                        timing: timing,
+                        dynamicValues: dynamicValues
+                    ),
+                    primaryButtonIsDown: pointer.primaryButtonIsDown,
+                    surface: sceneScriptSurfaceInput(
+                        pointer: pointer,
+                        timing: timing,
+                        dynamicValues: dynamicValues
+                    )
+                )
+            },
+            overflowed: drained.overflowed
+        )
+    }
+
     private func originInteractionHits(
         _ ownerLayerIDs: Set<Int>,
+        pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
     ) -> [Int: SceneScriptCursorHit] {
-        guard pointerState.isInside,
+        guard pointer.isInside,
               metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
               !ownerLayerIDs.isEmpty else { return [:] }
@@ -100,7 +157,7 @@ extension SceneMetalView {
             )
             let modelViewProjection = cameraFrame.orthographicViewProjection * model
             guard let local = SceneLayerCursorGeometry.layerPoint(
-                mouseNormalized: pointerState.current,
+                mouseNormalized: pointer.normalizedPosition,
                 modelViewProjection: modelViewProjection
             ), local.x >= -0.5, local.x <= 0.5,
                local.y >= -0.5, local.y <= 0.5 else { continue }

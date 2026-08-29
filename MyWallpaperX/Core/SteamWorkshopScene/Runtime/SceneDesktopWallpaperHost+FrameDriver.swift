@@ -53,6 +53,7 @@ extension SceneDesktopWallpaperHost {
             screenReconciliationWorkItem?.cancel()
             screenReconciliationWorkItem = nil
             screenTopology = []
+            removePointerEventMonitors()
         }
         frameTimer?.invalidate()
         frameTimer = nil
@@ -337,23 +338,44 @@ extension SceneDesktopWallpaperHost {
             timing: timing,
             surface: sceneScriptSurfaceInput
         )
-        let cursorHits = surfaces.values.reduce(
-            into: [Int: SceneScriptCursorHit]()
-        ) { result, surface in
-            result.merge(surface.metalView.sceneScriptCursorHits(
+        let cursorBatch: SceneScriptCursorFrameBatch
+        if surfaces.count == 1, let metalView = surfaces.values.first?.metalView {
+            cursorBatch = metalView.sceneScriptCursorFrameBatch(
                 ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript
-            )) { existing, _ in existing }
+            )
+        } else {
+            let cursorHits = surfaces.values.reduce(
+                into: [Int: SceneScriptCursorHit]()
+            ) { result, surface in
+                _ = surface.metalView.drainSceneScriptPointerEvents()
+                result.merge(surface.metalView.sceneScriptCursorHits(
+                    ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
+                    timing: timing,
+                    dynamicValues: preliminaryForSceneScript
+                )) { existing, _ in existing }
+            }
+            cursorBatch = .init(
+                samples: [.init(
+                    hits: cursorHits,
+                    primaryButtonIsDown: surfaces.values.contains {
+                        $0.metalView.pointerState.isPrimaryButtonDown
+                    }
+                )],
+                overflowed: false
+            )
         }
         let cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
-            hits: cursorHits,
-            primaryButtonIsDown: surfaces.values.contains {
-                $0.metalView.pointerState.isPrimaryButtonDown
-            },
+            batch: cursorBatch,
             frame: sceneScriptFrame,
             userPropertiesJSON: userPropertiesJSON
         )
+        if cursorResult.inputBatchOverflowed {
+            NSLog(
+                "MWX SceneScript VM: event=cursor batch=rejected reason=event-budget fallback=previous-current"
+            )
+        }
         for (layerID, failure) in cursorResult.failures {
             NSLog(
                 "MWX SceneScript VM: layerID=%d event=cursor failure=%@ code=%@ fallback=previous-current",

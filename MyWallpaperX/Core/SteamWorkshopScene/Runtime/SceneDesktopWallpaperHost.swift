@@ -43,6 +43,8 @@ final class SceneDesktopWallpaperHost {
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
+    var localPointerEventMonitor: Any?
+    var globalPointerEventMonitor: Any?
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
     var screenReconciliationWorkItem: DispatchWorkItem?
@@ -80,6 +82,7 @@ final class SceneDesktopWallpaperHost {
     }
 
     deinit {
+        removePointerEventMonitors()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
@@ -119,6 +122,7 @@ final class SceneDesktopWallpaperHost {
             stop()
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        installPointerEventMonitorsIfNeeded()
     }
 
     @discardableResult
