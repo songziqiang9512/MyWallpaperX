@@ -14,6 +14,55 @@ static JSValue active_engine_getter(
     return JS_DupValue(context, domain->active_engine);
 }
 
+static MWXSceneQuickJSOwner *current_owner(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL) return NULL;
+    return domain->callback_active ? domain->active_owner : domain->module_owner;
+}
+
+static JSValue shared_getter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    MWXSceneQuickJSOwner *owner = current_owner(domain);
+    if (domain == NULL) return JS_UNDEFINED;
+    if (owner == NULL || domain->value_only_guard_active || owner->value_only) {
+        return JS_ThrowTypeError(
+            context, "shared is unavailable outside a stateful SceneScript owner"
+        );
+    }
+    return JS_DupValue(context, domain->shared_value);
+}
+
+static JSValue shared_setter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    MWXSceneQuickJSOwner *owner = current_owner(domain);
+    if (domain == NULL || argc != 1) {
+        return JS_ThrowTypeError(context, "invalid shared value");
+    }
+    if (owner == NULL || domain->value_only_guard_active || owner->value_only) {
+        return JS_ThrowTypeError(
+            context, "shared is unavailable outside a stateful SceneScript owner"
+        );
+    }
+    JSValue next = JS_DupValue(context, argv[0]);
+    if (JS_IsException(next)) return next;
+    JS_FreeValue(context, domain->shared_value);
+    domain->shared_value = next;
+    return JS_UNDEFINED;
+}
+
 bool mwx_scene_quickjs_install_active_engine_host(
     MWXSceneQuickJSDomain *domain
 ) {
@@ -159,10 +208,96 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         media_playback,
         read_only
     );
-    int shared_result = JS_SetPropertyStr(
-        context, global, "shared", JS_NewObject(context)
+    JSValue shared = JS_NewObject(context);
+    JSValue shared_get = JS_NewCFunction(
+        context, shared_getter, "get shared", 0
     );
+    JSValue shared_set = JS_NewCFunction(
+        context, shared_setter, "set shared", 1
+    );
+    JSAtom shared_atom = JS_NewAtom(context, "shared");
+    int shared_result = -1;
+    if (!JS_IsException(shared) && !JS_IsException(shared_get) &&
+        !JS_IsException(shared_set) && shared_atom != JS_ATOM_NULL) {
+        domain->shared_value = shared;
+        shared = JS_UNDEFINED;
+        shared_result = JS_DefinePropertyGetSet(
+            context,
+            global,
+            shared_atom,
+            shared_get,
+            shared_set,
+            JS_PROP_ENUMERABLE
+        );
+        shared_get = JS_UNDEFINED;
+        shared_set = JS_UNDEFINED;
+    }
+    JS_FreeAtom(context, shared_atom);
+    JS_FreeValue(context, shared);
+    JS_FreeValue(context, shared_get);
+    JS_FreeValue(context, shared_set);
     JS_FreeValue(context, global);
     return vec_result >= 0 && builder_result >= 0
         && media_playback_result >= 0 && shared_result >= 0;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
+    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, double input,
+    const MWXSceneQuickJSFrameInput *frame, double *output,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    return mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+        owner, expected_generation, input, frame, NULL, 0, output,
+        diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, double input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json, size_t user_properties_length,
+    double *output, char *diagnostic, size_t diagnostic_capacity
+) {
+    return mwx_scene_quickjs_owner_update_scalar_with_properties(
+        owner, expected_generation, input, frame, NULL, 0,
+        user_properties_json, user_properties_length, output,
+        diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
+    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, double input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json, size_t script_properties_length,
+    const char *user_properties_json, size_t user_properties_length,
+    double *output, char *diagnostic, size_t diagnostic_capacity
+) {
+    return mwx_scene_quickjs_owner_update_primitive_with_properties(
+        owner, expected_generation, input, 0, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length, output,
+        diagnostic, diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_bool_with_properties(
+    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, uint32_t input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json, size_t script_properties_length,
+    const char *user_properties_json, size_t user_properties_length,
+    uint32_t *output, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (owner == NULL || !owner->value_only || input > 1 || output == NULL) {
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    double primitive_output = 0;
+    MWXSceneQuickJSResult result =
+        mwx_scene_quickjs_owner_update_primitive_with_properties(
+            owner, expected_generation, input, 1, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length, &primitive_output,
+            diagnostic, diagnostic_capacity
+        );
+    if (result == MWX_SCENE_QUICKJS_OK) *output = primitive_output != 0;
+    return result;
 }

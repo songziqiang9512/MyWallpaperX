@@ -315,11 +315,15 @@ bool mwx_scene_quickjs_bind_owner_handles(
     *previous_layer = owner->domain->active_layer;
     *previous_scene = owner->domain->active_scene;
     *previous_object = owner->domain->active_object;
-    owner->domain->active_layer = JS_DupValue(
-        context, owner->material_function_layer
-    );
-    owner->domain->active_scene = JS_DupValue(context, owner->scene_handle);
-    owner->domain->active_object = JS_DupValue(context, owner->object_handle);
+    owner->domain->active_layer = owner->value_only
+        ? JS_UNDEFINED
+        : JS_DupValue(context, owner->material_function_layer);
+    owner->domain->active_scene = owner->value_only
+        ? JS_UNDEFINED
+        : JS_DupValue(context, owner->scene_handle);
+    owner->domain->active_object = owner->value_only
+        ? JS_UNDEFINED
+        : JS_DupValue(context, owner->object_handle);
     return true;
 }
 
@@ -518,6 +522,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     owner->teardown_started = true;
     owner->authored_layer_baseline_available = false;
     MWXSceneQuickJSDomain *domain = owner->domain;
+    const bool previous_value_only_guard = domain->value_only_guard_active;
+    domain->value_only_guard_active = previous_value_only_guard || owner->value_only;
     JSContext *context = domain->context;
     domain->interrupted = false;
     mwx_scene_quickjs_discard_jobs(owner);
@@ -531,9 +537,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
 
     MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     JSValue function = JS_UNDEFINED;
-    if (!mwx_scene_quickjs_assign_script_properties(
-            owner, script_properties_json, script_properties_length
-        )) {
+    if (owner->value_only) {
+        function = JS_UNDEFINED;
+    } else if (!mwx_scene_quickjs_assign_script_properties(
+                   owner, script_properties_json, script_properties_length
+               )) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "SceneScript teardown properties unavailable"
         );
@@ -621,6 +629,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     owner->animation_command_count = 0;
     owner->generation += 1;
     owner->disabled = true;
+    domain->value_only_guard_active = previous_value_only_guard;
     return result;
 }
 

@@ -21,6 +21,9 @@ SOURCES = [
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
+    SCENE / "Resources/SceneNamedTextureReference.swift",
+    SCENE
+    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
@@ -139,24 +142,47 @@ struct SceneRenderDescriptor {
             self.userValueKind = userValueKind
         }
     }
-    struct PassDescriptor {
-        let passIndex: Int
-        let id: Int?
-        let constantShaderValues: [String: ShaderValue]
-    }
     struct EffectDescriptor {
+        struct PassDescriptor {
+            let passIndex: Int
+            let id: Int?
+            let constantShaderValues: [String: ShaderValue]
+            let textureSlots: [String?]
+            let userTextureInputs: [Bool?]
+
+            init(
+                passIndex: Int,
+                id: Int?,
+                constantShaderValues: [String: ShaderValue],
+                textureSlots: [String?] = [],
+                userTextureInputs: [Bool?] = []
+            ) {
+                self.passIndex = passIndex
+                self.id = id
+                self.constantShaderValues = constantShaderValues
+                self.textureSlots = textureSlots
+                self.userTextureInputs = userTextureInputs
+            }
+        }
+
         let name: String?
         let effectID: Int?
         let passes: [PassDescriptor]
+        let id: String
+        let visible: Bool?
 
         init(
             name: String?,
             effectID: Int? = nil,
-            passes: [PassDescriptor] = []
+            passes: [PassDescriptor] = [],
+            id: String = "effect",
+            visible: Bool? = true
         ) {
             self.name = name
             self.effectID = effectID
             self.passes = passes
+            self.id = id
+            self.visible = visible
         }
     }
     struct Layer {
@@ -176,6 +202,12 @@ struct SceneRenderDescriptor {
         var textScript: SceneTextScriptDefinition? = nil
         var text: String? = nil
         var textStyle: TextStyle? = nil
+        var parentID: Int? = nil
+        var childLayerIDs: [Int] = []
+        var effectFiles: [String] = []
+        var dependencyLayerIDs: [Int] = []
+        var authoredDependencies: [Int] = []
+        var utilityLayer: Int? = nil
     }
     var layers: [Layer]
 }

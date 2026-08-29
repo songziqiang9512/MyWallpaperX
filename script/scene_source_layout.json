@@ -75,6 +75,7 @@
           "SceneDependencyCaptureFault.swift",
           "SceneDependencyFrameRuntime.swift",
           "SceneDependencyGraphAnalysis.swift",
+          "SceneNamedTextureDependencyReferenceAnalysis.swift",
           "SceneImageLayerBlendDependencyContract.swift",
           "SceneDependencyRenderPlan.swift",
           "SceneNamedRenderTargetPool.swift"

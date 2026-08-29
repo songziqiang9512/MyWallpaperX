@@ -41,6 +41,11 @@ static JSValue register_audio_buffers(
         return JS_ThrowRangeError(context, "audio resolution must be 16, 32 or 64");
     }
     MWXSceneQuickJSOwner *owner = domain->module_owner;
+    if (owner->value_only) {
+        return JS_ThrowTypeError(
+            context, "audio is unavailable to value-only SceneScript owners"
+        );
+    }
     for (size_t index = 0; index < owner->audio_registration_count; ++index) {
         MWXSceneQuickJSAudioRegistration *registration =
             &owner->audio_registrations[index];
@@ -204,7 +209,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_refresh_audio_resolution(
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (owner == NULL || left == NULL || right == NULL ||
+    if (owner == NULL || owner->value_only || left == NULL || right == NULL ||
         !supported_resolution(resolution) || count != resolution) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid SceneScript audio snapshot"

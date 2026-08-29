@@ -63,8 +63,10 @@ struct SceneLayerSourcePassthroughPlan {
         guard route.allowsLayerSourcePassthrough,
               let publication,
               request.layer.contentKind == "image",
-              request.layer.visible != false,
-              request.layer.displayScriptOwnership?.isEmpty ?? true,
+              SceneLayerVisibility.hasCurrentSourceDisplayAuthority(
+                  for: request.layer,
+                  snapshot: request.dynamicValues
+              ),
               request.layer.effects.contains(where: { $0.visible != false }),
               request.resolvedMaterialFrameTargetPlan == nil,
               !request.requiresSourceCopy,

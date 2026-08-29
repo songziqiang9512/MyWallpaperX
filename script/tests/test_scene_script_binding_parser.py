@@ -36,6 +36,7 @@ LAYER_SOURCES = [
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
 ]

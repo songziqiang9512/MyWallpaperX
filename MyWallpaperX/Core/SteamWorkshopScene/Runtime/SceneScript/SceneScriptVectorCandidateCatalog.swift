@@ -7,7 +7,7 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     let hasCurrentAnimation: Bool
 }
 
-/// Side-effect-free projection of authored Vec2/Vec3 bindings. Pass-owned
+/// Side-effect-free projection of authored non-scalar typed bindings. Pass-owned
 /// candidates are only metadata until resolved-material admission identifies
 /// an actual consumer; projecting this catalog never evaluates JavaScript.
 nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
@@ -95,11 +95,16 @@ nonisolated extension SceneScriptVectorProgram {
         timelineTargets: Set<SceneDynamicTarget> = [],
         excludedTargets: Set<SceneDynamicTarget> = []
     ) -> SceneScriptVectorCandidateCatalog {
-        .init(candidates: scriptBindings.compactMap {
+        let namedTextureDependencyLayerIDs =
+            SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
+                in: descriptor.layers
+            )
+        return .init(candidates: scriptBindings.compactMap {
             projection(
                 $0,
                 descriptor: descriptor,
-                timelineTargets: timelineTargets
+                timelineTargets: timelineTargets,
+                namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
             )
         }.filter { !excludedTargets.contains($0.definition.target) })
     }
@@ -107,8 +112,16 @@ nonisolated extension SceneScriptVectorProgram {
     private static func projection(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor,
-        timelineTargets: Set<SceneDynamicTarget>
+        timelineTargets: Set<SceneDynamicTarget>,
+        namedTextureDependencyLayerIDs: Set<Int>
     ) -> SceneScriptVectorCandidate? {
+        if let candidate = visibilityProjection(
+            binding,
+            descriptor: descriptor,
+            namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
+        ) {
+            return candidate
+        }
         if let candidate = passVectorProjection(binding, descriptor: descriptor) {
             return candidate
         }
@@ -170,6 +183,91 @@ nonisolated extension SceneScriptVectorProgram {
             properties: properties,
             hasCurrentAnimation: hasCurrentAnimation
         )
+    }
+
+    private static func visibilityProjection(
+        _ binding: SceneScriptBindingIR,
+        descriptor: SceneRenderDescriptor,
+        namedTextureDependencyLayerIDs: Set<Int>
+    ) -> SceneScriptVectorCandidate? {
+        guard binding.owner.kind == .object,
+              binding.targetKey == "visible",
+              binding.valueType == .boolean,
+              independentBooleanValueSource(binding.source),
+              let authored = binding.authoredValue?.boolValue,
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              descriptor.layers.indices.contains(objectIndex) else { return nil }
+        let layer = descriptor.layers[objectIndex]
+        guard layer.id == layerID,
+              layer.layerIndex == objectIndex,
+              layer.visible == authored,
+              binding.targetPath == [
+                  .key("objects"), .index(objectIndex), .key("visible"),
+              ],
+              ["image", "solid"].contains(layer.contentKind),
+              layer.parentID == nil,
+              layer.childLayerIDs.isEmpty,
+              layer.dependencyLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty,
+              !namedTextureDependencyLayerIDs.contains(layerID),
+              case nil = layer.utilityLayer else { return nil }
+        let validWrapper =
+            (binding.wrapperKeys == ["script", "value"]
+                && binding.properties.isEmpty)
+            || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+        guard validWrapper else { return nil }
+        var properties: [String: SceneScriptPropertyInput] = [:]
+        for entry in binding.properties {
+            guard validName(entry.key),
+                  let input = propertyInput(entry.value) else { return nil }
+            properties[entry.key] = input
+        }
+        return .init(
+            source: binding.source,
+            definition: .init(
+                target: .layer(layerID: layerID, field: .visibility),
+                valueType: .bool,
+                authoredValue: .bool(authored)
+            ),
+            properties: properties,
+            hasCurrentAnimation: false
+        )
+    }
+
+    /// Boolean value-return owners remain independent until authored global
+    /// order and shared-domain rollback are transactional. This is a
+    /// authored dependency gate, not source identity dispatch or a JavaScript
+    /// security sandbox: every module must export a value hook and must not use
+    /// dynamic-code constructors or mutable scene/global handles. The VM host
+    /// independently removes the named side-effect capabilities at execution.
+    private static func independentBooleanValueSource(_ source: String) -> Bool {
+        guard source.utf8.count <= 65_536,
+              source.range(
+                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
+                  options: .regularExpression
+              ) != nil,
+              !source.contains("\\u"), !source.contains("\\x") else {
+            return false
+        }
+        let mutableDependencies = [
+            "shared", "globalThis", "eval", "Function", "constructor",
+            "thisScene", "thisLayer", "thisObject",
+        ]
+        return mutableDependencies.allSatisfy {
+            !containsIdentifier($0, in: source)
+        }
+    }
+
+    private static func containsIdentifier(
+        _ identifier: String,
+        in source: String
+    ) -> Bool {
+        let escaped = NSRegularExpression.escapedPattern(for: identifier)
+        return source.range(
+            of: "(?<![A-Za-z0-9_$])\(escaped)(?![A-Za-z0-9_$])",
+            options: .regularExpression
+        ) != nil
     }
 
     private static func passVectorProjection(

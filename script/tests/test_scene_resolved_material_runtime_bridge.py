@@ -4259,6 +4259,14 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("route.allowsLayerSourcePassthrough", passthrough_plan)
         self.assertIn("request.dependencyEffect == nil", passthrough_plan)
         self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
+        self.assertIn(
+            "SceneLayerVisibility.hasCurrentSourceDisplayAuthority(",
+            passthrough_plan,
+        )
+        self.assertNotIn(
+            "request.layer.displayScriptOwnership?.isEmpty", passthrough_plan
+        )
+        self.assertNotIn("request.layer.visible != false", passthrough_plan)
         fallback_start = compositor.index(
             "if let passthroughPlan = SceneLayerSourcePassthroughPlan.make("
         )

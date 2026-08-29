@@ -96,6 +96,7 @@ struct MWXSceneQuickJSDomain {
     JSValue active_layer;
     JSValue active_scene;
     JSValue active_object;
+    JSValue shared_value;
     JSValue user_properties_snapshot;
     char *user_properties_json;
     size_t user_properties_json_length;
@@ -116,6 +117,7 @@ struct MWXSceneQuickJSDomain {
     uint64_t callback_epoch;
     bool callback_active;
     bool frame_input_active;
+    bool value_only_guard_active;
     MWXSceneQuickJSFrameInput active_frame_input;
     MWXSceneQuickJSOwner *active_owner;
     MWXSceneQuickJSOwner *module_owner;
@@ -128,6 +130,7 @@ struct MWXSceneQuickJSOwner {
     uint64_t generation;
     bool initialized;
     bool disabled;
+    bool value_only;
     bool teardown_started;
     uint32_t destroy_callback_count;
     JSValue material_function_layer;
@@ -183,6 +186,20 @@ void mwx_scene_quickjs_write_exception(
 );
 
 bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
 bool mwx_scene_quickjs_install_active_engine_host(
     MWXSceneQuickJSDomain *domain
 );

@@ -30,7 +30,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         budget: SceneScriptScalarBudget
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              valueType == .vector2 || valueType == .vector3,
+              [.bool, .vector2, .vector3].contains(valueType),
               generation > 0 else { throw SceneScriptScalarRuntimeFailure.invalidSource }
         self.domain = domain
         self.target = target
@@ -41,11 +41,19 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created = source.withCString {
-            mwx_scene_quickjs_owner_create_with_budget(
-                domain.handle, $0, source.utf8.count, generation,
-                budget.interruptBudget, &creationResult,
-                &diagnostic, diagnostic.count
-            )
+            if valueType == .bool {
+                mwx_scene_quickjs_owner_create_value_only_with_budget(
+                    domain.handle, $0, source.utf8.count, generation,
+                    budget.interruptBudget, &creationResult,
+                    &diagnostic, diagnostic.count
+                )
+            } else {
+                mwx_scene_quickjs_owner_create_with_budget(
+                    domain.handle, $0, source.utf8.count, generation,
+                    budget.interruptBudget, &creationResult,
+                    &diagnostic, diagnostic.count
+                )
+            }
         }
         do {
             try domain.checkConstructionBoundary()
@@ -59,6 +67,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         var handlesMediaThumbnail = false
         var handlesMediaPlayback = false
         var exportedCursorEvents: Set<SceneScriptCursorEventKind> = []
+        var ownerHasAudioRegistration = false
         do {
             guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
@@ -95,12 +104,33 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                     exportedCursorEvents.insert(event)
                 }
             }
+            ownerHasAudioRegistration = SceneScriptAudioHost.hasRegistration(
+                owner: created
+            )
+            if valueType == .bool {
+                let hasValueHook = try SceneScriptOwnerExportBridge.contains(
+                    "init", owner: created
+                ) || SceneScriptOwnerExportBridge.contains("update", owner: created)
+                let handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
+                    "applyUserProperties", owner: created
+                )
+                let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
+                    "destroy", owner: created
+                )
+                guard hasValueHook, !handlesUserProperties,
+                      !handlesDestroy,
+                      !handlesMediaThumbnail, !handlesMediaPlayback,
+                      exportedCursorEvents.isEmpty,
+                      !ownerHasAudioRegistration else {
+                    throw SceneScriptScalarRuntimeFailure.invalidSource
+                }
+            }
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         handle = created
-        hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        hasAudioRegistration = ownerHasAudioRegistration
         self.handlesMediaThumbnail = handlesMediaThumbnail
         self.handlesMediaPlayback = handlesMediaPlayback
         self.exportedCursorEvents = exportedCursorEvents
@@ -131,37 +161,59 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
-        let source: [Double]
-        switch input {
-        case let .vector2(x, y): source = [x, y, 0]
-        case let .vector3(x, y, z): source = [x, y, z]
-        default:
-            return .failure(.invalidArgument("invalid typed vector input"))
-        }
-        var output = [Double](repeating: 0, count: 3)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = source.withUnsafeBufferPointer { sourceBuffer in
-            output.withUnsafeMutableBufferPointer { outputBuffer in
-                scriptPropertiesJSON.withCString { properties in
-                    userPropertiesJSON.withCString { userProperties in
-                        mwx_scene_quickjs_owner_update_vec3(
-                            handle, expectedGeneration, sourceBuffer.baseAddress,
-                            &frameInput,
-                            properties, scriptPropertiesJSON.utf8.count,
-                            userProperties, userPropertiesJSON.utf8.count,
-                            outputBuffer.baseAddress,
-                            &diagnostic, diagnostic.count
-                        )
+        let result: MWXSceneQuickJSResult
+        let publishedValue: SceneDynamicValue
+        switch input {
+        case let .bool(value):
+            var output: UInt32 = 0
+            result = scriptPropertiesJSON.withCString { properties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_update_bool_with_properties(
+                        handle, expectedGeneration, value ? 1 : 0, &frameInput,
+                        properties, scriptPropertiesJSON.utf8.count,
+                        userProperties, userPropertiesJSON.utf8.count,
+                        &output, &diagnostic, diagnostic.count
+                    )
+                }
+            }
+            publishedValue = .bool(output != 0)
+        case .vector2, .vector3:
+            let source: [Double]
+            switch input {
+            case let .vector2(x, y): source = [x, y, 0]
+            case let .vector3(x, y, z): source = [x, y, z]
+            default: preconditionFailure("typed vector input changed")
+            }
+            var output = [Double](repeating: 0, count: 3)
+            result = source.withUnsafeBufferPointer { sourceBuffer in
+                output.withUnsafeMutableBufferPointer { outputBuffer in
+                    scriptPropertiesJSON.withCString { properties in
+                        userPropertiesJSON.withCString { userProperties in
+                            mwx_scene_quickjs_owner_update_vec3(
+                                handle, expectedGeneration, sourceBuffer.baseAddress,
+                                &frameInput,
+                                properties, scriptPropertiesJSON.utf8.count,
+                                userProperties, userPropertiesJSON.utf8.count,
+                                outputBuffer.baseAddress,
+                                &diagnostic, diagnostic.count
+                            )
+                        }
                     }
                 }
             }
+            guard output.allSatisfy(\.isFinite) else {
+                return .failure(.badReturn("non-finite Vec3 output"))
+            }
+            publishedValue = valueType == .vector2
+                ? .vector2(output[0], output[1])
+                : .vector3(output[0], output[1], output[2])
+        default:
+            return .failure(.invalidArgument("invalid typed SceneScript input"))
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
             return .failure(Self.failure(result, diagnostic))
-        }
-        guard output.allSatisfy(\.isFinite) else {
-            return .failure(.badReturn("non-finite Vec3 output"))
         }
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
@@ -187,9 +239,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case let .success(value): layerMutations = value
         case let .failure(failure): return .failure(failure)
         }
-        let publishedValue: SceneDynamicValue = valueType == .vector2
-            ? .vector2(output[0], output[1])
-            : .vector3(output[0], output[1], output[2])
+        if valueType == .bool,
+           !mutations.isEmpty || !animationMutations.isEmpty || !layerMutations.isEmpty {
+            return .failure(.invalidArgument(
+                "Boolean value owner produced out-of-cohort mutations"
+            ))
+        }
         return .success(.init(
             value: publishedValue,
             materialFunctionMutations: mutations,

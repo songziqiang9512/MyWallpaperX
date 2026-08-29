@@ -13,11 +13,13 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE = (
-    ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
-    / "SceneScriptVectorCandidateCatalog.swift"
-)
+SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+SOURCES = [
+    SCENE / "Resources/SceneNamedTextureReference.swift",
+    SCENE
+    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateCatalog.swift",
+]
 
 HARNESS = r'''
 import Foundation
@@ -27,16 +29,17 @@ nonisolated enum SceneScriptScalarRuntimeFailure: Error, Sendable {
 }
 
 nonisolated enum SceneDynamicValueType: String, Sendable {
-    case vector2, vector3
+    case bool, vector2, vector3
 }
 
 nonisolated enum SceneDynamicValue: Equatable, Sendable {
+    case bool(Bool)
     case vector2(Double, Double)
     case vector3(Double, Double, Double)
 }
 
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case origin, scale, angles
+    case visibility, origin, scale, angles
 }
 
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
@@ -51,6 +54,7 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
 }
 
 nonisolated enum SceneJSONValue: Sendable {
+    case bool(Bool)
     case number(Double)
     case string(String)
 
@@ -58,10 +62,15 @@ nonisolated enum SceneJSONValue: Sendable {
         guard case let .string(value) = self else { return nil }
         return value
     }
+
+    var boolValue: Bool? {
+        guard case let .bool(value) = self else { return nil }
+        return value
+    }
 }
 
 nonisolated enum SceneScriptBindingValueType: Sendable {
-    case string
+    case boolean, string
 }
 
 nonisolated enum SceneScriptBindingPathComponent: Equatable, Sendable {
@@ -106,15 +115,20 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let userValueKind: SceneShaderUserValueKind?
     }
 
-    struct Pass: Sendable {
-        let passIndex: Int
-        let id: Int?
-        let constantShaderValues: [String: ShaderValue]
-    }
+    struct EffectDescriptor: Sendable {
+        struct PassDescriptor: Sendable {
+            let passIndex: Int
+            let id: Int?
+            let constantShaderValues: [String: ShaderValue]
+            let textureSlots: [String?]
+            let userTextureInputs: [Bool?]
+        }
 
-    struct Effect: Sendable {
+        let id: String
+        let name: String?
         let effectID: Int?
-        let passes: [Pass]
+        let visible: Bool?
+        let passes: [PassDescriptor]
     }
 
     struct Layer: Sendable {
@@ -123,7 +137,15 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
-        let effects: [Effect]
+        let effects: [EffectDescriptor]
+        var visible: Bool? = true
+        var contentKind = "image"
+        var parentID: Int? = nil
+        var childLayerIDs: [Int] = []
+        var effectFiles: [String] = []
+        var dependencyLayerIDs: [Int] = []
+        var authoredDependencies: [Int] = []
+        var utilityLayer: Int? = nil
     }
 
     let layers: [Layer]
@@ -267,7 +289,7 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "layer-transform-projection"
         compilation = subprocess.run(
-            ["swiftc", str(SOURCE), str(harness), "-o", str(binary)],
+            ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )

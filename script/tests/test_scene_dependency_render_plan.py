@@ -27,6 +27,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
@@ -1366,7 +1368,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn(
-            "SceneAuthoredXRayPlanner.verifiedStockIdentityEffectKeys(",
+            "SceneXRayStockIdentityVerifier.verifiedStockIdentityEffectKeys(",
             launch,
         )
         self.assertIn(
@@ -1393,6 +1395,14 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "verifiedXRayStageKeys: verifiedXRayStageKeys",
             dependency_runtime,
         )
+
+    def test_parent_aware_visibility_precedes_layer_draw_request(self) -> None:
+        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        visibility_guard = renderer.index(
+            "guard frameVisibleLayerIDs.contains(layer.id) else { continue }"
+        )
+        draw_outcome = renderer.index("let drawOutcome = imageCompositor.drawOutcome(")
+        self.assertLess(visibility_guard, draw_outcome)
 
     def test_structural_slot3_hidden_solid_dependency_is_generic_and_fail_closed(
         self,

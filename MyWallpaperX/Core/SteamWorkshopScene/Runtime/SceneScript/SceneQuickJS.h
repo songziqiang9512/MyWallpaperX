@@ -269,6 +269,17 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_value_only_with_budget(
+    MWXSceneQuickJSDomain *domain,
+    const char *source,
+    size_t source_length,
+    uint64_t generation,
+    uint64_t interrupt_budget,
+    MWXSceneQuickJSResult *result,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     MWXSceneQuickJSOwner *owner,
     int64_t layer_id,
@@ -407,6 +418,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
     const char *user_properties_json,
     size_t user_properties_length,
     double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_bool_with_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    uint32_t input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    uint32_t *output,
     char *diagnostic,
     size_t diagnostic_capacity
 );

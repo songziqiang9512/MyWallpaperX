@@ -9,41 +9,14 @@ nonisolated enum SceneDependencyGraphAnalysis {
     nonisolated static func references(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
-        layers.flatMap { layer in
-            layer.effects.filter { $0.visible != false }.flatMap { effect in
-                effect.passes.flatMap { pass in
-                    pass.textureSlots.enumerated().compactMap { slotIndex, path in
-                        guard !isShadowedByUserTexture(
-                            slotIndex: slotIndex,
-                            pass: pass
-                        ), let reference = SceneNamedTextureReference.parse(path) else {
-                            return nil
-                        }
-                        return Reference(
-                            consumerLayerID: layer.id,
-                            providerLayerID: reference.providerLayerID,
-                            slot: SceneEffectPassSlot(
-                                effectID: effect.id,
-                                passIndex: pass.passIndex,
-                                slotIndex: slotIndex
-                            ),
-                            variant: reference.variant
-                        )
-                    }
-                }
-            }
+        SceneNamedTextureDependencyReferenceAnalysis.references(in: layers).map {
+            Reference(
+                consumerLayerID: $0.consumerLayerID,
+                providerLayerID: $0.providerLayerID,
+                slot: $0.slot,
+                variant: $0.variant
+            )
         }
-    }
-
-    /// Instance user textures are appended after instance asset paths by the
-    /// shared material resolver. A named path at the same slot remains
-    /// provenance, but it is not the selected cross-layer execution input.
-    private nonisolated static func isShadowedByUserTexture(
-        slotIndex: Int,
-        pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
-    ) -> Bool {
-        pass.userTextureInputs.indices.contains(slotIndex)
-            && pass.userTextureInputs[slotIndex] != nil
     }
 
     nonisolated static func dependencyEdges(

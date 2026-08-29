@@ -72,6 +72,11 @@ static JSValue register_timer(
 ) {
     (void)this_value;
     MWXSceneQuickJSOwner *owner = active_owner(context);
+    if (owner != NULL && owner->value_only) {
+        return JS_ThrowTypeError(
+            context, "timers are unavailable to value-only SceneScript owners"
+        );
+    }
     double milliseconds = 0;
     if (owner == NULL || argc != 2 || !JS_IsFunction(context, argv[0]) ||
         JS_ToFloat64(context, &milliseconds, argv[1]) < 0 ||

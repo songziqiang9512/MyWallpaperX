@@ -19,6 +19,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT
     / "RenderGraph/LayerDependencies/SceneImageLayerBlendDependencyContract.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
     SCENE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]

@@ -130,7 +130,8 @@ struct SceneMetalRenderer {
             frameLayersByID[$0]
         }
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: frameDescriptor
+            in: frameDescriptor,
+            snapshot: frameContext.dynamicValues
         )
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
