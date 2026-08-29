@@ -23,6 +23,10 @@ PARTICLES_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Particl
 DEFINITION_SOURCE = PARTICLES_ROOT / "SceneParticleDefinition.swift"
 INITIALIZER_SOURCE = PARTICLES_ROOT / "SceneParticleInitializer.swift"
 VORTEX_SOURCE = PARTICLES_ROOT / "SceneParticleVortex.swift"
+REMAP_SOURCE = PARTICLES_ROOT / "SceneParticleRemapValue.swift"
+REDUCE_SOURCE = PARTICLES_ROOT / "SceneParticleReduceMovement.swift"
+COLLISION_SOURCE = PARTICLES_ROOT / "SceneParticleCollisionPlane.swift"
+POSITION_AROUND_SOURCE = PARTICLES_ROOT / "SceneParticlePositionAroundControlPoint.swift"
 AUDIO_PLAN_SOURCE = PARTICLES_ROOT / "SceneParticleAudioResponsePlan.swift"
 PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser.swift"
 OPERATOR_PARSER_SOURCE = PARTICLES_ROOT / "SceneParticleDefinitionParser+Operator.swift"
@@ -190,6 +194,10 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             DEFINITION_SOURCE,
             INITIALIZER_SOURCE,
             VORTEX_SOURCE,
+            REMAP_SOURCE,
+            REDUCE_SOURCE,
+            COLLISION_SOURCE,
+            POSITION_AROUND_SOURCE,
             AUDIO_PLAN_SOURCE,
             PARSER_SOURCE,
             OPERATOR_PARSER_SOURCE,

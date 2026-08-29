@@ -199,7 +199,6 @@ fragment float4 sceneParticleRefractFrag(
     }
 
     bool normalUsesFrames = fmod(parameters.w, 2.0) > 0.5;
-    bool additive = parameters.w > 1.5;
     float2 normalUV0 = normalUsesFrames ? in.uv0 : in.baseUV * uvScales.zw;
     float2 normalUV1 = normalUsesFrames ? in.uv1 : normalUV0;
     float4 normalFirst = normalTexture.sample(normalSampler, normalUV0);
@@ -215,6 +214,6 @@ fragment float4 sceneParticleRefractFrag(
     float coverage = saturate(albedo.a * in.tint.a);
     float3 straightTint = in.tint.a > 0.0 ? in.tint.rgb / in.tint.a : float3(0.0);
     float3 source = background * albedo.rgb * straightTint * parameters.y;
-    return float4(additive ? source : source * coverage, coverage);
+    return float4(source * coverage, coverage);
 }
 """
