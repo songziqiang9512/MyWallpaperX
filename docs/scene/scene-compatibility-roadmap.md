@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：V1-A correctness、V1-B 产品 owner debt 与 V2 bounded SceneScript 完成门已按专项表及 fresh 运行证据闭合；现役主线进入 V3 Particle component interpreter。V4 typed input/provider 继续作为 V3 consumer 的横切轨，不提前进入 V5
+> 当前主线：V1-A correctness、V1-B 产品 owner debt、V2 bounded SceneScript 与 V3 bounded Particle component interpreter 已按专项表及 fresh 运行证据闭合；现役主线进入 V4 typed input/provider 收口，不提前进入 V5
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
@@ -103,7 +103,7 @@ V2 完成门：以[SceneScript API 覆盖表](semantics/scenescript-api-coverage
 
 当前段位：2026-08-29 已由[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)和[运行证据索引](semantics/runtime-evidence-index.md)通过上述 bounded 完成门。停止与场景切换现在对每个 owner 恰好调用一次 `destroy()`，并在 callback 即使创建 timer、Promise job 或动态层后仍原子归零；旧 generation 继续 stale fail-closed。该结论不外推 file module、完整 API、所有 value type、multi-surface、官方行为 parity 或 stock clock 等未闭合 consumer，它们保持专项表中的明确边界，不再阻塞 V3 主线。
 
-### V3：Particle component interpreter——现在
+### V3：Particle component interpreter——完成
 
 按官方组件面把 definition 编译为共享 operation stream：
 
@@ -120,7 +120,9 @@ V2 完成门：以[SceneScript API 覆盖表](semantics/scenescript-api-coverage
 
 V3 完成门：以[Particle 组件覆盖表](semantics/particle-component-coverage.md)为当前事实，新的合法 emitter/initializer/operator/renderer/child/control-point 组合无需增加完整 definition 名称分支即可运行；unknown optional component 局部诊断，缺少 renderer、非法数值或预算失败只停用对应 system；spawn/update/render/child/teardown 有同一实例生命周期证据。纳入完成范围的 strict profile 产品 owner 已撤权或显式保持 unsupported，route/fallback/回滚门完整。V3 通过后进入 V4 收口。
 
-### V4：动态输入横切轨
+当前段位：2026-08-29 已由[Particle 组件覆盖表](semantics/particle-component-coverage.md)、当前产品代码及[运行证据索引](semantics/runtime-evidence-index.md)通过上述 **bounded** 完成门。现役执行只按 authored component/material 字段进入同一 `SceneParticleRuntime`、Metal pipeline 与 compositor，不按 definition/sample/layer/path 持有专用视觉 owner；当前真实 corpus 没有多 renderer definition，未准入的多 renderer、component shape 与不安全数值继续 typed unsupported 或 system-local fail closed。公共门覆盖未见组件组合、unknown optional、缺 renderer、root/child 预算、spawn/update/render/child，以及同一 playback UUID 的 switch/stop teardown；formal particle inner 为 15 modules / ALL OK，生命周期 checkpoint 与 Developer ID build通过。该完成状态不等于通用 Particle System、完整组件/API、GPU 资源长稳归零、全部样本视觉正确或官方 parity；这些边界保留在专项表，但不再阻塞 V4。
+
+### V4：动态输入横切轨——现在
 
 V4 是横切 producer/provider 轨，不是另建一套输入平台。V1–V3 若闭合真实 consumer 必须同步接入它实际消费的最小 V4 原子；主线在 V3 完成后回到本轨，对尚未随 consumer 闭合的输入族作统一收口。所有输入在同一 frame commit 下走相应 typed channel，不在 consumer 内另建状态系统：
 
@@ -265,21 +267,21 @@ remaining_deviation_and_exit_condition:
 
 没有统一 collector 的字段必须明确写 `not-collected`，不能填零或推测；本轮治理只建立字段合同，不声称已有自动 collector。指标只使用可实际采集的分母，不提前写百分比目标。compile success、route count、matrix PASS、非黑截图和进程存活均不能单独证明效果或兼容性。
 
-## 8. 当前 V3 选择协议
+## 8. 当前 V4 选择协议
 
-当前主线只从[能力台账](semantics/coverage-ledger.md)、[Particle 组件覆盖表](semantics/particle-component-coverage.md)、typed input/provider 对应专项表和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V3 公共 component-operation 纵向结果。已完成 V1/V2 批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
+当前主线只从[能力台账](semantics/coverage-ledger.md)、[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)、实际 consumer 的专项表和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V4 typed producer/provider 纵向结果。已完成 V1–V3 批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
 
 下一批必须同时满足：
 
-1. 对应一个真实 authored particle definition/component 组合，并能指出 definition→ordered operation stream→instance lifecycle→现有 Metal consumer 主链上的首断点；
-2. 通过普通 component schema、typed component registry、数值/资源合同和共享 instance identity 定义 capability，不以 definition/sample/layer/path/hash 固化粒子结果；
-3. 复用现有 frame/resource publication、generation/epoch、completion/rollback、GraphExecutor/particle Metal execution 和唯一 compositor owner，不新增第二 particle state、clock、resource registry 或输出链；
-4. 能在一个批次内闭合正常返回、exception/timeout或bad-return局部失败、新组合/未见 fixture与真实隔离运行；
-5. 能明确本批只达到 `slice-executable`、`slice-visible`，还是还包含 strict particle profile owner撤权；没有真实 spawn/update/render/teardown 与 consumer 闭合不得只凭 parse/IR/component census 宣告完成。
+1. 对应一个真实 consumer，并能指出 producer/provider → immutable snapshot/publication → frame commit → consumer → next-frame/event 主链上的首断点；
+2. 通过 typed identity/value/resource、generation/epoch 与统一 frame transaction 定义 capability，不让 consumer 自行重采样、解析或保存第二份状态；
+3. 复用现有 property/resource publication、completion/rollback、GraphExecutor/VM/particle consumer 和唯一 compositor，不新增第二 registry、clock、graph/history 或输出链；
+4. 同批闭合正常更新、missing/stale/cancel/invalid 的最小失败半径、新组合/未见 fixture与真实隔离运行；
+5. 明确旧 consumer-local polling/profile owner 的撤权条件；平台 producer 或产品策略尚不存在时保持 typed unsupported，不用伪造输入或另一个输入族的通过代替。
 
-候选只从[Particle 组件覆盖表](semantics/particle-component-coverage.md)、[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)和[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个纵向结果；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V1/V2 历史断点，也不以新增完整 particle definition profile 制造可见结果。
+候选只从[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)、对应 consumer 专项表和[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个纵向结果；若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V1–V3 历史断点，也不以新增 consumer-local profile 制造可见结果。
 
-V1-A/V1-B/V2 bounded 完成事实已由能力台账、专项表与运行证据索引同步证明；若后续发现回归，按失败半径撤回对应产品 route 并修共享路径，不把 V3 主线改写成回收旧专用 owner。roadmap 只据权威当前事实推进段位，V3 完成门成立前不得进入 V4 收口或 V5。
+V1-A/V1-B/V2/V3 bounded 完成事实已由能力台账、专项表与运行证据索引同步证明；若后续发现回归，按失败半径撤回对应产品 route 并修共享路径，不把 V4 主线改写成回收历史专用 owner。roadmap 只据权威当前事实推进段位，V4 完成门成立前不得进入 V5。
 
 ## 9. 完成与退役
 
