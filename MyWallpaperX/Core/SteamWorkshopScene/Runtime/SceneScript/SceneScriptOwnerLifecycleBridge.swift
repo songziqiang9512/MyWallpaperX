@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated struct SceneScriptOwnerLifecycleSnapshot: Equatable, Sendable {
+    let teardownStarted: Bool
     let destroyCallbackCount: Int
     let activeTimerCount: Int
     let pendingLayerMutationCount: Int
@@ -16,6 +17,7 @@ nonisolated struct SceneScriptOwnerLifecycleSnapshot: Equatable, Sendable {
 
 nonisolated struct SceneScriptOwnerTeardownOutcome: Equatable, Sendable {
     let destroyCallbackInvoked: Bool
+    let destroyCallbackThrew: Bool
     let snapshot: SceneScriptOwnerLifecycleSnapshot
     let failure: SceneScriptScalarRuntimeFailure?
 }
@@ -30,10 +32,11 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
     ) -> SceneScriptOwnerTeardownOutcome {
         var diagnostic = [CChar](repeating: 0, count: 512)
         var invoked: UInt32 = 0
+        var threw: UInt32 = 0
         var rawFrame = frame.quickJSValue
         let raw = scriptPropertiesJSON.withCString { scriptProperties in
             userPropertiesJSON.withCString { userProperties in
-                mwx_scene_quickjs_owner_teardown(
+                mwx_scene_quickjs_owner_teardown_with_provenance(
                     owner,
                     generation,
                     &rawFrame,
@@ -42,6 +45,7 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
                     userProperties,
                     userPropertiesJSON.utf8.count,
                     &invoked,
+                    &threw,
                     &diagnostic,
                     diagnostic.count
                 )
@@ -52,6 +56,7 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
             owner, &lifecycle
         )
         let snapshot = SceneScriptOwnerLifecycleSnapshot(
+            teardownStarted: lifecycle.teardown_started != 0,
             destroyCallbackCount: Int(lifecycle.destroy_callback_count),
             activeTimerCount: Int(lifecycle.active_timer_count),
             pendingLayerMutationCount: Int(lifecycle.pending_layer_mutation_count),
@@ -71,6 +76,7 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
             )
         return .init(
             destroyCallbackInvoked: invoked != 0,
+            destroyCallbackThrew: threw != 0,
             snapshot: snapshot,
             failure: failure
         )

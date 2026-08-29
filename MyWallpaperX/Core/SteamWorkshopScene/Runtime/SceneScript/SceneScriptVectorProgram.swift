@@ -52,6 +52,8 @@ nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
     let definition: SceneDynamicTargetDefinition
     let properties: [String: SceneScriptPropertyInput]
     let hasCurrentAnimation: Bool
+    let handlesMediaThumbnail: Bool
+    let handlesMediaPlayback: Bool
     let owner: SceneScriptVectorOwner
 }
 
@@ -65,8 +67,8 @@ nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
 /// loss-preserving binding owner/path/type and descriptor identity. JavaScript
 /// semantics remain owned by QuickJS; there is no source-shape interpreter.
 nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
-    let definitions: [SceneDynamicTargetDefinition]
-    let bindings: [SceneScriptVectorBinding]
+    private(set) var definitions: [SceneDynamicTargetDefinition]
+    private(set) var bindings: [SceneScriptVectorBinding]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
     private let descriptor: SceneRenderDescriptor
@@ -75,9 +77,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
-    private var consumedMediaThumbnailGeneration: UInt64 = 0
-    private var consumedMediaPlaybackGeneration: UInt64 = 0
-    private var lastEffectivePropertyValues: [String: SceneUserPropertyValue]?
+    private var observedMediaThumbnailEvent =
+        SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
+    private var observedMediaPlaybackEvent =
+        SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
+    private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var appliedUserPropertiesByTarget:
+        [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
@@ -115,6 +122,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         })
     }
 
+    var mediaThumbnailTargets: Set<SceneDynamicTarget> {
+        Set(bindings.compactMap { binding in
+            binding.handlesMediaThumbnail ? binding.definition.target : nil
+        })
+    }
+
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
         bindings.compactMap { binding in
             guard case let .layer(layerID, _) = binding.definition.target,
@@ -139,141 +152,248 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptVectorProgram {
+        let projection = project(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings,
+            timelineTargets: timelineTargets,
+            excludedTargets: excludedTargets
+        )
+        let program = compileNonPass(
+            domain: domain,
+            descriptor: descriptor,
+            projection: projection,
+            userPropertyDefinitions: userPropertyDefinitions,
+            generation: generation,
+            budget: budget
+        )
+        _ = program.instantiatePassOwners(
+            projection: projection,
+            admittedTargets: projection.passTargets,
+            budget: budget
+        )
+        return program
+    }
+
+    static func compileNonPass(
+        domain: SceneScriptQuickJSDomain?,
+        descriptor: SceneRenderDescriptor,
+        projection: SceneScriptVectorCandidateCatalog,
+        userPropertyDefinitions: [SceneUserPropertyDefinition],
+        generation: UInt64,
+        budget: SceneScriptScalarBudget = .default
+    ) -> SceneScriptVectorProgram {
+        compileNonPassCandidate(
+            domain: domain,
+            descriptor: descriptor,
+            projection: projection,
+            userPropertyDefinitions: userPropertyDefinitions,
+            rejectedTargets: [],
+            generation: generation,
+            budget: budget
+        ).program
+    }
+
+    static func compileNonPassCandidate(
+        domain: SceneScriptQuickJSDomain?,
+        descriptor: SceneRenderDescriptor,
+        projection: SceneScriptVectorCandidateCatalog,
+        userPropertyDefinitions: [SceneUserPropertyDefinition],
+        rejectedTargets: Set<SceneDynamicTarget>,
+        generation: UInt64,
+        budget: SceneScriptScalarBudget = .default
+    ) -> SceneScriptVectorProgramConstruction {
+        let requestedTargets = projection.nonPassTargets.subtracting(
+            rejectedTargets
+        )
         guard let domain else {
-            return .init(
+            let program = SceneScriptVectorProgram(
                 domain: nil, descriptor: descriptor,
                 bindings: [], generation: generation,
                 userPropertyDefinitions: userPropertyDefinitions
             )
-        }
-        guard (try? domain.configureLayerCatalog(descriptor)) != nil else {
+            let failure = SceneScriptScalarRuntimeFailure.invalidArgument(
+                "QuickJS domain unavailable"
+            )
             return .init(
+                program: program,
+                requestedTargets: requestedTargets,
+                instantiatedTargets: [],
+                failures: Dictionary(uniqueKeysWithValues:
+                    requestedTargets.map { ($0, failure) }
+                )
+            )
+        }
+        do {
+            try domain.configureLayerCatalog(descriptor)
+        } catch {
+            let failure = (error as? SceneScriptScalarRuntimeFailure)
+                ?? .invalidArgument(String(describing: error))
+            let program = SceneScriptVectorProgram(
                 domain: nil, descriptor: descriptor,
                 bindings: [], generation: generation,
                 userPropertyDefinitions: userPropertyDefinitions
             )
-        }
-        let candidates = scriptBindings.compactMap {
-            projection(
-                $0,
-                descriptor: descriptor,
-                timelineTargets: timelineTargets
+            return .init(
+                program: program,
+                requestedTargets: requestedTargets,
+                instantiatedTargets: [],
+                failures: Dictionary(uniqueKeysWithValues:
+                    requestedTargets.map { ($0, failure) }
+                )
             )
-        }.filter { !excludedTargets.contains($0.definition.target) }
-        let counts = Dictionary(grouping: candidates, by: { $0.definition.target })
-            .mapValues(\.count)
-        let bindings = candidates.compactMap { candidate -> SceneScriptVectorBinding? in
-            guard counts[candidate.definition.target] == 1,
-                  let layerID = SceneScriptLayerMutationBridge.layerID(
-                      for: candidate.definition.target
-                  ),
-                  let layer = descriptor.layers.first(where: { $0.id == layerID }),
-                  let owner = try? SceneScriptVectorOwner(
+        }
+        let program = SceneScriptVectorProgram(
+            domain: domain, descriptor: descriptor,
+            bindings: [],
+            generation: generation,
+            userPropertyDefinitions: userPropertyDefinitions
+        )
+        let failures = program.instantiateCandidates(
+            projection.uniqueCandidates.filter {
+                requestedTargets.contains($0.definition.target)
+            },
+            budget: budget
+        )
+        let instantiatedTargets = Set(program.definitions.map(\.target))
+            .intersection(requestedTargets)
+        return .init(
+            program: program,
+            requestedTargets: requestedTargets,
+            instantiatedTargets: instantiatedTargets,
+            failures: failures
+        )
+    }
+
+    @discardableResult
+    func instantiatePassOwners(
+        projection: SceneScriptVectorCandidateCatalog,
+        admittedTargets: Set<SceneDynamicTarget>,
+        budget: SceneScriptScalarBudget = .default
+    ) -> SceneScriptVectorPassCompilation {
+        let requestedTargets = admittedTargets.intersection(projection.passTargets)
+        let candidates = projection.uniqueCandidates.filter {
+            requestedTargets.contains($0.definition.target)
+        }
+        let failures = instantiateCandidates(candidates, budget: budget)
+        let failedTargets = Set(failures.keys)
+        let instantiatedTargets = requestedTargets.subtracting(failedTargets)
+            .intersection(Set(definitions.map(\.target)))
+        return .init(
+            requestedTargets: requestedTargets,
+            instantiatedTargets: instantiatedTargets,
+            failures: failures
+        )
+    }
+
+    private func instantiateCandidates(
+        _ candidates: [SceneScriptVectorCandidate],
+        budget: SceneScriptScalarBudget
+    ) -> [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] {
+        let existingTargets = Set(definitions.map(\.target))
+        var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        guard let domain else {
+            return Dictionary(uniqueKeysWithValues: candidates.map {
+                ($0.definition.target, .invalidArgument("QuickJS domain unavailable"))
+            })
+        }
+        for candidate in candidates
+        where !existingTargets.contains(candidate.definition.target) {
+            let target = candidate.definition.target
+            guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target),
+                  let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
+                failures[target] = .invalidArgument(
+                    "SceneScript owner layer identity unavailable"
+                )
+                break
+            }
+            let owner: SceneScriptVectorOwner
+            do {
+                owner = try SceneScriptVectorOwner(
                       domain: domain,
                       source: candidate.source,
-                      target: candidate.definition.target,
+                      target: target,
                       valueType: candidate.definition.valueType,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
                       generation: generation,
                       budget: budget
-                  ) else { return nil }
-            return .init(
+                )
+            } catch let failure as SceneScriptScalarRuntimeFailure {
+                failures[target] = failure
+                break
+            } catch {
+                failures[target] = .invalidArgument(String(describing: error))
+                break
+            }
+            bindings.append(.init(
                 definition: candidate.definition,
                 properties: candidate.properties,
                 hasCurrentAnimation: candidate.hasCurrentAnimation,
+                handlesMediaThumbnail: owner.handlesMediaThumbnail,
+                handlesMediaPlayback: owner.handlesMediaPlayback,
                 owner: owner
-            )
-        }.sorted {
+            ))
+        }
+        bindings.sort {
             String(describing: $0.definition.target)
                 < String(describing: $1.definition.target)
         }
-        return .init(
-            domain: domain, descriptor: descriptor,
-            bindings: bindings,
-            generation: generation,
-            userPropertyDefinitions: userPropertyDefinitions
-        )
+        definitions = bindings.map(\.definition)
+        return failures
     }
 
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
-        layerSnapshot: SceneDynamicSnapshot? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptVectorFrameResult {
-        var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
-        if let event = mediaThumbnailEvent,
-           event.generation != consumedMediaThumbnailGeneration {
-            consumedMediaThumbnailGeneration = event.generation
-            pendingMediaEvent = event
-        } else {
-            pendingMediaEvent = nil
-        }
-        var pendingPlaybackEvent: SceneScriptMediaPlaybackEventInput?
-        if let event = mediaPlaybackEvent,
-           event.generation != consumedMediaPlaybackGeneration {
-            consumedMediaPlaybackGeneration = event.generation
-            pendingPlaybackEvent = event
-        } else {
-            pendingPlaybackEvent = nil
-        }
+        let observedMediaEvent = observedMediaThumbnailEvent.observe(
+            mediaThumbnailEvent
+        )
+        let observedPlaybackEvent = observedMediaPlaybackEvent.observe(
+            mediaPlaybackEvent
+        )
         let userJSON = userPropertiesJSON(
             effectiveValues: effectivePropertyValues
-        )
-        let changedUserPropertiesJSON = Self.changedUserPropertiesJSON(
-            previous: lastEffectivePropertyValues,
-            current: effectivePropertyValues,
-            kinds: userPropertyKinds
         )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
-        if let domain {
-            do {
-                try domain.publishLayerSnapshot(
-                    layerSnapshot ?? .empty(frameIndex: 0),
-                    descriptor: descriptor
-                )
-            } catch let failure as SceneScriptScalarRuntimeFailure {
-                for binding in bindings {
-                    failures[binding.definition.target] = failure
-                }
-                return .init(
-                    values: [:], failures: failures,
-                    materialFunctionMutations: [],
-                    animationMutations: [],
-                    layerMutations: []
-                )
-            } catch {
-                for binding in bindings {
-                    failures[binding.definition.target] = .invalidArgument(
-                        String(describing: error)
-                    )
-                }
-                return .init(
-                    values: [:], failures: failures,
-                    materialFunctionMutations: [],
-                    animationMutations: [],
-                    layerMutations: []
-                )
-            }
-        }
         for binding in bindings {
             let target = binding.definition.target
-            guard !disabledTargets.contains(target),
-                  let input = inputs[target],
+            if disabledTargets.contains(target) { continue }
+            guard let input = inputs[target],
                   input.valueType == binding.definition.valueType,
                   let propertiesJSON = Self.scriptPropertiesJSON(
                       binding.properties,
                       effectiveValues: effectivePropertyValues
                   ) else { continue }
+            let changedUserPropertiesJSON = Self.changedUserPropertiesJSON(
+                previous: appliedUserPropertiesByTarget[target],
+                current: effectivePropertyValues,
+                kinds: userPropertyKinds
+            )
+            let pendingPlaybackEvent = observedPlaybackEvent.flatMap { event in
+                binding.handlesMediaPlayback && event.generation
+                    > consumedMediaPlaybackGenerations[target, default: 0]
+                    ? event : nil
+            }
+            let pendingMediaEvent = observedMediaEvent.flatMap { event in
+                binding.handlesMediaThumbnail && event.generation
+                    > consumedMediaThumbnailGenerations[target, default: 0]
+                    ? event : nil
+            }
+            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
+            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var playbackMutationCount = 0
+            var thumbnailMutationCount = 0
             if let changedUserPropertiesJSON {
                 switch binding.owner.dispatchUserProperties(
                     changedPropertiesJSON: changedUserPropertiesJSON,
@@ -283,11 +403,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     interruptBudget: interruptBudget
                 ) {
                 case let .success(eventMutations):
-                    materialFunctionMutations.append(
+                    callbackMaterialMutations.append(
                         contentsOf: eventMutations.materialFunctions
                     )
-                    animationMutations.append(contentsOf: eventMutations.animations)
-                    layerMutations.append(contentsOf: eventMutations.layers)
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -321,10 +443,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     continue
                 }
             }
-            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
-            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
-            var callbackLayerMutations: [SceneScriptLayerMutation] = []
-            var playbackMutationCount = 0
             if let pendingPlaybackEvent {
                 switch binding.owner.dispatchMediaPlayback(
                     pendingPlaybackEvent,
@@ -334,6 +452,29 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 ) {
                 case let .success(eventMutations):
                     playbackMutationCount = eventMutations.materialFunctions.count
+                        + eventMutations.animations.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
+            if let pendingMediaEvent {
+                switch binding.owner.dispatchMediaThumbnail(
+                    pendingMediaEvent,
+                    frame: frame,
+                    userPropertiesJSON: userJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    thumbnailMutationCount = eventMutations.materialFunctions.count
                         + eventMutations.animations.count
                     callbackMaterialMutations.append(
                         contentsOf: eventMutations.materialFunctions
@@ -358,6 +499,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             ) {
             case let .success(evaluation):
                 let value = evaluation.value
+                if let pendingPlaybackEvent {
+                    consumedMediaPlaybackGenerations[target] =
+                        pendingPlaybackEvent.generation
+                }
+                if let pendingMediaEvent {
+                    consumedMediaThumbnailGenerations[target] =
+                        pendingMediaEvent.generation
+                }
+                appliedUserPropertiesByTarget[target] = effectivePropertyValues
                 callbackMaterialMutations.append(
                     contentsOf: evaluation.materialFunctionMutations
                 )
@@ -365,30 +515,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
-                var thumbnailMutationCount = 0
-                if let pendingMediaEvent {
-                    switch binding.owner.dispatchMediaThumbnail(
-                        pendingMediaEvent,
-                        frame: frame,
-                        userPropertiesJSON: userJSON,
-                        interruptBudget: interruptBudget
-                    ) {
-                    case let .success(eventMutations):
-                        thumbnailMutationCount = eventMutations.materialFunctions.count
-                            + eventMutations.animations.count
-                        callbackMaterialMutations.append(
-                            contentsOf: eventMutations.materialFunctions
-                        )
-                        callbackAnimationMutations.append(
-                            contentsOf: eventMutations.animations
-                        )
-                        callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    case let .failure(failure):
-                        failures[target] = failure
-                        disabledTargets.insert(target)
-                        continue
-                    }
-                }
                 values[target] = value
                 materialFunctionMutations.append(
                     contentsOf: callbackMaterialMutations
@@ -397,10 +523,26 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 layerMutations.append(contentsOf: callbackLayerMutations)
                 if pendingMediaEvent != nil {
                     NSLog(
-                        "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ mutations=%d route=generic-only",
+                        "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ primary=%.9g,%.9g,%.9g secondary=%.9g,%.9g,%.9g tertiary=%.9g,%.9g,%.9g text=%.9g,%.9g,%.9g highContrast=%.9g,%.9g,%.9g output=%@ mutations=%d route=generic-only fallback=none",
                         String(describing: target),
                         pendingMediaEvent?.generation ?? 0,
                         pendingMediaEvent?.hasThumbnail == true ? "true" : "false",
+                        pendingMediaEvent?.primaryColor.x ?? 0,
+                        pendingMediaEvent?.primaryColor.y ?? 0,
+                        pendingMediaEvent?.primaryColor.z ?? 0,
+                        pendingMediaEvent?.secondaryColor.x ?? 0,
+                        pendingMediaEvent?.secondaryColor.y ?? 0,
+                        pendingMediaEvent?.secondaryColor.z ?? 0,
+                        pendingMediaEvent?.tertiaryColor.x ?? 0,
+                        pendingMediaEvent?.tertiaryColor.y ?? 0,
+                        pendingMediaEvent?.tertiaryColor.z ?? 0,
+                        pendingMediaEvent?.textColor.x ?? 0,
+                        pendingMediaEvent?.textColor.y ?? 0,
+                        pendingMediaEvent?.textColor.z ?? 0,
+                        pendingMediaEvent?.highContrastColor.x ?? 0,
+                        pendingMediaEvent?.highContrastColor.y ?? 0,
+                        pendingMediaEvent?.highContrastColor.z ?? 0,
+                        String(describing: value),
                         thumbnailMutationCount
                     )
                 }
@@ -441,7 +583,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 disabledTargets.insert(target)
             }
         }
-        lastEffectivePropertyValues = effectivePropertyValues
         return .init(
             values: values,
             failures: failures,
@@ -482,164 +623,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         }
     }
 
-    private struct Candidate {
-        let source: String
-        let definition: SceneDynamicTargetDefinition
-        let properties: [String: SceneScriptPropertyInput]
-        let hasCurrentAnimation: Bool
-    }
-
-    private static func projection(
-        _ binding: SceneScriptBindingIR,
-        descriptor: SceneRenderDescriptor,
-        timelineTargets: Set<SceneDynamicTarget>
-    ) -> Candidate? {
-        if let candidate = passVectorProjection(binding, descriptor: descriptor) {
-            return candidate
-        }
-        guard binding.owner.kind == .object,
-              binding.targetKey == "origin" || binding.targetKey == "scale",
-              binding.valueType == .string,
-              let sourceValue = binding.authoredValue?.stringValue,
-              let authored = vector3(sourceValue),
-              let objectIndex = binding.owner.objectIndex,
-              let layerID = binding.owner.objectID,
-              descriptor.layers.indices.contains(objectIndex) else { return nil }
-        let layer = descriptor.layers[objectIndex]
-        guard layer.id == layerID, layer.layerIndex == objectIndex,
-              binding.targetPath == [
-                  .key("objects"), .index(objectIndex), .key(binding.targetKey),
-              ] else { return nil }
-        let descriptorValue: [Float]?
-        let target: SceneDynamicTarget
-        switch binding.targetKey {
-        case "origin":
-            descriptorValue = layer.originXYZ
-            target = .layer(layerID: layerID, field: .origin)
-        case "scale":
-            descriptorValue = layer.scaleXYZ
-            target = .layer(layerID: layerID, field: .scale)
-        default:
-            return nil
-        }
-        let hasCurrentAnimation = timelineTargets.contains(target)
-        let validWrapper =
-            (binding.wrapperKeys == ["script", "value"] && binding.properties.isEmpty)
-            || binding.wrapperKeys == ["script", "scriptproperties", "value"]
-            || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
-            || (binding.wrapperKeys == ["animation", "script", "value"]
-                && binding.properties.isEmpty && hasCurrentAnimation)
-        guard validWrapper else { return nil }
-        guard let descriptorValue, descriptorValue.count == 3,
-              Float(authored.x).bitPattern == descriptorValue[0].bitPattern,
-              Float(authored.y).bitPattern == descriptorValue[1].bitPattern,
-              Float(authored.z).bitPattern == descriptorValue[2].bitPattern else {
-            return nil
-        }
-        var properties: [String: SceneScriptPropertyInput] = [:]
-        for entry in binding.properties {
-            guard validName(entry.key),
-                  let input = propertyInput(entry.value) else { return nil }
-            properties[entry.key] = input
-        }
-        return .init(
-            source: binding.source,
-            definition: .init(
-                target: target,
-                valueType: .vector3,
-                authoredValue: .vector3(authored.x, authored.y, authored.z)
-            ),
-            properties: properties,
-            hasCurrentAnimation: hasCurrentAnimation
-        )
-    }
-
-    private static func passVectorProjection(
-        _ binding: SceneScriptBindingIR,
-        descriptor: SceneRenderDescriptor
-    ) -> Candidate? {
-        guard binding.owner.kind == .pass,
-              binding.valueType == .string,
-              let sourceValue = binding.authoredValue?.stringValue,
-              let objectIndex = binding.owner.objectIndex,
-              let layerID = binding.owner.objectID,
-              let effectIndex = binding.owner.effectIndex,
-              let passIndex = binding.owner.passIndex,
-              descriptor.layers.indices.contains(objectIndex) else { return nil }
-        let layer = descriptor.layers[objectIndex]
-        guard layer.id == layerID, layer.layerIndex == objectIndex,
-              layer.effects.indices.contains(effectIndex) else { return nil }
-        let effect = layer.effects[effectIndex]
-        guard effect.effectID == binding.owner.effectID,
-              effect.passes.indices.contains(passIndex) else { return nil }
-        let pass = effect.passes[passIndex]
-        let name = binding.targetKey
-        guard pass.passIndex == passIndex, pass.id == binding.owner.passID,
-              !name.isEmpty,
-              binding.targetPath == passConstantPath(
-                  objectIndex: objectIndex, effectIndex: effectIndex,
-                  passIndex: passIndex, name: name
-              ),
-              let descriptorValue = pass.constantShaderValues[name],
-              descriptorValue.scriptSource == binding.source else {
-            return nil
-        }
-        let definition: SceneDynamicTargetDefinition
-        if let authored = vector2(sourceValue),
-           descriptorValue.components?.count == 2,
-           descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
-           descriptorValue.components?[1].bitPattern == authored.y.bitPattern {
-            definition = .init(
-                target: .effectConstant(
-                    layerID: layerID, effectIndex: effectIndex,
-                    passIndex: passIndex, name: name
-                ),
-                valueType: .vector2,
-                authoredValue: .vector2(authored.x, authored.y)
-            )
-        } else if let authored = vector3(sourceValue),
-                  descriptorValue.components?.count == 3,
-                  descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
-                  descriptorValue.components?[1].bitPattern == authored.y.bitPattern,
-                  descriptorValue.components?[2].bitPattern == authored.z.bitPattern {
-            definition = .init(
-                target: .effectConstant(
-                    layerID: layerID, effectIndex: effectIndex,
-                    passIndex: passIndex, name: name
-                ),
-                valueType: .vector3,
-                authoredValue: .vector3(authored.x, authored.y, authored.z)
-            )
-        } else {
-            return nil
-        }
-        let validWrapper =
-            (binding.wrapperKeys == ["script", "value"]
-                && binding.properties.isEmpty
-                && descriptorValue.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "value"]
-                && descriptorValue.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
-                && descriptorValue.userValueKind == .null)
-            || (binding.wrapperKeys == ["script", "user", "value"]
-                && binding.properties.isEmpty
-                && descriptorValue.userValueKind == .null)
-        guard validWrapper else { return nil }
-        var properties: [String: SceneScriptPropertyInput] = [:]
-        for entry in binding.properties {
-            guard validName(entry.key),
-                  let input = propertyInput(entry.value) else { return nil }
-            properties[entry.key] = input
-        }
-        return .init(
-            source: binding.source,
-            definition: definition,
-            properties: properties,
-            hasCurrentAnimation: false
-        )
-    }
-
-    private static func passConstantPath(
+    static func passConstantPath(
         objectIndex: Int, effectIndex: Int, passIndex: Int, name: String
     ) -> [SceneScriptBindingPathComponent] {
         [
@@ -650,7 +634,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         ]
     }
 
-    private static func propertyInput(
+    static func propertyInput(
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
         if let fallback = hostValue(value) {
@@ -673,7 +657,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         }
     }
 
-    private static func vector3(_ value: String) -> SIMD3<Double>? {
+    static func vector3(_ value: String) -> SIMD3<Double>? {
         let parts = value.split { $0.isWhitespace || $0 == "," }
         guard parts.count == 3 else { return nil }
         let numbers = parts.compactMap { Double($0) }
@@ -681,7 +665,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         return .init(numbers[0], numbers[1], numbers[2])
     }
 
-    private static func vector2(_ value: String) -> SIMD2<Double>? {
+    static func vector2(_ value: String) -> SIMD2<Double>? {
         let parts = value.split { $0.isWhitespace || $0 == "," }
         guard parts.count == 2 else { return nil }
         let numbers = parts.compactMap { Double($0) }
@@ -689,11 +673,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         return .init(numbers[0], numbers[1])
     }
 
-    private static func validName(_ value: String) -> Bool {
+    static func validName(_ value: String) -> Bool {
         !value.isEmpty && value != "__proto__" && value.utf8.count <= 256
     }
 
-    private static func scriptPropertiesJSON(
+    static func scriptPropertiesJSON(
         _ inputs: [String: SceneScriptPropertyInput],
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> String? {

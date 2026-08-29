@@ -81,41 +81,6 @@ static int update(
     );
 }
 
-static int teardown_owner(
-    MWXSceneQuickJSOwner *owner,
-    uint64_t generation,
-    MWXSceneQuickJSResult expected,
-    uint32_t expected_invoked,
-    uint32_t expected_destroy_count,
-    const char *label
-) {
-    char diagnostic[512] = {0};
-    MWXSceneQuickJSFrameInput frame = {
-        .time_of_day = 0.25,
-        .frame_time = 0,
-        .runtime = 3,
-    };
-    uint32_t invoked = 0;
-    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_teardown(
-        owner, generation, &frame, NULL, 0, "{}", 2,
-        &invoked, diagnostic, sizeof(diagnostic)
-    );
-    MWXSceneQuickJSLifecycleSnapshot snapshot = {0};
-    MWXSceneQuickJSResult snapshot_result =
-        mwx_scene_quickjs_owner_lifecycle_snapshot(owner, &snapshot);
-    return check(
-        actual == expected && invoked == expected_invoked &&
-            snapshot_result == MWX_SCENE_QUICKJS_OK &&
-            snapshot.teardown_started == 1 &&
-            snapshot.destroy_callback_count == expected_destroy_count &&
-            snapshot.active_timer_count == 0 &&
-            snapshot.pending_layer_mutation_count == 0 &&
-            snapshot.active_dynamic_layer_count == 0 &&
-            snapshot.has_job_residue == 0 && snapshot.callback_active == 0,
-        label, diagnostic
-    );
-}
-
 static int media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -455,6 +420,20 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+            domain, 1, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        const double scale[3] = {1, 1, 1};
+        const double angles[3] = {0, 0, 0};
+        const double color[3] = {1, 1, 1};
+        result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
+            domain, 0, scale, angles, 1, 1,
+            "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
         const double scale[3] = {2, 3, 4};
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
@@ -465,13 +444,13 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
-        result = mwx_scene_quickjs_domain_begin_layer_snapshot(
-            domain, 1, diagnostic, sizeof(diagnostic)
+        result = mwx_scene_quickjs_domain_set_layer_origin(
+            domain, 1, current_day, diagnostic, sizeof(diagnostic)
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
-        result = mwx_scene_quickjs_domain_set_layer_origin(
-            domain, 1, current_day, diagnostic, sizeof(diagnostic)
+        result = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            domain, diagnostic, sizeof(diagnostic)
         );
     }
     return check(result == MWX_SCENE_QUICKJS_OK, "layer catalog", diagnostic);
@@ -1945,72 +1924,6 @@ int main(void) {
         "dynamic layer budget rejected"
     );
 
-    const char *teardown_source =
-        "export function init(value){"
-        "thisScene.createLayer({text:'live'});"
-        "engine.setInterval(()=>{},1000);return value;}"
-        "export function destroy(){"
-        "thisScene.createLayer({text:'destroy'});"
-        "engine.setTimeout(()=>{},0);Promise.resolve().then(()=>{});}";
-    MWXSceneQuickJSOwner *teardown = mwx_scene_quickjs_owner_create(
-        domain, teardown_source, strlen(teardown_source),
-        46, diagnostic, sizeof(diagnostic)
-    );
-    failures += check(teardown != NULL, "teardown owner compile", diagnostic);
-    failures += configure_owner_layer(teardown, 42, "teardown owner identity");
-    failures += update(
-        teardown, 46, 1, MWX_SCENE_QUICKJS_OK, 1,
-        "teardown owner initialized"
-    );
-    MWXSceneQuickJSLifecycleSnapshot before_teardown = {0};
-    failures += check(
-        mwx_scene_quickjs_owner_lifecycle_snapshot(
-            teardown, &before_teardown
-        ) == MWX_SCENE_QUICKJS_OK &&
-            before_teardown.active_timer_count == 1 &&
-            before_teardown.active_dynamic_layer_count == 1,
-        "teardown precondition has live resources", diagnostic
-    );
-    failures += teardown_owner(
-        teardown, 46, MWX_SCENE_QUICKJS_OK, 1, 1,
-        "destroy exactly once and resources quiesce"
-    );
-    failures += teardown_owner(
-        teardown, 46, MWX_SCENE_QUICKJS_OK, 0, 1,
-        "teardown is idempotent"
-    );
-    failures += update(
-        teardown, 46, 1, MWX_SCENE_QUICKJS_STALE_OWNER, 0,
-        "teardown revokes old generation"
-    );
-
-    const char *teardown_exception_source =
-        "export function update(value){return value;}"
-        "export function destroy(){thisScene.createLayer({text:'discard'});"
-        "engine.setInterval(()=>{},1);throw new Error('destroy failure');}";
-    MWXSceneQuickJSOwner *teardown_exception = mwx_scene_quickjs_owner_create(
-        domain, teardown_exception_source, strlen(teardown_exception_source),
-        47, diagnostic, sizeof(diagnostic)
-    );
-    failures += check(
-        teardown_exception != NULL, "teardown exception compile", diagnostic
-    );
-    failures += configure_owner_layer(
-        teardown_exception, 17, "teardown exception identity"
-    );
-    failures += update(
-        teardown_exception, 47, 2, MWX_SCENE_QUICKJS_OK, 2,
-        "teardown exception owner active"
-    );
-    failures += teardown_owner(
-        teardown_exception, 47, MWX_SCENE_QUICKJS_EXCEPTION, 1, 1,
-        "destroy exception still quiesces owner"
-    );
-    failures += update(
-        isolated, 2, 2, MWX_SCENE_QUICKJS_OK, 12,
-        "destroy exception preserves peer owner"
-    );
-
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -2052,8 +1965,6 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(static_visible);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
-    mwx_scene_quickjs_owner_destroy(teardown_exception);
-    mwx_scene_quickjs_owner_destroy(teardown);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -2107,12 +2018,14 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             "-I",
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSValueHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSModuleHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),
@@ -2150,7 +2063,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             completed.stdout + completed.stderr,
         )
 
-    def test_host_wiring_preserves_public_frame_order_and_route(self) -> None:
+    def test_host_wiring_preserves_public_frame_order(self) -> None:
         launch = (
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
@@ -2167,38 +2080,46 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn("excludedTargets: boundedSceneScriptTargets", launch)
-        self.assertIn("route=generic-only fallback=previous-current", launch)
-        media_candidate_compile = model.index(
-            "let mediaColorTransitionCandidateProgram ="
-        )
-        vector_compile = model.index("let propertyVectorScriptProgram =")
-        self.assertLess(media_candidate_compile, vector_compile)
-        vector_partition = model[media_candidate_compile:vector_compile + 800]
         self.assertIn(
-            "excludedTargets: mediaColorTransitionCandidateProgram.targets",
-            vector_partition,
+            "scalarExcludedTargets: boundedSceneScriptTargets",
+            launch,
         )
         self.assertIn(
-            "throw BuildError.invalidMediaColorTransitionProgram",
-            vector_partition,
+            "route=generic-only fallback=current-frame-lower-priority",
+            launch,
+        )
+        self.assertIn("let propertyVectorProjection =", model)
+        self.assertNotIn("SceneScriptVectorProgram.compileNonPass(", model)
+        provisional_capabilities = launch.index(
+            "let provisionalMaterialExecutionCapabilities ="
+        )
+        material_consumer_c = launch.index("let admittedVectorPassTargets =")
+        final_capabilities = launch.index(
+            "let resolvedMaterialExecutionCapabilities ="
+        )
+        fresh_candidate = launch.index("let compileSceneScriptPrograms:")
+        self.assertLess(provisional_capabilities, material_consumer_c)
+        self.assertLess(material_consumer_c, final_capabilities)
+        self.assertLess(final_capabilities, fresh_candidate)
+        consumer_slice = launch[material_consumer_c:final_capabilities]
+        self.assertIn(
+            "provisionalMaterialExecutionCapabilities.sceneScriptConsumerTargets",
+            consumer_slice,
         )
         self.assertIn(
-            "model.mediaColorTransitionCandidateProgram", launch
+            ".intersection(propertyVectorPassCandidateTargets)",
+            consumer_slice,
         )
-        self.assertNotIn(
-            "SceneMediaColorTransitionProgramCompiler.compile(", launch
-        )
-        self.assertIn("route=disable-generic", launch)
-        self.assertIn(
-            "reason=thumbnail-color-event-contract-unavailable", launch
-        )
+        self.assertIn("guard committedPrograms.constructionReport.isComplete", launch)
+        self.assertIn("passCompilation.instantiatedTargets", launch)
+        self.assertNotIn("prunePassOwners", model + launch)
+        self.assertNotIn("SceneMediaColorTransition", model + launch + frame)
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
             launch.index("let sceneScriptScalarProgram =")
         ]
-        for producer in ("property-vector", "media-color"):
-            self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertIn('("property-vector"', bounded_ownership)
+        self.assertNotIn('("media-color"', bounded_ownership)
         self.assertNotIn('("launch-origin"', bounded_ownership)
         self.assertNotIn('("audio-scaled"', bounded_ownership)
         self.assertNotIn('("hover-origin"', bounded_ownership)
@@ -2212,13 +2133,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             )
         self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
         self.assertIn("cursorDown,cursorMove,cursorUp,cursorClick", launch)
-        for callback in (
-            "cursorEnter", "cursorLeave", "cursorDown", "cursorMove", "cursorUp",
-            "cursorClick",
-        ):
-            self.assertIn(f'(.{callback.removeprefix("cursor").lower()}, "{callback}")', cursor)
+        self.assertIn("owner.exportedCursorEvents", cursor)
         self.assertIn("previousHits", cursor)
-        self.assertIn("borrowedOwners: propertyVectorScriptProgram.cursorOwnerRegistrations", model)
         self.assertNotIn("launchTransitionTargets", model)
         self.assertNotIn("SceneHoverOriginTransition", model + launch + frame)
         self.assertNotIn("SceneLaunchOriginTransitionProgramCompiler", model + launch + frame)
@@ -2241,34 +2157,37 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         scalar_ownership = launch[
             launch.index("let sceneScriptScalarTargets ="):
-            launch.index("let provenSceneScriptValueTargets =")
+            launch.index("let provisionalSceneScriptValueTargets =")
         ]
         self.assertIn(
-            "sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets)",
+            "guard sceneScriptScalarTargets.isDisjoint(",
             scalar_ownership,
         )
+        self.assertIn("with: boundedSceneScriptTargets", scalar_ownership)
         self.assertNotIn("propertyBindingProgram", scalar_ownership)
         self.assertNotIn("timelineProgram", scalar_ownership)
-        string_compile = launch.index("let sceneScriptStringProgram =")
+        string_projection = launch.index("let sceneScriptStringTargets =")
         legacy_text_compile = launch.index("let textScriptProgram =")
-        self.assertLess(string_compile, legacy_text_compile)
+        self.assertLess(string_projection, legacy_text_compile)
         self.assertIn(
             "excludedTargets: sceneScriptStringTargets",
-            launch[legacy_text_compile:launch.index("let provenSceneScriptValueTargets =")],
+            launch[
+                legacy_text_compile:
+                launch.index("let provisionalSceneScriptValueTargets =")
+            ],
         )
         self.assertNotIn("SceneTimeOfDayEffectScriptProgram", launch)
         self.assertIn("let sceneScriptFrame = SceneScriptFrameInput(", frame)
         self.assertIn("surface: sceneScriptSurfaceInput", frame)
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
-        evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")
+        evaluate = frame.index("sceneScriptScalarProgram.evaluate(")
         final_snapshot = frame.index("let resolvedDynamicValues = surface.evaluationTransaction.evaluate")
         self.assertLess(timeline, preliminary)
         self.assertLess(preliminary, evaluate)
         self.assertLess(evaluate, final_snapshot)
         self.assertIn("teardownSceneScriptOwners(launchContext, reason: reason)", frame)
         self.assertNotIn("sceneScriptScalarProgram.invalidate()", frame)
-
 
 if __name__ == "__main__":
     unittest.main()

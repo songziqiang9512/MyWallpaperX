@@ -11,6 +11,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
     let hasAudioRegistration: Bool
+    let handlesMediaThumbnail: Bool
+    let handlesMediaPlayback: Bool
+    let exportedCursorEvents: Set<SceneScriptCursorEventKind>
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -34,16 +37,28 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         self.generation = generation
         self.budget = budget
         self.valueType = valueType
+        try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
+        var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created = source.withCString {
-            mwx_scene_quickjs_owner_create(
+            mwx_scene_quickjs_owner_create_with_budget(
                 domain.handle, $0, source.utf8.count, generation,
+                budget.interruptBudget, &creationResult,
                 &diagnostic, diagnostic.count
             )
         }
-        guard let created else {
-            throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
+        do {
+            try domain.checkConstructionBoundary()
+        } catch {
+            if let created { mwx_scene_quickjs_owner_destroy(created) }
+            throw error
         }
+        guard let created else {
+            throw Self.failure(creationResult, diagnostic)
+        }
+        var handlesMediaThumbnail = false
+        var handlesMediaPlayback = false
+        var exportedCursorEvents: Set<SceneScriptCursorEventKind> = []
         do {
             guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
@@ -67,12 +82,28 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 owner: created,
                 hasCurrentAnimation: hasCurrentAnimation
             )
+            handlesMediaThumbnail = try SceneScriptOwnerExportBridge.contains(
+                "mediaThumbnailChanged", owner: created
+            )
+            handlesMediaPlayback = try SceneScriptOwnerExportBridge.contains(
+                "mediaPlaybackChanged", owner: created
+            )
+            for event in SceneScriptCursorEventKind.allCases {
+                if try SceneScriptOwnerExportBridge.contains(
+                    event.callbackName, owner: created
+                ) {
+                    exportedCursorEvents.insert(event)
+                }
+            }
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         handle = created
         hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        self.handlesMediaThumbnail = handlesMediaThumbnail
+        self.handlesMediaPlayback = handlesMediaPlayback
+        self.exportedCursorEvents = exportedCursorEvents
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }
@@ -251,23 +282,6 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
-    }
-
-    func exports(_ name: String) -> Bool {
-        guard !name.isEmpty, name.utf8.count <= 128 else { return false }
-        var available: UInt32 = 0
-        var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = name.withCString {
-            mwx_scene_quickjs_owner_has_function(
-                handle,
-                $0,
-                name.utf8.count,
-                &available,
-                &diagnostic,
-                diagnostic.count
-            )
-        }
-        return result == MWX_SCENE_QUICKJS_OK && available == 1
     }
 
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }

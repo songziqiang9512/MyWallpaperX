@@ -165,7 +165,11 @@ let cleared = waitFor(store, generation: 6)
 
 let eventInbox = SceneMediaThumbnailInbox()
 let primaryColor = SIMD3(0.125, 0.5, 1.0)
-let replacementColor = SIMD3(0.75, 0.25, 0.5)
+let secondaryColor = SIMD3(0.75, 0.25, 0.5)
+let tertiaryColor = SIMD3(0.2, 0.4, 0.6)
+let textColor = SIMD3(0.9, 0.8, 0.7)
+let highContrastColor = SIMD3(1.0, 1.0, 1.0)
+let replacementColor = SIMD3(0.05, 0.15, 0.25)
 let eventInitial = eventInbox.latest()
 let propertiesAccepted = eventInbox.publishMediaProperties(
     title: "Fixture Song",
@@ -196,33 +200,48 @@ let oversizedPropertyRejected = !eventInbox.publishMediaProperties(
     artist: "Replacement Artist"
 )
 let afterInvalidProperties = eventInbox.latest()
-let imageColorAccepted = eventInbox.publish(a, secondaryColor: primaryColor)
+let imageColorAccepted = eventInbox.publish(
+    a,
+    primaryColor: primaryColor,
+    secondaryColor: secondaryColor,
+    tertiaryColor: tertiaryColor,
+    textColor: textColor,
+    highContrastColor: highContrastColor
+)
 let afterImageColor = eventInbox.latest()
 let duplicateImageColorAccepted = eventInbox.publish(
     a,
-    secondaryColor: primaryColor
+    primaryColor: primaryColor,
+    secondaryColor: secondaryColor,
+    tertiaryColor: tertiaryColor,
+    textColor: textColor,
+    highContrastColor: highContrastColor
 )
 let afterDuplicateImageColor = eventInbox.latest()
 let replacementColorAccepted = eventInbox.publish(
     a,
-    secondaryColor: replacementColor
+    primaryColor: primaryColor,
+    secondaryColor: secondaryColor,
+    tertiaryColor: replacementColor,
+    textColor: textColor,
+    highContrastColor: highContrastColor
 )
 let afterReplacementColor = eventInbox.latest()
 let nanColorRejected = !eventInbox.publish(
     b,
-    secondaryColor: SIMD3(.nan, 0.25, 0.5)
+    primaryColor: SIMD3(.nan, 0.25, 0.5)
 )
 let negativeColorRejected = !eventInbox.publish(
     b,
-    secondaryColor: SIMD3(-0.01, 0.25, 0.5)
+    textColor: SIMD3(-0.01, 0.25, 0.5)
 )
 let oversizedColorRejected = !eventInbox.publish(
     b,
-    secondaryColor: SIMD3(0.75, 1.01, 0.5)
+    highContrastColor: SIMD3(0.75, 1.01, 0.5)
 )
 let emptyImageWithColorRejected = !eventInbox.publish(
     Data(),
-    secondaryColor: replacementColor
+    tertiaryColor: replacementColor
 )
 let afterInvalidColors = eventInbox.latest()
 let playbackAccepted = eventInbox.publishPlaybackState(1)
@@ -234,7 +253,14 @@ let afterPaused = eventInbox.latest()
 let negativePlaybackRejected = !eventInbox.publishPlaybackState(-1)
 let oversizedPlaybackRejected = !eventInbox.publishPlaybackState(3)
 let afterInvalidPlayback = eventInbox.latest()
-let nextImageAccepted = eventInbox.publish(b, secondaryColor: primaryColor)
+let nextImageAccepted = eventInbox.publish(
+    b,
+    primaryColor: primaryColor,
+    secondaryColor: secondaryColor,
+    tertiaryColor: tertiaryColor,
+    textColor: textColor,
+    highContrastColor: highContrastColor
+)
 let afterNextImage = eventInbox.latest()
 eventInbox.clear()
 let afterEventClear = eventInbox.latest()
@@ -314,13 +340,23 @@ let result: [String: Any] = [
         afterImageColor.properties == afterArtistChange.properties
         && afterImageColor.propertiesGeneration
             == afterArtistChange.propertiesGeneration,
-    "imageColorExact": afterImageColor.secondaryColor == primaryColor,
+    "imageColorExact":
+        afterImageColor.primaryColor == primaryColor
+        && afterImageColor.secondaryColor == secondaryColor
+        && afterImageColor.tertiaryColor == tertiaryColor
+        && afterImageColor.textColor == textColor
+        && afterImageColor.highContrastColor == highContrastColor,
     "duplicateImageColorAccepted": duplicateImageColorAccepted,
     "duplicateImageColorGenerationStable":
         afterDuplicateImageColor.generation == afterImageColor.generation,
     "replacementColorAccepted": replacementColorAccepted,
     "replacementColorGeneration": afterReplacementColor.generation,
-    "replacementColorExact": afterReplacementColor.secondaryColor == replacementColor,
+    "replacementColorExact":
+        afterReplacementColor.primaryColor == primaryColor
+        && afterReplacementColor.secondaryColor == secondaryColor
+        && afterReplacementColor.tertiaryColor == replacementColor
+        && afterReplacementColor.textColor == textColor
+        && afterReplacementColor.highContrastColor == highContrastColor,
     "nanColorRejected": nanColorRejected,
     "negativeColorRejected": negativeColorRejected,
     "oversizedColorRejected": oversizedColorRejected,
@@ -345,7 +381,12 @@ let result: [String: Any] = [
     "nextImagePreservesPlaybackGeneration":
         afterNextImage.playbackGeneration == afterPaused.playbackGeneration,
     "eventClearGeneration": afterEventClear.generation,
-    "eventClearColorIsZero": afterEventClear.secondaryColor == .zero,
+    "eventClearColorIsZero":
+        afterEventClear.primaryColor == .zero
+        && afterEventClear.secondaryColor == .zero
+        && afterEventClear.tertiaryColor == .zero
+        && afterEventClear.textColor == .zero
+        && afterEventClear.highContrastColor == .zero,
     "eventClearPreservesPlayback":
         afterEventClear.playbackState == afterPaused.playbackState
         && afterEventClear.playbackGeneration == afterPaused.playbackGeneration,

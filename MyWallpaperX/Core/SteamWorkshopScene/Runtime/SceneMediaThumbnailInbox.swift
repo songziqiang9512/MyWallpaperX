@@ -14,6 +14,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         let current: Data?
         let primaryColor: SIMD3<Double>?
         let secondaryColor: SIMD3<Double>?
+        let tertiaryColor: SIMD3<Double>?
+        let textColor: SIMD3<Double>?
+        let highContrastColor: SIMD3<Double>?
         let generation: UInt64
         let playbackState: Int?
         let playbackGeneration: UInt64
@@ -24,6 +27,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             current: Data?,
             primaryColor: SIMD3<Double>? = nil,
             secondaryColor: SIMD3<Double>?,
+            tertiaryColor: SIMD3<Double>? = nil,
+            textColor: SIMD3<Double>? = nil,
+            highContrastColor: SIMD3<Double>? = nil,
             generation: UInt64,
             playbackState: Int?,
             playbackGeneration: UInt64,
@@ -33,6 +39,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             self.current = current
             self.primaryColor = primaryColor
             self.secondaryColor = secondaryColor
+            self.tertiaryColor = tertiaryColor
+            self.textColor = textColor
+            self.highContrastColor = highContrastColor
             self.generation = generation
             self.playbackState = playbackState
             self.playbackGeneration = playbackGeneration
@@ -69,24 +78,39 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
     func publish(
         _ encodedImage: Data,
         primaryColor: SIMD3<Double>? = nil,
-        secondaryColor: SIMD3<Double>? = nil
+        secondaryColor: SIMD3<Double>? = nil,
+        tertiaryColor: SIMD3<Double>? = nil,
+        textColor: SIMD3<Double>? = nil,
+        highContrastColor: SIMD3<Double>? = nil
     ) -> Bool {
         guard !encodedImage.isEmpty,
               encodedImage.count <= Self.maximumEncodedByteCount,
               primaryColor.map(Self.isNormalizedColor) != false,
-              secondaryColor.map(Self.isNormalizedColor) != false else {
+              secondaryColor.map(Self.isNormalizedColor) != false,
+              tertiaryColor.map(Self.isNormalizedColor) != false,
+              textColor.map(Self.isNormalizedColor) != false,
+              highContrastColor.map(Self.isNormalizedColor) != false else {
             return false
         }
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
         guard snapshot.current != encodedImage
                 || snapshot.primaryColor != primaryColor
-                || snapshot.secondaryColor != secondaryColor else { return true }
+                || snapshot.secondaryColor != secondaryColor
+                || snapshot.tertiaryColor != tertiaryColor
+                || snapshot.textColor != textColor
+                || snapshot.highContrastColor != highContrastColor else {
+            return true
+        }
+        guard snapshot.generation < .max else { return false }
         snapshot = Snapshot(
             current: encodedImage,
             primaryColor: primaryColor,
             secondaryColor: secondaryColor,
-            generation: snapshot.generation &+ 1,
+            tertiaryColor: tertiaryColor,
+            textColor: textColor,
+            highContrastColor: highContrastColor,
+            generation: snapshot.generation + 1,
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: snapshot.properties,
@@ -101,13 +125,17 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
         guard snapshot.playbackState != state else { return true }
+        guard snapshot.playbackGeneration < .max else { return false }
         snapshot = Snapshot(
             current: snapshot.current,
             primaryColor: snapshot.primaryColor,
             secondaryColor: snapshot.secondaryColor,
+            tertiaryColor: snapshot.tertiaryColor,
+            textColor: snapshot.textColor,
+            highContrastColor: snapshot.highContrastColor,
             generation: snapshot.generation,
             playbackState: state,
-            playbackGeneration: snapshot.playbackGeneration &+ 1,
+            playbackGeneration: snapshot.playbackGeneration + 1,
             properties: snapshot.properties,
             propertiesGeneration: snapshot.propertiesGeneration
         )
@@ -124,15 +152,19 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
         guard snapshot.properties != properties else { return true }
+        guard snapshot.propertiesGeneration < .max else { return false }
         snapshot = Snapshot(
             current: snapshot.current,
             primaryColor: snapshot.primaryColor,
             secondaryColor: snapshot.secondaryColor,
+            tertiaryColor: snapshot.tertiaryColor,
+            textColor: snapshot.textColor,
+            highContrastColor: snapshot.highContrastColor,
             generation: snapshot.generation,
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: properties,
-            propertiesGeneration: snapshot.propertiesGeneration &+ 1
+            propertiesGeneration: snapshot.propertiesGeneration + 1
         )
         return true
     }
@@ -140,12 +172,15 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
     func clear() {
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
-        guard snapshot.current != nil else { return }
+        guard snapshot.current != nil, snapshot.generation < .max else { return }
         snapshot = Snapshot(
             current: nil,
             primaryColor: .zero,
             secondaryColor: .zero,
-            generation: snapshot.generation &+ 1,
+            tertiaryColor: .zero,
+            textColor: .zero,
+            highContrastColor: .zero,
+            generation: snapshot.generation + 1,
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: snapshot.properties,

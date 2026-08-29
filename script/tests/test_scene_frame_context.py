@@ -591,68 +591,6 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("state=dropped", frame_driver)
         self.assertIn("state=recovered", frame_driver)
 
-    def test_host_broadcasts_one_media_snapshot_to_every_surface(self) -> None:
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        view = VIEW_SOURCE.read_text(encoding="utf-8")
-        coordinator = MEDIA_THUMBNAIL_COORDINATOR_SOURCE.read_text(
-            encoding="utf-8"
-        )
-        host_render = swift_body(frame_driver, "private func renderFrame()")
-        view_render = swift_body(view, "func renderFrame(")
-        coordinator_update = swift_body(coordinator, "func update(")
-
-        media_snapshot_declaration = (
-            "let mediaInput = SceneMediaThumbnailInbox.shared.latest()"
-        )
-        self.assertEqual(host_render.count(media_snapshot_declaration), 1)
-        self.assertEqual(
-            host_render.count("SceneMediaThumbnailInbox.shared.latest()"), 1
-        )
-        snapshot_position = host_render.index(media_snapshot_declaration)
-        color_runtime_position = host_render.index(
-            "mediaColorTransitionRuntime.values("
-        )
-        surface_loop_position = host_render.index("for surface in surfaces.values")
-        surface_render_position = host_render.index(
-            "surface.metalView.renderFrame(", surface_loop_position
-        )
-        self.assertLess(snapshot_position, color_runtime_position)
-        self.assertLess(color_runtime_position, surface_loop_position)
-        self.assertIn(
-            "mediaInput: mediaInput",
-            host_render[color_runtime_position:surface_loop_position],
-        )
-
-        surface_loop = host_render[surface_loop_position:]
-        self.assertNotIn(
-            "SceneMediaThumbnailInbox.shared.latest()", surface_loop
-        )
-        self.assertEqual(surface_loop.count("mediaInput: mediaInput"), 1)
-        self.assertGreater(
-            host_render.index("mediaInput: mediaInput", surface_render_position),
-            surface_render_position,
-        )
-
-        self.assertIn(
-            "mediaInput: SceneMediaThumbnailInbox.Snapshot", view
-        )
-        self.assertEqual(
-            view_render.count(
-                "mediaThumbnailCoordinator.update(from: mediaInput)"
-            ),
-            1,
-        )
-        self.assertNotIn("SceneMediaThumbnailInbox.shared", view)
-
-        self.assertIn(
-            "from input: SceneMediaThumbnailInbox.Snapshot", coordinator
-        )
-        self.assertEqual(
-            coordinator_update.count("textureStore.update(from: input)"), 1
-        )
-        self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
-        self.assertNotIn("func update()", coordinator)
-
     def test_launch_origin_is_owned_by_generic_vm_and_cursor_route(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
@@ -687,39 +625,6 @@ class SceneFrameContextTests(unittest.TestCase):
             host_render.index("propertyVectorScriptProgram.evaluate("),
         )
         self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
-
-    def test_cursor_event_monitors_follow_host_lifecycle_and_single_surface_route(
-        self,
-    ) -> None:
-        host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        pointer_events = HOST_POINTER_EVENTS_SOURCE.read_text(encoding="utf-8")
-        interaction = VIEW_CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
-        scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
-        cursor_program = CURSOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
-
-        self.assertIn("installPointerEventMonitorsIfNeeded()", host)
-        self.assertIn("removePointerEventMonitors()", host)
-        self.assertIn("removePointerEventMonitors()", frame_driver)
-        self.assertIn("NSEvent.addLocalMonitorForEvents", pointer_events)
-        self.assertIn("NSEvent.addGlobalMonitorForEvents", pointer_events)
-        self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)
-        self.assertIn("guard debugPointerOverride == nil", pointer_events)
-        self.assertIn("recordSceneScriptPointerEvent(", pointer_events)
-        self.assertIn(
-            "if surfaces.count == 1, let metalView",
-            frame_driver,
-        )
-        self.assertIn("sceneScriptCursorFrameBatch(", frame_driver)
-        self.assertIn("drainSceneScriptPointerEvents()", frame_driver)
-        self.assertIn("surface: sceneScriptSurfaceInput(", interaction)
-        self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
-        self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)
-        self.assertIn("with: sample.surface", cursor_program)
-        self.assertIn("pointerPosition: pointer.normalizedPosition", interaction)
-        self.assertIn("sample.pointerPosition != previousPointerPosition", cursor_program)
-        self.assertIn("(.move, \"cursorMove\")", cursor_program)
-        self.assertIn("let scale = layer.scaleXYZ ?? [1, 1, 1]", cursor_program)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

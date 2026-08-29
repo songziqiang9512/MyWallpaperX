@@ -223,7 +223,9 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
-    def test_properties_change_selects_shared_alpha_and_media_contracts(self) -> None:
+    def test_properties_change_selects_shared_alpha_and_generic_vector_contracts(
+        self,
+    ) -> None:
         gates, groups = verify.build_plan(
             [
                 "MyWallpaperX/Core/SteamWorkshopScene/Properties/"
@@ -236,7 +238,32 @@ class SceneValidationSelectionTests(unittest.TestCase):
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
             "test_scene_shared_layer_alpha_transition",
-            "test_scene_media_color_transition",
+            "test_scene_property_vector_script",
+            "test_scene_vector_media_events",
+            "test_scene_vector_owner_admission",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, focused.command)
+
+    def test_scene_script_change_selects_split_vm_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/"
+                "SceneQuickJSValueHost.c"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-script-runtime", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        for module in (
+            "test_scene_frame_vm_routing",
+            "test_scene_property_vector_script",
+            "test_scene_quickjs_layer_snapshot_atomicity",
+            "test_scene_script_quickjs",
+            "test_scene_script_quickjs_media_lifecycle",
+            "test_scene_vector_media_events",
+            "test_scene_vector_owner_admission",
         ):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
@@ -530,6 +557,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertEqual(gates[0].gate_id, "focused-tests")
         self.assertNotIn("scene-all-tests", [gate.gate_id for gate in gates])
         self.assertIn("test_scene_wallpaper_benchmark", gates[0].command)
+        self.assertIn("test_scene_wallpaper_benchmark_media_event", gates[0].command)
+        self.assertIn("test_scene_frame_vm_routing", gates[0].command)
         self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
 
     def test_milestone_runs_complete_scene_regression_suite(self) -> None:

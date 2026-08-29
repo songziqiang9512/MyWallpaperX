@@ -816,31 +816,6 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     );
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
-    MWXSceneQuickJSDomain *domain, uint32_t layer_index,
-    const double scale[3], const double angles[3], uint32_t visible, double alpha,
-    const char *text, size_t text_length, const char *font, size_t font_length,
-    double point_size, const double color[3], char *diagnostic, size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->callback_active || layer_index >= domain->authored_layer_count ||
-        !domain->layers[layer_index].configured || scale == NULL || angles == NULL || color == NULL ||
-        text == NULL || font == NULL || text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
-        font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT || !isfinite(alpha) || !isfinite(point_size))
-        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (size_t i = 0; i < 3; ++i)
-        if (!isfinite(scale[i]) || !isfinite(angles[i]) || !isfinite(color[i]))
-            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    char *text_copy = copy_string(text, text_length);
-    char *font_copy = copy_string(font, font_length);
-    if (text_copy == NULL || font_copy == NULL) { free(text_copy); free(font_copy); return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED; }
-    MWXSceneQuickJSLayerRecord *record = &domain->layers[layer_index];
-    free(record->text); free(record->font); record->text = text_copy; record->font = font_copy;
-    memcpy(record->scale, scale, sizeof(record->scale)); memcpy(record->angles, angles, sizeof(record->angles));
-    memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0;
-    record->alpha = alpha; record->point_size = point_size; return MWX_SCENE_QUICKJS_OK;
-}
-
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     MWXSceneQuickJSOwner *owner, int64_t layer_id,
     char *diagnostic, size_t diagnostic_capacity
@@ -854,30 +829,4 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
             return MWX_SCENE_QUICKJS_OK;
         }
     return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-}
-
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
-    MWXSceneQuickJSDomain *domain, uint64_t generation,
-    char *diagnostic, size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->callback_active || generation == 0 || generation <= domain->layer_snapshot_generation)
-        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (uint32_t index = 0; index < domain->authored_layer_count; ++index)
-        if (domain->layers[index].configured)
-            memcpy(domain->layers[index].current_origin, domain->layers[index].authored_origin,
-                   sizeof(domain->layers[index].current_origin));
-    domain->layer_snapshot_generation = generation; return MWX_SCENE_QUICKJS_OK;
-}
-
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_origin(
-    MWXSceneQuickJSDomain *domain, uint32_t layer_index, const double origin[3],
-    char *diagnostic, size_t diagnostic_capacity
-) {
-    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || layer_index >= domain->authored_layer_count || origin == NULL ||
-        domain->layer_snapshot_generation == 0 || domain->callback_active) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    for (size_t i = 0; i < 3; ++i) if (!isfinite(origin[i])) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
-    memcpy(domain->layers[layer_index].current_origin, origin, sizeof(domain->layers[layer_index].current_origin));
-    return MWX_SCENE_QUICKJS_OK;
 }

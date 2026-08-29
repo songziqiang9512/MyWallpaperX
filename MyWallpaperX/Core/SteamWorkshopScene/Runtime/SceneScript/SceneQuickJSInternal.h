@@ -21,6 +21,7 @@
 #define MWX_SCENE_QUICKJS_MAX_TIMERS 32
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
 #define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
+#define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -48,6 +49,19 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool dirty;
     bool configured;
 } MWXSceneQuickJSLayerRecord;
+
+typedef struct MWXSceneQuickJSStagedLayerSnapshot {
+    char *text;
+    char *font;
+    double current_origin[3];
+    double scale[3];
+    double angles[3];
+    double color[3];
+    double alpha;
+    double point_size;
+    bool visible;
+    bool runtime_fields_staged;
+} MWXSceneQuickJSStagedLayerSnapshot;
 
 typedef struct MWXSceneQuickJSAudioRegistration {
     uint32_t resolution;
@@ -77,13 +91,23 @@ struct MWXSceneQuickJSDomain {
     JSContext *context;
     JSValue vec3_constructor;
     JSValue deep_freeze;
+    JSValue script_property_assigner;
+    JSValue active_engine;
+    JSValue active_layer;
+    JSValue active_scene;
+    JSValue active_object;
     JSClassID layer_handle_class_id;
     uint64_t interrupt_budget;
+    uint64_t owner_creation_budget;
     bool interrupted;
+    MWXSceneQuickJSCancellationCheck cancellation_check;
+    void *cancellation_opaque;
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
     uint64_t layer_snapshot_generation;
+    MWXSceneQuickJSStagedLayerSnapshot *pending_layer_snapshot;
+    uint64_t pending_layer_snapshot_generation;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;
@@ -150,6 +174,13 @@ void mwx_scene_quickjs_write_exception(
     size_t capacity
 );
 
+bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain);
+bool mwx_scene_quickjs_install_active_engine_host(
+    MWXSceneQuickJSDomain *domain
+);
+bool mwx_scene_quickjs_install_owner_handle_globals(
+    MWXSceneQuickJSDomain *domain
+);
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain);
@@ -168,6 +199,15 @@ bool mwx_scene_quickjs_restore_owner_handles(
     JSValue previous_layer,
     JSValue previous_scene,
     JSValue previous_object
+);
+bool mwx_scene_quickjs_bind_active_engine(
+    MWXSceneQuickJSDomain *domain,
+    JSValue engine,
+    JSValue *previous_engine
+);
+bool mwx_scene_quickjs_restore_active_engine(
+    MWXSceneQuickJSDomain *domain,
+    JSValue previous_engine
 );
 bool mwx_scene_quickjs_bind_frame_engine_host(
     MWXSceneQuickJSOwner *owner,

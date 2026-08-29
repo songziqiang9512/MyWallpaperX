@@ -1,15 +1,73 @@
 import Foundation
 
+private nonisolated final class SceneScriptQuickJSCancellationCheckBox:
+    @unchecked Sendable {
+    let check: @Sendable () throws -> Void
+
+    init(check: @escaping @Sendable () throws -> Void) {
+        self.check = check
+    }
+}
+
+private nonisolated func sceneScriptQuickJSCancellationCheck(
+    _ opaque: UnsafeMutableRawPointer?
+) -> CInt {
+    guard let opaque else { return 0 }
+    let box = Unmanaged<SceneScriptQuickJSCancellationCheckBox>
+        .fromOpaque(opaque).takeUnretainedValue()
+    do {
+        try box.check()
+        return 0
+    } catch {
+        return 1
+    }
+}
+
 nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let heapBytes: Int
     let stackBytes: Int
     let interruptBudget: UInt64
+    let maximumOwnerSourceBytes: Int
+    let maximumCandidateSourceBytes: Int
 
     static let `default` = SceneScriptScalarBudget(
         heapBytes: 2 * 1024 * 1024,
         stackBytes: 512 * 1024,
-        interruptBudget: 100_000
+        interruptBudget: 100_000,
+        maximumOwnerSourceBytes: 256 * 1024,
+        maximumCandidateSourceBytes: 2 * 1024 * 1024
     )
+
+    /// UTF-8 source is charged once per projected owner. Identical source text
+    /// used by distinct owners is charged repeatedly because each owner causes
+    /// independent module construction; retry work has a separate candidate cap.
+    func candidateSourceFailure(
+        _ sources: [String]
+    ) -> SceneScriptScalarRuntimeFailure? {
+        guard maximumOwnerSourceBytes > 0,
+              maximumCandidateSourceBytes > 0 else {
+            return .budgetExceeded("SceneScript candidate source budget is invalid")
+        }
+        var aggregateBytes = 0
+        for source in sources {
+            let sourceBytes = source.utf8.count
+            guard sourceBytes <= maximumOwnerSourceBytes else {
+                return .budgetExceeded(
+                    "SceneScript owner source exceeds UTF-8 byte budget"
+                )
+            }
+            let (nextBytes, overflow) = aggregateBytes.addingReportingOverflow(
+                sourceBytes
+            )
+            guard !overflow, nextBytes <= maximumCandidateSourceBytes else {
+                return .budgetExceeded(
+                    "SceneScript candidate aggregate source exceeds UTF-8 byte budget"
+                )
+            }
+            aggregateBytes = nextBytes
+        }
+        return nil
+    }
 }
 
 nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {
@@ -117,6 +175,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let authoredValue: Double
     let hasAudioRegistration: Bool
+    let handlesMediaThumbnail: Bool
+    let handlesMediaPlayback: Bool
     private let scriptPropertiesJSON: String
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
@@ -149,23 +209,35 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         self.scriptPropertiesJSON = scriptPropertiesJSON
         self.generation = generation
         self.budget = budget
+        try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
+        var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created: OpaquePointer? = source.withCString {
-            mwx_scene_quickjs_owner_create(
+            mwx_scene_quickjs_owner_create_with_budget(
                 domain.handle,
                 $0,
                 source.utf8.count,
                 generation,
+                budget.interruptBudget,
+                &creationResult,
                 &diagnostic,
                 diagnostic.count
             )
         }
+        do {
+            try domain.checkConstructionBoundary()
+        } catch {
+            if let created { mwx_scene_quickjs_owner_destroy(created) }
+            throw error
+        }
         guard let created else {
             throw Self.failure(
-                raw: MWX_SCENE_QUICKJS_COMPILE_ERROR,
+                raw: creationResult,
                 diagnostic: Self.diagnostic(diagnostic)
             )
         }
+        var handlesMediaThumbnail = false
+        var handlesMediaPlayback = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             try SceneScriptEffectHandleBridge.configure(
@@ -176,12 +248,20 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 owner: created,
                 hasCurrentAnimation: hasCurrentAnimation
             )
+            handlesMediaThumbnail = try SceneScriptOwnerExportBridge.contains(
+                "mediaThumbnailChanged", owner: created
+            )
+            handlesMediaPlayback = try SceneScriptOwnerExportBridge.contains(
+                "mediaPlaybackChanged", owner: created
+            )
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         self.handle = created
         hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        self.handlesMediaThumbnail = handlesMediaThumbnail
+        self.handlesMediaPlayback = handlesMediaPlayback
     }
 
     deinit {
@@ -402,6 +482,8 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     let budget: SceneScriptScalarBudget
     var layerCatalogSignature: String?
     var layerSnapshotGeneration: UInt64 = 0
+    private var constructionBoundaryCheck: (@Sendable () throws -> Void)?
+    private var constructionCancellationOpaque: UnsafeMutableRawPointer?
 
     init(budget: SceneScriptScalarBudget = .default) throws {
         self.budget = budget
@@ -421,11 +503,41 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     }
 
     deinit {
+        clearConstructionBoundaryCheck()
         mwx_scene_quickjs_domain_destroy(handle)
     }
 
     func resetBudget(_ interruptBudget: UInt64) {
         mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
+    }
+
+    func installConstructionBoundaryCheck(
+        _ check: @escaping @Sendable () throws -> Void
+    ) {
+        clearConstructionBoundaryCheck()
+        constructionBoundaryCheck = check
+        let box = SceneScriptQuickJSCancellationCheckBox(check: check)
+        let opaque = Unmanaged.passRetained(box).toOpaque()
+        constructionCancellationOpaque = opaque
+        mwx_scene_quickjs_domain_set_cancellation_check(
+            handle,
+            sceneScriptQuickJSCancellationCheck,
+            opaque
+        )
+    }
+
+    func clearConstructionBoundaryCheck() {
+        mwx_scene_quickjs_domain_set_cancellation_check(handle, nil, nil)
+        if let constructionCancellationOpaque {
+            Unmanaged<SceneScriptQuickJSCancellationCheckBox>
+                .fromOpaque(constructionCancellationOpaque).release()
+        }
+        constructionCancellationOpaque = nil
+        constructionBoundaryCheck = nil
+    }
+
+    func checkConstructionBoundary() throws {
+        try constructionBoundaryCheck?()
     }
 
     private static func diagnostic(_ buffer: [CChar]) -> String {

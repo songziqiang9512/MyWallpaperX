@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated extension SceneScriptQuickJSDomain {
     func configureLayerRuntimeFields(_ descriptor: SceneRenderDescriptor) throws {
-        try publishLayerRuntimeFields(
+        try publishLayerSnapshot(
             .empty(frameIndex: 0),
             descriptor: descriptor
         )
@@ -51,9 +51,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 }
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                    String(cString: diagnostic)
-                )
+                throw layerSnapshotFailure(result, diagnostic: diagnostic)
             }
         }
     }

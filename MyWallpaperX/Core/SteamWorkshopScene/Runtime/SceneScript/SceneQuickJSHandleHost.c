@@ -17,6 +17,87 @@ typedef struct MWXSceneQuickJSLayerHandle {
     uint64_t callback_epoch;
 } MWXSceneQuickJSLayerHandle;
 
+enum ActiveOwnerHandleKind {
+    ACTIVE_OWNER_HANDLE_LAYER,
+    ACTIVE_OWNER_HANDLE_SCENE,
+    ACTIVE_OWNER_HANDLE_OBJECT,
+};
+
+static JSValue active_owner_handle_getter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    if (domain == NULL) return JS_UNDEFINED;
+    switch ((enum ActiveOwnerHandleKind)magic) {
+    case ACTIVE_OWNER_HANDLE_LAYER:
+        return JS_DupValue(context, domain->active_layer);
+    case ACTIVE_OWNER_HANDLE_SCENE:
+        return JS_DupValue(context, domain->active_scene);
+    case ACTIVE_OWNER_HANDLE_OBJECT:
+        return JS_DupValue(context, domain->active_object);
+    }
+    return JS_UNDEFINED;
+}
+
+bool mwx_scene_quickjs_install_owner_handle_globals(
+    MWXSceneQuickJSDomain *domain
+) {
+    if (domain == NULL || domain->context == NULL) return false;
+    JSContext *context = domain->context;
+    JSValue global = JS_GetGlobalObject(context);
+    if (JS_IsException(global)) return false;
+    const struct {
+        const char *name;
+        enum ActiveOwnerHandleKind kind;
+    } handles[] = {
+        {"thisLayer", ACTIVE_OWNER_HANDLE_LAYER},
+        {"thisScene", ACTIVE_OWNER_HANDLE_SCENE},
+        {"thisObject", ACTIVE_OWNER_HANDLE_OBJECT},
+    };
+    for (size_t index = 0; index < sizeof(handles) / sizeof(handles[0]); ++index) {
+        JSValue getter = JS_NewCFunctionMagic(
+            context,
+            active_owner_handle_getter,
+            handles[index].name,
+            0,
+            JS_CFUNC_generic_magic,
+            handles[index].kind
+        );
+        if (JS_IsException(getter)) {
+            JS_FreeValue(context, global);
+            return false;
+        }
+        JSAtom atom = JS_NewAtom(context, handles[index].name);
+        if (atom == JS_ATOM_NULL) {
+            JS_FreeValue(context, getter);
+            JS_FreeValue(context, global);
+            return false;
+        }
+        int result = JS_DefinePropertyGetSet(
+            context,
+            global,
+            atom,
+            getter,
+            JS_UNDEFINED,
+            JS_PROP_ENUMERABLE
+        );
+        JS_FreeAtom(context, atom);
+        if (result < 0) {
+            JS_FreeValue(context, global);
+            return false;
+        }
+    }
+    JS_FreeValue(context, global);
+    return true;
+}
+
 static bool callback_owns_owner(const MWXSceneQuickJSOwner *owner) {
     return owner != NULL && owner->domain != NULL &&
         owner->domain->callback_active && owner->domain->active_owner == owner;
@@ -224,54 +305,21 @@ bool mwx_scene_quickjs_bind_owner_handles(
     JSValue *previous_scene,
     JSValue *previous_object
 ) {
-    if (owner == NULL || previous_layer == NULL || previous_scene == NULL ||
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->context == NULL ||
+        previous_layer == NULL || previous_scene == NULL ||
         previous_object == NULL ||
         JS_IsUndefined(owner->material_function_layer) ||
         JS_IsUndefined(owner->scene_handle) || JS_IsUndefined(owner->object_handle)) return false;
     JSContext *context = owner->domain->context;
-    JSValue global = JS_GetGlobalObject(context);
-    *previous_layer = JS_GetPropertyStr(context, global, "thisLayer");
-    *previous_scene = JS_GetPropertyStr(context, global, "thisScene");
-    *previous_object = JS_GetPropertyStr(context, global, "thisObject");
-    if (JS_IsException(*previous_layer) || JS_IsException(*previous_scene) ||
-        JS_IsException(*previous_object)) {
-        JS_FreeValue(context, *previous_layer);
-        JS_FreeValue(context, *previous_scene);
-        JS_FreeValue(context, *previous_object);
-        JS_FreeValue(context, global);
-        return false;
-    }
-    if (JS_SetPropertyStr(
-            context, global, "thisLayer",
-            JS_DupValue(context, owner->material_function_layer)
-        ) < 0) {
-        JS_FreeValue(context, *previous_layer);
-        JS_FreeValue(context, *previous_scene);
-        JS_FreeValue(context, *previous_object);
-        JS_FreeValue(context, global);
-        return false;
-    }
-    if (JS_SetPropertyStr(
-            context, global, "thisScene",
-            JS_DupValue(context, owner->scene_handle)
-        ) < 0) {
-        JS_SetPropertyStr(context, global, "thisLayer", *previous_layer);
-        JS_FreeValue(context, *previous_scene);
-        JS_FreeValue(context, *previous_object);
-        JS_FreeValue(context, global);
-        return false;
-    }
-    if (JS_SetPropertyStr(
-            context, global, "thisObject",
-            JS_DupValue(context, owner->object_handle)
-        ) < 0) {
-        JS_SetPropertyStr(context, global, "thisLayer", *previous_layer);
-        JS_SetPropertyStr(context, global, "thisScene", *previous_scene);
-        JS_FreeValue(context, *previous_object);
-        JS_FreeValue(context, global);
-        return false;
-    }
-    JS_FreeValue(context, global);
+    *previous_layer = owner->domain->active_layer;
+    *previous_scene = owner->domain->active_scene;
+    *previous_object = owner->domain->active_object;
+    owner->domain->active_layer = JS_DupValue(
+        context, owner->material_function_layer
+    );
+    owner->domain->active_scene = JS_DupValue(context, owner->scene_handle);
+    owner->domain->active_object = JS_DupValue(context, owner->object_handle);
     return true;
 }
 
@@ -281,14 +329,19 @@ bool mwx_scene_quickjs_restore_owner_handles(
     JSValue previous_scene,
     JSValue previous_object
 ) {
-    if (owner == NULL) return false;
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->context == NULL || JS_IsException(previous_layer) ||
+        JS_IsException(previous_scene) || JS_IsException(previous_object)) {
+        return false;
+    }
     JSContext *context = owner->domain->context;
-    JSValue global = JS_GetGlobalObject(context);
-    int layer_result = JS_SetPropertyStr(context, global, "thisLayer", previous_layer);
-    int scene_result = JS_SetPropertyStr(context, global, "thisScene", previous_scene);
-    int object_result = JS_SetPropertyStr(context, global, "thisObject", previous_object);
-    JS_FreeValue(context, global);
-    return layer_result >= 0 && scene_result >= 0 && object_result >= 0;
+    JS_FreeValue(context, owner->domain->active_layer);
+    JS_FreeValue(context, owner->domain->active_scene);
+    JS_FreeValue(context, owner->domain->active_object);
+    owner->domain->active_layer = previous_layer;
+    owner->domain->active_scene = previous_scene;
+    owner->domain->active_object = previous_object;
+    return true;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_effect_catalog(
@@ -429,7 +482,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_lifecycle_snapshot(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const MWXSceneQuickJSFrameInput *frame,
@@ -438,12 +491,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
     const char *user_properties_json,
     size_t user_properties_length,
     uint32_t *destroy_callback_invoked,
+    uint32_t *destroy_callback_threw,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (destroy_callback_invoked != NULL) *destroy_callback_invoked = 0;
+    if (destroy_callback_threw != NULL) *destroy_callback_threw = 0;
     if (owner == NULL || destroy_callback_invoked == NULL ||
+        destroy_callback_threw == NULL ||
         !valid_teardown_frame(frame)) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid SceneScript teardown"
@@ -493,6 +549,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
     JSValue previous_object = JS_UNDEFINED;
     JSValue previous_engine = JS_UNDEFINED;
     bool callback_started = false;
+    bool callback_threw = false;
     bool handles_bound = false;
     bool engine_bound = false;
     if (result == MWX_SCENE_QUICKJS_OK && JS_IsFunction(context, function)) {
@@ -517,6 +574,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
                 context, function, owner->module, 0, NULL
             );
             if (JS_IsException(callback_result)) {
+                callback_threw = true;
                 result = mwx_scene_quickjs_exception_result(
                     domain, diagnostic, diagnostic_capacity
                 );
@@ -525,12 +583,30 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
         }
     }
 
+    bool restore_failed = false;
     if (engine_bound && !mwx_scene_quickjs_restore_frame_engine_host(
             owner, previous_engine
-        )) result = MWX_SCENE_QUICKJS_EXCEPTION;
+        )) {
+        restore_failed = true;
+        result = MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     if (handles_bound && !mwx_scene_quickjs_restore_owner_handles(
             owner, previous_layer, previous_scene, previous_object
-        )) result = MWX_SCENE_QUICKJS_EXCEPTION;
+        )) {
+        restore_failed = true;
+        result = MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (owner->material_function_overflow || owner->animation_command_overflow) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic,
+            diagnostic_capacity,
+            owner->animation_command_overflow
+                ? "animation command buffer exceeded"
+                : "material function mutation buffer exceeded"
+        );
+        result = MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    }
+    if (callback_threw && !restore_failed) *destroy_callback_threw = 1;
     if (callback_started) mwx_scene_quickjs_end_callback(owner);
     JS_FreeValue(context, function);
 
@@ -544,4 +620,26 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
     owner->generation += 1;
     owner->disabled = true;
     return result;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    uint32_t *destroy_callback_invoked,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    uint32_t destroy_callback_threw = 0;
+    return mwx_scene_quickjs_owner_teardown_with_provenance(
+        owner, expected_generation, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length,
+        destroy_callback_invoked, &destroy_callback_threw,
+        diagnostic, diagnostic_capacity
+    );
 }

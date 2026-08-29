@@ -49,6 +49,11 @@ final class SceneMediaThumbnailInbox {
             let artist: String
         }
         let current: Data?
+        let primaryColor: SIMD3<Double>?
+        let secondaryColor: SIMD3<Double>?
+        let tertiaryColor: SIMD3<Double>?
+        let textColor: SIMD3<Double>?
+        let highContrastColor: SIMD3<Double>?
         let generation: UInt64
         let playbackState: Int?
         let playbackGeneration: UInt64
@@ -183,6 +188,35 @@ enum Harness {
             mediaThumbnailEvent: .init(hasThumbnail: false, generation: 1),
             mediaPlaybackEvent: .init(state: 0, generation: 1)
         )
+        let warmedResolution = resolution(
+            definitions: program.definitions,
+            target: target,
+            lowerPriorityCurrent: 48,
+            sceneScriptValues: result.values,
+            frameIndex: 1
+        )
+        let exception = program.evaluate(
+            inputs: [target: .scalar(60)],
+            frame: frame
+        )
+        let failureResolution = resolution(
+            definitions: program.definitions,
+            target: target,
+            lowerPriorityCurrent: 60,
+            sceneScriptValues: exception.values,
+            frameIndex: 2
+        )
+        let disabled = program.evaluate(
+            inputs: [target: .scalar(72)],
+            frame: frame
+        )
+        let disabledResolution = resolution(
+            definitions: program.definitions,
+            target: target,
+            lowerPriorityCurrent: 72,
+            sceneScriptValues: disabled.values,
+            frameIndex: 3
+        )
 
         let mismatch = SceneScriptScalarProgram.compile(
             domain: domain,
@@ -233,28 +267,18 @@ enum Harness {
             scriptBindings: [binding(source: source), binding(source: source)],
             generation: 7
         )
-        let exceptionProgram = SceneScriptScalarProgram.compile(
-            domain: domain,
-            descriptor: descriptor,
-            scriptBindings: [binding(source: exceptionSource)],
-            generation: 8
-        )
-        let exception = exceptionProgram.evaluate(
-            inputs: [target: .scalar(48)],
-            frame: frame
-        )
         let authoredHighDescriptor = Self.descriptor(pointSize: 1025)
         let authoredHigh = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: authoredHighDescriptor,
             scriptBindings: [binding(source: source, value: 1025)],
-            generation: 9
+            generation: 8
         )
         let lowProgram = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
             scriptBindings: [binding(source: lowSource)],
-            generation: 10
+            generation: 9
         )
         let low = lowProgram.evaluate(
             inputs: [target: .scalar(48)],
@@ -264,7 +288,7 @@ enum Harness {
             domain: domain,
             descriptor: descriptor,
             scriptBindings: [binding(source: highSource)],
-            generation: 11
+            generation: 10
         )
         let high = highProgram.evaluate(
             inputs: [target: .scalar(48)],
@@ -278,7 +302,7 @@ enum Harness {
                 target: .text(layerID: 77, field: .maxWidth),
                 authoredValue: 48,
                 effectNames: [],
-                generation: 12
+                generation: 11
             )
             unsupportedTextFieldRejected = false
         } catch {
@@ -297,6 +321,11 @@ enum Harness {
             "duplicateRejected": duplicate.bindings.isEmpty,
             "exceptionCode": exception.failures[target]?.code ?? "",
             "exceptionPublished": exception.values[target] != nil,
+            "disabledFailures": disabled.failures.count,
+            "disabledPublished": disabled.values[target] != nil,
+            "warmedResolution": warmedResolution,
+            "failureResolution": failureResolution,
+            "disabledResolution": disabledResolution,
             "authoredHighAccepted": authoredHigh.bindings.count == 1
                 && SceneScriptScalarProgram.projectedTargets(
                     descriptor: authoredHighDescriptor,
@@ -318,6 +347,26 @@ enum Harness {
     static func scalar(_ value: SceneDynamicValue?) -> Double {
         guard case let .scalar(number)? = value else { return -1 }
         return number
+    }
+
+    static func resolution(
+        definitions: [SceneDynamicTargetDefinition],
+        target: SceneDynamicTarget,
+        lowerPriorityCurrent: Double,
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue],
+        frameIndex: UInt64
+    ) -> [String: Any] {
+        let snapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: frameIndex,
+            generation: frameIndex,
+            definitions: definitions,
+            timelineValues: [target: .scalar(lowerPriorityCurrent)],
+            sceneScriptValues: sceneScriptValues
+        ).snapshot
+        guard let resolved = snapshot[target] else {
+            return ["value": -1, "source": "missing"]
+        }
+        return ["value": scalar(resolved.value), "source": resolved.source.rawValue]
     }
 
     static func descriptor(pointSize: Float) -> SceneRenderDescriptor {
@@ -372,11 +421,12 @@ enum Harness {
     }
 
     static let source = """
-    export function update(value) { return value + 8; }
-    """
-
-    static let exceptionSource = """
-    export function update(value) { throw new Error('pointsize failure'); }
+    let updateCount = 0;
+    export function update(value) {
+        updateCount += 1;
+        if (updateCount > 1) { throw new Error('pointsize failure'); }
+        return value + 8;
+    }
     """
 
     static let lowSource = """
@@ -401,12 +451,14 @@ class SceneScriptTextPointSizeTests(unittest.TestCase):
         objects: list[Path] = []
         for source in [
             VM / "SceneQuickJS.c",
+            VM / "SceneQuickJSValueHost.c",
             VM / "SceneQuickJSAnimationHost.c",
             VM / "SceneQuickJSModuleHost.c",
             VM / "SceneQuickJSAudioHost.c",
             VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
             VM / "SceneQuickJSLayerHost.c",
+            VM / "SceneQuickJSLayerSnapshotHost.c",
             VM / "SceneQuickJSJobHost.c",
             VM / "SceneQuickJSTimerHost.c",
             QUICKJS / "quickjs.c",
@@ -485,6 +537,20 @@ class SceneScriptTextPointSizeTests(unittest.TestCase):
         self.assertTrue(result["duplicateRejected"])
         self.assertEqual(result["exceptionCode"], "exception")
         self.assertFalse(result["exceptionPublished"])
+        self.assertEqual(result["disabledFailures"], 0)
+        self.assertFalse(result["disabledPublished"])
+        self.assertEqual(
+            result["warmedResolution"],
+            {"source": "sceneScript", "value": 56},
+        )
+        self.assertEqual(
+            result["failureResolution"],
+            {"source": "timeline", "value": 60},
+        )
+        self.assertEqual(
+            result["disabledResolution"],
+            {"source": "timeline", "value": 72},
+        )
         self.assertTrue(result["authoredHighAccepted"])
         self.assertEqual(result["lowCode"], "")
         self.assertEqual(result["lowValue"], 0)

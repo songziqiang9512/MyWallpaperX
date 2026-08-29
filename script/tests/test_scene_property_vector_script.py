@@ -33,6 +33,7 @@ SOURCES = [
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
+    VM / "SceneScriptVectorCandidateCatalog.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
@@ -53,6 +54,11 @@ final class SceneMediaThumbnailInbox {
             let artist: String
         }
         let current: Data?
+        let primaryColor: SIMD3<Double>?
+        let secondaryColor: SIMD3<Double>?
+        let tertiaryColor: SIMD3<Double>?
+        let textColor: SIMD3<Double>?
+        let highContrastColor: SIMD3<Double>?
         let generation: UInt64
         let playbackState: Int?
         let playbackGeneration: UInt64
@@ -504,11 +510,11 @@ enum Harness {
             )],
             timelineValues: [layerTarget: .vector3(4, 5, 6)]
         ).snapshot
+        try! domain.publishLayerSnapshot(layerSnapshot, descriptor: descriptor)
         let layerResult = layerProgram.evaluate(
             inputs: [.layer(layerID: 10, field: .origin): .vector3(20, 2250, 0)],
             effectivePropertyValues: [:],
-            frame: frame,
-            layerSnapshot: layerSnapshot
+            frame: frame
         )
         let bad = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -1115,12 +1121,14 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         temp = Path(cls.temp_dir.name)
         objects: list[Path] = []
         for source in [
-            VM / "SceneQuickJS.c", VM / "SceneQuickJSAnimationHost.c",
+            VM / "SceneQuickJS.c", VM / "SceneQuickJSValueHost.c",
+            VM / "SceneQuickJSAnimationHost.c",
             VM / "SceneQuickJSModuleHost.c",
             VM / "SceneQuickJSAudioHost.c",
             VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
             VM / "SceneQuickJSLayerHost.c",
+            VM / "SceneQuickJSLayerSnapshotHost.c",
             VM / "SceneQuickJSJobHost.c",
             VM / "SceneQuickJSTimerHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
@@ -1180,14 +1188,6 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passColorBindings"], 1)
         self.assertEqual(value["passColorValue"], [0, 1, 1])
         self.assertEqual(value["passColorFailures"], 0)
-
-    def test_exact_media_target_partition_preserves_disjoint_generic_peer(self) -> None:
-        value = self.result()
-        self.assertTrue(value["partitionedMediaTargetExcluded"])
-        self.assertTrue(value["partitionedGenericPeerPreserved"])
-        self.assertEqual(value["partitionedGenericPeerValue"], [2, 2])
-        self.assertTrue(value["partitionedMediaTargetNotPublished"])
-        self.assertTrue(value["partitionedGenericPeerSucceeded"])
 
     def test_generic_pass_scalar_executes_static_properties_and_audio(self) -> None:
         value = self.result()

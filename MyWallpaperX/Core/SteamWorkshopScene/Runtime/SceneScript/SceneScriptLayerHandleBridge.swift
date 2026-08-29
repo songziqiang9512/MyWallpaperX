@@ -182,17 +182,22 @@ nonisolated extension SceneScriptQuickJSDomain {
         guard layerSnapshotGeneration < UInt64.max else {
             throw SceneScriptScalarRuntimeFailure.staleOwner
         }
-        layerSnapshotGeneration += 1
+        let pendingGeneration = layerSnapshotGeneration + 1
         var diagnostic = [CChar](repeating: 0, count: 512)
-        guard mwx_scene_quickjs_domain_begin_layer_snapshot(
+        let beginResult = mwx_scene_quickjs_domain_begin_layer_snapshot(
             handle,
-            layerSnapshotGeneration,
+            pendingGeneration,
             &diagnostic,
             diagnostic.count
-        ) == MWX_SCENE_QUICKJS_OK else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                Self.layerDiagnostic(diagnostic)
-            )
+        )
+        guard beginResult == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(beginResult, diagnostic: diagnostic)
+        }
+        var committed = false
+        defer {
+            if !committed {
+                mwx_scene_quickjs_domain_abort_layer_snapshot(handle)
+            }
         }
         try publishLayerRuntimeFields(snapshot, descriptor: descriptor)
         for (index, layer) in descriptor.layers.enumerated() {
@@ -210,11 +215,30 @@ nonisolated extension SceneScriptQuickJSDomain {
                 )
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                    Self.layerDiagnostic(diagnostic)
-                )
+                throw layerSnapshotFailure(result, diagnostic: diagnostic)
             }
         }
+        let commitResult = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            handle,
+            &diagnostic,
+            diagnostic.count
+        )
+        guard commitResult == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(commitResult, diagnostic: diagnostic)
+        }
+        layerSnapshotGeneration = pendingGeneration
+        committed = true
+    }
+
+    func layerSnapshotFailure(
+        _ result: MWXSceneQuickJSResult,
+        diagnostic buffer: [CChar]
+    ) -> SceneScriptScalarRuntimeFailure {
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        let diagnostic = String(decoding: bytes, as: UTF8.self)
+        return result == MWX_SCENE_QUICKJS_MEMORY_EXCEEDED
+            ? .memoryExceeded(diagnostic)
+            : .invalidArgument(diagnostic)
     }
 
     private static func layerDiagnostic(_ buffer: [CChar]) -> String {

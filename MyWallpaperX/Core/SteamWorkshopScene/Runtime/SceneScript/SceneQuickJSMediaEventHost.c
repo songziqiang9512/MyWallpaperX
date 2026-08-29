@@ -79,7 +79,7 @@ static JSValue json_argument(JSContext *context, const void *payload) {
     return freeze_argument(context, argument);
 }
 
-static JSValue cursor_position(
+static JSValue vec3_value(
     JSContext *context,
     const double values[3]
 ) {
@@ -108,8 +108,8 @@ static JSValue cursor_argument(JSContext *context, const void *payload) {
         event->local_x, event->local_y, event->local_z,
     };
     JSValue argument = JS_NewObject(context);
-    JSValue world = cursor_position(context, world_values);
-    JSValue local = cursor_position(context, local_values);
+    JSValue world = vec3_value(context, world_values);
+    JSValue local = vec3_value(context, local_values);
     if (JS_IsException(argument) || JS_IsException(world) ||
         JS_IsException(local) || JS_DefinePropertyValueStr(
             context, argument, "worldPosition", JS_DupValue(context, world),
@@ -130,18 +130,68 @@ static JSValue cursor_argument(JSContext *context, const void *payload) {
 
 static JSValue thumbnail_argument(JSContext *context, const void *payload) {
     const MWXSceneQuickJSMediaThumbnailEvent *event = payload;
+    const double primary_values[3] = {
+        event->primary_red, event->primary_green, event->primary_blue,
+    };
+    const double secondary_values[3] = {
+        event->secondary_red, event->secondary_green, event->secondary_blue,
+    };
+    const double tertiary_values[3] = {
+        event->tertiary_red, event->tertiary_green, event->tertiary_blue,
+    };
+    const double text_values[3] = {
+        event->text_red, event->text_green, event->text_blue,
+    };
+    const double high_contrast_values[3] = {
+        event->high_contrast_red,
+        event->high_contrast_green,
+        event->high_contrast_blue,
+    };
     JSValue argument = JS_NewObject(context);
+    JSValue primary = vec3_value(context, primary_values);
+    JSValue secondary = vec3_value(context, secondary_values);
+    JSValue tertiary = vec3_value(context, tertiary_values);
+    JSValue text = vec3_value(context, text_values);
+    JSValue high_contrast = vec3_value(context, high_contrast_values);
     if (JS_IsException(argument) || JS_DefinePropertyValueStr(
             context,
             argument,
             "hasThumbnail",
             JS_NewBool(context, event->has_thumbnail != 0),
             JS_PROP_ENUMERABLE
+        ) < 0 || JS_IsException(primary) || JS_IsException(secondary) ||
+        JS_IsException(tertiary) || JS_IsException(text) ||
+        JS_IsException(high_contrast) || JS_DefinePropertyValueStr(
+            context, argument, "primaryColor",
+            JS_DupValue(context, primary), JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context, argument, "secondaryColor",
+            JS_DupValue(context, secondary), JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context, argument, "tertiaryColor",
+            JS_DupValue(context, tertiary), JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context, argument, "textColor",
+            JS_DupValue(context, text), JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context, argument, "highContrastColor",
+            JS_DupValue(context, high_contrast), JS_PROP_ENUMERABLE
         ) < 0) {
         JS_FreeValue(context, argument);
-        return JS_EXCEPTION;
+        argument = JS_EXCEPTION;
     }
-    return argument;
+    JS_FreeValue(context, primary);
+    JS_FreeValue(context, secondary);
+    JS_FreeValue(context, tertiary);
+    JS_FreeValue(context, text);
+    JS_FreeValue(context, high_contrast);
+    return freeze_argument(context, argument);
+}
+
+static bool normalized_color(double red, double green, double blue) {
+    return isfinite(red) && isfinite(green) && isfinite(blue) &&
+        red >= 0 && red <= 1 && green >= 0 && green <= 1 &&
+        blue >= 0 && blue <= 1;
 }
 
 static JSValue playback_argument(JSContext *context, const void *payload) {
@@ -343,7 +393,21 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_thumbnail(
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
-    if (event == NULL || event->has_thumbnail > 1) {
+    if (event == NULL || event->has_thumbnail > 1 || !normalized_color(
+            event->primary_red, event->primary_green, event->primary_blue
+        ) || !normalized_color(
+            event->secondary_red,
+            event->secondary_green,
+            event->secondary_blue
+        ) || !normalized_color(
+            event->tertiary_red, event->tertiary_green, event->tertiary_blue
+        ) || !normalized_color(
+            event->text_red, event->text_green, event->text_blue
+        ) || !normalized_color(
+            event->high_contrast_red,
+            event->high_contrast_green,
+            event->high_contrast_blue
+        )) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid media thumbnail event"
         );

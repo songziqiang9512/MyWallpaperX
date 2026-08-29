@@ -50,8 +50,6 @@ final class SceneDesktopWallpaperHost {
     var screenReconciliationWorkItem: DispatchWorkItem?
     var screenTopology: [SceneScreenTopology] = []
     var sceneClock = SceneClock(hostTime: CACurrentMediaTime())
-    var mediaColorTransitionRuntime =
-        SceneMediaColorTransitionRuntime(program: .empty)
     var sharedLayerAlphaRuntime =
         SceneSharedLayerAlphaRuntime(program: .empty)
     var videoTextureSourceRegistry: SceneVideoTextureSourceRegistry?
@@ -105,9 +103,6 @@ final class SceneDesktopWallpaperHost {
             teardownSceneScriptOwners(launchContext, reason: teardownReason)
         }
         launchContext = context
-        mediaColorTransitionRuntime = .init(
-            program: context.mediaColorTransitionProgram
-        )
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )

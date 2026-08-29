@@ -9,90 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bool install_value_host(MWXSceneQuickJSDomain *domain) {
-    static const char source[] =
-        "(() => {"
-        "class Vec3 {"
-        "constructor(x=0,y=x,z=x){if(x&&typeof x==='object'){"
-        "this.x=Number(x.x);this.y=Number(x.y);"
-        "this.z=Number(x.z===undefined?y:x.z);return;}"
-        "this.x=Number(x);this.y=Number(y);this.z=Number(z);}"
-        "copy(){return new Vec3(this.x,this.y,this.z);}"
-        "add(v){if(typeof v==='number'){return new Vec3(this.x+v,this.y+v,this.z+v);}"
-        "return new Vec3(this.x+v.x,this.y+v.y,this.z+v.z);}"
-        "subtract(v){if(typeof v==='number'){return new Vec3(this.x-v,this.y-v,this.z-v);}"
-        "return new Vec3(this.x-v.x,this.y-v.y,this.z-v.z);}"
-        "multiply(v){if(typeof v==='number'){return new Vec3(this.x*v,this.y*v,this.z*v);}"
-        "return new Vec3(this.x*v.x,this.y*v.y,this.z*v.z);}"
-        "divide(v){if(typeof v==='number'){return new Vec3(this.x/v,this.y/v,this.z/v);}"
-        "return new Vec3(this.x/v.x,this.y/v.y,this.z/v.z);}"
-        "isFinite(){return Number.isFinite(this.x)&&Number.isFinite(this.y)&&Number.isFinite(this.z);}"
-        "}"
-        "function createScriptProperties(){"
-        "const values=Object.create(null);"
-        "const add=d=>{if(!d||typeof d.name!=='string'||d.name.length===0)throw new TypeError('invalid script property');values[d.name]=d.value;return builder;};"
-        "const builder={addSlider:add,addCheckbox:add,addText:add,addColor:add,addCombo:add,finish:()=>values};"
-        "return builder;"
-        "}"
-        "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
-        "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
-        "return {Vec3,createScriptProperties,deepFreeze,MediaPlaybackEvent};"
-        "})()";
-    JSContext *context = domain->context;
-    JSValue host = JS_Eval(
-        context,
-        source,
-        sizeof(source) - 1,
-        "scene-value-host.js",
-        JS_EVAL_TYPE_GLOBAL
-    );
-    if (JS_IsException(host)) {
-        JS_FreeValue(context, host);
-        return false;
-    }
-    JSValue vec3 = JS_GetPropertyStr(context, host, "Vec3");
-    JSValue builder = JS_GetPropertyStr(context, host, "createScriptProperties");
-    JSValue media_playback = JS_GetPropertyStr(
-        context, host, "MediaPlaybackEvent"
-    );
-    domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
-    JS_FreeValue(context, host);
-    if (!JS_IsFunction(context, vec3) || !JS_IsFunction(context, builder) ||
-        !JS_IsObject(media_playback) ||
-        !JS_IsFunction(context, domain->deep_freeze)) {
-        JS_FreeValue(context, vec3);
-        JS_FreeValue(context, builder);
-        JS_FreeValue(context, media_playback);
-        JS_FreeValue(context, domain->deep_freeze);
-        domain->deep_freeze = JS_UNDEFINED;
-        return false;
-    }
-    domain->vec3_constructor = JS_DupValue(context, vec3);
-    JSValue global = JS_GetGlobalObject(context);
-    const int read_only = JS_PROP_ENUMERABLE;
-    int vec_result = JS_DefinePropertyValueStr(context, global, "Vec3", vec3, read_only);
-    int builder_result = JS_DefinePropertyValueStr(
-        context,
-        global,
-        "createScriptProperties",
-        builder,
-        read_only
-    );
-    int media_playback_result = JS_DefinePropertyValueStr(
-        context,
-        global,
-        "MediaPlaybackEvent",
-        media_playback,
-        read_only
-    );
-    int shared_result = JS_SetPropertyStr(
-        context, global, "shared", JS_NewObject(context)
-    );
-    JS_FreeValue(context, global);
-    return vec_result >= 0 && builder_result >= 0
-        && media_playback_result >= 0 && shared_result >= 0;
-}
-
 enum SceneInputProperty {
     SCENE_INPUT_CURSOR_WORLD_POSITION,
     SCENE_INPUT_CURSOR_SCREEN_POSITION,
@@ -428,22 +344,14 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
         JS_FreeValue(context, engine);
         return false;
     }
-    JSValue global = JS_GetGlobalObject(context);
-    JSValue previous = JS_GetPropertyStr(context, global, "engine");
-    if (JS_IsException(previous)) {
+    if (!mwx_scene_quickjs_bind_active_engine(
+            owner->domain, engine, previous_global_engine
+        )) {
         JS_FreeValue(context, engine);
-        JS_FreeValue(context, global);
-        return false;
-    }
-    if (JS_SetPropertyStr(context, global, "engine", engine) < 0) {
-        JS_FreeValue(context, previous);
-        JS_FreeValue(context, global);
         return false;
     }
     owner->domain->active_frame_input = *frame;
     owner->domain->frame_input_active = true;
-    *previous_global_engine = previous;
-    JS_FreeValue(context, global);
     return true;
 }
 
@@ -460,21 +368,19 @@ bool mwx_scene_quickjs_restore_frame_engine_host(
         0,
         sizeof(owner->domain->active_frame_input)
     );
-    JSContext *context = owner->domain->context;
-    JSValue global = JS_GetGlobalObject(context);
-    int result = JS_SetPropertyStr(
-        context,
-        global,
-        "engine",
-        previous_global_engine
+    return mwx_scene_quickjs_restore_active_engine(
+        owner->domain, previous_global_engine
     );
-    JS_FreeValue(context, global);
-    return result >= 0;
 }
 
 static int interrupt_handler(JSRuntime *runtime, void *opaque) {
     (void)runtime;
     MWXSceneQuickJSDomain *domain = (MWXSceneQuickJSDomain *)opaque;
+    if (domain != NULL && domain->cancellation_check != NULL &&
+        domain->cancellation_check(domain->cancellation_opaque) != 0) {
+        domain->interrupted = true;
+        return 1;
+    }
     if (domain == NULL || domain->interrupt_budget == 0) {
         if (domain != NULL) {
             domain->interrupted = true;
@@ -811,19 +717,19 @@ bool mwx_scene_quickjs_assign_script_properties(
         JS_FreeValue(context, source);
         return false;
     }
-    JSValue global = JS_GetGlobalObject(context);
-    JSValue object = JS_GetPropertyStr(context, global, "Object");
-    JSValue assign = JS_GetPropertyStr(context, object, "assign");
     JSValue arguments[2] = {
         JS_DupValue(context, target),
         JS_DupValue(context, source),
     };
-    JSValue result = JS_Call(context, assign, object, 2, arguments);
+    JSValue result = JS_Call(
+        context,
+        owner->domain->script_property_assigner,
+        JS_UNDEFINED,
+        2,
+        arguments
+    );
     JS_FreeValue(context, arguments[0]);
     JS_FreeValue(context, arguments[1]);
-    JS_FreeValue(context, assign);
-    JS_FreeValue(context, object);
-    JS_FreeValue(context, global);
     JS_FreeValue(context, target);
     JS_FreeValue(context, source);
     const bool success = !JS_IsException(result);
@@ -982,6 +888,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
         return NULL;
     }
     domain->interrupt_budget = interrupt_budget;
+    domain->owner_creation_budget = interrupt_budget;
     JS_SetMemoryLimit(domain->runtime, heap_limit);
     JS_SetMaxStackSize(domain->runtime, stack_limit);
     JS_SetInterruptHandler(domain->runtime, interrupt_handler, domain);
@@ -1002,7 +909,14 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     mwx_scene_quickjs_install_job_host(domain);
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
-    if (!install_value_host(domain) ||
+    domain->script_property_assigner = JS_UNDEFINED;
+    domain->active_engine = JS_UNDEFINED;
+    domain->active_layer = JS_UNDEFINED;
+    domain->active_scene = JS_UNDEFINED;
+    domain->active_object = JS_UNDEFINED;
+    if (!mwx_scene_quickjs_install_active_engine_host(domain) ||
+        !mwx_scene_quickjs_install_owner_handle_globals(domain) ||
+        !mwx_scene_quickjs_install_value_host(domain) ||
         !install_input_host(domain) ||
         !mwx_scene_quickjs_install_layer_handle_class(domain)) {
         JS_FreeContext(domain->context);
@@ -1018,9 +932,15 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL) {
         return;
     }
+    mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
     if (domain->context != NULL) {
         JS_FreeValue(domain->context, domain->vec3_constructor);
         JS_FreeValue(domain->context, domain->deep_freeze);
+        JS_FreeValue(domain->context, domain->script_property_assigner);
+        JS_FreeValue(domain->context, domain->active_engine);
+        JS_FreeValue(domain->context, domain->active_layer);
+        JS_FreeValue(domain->context, domain->active_scene);
+        JS_FreeValue(domain->context, domain->active_object);
         if (domain->layers != NULL) {
             for (uint32_t index = 0; index < domain->layer_count; ++index) {
                 free(domain->layers[index].name);
@@ -1032,32 +952,66 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         JS_FreeContext(domain->context);
     }
     if (domain->runtime != NULL) {
+        domain->cancellation_check = NULL;
+        domain->cancellation_opaque = NULL;
         JS_FreeRuntime(domain->runtime);
     }
     free(domain);
 }
 
-MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
+void mwx_scene_quickjs_domain_set_cancellation_check(
+    MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSCancellationCheck cancellation_check,
+    void *opaque
+) {
+    if (domain == NULL) return;
+    domain->cancellation_check = cancellation_check;
+    domain->cancellation_opaque = cancellation_check != NULL ? opaque : NULL;
+}
+
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
     MWXSceneQuickJSDomain *domain,
     const char *source,
     size_t source_length,
     uint64_t generation,
+    uint64_t interrupt_budget,
+    MWXSceneQuickJSResult *result,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
     clear_diagnostic(diagnostic, diagnostic_capacity);
-    if (domain == NULL || source == NULL || source_length == 0 || generation == 0) {
+    if (result != NULL) *result = MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    if (domain == NULL || source == NULL || source_length == 0 || generation == 0 ||
+        interrupt_budget == 0) {
         write_diagnostic(diagnostic, diagnostic_capacity, "invalid SceneScript owner configuration");
         return NULL;
     }
+    if (source_length == SIZE_MAX) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript owner source length overflow"
+        );
+        return NULL;
+    }
+    if (source_length > MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES) {
+        if (result != NULL) *result = MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript owner source byte budget exceeded"
+        );
+        return NULL;
+    }
+    domain->interrupt_budget = interrupt_budget;
+    domain->interrupted = false;
+    if (result != NULL) *result = MWX_SCENE_QUICKJS_EXCEPTION;
     char *module_source = malloc(source_length + 1);
     if (module_source == NULL) {
+        if (result != NULL) *result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript source allocation failed");
         return NULL;
     }
     memcpy(module_source, source, source_length);
     module_source[source_length] = '\0';
-    domain->interrupted = false;
     JSValue module = JS_Eval(
         domain->context,
         module_source,
@@ -1067,13 +1021,20 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     );
     free(module_source);
     if (JS_IsException(module)) {
-        mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
+        MWXSceneQuickJSResult failure = mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+        if (failure == MWX_SCENE_QUICKJS_EXCEPTION) {
+            failure = MWX_SCENE_QUICKJS_COMPILE_ERROR;
+        }
+        if (result != NULL) *result = failure;
         JS_FreeValue(domain->context, module);
         return NULL;
     }
 
     MWXSceneQuickJSOwner *owner = calloc(1, sizeof(*owner));
     if (owner == NULL) {
+        if (result != NULL) *result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         JS_FreeValue(domain->context, module);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
         return NULL;
@@ -1111,6 +1072,7 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     }
     owner->effect_names = calloc(1, sizeof(*owner->effect_names));
     if (owner->effect_names == NULL) {
+        if (result != NULL) *result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         JS_FreeValue(domain->context, module);
         free(owner);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner allocation failed");
@@ -1154,7 +1116,10 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     }
     if (JS_IsException(evaluation)) {
         mwx_scene_quickjs_discard_jobs(owner);
-        mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
+        MWXSceneQuickJSResult failure = mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+        if (result != NULL) *result = failure;
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
@@ -1174,6 +1139,16 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
             "SceneScript module evaluation rejected"
         );
         JS_FreeValue(domain->context, reason);
+        if (result != NULL) {
+            if (domain->interrupted) {
+                *result = MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+            } else if (diagnostic != NULL &&
+                       strstr(diagnostic, "out of memory") != NULL) {
+                *result = MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+            } else {
+                *result = MWX_SCENE_QUICKJS_EXCEPTION;
+            }
+        }
         mwx_scene_quickjs_discard_jobs(owner);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
@@ -1236,7 +1211,24 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript host globals unavailable");
         return NULL;
     }
+    if (result != NULL) *result = MWX_SCENE_QUICKJS_OK;
     return owner;
+}
+
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
+    MWXSceneQuickJSDomain *domain,
+    const char *source,
+    size_t source_length,
+    uint64_t generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    const uint64_t interrupt_budget = domain != NULL
+        ? domain->owner_creation_budget : 0;
+    return mwx_scene_quickjs_owner_create_with_budget(
+        domain, source, source_length, generation, interrupt_budget, NULL,
+        diagnostic, diagnostic_capacity
+    );
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_has_function(

@@ -14,6 +14,9 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
     let hasAudioRegistration: Bool
+    let handlesMediaThumbnail: Bool
+    let handlesMediaPlayback: Bool
+    let handlesMediaProperties: Bool
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -35,20 +38,33 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         self.target = target
         self.generation = generation
         self.budget = budget
+        try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
+        var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created = source.withCString {
-            mwx_scene_quickjs_owner_create(
+            mwx_scene_quickjs_owner_create_with_budget(
                 domain.handle,
                 $0,
                 source.utf8.count,
                 generation,
+                budget.interruptBudget,
+                &creationResult,
                 &diagnostic,
                 diagnostic.count
             )
         }
-        guard let created else {
-            throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
+        do {
+            try domain.checkConstructionBoundary()
+        } catch {
+            if let created { mwx_scene_quickjs_owner_destroy(created) }
+            throw error
         }
+        guard let created else {
+            throw Self.failure(creationResult, diagnostic)
+        }
+        var handlesMediaThumbnail = false
+        var handlesMediaPlayback = false
+        var handlesMediaProperties = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             var updateAvailable: UInt32 = 0
@@ -76,12 +92,24 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
                 owner: created,
                 hasCurrentAnimation: hasCurrentAnimation
             )
+            handlesMediaThumbnail = try SceneScriptOwnerExportBridge.contains(
+                "mediaThumbnailChanged", owner: created
+            )
+            handlesMediaPlayback = try SceneScriptOwnerExportBridge.contains(
+                "mediaPlaybackChanged", owner: created
+            )
+            handlesMediaProperties = try SceneScriptOwnerExportBridge.contains(
+                "mediaPropertiesChanged", owner: created
+            )
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         handle = created
         hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        self.handlesMediaThumbnail = handlesMediaThumbnail
+        self.handlesMediaPlayback = handlesMediaPlayback
+        self.handlesMediaProperties = handlesMediaProperties
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }

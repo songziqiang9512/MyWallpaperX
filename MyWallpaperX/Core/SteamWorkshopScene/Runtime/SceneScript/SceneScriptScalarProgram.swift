@@ -8,6 +8,17 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let layerMutations: [SceneScriptLayerMutation]
 }
 
+nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
+    let program: SceneScriptScalarProgram
+    let requestedTargets: Set<SceneDynamicTarget>
+    let instantiatedTargets: Set<SceneDynamicTarget>
+    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
+
+    var deferredTargets: Set<SceneDynamicTarget> {
+        requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
+    }
+}
+
 /// Generic scalar SceneScript owners. The program is deliberately
 /// source/identity based rather than effect-name based; runtime failure keeps
 /// the lower-priority authored/property/Timeline value for the affected owner.
@@ -20,8 +31,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
-    private var consumedMediaThumbnailGeneration: UInt64 = 0
-    private var consumedMediaPlaybackGeneration: UInt64 = 0
+    private var observedMediaThumbnailEvent =
+        SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
+    private var observedMediaPlaybackEvent =
+        SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
+    private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: \.hasAudioRegistration)
@@ -59,8 +74,30 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         } else if let created = try? SceneScriptQuickJSDomain(budget: budget) {
             domain = created
         } else {
-            return empty(budget: budget, generation: generation)
+            return unavailable(generation: generation)
         }
+        return compileCandidate(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: scriptBindings,
+            timelineTargets: timelineTargets,
+            excludedTargets: excludedTargets,
+            rejectedTargets: [],
+            generation: generation,
+            budget: budget
+        ).program
+    }
+
+    static func compileCandidate(
+        domain: SceneScriptQuickJSDomain,
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
+        excludedTargets: Set<SceneDynamicTarget> = [],
+        rejectedTargets: Set<SceneDynamicTarget>,
+        generation: UInt64,
+        budget: SceneScriptScalarBudget = .default
+    ) -> SceneScriptScalarProgramConstruction {
         let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double, String)] =
             scriptBindings.compactMap { binding in
                 guard let target = projection(
@@ -76,7 +113,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             }
         let counts = Dictionary(grouping: candidates, by: { $0.1 })
             .mapValues(\.count)
+        let requestedTargets = Set(candidates.compactMap { candidate in
+            counts[candidate.1] == 1 ? candidate.1 : nil
+        }).subtracting(rejectedTargets)
         var owners: [SceneScriptScalarOwner] = []
+        var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         for (binding, target, authored, propertiesJSON) in candidates {
             let layerID: Int
             switch target {
@@ -86,9 +127,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             default:
                 continue
             }
-            guard counts[target] == 1,
-                  let layer = descriptor.layers.first(where: { $0.id == layerID }),
-                  let owner = try? SceneScriptScalarOwner(
+            guard requestedTargets.contains(target),
+                  let layer = descriptor.layers.first(where: { $0.id == layerID }) else {
+                continue
+            }
+            do {
+                let owner = try SceneScriptScalarOwner(
                       domain: domain,
                       source: binding.source,
                       target: target,
@@ -98,13 +142,26 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       hasCurrentAnimation: timelineTargets.contains(target),
                       generation: generation,
                       budget: budget
-                  ) else { continue }
-            owners.append(owner)
+                )
+                owners.append(owner)
+            } catch let failure as SceneScriptScalarRuntimeFailure {
+                failures[target] = failure
+                break
+            } catch {
+                failures[target] = .invalidArgument(String(describing: error))
+                break
+            }
         }
-        return SceneScriptScalarProgram(
+        let program = SceneScriptScalarProgram(
             domain: domain,
             bindings: owners,
             generation: generation
+        )
+        return .init(
+            program: program,
+            requestedTargets: requestedTargets,
+            instantiatedTargets: Set(program.definitions.map(\.target)),
+            failures: failures
         )
     }
 
@@ -113,16 +170,65 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         scriptBindings: [SceneScriptBindingIR],
         timelineTargets: Set<SceneDynamicTarget> = []
     ) -> Set<SceneDynamicTarget> {
-        let targets = scriptBindings.compactMap { binding -> SceneDynamicTarget? in
-            guard staticPropertiesJSON(binding.properties) != nil else { return nil }
-            return projection(
-                binding,
-                descriptor: descriptor,
-                timelineTargets: timelineTargets
+        Set(projectedDefinitions(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings,
+            timelineTargets: timelineTargets
+        ).map(\.target))
+    }
+
+    static func projectedDefinitions(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
+        excludedTargets: Set<SceneDynamicTarget> = []
+    ) -> [SceneDynamicTargetDefinition] {
+        let candidates = scriptBindings.compactMap { binding ->
+            (target: SceneDynamicTarget, authored: Double)? in
+            guard staticPropertiesJSON(binding.properties) != nil,
+                  let authored = binding.authoredValue?.numberValue,
+                  authored.isFinite,
+                  let target = projection(
+                      binding,
+                      descriptor: descriptor,
+                      timelineTargets: timelineTargets
+                  ), !excludedTargets.contains(target) else { return nil }
+            return (target, authored)
+        }
+        let counts = Dictionary(grouping: candidates, by: \.target)
+            .mapValues(\.count)
+        return candidates.compactMap { candidate in
+            guard counts[candidate.target] == 1 else { return nil }
+            return .init(
+                target: candidate.target,
+                valueType: .scalar,
+                authoredValue: .scalar(candidate.authored)
             )
         }
-        let counts = Dictionary(grouping: targets, by: { $0 }).mapValues(\.count)
-        return Set(targets.filter { counts[$0] == 1 })
+    }
+
+    static func projectedOwnerSources(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
+        excludedTargets: Set<SceneDynamicTarget> = []
+    ) -> [String] {
+        let candidates = scriptBindings.compactMap { binding ->
+            (source: String, target: SceneDynamicTarget)? in
+            guard staticPropertiesJSON(binding.properties) != nil,
+                  let target = projection(
+                      binding,
+                      descriptor: descriptor,
+                      timelineTargets: timelineTargets
+                  ),
+                  !excludedTargets.contains(target) else { return nil }
+            return (binding.source, target)
+        }
+        let counts = Dictionary(grouping: candidates, by: \.target)
+            .mapValues(\.count)
+        return candidates.compactMap { candidate in
+            counts[candidate.target] == 1 ? candidate.source : nil
+        }
     }
 
     func evaluate(
@@ -134,31 +240,31 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptScalarFrameResult {
-        var pendingMediaEvent: SceneScriptMediaThumbnailEventInput?
-        if let event = mediaThumbnailEvent,
-           event.generation != consumedMediaThumbnailGeneration {
-            consumedMediaThumbnailGeneration = event.generation
-            pendingMediaEvent = event
-        } else {
-            pendingMediaEvent = nil
-        }
-        var pendingPlaybackEvent: SceneScriptMediaPlaybackEventInput?
-        if let event = mediaPlaybackEvent,
-           event.generation != consumedMediaPlaybackGeneration {
-            consumedMediaPlaybackGeneration = event.generation
-            pendingPlaybackEvent = event
-        } else {
-            pendingPlaybackEvent = nil
-        }
+        let observedMediaEvent = observedMediaThumbnailEvent.observe(
+            mediaThumbnailEvent
+        )
+        let observedPlaybackEvent = observedMediaPlaybackEvent.observe(
+            mediaPlaybackEvent
+        )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         for binding in bindings {
-            guard !disabledTargets.contains(binding.target) else { continue }
+            if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
+            let pendingPlaybackEvent = observedPlaybackEvent.flatMap { event in
+                binding.handlesMediaPlayback && event.generation
+                    > consumedMediaPlaybackGenerations[binding.target, default: 0]
+                    ? event : nil
+            }
+            let pendingMediaEvent = observedMediaEvent.flatMap { event in
+                binding.handlesMediaThumbnail && event.generation
+                    > consumedMediaThumbnailGenerations[binding.target, default: 0]
+                    ? event : nil
+            }
             if binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
                 case .success:
@@ -189,6 +295,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var playbackMutationCount = 0
+            var thumbnailMutationCount = 0
             if let pendingPlaybackEvent {
                 switch binding.dispatchMediaPlayback(
                     pendingPlaybackEvent,
@@ -212,6 +319,29 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     continue
                 }
             }
+            if let pendingMediaEvent {
+                switch binding.dispatchMediaThumbnail(
+                    pendingMediaEvent,
+                    frame: frame,
+                    userPropertiesJSON: userPropertiesJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    thumbnailMutationCount = eventMutations.materialFunctions.count
+                        + eventMutations.animations.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             switch binding.evaluate(
                 input: value,
                 frame: frame,
@@ -220,6 +350,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
+                if let pendingPlaybackEvent {
+                    consumedMediaPlaybackGenerations[binding.target] =
+                        pendingPlaybackEvent.generation
+                }
+                if let pendingMediaEvent {
+                    consumedMediaThumbnailGenerations[binding.target] =
+                        pendingMediaEvent.generation
+                }
                 callbackMaterialMutations.append(
                     contentsOf: evaluation.materialFunctionMutations
                 )
@@ -227,30 +365,6 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
-                var thumbnailMutationCount = 0
-                if let pendingMediaEvent {
-                    switch binding.dispatchMediaThumbnail(
-                        pendingMediaEvent,
-                        frame: frame,
-                        userPropertiesJSON: userPropertiesJSON,
-                        interruptBudget: interruptBudget
-                    ) {
-                    case let .success(eventMutations):
-                        thumbnailMutationCount = eventMutations.materialFunctions.count
-                            + eventMutations.animations.count
-                        callbackMaterialMutations.append(
-                            contentsOf: eventMutations.materialFunctions
-                        )
-                        callbackAnimationMutations.append(
-                            contentsOf: eventMutations.animations
-                        )
-                        callbackLayerMutations.append(contentsOf: eventMutations.layers)
-                    case let .failure(failure):
-                        failures[binding.target] = failure
-                        disabledTargets.insert(binding.target)
-                        continue
-                    }
-                }
                 values[binding.target] = evaluation.value
                 materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
                 animationMutations.append(contentsOf: callbackAnimationMutations)
@@ -328,10 +442,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         }
     }
 
-    private static func empty(
-        budget: SceneScriptScalarBudget,
-        generation: UInt64
-    ) -> SceneScriptScalarProgram {
+    static func unavailable(generation: UInt64) -> SceneScriptScalarProgram {
         // A domain should only fail construction for a machine-level resource
         // error. Keep the failure local and preserve bounded fallbacks.
         return .init(domain: nil, bindings: [], generation: generation)

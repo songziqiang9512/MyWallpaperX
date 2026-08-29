@@ -7,34 +7,31 @@ extension DebugScenePlaybackRunner {
         guard let relativePath = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail"
         ) else { return }
-        let primaryColor: SIMD3<Double>?
-        if let payload = argumentValue(
-            after: "--mwx-debug-scene-media-primary-color-json"
-        ) {
-            guard let parsed = normalizedColor(from: payload) else {
-                NSLog(
-                    "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=primary-color"
-                )
-                return
-            }
-            primaryColor = parsed
-        } else {
-            primaryColor = nil
-        }
-        let secondaryColor: SIMD3<Double>?
-        if let payload = argumentValue(
-            after: "--mwx-debug-scene-media-secondary-color-json"
-        ) {
-            guard let parsed = normalizedColor(from: payload) else {
-                NSLog(
-                    "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=secondary-color"
-                )
-                return
-            }
-            secondaryColor = parsed
-        } else {
-            secondaryColor = nil
-        }
+        let primary = requestedMediaColor(
+            after: "--mwx-debug-scene-media-primary-color-json",
+            label: "primary"
+        )
+        guard primary.isValid else { return }
+        let secondary = requestedMediaColor(
+            after: "--mwx-debug-scene-media-secondary-color-json",
+            label: "secondary"
+        )
+        guard secondary.isValid else { return }
+        let tertiary = requestedMediaColor(
+            after: "--mwx-debug-scene-media-tertiary-color-json",
+            label: "tertiary"
+        )
+        guard tertiary.isValid else { return }
+        let text = requestedMediaColor(
+            after: "--mwx-debug-scene-media-text-color-json",
+            label: "text"
+        )
+        guard text.isValid else { return }
+        let highContrast = requestedMediaColor(
+            after: "--mwx-debug-scene-media-high-contrast-color-json",
+            label: "high-contrast"
+        )
+        guard highContrast.isValid else { return }
         let playbackState: Int?
         if let rawState = argumentValue(
             after: "--mwx-debug-scene-media-playback-state"
@@ -51,8 +48,11 @@ extension DebugScenePlaybackRunner {
         }
         guard publishMediaThumbnail(
             relativePath: relativePath,
-            primaryColor: primaryColor,
-            secondaryColor: secondaryColor,
+            primaryColor: primary.value,
+            secondaryColor: secondary.value,
+            tertiaryColor: tertiary.value,
+            textColor: text.value,
+            highContrastColor: highContrast.value,
             rootURL: rootURL
         ) else { return }
         if let playbackState {
@@ -153,6 +153,9 @@ extension DebugScenePlaybackRunner {
         relativePath: String,
         primaryColor: SIMD3<Double>? = nil,
         secondaryColor: SIMD3<Double>? = nil,
+        tertiaryColor: SIMD3<Double>? = nil,
+        textColor: SIMD3<Double>? = nil,
+        highContrastColor: SIMD3<Double>? = nil,
         rootURL: URL
     ) -> Bool {
         let resolvedRootURL = rootURL.resolvingSymlinksInPath().standardizedFileURL
@@ -165,7 +168,10 @@ extension DebugScenePlaybackRunner {
               SceneMediaThumbnailInbox.shared.publish(
                   data,
                   primaryColor: primaryColor,
-                  secondaryColor: secondaryColor
+                  secondaryColor: secondaryColor,
+                  tertiaryColor: tertiaryColor,
+                  textColor: textColor,
+                  highContrastColor: highContrastColor
               ) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=media-thumbnail-rejected file=%@",
@@ -174,13 +180,33 @@ extension DebugScenePlaybackRunner {
             return false
         }
         NSLog(
-            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d hasPrimaryColor=%@ hasSecondaryColor=%@",
+            "MWX DEBUG SCENE: phase=media-thumbnail-published file=%@ bytes=%d hasPrimaryColor=%@ hasSecondaryColor=%@ hasTertiaryColor=%@ hasTextColor=%@ hasHighContrastColor=%@",
             url.lastPathComponent,
             data.count,
             primaryColor == nil ? "false" : "true",
-            secondaryColor == nil ? "false" : "true"
+            secondaryColor == nil ? "false" : "true",
+            tertiaryColor == nil ? "false" : "true",
+            textColor == nil ? "false" : "true",
+            highContrastColor == nil ? "false" : "true"
         )
         return true
+    }
+
+    private static func requestedMediaColor(
+        after argument: String,
+        label: String
+    ) -> (value: SIMD3<Double>?, isValid: Bool) {
+        guard let payload = argumentValue(after: argument) else {
+            return (nil, true)
+        }
+        guard let color = normalizedColor(from: payload) else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=media-thumbnail-rejected reason=%@-color",
+                label
+            )
+            return (nil, false)
+        }
+        return (color, true)
     }
 
     private static func normalizedColor(

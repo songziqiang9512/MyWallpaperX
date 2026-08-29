@@ -67,11 +67,15 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
-    let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
-    let mediaColorTransitionCandidateTargets: Set<SceneDynamicTarget>
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
+    let propertyVectorPassCandidateTargets: Set<SceneDynamicTarget>
+    let propertyVectorPassConsumerTargets: Set<SceneDynamicTarget>
+    let propertyVectorPassFailedTargets: Set<SceneDynamicTarget>
+    let propertyVectorMediaPassTargets: Set<SceneDynamicTarget>
+    let sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition]
+    let sceneScriptVectorMediaRoute: SceneScriptVectorMediaRouteState
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
@@ -93,20 +97,20 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " vectorBindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " stringBindings=\(sceneScriptStringProgram.bindings.count)"
                 + " targets=\(sceneScriptTargetCount)"
-                + " route=generic-only fallback=previous-current",
+                + " route=generic-only fallback=current-frame-lower-priority",
             "resolved material system providers: schema=r3-system-provider-v1"
                 + " demands=\(resolvedMaterialCatalog.systemProviderDemands.count)"
                 + " missingState=unavailable"
                 + " reason=snapshot-lifecycle-unproven",
-            "scene media color transition: schema=bounded-thumbnail-palette-v2"
-                + " candidates=\(mediaColorTransitionCandidateTargets.count)"
-                + " bindings=\(mediaColorTransitionProgram.bindings.count)"
-                + " unclaimed=\(mediaColorTransitionUnclaimedTargets.count)"
-                + " route=disable-generic"
-                + " reason=thumbnail-color-event-contract-unavailable"
+            "scene media thumbnail colors: schema=quickjs-ng-thumbnail-colors-v1"
+                + " bindings=\(propertyVectorMediaPassTargets.count)"
+                + " activeBindings=\(propertyVectorScriptProgram.mediaThumbnailTargets.intersection(propertyVectorMediaPassTargets).count)"
+                + " route=\(sceneScriptVectorMediaRoute.rawValue)"
+                + " fallback=current-frame-lower-priority"
+                + " reason=\(sceneScriptVectorMediaRoute.reportReason)"
+                + " profile=scenescript-vector-media-thumbnail"
                 + " input=typed-inbox liveProvider=unavailable"
-                + " excludedTargets=\(mediaColorTransitionTargetNames)"
-                + " unclaimedTargets=\(mediaColorTransitionUnclaimedTargetNames)",
+                + " targets=\(mediaThumbnailTargetNames)",
             "scene shared layer alpha: schema=bounded-shared-alpha-v1"
                 + " flags=\(sharedLayerAlphaProgram.initialFlags.keys.sorted())"
                 + " bindings=\(sharedLayerAlphaProgram.bindings.count)"
@@ -119,7 +123,12 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " route=generic-only",
             "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"
-                + " route=generic-only fallback=previous-current"
+                + " passCandidates=\(propertyVectorPassCandidateTargets.count)"
+                + " passConsumers=\(propertyVectorPassConsumerTargets.count)"
+                + " passOwners=\(propertyVectorPassTargets.count)"
+                + " failedPass=\(propertyVectorPassFailedTargets.count)"
+                + " unclaimedPass=\(propertyVectorUnclaimedPassTargets.count)"
+                + " route=generic-only fallback=current-frame-lower-priority"
                 + " scaleLayerIDs="
                 + "\(Array(propertyVectorScriptProgram.admittedScaleLayerIDs).sorted())"
         ] + soundPlaybackProgram.reportLines
@@ -131,22 +140,21 @@ struct SceneDesktopWallpaperLaunchContext {
             + sceneScriptStringProgram.definitions.count
     }
 
-    private var mediaColorTransitionClaimedTargets: Set<SceneDynamicTarget> {
-        mediaColorTransitionProgram.targets
+    private var propertyVectorPassTargets: Set<SceneDynamicTarget> {
+        Set(propertyVectorScriptProgram.definitions.compactMap { definition in
+            guard case .effectConstant = definition.target else { return nil }
+            return definition.target
+        })
     }
 
-    private var mediaColorTransitionUnclaimedTargets: Set<SceneDynamicTarget> {
-        mediaColorTransitionCandidateTargets
-            .subtracting(mediaColorTransitionClaimedTargets)
+    private var propertyVectorUnclaimedPassTargets: Set<SceneDynamicTarget> {
+        propertyVectorPassCandidateTargets.subtracting(
+            propertyVectorPassConsumerTargets
+        )
     }
 
-    private var mediaColorTransitionTargetNames: [String] {
-        mediaColorTransitionCandidateTargets
-            .map { String(describing: $0) }.sorted()
-    }
-
-    private var mediaColorTransitionUnclaimedTargetNames: [String] {
-        mediaColorTransitionUnclaimedTargets
+    private var mediaThumbnailTargetNames: [String] {
+        propertyVectorMediaPassTargets
             .map { String(describing: $0) }.sorted()
     }
 
@@ -168,6 +176,17 @@ struct SceneDesktopWallpaperLaunchContext {
         let lines = resolvedMaterialStartupReportLines
         try? (existing + separator + lines.joined(separator: "\n") + "\n")
             .write(to: logURL, atomically: true, encoding: .utf8)
+    }
+}
+
+private extension SceneScriptVectorMediaRouteState {
+    var reportReason: String {
+        switch self {
+        case .genericOnly, .preferGeneric:
+            "active"
+        case .disableGeneric:
+            "route-disabled"
+        }
     }
 }
 
@@ -360,8 +379,7 @@ extension SceneDesktopWallpaperHost {
         progress?(.preparingModel, "正在验证资源包并解析场景")
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
-            propertyOverrides: propertyOverrides,
-            sceneScriptGeneration: sceneScriptGeneration
+            propertyOverrides: propertyOverrides
         )
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
@@ -374,9 +392,12 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
-        let propertyVectorScriptTargets = Set(
-            model.propertyVectorScriptProgram.definitions.map(\.target)
-        )
+        let propertyVectorNonPassTargets =
+            model.propertyVectorProjection.nonPassTargets
+        let propertyVectorPassCandidateTargets =
+            model.propertyVectorProjection.passTargets
+        let propertyVectorScriptTargets = propertyVectorNonPassTargets
+            .union(propertyVectorPassCandidateTargets)
         let timelineDefinitions = Set(
             timelineProgram.bindings.map(\.definition)
         )
@@ -433,21 +454,17 @@ extension SceneDesktopWallpaperHost {
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
                 definitions: propertyBindingDefinitions
             )
-        let mediaColorTransitionCandidates =
-            model.mediaColorTransitionCandidateProgram
-        let mediaColorTransitionCandidateTargets =
-            mediaColorTransitionCandidates.targets
         let boundedProducerTargets: [(
             String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>
         )] = [
             ("property-vector", propertyVectorScriptTargets,
-             model.propertyVectorScriptProgram.definitions.count,
-             model.propertyVectorScriptProgram.animationTargets),
-            ("media-color", mediaColorTransitionCandidateTargets,
-             mediaColorTransitionCandidates.bindings.count, []),
+             propertyVectorScriptTargets.count,
+             model.propertyVectorProjection.animationTargets),
         ]
         var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
-        var boundedProducerConflicts: [String] = []
+        var boundedProducerConflicts: [String] =
+            model.propertyVectorProjection.duplicateTargets.isEmpty
+                ? [] : ["property-vector/duplicate"]
         for (name, targets, definitionCount, allowedTimelineTargets) in boundedProducerTargets {
             if targets.count != definitionCount {
                 boundedProducerConflicts.append("\(name)/duplicate")
@@ -471,55 +488,43 @@ extension SceneDesktopWallpaperHost {
                     " phases=\(boundedProducerConflicts.joined(separator: ","))"
                 )
         }
-        let sceneScriptScalarProgram = SceneScriptScalarProgram.compile(
-            domain: model.sceneScriptDomain,
+        let sceneScriptScalarTargets = SceneScriptScalarProgram.projectedTargets(
             descriptor: authoredRenderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
-            timelineTargets: timelineTargets,
-            excludedTargets: boundedSceneScriptTargets,
-            generation: sceneScriptGeneration
-        )
-        let sceneScriptScalarTargets = Set(
-            sceneScriptScalarProgram.definitions.map(\.target)
-        )
-        guard sceneScriptScalarTargets.count
-                == sceneScriptScalarProgram.definitions.count,
-              sceneScriptScalarTargets.isDisjoint(with: boundedSceneScriptTargets) else {
+            timelineTargets: timelineTargets
+        ).subtracting(boundedSceneScriptTargets)
+        guard sceneScriptScalarTargets.isDisjoint(
+            with: boundedSceneScriptTargets
+        ) else {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("scalar-target-ownership")
         }
-        let sceneScriptStringProgram = SceneScriptStringProgram.compile(
-            domain: model.sceneScriptDomain,
+        let sceneScriptStringExcludedTargets = boundedSceneScriptTargets
+            .union(sceneScriptScalarTargets)
+        let sceneScriptStringTargets = SceneScriptStringProgram.projectedTargets(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings,
-            timelineTargets: timelineTargets,
-            generation: sceneScriptGeneration
+            excludedTargets: sceneScriptStringExcludedTargets
         )
-        let sceneScriptStringTargets = Set(
-            sceneScriptStringProgram.definitions.map(\.target)
-        )
-        guard sceneScriptStringTargets.count
-                == sceneScriptStringProgram.definitions.count,
-              sceneScriptStringTargets.isDisjoint(with: boundedSceneScriptTargets),
+        guard sceneScriptStringTargets.isDisjoint(with: boundedSceneScriptTargets),
               sceneScriptStringTargets.isDisjoint(with: sceneScriptScalarTargets) else {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("string-target-ownership")
         }
-        let sceneScriptOwnerLayerIDs = Set(
-            (
-                model.propertyVectorScriptProgram.definitions
-                    + sceneScriptScalarProgram.definitions
-                    + sceneScriptStringProgram.definitions
-            ).compactMap {
-                SceneScriptLayerMutationBridge.layerID(for: $0.target)
-            }
-        )
+        guard let sceneScriptVectorMediaRoute =
+                SceneScriptVectorMediaRouteState.resolve(
+                    ProcessInfo.processInfo.environment[
+                        SceneScriptVectorMediaRouteState.environmentKey
+                    ]
+                ) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("vector-media-route")
+        }
         let textScriptProgram = SceneTextScriptCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             excludedTargets: sceneScriptStringTargets
         )
-        let provenSceneScriptValueTargets = mediaColorTransitionCandidateTargets
-            .union(propertyVectorScriptTargets)
+        let provisionalSceneScriptValueTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
         let resolvedMaterialAdmissionCandidates =
@@ -544,7 +549,7 @@ extension SceneDesktopWallpaperHost {
             userPropertyProducers: userPropertyProducers,
             propertyDefinitions: propertyBindingDefinitions,
             timelineDefinitions: timelineDefinitions,
-            provenSceneScriptValueTargets: provenSceneScriptValueTargets
+            provenSceneScriptValueTargets: provisionalSceneScriptValueTargets
         )
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
@@ -557,7 +562,7 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             device: device
         )
-        let resolvedMaterialExecutionCapabilities =
+        let provisionalMaterialExecutionCapabilities =
             SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
                 materialCatalog: resolvedMaterialCatalog,
@@ -566,11 +571,107 @@ extension SceneDesktopWallpaperHost {
                     authoredFallbackTargets:
                         executablePropertyFallbackTargets,
                     timelineDefinitions: timelineDefinitions,
-                    sceneScriptTargets: provenSceneScriptValueTargets
+                    sceneScriptTargets: provisionalSceneScriptValueTargets
                 ),
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 assetStates: materialAssetCatalog.launchStates
             )
+        let admittedVectorPassTargets =
+            provisionalMaterialExecutionCapabilities.sceneScriptConsumerTargets
+                .intersection(propertyVectorPassCandidateTargets)
+        let resolvedMaterialExecutionCapabilities =
+            provisionalMaterialExecutionCapabilities
+        try cancellation?.check()
+        let compileSceneScriptPrograms: (
+            Set<SceneDynamicTarget>
+        ) throws -> SceneScriptQuickJSProgramCandidate = { vectorPassTargets in
+            try SceneScriptQuickJSProgramCandidate.compile(
+                authoredDescriptor: authoredRenderDescriptor,
+                runtimeDescriptor: runtimeInput.renderDescriptor,
+                scriptBindings: model.sceneDocument.scriptBindings,
+                vectorProjection: model.propertyVectorProjection,
+                userPropertyDefinitions: model.project.userProperties.definitions,
+                timelineTargets: timelineTargets,
+                scalarExcludedTargets: boundedSceneScriptTargets,
+                stringExcludedTargets: sceneScriptStringExcludedTargets,
+                admittedVectorPassTargets: vectorPassTargets,
+                generation: sceneScriptGeneration,
+                cancellationCheck: { try cancellation?.check() }
+            )
+        }
+        guard let routedPrograms = try SceneScriptVectorMediaRouteCandidate.compile(
+            initialPassTargets: admittedVectorPassTargets,
+            route: sceneScriptVectorMediaRoute,
+            cancellationCheck: { try cancellation?.check() },
+            builder: compileSceneScriptPrograms
+        ) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("media-route-fixed-point")
+        }
+        let committedPrograms = routedPrograms.programs
+        let committedVectorPassTargets = routedPrograms.admittedPassTargets
+        let propertyVectorMediaPassTargets = routedPrograms.mediaPassTargets
+        guard committedPrograms.constructionReport.isComplete else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt(
+                    "scenescript-family-candidate-publication"
+                )
+        }
+        guard let fallbackCatalog = SceneScriptFallbackCatalog(
+            authoredDescriptor: authoredRenderDescriptor,
+            runtimeDescriptor: runtimeInput.renderDescriptor,
+            scriptBindings: model.sceneDocument.scriptBindings,
+            vectorProjection: model.propertyVectorProjection,
+            constructionReport: committedPrograms.constructionReport,
+            timelineTargets: timelineTargets,
+            scalarExcludedTargets: boundedSceneScriptTargets,
+            stringExcludedTargets: sceneScriptStringExcludedTargets,
+            routeDisabledTargets: sceneScriptVectorMediaRoute == .disableGeneric
+                ? propertyVectorMediaPassTargets : []
+        ) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt("scenescript-fallback-catalog")
+        }
+        let sceneScriptFallbackDefinitions = fallbackCatalog.definitions
+        let propertyVectorScriptProgram = committedPrograms.vectorProgram
+        let sceneScriptCursorProgram = committedPrograms.cursorProgram
+        let sceneScriptScalarProgram = committedPrograms.scalarProgram
+        let sceneScriptStringProgram = committedPrograms.stringProgram
+        let passCompilation = committedPrograms.vectorPassCompilation
+        let rejectedVectorPassTargets = passCompilation.failedTargets
+        guard passCompilation.requestedTargets == committedVectorPassTargets,
+              passCompilation.instantiatedTargets.isDisjoint(
+                  with: rejectedVectorPassTargets
+              ),
+              passCompilation.instantiatedTargets.union(
+                  rejectedVectorPassTargets
+              ) == committedVectorPassTargets else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt(
+                    "property-vector-candidate-publication"
+                )
+        }
+        let constructedPropertyVectorTargets = Set(
+            propertyVectorScriptProgram.definitions.map(\.target)
+        )
+        guard constructedPropertyVectorTargets.count
+                == propertyVectorScriptProgram.definitions.count,
+              constructedPropertyVectorTargets.isDisjoint(
+                  with: Set(sceneScriptScalarProgram.definitions.map(\.target))
+              ),
+              constructedPropertyVectorTargets.isDisjoint(
+                  with: Set(sceneScriptStringProgram.definitions.map(\.target))
+              ),
+              fallbackCatalog.targets.isDisjoint(
+                  with: constructedPropertyVectorTargets
+                      .union(sceneScriptScalarProgram.definitions.map(\.target))
+                      .union(sceneScriptStringProgram.definitions.map(\.target))
+              ) else {
+            throw SceneDesktopWallpaperHostLaunchError
+                .invalidBoundedSceneScriptProgramAt(
+                    "property-vector-final-ownership"
+                )
+        }
         let resolvedMaterialSubjects = resolvedMaterialExecutionCapabilities
             .runtimeDispositionOwnerships.flatMap(\.subjects)
         let verifiedXRayStockIdentityKeys =
@@ -586,19 +687,15 @@ extension SceneDesktopWallpaperHost {
                 runtimeInput.startupInactiveEffectVisibilityTargets,
             verifiedXRayStageKeys: verifiedXRayStockIdentityKeys
         )
-        let sceneScriptConsumerTargets =
-            resolvedMaterialExecutionCapabilities.sceneScriptConsumerTargets
-        guard let mediaColorTransitionProgram =
-                SceneMediaColorTransitionProgram.validated(
-                    bindings: mediaColorTransitionCandidates.bindings.filter {
-                        sceneScriptConsumerTargets.contains(
-                            $0.definition.target
-                        )
-                    }
-                ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("media-color-consumers")
-        }
+        let sceneScriptOwnerLayerIDs = Set(
+            (
+                propertyVectorScriptProgram.definitions
+                    + sceneScriptScalarProgram.definitions
+                    + sceneScriptStringProgram.definitions
+            ).compactMap {
+                SceneScriptLayerMutationBridge.layerID(for: $0.target)
+            }
+        )
         let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             scriptBindings: model.sceneDocument.scriptBindings
@@ -621,12 +718,19 @@ extension SceneDesktopWallpaperHost {
                 program: timelineProgram
             ),
             textScriptProgram: textScriptProgram,
-            mediaColorTransitionProgram: mediaColorTransitionProgram,
-            mediaColorTransitionCandidateTargets:
-                mediaColorTransitionCandidateTargets,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
-            sceneScriptCursorProgram: model.sceneScriptCursorProgram,
-            propertyVectorScriptProgram: model.propertyVectorScriptProgram,
+            sceneScriptCursorProgram: sceneScriptCursorProgram,
+            propertyVectorScriptProgram: propertyVectorScriptProgram,
+            propertyVectorPassCandidateTargets:
+                propertyVectorPassCandidateTargets,
+            propertyVectorPassConsumerTargets:
+                admittedVectorPassTargets,
+            propertyVectorPassFailedTargets:
+                rejectedVectorPassTargets,
+            propertyVectorMediaPassTargets:
+                propertyVectorMediaPassTargets,
+            sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
+            sceneScriptVectorMediaRoute: sceneScriptVectorMediaRoute,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime(

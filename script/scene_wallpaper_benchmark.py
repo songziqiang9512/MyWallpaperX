@@ -47,6 +47,13 @@ from scene_wallpaper_graph_output_metrics import (
     resolved_material_graph_output_metrics,
     visible_graph_output_publication_execution_metrics,
 )
+from scene_wallpaper_media_event import (
+    append_media_thumbnail_argument,
+    media_color_transition_metrics,
+    media_event_expectation_failures,
+    media_owner_output_metrics,
+    scene_script_vector_media_startup_metrics,
+)
 
 
 FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
@@ -131,16 +138,6 @@ SCENE_SCRIPT_EFFECT_VECTOR_COMPLETION_RE = re.compile(
     r'name: "(?P<constant>[^"]+)"\) callback=completed '
     r"type=(?P<type>vector[23]) input=(?P<input>vector[23]\([^)]*\)) "
     r"output=(?P<output>vector[23]\([^)]*\)).* route=(?P<route>\S+)"
-)
-SCENE_MEDIA_COLOR_COMPLETION_RE = re.compile(
-    r"MWX Scene media color: event=thumbnail-color-completed "
-    r"target=effectConstant\(layerID: (?P<layer>\d+), "
-    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
-    r'name: "(?P<constant>[^"]+)"\) generation=(?P<generation>\d+) '
-    r"channel=(?P<channel>primary|secondary) "
-    rf"output=(?P<red>{FLOAT_PATTERN}),(?P<green>{FLOAT_PATTERN}),"
-    rf"(?P<blue>{FLOAT_PATTERN}) fallback=(?P<fallback>\S+) "
-    r"route=(?P<route>\S+)"
 )
 SCENE_SCRIPT_AUDIO_VECTOR_PUBLICATION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
@@ -1693,32 +1690,6 @@ def scene_script_scalar_runtime_metrics(
             for completion in completions
         ],
     }
-
-
-def media_color_transition_metrics(log_text: str) -> list[dict[str, Any]]:
-    completions = [
-        {
-            "layer_id": int(match.group("layer")),
-            "effect_index": int(match.group("effect")),
-            "pass_index": int(match.group("pass")),
-            "constant": match.group("constant"),
-            "generation": int(match.group("generation")),
-            "channel": match.group("channel"),
-            "output": [
-                float(match.group("red")),
-                float(match.group("green")),
-                float(match.group("blue")),
-            ],
-            "fallback": match.group("fallback"),
-            "route": match.group("route"),
-        }
-        for match in SCENE_MEDIA_COLOR_COMPLETION_RE.finditer(log_text)
-    ]
-    completions.sort(key=lambda value: (
-        value["layer_id"], value["effect_index"], value["pass_index"],
-        value["constant"], value["generation"],
-    ))
-    return completions
 
 
 def typed_user_property_scalar_uniform_publications(
@@ -5081,91 +5052,6 @@ def append_resize_sequence_argument(
         ])
 
 
-def append_media_thumbnail_argument(
-    command: list[str],
-    media_thumbnail_path: Any,
-    runtime_sample: Path,
-    failures: list[str],
-    *,
-    primary_color: Any = None,
-    secondary_color: Any = None,
-    playback_state: Any = None,
-) -> None:
-    if media_thumbnail_path is None:
-        if (
-            primary_color is not None
-            or secondary_color is not None
-            or playback_state is not None
-        ):
-            failures.append(
-                "media thumbnail event requires isolated media thumbnail path"
-            )
-        return
-    media_thumbnail = Path(str(media_thumbnail_path))
-    if (
-        media_thumbnail.is_absolute()
-        or ".." in media_thumbnail.parts
-        or media_thumbnail.suffix.lower() not in {".png", ".jpg", ".jpeg"}
-        or not (runtime_sample / media_thumbnail).is_file()
-    ):
-        failures.append("invalid isolated media thumbnail path")
-        return
-    def normalized_palette_color(
-        value: Any,
-        member: str,
-    ) -> list[float] | None:
-        if value is None:
-            return None
-        if (
-            not isinstance(value, list)
-            or len(value) != 3
-            or any(
-                isinstance(component, bool)
-                or not isinstance(component, (int, float))
-                or not math.isfinite(component)
-                or not 0 <= component <= 1
-                for component in value
-            )
-        ):
-            failures.append(f"invalid media thumbnail {member} color")
-            return None
-        return [float(component) for component in value]
-
-    normalized_primary = normalized_palette_color(primary_color, "primary")
-    if primary_color is not None and normalized_primary is None:
-        return
-    normalized_secondary = normalized_palette_color(secondary_color, "secondary")
-    if secondary_color is not None and normalized_secondary is None:
-        return
-    if playback_state is not None and (
-        isinstance(playback_state, bool)
-        or not isinstance(playback_state, int)
-        or not 0 <= playback_state <= 2
-    ):
-        failures.append("invalid media thumbnail playback state")
-        return
-    arguments = [
-        "--mwx-debug-scene-media-thumbnail",
-        str(media_thumbnail),
-    ]
-    if normalized_primary is not None:
-        arguments.extend([
-            "--mwx-debug-scene-media-primary-color-json",
-            json.dumps(normalized_primary, separators=(",", ":")),
-        ])
-    if normalized_secondary is not None:
-        arguments.extend([
-            "--mwx-debug-scene-media-secondary-color-json",
-            json.dumps(normalized_secondary, separators=(",", ":")),
-        ])
-    if playback_state is not None:
-        arguments.extend([
-            "--mwx-debug-scene-media-playback-state",
-            str(playback_state),
-        ])
-    command.extend(arguments)
-
-
 def append_media_properties_arguments(
     command: list[str],
     title: Any,
@@ -5627,6 +5513,9 @@ def run_sample(
         failures,
         primary_color=sample.get("media_thumbnail_primary_color"),
         secondary_color=sample.get("media_thumbnail_secondary_color"),
+        tertiary_color=sample.get("media_thumbnail_tertiary_color"),
+        text_color=sample.get("media_thumbnail_text_color"),
+        high_contrast_color=sample.get("media_thumbnail_high_contrast_color"),
         playback_state=sample.get("media_playback_state"),
     )
     append_media_thumbnail_sequence_argument(
@@ -5718,6 +5607,21 @@ def run_sample(
         log_text,
     )
     media_color_completions = media_color_transition_metrics(log_text)
+    scene_script_vector_media_startup = (
+        scene_script_vector_media_startup_metrics(preview_text)
+    )
+    media_owner_outputs = media_owner_output_metrics(
+        scene_script_scalar_runtime["effect_vector_completions"],
+        scene_script_vector_media_startup,
+    )
+    failures.extend(
+        media_event_expectation_failures(
+            sample,
+            media_color_completions,
+            scene_script_vector_media_startup,
+            media_owner_outputs,
+        )
+    )
     user_property_scalar_uniform_publications = (
         typed_user_property_scalar_uniform_publications(log_text)
     )
@@ -6453,6 +6357,10 @@ def run_sample(
                 scene_script_scalar_runtime["audio_vector_publications"]
             ),
             "media_color_completions": media_color_completions,
+            "media_owner_outputs": media_owner_outputs,
+            "scene_script_vector_media_startup": (
+                scene_script_vector_media_startup
+            ),
             "media_thumbnail_current_binding_count": (
                 media_thumbnail_runtime["current_binding_count"]
             ),

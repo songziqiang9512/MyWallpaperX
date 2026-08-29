@@ -38,6 +38,17 @@ nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
     let inputBatchOverflowed: Bool
 }
 
+nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
+    let program: SceneScriptCursorProgram
+    let requestedLayerIDs: Set<Int>
+    let instantiatedLayerIDs: Set<Int>
+    let failures: [Int: SceneScriptScalarRuntimeFailure]
+
+    var deferredLayerIDs: Set<Int> {
+        requestedLayerIDs.subtracting(instantiatedLayerIDs).subtracting(failures.keys)
+    }
+}
+
 private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
     let authoredOrder: Int
@@ -77,51 +88,160 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptCursorProgram {
-        guard let domain,
-              (try? domain.configureLayerCatalog(descriptor)) != nil else {
-            return .init(bindings: [], generation: generation)
+        compileCandidate(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: scriptBindings,
+            borrowedOwners: borrowedOwners,
+            rejectedLayerIDs: [],
+            generation: generation,
+            budget: budget
+        ).program
+    }
+
+    static func compileCandidate(
+        domain: SceneScriptQuickJSDomain?,
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        borrowedOwners: [SceneScriptCursorOwnerRegistration] = [],
+        rejectedLayerIDs: Set<Int>,
+        generation: UInt64,
+        budget: SceneScriptScalarBudget = .default
+    ) -> SceneScriptCursorProgramConstruction {
+        let standaloneCandidates = projectedStandaloneCandidates(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings
+        ).filter { !rejectedLayerIDs.contains($0.identity.layerID) }
+        let borrowedBindings = projectedBorrowedBindings(
+            descriptor: descriptor,
+            borrowedOwners: borrowedOwners
+        ).filter { !rejectedLayerIDs.contains($0.layerID) }
+        let borrowedCounts = Dictionary(
+            grouping: borrowedBindings,
+            by: \.layerID
+        ).mapValues(\.count)
+        var candidateCounts = Dictionary(
+            grouping: standaloneCandidates,
+            by: { $0.identity.layerID }
+        ).mapValues(\.count)
+        for binding in borrowedBindings {
+            candidateCounts[binding.layerID, default: 0] += 1
         }
-        var candidates = borrowedOwners.compactMap { registration -> SceneScriptCursorBinding? in
-            guard let layer = descriptor.layers.first(where: {
-                $0.id == registration.layerID
-            }), validHitLayer(layer) else { return nil }
-            let events = exportedEvents(registration.owner)
-            guard !events.isEmpty else { return nil }
-            return .init(
-                layerID: registration.layerID,
-                authoredOrder: registration.authoredOrder,
-                owner: registration.owner,
-                events: events,
-                ownsOwner: false
+        let collisionLayerIDs: Set<Int> = Set(candidateCounts.compactMap {
+            layerID, count -> Int? in
+            guard count > 1, borrowedCounts[layerID] != nil else { return nil }
+            return layerID
+        })
+        let requestedCandidates = standaloneCandidates.filter {
+            candidateCounts[$0.identity.layerID] == 1
+        }.sorted { $0.identity.authoredOrder < $1.identity.authoredOrder }
+        let requestedLayerIDs = Set(
+            requestedCandidates.map { $0.identity.layerID }
+        ).union(collisionLayerIDs)
+        guard let domain else {
+            return failedConstruction(
+                requestedLayerIDs: requestedLayerIDs,
+                generation: generation,
+                failure: .invalidArgument("QuickJS domain unavailable")
             )
         }
-        for binding in scriptBindings {
-            guard let identity = ownerIdentity(
-                binding,
-                descriptor: descriptor
-            ), let owner = try? SceneScriptVectorOwner(
-                domain: domain,
-                source: binding.source,
-                target: .layer(layerID: identity.layerID, field: .visibility),
-                effectNames: [],
+        do {
+            try domain.configureLayerCatalog(descriptor)
+        } catch {
+            return failedConstruction(
+                requestedLayerIDs: requestedLayerIDs,
                 generation: generation,
-                budget: budget
-            ) else { continue }
+                failure: (error as? SceneScriptScalarRuntimeFailure)
+                    ?? .invalidArgument(String(describing: error))
+            )
+        }
+
+        var bindings = borrowedBindings.filter {
+            candidateCounts[$0.layerID] == 1
+        }
+        var instantiatedLayerIDs: Set<Int> = []
+        let collisionFailure = SceneScriptScalarRuntimeFailure.invalidArgument(
+            "SceneScript cursor owner collision"
+        )
+        var failures: [Int: SceneScriptScalarRuntimeFailure] = Dictionary(
+            uniqueKeysWithValues:
+            collisionLayerIDs.map { ($0, collisionFailure) }
+        )
+        for candidate in requestedCandidates {
+            let layerID = candidate.identity.layerID
+            let owner: SceneScriptVectorOwner
+            do {
+                owner = try SceneScriptVectorOwner(
+                    domain: domain,
+                    source: candidate.source,
+                    target: .layer(layerID: layerID, field: .visibility),
+                    effectNames: [],
+                    generation: generation,
+                    budget: budget
+                )
+            } catch let failure as SceneScriptScalarRuntimeFailure {
+                failures[layerID] = failure
+                break
+            } catch {
+                failures[layerID] = .invalidArgument(String(describing: error))
+                break
+            }
             let events = exportedEvents(owner)
-            guard !events.isEmpty else { continue }
-            candidates.append(.init(
-                layerID: identity.layerID,
-                authoredOrder: identity.authoredOrder,
+            guard !events.isEmpty else {
+                failures[layerID] = .invalidSource
+                break
+            }
+            bindings.append(.init(
+                layerID: layerID,
+                authoredOrder: candidate.identity.authoredOrder,
                 owner: owner,
                 events: events,
                 ownsOwner: true
             ))
+            instantiatedLayerIDs.insert(layerID)
         }
-        let counts = Dictionary(grouping: candidates, by: \.layerID)
-            .mapValues(\.count)
-        let admitted = candidates.filter { counts[$0.layerID] == 1 }
-            .sorted { $0.authoredOrder < $1.authoredOrder }
-        return .init(bindings: admitted, generation: generation)
+        bindings.sort { $0.authoredOrder < $1.authoredOrder }
+        return .init(
+            program: .init(bindings: bindings, generation: generation),
+            requestedLayerIDs: requestedLayerIDs,
+            instantiatedLayerIDs: instantiatedLayerIDs,
+            failures: failures
+        )
+    }
+
+    static func projectedStandaloneLayerIDs(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR]
+    ) -> Set<Int> {
+        let candidates = projectedStandaloneCandidates(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings
+        )
+        let counts = Dictionary(
+            grouping: candidates,
+            by: { $0.identity.layerID }
+        ).mapValues(\.count)
+        return Set(candidates.compactMap { candidate in
+            counts[candidate.identity.layerID] == 1
+                ? candidate.identity.layerID : nil
+        })
+    }
+
+    static func projectedStandaloneOwnerSources(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR]
+    ) -> [String] {
+        let candidates = projectedStandaloneCandidates(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings
+        )
+        let counts = Dictionary(
+            grouping: candidates,
+            by: { $0.identity.layerID }
+        ).mapValues(\.count)
+        return candidates.compactMap { candidate in
+            counts[candidate.identity.layerID] == 1 ? candidate.source : nil
+        }
     }
 
     func dispatch(
@@ -315,6 +435,57 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         let authoredOrder: Int
     }
 
+    private struct StandaloneCandidate {
+        let source: String
+        let identity: OwnerIdentity
+    }
+
+    private static func projectedStandaloneCandidates(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR]
+    ) -> [StandaloneCandidate] {
+        scriptBindings.compactMap { binding in
+            ownerIdentity(binding, descriptor: descriptor).map {
+                .init(source: binding.source, identity: $0)
+            }
+        }
+    }
+
+    private static func projectedBorrowedBindings(
+        descriptor: SceneRenderDescriptor,
+        borrowedOwners: [SceneScriptCursorOwnerRegistration]
+    ) -> [SceneScriptCursorBinding] {
+        borrowedOwners.compactMap { registration in
+            guard let layer = descriptor.layers.first(where: {
+                $0.id == registration.layerID
+            }), validHitLayer(layer) else { return nil }
+            let events = exportedEvents(registration.owner)
+            guard !events.isEmpty else { return nil }
+            return .init(
+                layerID: registration.layerID,
+                authoredOrder: registration.authoredOrder,
+                owner: registration.owner,
+                events: events,
+                ownsOwner: false
+            )
+        }
+    }
+
+    private static func failedConstruction(
+        requestedLayerIDs: Set<Int>,
+        generation: UInt64,
+        failure: SceneScriptScalarRuntimeFailure
+    ) -> SceneScriptCursorProgramConstruction {
+        .init(
+            program: .init(bindings: [], generation: generation),
+            requestedLayerIDs: requestedLayerIDs,
+            instantiatedLayerIDs: [],
+            failures: Dictionary(uniqueKeysWithValues:
+                requestedLayerIDs.map { ($0, failure) }
+            )
+        )
+    }
+
     private static func ownerIdentity(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor
@@ -351,12 +522,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private static func exportedEvents(
         _ owner: SceneScriptVectorOwner
     ) -> Set<SceneScriptCursorEventKind> {
-        let pairs: [(SceneScriptCursorEventKind, String)] = [
-            (.enter, "cursorEnter"), (.leave, "cursorLeave"),
-            (.down, "cursorDown"), (.move, "cursorMove"),
-            (.up, "cursorUp"), (.click, "cursorClick"),
-        ]
-        return Set(pairs.compactMap { owner.exports($0.1) ? $0.0 : nil })
+        owner.exportedCursorEvents
     }
 
     private static func validHitLayer(

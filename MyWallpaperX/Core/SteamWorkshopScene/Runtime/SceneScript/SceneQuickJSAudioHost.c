@@ -126,17 +126,13 @@ bool mwx_scene_quickjs_bind_module_engine_host(
         return false;
     }
     JS_FreeValue(context, registration);
-    JSValue global = JS_GetGlobalObject(context);
-    JSValue previous = JS_GetPropertyStr(context, global, "engine");
-    if (JS_IsException(previous) ||
-        JS_SetPropertyStr(context, global, "engine", engine) < 0) {
-        JS_FreeValue(context, previous);
-        JS_FreeValue(context, global);
+    if (!mwx_scene_quickjs_bind_active_engine(
+            owner->domain, engine, previous_global_engine
+        )) {
+        JS_FreeValue(context, engine);
         return false;
     }
     owner->domain->module_owner = owner;
-    *previous_global_engine = previous;
-    JS_FreeValue(context, global);
     return true;
 }
 
@@ -149,13 +145,9 @@ bool mwx_scene_quickjs_restore_module_engine_host(
         return false;
     }
     owner->domain->module_owner = NULL;
-    JSContext *context = owner->domain->context;
-    JSValue global = JS_GetGlobalObject(context);
-    int result = JS_SetPropertyStr(
-        context, global, "engine", previous_global_engine
+    return mwx_scene_quickjs_restore_active_engine(
+        owner->domain, previous_global_engine
     );
-    JS_FreeValue(context, global);
-    return result >= 0;
 }
 
 void mwx_scene_quickjs_destroy_audio_host(MWXSceneQuickJSOwner *owner) {

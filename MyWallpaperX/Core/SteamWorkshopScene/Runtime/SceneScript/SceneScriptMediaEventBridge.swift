@@ -1,17 +1,97 @@
 import Foundation
 
+/// Launch-frozen product authority for the migrated vector media-thumbnail
+/// event profile. No state can revive the removed native color owner.
+nonisolated enum SceneScriptVectorMediaRouteState: String, Equatable, Sendable {
+    case preferGeneric = "prefer-generic"
+    case genericOnly = "generic-only"
+    case disableGeneric = "disable-generic"
+
+    static let environmentKey = "MWX_SCENE_SCRIPT_VECTOR_MEDIA_ROUTE"
+
+    static func resolve(_ rawValue: String?) -> Self? {
+        guard let rawValue else { return .genericOnly }
+        guard let requested = Self(rawValue: rawValue) else { return nil }
+        switch requested {
+        case .preferGeneric, .genericOnly:
+            // The shared VM is already the sole product owner. A migration
+            // toggle cannot silently restore the deleted native path.
+            return .genericOnly
+        case .disableGeneric:
+            return requested
+        }
+    }
+
+    func admittedVectorInputs(
+        _ inputs: [SceneDynamicTarget: SceneDynamicValue],
+        mediaOwnerTargets: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        switch self {
+        case .preferGeneric, .genericOnly:
+            inputs
+        case .disableGeneric:
+            inputs.filter { !mediaOwnerTargets.contains($0.key) }
+        }
+    }
+
+    func admittedVectorPassTargets(
+        _ targets: Set<SceneDynamicTarget>,
+        mediaOwnerTargets: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        switch self {
+        case .preferGeneric, .genericOnly:
+            targets
+        case .disableGeneric:
+            targets.subtracting(mediaOwnerTargets)
+        }
+    }
+
+    func authoredFallbackDefinitions(
+        _ definitions: [SceneDynamicTargetDefinition],
+        mediaOwnerTargets: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTargetDefinition] {
+        guard self == .disableGeneric else { return [] }
+        return definitions.filter { definition in
+            mediaOwnerTargets.contains(definition.target)
+        }
+    }
+}
+
 nonisolated struct SceneScriptMediaThumbnailEventInput: Equatable, Sendable {
     let hasThumbnail: Bool
+    let primaryColor: SIMD3<Double>
+    let secondaryColor: SIMD3<Double>
+    let tertiaryColor: SIMD3<Double>
+    let textColor: SIMD3<Double>
+    let highContrastColor: SIMD3<Double>
     let generation: UInt64
 
-    init(hasThumbnail: Bool, generation: UInt64) {
+    init(
+        hasThumbnail: Bool,
+        primaryColor: SIMD3<Double> = .zero,
+        secondaryColor: SIMD3<Double> = .zero,
+        tertiaryColor: SIMD3<Double> = .zero,
+        textColor: SIMD3<Double> = .zero,
+        highContrastColor: SIMD3<Double> = .zero,
+        generation: UInt64
+    ) {
         self.hasThumbnail = hasThumbnail
+        self.primaryColor = primaryColor
+        self.secondaryColor = secondaryColor
+        self.tertiaryColor = tertiaryColor
+        self.textColor = textColor
+        self.highContrastColor = highContrastColor
         self.generation = generation
     }
 
     init?(snapshot: SceneMediaThumbnailInbox.Snapshot) {
         guard snapshot.generation > 0 else { return nil }
         hasThumbnail = snapshot.current != nil
+        primaryColor = snapshot.primaryColor ?? .zero
+        secondaryColor = snapshot.secondaryColor ?? .zero
+        tertiaryColor = snapshot.tertiaryColor ?? .zero
+        textColor = snapshot.textColor ?? .zero
+        highContrastColor = snapshot.highContrastColor ?? .zero
         generation = snapshot.generation
     }
 }
@@ -54,13 +134,92 @@ nonisolated struct SceneScriptMediaPropertiesEventInput: Equatable, Sendable {
     }
 }
 
+nonisolated protocol SceneScriptGeneratedEvent: Equatable, Sendable {
+    var generation: UInt64 { get }
+}
+
+extension SceneScriptMediaThumbnailEventInput: SceneScriptGeneratedEvent {}
+extension SceneScriptMediaPlaybackEventInput: SceneScriptGeneratedEvent {}
+extension SceneScriptMediaPropertiesEventInput: SceneScriptGeneratedEvent {}
+
+nonisolated enum SceneScriptOwnerExportBridge {
+    static func contains(_ name: String, owner: OpaquePointer) throws -> Bool {
+        guard !name.isEmpty, name.utf8.count <= 128 else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "invalid SceneScript callback export name"
+            )
+        }
+        var available: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = name.withCString {
+            mwx_scene_quickjs_owner_has_function(
+                owner, $0, name.utf8.count,
+                &available, &diagnostic, diagnostic.count
+            )
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            throw failure(result, diagnostic: diagnostic)
+        }
+        guard available <= 1 else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "invalid SceneScript callback export availability"
+            )
+        }
+        return available == 1
+    }
+
+    private static func failure(
+        _ raw: MWXSceneQuickJSResult,
+        diagnostic buffer: [CChar]
+    ) -> SceneScriptScalarRuntimeFailure {
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        let diagnostic = String(decoding: bytes, as: UTF8.self)
+        return switch raw {
+        case MWX_SCENE_QUICKJS_COMPILE_ERROR: .compile(diagnostic)
+        case MWX_SCENE_QUICKJS_EXCEPTION: .exception(diagnostic)
+        case MWX_SCENE_QUICKJS_BUDGET_EXCEEDED: .budgetExceeded(diagnostic)
+        case MWX_SCENE_QUICKJS_MEMORY_EXCEEDED: .memoryExceeded(diagnostic)
+        case MWX_SCENE_QUICKJS_BAD_RETURN: .badReturn(diagnostic)
+        case MWX_SCENE_QUICKJS_DISABLED: .disabled(diagnostic)
+        case MWX_SCENE_QUICKJS_STALE_OWNER: .staleOwner
+        case MWX_SCENE_QUICKJS_MUTATION_OVERFLOW: .mutationOverflow(diagnostic)
+        default: .invalidArgument(diagnostic)
+        }
+    }
+}
+
+/// Program-level input watermark. Equal generation/payload remains observable
+/// so an owner that was not eligible on the first frame can retry; generation
+/// zero, stale input, and same-generation payload conflicts never reach JS.
+nonisolated struct SceneScriptObservedEvent<Event: SceneScriptGeneratedEvent>:
+    Sendable {
+    private var latest: Event?
+
+    mutating func observe(_ event: Event?) -> Event? {
+        guard let event, event.generation > 0 else { return nil }
+        guard let latest else {
+            self.latest = event
+            return event
+        }
+        if event.generation > latest.generation {
+            self.latest = event
+            return event
+        }
+        guard event.generation == latest.generation, event == latest else {
+            return nil
+        }
+        return event
+    }
+}
+
 nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
     let animations: [SceneTimelinePlaybackMutation]
     let layers: [SceneScriptLayerMutation]
 }
 
-nonisolated enum SceneScriptCursorEventKind: Equatable, Hashable, Sendable {
+nonisolated enum SceneScriptCursorEventKind:
+    CaseIterable, Equatable, Hashable, Sendable {
     case enter
     case leave
     case down
@@ -192,8 +351,30 @@ nonisolated enum SceneScriptMediaEventBridge {
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard event.primaryColor.isNormalizedColor,
+              event.secondaryColor.isNormalizedColor,
+              event.tertiaryColor.isNormalizedColor,
+              event.textColor.isNormalizedColor,
+              event.highContrastColor.isNormalizedColor else {
+            return .failure(.invalidArgument("invalid media thumbnail colors"))
+        }
         var rawEvent = MWXSceneQuickJSMediaThumbnailEvent(
-            has_thumbnail: event.hasThumbnail ? 1 : 0
+            has_thumbnail: event.hasThumbnail ? 1 : 0,
+            primary_red: event.primaryColor.x,
+            primary_green: event.primaryColor.y,
+            primary_blue: event.primaryColor.z,
+            secondary_red: event.secondaryColor.x,
+            secondary_green: event.secondaryColor.y,
+            secondary_blue: event.secondaryColor.z,
+            tertiary_red: event.tertiaryColor.x,
+            tertiary_green: event.tertiaryColor.y,
+            tertiary_blue: event.tertiaryColor.z,
+            text_red: event.textColor.x,
+            text_green: event.textColor.y,
+            text_blue: event.textColor.z,
+            high_contrast_red: event.highContrastColor.x,
+            high_contrast_green: event.highContrastColor.y,
+            high_contrast_blue: event.highContrastColor.z
         )
         var rawFrame = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -354,4 +535,9 @@ nonisolated enum SceneScriptMediaEventBridge {
 
 private nonisolated extension SIMD3 where Scalar == Double {
     var allFinite: Bool { x.isFinite && y.isFinite && z.isFinite }
+
+    var isNormalizedColor: Bool {
+        allFinite && (0...1).contains(x) && (0...1).contains(y)
+            && (0...1).contains(z)
+    }
 }

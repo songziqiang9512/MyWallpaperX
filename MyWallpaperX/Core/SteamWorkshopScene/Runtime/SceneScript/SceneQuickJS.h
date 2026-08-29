@@ -6,6 +6,7 @@
 
 typedef struct MWXSceneQuickJSDomain MWXSceneQuickJSDomain;
 typedef struct MWXSceneQuickJSOwner MWXSceneQuickJSOwner;
+typedef int (*MWXSceneQuickJSCancellationCheck)(void *opaque);
 
 typedef enum MWXSceneQuickJSResult {
     MWX_SCENE_QUICKJS_OK = 0,
@@ -88,6 +89,21 @@ typedef struct MWXSceneQuickJSLifecycleSnapshot {
 
 typedef struct MWXSceneQuickJSMediaThumbnailEvent {
     uint32_t has_thumbnail;
+    double primary_red;
+    double primary_green;
+    double primary_blue;
+    double secondary_red;
+    double secondary_green;
+    double secondary_blue;
+    double tertiary_red;
+    double tertiary_green;
+    double tertiary_blue;
+    double text_red;
+    double text_green;
+    double text_blue;
+    double high_contrast_red;
+    double high_contrast_green;
+    double high_contrast_blue;
 } MWXSceneQuickJSMediaThumbnailEvent;
 
 typedef struct MWXSceneQuickJSMediaPlaybackEvent {
@@ -128,6 +144,12 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
 );
 
 void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain);
+
+void mwx_scene_quickjs_domain_set_cancellation_check(
+    MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSCancellationCheck cancellation_check,
+    void *opaque
+);
 
 void mwx_scene_quickjs_domain_reset_budget(
     MWXSceneQuickJSDomain *domain,
@@ -217,11 +239,32 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_origin(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+void mwx_scene_quickjs_domain_abort_layer_snapshot(
+    MWXSceneQuickJSDomain *domain
+);
+
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     MWXSceneQuickJSDomain *domain,
     const char *source,
     size_t source_length,
     uint64_t generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_with_budget(
+    MWXSceneQuickJSDomain *domain,
+    const char *source,
+    size_t source_length,
+    uint64_t generation,
+    uint64_t interrupt_budget,
+    MWXSceneQuickJSResult *result,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -291,6 +334,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
     const char *user_properties_json,
     size_t user_properties_length,
     uint32_t *destroy_callback_invoked,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    uint32_t *destroy_callback_invoked,
+    uint32_t *destroy_callback_threw,
     char *diagnostic,
     size_t diagnostic_capacity
 );

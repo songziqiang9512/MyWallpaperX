@@ -9,10 +9,7 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
-    let mediaColorTransitionCandidateProgram: SceneMediaColorTransitionProgram
-    let sceneScriptCursorProgram: SceneScriptCursorProgram
-    let propertyVectorScriptProgram: SceneScriptVectorProgram
-    let sceneScriptDomain: SceneScriptQuickJSDomain?
+    let propertyVectorProjection: SceneScriptVectorCandidateCatalog
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
     let diagnostics: SceneDiagnosticsReport
@@ -44,7 +41,6 @@ struct SceneRuntimeModelBuilder {
         case missingAssetCatalog
         case missingResourceReferences
         case missingRenderDescriptor
-        case invalidMediaColorTransitionProgram
 
         var errorDescription: String? {
             switch self {
@@ -61,16 +57,13 @@ struct SceneRuntimeModelBuilder {
                 return "无法构建 Scene runtime：资源引用索引未建立。"
             case .missingRenderDescriptor:
                 return "无法构建 Scene runtime：renderer 输入描述未建立。"
-            case .invalidMediaColorTransitionProgram:
-                return "无法构建 Scene runtime：media color target identity 冲突。"
             }
         }
     }
 
     func build(
         rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:],
-        sceneScriptGeneration: UInt64 = 1
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
     ) throws -> SceneRuntimeModel {
         let diagnostics = SceneDiagnosticsBuilder().build(
             rootURL: rootURL,
@@ -112,39 +105,14 @@ struct SceneRuntimeModelBuilder {
                 ) else {
             throw BuildError.missingRenderDescriptor
         }
-        let sceneScriptDomain: SceneScriptQuickJSDomain? = {
-            guard let domain = try? SceneScriptQuickJSDomain(),
-                  (try? domain.configureLayerRuntimeFields(renderDescriptor)) != nil else {
-                return nil
-            }
-            return domain
-        }()
         let timelineTargets = Set(
             SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
                 .bindings.map(\.target)
         )
-        guard let mediaColorTransitionCandidateProgram =
-                SceneMediaColorTransitionProgramCompiler.compile(
-                    descriptor: renderDescriptor,
-                    scriptBindings: sceneDocument.scriptBindings
-                ) else {
-            throw BuildError.invalidMediaColorTransitionProgram
-        }
-        let propertyVectorScriptProgram = SceneScriptVectorProgram.compile(
-            domain: sceneScriptDomain,
+        let propertyVectorProjection = SceneScriptVectorProgram.project(
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
-            userPropertyDefinitions: project.userProperties.definitions,
-            timelineTargets: timelineTargets,
-            excludedTargets: mediaColorTransitionCandidateProgram.targets,
-            generation: sceneScriptGeneration
-        )
-        let sceneScriptCursorProgram = SceneScriptCursorProgram.compile(
-            domain: sceneScriptDomain,
-            descriptor: renderDescriptor,
-            scriptBindings: sceneDocument.scriptBindings,
-            borrowedOwners: propertyVectorScriptProgram.cursorOwnerRegistrations,
-            generation: sceneScriptGeneration
+            timelineTargets: timelineTargets
         )
         let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(
             program: sharedLayerAlphaProgram,
@@ -176,7 +144,7 @@ struct SceneRuntimeModelBuilder {
         )
         let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
             admittedSceneScriptScaleLayerIDs:
-                propertyVectorScriptProgram.admittedScaleLayerIDs,
+                propertyVectorProjection.admittedScaleLayerIDs,
             to: particleProjectedDescriptor
         )
         let runtimeInput = SceneRuntimeInput(
@@ -197,11 +165,7 @@ struct SceneRuntimeModelBuilder {
             capabilityProfile: capabilityProfile,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
-            mediaColorTransitionCandidateProgram:
-                mediaColorTransitionCandidateProgram,
-            sceneScriptCursorProgram: sceneScriptCursorProgram,
-            propertyVectorScriptProgram: propertyVectorScriptProgram,
-            sceneScriptDomain: sceneScriptDomain,
+            propertyVectorProjection: propertyVectorProjection,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
             runtimeInput: runtimeInput,
             diagnostics: diagnostics
