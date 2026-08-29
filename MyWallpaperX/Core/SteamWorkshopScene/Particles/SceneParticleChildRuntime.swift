@@ -16,6 +16,11 @@ final class SceneParticleChildRuntime {
         !templates.isEmpty
     }
 
+    var lifecycleSystemCount: Int { systems.count }
+    var lifecycleParticleCount: Int {
+        systems.reduce(0) { $0 + $1.simulator.particles.count }
+    }
+
     private let layerID: Int
     private let layerAlpha: Float
     private let device: MTLDevice
@@ -145,6 +150,11 @@ final class SceneParticleChildRuntime {
             bufferFailurePaths: failures,
             limitationDetails: limitations.sorted()
         )
+    }
+
+    func teardown() {
+        systems.removeAll(keepingCapacity: false)
+        instanceScratch.removeAll(keepingCapacity: false)
     }
 
     /// Advances depth-one systems against the root simulator and collects the per-system

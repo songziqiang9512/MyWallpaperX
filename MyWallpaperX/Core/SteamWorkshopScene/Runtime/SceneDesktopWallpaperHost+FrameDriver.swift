@@ -59,6 +59,7 @@ extension SceneDesktopWallpaperHost {
         frameDriverDeadline = nil
         for surface in surfaces.values {
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
+            surface.metalView.teardownParticlePlayback(reason: reason)
             surface.window.orderOut(nil)
             surface.window.close()
         }

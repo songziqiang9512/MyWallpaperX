@@ -55,3 +55,28 @@ struct SceneParticleDrawBatch {
     let orientationAxis: SIMD3<Float>?
     let usesPerspective: Bool
 }
+
+/// Immutable accounting for one live particle-runtime instance. This is an
+/// observation of the existing root/child owners, not a second lifecycle state.
+struct SceneParticleRuntimeLifecycleSnapshot: Equatable, Sendable {
+    let activeLayerCount: Int
+    let rootSystemCount: Int
+    let childSystemCount: Int
+    let rootParticleCount: Int
+    let childParticleCount: Int
+
+    static let empty = SceneParticleRuntimeLifecycleSnapshot(
+        activeLayerCount: 0,
+        rootSystemCount: 0,
+        childSystemCount: 0,
+        rootParticleCount: 0,
+        childParticleCount: 0
+    )
+}
+
+struct SceneParticlePlaybackTeardownObservation: Equatable, Sendable {
+    let lifecycleIdentity: UUID
+    let reason: String
+    let snapshotBeforeTeardown: SceneParticleRuntimeLifecycleSnapshot
+    let batchCountBeforeTeardown: Int
+}

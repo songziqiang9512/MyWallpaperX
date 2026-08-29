@@ -335,6 +335,8 @@ enum Harness {
             try printJSON(syntheticVelocityDefaults())
         case "child-pointer-control-point-synthetic":
             try printJSON(syntheticChildPointerControlPoint())
+        case "lifecycle-synthetic":
+            try printJSON(syntheticLifecycle())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -2268,6 +2270,93 @@ enum Harness {
         ]
     }
 
+    private static func syntheticLifecycle() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mwx-particle-lifecycle-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeParticle(
+            "particles/root.json",
+            material: "materials/shared.json",
+            rate: 60,
+            children: [[
+                "name": "particles/child.json",
+                "type": "eventspawn",
+                "maxcount": 4,
+            ]],
+            under: directory
+        )
+        try writeParticle(
+            "particles/child.json",
+            material: "materials/shared.json",
+            rate: 30,
+            emitterDuration: 0.5,
+            under: directory
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(200, "particles/root.json")],
+            renderOrderLayerIDs: [200],
+            materialPasses: [
+                .init(
+                    materialPath: "materials/shared.json",
+                    shaderPath: "genericparticle",
+                    texturePaths: ["shared.png"],
+                    blending: "additive"
+                )
+            ]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw HarnessError.noMetal
+        }
+        guard let playback = SceneParticlePlaybackState(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        ) else {
+            throw HarnessError.noParticlePipeline
+        }
+        _ = playback.advance(by: 0.25)
+        _ = playback.advance(by: 0.25)
+        let identity = playback.lifecycleIdentity
+        let active = playback.lifecycleSnapshot
+        let observation = playback.teardown(reason: "scene-switch")
+        let terminated = playback.lifecycleSnapshot
+        let postTeardownBatches = playback.advance(by: 1)
+        let repeatedObservation = playback.teardown(reason: "surface-stop")
+        return [
+            "identity": identity.uuidString,
+            "observationIdentity": observation?.lifecycleIdentity.uuidString ?? "",
+            "reason": observation?.reason ?? "",
+            "active": lifecycleJSON(active),
+            "observed": lifecycleJSON(
+                observation?.snapshotBeforeTeardown ?? .empty
+            ),
+            "batchCountBeforeTeardown": observation?.batchCountBeforeTeardown ?? -1,
+            "terminated": lifecycleJSON(terminated),
+            "postTeardownBatchCount": postTeardownBatches.count,
+            "repeatedObservation": repeatedObservation != nil,
+        ]
+    }
+
+    private static func lifecycleJSON(
+        _ value: SceneParticleRuntimeLifecycleSnapshot
+    ) -> [String: Int] {
+        [
+            "layers": value.activeLayerCount,
+            "rootSystems": value.rootSystemCount,
+            "childSystems": value.childSystemCount,
+            "rootParticles": value.rootParticleCount,
+            "childParticles": value.childParticleCount,
+        ]
+    }
+
     private static func layer(
         _ id: Int,
         _ path: String,
@@ -2655,6 +2744,27 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             details,
         )
         self.assertIn("builtInTextureUnavailable", kinds)
+
+    def test_playback_teardown_terminates_the_same_root_and_child_instance_once(self) -> None:
+        result = self.run_harness("lifecycle-synthetic")
+        self.assertEqual(result["identity"], result["observationIdentity"])
+        self.assertEqual(result["reason"], "scene-switch")
+        self.assertEqual(result["active"], result["observed"])
+        self.assertEqual(result["active"]["layers"], 1)
+        self.assertEqual(result["active"]["rootSystems"], 1)
+        self.assertGreater(result["active"]["childSystems"], 0)
+        self.assertGreater(result["active"]["rootParticles"], 0)
+        self.assertGreater(result["active"]["childParticles"], 0)
+        self.assertGreater(result["batchCountBeforeTeardown"], 0)
+        self.assertEqual(result["terminated"], {
+            "layers": 0,
+            "rootSystems": 0,
+            "childSystems": 0,
+            "rootParticles": 0,
+            "childParticles": 0,
+        })
+        self.assertEqual(result["postTeardownBatchCount"], 0)
+        self.assertFalse(result["repeatedObservation"])
 
     def test_velocity_random_uses_official_zero_for_each_omitted_endpoint(self) -> None:
         result = self.run_harness("velocity-defaults-synthetic")

@@ -2,10 +2,15 @@ import Foundation
 import Metal
 
 final class SceneParticlePlaybackState {
+    let lifecycleIdentity = UUID()
     let pipeline: SceneParticleMetalPipeline
     private let runtime: SceneParticleRuntime
     private(set) var batches: [SceneParticleDrawBatch]
+    private var didTeardown = false
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
+    var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
+        runtime.lifecycleSnapshot
+    }
 
     init?(
         descriptor: SceneRenderDescriptor,
@@ -38,6 +43,7 @@ final class SceneParticlePlaybackState {
         pointerLocalPositions: [Int: SIMD3<Double>] = [:],
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     ) -> [SceneParticleDrawBatch] {
+        guard !didTeardown else { return [] }
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
             by: simulationFrameDelta.isFinite ? max(simulationFrameDelta, 0) : 0,
@@ -51,6 +57,22 @@ final class SceneParticlePlaybackState {
         return batches
     }
 
+    /// Returns one observation for the only successful active -> terminated
+    /// transition. Repeated host teardown is deliberately idempotent.
+    func teardown(reason: String) -> SceneParticlePlaybackTeardownObservation? {
+        guard !didTeardown else { return nil }
+        didTeardown = true
+        let observation = SceneParticlePlaybackTeardownObservation(
+            lifecycleIdentity: lifecycleIdentity,
+            reason: reason,
+            snapshotBeforeTeardown: runtime.lifecycleSnapshot,
+            batchCountBeforeTeardown: batches.count
+        )
+        batches.removeAll(keepingCapacity: false)
+        runtime.teardown()
+        return observation
+    }
+
     func loadReportLines(descriptor: SceneRenderDescriptor) -> [String] {
         let particleLayers = descriptor.layers.filter { $0.contentKind == "particle" }
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -61,7 +83,9 @@ final class SceneParticlePlaybackState {
         let batchesByID = Dictionary(grouping: batches, by: \.layerID)
         var lines = [
             "particle authored: \(particleLayers.count)",
-            "particle visible: \(visibleLayers.count)"
+            "particle visible: \(visibleLayers.count)",
+            "particle lifecycle: id=\(lifecycleIdentity.uuidString) state=active "
+                + "layers=\(lifecycleSnapshot.activeLayerCount)"
         ]
 
         for layer in particleLayers {

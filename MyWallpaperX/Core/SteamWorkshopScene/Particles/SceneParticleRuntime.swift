@@ -11,6 +11,21 @@ final class SceneParticleRuntime {
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
     var hasAudioConsumer: Bool { layers.contains { $0.definition.hasBoundedAudioConsumer } }
+    var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
+        SceneParticleRuntimeLifecycleSnapshot(
+            activeLayerCount: layers.count,
+            rootSystemCount: layers.reduce(0) { $0 + ($1.rootRender == nil ? 0 : 1) },
+            childSystemCount: layers.reduce(0) {
+                $0 + ($1.childRuntime?.lifecycleSystemCount ?? 0)
+            },
+            rootParticleCount: layers.reduce(0) {
+                $0 + ($1.rootRender?.simulator.particles.count ?? 0)
+            },
+            childParticleCount: layers.reduce(0) {
+                $0 + ($1.childRuntime?.lifecycleParticleCount ?? 0)
+            }
+        )
+    }
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -285,6 +300,16 @@ final class SceneParticleRuntime {
             layers[index].rootRender = root
         }
         return batches
+    }
+
+    /// Ends this launch-scoped runtime atomically. Root and child systems are
+    /// never transplanted into a replacement Scene/surface generation.
+    func teardown() {
+        for index in layers.indices {
+            layers[index].childRuntime?.teardown()
+            layers[index].rootRender = nil
+        }
+        layers.removeAll(keepingCapacity: false)
     }
 
     private func rebuildGPUInstances(
