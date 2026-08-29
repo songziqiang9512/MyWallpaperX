@@ -484,6 +484,15 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("string-target-ownership")
         }
+        let sceneScriptOwnerLayerIDs = Set(
+            (
+                model.propertyVectorScriptProgram.definitions
+                    + sceneScriptScalarProgram.definitions
+                    + sceneScriptStringProgram.definitions
+            ).compactMap {
+                SceneScriptLayerMutationBridge.layerID(for: $0.target)
+            }
+        )
         let textScriptProgram = SceneTextScriptCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             excludedTargets: sceneScriptStringTargets
@@ -593,7 +602,8 @@ extension SceneDesktopWallpaperHost {
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime(
-                descriptor: runtimeInput.renderDescriptor
+                descriptor: runtimeInput.renderDescriptor,
+                authoredTransformLayerIDs: sceneScriptOwnerLayerIDs
             ),
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(

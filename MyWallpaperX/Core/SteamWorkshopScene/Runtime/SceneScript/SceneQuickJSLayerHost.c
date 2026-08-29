@@ -119,10 +119,30 @@ static JSValue layer_get(
     MWXSceneQuickJSLayerHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
     if (record == NULL) return JS_ThrowTypeError(context, "layer handle is stale");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    const bool authored_target = handle->owner_target && !record->dynamic;
     switch ((enum LayerProperty)magic) {
-    case LAYER_ORIGIN: return make_vec3(context, handle->domain, record->current_origin);
-    case LAYER_SCALE: return make_vec3(context, handle->domain, record->scale);
-    case LAYER_ANGLES: return make_vec3(context, handle->domain, record->angles);
+    case LAYER_ORIGIN:
+        return make_vec3(
+            context, handle->domain,
+            authored_target && (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN)
+                ? owner->authored_layer_mutation_origin : record->current_origin
+        );
+    case LAYER_SCALE:
+        return make_vec3(
+            context, handle->domain,
+            authored_target && (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
+                ? owner->authored_layer_mutation_scale : record->scale
+        );
+    case LAYER_ANGLES:
+        return make_vec3(
+            context, handle->domain,
+            authored_target && (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES)
+                ? owner->authored_layer_mutation_angles : record->angles
+        );
     case LAYER_VISIBLE: return JS_NewBool(context, record->visible);
     case LAYER_TEXT: return JS_NewString(context, record->text == NULL ? "" : record->text);
     case LAYER_POINT_SIZE: return JS_NewFloat64(context, record->point_size);
@@ -140,17 +160,44 @@ static JSValue layer_set(
     (void)this_value;
     MWXSceneQuickJSLayerHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
-    if (record == NULL || argc != 1 || !record->dynamic ||
-        record->owner_identity != handle->owner_identity) {
+    if (record == NULL || argc != 1) {
         return JS_ThrowTypeError(context, "layer mutation target is not an owned dynamic layer");
     }
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    const bool dynamic_target = record->dynamic &&
+        record->owner_identity == handle->owner_identity;
+    const bool authored_target = !record->dynamic && handle->owner_target;
+    if (!dynamic_target && !authored_target)
+        return JS_ThrowTypeError(context, "layer mutation target is not owned by this script");
+
+#define SET_AUTHORED_TRANSFORM(FIELD, STORAGE, SOURCE) do { \
+    if ((owner->authored_layer_mutation_fields & (FIELD)) == 0) { \
+        if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS) \
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded"); \
+        if (owner->authored_layer_mutation_fields == 0) owner->layer_mutation_count += 1; \
+    } \
+    memcpy((STORAGE), (SOURCE), sizeof(double) * 3); \
+    owner->authored_layer_mutation_fields |= (FIELD); \
+} while (0)
+
     switch ((enum LayerProperty)magic) {
     case LAYER_ORIGIN: {
         double value[3];
         if (!read_vec3(context, argv[0], value))
             return JS_ThrowTypeError(context, "layer origin expects finite Vec3");
+        if (authored_target) {
+            const double *current = (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN)
+                ? owner->authored_layer_mutation_origin : record->current_origin;
+            if (memcmp(value, current, sizeof(value)) == 0) break;
+            SET_AUTHORED_TRANSFORM(
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN,
+                owner->authored_layer_mutation_origin, value
+            );
+            break;
+        }
         if (memcmp(value, record->current_origin, sizeof(value)) == 0) break;
-        if (!mark_dirty(handle->domain->active_owner, record))
+        if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         memcpy(record->current_origin, value, sizeof(value));
         break;
@@ -159,8 +206,19 @@ static JSValue layer_set(
         double value[3];
         if (!read_vec3(context, argv[0], value))
             return JS_ThrowTypeError(context, "layer scale expects finite Vec3");
+        if (authored_target) {
+            const double *current = (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
+                ? owner->authored_layer_mutation_scale : record->scale;
+            if (memcmp(value, current, sizeof(value)) == 0) break;
+            SET_AUTHORED_TRANSFORM(
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE,
+                owner->authored_layer_mutation_scale, value
+            );
+            break;
+        }
         if (memcmp(value, record->scale, sizeof(value)) == 0) break;
-        if (!mark_dirty(handle->domain->active_owner, record))
+        if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         memcpy(record->scale, value, sizeof(value));
         break;
@@ -169,22 +227,37 @@ static JSValue layer_set(
         double value[3];
         if (!read_vec3(context, argv[0], value))
             return JS_ThrowTypeError(context, "layer angles expects finite Vec3");
+        if (authored_target) {
+            const double *current = (owner->authored_layer_mutation_fields &
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES)
+                ? owner->authored_layer_mutation_angles : record->angles;
+            if (memcmp(value, current, sizeof(value)) == 0) break;
+            SET_AUTHORED_TRANSFORM(
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES,
+                owner->authored_layer_mutation_angles, value
+            );
+            break;
+        }
         if (memcmp(value, record->angles, sizeof(value)) == 0) break;
-        if (!mark_dirty(handle->domain->active_owner, record))
+        if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         memcpy(record->angles, value, sizeof(value));
         break;
     }
     case LAYER_VISIBLE: {
+        if (authored_target)
+            return JS_ThrowTypeError(context, "authored layer visible mutation is unsupported");
         int value = JS_ToBool(context, argv[0]);
         if (value < 0) return JS_EXCEPTION;
         if (record->visible == (value != 0)) break;
-        if (!mark_dirty(handle->domain->active_owner, record))
+        if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         record->visible = value != 0;
         break;
     }
     case LAYER_TEXT: {
+        if (authored_target)
+            return JS_ThrowTypeError(context, "authored layer text mutation is unsupported");
         size_t length = 0;
         const char *value = JS_ToCStringLen(context, &length, argv[0]);
         if (value == NULL || length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
@@ -200,7 +273,7 @@ static JSValue layer_set(
             free(copy);
             break;
         }
-        if (!mark_dirty(handle->domain->active_owner, record)) {
+        if (!mark_dirty(owner, record)) {
             free(copy);
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         }
@@ -210,6 +283,7 @@ static JSValue layer_set(
     default:
         return JS_ThrowTypeError(context, "layer property is read-only");
     }
+#undef SET_AUTHORED_TRANSFORM
     return JS_UNDEFINED;
 }
 
@@ -571,6 +645,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL || owner->domain == NULL) return;
     owner->layer_mutation_count = 0;
+    owner->authored_layer_mutation_fields = 0;
     for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
         if (record->dirty && record->dirty_owner_identity == owner->identity) record->dirty = false;
@@ -603,6 +678,7 @@ void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
         record->order_index = order;
     }
     owner->layer_mutation_count = 0;
+    owner->authored_layer_mutation_fields = 0;
 }
 
 size_t mwx_scene_quickjs_owner_layer_mutation_count(const MWXSceneQuickJSOwner *owner) {
@@ -619,6 +695,40 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid layer mutation index");
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
+    if (owner->authored_layer_mutation_fields != 0) {
+        if (requested == 0 && owner->target_layer_configured &&
+            owner->target_layer_index < owner->domain->authored_layer_count) {
+            MWXSceneQuickJSLayerRecord *record =
+                &owner->domain->layers[owner->target_layer_index];
+            *mutation = (MWXSceneQuickJSLayerMutation){
+                .kind = MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+                .dynamic = 0, .fields = owner->authored_layer_mutation_fields,
+                .layer_id = record->layer_id, .order_index = record->order_index,
+                .visible = record->visible, .alpha = record->alpha,
+                .point_size = record->point_size,
+                .text = record->text == NULL ? "" : record->text,
+                .font = record->font == NULL ? "" : record->font,
+            };
+            memcpy(mutation->origin,
+                   (owner->authored_layer_mutation_fields &
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN)
+                    ? owner->authored_layer_mutation_origin : record->current_origin,
+                   sizeof(mutation->origin));
+            memcpy(mutation->scale,
+                   (owner->authored_layer_mutation_fields &
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE)
+                    ? owner->authored_layer_mutation_scale : record->scale,
+                   sizeof(mutation->scale));
+            memcpy(mutation->angles,
+                   (owner->authored_layer_mutation_fields &
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES)
+                    ? owner->authored_layer_mutation_angles : record->angles,
+                   sizeof(mutation->angles));
+            memcpy(mutation->color, record->color, sizeof(mutation->color));
+            return MWX_SCENE_QUICKJS_OK;
+        }
+        requested -= 1;
+    }
     size_t found = 0;
     for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
@@ -627,7 +737,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         *mutation = (MWXSceneQuickJSLayerMutation){
             .kind = record->destroyed ? MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY
                                       : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
-            .dynamic = record->dynamic, .layer_id = record->layer_id,
+            .dynamic = record->dynamic, .fields = 0, .layer_id = record->layer_id,
             .order_index = record->order_index, .visible = record->visible,
             .alpha = record->alpha, .point_size = record->point_size,
             .text = record->text == NULL ? "" : record->text,

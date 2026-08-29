@@ -3,8 +3,24 @@ import Foundation
 nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     enum Kind: Equatable, Sendable { case upsert, destroy }
 
+    struct Fields: OptionSet, Equatable, Sendable {
+        let rawValue: UInt32
+
+        static let origin = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN.rawValue
+        ))
+        static let scale = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE.rawValue
+        ))
+        static let angles = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES.rawValue
+        ))
+        static let authoredTransform: Self = [.origin, .scale, .angles]
+    }
+
     let kind: Kind
     let isDynamic: Bool
+    let fields: Fields
     let layerID: Int
     let orderIndex: Int
     let visible: Bool
@@ -20,15 +36,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
 
 nonisolated enum SceneScriptLayerMutationBridge {
     static func configure(owner: OpaquePointer, target: SceneDynamicTarget) throws {
-        let layerID: Int
-        switch target {
-        case let .layer(id, _), let .text(id, _), let .particle(id, _),
-             let .effectConstant(id, _, _, _), let .effectVisibility(id, _),
-             let .scriptInstanceProperty(id, _):
-            layerID = id
-        default:
-            return
-        }
+        guard let layerID = layerID(for: target) else { return }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = mwx_scene_quickjs_owner_configure_layer_identity(
             owner, Int64(layerID), &diagnostic, diagnostic.count
@@ -37,6 +45,17 @@ nonisolated enum SceneScriptLayerMutationBridge {
             throw SceneScriptScalarRuntimeFailure.invalidArgument(
                 String(cString: diagnostic)
             )
+        }
+    }
+
+    static func layerID(for target: SceneDynamicTarget) -> Int? {
+        switch target {
+        case let .layer(id, _), let .text(id, _), let .particle(id, _),
+             let .effectConstant(id, _, _, _), let .effectVisibility(id, _),
+             let .scriptInstanceProperty(id, _):
+            id
+        default:
+            nil
         }
     }
 
@@ -63,10 +82,16 @@ nonisolated enum SceneScriptLayerMutationBridge {
                   let textPointer = raw.text, let fontPointer = raw.font else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
+            let fields = SceneScriptLayerMutation.Fields(rawValue: raw.fields)
+            guard raw.dynamic != 0 || (
+                !fields.isEmpty && fields.isSubset(of: .authoredTransform)
+            ) else {
+                return .failure(.invalidArgument("invalid authored layer mutation fields"))
+            }
             output.append(.init(
                 kind: raw.kind == UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue)
                     ? .destroy : .upsert,
-                isDynamic: raw.dynamic != 0,
+                isDynamic: raw.dynamic != 0, fields: fields,
                 layerID: Int(raw.layer_id), orderIndex: Int(raw.order_index),
                 visible: raw.visible != 0, alpha: raw.alpha,
                 origin: .init(raw.origin.0, raw.origin.1, raw.origin.2),
@@ -169,6 +194,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 Self.layerDiagnostic(diagnostic)
             )
         }
+        try publishLayerRuntimeFields(snapshot, descriptor: descriptor)
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
                   case let .vector3(x, y, z) = resolved.value,

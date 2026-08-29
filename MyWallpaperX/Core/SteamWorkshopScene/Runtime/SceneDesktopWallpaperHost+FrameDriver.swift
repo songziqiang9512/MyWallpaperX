@@ -269,6 +269,8 @@ extension SceneDesktopWallpaperHost {
                 + launchContext.propertyVectorScriptProgram.definitions
                 + launchContext.sceneScriptScalarProgram.definitions
                 + launchContext.sceneScriptStringProgram.definitions
+                + launchContext.sceneScriptDynamicLayerRuntime
+                    .authoredTransformDefinitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
@@ -302,12 +304,17 @@ extension SceneDesktopWallpaperHost {
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frameTime: timing.simulationFrameTime
         )
+        let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
+            .snapshot()
         var commonSceneScriptValues = textScriptValues.merging(
             mediaColorTransitionValues,
             uniquingKeysWith: { existing, _ in existing }
         ).merging(
             sharedLayerAlphaValues,
             uniquingKeysWith: { existing, _ in existing }
+        ).merging(
+            layerMutationSnapshot.authoredLayerValues,
+            uniquingKeysWith: { _, committedMutation in committedMutation }
         )
         let boundedSceneScriptValues = commonSceneScriptValues
         let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
@@ -443,7 +450,7 @@ extension SceneDesktopWallpaperHost {
             + sceneScriptStringResult.layerMutations
             + sceneScriptResult.layerMutations
             + cursorResult.layerMutations
-        let layerTopology = launchContext.sceneScriptDynamicLayerRuntime.snapshot()
+        let layerTopology = layerMutationSnapshot
         let animationMutations = cursorResult.animationMutations
             + sceneScriptVectorResult.animationMutations
             + sceneScriptStringResult.animationMutations

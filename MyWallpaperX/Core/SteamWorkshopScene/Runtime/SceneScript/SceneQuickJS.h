@@ -30,9 +30,16 @@ typedef enum MWXSceneQuickJSLayerMutationKind {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY = 2
 } MWXSceneQuickJSLayerMutationKind;
 
+typedef enum MWXSceneQuickJSLayerMutationField {
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN = 1u << 0,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE = 1u << 1,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES = 1u << 2,
+} MWXSceneQuickJSLayerMutationField;
+
 typedef struct MWXSceneQuickJSLayerMutation {
     uint32_t kind;
     uint32_t dynamic;
+    uint32_t fields;
     int64_t layer_id;
     int32_t order_index;
     uint32_t visible;

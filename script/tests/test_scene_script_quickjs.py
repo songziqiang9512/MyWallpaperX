@@ -410,6 +410,7 @@ static int layer_mutation(
     size_t index,
     uint32_t expected_kind,
     int expected_dynamic,
+    uint32_t expected_fields,
     int64_t expected_id,
     int expected_order,
     const char *expected_text,
@@ -424,6 +425,7 @@ static int layer_mutation(
         result == MWX_SCENE_QUICKJS_OK
             && mutation.kind == expected_kind
             && mutation.dynamic == (uint32_t)expected_dynamic
+            && mutation.fields == expected_fields
             && (expected_id == 0 || mutation.layer_id == expected_id)
             && mutation.order_index == expected_order
             && strcmp(mutation.text, expected_text) == 0,
@@ -1780,7 +1782,7 @@ int main(void) {
     );
     failures += layer_mutation(
         dynamic_layer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
-        1, 0, 1, "tick", "dynamic layer snapshot"
+        1, 0, 0, 1, "tick", "dynamic layer snapshot"
     );
     failures += update(
         dynamic_layer, 40, 1, MWX_SCENE_QUICKJS_OK, 103,
@@ -1826,8 +1828,34 @@ int main(void) {
     failures += check(static_setter != NULL, "static setter owner compile", diagnostic);
     failures += configure_owner_layer(static_setter, 42, "static setter owner identity");
     failures += update(
-        static_setter, 45, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "static layer setter rejected until state publication is supported"
+        static_setter, 45, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "static layer transform setter accepted"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(static_setter) == 1,
+        "static layer transform mutation coalesced", ""
+    );
+    failures += layer_mutation(
+        static_setter, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+        0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN,
+        42, 1, "clock", "static layer transform snapshot"
+    );
+
+    MWXSceneQuickJSOwner *static_visible = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){thisLayer.visible=false;return value;}",
+        strlen("export function update(value){thisLayer.visible=false;return value;}"),
+        46, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(static_visible != NULL, "static visible owner compile", diagnostic);
+    failures += configure_owner_layer(static_visible, 42, "static visible owner identity");
+    failures += update(
+        static_visible, 46, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "static layer non-transform setter remains rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(static_visible) == 0,
+        "failed static layer setter publishes no mutation", ""
     );
 
     const char *forged_layer_source =
@@ -1963,6 +1991,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(static_setter);
+    mwx_scene_quickjs_owner_destroy(static_visible);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
     mwx_scene_quickjs_owner_destroy(teardown_exception);

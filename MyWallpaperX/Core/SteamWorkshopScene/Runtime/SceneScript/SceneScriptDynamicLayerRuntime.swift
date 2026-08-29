@@ -3,25 +3,56 @@ import Foundation
 nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     let dynamicLayers: [SceneRenderDescriptor.Layer]
     let renderOrderLayerIDs: [Int]
+    let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
 }
 
-/// Launch-scoped topology transaction. VM callbacks publish bounded mutations;
-/// rendering reads one immutable snapshot and commits successful mutations only
-/// after the current frame, so new/destroyed layers become visible next frame.
+/// Launch-scoped layer mutation transaction. VM callbacks publish bounded
+/// mutations; rendering reads one immutable snapshot and commits successful
+/// dynamic topology or authored transform fields only after the current frame.
 nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
+    let authoredTransformDefinitions: [SceneDynamicTargetDefinition]
     private let authoredLayerIDs: Set<Int>
+    private let authoredTransformLayerIDs: Set<Int>
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
+    private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
 
-    init(descriptor: SceneRenderDescriptor) {
+    init(
+        descriptor: SceneRenderDescriptor,
+        authoredTransformLayerIDs: Set<Int>
+    ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
+        self.authoredTransformLayerIDs = authoredTransformLayerIDs
         order = descriptor.renderOrderLayerIDs
+        authoredTransformDefinitions = descriptor.layers.filter {
+            authoredTransformLayerIDs.contains($0.id)
+        }.flatMap {
+            layer -> [SceneDynamicTargetDefinition] in
+            let origin = Self.vector3(layer.originXYZ, fallback: [0, 0, 0])
+            let scale = Self.vector3(layer.scaleXYZ, fallback: [1, 1, 1])
+            let angles = Self.vector3(layer.anglesXYZ, fallback: [0, 0, 0])
+            return [
+                .init(
+                    target: .layer(layerID: layer.id, field: .origin),
+                    valueType: .vector3, authoredValue: origin
+                ),
+                .init(
+                    target: .layer(layerID: layer.id, field: .scale),
+                    valueType: .vector3, authoredValue: scale
+                ),
+                .init(
+                    target: .layer(layerID: layer.id, field: .angles),
+                    valueType: .vector3, authoredValue: angles
+                ),
+            ]
+        }
     }
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
         .init(
             dynamicLayers: order.compactMap { dynamicLayersByID[$0] },
-            renderOrderLayerIDs: order
+            renderOrderLayerIDs: order,
+            authoredLayerValues: authoredLayerValues
         )
     }
 
@@ -33,22 +64,56 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
         var candidateOrder = order
         var candidateLayers = dynamicLayersByID
+        var candidateAuthoredValues = authoredLayerValues
+        var authoredTargets = Set<SceneDynamicTarget>()
         for mutation in mutations {
-            guard mutation.orderIndex >= 0,
-                  mutation.alpha.isFinite, (0...1).contains(mutation.alpha),
-                  mutation.pointSize.isFinite, (1...1024).contains(mutation.pointSize),
-                  mutation.origin.x.isFinite, mutation.origin.y.isFinite,
+            guard mutation.origin.x.isFinite, mutation.origin.y.isFinite,
                   mutation.origin.z.isFinite, mutation.scale.x.isFinite,
                   mutation.scale.y.isFinite, mutation.scale.z.isFinite,
                   mutation.angles.x.isFinite, mutation.angles.y.isFinite,
-                  mutation.angles.z.isFinite, mutation.color.x.isFinite,
+                  mutation.angles.z.isFinite else {
+                return .failure(.invalidArgument("invalid layer transform mutation"))
+            }
+            if !mutation.isDynamic {
+                guard mutation.kind == .upsert,
+                      authoredLayerIDs.contains(mutation.layerID),
+                      authoredTransformLayerIDs.contains(mutation.layerID),
+                      !mutation.fields.isEmpty,
+                      mutation.fields.isSubset(of: .authoredTransform) else {
+                    return .failure(.invalidArgument("invalid authored layer mutation"))
+                }
+                let values: [(
+                    SceneScriptLayerMutation.Fields,
+                    SceneDynamicLayerField,
+                    SIMD3<Double>
+                )] = [
+                    (.origin, .origin, mutation.origin),
+                    (.scale, .scale, mutation.scale),
+                    (.angles, .angles, mutation.angles),
+                ]
+                for (field, targetField, value) in values where mutation.fields.contains(field) {
+                    let target = SceneDynamicTarget.layer(
+                        layerID: mutation.layerID, field: targetField
+                    )
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument(
+                            "conflicting authored layer mutation target"
+                        ))
+                    }
+                    candidateAuthoredValues[target] = .vector3(
+                        value.x, value.y, value.z
+                    )
+                }
+                continue
+            }
+            guard mutation.orderIndex >= 0,
+                  mutation.alpha.isFinite, (0...1).contains(mutation.alpha),
+                  mutation.pointSize.isFinite, (1...1024).contains(mutation.pointSize),
+                  mutation.color.x.isFinite,
                   mutation.color.y.isFinite, mutation.color.z.isFinite,
                   mutation.text.utf8.count <= 4_096,
                   mutation.font.utf8.count <= 1_024 else {
                 return .failure(.invalidArgument("invalid dynamic layer mutation"))
-            }
-            if !mutation.isDynamic {
-                return .failure(.invalidArgument("authored layer mutation is unsupported"))
             }
             guard !authoredLayerIDs.contains(mutation.layerID) else {
                 return .failure(.invalidArgument("dynamic layer identity collides with authored layer"))
@@ -78,6 +143,18 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
         order = candidateOrder
         dynamicLayersByID = candidateLayers
+        authoredLayerValues = candidateAuthoredValues
         return .success(())
+    }
+
+    private static func vector3(
+        _ values: [Float]?,
+        fallback: [Double]
+    ) -> SceneDynamicValue {
+        let resolved = values?.map(Double.init) ?? fallback
+        let padded = (0..<3).map { index in
+            index < resolved.count ? resolved[index] : fallback[index]
+        }
+        return .vector3(padded[0], padded[1], padded[2])
     }
 }
