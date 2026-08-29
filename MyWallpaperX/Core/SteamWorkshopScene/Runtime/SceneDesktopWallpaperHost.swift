@@ -111,14 +111,7 @@ final class SceneDesktopWallpaperHost {
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
-        SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
-            resolvedMaterialExecutionCapabilities:
-                context.resolvedMaterialExecutionCapabilities,
-            hasParticleAudioConsumer:
-                context.propertyVectorScriptProgram.hasAudioConsumers
-                || context.sceneScriptScalarProgram.hasAudioConsumers
-                || context.sceneScriptStringProgram.hasAudioConsumers
-        ))
+        updateAudioSpectrumDemand(context, hasParticleAudioConsumer: false)
         guard rebuildSurfaces(
             resetClock: true,
             teardownReason: teardownReason

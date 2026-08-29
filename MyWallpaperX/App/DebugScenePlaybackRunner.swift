@@ -304,6 +304,7 @@ enum DebugScenePlaybackRunner {
             }
             let livePropertyOverrides = requestedLivePropertyOverrides
             if !livePropertyOverrides.isEmpty {
+                scheduleAudioSpectrumLivePropertyObservations()
                 scheduleLivePropertyUpdate(livePropertyOverrides)
             }
             schedulePerformanceMeasurement(

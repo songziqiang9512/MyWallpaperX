@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Scene 频谱采集需求判定门（A2 生命周期段）。
+"""Scene 频谱采集需求与当前进程声源范围门。
 
 采集需求必须由「执行目录里是否真的存在 audio consumer」决定，而不是 project 的
 `supportsaudioprocessing` 声明——45 样本中后者为 true 的 12 个与真正带 audio
 声明的样本互有出入，按它采集会让没有任何 consumer 的壁纸也占用系统音频权限。
+已准入的 Sound 只是声源，不是频谱 consumer；只有 consumer 真值与 Sound binding
+同时存在时，采集范围才包含当前进程输出。
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 DEMAND_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+AudioDemand.swift"
 HOST_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+AUDIO_SPECTRUM_SOURCE = SCENE_ROOT / "Runtime/SceneAudioSpectrum.swift"
 FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
@@ -65,30 +68,62 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
             "project 级声明不是 consumer 信号",
         )
 
-    def test_host_claims_and_revokes_demand_across_the_lifecycle(self) -> None:
+    def test_helper_combines_consumer_truth_with_sound_capture_scope(self) -> None:
+        source = DEMAND_SOURCE.read_text(encoding="utf-8")
+        update = swift_body(source, "func updateAudioSpectrumDemand(")
+        set_demand_index = update.index(
+            "SceneAudioSpectrumInbox.shared.setDemand("
+        )
+        consumer_truth = update[:set_demand_index]
+        self.assertIn(
+            "let demandsSpectrum = Self.requiresAudioSpectrum(",
+            consumer_truth,
+        )
+        self.assertIn(
+            "resolvedMaterialExecutionCapabilities:",
+            consumer_truth,
+        )
+        self.assertIn("hasParticleAudioConsumer", consumer_truth)
+        self.assertNotIn(
+            "soundPlaybackProgram",
+            consumer_truth,
+            "Sound 是声源而不是 consumer，不得单独开启频谱",
+        )
+        self.assertRegex(
+            update[set_demand_index:],
+            re.compile(
+                r"SceneAudioSpectrumInbox\.shared\.setDemand\(\s*"
+                r"demandsSpectrum,\s*"
+                r"requiresCurrentProcessAudioCapture:\s*"
+                r"!context\.soundPlaybackProgram\.bindings\.isEmpty\s*\)"
+            ),
+            "consumer 真值决定需求，非空 Sound bindings 只扩大声源范围",
+        )
+
+    def test_host_declares_demand_through_helper_before_rebuild(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         activate = swift_body(
             host,
             "func activate(_ context: SceneDesktopWallpaperLaunchContext) throws",
         )
         demand_index = activate.index(
-            "SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum("
+            "updateAudioSpectrumDemand(context, hasParticleAudioConsumer: false)"
         )
         rebuild_index = activate.index("guard rebuildSurfaces(")
-        self.assertNotIn("authoredEffectCatalog", activate[demand_index:])
-        self.assertIn(
-            "resolvedMaterialExecutionCapabilities:",
-            activate[demand_index:],
-        )
+        self.assertNotIn("SceneAudioSpectrumInbox.shared.setDemand(", activate)
         self.assertLess(
             demand_index,
             rebuild_index,
-            "launch 时必须在创建 surface 前按 consumer 存在性声明需求",
+            "launch 时必须在创建 surface 前经唯一 helper 声明需求",
         )
         self.assertIn("resetClock: true", activate[rebuild_index:])
         self.assertIn("teardownReason: teardownReason", activate[rebuild_index:])
 
+    def test_teardown_revokes_but_surface_reconciliation_preserves_demand(
+        self,
+    ) -> None:
+        host = HOST_SOURCE.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         teardown = swift_body(frame_driver, "func teardownSurfaces(")
         revoke_index = teardown.index(
             "SceneAudioSpectrumInbox.shared.setDemand(false)"
@@ -110,11 +145,89 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         )
         rebuild = swift_body(host, "private func rebuildSurfaces(")
         self.assertIn("teardownSurfaces(clearContext: false", rebuild)
-        self.assertIn(
-            "updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer:",
+        self.assertRegex(
             rebuild,
+            re.compile(
+                r"updateAudioSpectrumDemand\(\s*launchContext,\s*"
+                r"hasParticleAudioConsumer:\s*surfaces\.values\.contains\s*"
+                r"\{\s*\$0\.metalView\.hasParticleAudioConsumer\s*\}\s*\)"
+            ),
             "particle graph 只有在 surface 装载并确认 bounded consumer 后才声明需求",
         )
+
+    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+    def test_compiled_sound_scope_requires_consumer_and_binding(self) -> None:
+        """Run the production inbox policy through all consumer/source pairs."""
+        harness = r'''
+@main
+enum AudioCaptureDemandHarness {
+    static func main() {
+        let checks: [(String, Bool, Bool, Bool, Bool)] = [
+            ("neither", false, false, false, false),
+            ("sound-only", false, true, false, false),
+            ("consumer-only", true, false, true, false),
+            ("consumer-and-sound", true, true, true, true),
+        ]
+
+        for (name, hasConsumer, hasSoundBinding, expectedDemand, expectedScope)
+            in checks {
+            let inbox = SceneAudioSpectrumInbox()
+            inbox.setDemand(
+                hasConsumer,
+                requiresCurrentProcessAudioCapture: hasSoundBinding
+            )
+            let demand = inbox.captureDemand
+            guard demand.requiresSpectrum == expectedDemand,
+                  demand.includesCurrentProcessOutput == expectedScope else {
+                fatalError(
+                    "\(name): got demand=\(demand.requiresSpectrum) "
+                        + "scope=\(demand.includesCurrentProcessOutput)"
+                )
+            }
+        }
+        print("audio-capture-demand-ok")
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(
+            prefix="scene-audio-capture-demand-"
+        ) as temp:
+            temp_path = Path(temp)
+            harness_path = temp_path / "AudioCaptureDemandHarness.swift"
+            executable_path = temp_path / "AudioCaptureDemandHarness"
+            harness_path.write_text(harness, encoding="utf-8")
+            compile_result = subprocess.run(
+                [
+                    shutil.which("swiftc") or "swiftc",
+                    str(AUDIO_SPECTRUM_SOURCE),
+                    str(harness_path),
+                    "-o",
+                    str(executable_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                compile_result.returncode,
+                0,
+                compile_result.stdout + compile_result.stderr,
+            )
+            run_result = subprocess.run(
+                [str(executable_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                run_result.returncode,
+                0,
+                run_result.stdout + run_result.stderr,
+            )
+            self.assertEqual(
+                run_result.stdout.strip(),
+                "audio-capture-demand-ok",
+            )
 
     def test_host_samples_one_spectrum_per_frame_for_all_surfaces(self) -> None:
         source = (

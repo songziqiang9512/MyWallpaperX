@@ -148,11 +148,14 @@ enum SystemAudioCaptureDeviceFactory {
 
     enum CaptureError: LocalizedError {
         case osStatus(OSStatus)
+        case currentProcessUnavailable
 
         var errorDescription: String? {
             switch self {
             case let .osStatus(status):
                 return "CoreAudio OSStatus \(status)"
+            case .currentProcessUnavailable:
+                return "CoreAudio current process identity is unavailable"
             }
         }
     }

@@ -23,7 +23,6 @@ struct SceneSoundPlaybackProgram {
             case multipleSourcesUnsupported
             case playbackModeUnsupported
             case startsSilentUnsupported
-            case timedPlaybackUnsupported
             case spatialPlaybackUnsupported
             case volumeInvalid
             case audioFormatUnsupported
@@ -119,13 +118,18 @@ struct SceneSoundPlaybackProgram {
         guard sound.startsSilent == false else {
             return (.startsSilentUnsupported, String(describing: sound.startsSilent))
         }
-        guard sound.minimumTime == nil,
-              sound.maximumTime == nil else {
-            return (.timedPlaybackUnsupported, "min-max-fields-present")
-        }
-        guard sound.spatialization == nil,
-              sound.attenuation == nil,
-              sound.minimumDistance == nil else {
+        // `mintime` / `maxtime` are retained in the loss-preserving document,
+        // but they do not narrow the admitted `loop` contract. Workshop loop
+        // layers commonly carry the editor defaults even though playback is
+        // continuous; rejecting their presence would reject the whole corpus.
+        let hasSpatialTuning = sound.attenuation != nil
+            || sound.minimumDistance != nil
+        // An explicit false switch makes authored attenuation/distance fields
+        // dormant metadata. Keep them loss-preserving, but do not require a
+        // spatial player for the ordinary nonspatial loop. Enabled or
+        // ambiguous spatial tuning remains layer-local unsupported.
+        guard sound.spatialization != true,
+              sound.spatialization == false || !hasSpatialTuning else {
             return (.spatialPlaybackUnsupported, "spatial-fields-present")
         }
         guard let volume = sound.volume,

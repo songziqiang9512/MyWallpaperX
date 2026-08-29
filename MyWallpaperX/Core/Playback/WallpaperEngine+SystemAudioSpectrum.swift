@@ -21,14 +21,17 @@ extension WallpaperEngine {
         }
         // Scene 消费者按渲染帧自行采样，这里直接发布到 inbox，不经过主队列，
         // 避免在 30 Hz 采集与 60 Hz 渲染之间多插一层调度延迟。
-        service.onSceneLevels = { left, right, left32, right32, left64, right64 in
-            SceneAudioSpectrumInbox.shared.publish(
+        service.onSceneLevels = {
+            left, right, left32, right32, left64, right64,
+            token in
+            SceneAudioSpectrumInbox.shared.publishSystemCapture(
                 left: left,
                 right: right,
                 left32: left32,
                 right32: right32,
                 left64: left64,
-                right64: right64
+                right64: right64,
+                token: token
             )
         }
         return service
@@ -154,17 +157,21 @@ extension WallpaperEngine {
 #endif
         // Scene 不走 daemon session，因此不参与 currentPlaybackContentKind 判定；
         // 需求完全由 Scene runtime 侧的消费者声明决定。
+        let sceneDemand = SceneAudioSpectrumInbox.shared.captureDemand
         let sceneCaptureRequested = captureAllowed
-            && SceneAudioSpectrumInbox.shared.isDemanded
+            && sceneDemand.requiresSpectrum
             && !debugSceneFixtureOwnsInbox
-        if !SceneAudioSpectrumInbox.shared.isDemanded
+        if !sceneDemand.requiresSpectrum
             || debugSceneSilenceOwnsInbox {
             SceneAudioSpectrumInbox.shared.clearSnapshot()
         }
         systemAudioSpectrumService.setConsumers(
             overlayEnabled: captureAllowed && currentSystemAudioSpectrumEnabled,
             webEnabled: webCaptureRequested,
-            sceneEnabled: sceneCaptureRequested
+            sceneEnabled: sceneCaptureRequested,
+            includeCurrentProcessAudio: sceneCaptureRequested
+                && sceneDemand.includesCurrentProcessOutput,
+            sceneCaptureScopeEpoch: sceneDemand.scopeEpoch
         )
     }
 

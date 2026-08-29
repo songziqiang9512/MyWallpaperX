@@ -10,14 +10,19 @@ extension SceneDesktopWallpaperHost {
         _ context: SceneDesktopWallpaperLaunchContext,
         hasParticleAudioConsumer: Bool
     ) {
-        SceneAudioSpectrumInbox.shared.setDemand(Self.requiresAudioSpectrum(
+        let demandsSpectrum = Self.requiresAudioSpectrum(
             resolvedMaterialExecutionCapabilities:
                 context.resolvedMaterialExecutionCapabilities,
             hasParticleAudioConsumer: hasParticleAudioConsumer
                 || context.propertyVectorScriptProgram.hasAudioConsumers
                 || context.sceneScriptScalarProgram.hasAudioConsumers
                 || context.sceneScriptStringProgram.hasAudioConsumers
-        ))
+        )
+        SceneAudioSpectrumInbox.shared.setDemand(
+            demandsSpectrum,
+            requiresCurrentProcessAudioCapture:
+                !context.soundPlaybackProgram.bindings.isEmpty
+        )
     }
 
     /// 按 consumer 存在性声明频谱采集需求。

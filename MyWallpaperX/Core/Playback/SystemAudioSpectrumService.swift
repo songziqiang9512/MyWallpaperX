@@ -8,6 +8,11 @@ import AudioToolbox
 import CoreAudio
 
 final class SystemAudioSpectrumService: NSObject {
+    private enum ProcessScope: String {
+        case excludesCurrentProcess = "exclude-current-process"
+        case includesCurrentProcess = "include-current-process"
+    }
+
     private let barCount: Int
     private let sampleQueue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.system-audio-spectrum",
@@ -29,20 +34,52 @@ final class SystemAudioSpectrumService: NSObject {
     private var overlayEnabled = false
     private var webEnabled = false
     private var sceneEnabled = false
+    private var processScope = ProcessScope.excludesCurrentProcess
+    private var sceneCaptureScopeEpoch: UInt64 = 0
     private var lastProcessedAt: TimeInterval = 0
     private var captureRetryAttempt = 0
     private var captureRetryWorkItem: DispatchWorkItem?
+    private var captureRetrySequence = 0
     private var captureGeneration = 0
     private var hasLoggedCapturedData = false
     private var captureResourceGeneration = 0
+    private var pendingCaptureResourceGeneration = 0
+    private var pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
+        scopeEpoch: 0,
+        includesCurrentProcessOutput: false
+    )
     private var captureRestartSequence = 0
     private var captureRestartWorkItem: DispatchWorkItem?
+
+#if DEBUG
+    private struct DebugScheduledRecovery {
+        let kind: String
+        let action: () -> Void
+    }
+
+    struct DebugRecoverySnapshot {
+        let captureStartTokens: [SceneAudioSpectrumCaptureToken]
+        let captureRetryAttempt: Int
+        let hasCaptureRetryWorkItem: Bool
+        let hasCaptureRestartWorkItem: Bool
+        let captureStopCount: Int
+        let scheduledRecoveryKinds: [String]
+        let currentToken: SceneAudioSpectrumCaptureToken
+    }
+
+    private var debugRecoveryTestingEnabled = false
+    private var debugAllowsSyntheticCaptureResources = false
+    private var debugCaptureStartTokens: [SceneAudioSpectrumCaptureToken] = []
+    private var debugCaptureStopCount = 0
+    private var debugScheduledRecoveries: [DebugScheduledRecovery] = []
+#endif
 
     var onLevels: (([Float]) -> Void)?
     var onWebLevels: (([Float]) -> Void)?
     var onSceneLevels: ((
         _ left: [Float], _ right: [Float], _ left32: [Float], _ right32: [Float],
-        _ left64: [Float], _ right64: [Float]
+        _ left64: [Float], _ right64: [Float],
+        _ token: SceneAudioSpectrumCaptureToken
     ) -> Void)?
 
     init(barCount: Int) {
@@ -67,9 +104,21 @@ final class SystemAudioSpectrumService: NSObject {
         stopCapture()
     }
 
-    func setConsumers(overlayEnabled: Bool, webEnabled: Bool, sceneEnabled: Bool = false) {
+    func setConsumers(
+        overlayEnabled: Bool,
+        webEnabled: Bool,
+        sceneEnabled: Bool = false,
+        includeCurrentProcessAudio: Bool = false,
+        sceneCaptureScopeEpoch: UInt64 = 0
+    ) {
         sampleQueue.async { [weak self] in
             guard let self else { return }
+            let requestedProcessScope: ProcessScope = sceneEnabled
+                && includeCurrentProcessAudio
+                ? .includesCurrentProcess
+                : .excludesCurrentProcess
+            let processScopeChanged = self.processScope != requestedProcessScope
+                || self.sceneCaptureScopeEpoch != sceneCaptureScopeEpoch
             if self.overlayEnabled != overlayEnabled {
                 self.onLevels?(self.overlayAnalyzer.reset())
             }
@@ -82,6 +131,21 @@ final class SystemAudioSpectrumService: NSObject {
             self.overlayEnabled = overlayEnabled
             self.webEnabled = webEnabled
             self.sceneEnabled = sceneEnabled
+            self.processScope = requestedProcessScope
+            self.sceneCaptureScopeEpoch = sceneCaptureScopeEpoch
+            if processScopeChanged {
+                self.captureRetrySequence += 1
+                self.captureRetryWorkItem?.cancel()
+                self.captureRetryWorkItem = nil
+                self.captureRetryAttempt = 0
+                self.cancelCaptureRestart()
+                // A source-set transition is an epoch boundary. Stop IO and
+                // reset every rolling analyzer before the same shared tap is
+                // recreated; delayed device-invalidation recovery is not used.
+                if self.hasCaptureResources {
+                    self.stopCapture()
+                }
+            }
             self.reconcileCaptureState()
         }
     }
@@ -102,9 +166,27 @@ final class SystemAudioSpectrumService: NSObject {
         overlayEnabled || webEnabled || sceneEnabled
     }
 
+    private var hasCaptureResources: Bool {
+        tapID != kAudioObjectUnknown
+            || aggregateDeviceID != kAudioObjectUnknown
+            || ioProcID != nil
+    }
+
     private func startCaptureIfNeeded() {
         guard hasActiveConsumer else { return }
         guard tapID == kAudioObjectUnknown, aggregateDeviceID == kAudioObjectUnknown else { return }
+#if DEBUG
+        if debugRecoveryTestingEnabled {
+            debugCaptureStartTokens.append(
+                SceneAudioSpectrumCaptureToken(
+                    scopeEpoch: sceneCaptureScopeEpoch,
+                    includesCurrentProcessOutput:
+                        processScope == .includesCurrentProcess
+                )
+            )
+            return
+        }
+#endif
         guard #available(macOS 14.2, *) else {
             NSLog("MWX AUDIO CAPTURE: unavailable before macOS 14.2")
             resetConsumersAfterCaptureFailure()
@@ -114,7 +196,18 @@ final class SystemAudioSpectrumService: NSObject {
         do {
             captureRetryWorkItem?.cancel()
             captureRetryWorkItem = nil
-            let excludedProcessIDs = SystemAudioCaptureDeviceFactory.currentProcessObjectID().map { [$0] } ?? []
+            let excludedProcessIDs: [AudioObjectID]
+            switch processScope {
+            case .includesCurrentProcess:
+                excludedProcessIDs = []
+            case .excludesCurrentProcess:
+                guard let currentProcessObjectID =
+                        SystemAudioCaptureDeviceFactory.currentProcessObjectID() else {
+                    throw SystemAudioCaptureDeviceFactory.CaptureError
+                        .currentProcessUnavailable
+                }
+                excludedProcessIDs = [currentProcessObjectID]
+            }
             let tapDescription = CATapDescription(
                 stereoGlobalTapButExcludeProcesses: excludedProcessIDs
             )
@@ -134,6 +227,12 @@ final class SystemAudioSpectrumService: NSObject {
             SystemAudioCaptureDeviceFactory.configureCaptureBufferFrameSize(for: aggregateID)
             captureResourceGeneration += 1
             let resourceGeneration = captureResourceGeneration
+            let captureProcessScope = processScope
+            let captureToken = SceneAudioSpectrumCaptureToken(
+                scopeEpoch: sceneCaptureScopeEpoch,
+                includesCurrentProcessOutput:
+                    captureProcessScope == .includesCurrentProcess
+            )
             try configurationMonitor.install(tapID: createdTapID, aggregateDeviceID: aggregateID) {
                 [weak self] reason in
                 self?.scheduleCaptureRestart(reason: reason, generation: resourceGeneration)
@@ -145,7 +244,11 @@ final class SystemAudioSpectrumService: NSObject {
                 aggregateID,
                 nil
             ) { [weak self] _, inInputData, _, _, _ in
-                self?.processAudioBufferList(inInputData)
+                self?.processAudioBufferList(
+                    inInputData,
+                    resourceGeneration: resourceGeneration,
+                    token: captureToken
+                )
             }
             guard ioStatus == noErr, let createdIOProcID else {
                 throw SystemAudioCaptureDeviceFactory.CaptureError.osStatus(ioStatus)
@@ -160,8 +263,9 @@ final class SystemAudioSpectrumService: NSObject {
             captureGeneration += 1
             hasLoggedCapturedData = false
             NSLog(
-                "MWX AUDIO CAPTURE: started generation=%d sampleRate=%.0f channels=%u",
+                "MWX AUDIO CAPTURE: started generation=%d scope=%@ sampleRate=%.0f channels=%u",
                 captureGeneration,
+                processScope.rawValue,
                 tapStreamFormat.mSampleRate,
                 tapStreamFormat.mChannelsPerFrame
             )
@@ -174,9 +278,6 @@ final class SystemAudioSpectrumService: NSObject {
 
     private func reconcileCaptureState() {
         let shouldCapture = hasActiveConsumer
-        let hasCaptureResources = tapID != kAudioObjectUnknown
-            || aggregateDeviceID != kAudioObjectUnknown
-            || ioProcID != nil
         if shouldCapture {
             if !hasCaptureResources,
                captureRetryWorkItem == nil,
@@ -186,6 +287,7 @@ final class SystemAudioSpectrumService: NSObject {
             return
         }
 
+        captureRetrySequence += 1
         captureRetryWorkItem?.cancel()
         captureRetryWorkItem = nil
         captureRetryAttempt = 0
@@ -199,27 +301,52 @@ final class SystemAudioSpectrumService: NSObject {
         guard hasActiveConsumer else { return }
         captureRetryAttempt += 1
         let delay = min(pow(2, Double(captureRetryAttempt - 1)), 30)
-        let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+        captureRetrySequence += 1
+        let sequence = captureRetrySequence
+        let scopeEpoch = sceneCaptureScopeEpoch
+        let retryProcessScope = processScope
+        let action = { [weak self] in
+            guard let self,
+                  self.captureRetrySequence == sequence,
+                  self.sceneCaptureScopeEpoch == scopeEpoch,
+                  self.processScope == retryProcessScope else { return }
             self.captureRetryWorkItem = nil
             self.startCaptureIfNeeded()
         }
+        let workItem = DispatchWorkItem(block: action)
         captureRetryWorkItem?.cancel()
         captureRetryWorkItem = workItem
         NSLog("MWX AUDIO CAPTURE: retry scheduled attempt=%d delay=%.1f", captureRetryAttempt, delay)
+#if DEBUG
+        if debugRecoveryTestingEnabled {
+            debugScheduledRecoveries.append(
+                DebugScheduledRecovery(kind: "retry", action: action)
+            )
+            return
+        }
+#endif
         sampleQueue.asyncAfter(deadline: .now() + delay, execute: workItem)
     }
 
     private func scheduleCaptureRestart(reason: String, generation: Int) {
+#if DEBUG
+        guard generation == captureResourceGeneration,
+              hasActiveConsumer,
+              (tapID != kAudioObjectUnknown
+                  && aggregateDeviceID != kAudioObjectUnknown)
+                || (debugRecoveryTestingEnabled
+                    && debugAllowsSyntheticCaptureResources) else { return }
+#else
         guard generation == captureResourceGeneration,
               hasActiveConsumer,
               tapID != kAudioObjectUnknown,
               aggregateDeviceID != kAudioObjectUnknown else { return }
+#endif
         captureRestartSequence += 1
         let sequence = captureRestartSequence
         captureRestartWorkItem?.cancel()
         NSLog("MWX AUDIO CAPTURE: invalidated reason=%@ generation=%d", reason, generation)
-        let workItem = DispatchWorkItem { [weak self] in
+        let action = { [weak self] in
             guard let self,
                   self.captureRestartSequence == sequence,
                   self.captureResourceGeneration == generation,
@@ -229,7 +356,16 @@ final class SystemAudioSpectrumService: NSObject {
             self.stopCapture()
             self.scheduleCaptureStartAfterRestart()
         }
+        let workItem = DispatchWorkItem(block: action)
         captureRestartWorkItem = workItem
+#if DEBUG
+        if debugRecoveryTestingEnabled {
+            debugScheduledRecoveries.append(
+                DebugScheduledRecovery(kind: "restart", action: action)
+            )
+            return
+        }
+#endif
         sampleQueue.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
 
@@ -237,15 +373,24 @@ final class SystemAudioSpectrumService: NSObject {
         guard hasActiveConsumer else { return }
         captureRestartSequence += 1
         let sequence = captureRestartSequence
-        let workItem = DispatchWorkItem { [weak self] in
+        let action = { [weak self] in
             guard let self,
                   self.captureRestartSequence == sequence,
                   self.hasActiveConsumer else { return }
             self.captureRestartWorkItem = nil
             self.startCaptureIfNeeded()
         }
+        let workItem = DispatchWorkItem(block: action)
         captureRestartWorkItem = workItem
         NSLog("MWX AUDIO CAPTURE: restart waiting delay=1.0")
+#if DEBUG
+        if debugRecoveryTestingEnabled {
+            debugScheduledRecoveries.append(
+                DebugScheduledRecovery(kind: "restart-start", action: action)
+            )
+            return
+        }
+#endif
         sampleQueue.asyncAfter(deadline: .now() + 1.0, execute: workItem)
     }
 
@@ -256,6 +401,11 @@ final class SystemAudioSpectrumService: NSObject {
     }
 
     private func stopCapture() {
+#if DEBUG
+        if debugRecoveryTestingEnabled {
+            debugCaptureStopCount += 1
+        }
+#endif
         let hadCapture = aggregateDeviceID != kAudioObjectUnknown || tapID != kAudioObjectUnknown
         cancelCaptureRestart()
         captureResourceGeneration += 1
@@ -296,18 +446,77 @@ final class SystemAudioSpectrumService: NSObject {
             self.scheduleCaptureRestart(reason: "debug", generation: self.captureResourceGeneration)
         }
     }
+
+    func debugEnableRecoveryTesting() {
+        sampleQueue.sync {
+            debugRecoveryTestingEnabled = true
+            debugAllowsSyntheticCaptureResources = false
+            debugCaptureStartTokens.removeAll()
+            debugCaptureStopCount = 0
+            debugScheduledRecoveries.removeAll()
+        }
+    }
+
+    func debugScheduleCaptureRetryForTesting() {
+        sampleQueue.sync {
+            scheduleCaptureRetryIfNeeded()
+        }
+    }
+
+    func debugScheduleCaptureRestartForTesting() {
+        sampleQueue.sync {
+            debugAllowsSyntheticCaptureResources = true
+            scheduleCaptureRestart(
+                reason: "debug-test",
+                generation: captureResourceGeneration
+            )
+            debugAllowsSyntheticCaptureResources = false
+        }
+    }
+
+    @discardableResult
+    func debugPerformScheduledRecoveryForTesting(at index: Int) -> Bool {
+        sampleQueue.sync {
+            guard debugScheduledRecoveries.indices.contains(index) else { return false }
+            debugScheduledRecoveries[index].action()
+            return true
+        }
+    }
+
+    func debugRecoverySnapshot() -> DebugRecoverySnapshot {
+        sampleQueue.sync {
+            DebugRecoverySnapshot(
+                captureStartTokens: debugCaptureStartTokens,
+                captureRetryAttempt: captureRetryAttempt,
+                hasCaptureRetryWorkItem: captureRetryWorkItem != nil,
+                hasCaptureRestartWorkItem: captureRestartWorkItem != nil,
+                captureStopCount: debugCaptureStopCount,
+                scheduledRecoveryKinds: debugScheduledRecoveries.map(\.kind),
+                currentToken: SceneAudioSpectrumCaptureToken(
+                    scopeEpoch: sceneCaptureScopeEpoch,
+                    includesCurrentProcessOutput:
+                        processScope == .includesCurrentProcess
+                )
+            )
+        }
+    }
 #endif
 
     private func resetConsumersAfterCaptureFailure() {
         overlayEnabled = false
         webEnabled = false
         sceneEnabled = false
+        processScope = .excludesCurrentProcess
         onLevels?(overlayAnalyzer.reset())
         onWebLevels?(Self.clearedWebLevels)
         clearSceneLevels()
     }
 
-    private func processAudioBufferList(_ inputData: UnsafePointer<AudioBufferList>) {
+    private func processAudioBufferList(
+        _ inputData: UnsafePointer<AudioBufferList>,
+        resourceGeneration: Int,
+        token: SceneAudioSpectrumCaptureToken
+    ) {
         let now = ProcessInfo.processInfo.systemUptime
         guard now - lastProcessedAt >= processingMinInterval else { return }
         lastProcessedAt = now
@@ -316,10 +525,16 @@ final class SystemAudioSpectrumService: NSObject {
             processingGate.signal()
             return
         }
+        pendingCaptureResourceGeneration = resourceGeneration
+        pendingSceneCaptureToken = token
         processingSource.add(data: 1)
     }
 
     private func processCapturedAudio() {
+        guard pendingCaptureResourceGeneration == captureResourceGeneration,
+              pendingSceneCaptureToken.scopeEpoch == sceneCaptureScopeEpoch,
+              pendingSceneCaptureToken.includesCurrentProcessOutput
+                == (processScope == .includesCurrentProcess) else { return }
         guard let frame = captureBuffer.decodedFrame else { return }
         let sampleRate = Float(max(1, tapStreamFormat.mSampleRate))
         if !hasLoggedCapturedData {
@@ -357,7 +572,8 @@ final class SystemAudioSpectrumService: NSObject {
                 bands.left32,
                 bands.right32,
                 bands.left64,
-                bands.right64
+                bands.right64,
+                pendingSceneCaptureToken
             )
         }
     }
@@ -370,7 +586,12 @@ final class SystemAudioSpectrumService: NSObject {
             Self.clearedMediumSceneLevels,
             Self.clearedMediumSceneLevels,
             Self.clearedExtendedSceneLevels,
-            Self.clearedExtendedSceneLevels
+            Self.clearedExtendedSceneLevels,
+            SceneAudioSpectrumCaptureToken(
+                scopeEpoch: sceneCaptureScopeEpoch,
+                includesCurrentProcessOutput:
+                    processScope == .includesCurrentProcess
+            )
         )
     }
 

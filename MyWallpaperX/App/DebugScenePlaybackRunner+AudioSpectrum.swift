@@ -5,6 +5,9 @@ private enum DebugSceneAudioSpectrumFixtureState {
     static let queue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.debug-scene-audio-spectrum"
     )
+    static let observationQueue = DispatchQueue(
+        label: "com.songziqiang.MyWallpaperX.debug-scene-audio-observation"
+    )
     static let analyzer = SystemAudioSceneSpectrumAnalyzer()
     nonisolated static let sampleRate: Float = 48_000
     nonisolated static let publicationRate: Float = 30
@@ -12,6 +15,83 @@ private enum DebugSceneAudioSpectrumFixtureState {
 }
 
 extension DebugScenePlaybackRunner {
+    static func scheduleAudioSpectrumLivePropertyObservations() {
+        scheduleAudioSpectrumObservation(
+            phase: "before-live-property",
+            startDelay: 1.25
+        )
+        scheduleAudioSpectrumObservation(
+            phase: "after-live-property",
+            startDelay: 2.75
+        )
+    }
+
+    private nonisolated static func scheduleAudioSpectrumObservation(
+        phase: String,
+        startDelay: TimeInterval
+    ) {
+        DebugSceneAudioSpectrumFixtureState.observationQueue.asyncAfter(
+            deadline: .now() + startDelay
+        ) {
+            collectAudioSpectrumObservation(
+                phase: phase,
+                peaks: [],
+                generations: []
+            )
+        }
+    }
+
+    private nonisolated static func collectAudioSpectrumObservation(
+        phase: String,
+        peaks: [Float],
+        generations: [UInt64]
+    ) {
+        let snapshot = SceneAudioSpectrumInbox.shared.latest()
+        let nextPeaks = peaks + [audioSpectrumPeak(snapshot)]
+        let nextGenerations = generations + [snapshot.generation]
+        guard nextPeaks.count < 12 else {
+            let demand = SceneAudioSpectrumInbox.shared.captureDemand
+            let meanPeak = nextPeaks.reduce(0, +) / Float(nextPeaks.count)
+            NSLog(
+                "MWX DEBUG SCENE AUDIO: phase=%@ samples=%d nonSilent=%d "
+                    + "meanPeak=%.6f maxPeak=%.6f generation=%llu...%llu "
+                    + "scopeEpoch=%llu includeCurrentProcess=%@",
+                phase,
+                nextPeaks.count,
+                nextPeaks.filter { $0 > 0 }.count,
+                meanPeak,
+                nextPeaks.max() ?? 0,
+                nextGenerations.first ?? 0,
+                nextGenerations.last ?? 0,
+                demand.scopeEpoch,
+                demand.includesCurrentProcessOutput ? "true" : "false"
+            )
+            return
+        }
+        DebugSceneAudioSpectrumFixtureState.observationQueue.asyncAfter(
+            deadline: .now() + 0.05
+        ) {
+            collectAudioSpectrumObservation(
+                phase: phase,
+                peaks: nextPeaks,
+                generations: nextGenerations
+            )
+        }
+    }
+
+    private nonisolated static func audioSpectrumPeak(
+        _ snapshot: SceneAudioSpectrumSnapshot
+    ) -> Float {
+        [
+            snapshot.left.max() ?? 0,
+            snapshot.right.max() ?? 0,
+            snapshot.left32.max() ?? 0,
+            snapshot.right32.max() ?? 0,
+            snapshot.left64.max() ?? 0,
+            snapshot.right64.max() ?? 0,
+        ].max() ?? 0
+    }
+
     static func scheduleRequestedAudioSpectrumFixture() {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--mwx-debug-scene-audio-silence-fixture") {

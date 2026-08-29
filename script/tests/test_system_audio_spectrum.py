@@ -15,6 +15,8 @@ SPECTRUM_SOURCES = [
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebAudioSpectrum.swift",
 ]
+SERVICE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
+ENGINE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift"
 
 
 class SystemAudioSpectrumTests(unittest.TestCase):
@@ -418,6 +420,79 @@ class SystemAudioSpectrumTests(unittest.TestCase):
                 text=True,
             )
             self.assertIn("tests passed", completed.stdout)
+
+    def test_scene_frames_preserve_capture_generation_and_scope(self) -> None:
+        source = SERVICE_SOURCE.read_text(encoding="utf-8")
+        callback_declaration = source[
+            source.index("var onSceneLevels:") : source.index("init(barCount:")
+        ]
+        self.assertIn("_ token: SceneAudioSpectrumCaptureToken", callback_declaration)
+
+        start_capture = source[
+            source.index("private func startCaptureIfNeeded()")
+            : source.index("private func reconcileCaptureState()")
+        ]
+        self.assertIn("let resourceGeneration = captureResourceGeneration", start_capture)
+        self.assertIn("let captureProcessScope = processScope", start_capture)
+        self.assertIn("let captureToken = SceneAudioSpectrumCaptureToken(", start_capture)
+        self.assertIn("resourceGeneration: resourceGeneration", start_capture)
+        self.assertIn("token: captureToken", start_capture)
+
+        process_frame = source[
+            source.index("private func processCapturedAudio()")
+            : source.index("private func clearSceneLevels()")
+        ]
+        identity_guard = process_frame.index(
+            "pendingCaptureResourceGeneration == captureResourceGeneration"
+        )
+        scope_guard = process_frame.index(
+            "pendingSceneCaptureToken.scopeEpoch == sceneCaptureScopeEpoch"
+        )
+        decoded_frame = process_frame.index("captureBuffer.decodedFrame")
+        scene_callback = process_frame.index("onSceneLevels?(")
+        self.assertLess(identity_guard, scope_guard)
+        self.assertLess(scope_guard, decoded_frame)
+        self.assertLess(decoded_frame, scene_callback)
+        self.assertIn(
+            "pendingSceneCaptureToken",
+            process_frame,
+            "Scene callback must report the captured frame's immutable scope token",
+        )
+
+    def test_scope_change_cancels_recovery_before_immediate_reconcile(self) -> None:
+        source = SERVICE_SOURCE.read_text(encoding="utf-8")
+        set_consumers = source[
+            source.index("func setConsumers(") : source.index("func updateConfiguration(")
+        ]
+        self.assertNotIn(
+            "if processScopeChanged, self.hasCaptureResources",
+            set_consumers,
+            "scope cleanup must also run while no capture resources exist",
+        )
+        self.assertRegex(
+            set_consumers,
+            r"(?s)if processScopeChanged \{\s*"
+            r".*?self\.captureRetryWorkItem\?\.cancel\(\)\s*"
+            r"self\.captureRetryWorkItem = nil\s*"
+            r"self\.captureRetryAttempt = 0\s*"
+            r"self\.cancelCaptureRestart\(\).*?"
+            r"if self\.hasCaptureResources \{\s*self\.stopCapture\(\)\s*\}\s*"
+            r"\}\s*self\.reconcileCaptureState\(\)",
+        )
+
+    def test_engine_publishes_scope_checked_system_capture(self) -> None:
+        source = ENGINE_SOURCE.read_text(encoding="utf-8")
+        scene_wiring = source[
+            source.index("service.onSceneLevels =") : source.index("return service")
+        ]
+        self.assertEqual(
+            scene_wiring.count("SceneAudioSpectrumInbox.shared.publishSystemCapture("),
+            1,
+        )
+        self.assertNotIn("SceneAudioSpectrumInbox.shared.publish(", scene_wiring)
+        self.assertIn("token in", scene_wiring)
+        self.assertIn("token: token", scene_wiring)
+        self.assertIn("sceneCaptureScopeEpoch: sceneDemand.scopeEpoch", source)
 
 
 if __name__ == "__main__":

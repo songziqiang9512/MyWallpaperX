@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""Scene 音频频谱输入管线（A0）门。
-
-覆盖三段：
-  1. `SceneAudioSpectrumSnapshot` 的形状与非法值归零；
-  2. `SceneAudioSpectrumInbox` 的发布/代际/需求生命周期；
-  3. `SystemAudioSceneSpectrumAnalyzer` 的官方 64-band identity、16/32 投影、
-     平台可视响应、快起慢落包络、静音零输入与确定性。
-
-这里只验证输入管线本身。A0 阶段没有任何 effect / particle 消费者，
-因此不存在渲染侧断言。
-"""
+"""验证 Scene snapshot、原子 demand、共享 analyzer 与 capture-scope 接线。"""
 
 from __future__ import annotations
 
@@ -123,6 +113,9 @@ enum Harness {
 
     static func inboxChecks() -> [String: Any] {
         let inbox = SceneAudioSpectrumInbox()
+        let normalizedNoConsumerDemand = SceneAudioSpectrumCaptureDemand(
+            requiresSpectrum: false, includesCurrentProcessOutput: true
+        )
         let bandCount = SceneAudioSpectrumSnapshot.bandCount
         let ones = Array(repeating: Float(0.25), count: bandCount)
         let twos = Array(repeating: Float(0.5), count: bandCount)
@@ -164,12 +157,21 @@ enum Harness {
         let demandedAfter = inbox.isDemanded
         inbox.setDemand(true) // 重复设置不应再次通知
         inbox.publish(left: ones, right: ones)
+        let beforeScopeChange = inbox.latest()
+        inbox.setDemand(true, requiresCurrentProcessAudioCapture: true)
+        let scopedDemand = inbox.captureDemand
+        let afterScopeChange = inbox.latest()
+        let notificationsAfterScopeChange = observed.count
+        inbox.setDemand(true, requiresCurrentProcessAudioCapture: true)
+        let duplicatePolicyWasQuiet = observed.count == notificationsAfterScopeChange
+        inbox.publish(left: ones, right: ones)
         let beforeRevoke = inbox.latest()
-        inbox.setDemand(false)
+        inbox.setDemand(false, requiresCurrentProcessAudioCapture: true)
         let afterRevoke = inbox.latest()
 
         inbox.publish(left: twos, right: twos)
         let generationBeforeReset = inbox.latest().generation
+        inbox.setDemand(true, requiresCurrentProcessAudioCapture: true)
         inbox.reset()
         let afterReset = inbox.latest()
 
@@ -203,6 +205,12 @@ enum Harness {
             "secondGeneration": second.generation,
             "demandedBefore": demandedBefore,
             "demandedAfter": demandedAfter,
+            "noConsumerIncludeNormalizesToNone": normalizedNoConsumerDemand == .none,
+            "scopeChangeClearsSnapshot": !beforeScopeChange.isSilent && afterScopeChange.isSilent,
+            "scopeChangePublishesAtomically": scopedDemand.requiresSpectrum
+                && scopedDemand.includesCurrentProcessOutput,
+            "policyChangeNotifiesOnce": notificationsAfterScopeChange == 2
+                && duplicatePolicyWasQuiet,
             "observed": observed,
             "beforeRevokeIsSilent": beforeRevoke.isSilent,
             "afterRevokeIsSilent": afterRevoke.isSilent,
@@ -210,6 +218,7 @@ enum Harness {
             "generationBeforeReset": generationBeforeReset,
             "afterResetGeneration": afterReset.generation,
             "afterResetIsSilent": afterReset.isSilent,
+            "afterResetDemandIsNone": !inbox.captureDemand.requiresSpectrum && !inbox.captureDemand.includesCurrentProcessOutput,
             "beforeStaleDeadlineIsSilent": beforeDeadline.isSilent,
             "afterStaleDeadlineIsSilent": afterDeadline.isSilent,
             "staleRevocationGeneration": afterDeadline.generation,
@@ -510,6 +519,10 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         inbox = self.result["inbox"]
         self.assertFalse(inbox["demandedBefore"], "默认不请求采集")
         self.assertTrue(inbox["demandedAfter"])
+        self.assertTrue(inbox["noConsumerIncludeNormalizesToNone"])
+        self.assertTrue(inbox["scopeChangeClearsSnapshot"])
+        self.assertTrue(inbox["scopeChangePublishesAtomically"])
+        self.assertTrue(inbox["policyChangeNotifiesOnce"])
         self.assertFalse(inbox["beforeRevokeIsSilent"])
         self.assertTrue(
             inbox["afterRevokeIsSilent"],
@@ -520,7 +533,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
     def test_demand_observer_only_fires_on_real_changes(self) -> None:
         self.assertEqual(
             self.result["inbox"]["observed"],
-            [True, False],
+            [True, True, False, True, False],
             "重复设置同一需求值不得重复通知，避免反复重启采集",
         )
 
@@ -529,6 +542,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertGreater(inbox["generationBeforeReset"], 0)
         self.assertEqual(inbox["afterResetGeneration"], 0)
         self.assertTrue(inbox["afterResetIsSilent"])
+        self.assertTrue(inbox["afterResetDemandIsNone"])
 
     def test_stale_snapshot_fails_closed_instead_of_freezing(self) -> None:
         inbox = self.result["inbox"]
@@ -703,6 +717,18 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
             "任一消费者存在才采集",
         )
         self.assertIn("var onSceneLevels:", source)
+        self.assertRegex(
+            source,
+            r"(?s)let requestedProcessScope: ProcessScope = sceneEnabled.*?"
+            r"case \.includesCurrentProcess:\s*excludedProcessIDs = \[\]\s*"
+            r"case \.excludesCurrentProcess:.*?throw .*?currentProcessUnavailable.*?"
+            r"excludedProcessIDs = \[currentProcessObjectID\]",
+        )
+        scope_start = source.index("if processScopeChanged {")
+        stop = source.index("self.stopCapture()", scope_start)
+        reconcile = source.index("self.reconcileCaptureState()", stop)
+        self.assertLess(stop, reconcile)
+        self.assertRegex(source, r"(?s)private func reconcileCaptureState\(\).*?startCaptureIfNeeded\(\)")
 
     def test_service_clears_scene_levels_on_stop_and_failure(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")
@@ -734,8 +760,14 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
             source,
         )
         self.assertIn("left32: left32", source)
-        self.assertIn("SceneAudioSpectrumInbox.shared.isDemanded", source)
+        self.assertEqual(
+            source.count("SceneAudioSpectrumInbox.shared.captureDemand"),
+            1,
+            "consumer 与 capture scope 必须由同一次原子快照读取",
+        )
         self.assertIn("sceneEnabled: sceneCaptureRequested", source)
+        self.assertEqual(source.count("includeCurrentProcessAudio:"), 1)
+        self.assertIn("sceneCaptureScopeEpoch: sceneDemand.scopeEpoch", source)
 
     def test_debug_fixture_exclusively_owns_the_scene_inbox(self) -> None:
         source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
@@ -749,11 +781,17 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
 
     def test_engine_stops_scene_capture_under_system_interruptions(self) -> None:
         source = ENGINE_SPECTRUM_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("let sceneCaptureRequested = captureAllowed", source)
-        self.assertIn(
-            "SceneAudioSpectrumInbox.shared.clearSnapshot()",
+        self.assertRegex(
             source,
-            "锁屏/休眠/暂停时必须归零而不是保留最后一帧",
+            r"let sceneCaptureRequested = captureAllowed\s*"
+            r"&& sceneDemand\.requiresSpectrum",
+        )
+        service = SERVICE_SOURCE.read_text(encoding="utf-8")
+        self.assertRegex(
+            service,
+            r"if self\.sceneEnabled != sceneEnabled \{\s*"
+            r"self\.clearSceneLevels\(\)",
+            "锁屏/休眠/暂停撤销 Scene consumer 时必须由唯一 service 归零",
         )
 
 
