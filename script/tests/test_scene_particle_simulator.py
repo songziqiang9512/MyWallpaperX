@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
+    SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -27,6 +28,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulationDiagnostic.swift",
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+ReduceMovement.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+AudioResponse.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
@@ -628,6 +630,99 @@ enum Harness {
             value.advance(by: 0.1)
             return value
         }
+        let stockReduceFields = #""distanceinner":20,"distanceouter":50,"reductioninner":1000"#
+        var reduceInner = simulator(
+            reduceMovementJSON(stockReduceFields), seed: 59, step: 0.1
+        )
+        reduceInner.advance(by: 0.1)
+        var reduceInterpolated = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100,"reductionouter":0"#,
+                origin: "35 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceInterpolated.advance(by: 0.1)
+        var reduceOutside = simulator(
+            reduceMovementJSON(stockReduceFields, origin: "60 0 0"),
+            seed: 59, step: 0.1
+        )
+        reduceOutside.advance(by: 0.1)
+        var reduceNegative = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":-100"#
+            ), seed: 59, step: 0.1
+        )
+        reduceNegative.advance(by: 0.1)
+        let staticPoint = #"{"id":1,"flags":2,"offset":"30 0 0","parentcontrolpoint":0}"#
+        var reduceStaticPoint = simulator(
+            reduceMovementJSON(
+                #""controlpoint":1,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+                controlPoints: staticPoint, origin: "30 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceStaticPoint.advance(by: 0.1)
+        let dynamicPoint = #"{"id":1,"flags":0,"offset":"0 0 0"}"#
+        var reduceDynamicPoint = simulator(
+            reduceMovementJSON(
+                #""controlpoint":1,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+                controlPoints: dynamicPoint, origin: "40 0 0"
+            ), seed: 59, step: 0.1
+        )
+        reduceDynamicPoint.advance(
+            by: 0.1, dynamicControlPoints: [1: SIMD3(40, 0, 0)]
+        )
+        var reducePartitioned = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100"#
+            ), seed: 59, step: 0.1
+        )
+        var reducePartitionedFrames = simulator(
+            reduceMovementJSON(
+                #""distanceinner":20,"distanceouter":50,"reductioninner":100"#
+            ), seed: 59, step: 0.1
+        )
+        reducePartitioned.advance(by: 0.2)
+        reducePartitionedFrames.advance(by: 0.1)
+        reducePartitionedFrames.advance(by: 0.1)
+        var reduceBeforeMovement = simulator(
+            reduceMovementJSON(stockReduceFields), seed: 59, step: 0.1
+        )
+        var movementBeforeReduce = simulator(
+            reduceMovementJSON(stockReduceFields, movementFirst: true),
+            seed: 59, step: 0.1
+        )
+        reduceBeforeMovement.advance(by: 0.1)
+        movementBeforeReduce.advance(by: 0.1)
+        let invalidReduceValues = [
+            #""distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50"#,
+            #""distanceinner":-1,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":60,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":1000001,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":1000001"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"flags":1"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"blendinstart":0.1"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"audioprocessingmode":1"#,
+            #""controlpoint":8,"distanceinner":20,"distanceouter":50,"reductioninner":100"#,
+            #""distanceinner":20,"distanceouter":50,"reductioninner":100,"future":1"#,
+            #""distanceinner":"bad","distanceouter":50,"reductioninner":100"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(
+                reduceMovementJSON(fields), seed: 59, step: 0.1
+            )
+            value.advance(by: 0.1)
+            return value
+        }
+        var worldReduce = simulator(
+            reduceMovementJSON(stockReduceFields, systemFlags: 1), seed: 59, step: 0.1
+        )
+        var perspectiveReduce = simulator(
+            reduceMovementJSON(stockReduceFields, systemFlags: 4), seed: 59, step: 0.1
+        )
+        worldReduce.advance(by: 0.1)
+        perspectiveReduce.advance(by: 0.1)
+        let allInvalidReduce = invalidReduceValues + [worldReduce, perspectiveReduce]
         var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
         var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
         uniformSize.advance(by: 0.1)
@@ -1202,6 +1297,26 @@ enum Harness {
                 vector($0.particles[0].velocity)
             },
             "invalidRemapDiagnostics": invalidRemapValues.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "reduceInnerVelocity": vector(reduceInner.particles[0].velocity),
+            "reduceInnerPosition": vector(reduceInner.particles[0].position),
+            "reduceInterpolatedVelocity":
+                vector(reduceInterpolated.particles[0].velocity),
+            "reduceOutsideVelocity": vector(reduceOutside.particles[0].velocity),
+            "reduceNegativeVelocity": vector(reduceNegative.particles[0].velocity),
+            "reduceStaticPointVelocity": vector(reduceStaticPoint.particles[0].velocity),
+            "reduceDynamicPointVelocity": vector(reduceDynamicPoint.particles[0].velocity),
+            "reducePartitioned": reducePartitioned.particles == reducePartitionedFrames.particles,
+            "reduceBeforeMovementPosition":
+                vector(reduceBeforeMovement.particles[0].position),
+            "movementBeforeReducePosition":
+                vector(movementBeforeReduce.particles[0].position),
+            "reduceDiagnostics": reduceInner.diagnostics.map(\.kind.rawValue),
+            "invalidReduceVelocities": allInvalidReduce.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidReduceDiagnostics": allInvalidReduce.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
             "uniformSizeAmount": uniformSizeAmount,
@@ -1950,6 +2065,27 @@ enum Harness {
         """
     }
 
+    private static func reduceMovementJSON(
+        _ fields: String,
+        systemFlags: Int = 0,
+        controlPoints: String = "",
+        origin: String = "10 0 0",
+        velocity: String = "100 0 0",
+        movementFirst: Bool = false
+    ) -> String {
+        let reduce = #"{"name":"reducemovementnearcontrolpoint",\#(fields)}"#
+        let movement = #"{"name":"movement"}"#
+        let operators = movementFirst ? "\(movement),\(reduce)" : "\(reduce),\(movement)"
+        return """
+        {"material":"p.json","maxcount":1,"flags":\(systemFlags),
+         "controlpoint":[\(controlPoints)],
+         "emitter":[{"name":"boxrandom","instantaneous":1,"origin":"\(origin)","distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[\(operators)],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
     private static let uniformSizeJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -2563,6 +2699,27 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["invalidRemapDiagnostics"],
             [["remapValueUnsupported"]] * 7,
         )
+
+    def test_reduce_movement_executes_distance_speed_and_control_point_contract(self) -> None:
+        self.assertEqual(self.results["reduceInnerVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["reduceInnerPosition"], [10, 0, 0])
+        self.assertEqual(self.results["reduceInterpolatedVelocity"], [95, 0, 0])
+        self.assertEqual(self.results["reduceOutsideVelocity"], [100, 0, 0])
+        self.assertEqual(self.results["reduceNegativeVelocity"], [110, 0, 0])
+        self.assertEqual(self.results["reduceStaticPointVelocity"], [90, 0, 0])
+        self.assertEqual(self.results["reduceDynamicPointVelocity"], [90, 0, 0])
+        self.assertTrue(self.results["reducePartitioned"])
+        self.assertEqual(self.results["reduceBeforeMovementPosition"], [10, 0, 0])
+        self.assertEqual(self.results["movementBeforeReducePosition"], [20, 0, 0])
+        self.assertEqual(self.results["reduceDiagnostics"], ["reduceMovementBounded"])
+
+    def test_reduce_movement_rejects_malformed_unbounded_and_unsafe_profiles(self) -> None:
+        self.assertEqual(self.results["invalidReduceVelocities"], [[100, 0, 0]] * 15)
+        diagnostics = self.results["invalidReduceDiagnostics"]
+        self.assertEqual(len(diagnostics), 15)
+        for value in diagnostics:
+            self.assertIn("reduceMovementUnsupported", value)
+        self.assertIn("audioResponseIgnored", diagnostics[9])
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
         uniform = self.results["uniformSizeAmount"]

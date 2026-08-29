@@ -23,6 +23,8 @@ extension SceneParticleDefinitionParser {
         case "vortex": kind = .vortex(Self.vortex(root))
         case "capvelocity": kind = .capVelocity(Self.capVelocity(root))
         case "remapvalue": kind = .remapValue(.init(root: root))
+        case "reducemovementnearcontrolpoint":
+            kind = .reduceMovement(.init(root: root))
         case "inheritvaluefromevent":
             kind = .inheritEventColor(.init(root: root))
         default:

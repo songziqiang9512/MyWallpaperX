@@ -387,6 +387,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 particles[index].velocity = plan.minimum
                     + (plan.maximum - plan.minimum) * amount
             }
+        case .reduceMovement:
+            applyReduceMovement(value, duration: duration)
         case let .inheritEventColor(declaration):
             guard declaration.isBoundedSetColor,
                   let color = eventColorContext.operatorColor else { break }

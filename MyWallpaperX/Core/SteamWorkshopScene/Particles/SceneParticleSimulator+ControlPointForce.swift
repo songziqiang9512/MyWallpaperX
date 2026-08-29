@@ -21,7 +21,7 @@ nonisolated extension SceneParticleSimulator {
         }
     }
 
-    private func controlPointPosition(
+    func controlPointPosition(
         _ identity: Int,
         offset: SIMD3<Double>
     ) -> SIMD3<Double>? {
