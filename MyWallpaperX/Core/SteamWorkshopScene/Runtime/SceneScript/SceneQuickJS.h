@@ -54,7 +54,10 @@ typedef struct MWXSceneQuickJSMediaPropertiesEvent {
 
 typedef enum MWXSceneQuickJSCursorEventKind {
     MWX_SCENE_QUICKJS_CURSOR_ENTER = 1,
-    MWX_SCENE_QUICKJS_CURSOR_LEAVE = 2
+    MWX_SCENE_QUICKJS_CURSOR_LEAVE = 2,
+    MWX_SCENE_QUICKJS_CURSOR_DOWN = 3,
+    MWX_SCENE_QUICKJS_CURSOR_UP = 4,
+    MWX_SCENE_QUICKJS_CURSOR_CLICK = 5
 } MWXSceneQuickJSCursorEventKind;
 
 typedef struct MWXSceneQuickJSCursorEvent {
@@ -119,6 +122,13 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     const char *source,
     size_t source_length,
     uint64_t generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
     char *diagnostic,
     size_t diagnostic_capacity
 );

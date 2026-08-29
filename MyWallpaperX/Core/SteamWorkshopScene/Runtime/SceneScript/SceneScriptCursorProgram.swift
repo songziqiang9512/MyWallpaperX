@@ -16,15 +16,19 @@ private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
     let authoredOrder: Int
     let owner: SceneScriptVectorOwner
+    let events: Set<SceneScriptCursorEventKind>
+    let ownsOwner: Bool
 }
 
-/// Executes authored enter/leave callbacks against the shared scene VM. Hit
+/// Executes authored cursor callbacks against the shared scene VM. Hit
 /// testing remains a typed host responsibility; JavaScript receives immutable
 /// world/local positions and can only publish through existing mutation paths.
 nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private let bindings: [SceneScriptCursorBinding]
     private let generation: UInt64
     private var previousHits: [Int: SceneScriptCursorHit] = [:]
+    private var capturedHits: [Int: SceneScriptCursorHit] = [:]
+    private var previousPrimaryButtonIsDown = false
     private var disabledLayerIDs: Set<Int> = []
 
     var ownerLayerIDs: Set<Int> { Set(bindings.map(\.layerID)) }
@@ -42,6 +46,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
+        borrowedOwners: [SceneScriptCursorOwnerRegistration] = [],
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptCursorProgram {
@@ -49,7 +54,20 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
               (try? domain.configureLayerCatalog(descriptor)) != nil else {
             return .init(bindings: [], generation: generation)
         }
-        var candidates: [SceneScriptCursorBinding] = []
+        var candidates = borrowedOwners.compactMap { registration -> SceneScriptCursorBinding? in
+            guard let layer = descriptor.layers.first(where: {
+                $0.id == registration.layerID
+            }), validHitLayer(layer) else { return nil }
+            let events = exportedEvents(registration.owner)
+            guard !events.isEmpty else { return nil }
+            return .init(
+                layerID: registration.layerID,
+                authoredOrder: registration.authoredOrder,
+                owner: registration.owner,
+                events: events,
+                ownsOwner: false
+            )
+        }
         for binding in scriptBindings {
             guard let identity = ownerIdentity(
                 binding,
@@ -62,13 +80,14 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 generation: generation,
                 budget: budget
             ) else { continue }
-            guard owner.exports("cursorEnter"), owner.exports("cursorLeave") else {
-                continue
-            }
+            let events = exportedEvents(owner)
+            guard !events.isEmpty else { continue }
             candidates.append(.init(
                 layerID: identity.layerID,
                 authoredOrder: identity.authoredOrder,
-                owner: owner
+                owner: owner,
+                events: events,
+                ownsOwner: true
             ))
         }
         let counts = Dictionary(grouping: candidates, by: \.layerID)
@@ -80,6 +99,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
 
     func dispatch(
         hits: [Int: SceneScriptCursorHit],
+        primaryButtonIsDown: Bool,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
@@ -89,35 +109,26 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         let leaving = Set(previousHits.keys).subtracting(admittedHits.keys)
         let entering = Set(admittedHits.keys).subtracting(previousHits.keys)
+        let pressed = primaryButtonIsDown && !previousPrimaryButtonIsDown
+        let released = !primaryButtonIsDown && previousPrimaryButtonIsDown
         var failures: [Int: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
         var animations: [SceneTimelinePlaybackMutation] = []
-        for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
-            let event: SceneScriptCursorEventInput?
-            if leaving.contains(binding.layerID),
-               let hit = previousHits[binding.layerID] {
-                event = .init(
-                    kind: .leave,
-                    layerID: binding.layerID,
-                    worldPosition: hit.worldPosition,
-                    localPosition: hit.localPosition
-                )
-            } else if entering.contains(binding.layerID),
-                      let hit = admittedHits[binding.layerID] {
-                event = .init(
-                    kind: .enter,
-                    layerID: binding.layerID,
-                    worldPosition: hit.worldPosition,
-                    localPosition: hit.localPosition
-                )
-            } else {
-                event = nil
-            }
-            guard let event else { continue }
+        func emit(
+            _ kind: SceneScriptCursorEventKind,
+            binding: SceneScriptCursorBinding,
+            hit: SceneScriptCursorHit
+        ) {
+            guard binding.events.contains(kind),
+                  !disabledLayerIDs.contains(binding.layerID) else { return }
+            let event = SceneScriptCursorEventInput(
+                kind: kind,
+                layerID: binding.layerID,
+                worldPosition: hit.worldPosition,
+                localPosition: hit.localPosition
+            )
             switch binding.owner.dispatchCursor(
-                event,
-                frame: frame,
-                userPropertiesJSON: userPropertiesJSON,
+                event, frame: frame, userPropertiesJSON: userPropertiesJSON,
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
@@ -125,14 +136,36 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 animations.append(contentsOf: mutations.animations)
                 NSLog(
                     "MWX SceneScript VM: layerID=%d event=%@ route=generic-only",
-                    binding.layerID,
-                    event.kind == .enter ? "cursorEnter" : "cursorLeave"
+                    binding.layerID, kind.callbackName
                 )
             case let .failure(failure):
                 failures[binding.layerID] = failure
                 disabledLayerIDs.insert(binding.layerID)
             }
         }
+        for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
+            if leaving.contains(binding.layerID), let hit = previousHits[binding.layerID] {
+                emit(.leave, binding: binding, hit: hit)
+            }
+            if entering.contains(binding.layerID), let hit = admittedHits[binding.layerID] {
+                emit(.enter, binding: binding, hit: hit)
+            }
+            if pressed, let hit = admittedHits[binding.layerID] {
+                emit(.down, binding: binding, hit: hit)
+                if !disabledLayerIDs.contains(binding.layerID) {
+                    capturedHits[binding.layerID] = hit
+                }
+            }
+            if released, let captured = capturedHits[binding.layerID] {
+                let releaseHit = admittedHits[binding.layerID] ?? captured
+                emit(.up, binding: binding, hit: releaseHit)
+                if admittedHits[binding.layerID] != nil {
+                    emit(.click, binding: binding, hit: releaseHit)
+                }
+            }
+        }
+        if released { capturedHits = [:] }
+        previousPrimaryButtonIsDown = primaryButtonIsDown
         previousHits = admittedHits.filter {
             !disabledLayerIDs.contains($0.key)
         }
@@ -144,8 +177,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     func invalidate() {
-        bindings.forEach { $0.owner.invalidate() }
+        bindings.filter(\.ownsOwner).forEach { $0.owner.invalidate() }
         previousHits = [:]
+        capturedHits = [:]
     }
 
     private struct OwnerIdentity {
@@ -159,7 +193,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     ) -> OwnerIdentity? {
         guard binding.owner.kind == .object,
               binding.targetKey == "visible",
-              binding.wrapperKeys == ["script", "value"],
+              binding.wrapperKeys == ["script", "value"]
+                || binding.wrapperKeys == ["script", "user", "value"],
               binding.valueType == .boolean,
               binding.properties.isEmpty,
               let authored = binding.authoredValue?.boolValue,
@@ -181,11 +216,21 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
               layer.childLayerIDs.isEmpty,
               layer.effects.isEmpty,
               layer.effectFiles.isEmpty,
-              validHitTransform(layer) else { return nil }
+              validHitLayer(layer) else { return nil }
         return .init(layerID: layerID, authoredOrder: index)
     }
 
-    private static func validHitTransform(
+    private static func exportedEvents(
+        _ owner: SceneScriptVectorOwner
+    ) -> Set<SceneScriptCursorEventKind> {
+        let pairs: [(SceneScriptCursorEventKind, String)] = [
+            (.enter, "cursorEnter"), (.leave, "cursorLeave"),
+            (.down, "cursorDown"), (.up, "cursorUp"), (.click, "cursorClick"),
+        ]
+        return Set(pairs.compactMap { owner.exports($0.1) ? $0.0 : nil })
+    }
+
+    private static func validHitLayer(
         _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
         guard let origin = layer.originXYZ, origin.count == 3,

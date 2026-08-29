@@ -54,6 +54,12 @@ nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
     let owner: SceneScriptVectorOwner
 }
 
+nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
+    let layerID: Int
+    let authoredOrder: Int
+    let owner: SceneScriptVectorOwner
+}
+
 /// Generic object-property Vec3 VM route. Admission is based only on the
 /// loss-preserving binding owner/path/type and descriptor identity. JavaScript
 /// semantics remain owned by QuickJS; there is no source-shape interpreter.
@@ -105,6 +111,20 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         Set(bindings.compactMap { binding in
             binding.hasCurrentAnimation ? binding.definition.target : nil
         })
+    }
+
+    var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
+        bindings.compactMap { binding in
+            guard case let .layer(layerID, _) = binding.definition.target,
+                  let authoredOrder = descriptor.layers.firstIndex(where: {
+                      $0.id == layerID
+                  }) else { return nil }
+            return .init(
+                layerID: layerID,
+                authoredOrder: authoredOrder,
+                owner: binding.owner
+            )
+        }
     }
 
     static func compile(

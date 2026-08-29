@@ -330,6 +330,19 @@ static int configure_effects(
     return check(result == MWX_SCENE_QUICKJS_OK, label, diagnostic);
 }
 
+static int configure_owner_layer(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSResult result =
+        mwx_scene_quickjs_owner_configure_layer_identity(
+            owner, layer_id, diagnostic, sizeof(diagnostic)
+        );
+    return check(result == MWX_SCENE_QUICKJS_OK, label, diagnostic);
+}
+
 static int configure_layers(MWXSceneQuickJSDomain *domain) {
     char diagnostic[512] = {0};
     const double authored_zero[3] = {1, 2, 3};
@@ -378,6 +391,9 @@ int main(void) {
         "export let __workshopId = 'contract';\n"
         "export function init(value) { return value + 1; }\n"
         "export function update(value) {\n"
+        "  if (thisLayer.id !== 42 || thisLayer.name !== 'C1') throw new Error('layer identity');\n"
+        "  const origin = thisLayer.origin;\n"
+        "  if (origin.x !== 4 || origin.y !== 5 || origin.z !== 6) throw new Error('layer origin');\n"
         "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
         "  const effect = thisLayer.getEffect('history');\n"
         "  if (effect.name !== 'history') throw new Error('effect name');\n"
@@ -389,6 +405,9 @@ int main(void) {
             "export let __workshopId = 'contract';\n"
             "export function init(value) { return value + 1; }\n"
             "export function update(value) {\n"
+            "  if (thisLayer.id !== 42 || thisLayer.name !== 'C1') throw new Error('layer identity');\n"
+            "  const origin = thisLayer.origin;\n"
+            "  if (origin.x !== 4 || origin.y !== 5 || origin.z !== 6) throw new Error('layer origin');\n"
             "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
             "  const effect = thisLayer.getEffect('history');\n"
             "  if (effect.name !== 'history') throw new Error('effect name');\n"
@@ -401,6 +420,9 @@ int main(void) {
         sizeof(diagnostic)
     );
     failures += check(positive != NULL, "positive compile", diagnostic);
+    failures += configure_owner_layer(
+        positive, 42, "positive layer identity"
+    );
     failures += configure_effects(positive, 3, 2, "history", "positive effect catalog");
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_OK, 8, "init/update"
@@ -1022,7 +1044,14 @@ int main(void) {
         "if(!Object.isFrozen(event)||!Object.isFrozen(event.worldPosition)||"
         "!Object.isFrozen(event.localPosition))throw new Error('mutable cursor');"
         "shared.hover=event.worldPosition.x===10&&event.localPosition.y===0.25;}"
-        "export function cursorLeave(event){shared.hover=false;}";
+        "export function cursorLeave(event){shared.hover=false;}"
+        "export function cursorDown(event){shared.pointerOrder='down';}"
+        "export function cursorUp(event){"
+        "if(shared.pointerOrder!=='down')throw new Error('cursor order');"
+        "shared.pointerOrder='up';}"
+        "export function cursorClick(event){"
+        "if(shared.pointerOrder!=='up')throw new Error('cursor order');"
+        "shared.pointerOrder='click';}";
     MWXSceneQuickJSOwner *cursor_owner = mwx_scene_quickjs_owner_create(
         domain, cursor_source, strlen(cursor_source),
         26, diagnostic, sizeof(diagnostic)
@@ -1061,6 +1090,18 @@ int main(void) {
     failures += cursor_event(
         cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_LEAVE,
         MWX_SCENE_QUICKJS_OK, "cursor leave event"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_DOWN,
+        MWX_SCENE_QUICKJS_OK, "cursor down event"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_UP,
+        MWX_SCENE_QUICKJS_OK, "cursor up event"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_CLICK,
+        MWX_SCENE_QUICKJS_OK, "cursor click event"
     );
     failures += update(
         cursor_consumer, 27, 2, MWX_SCENE_QUICKJS_OK, 2,
@@ -1307,21 +1348,24 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             launch.index("let boundedProducerTargets:"):
             launch.index("let sceneScriptScalarProgram =")
         ]
-        for producer in (
-            "launch-origin", "property-vector", "media-color",
-        ):
+        for producer in ("property-vector", "media-color"):
             self.assertIn(f'("{producer}"', bounded_ownership)
+        self.assertNotIn('("launch-origin"', bounded_ownership)
         self.assertNotIn('("audio-scaled"', bounded_ownership)
         self.assertNotIn('("hover-origin"', bounded_ownership)
         self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
         self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
-        self.assertIn("events=cursorEnter,cursorLeave route=generic-only", launch)
-        self.assertIn("owner.exports(\"cursorEnter\")", cursor)
-        self.assertIn("owner.exports(\"cursorLeave\")", cursor)
+        self.assertIn("cursorDown,cursorUp,cursorClick", launch)
+        for callback in (
+            "cursorEnter", "cursorLeave", "cursorDown", "cursorUp", "cursorClick",
+        ):
+            self.assertIn(f'(.{callback.removeprefix("cursor").lower()}, "{callback}")', cursor)
         self.assertIn("previousHits", cursor)
-        self.assertIn("excludedTargets: launchTransitionTargets", model)
+        self.assertIn("borrowedOwners: propertyVectorScriptProgram.cursorOwnerRegistrations", model)
+        self.assertNotIn("launchTransitionTargets", model)
         self.assertNotIn("SceneHoverOriginTransition", model + launch + frame)
+        self.assertNotIn("SceneLaunchOriginTransitionProgramCompiler", model + launch + frame)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",
             bounded_ownership,

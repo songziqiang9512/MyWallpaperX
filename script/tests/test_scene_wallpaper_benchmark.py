@@ -674,10 +674,23 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                         "hover_pointer_stationary_entry": value
                     })
 
+    def test_cursor_primary_click_accepts_only_boolean(self) -> None:
+        self.assertFalse(benchmark.cursor_primary_click({}))
+        self.assertTrue(benchmark.cursor_primary_click({
+            "cursor_primary_click": True
+        }))
+        for value in (0, 1, "true", None, []):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.cursor_primary_click({
+                        "cursor_primary_click": value
+                    })
+
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("--mwx-debug-scene-hover-pointer-json", source)
         self.assertIn("--mwx-debug-scene-hover-pointer-stationary-entry", source)
+        self.assertIn("--mwx-debug-scene-primary-click", source)
         self.assertIn("--mwx-debug-scene-after-snapshot-delay", source)
         self.assertIn("--mwx-debug-scene-periodic-snapshot-interval", source)
         self.assertIn('String(format: "series-%04d", index)', source)
@@ -706,7 +719,11 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertLess(outside, after)
         self.assertIn("previous: previous", source)
         self.assertIn("state=move", source)
-        self.assertIn("state=hold", source)
+        self.assertIn('state: "hold"', source)
+        press = source.index('state: "press"', hold_state)
+        release = source.index('state: "release"', press)
+        self.assertLess(press, release)
+        self.assertLess(release, hover)
 
     def test_cursor_ripple_persistence_accepts_expansion_and_decay_after_exit(
         self,

@@ -115,19 +115,6 @@ struct SceneRuntimeModelBuilder {
             }
             return domain
         }()
-        let sceneScriptCursorProgram = SceneScriptCursorProgram.compile(
-            domain: sceneScriptDomain,
-            descriptor: renderDescriptor,
-            scriptBindings: sceneDocument.scriptBindings,
-            generation: sceneScriptGeneration
-        )
-        let launchTransitionTargets = Set(
-            SceneLaunchOriginTransitionProgramCompiler.compile(
-                descriptor: renderDescriptor,
-                scriptBindings: sceneDocument.scriptBindings,
-                scriptSourceEvidence: sceneDocument.scriptSourceEvidence
-            ).definitions.map(\.target)
-        )
         let timelineTargets = Set(
             SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
                 .bindings.map(\.target)
@@ -138,7 +125,13 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             userPropertyDefinitions: project.userProperties.definitions,
             timelineTargets: timelineTargets,
-            excludedTargets: launchTransitionTargets,
+            generation: sceneScriptGeneration
+        )
+        let sceneScriptCursorProgram = SceneScriptCursorProgram.compile(
+            domain: sceneScriptDomain,
+            descriptor: renderDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            borrowedOwners: propertyVectorScriptProgram.cursorOwnerRegistrations,
             generation: sceneScriptGeneration
         )
         let sharedAlphaProjectedDescriptor = SceneSharedLayerAlphaProjection.apply(

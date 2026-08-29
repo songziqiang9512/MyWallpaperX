@@ -3,26 +3,6 @@ import QuartzCore
 import simd
 
 extension SceneMetalView {
-    /// Dispatches cursorClick only to an admitted master owner under the
-    /// pointer. The runtime owns edge detection and flag lifetime per surface.
-    func launchOriginInteractionOwnerLayerIDs(
-        program: SceneLaunchOriginTransitionProgram,
-        timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
-    ) -> Set<Int> {
-        let owners = Set(program.cohorts.compactMap { cohort -> Int? in
-            guard case let .layer(layerID, .origin) = cohort.masterTarget else {
-                return nil
-            }
-            return layerID
-        })
-        return Set(originInteractionHits(
-            owners,
-            timing: timing,
-            dynamicValues: dynamicValues
-        ).keys)
-    }
-
     /// Uses the same cover camera, authored world frames and quad inverse as
     /// rendering. Hidden transparent interaction owners remain hit-testable;
     /// visibility is intentionally not consulted here.

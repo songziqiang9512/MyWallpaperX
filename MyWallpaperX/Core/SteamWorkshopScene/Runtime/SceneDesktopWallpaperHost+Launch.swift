@@ -69,7 +69,6 @@ struct SceneDesktopWallpaperLaunchContext {
     let textScriptProgram: SceneTextScriptProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
-    let launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
@@ -104,16 +103,11 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " bindings=\(sharedLayerAlphaProgram.bindings.count)"
                 + " layerIDs=\(sharedLayerAlphaProgram.layerIDs)"
                 + " interaction=unavailable",
-            "scene launch origin transition: schema=bounded-shared-origin-v1"
-                + " cohorts=\(launchOriginTransitionProgram.cohorts.count)"
-                + " bindings=\(launchOriginTransitionProgram.bindings.count)"
-                + " scalarBindings=\(launchOriginTransitionProgram.scalarBindings.count)"
-                + " layerIDs=\(launchOriginTransitionProgram.layerIDs)"
-                + " interaction=cursor-click",
             "scene cursor events: schema=quickjs-ng-cursor-v1"
                 + " owners=\(sceneScriptCursorProgram.ownerCount)"
                 + " layerIDs=\(sceneScriptCursorProgram.ownerLayerIDs.sorted())"
-                + " events=cursorEnter,cursorLeave route=generic-only",
+                + " events=cursorEnter,cursorLeave,cursorDown,cursorUp,cursorClick"
+                + " route=generic-only",
             "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " route=generic-only fallback=previous-current"
@@ -351,15 +345,6 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
-        let launchOriginTransitionProgram =
-            SceneLaunchOriginTransitionProgramCompiler.compile(
-                descriptor: runtimeInput.renderDescriptor,
-                scriptBindings: model.sceneDocument.scriptBindings,
-                scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence
-            )
-        let launchOriginTransitionTargets = Set(
-            launchOriginTransitionProgram.definitions.map(\.target)
-        )
         let propertyVectorScriptTargets = Set(
             model.propertyVectorScriptProgram.definitions.map(\.target)
         )
@@ -433,8 +418,6 @@ extension SceneDesktopWallpaperHost {
         let boundedProducerTargets: [(
             String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>
         )] = [
-            ("launch-origin", launchOriginTransitionTargets,
-             launchOriginTransitionProgram.definitions.count, []),
             ("property-vector", propertyVectorScriptTargets,
              model.propertyVectorScriptProgram.definitions.count,
              model.propertyVectorScriptProgram.animationTargets),
@@ -505,9 +488,6 @@ extension SceneDesktopWallpaperHost {
             excludedTargets: sceneScriptStringTargets
         )
         let provenSceneScriptValueTargets = mediaColorTransitionCandidateTargets
-            .union(launchOriginTransitionProgram.scalarBindings.map {
-                $0.definition.target
-            })
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
         let resolvedMaterialAdmissionCandidates =
@@ -607,7 +587,6 @@ extension SceneDesktopWallpaperHost {
             textScriptProgram: textScriptProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
-            launchOriginTransitionProgram: launchOriginTransitionProgram,
             sceneScriptCursorProgram: model.sceneScriptCursorProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,

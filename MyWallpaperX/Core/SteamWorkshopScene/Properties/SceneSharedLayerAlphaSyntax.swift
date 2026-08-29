@@ -27,6 +27,16 @@ nonisolated enum SceneSharedLayerAlphaSyntax {
         return parser.profile()
     }
 
+    nonisolated static func parseSharedInitializer(
+        _ source: String
+    ) -> [String: Bool]? {
+        guard source.utf8.count <= 16_384,
+              let tokens = SceneLaunchOriginTransitionLexer.lex(source),
+              tokens.count <= 1_024 else { return nil }
+        var parser = Parser(tokens: tokens)
+        return parser.sharedInitializer()
+    }
+
     private struct Parser {
         let tokens: [SceneLaunchOriginTransitionToken]
         var index = 0
@@ -74,6 +84,25 @@ nonisolated enum SceneSharedLayerAlphaSyntax {
                 fallRate: fallRate,
                 propertyNames: propertyNames.sorted()
             )
+        }
+
+        mutating func sharedInitializer() -> [String: Bool]? {
+            guard string("use strict"), endStatement(),
+                  identifier("shared"), symbol("="), symbol("{") else {
+                return nil
+            }
+            var result: [String: Bool] = [:]
+            while !symbol("}") {
+                guard let key = takeIdentifier(), key != "__proto__",
+                      result[key] == nil, symbol(":"),
+                      let value = takeBool() else { return nil }
+                result[key] = value
+                if symbol("}") { break }
+                guard symbol(",") else { return nil }
+            }
+            guard endStatement(), !result.isEmpty,
+                  index == tokens.count else { return nil }
+            return result
         }
 
         /// Accepts one or more ordinary slider declarations. The runtime values
@@ -222,6 +251,12 @@ nonisolated enum SceneSharedLayerAlphaSyntax {
                   let value = tokens[index].stringValue else { return nil }
             index += 1
             return value
+        }
+
+        private mutating func takeBool() -> Bool? {
+            if identifier("true") { return true }
+            if identifier("false") { return false }
+            return nil
         }
 
         private mutating func identifier(_ value: String) -> Bool {

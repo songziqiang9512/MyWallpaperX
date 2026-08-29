@@ -170,6 +170,85 @@ static JSValue get_effect_count(
     return JS_NewUint32(context, owner->effect_count);
 }
 
+static MWXSceneQuickJSLayerRecord *owner_layer_record(
+    MWXSceneQuickJSOwner *owner
+) {
+    if (!callback_owns_owner(owner) || !owner->target_layer_configured ||
+        owner->target_layer_index >= owner->domain->layer_count) return NULL;
+    MWXSceneQuickJSLayerRecord *record =
+        &owner->domain->layers[owner->target_layer_index];
+    return record->configured ? record : NULL;
+}
+
+static JSValue owner_layer_origin(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    MWXSceneQuickJSOwner *owner = opaque;
+    MWXSceneQuickJSLayerRecord *record = owner_layer_record(owner);
+    if (record == NULL) {
+        return JS_ThrowTypeError(context, "thisLayer origin is unavailable");
+    }
+    JSValue arguments[3] = {
+        JS_NewFloat64(context, record->current_origin[0]),
+        JS_NewFloat64(context, record->current_origin[1]),
+        JS_NewFloat64(context, record->current_origin[2]),
+    };
+    JSValue result = JS_CallConstructor(
+        context, owner->domain->vec3_constructor, 3, arguments
+    );
+    for (size_t index = 0; index < 3; ++index) {
+        JS_FreeValue(context, arguments[index]);
+    }
+    return result;
+}
+
+static JSValue owner_layer_id(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    MWXSceneQuickJSLayerRecord *record = owner_layer_record(opaque);
+    if (record == NULL) {
+        return JS_ThrowTypeError(context, "thisLayer id is unavailable");
+    }
+    return JS_NewInt64(context, record->layer_id);
+}
+
+static JSValue owner_layer_name(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic,
+    void *opaque
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    (void)magic;
+    MWXSceneQuickJSLayerRecord *record = owner_layer_record(opaque);
+    if (record == NULL) {
+        return JS_ThrowTypeError(context, "thisLayer name is unavailable");
+    }
+    return JS_NewString(context, record->name);
+}
+
 static void free_layer_handle(void *opaque) {
     free(opaque);
 }
@@ -349,7 +428,41 @@ static bool install_effect_handle(MWXSceneQuickJSOwner *owner) {
     JSValue count = JS_NewCClosure(
         context, get_effect_count, "getEffectCount", NULL, 0, 0, owner
     );
+    JSValue origin = JS_NewCClosure(
+        context, owner_layer_origin, "get origin", NULL, 0, 0, owner
+    );
+    JSValue id = JS_NewCClosure(
+        context, owner_layer_id, "get id", NULL, 0, 0, owner
+    );
+    JSValue name = JS_NewCClosure(
+        context, owner_layer_name, "get name", NULL, 0, 0, owner
+    );
     if (JS_IsException(getter) || JS_IsException(count) ||
+        JS_IsException(origin) || JS_IsException(id) || JS_IsException(name)) {
+        JS_FreeValue(context, getter);
+        JS_FreeValue(context, count);
+        JS_FreeValue(context, origin);
+        JS_FreeValue(context, id);
+        JS_FreeValue(context, name);
+        JS_FreeValue(context, layer);
+        return false;
+    }
+    JSAtom origin_atom = JS_NewAtom(context, "origin");
+    JSAtom id_atom = JS_NewAtom(context, "id");
+    JSAtom name_atom = JS_NewAtom(context, "name");
+    int origin_result = JS_DefinePropertyGetSet(
+        context, layer, origin_atom, origin, JS_UNDEFINED, JS_PROP_ENUMERABLE
+    );
+    int id_result = JS_DefinePropertyGetSet(
+        context, layer, id_atom, id, JS_UNDEFINED, JS_PROP_ENUMERABLE
+    );
+    int name_result = JS_DefinePropertyGetSet(
+        context, layer, name_atom, name, JS_UNDEFINED, JS_PROP_ENUMERABLE
+    );
+    JS_FreeAtom(context, origin_atom);
+    JS_FreeAtom(context, id_atom);
+    JS_FreeAtom(context, name_atom);
+    if (origin_result < 0 || id_result < 0 || name_result < 0 ||
         JS_DefinePropertyValueStr(
             context, layer, "getEffect", getter, JS_PROP_ENUMERABLE
         ) < 0 ||
@@ -543,6 +656,34 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     memcpy(record->current_origin, origin, sizeof(record->current_origin));
     record->configured = true;
     return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || owner->domain == NULL ||
+        owner->target_layer_configured || owner->domain->callback_active) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid owner layer identity"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
+        if (record->configured && record->layer_id == layer_id) {
+            owner->target_layer_index = index;
+            owner->target_layer_configured = true;
+            return MWX_SCENE_QUICKJS_OK;
+        }
+    }
+    mwx_scene_quickjs_write_diagnostic(
+        diagnostic, diagnostic_capacity, "owner layer identity does not exist"
+    );
+    return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(

@@ -40,7 +40,7 @@ nonisolated enum SceneSharedLayerAlphaProgramCompiler {
         var values: [String: [Bool]] = [:]
         var invalid: Set<String> = []
         for evidence in sourceEvidence {
-            guard let parsed = SceneLaunchOriginTransitionSyntax
+            guard let parsed = SceneSharedLayerAlphaSyntax
                 .parseSharedInitializer(evidence.source) else { continue }
             guard isExactInitializer(evidence, descriptor: descriptor) else {
                 invalid.formUnion(parsed.keys)

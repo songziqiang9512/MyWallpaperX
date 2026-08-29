@@ -40,6 +40,20 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
         }
         do {
+            guard case let .layer(layerID, _) = target else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript owner layer identity unavailable"
+                )
+            }
+            let layerResult = mwx_scene_quickjs_owner_configure_layer_identity(
+                created,
+                Int64(layerID),
+                &diagnostic,
+                diagnostic.count
+            )
+            guard layerResult == MWX_SCENE_QUICKJS_OK else {
+                throw Self.failure(layerResult, diagnostic)
+            }
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames

@@ -59,9 +59,22 @@ nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let animations: [SceneTimelinePlaybackMutation]
 }
 
-nonisolated enum SceneScriptCursorEventKind: Equatable, Sendable {
+nonisolated enum SceneScriptCursorEventKind: Equatable, Hashable, Sendable {
     case enter
     case leave
+    case down
+    case up
+    case click
+
+    var callbackName: String {
+        switch self {
+        case .enter: "cursorEnter"
+        case .leave: "cursorLeave"
+        case .down: "cursorDown"
+        case .up: "cursorUp"
+        case .click: "cursorClick"
+        }
+    }
 }
 
 nonisolated struct SceneScriptCursorEventInput: Equatable, Sendable {
@@ -139,6 +152,9 @@ nonisolated enum SceneScriptMediaEventBridge {
         let kind = switch event.kind {
         case .enter: MWX_SCENE_QUICKJS_CURSOR_ENTER
         case .leave: MWX_SCENE_QUICKJS_CURSOR_LEAVE
+        case .down: MWX_SCENE_QUICKJS_CURSOR_DOWN
+        case .up: MWX_SCENE_QUICKJS_CURSOR_UP
+        case .click: MWX_SCENE_QUICKJS_CURSOR_CLICK
         }
         let raw = userPropertiesJSON.withCString { userProperties in
             mwx_scene_quickjs_owner_dispatch_cursor(

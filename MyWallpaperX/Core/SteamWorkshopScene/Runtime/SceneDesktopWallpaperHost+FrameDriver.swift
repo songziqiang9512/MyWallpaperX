@@ -220,7 +220,6 @@ extension SceneDesktopWallpaperHost {
             additionalDefinitions: launchContext.mediaColorTransitionProgram.bindings.map(
                 \.definition
             ) + launchContext.sharedLayerAlphaProgram.definitions
-                + launchContext.launchOriginTransitionProgram.definitions
                 + launchContext.propertyVectorScriptProgram.definitions
                 + launchContext.sceneScriptScalarProgram.definitions
                 + launchContext.sceneScriptStringProgram.definitions
@@ -286,6 +285,9 @@ extension SceneDesktopWallpaperHost {
         }
         let cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
             hits: cursorHits,
+            primaryButtonIsDown: surfaces.values.contains {
+                $0.metalView.pointerState.isPrimaryButtonDown
+            },
             frame: SceneScriptFrameInput(timing: timing),
             userPropertiesJSON: userPropertiesJSON
         )
@@ -407,50 +409,11 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
-            let currentLaunchOriginTransitionValues =
-                surface.launchOriginTransitionRuntime.currentValues(
-                    effectivePropertyValues:
-                        launchContext.liveState.effectiveValues
-                )
-            let preliminarySceneScriptValues = commonSceneScriptValues.merging(
-                currentLaunchOriginTransitionValues,
-                uniquingKeysWith: { existing, _ in existing }
-            )
-            let needsInteractionSnapshot =
-                !launchContext.launchOriginTransitionProgram.cohorts.isEmpty
-            let preliminary: SceneDynamicSnapshot? = needsInteractionSnapshot
-                ? SceneDynamicSnapshotResolver().resolve(
-                    frameIndex: timing.frameIndex,
-                    generation: 0,
-                    definitions: definitions,
-                    userValues: launchContext.liveState.userValues,
-                    timelineValues: timelineValues,
-                    sceneScriptValues: preliminarySceneScriptValues
-                ).snapshot
-                : nil
-            let clickedOwners = preliminary.map {
-                surface.metalView.launchOriginInteractionOwnerLayerIDs(
-                    program: launchContext.launchOriginTransitionProgram,
-                    timing: timing,
-                    dynamicValues: $0
-                )
-            } ?? []
-            let launchOriginTransitionValues =
-                surface.launchOriginTransitionRuntime.values(
-                    clickedOwnerLayerIDs: clickedOwners,
-                    primaryButtonIsDown:
-                        surface.metalView.pointerState.isPrimaryButtonDown,
-                    effectivePropertyValues:
-                        launchContext.liveState.effectiveValues
-                )
             let resolvedDynamicValues = surface.evaluationTransaction.evaluate(
                 frameIndex: timing.frameIndex, definitions: definitions,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
-                sceneScriptValues: commonSceneScriptValues.merging(
-                    launchOriginTransitionValues,
-                    uniquingKeysWith: { existing, _ in existing }
-                )
+                sceneScriptValues: commonSceneScriptValues
             ).snapshot
 #if DEBUG
             let dynamicValues: SceneDynamicSnapshot

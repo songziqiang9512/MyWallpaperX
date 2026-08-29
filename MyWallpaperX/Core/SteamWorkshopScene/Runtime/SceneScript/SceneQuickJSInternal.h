@@ -66,6 +66,8 @@ struct MWXSceneQuickJSOwner {
     size_t animation_command_count;
     bool animation_command_overflow;
     bool current_animation_available;
+    uint32_t target_layer_index;
+    bool target_layer_configured;
     uint32_t effect_count;
     char **effect_names;
     size_t audio_registration_count;

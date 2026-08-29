@@ -269,7 +269,8 @@ enum DebugScenePlaybackRunner {
                     schedulePointerSnapshots(
                         outputDirectory: evidenceDirectory,
                         hoverPointer: hoverPointer,
-                        stationaryEntry: requestedHoverPointerStationaryEntry
+                        stationaryEntry: requestedHoverPointerStationaryEntry,
+                        primaryClick: requestedPrimaryClick
                     )
                     schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)
                 } else {
@@ -426,23 +427,28 @@ enum DebugScenePlaybackRunner {
     private static func schedulePointerSnapshots(
         outputDirectory: URL,
         hoverPointer: SIMD2<Float>,
-        stationaryEntry: Bool
+        stationaryEntry: Bool,
+        primaryClick: Bool
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             requestSnapshot(reason: "before", outputDirectory: outputDirectory)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 if stationaryEntry {
                     holdPointer(at: hoverPointer)
-                    scheduleHoverSnapshot(
+                    schedulePointerResultSnapshot(
                         outputDirectory: outputDirectory,
+                        pointer: hoverPointer,
+                        primaryClick: primaryClick,
                         after: 0.28
                     )
                 } else {
                     movePointer(to: hoverPointer)
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
                         holdPointer(at: hoverPointer)
-                        scheduleHoverSnapshot(
+                        schedulePointerResultSnapshot(
                             outputDirectory: outputDirectory,
+                            pointer: hoverPointer,
+                            primaryClick: primaryClick,
                             after: 0.2
                         )
                     }
@@ -451,17 +457,33 @@ enum DebugScenePlaybackRunner {
         }
     }
 
-    private static func scheduleHoverSnapshot(
+    private static func schedulePointerResultSnapshot(
         outputDirectory: URL,
+        pointer: SIMD2<Float>,
+        primaryClick: Bool,
         after delay: TimeInterval
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            requestSnapshot(reason: "hover", outputDirectory: outputDirectory)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                setPointerOutside()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    requestSnapshot(reason: "after", outputDirectory: outputDirectory)
+            if primaryClick {
+                setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                    setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                        capturePointerResult(outputDirectory: outputDirectory)
+                    }
                 }
+            } else {
+                capturePointerResult(outputDirectory: outputDirectory)
+            }
+        }
+    }
+
+    private static func capturePointerResult(outputDirectory: URL) {
+        requestSnapshot(reason: "hover", outputDirectory: outputDirectory)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            setPointerOutside()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                requestSnapshot(reason: "after", outputDirectory: outputDirectory)
             }
         }
     }
@@ -510,16 +532,30 @@ enum DebugScenePlaybackRunner {
     }
 
     private static func holdPointer(at normalized: SIMD2<Float>) {
+        setPointer(
+            at: normalized,
+            primaryButtonIsDown: false,
+            state: "hold"
+        )
+    }
+
+    private static func setPointer(
+        at normalized: SIMD2<Float>,
+        primaryButtonIsDown: Bool,
+        state: String
+    ) {
         SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init(
             current: normalized,
             previous: normalized,
             isInside: true,
-            isPrimaryButtonDown: false
+            isPrimaryButtonDown: primaryButtonIsDown
         ))
         NSLog(
-            "MWX DEBUG SCENE: phase=pointer-state state=hold x=%.6f y=%.6f",
+            "MWX DEBUG SCENE: phase=pointer-state state=%@ x=%.6f y=%.6f primaryDown=%@",
+            state,
             normalized.x,
-            normalized.y
+            normalized.y,
+            primaryButtonIsDown ? "true" : "false"
         )
     }
 
@@ -643,6 +679,12 @@ enum DebugScenePlaybackRunner {
     private static var requestedHoverPointerStationaryEntry: Bool {
         ProcessInfo.processInfo.arguments.contains(
             "--mwx-debug-scene-hover-pointer-stationary-entry"
+        )
+    }
+
+    private static var requestedPrimaryClick: Bool {
+        ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-primary-click"
         )
     }
 

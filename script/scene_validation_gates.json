@@ -73,7 +73,7 @@
       ],
       "modules": [
         "test_scene_frame_context",
-        "test_scene_launch_origin_transition",
+        "test_scene_shared_layer_alpha_transition",
         "test_scene_script_binding_parser",
         "test_scene_solid_layers",
         "test_scene_text_row_limit",
@@ -120,7 +120,7 @@
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Properties/**"],
       "keywords": ["property", "dynamic"],
       "modules": [
-        "test_scene_launch_origin_transition",
+        "test_scene_shared_layer_alpha_transition",
         "test_scene_media_color_transition",
         "test_scene_property_binding_program"
       ]

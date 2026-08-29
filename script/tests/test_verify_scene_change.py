@@ -223,11 +223,11 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
-    def test_properties_change_selects_origin_and_media_dynamic_contracts(self) -> None:
+    def test_properties_change_selects_shared_alpha_and_media_contracts(self) -> None:
         gates, groups = verify.build_plan(
             [
                 "MyWallpaperX/Core/SteamWorkshopScene/Properties/"
-                "SceneLaunchOriginTransitionRuntime.swift"
+                "SceneSharedLayerAlphaRuntime.swift"
             ],
             arguments(),
             self.registry,
@@ -235,7 +235,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("properties", groups)
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
-            "test_scene_launch_origin_transition",
+            "test_scene_shared_layer_alpha_transition",
             "test_scene_media_color_transition",
         ):
             with self.subTest(module=module):
@@ -261,7 +261,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
-    def test_scene_script_source_evidence_selects_parser_and_origin_contracts(
+    def test_scene_script_source_evidence_selects_current_consumers(
         self,
     ) -> None:
         gates, groups = verify.build_plan(
@@ -276,7 +276,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
         focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
         for module in (
             "test_scene_frame_context",
-            "test_scene_launch_origin_transition",
+            "test_scene_shared_layer_alpha_transition",
             "test_scene_script_binding_parser",
             "test_scene_solid_layers",
             "test_scene_text_row_limit",

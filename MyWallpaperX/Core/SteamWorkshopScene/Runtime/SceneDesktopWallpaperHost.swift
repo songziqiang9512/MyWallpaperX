@@ -30,18 +30,13 @@ final class SceneDesktopWallpaperHost {
         let window: NSWindow
         let metalView: SceneMetalView
         var evaluationTransaction = SceneSurfaceEvaluationTransaction()
-        var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime
 
         init(
             window: NSWindow,
-            metalView: SceneMetalView,
-            launchOriginTransitionProgram: SceneLaunchOriginTransitionProgram
+            metalView: SceneMetalView
         ) {
             self.window = window
             self.metalView = metalView
-            launchOriginTransitionRuntime = .init(
-                program: launchOriginTransitionProgram
-            )
         }
     }
 
@@ -416,9 +411,7 @@ final class SceneDesktopWallpaperHost {
             }
             surfaces[screenID] = Surface(
                 window: window,
-                metalView: metalView,
-                launchOriginTransitionProgram:
-                    launchContext.launchOriginTransitionProgram
+                metalView: metalView
             )
             created = true
         }

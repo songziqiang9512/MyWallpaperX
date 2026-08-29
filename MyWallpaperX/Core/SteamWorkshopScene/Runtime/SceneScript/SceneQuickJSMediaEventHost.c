@@ -465,6 +465,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
     switch (kind) {
     case MWX_SCENE_QUICKJS_CURSOR_ENTER: callback = "cursorEnter"; break;
     case MWX_SCENE_QUICKJS_CURSOR_LEAVE: callback = "cursorLeave"; break;
+    case MWX_SCENE_QUICKJS_CURSOR_DOWN: callback = "cursorDown"; break;
+    case MWX_SCENE_QUICKJS_CURSOR_UP: callback = "cursorUp"; break;
+    case MWX_SCENE_QUICKJS_CURSOR_CLICK: callback = "cursorClick"; break;
     default: break;
     }
     if (callback == NULL || event == NULL) {

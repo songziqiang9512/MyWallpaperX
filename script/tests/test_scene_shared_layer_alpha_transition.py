@@ -18,8 +18,6 @@ SOURCES = [
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
     SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
-    SCENE / "Properties/SceneLaunchOriginTransitionCompiler+SyntaxBody.swift",
-    SCENE / "Properties/SceneLaunchOriginTransitionCompiler+Syntax.swift",
     SCENE / "Properties/SceneSharedLayerAlphaProgram.swift",
     SCENE / "Properties/SceneSharedLayerAlphaSyntax.swift",
     SCENE / "Properties/SceneSharedLayerAlphaCompiler.swift",

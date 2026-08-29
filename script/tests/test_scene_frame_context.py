@@ -638,28 +638,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
         self.assertNotIn("func update()", coordinator)
 
-    def test_each_surface_owns_and_advances_its_launch_origin_transition(self) -> None:
+    def test_launch_origin_is_owned_by_generic_vm_and_cursor_route(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         host_render = swift_body(frame_driver, "private func renderFrame()")
 
-        self.assertIn("launchOriginTransitionProgram", launch)
-        self.assertIn(
-            "SceneLaunchOriginTransitionProgramCompiler.compile(", launch
-        )
-        self.assertIn(
-            "scriptSourceEvidence: model.sceneDocument.scriptSourceEvidence",
-            launch,
-        )
+        self.assertNotIn("launchOriginTransitionProgram", launch)
+        self.assertNotIn("SceneLaunchOriginTransition", host + launch + frame_driver)
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
             launch.index("let sceneScriptScalarProgram =")
         ]
-        self.assertIn(
-            '("launch-origin", launchOriginTransitionTargets,',
-            bounded_ownership,
-        )
+        self.assertNotIn('("launch-origin"', bounded_ownership)
+        self.assertIn('("property-vector"', bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: propertyBindingTargets)",
             bounded_ownership,
@@ -673,39 +665,13 @@ class SceneFrameContextTests(unittest.TestCase):
             "targets.isDisjoint(with: boundedSceneScriptTargets)",
             bounded_ownership,
         )
-        self.assertIn(
-            "var launchOriginTransitionRuntime: SceneLaunchOriginTransitionRuntime",
-            host,
+        self.assertIn("sceneScriptCursorProgram.dispatch(", host_render)
+        self.assertIn("propertyVectorScriptProgram.evaluate(", host_render)
+        self.assertLess(
+            host_render.index("sceneScriptCursorProgram.dispatch("),
+            host_render.index("propertyVectorScriptProgram.evaluate("),
         )
-        self.assertIn(
-            "launchOriginTransitionRuntime = .init(\n"
-            "                program: launchOriginTransitionProgram",
-            host,
-        )
-        self.assertIn(
-            "launchOriginTransitionProgram:\n"
-            "                    launchContext.launchOriginTransitionProgram",
-            host,
-        )
-        self.assertIn(
-            "launchContext.launchOriginTransitionProgram.definitions",
-            host_render,
-        )
-        runtime_call = "surface.launchOriginTransitionRuntime.values("
-        self.assertEqual(host_render.count(runtime_call), 1)
-        runtime_position = host_render.index(runtime_call)
-        surface_position = host_render.index("for surface in surfaces.values")
-        self.assertGreater(runtime_position, surface_position)
-        self.assertIn(
-            "effectivePropertyValues:\n"
-            "                        launchContext.liveState.effectiveValues",
-            host_render[runtime_position:],
-        )
-        surface_loop = host_render[surface_position:]
-        self.assertEqual(surface_loop.count(runtime_call), 1)
-        self.assertIn("surface.launchOriginTransitionRuntime.currentValues(", surface_loop)
-        self.assertIn("launchOriginTransitionValues", surface_loop)
-        self.assertIn("commonSceneScriptValues", surface_loop)
+        self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

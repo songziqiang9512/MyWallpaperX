@@ -679,9 +679,14 @@ def load_matrix(path: Path) -> dict[str, Any]:
             raise ValueError(f"invalid Scene matrix sample: {path}")
         hover_pointer = hover_pointer_normalized(sample)
         stationary_entry = hover_pointer_stationary_entry(sample)
+        primary_click = cursor_primary_click(sample)
         if stationary_entry and hover_pointer is None:
             raise ValueError(
                 "hover_pointer_stationary_entry requires hover_pointer_normalized"
+            )
+        if primary_click and hover_pointer is None:
+            raise ValueError(
+                "cursor_primary_click requires hover_pointer_normalized"
             )
     return payload
 
@@ -729,6 +734,13 @@ def hover_pointer_stationary_entry(sample: dict[str, Any]) -> bool:
     raw = sample.get("hover_pointer_stationary_entry", False)
     if type(raw) is not bool:
         raise ValueError("hover_pointer_stationary_entry must be a boolean")
+    return raw
+
+
+def cursor_primary_click(sample: dict[str, Any]) -> bool:
+    raw = sample.get("cursor_primary_click", False)
+    if type(raw) is not bool:
+        raise ValueError("cursor_primary_click must be a boolean")
     return raw
 
 
@@ -5324,6 +5336,7 @@ def run_sample(
     )
     hover_pointer = hover_pointer_normalized(sample)
     hover_pointer_stationary = hover_pointer_stationary_entry(sample)
+    primary_click = cursor_primary_click(sample)
     if hover_pointer is not None:
         command.extend([
             "--mwx-debug-scene-hover-pointer-json",
@@ -5334,6 +5347,8 @@ def run_sample(
         ])
         if hover_pointer_stationary:
             command.append("--mwx-debug-scene-hover-pointer-stationary-entry")
+        if primary_click:
+            command.append("--mwx-debug-scene-primary-click")
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -5606,6 +5621,11 @@ def run_sample(
             failures.append("pointer movement transition evidence missing")
         if "phase=pointer-state state=hold" not in log_text:
             failures.append("pointer stationary transition evidence missing")
+        if primary_click:
+            if log_text.count("phase=pointer-state state=press") != 1:
+                failures.append("primary pointer press evidence mismatch")
+            if log_text.count("phase=pointer-state state=release") != 1:
+                failures.append("primary pointer release evidence mismatch")
     if camera_match is None or camera_match.group("projection") != "cover":
         failures.append("camera projection evidence missing")
     expected_parallax = sample.get("expected_camera_parallax")
@@ -6052,6 +6072,7 @@ def run_sample(
                 list(hover_pointer) if hover_pointer is not None else None
             ),
             "hover_pointer_stationary_entry": hover_pointer_stationary,
+            "cursor_primary_click": primary_click,
             "cursor_ripple_persistence": cursor_ripple_persistence,
             "cursor_ripple_visible": cursor_ripple_visible,
             "live_property_update": live_property_update,
