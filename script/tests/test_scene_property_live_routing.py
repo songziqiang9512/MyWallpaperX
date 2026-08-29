@@ -23,6 +23,10 @@ LIVE_CONSUMERS_SOURCE = REPOSITORY_ROOT / (
     "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
     "SceneDesktopWallpaperHost+LiveConsumers.swift"
 )
+LAYER_SOURCE = REPOSITORY_ROOT / (
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+    "SceneRenderDescriptor+Layer.swift"
+)
 
 
 def method_body(source: str, signature: str) -> str:
@@ -46,6 +50,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         cls.texture = TEXTURE_SOURCE.read_text(encoding="utf-8")
         cls.editor = EDITOR_SOURCE.read_text(encoding="utf-8")
         cls.live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
+        cls.layer = LAYER_SOURCE.read_text(encoding="utf-8")
 
     def test_single_update_persists_before_live_attempt_and_rebuilds_on_rejection(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")
@@ -106,7 +111,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertNotIn("isEditing", row)
         self.assertNotIn("updateScenePropertyValue", row)
 
-    def test_layer_color_is_actionable_only_for_solid_layers(self) -> None:
+    def test_layer_color_is_live_for_solid_and_effectless_image_layers(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn(
@@ -120,10 +125,31 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
                 "case let .camera(field):"
             )
         ]
-        self.assertIn('$0.id == layerID && $0.contentKind == "solid"', layer_color)
-        self.assertNotIn('$0.contentKind == "image"', layer_color)
-        self.assertNotIn('$0.contentKind == "text"', layer_color)
-        self.assertNotIn('$0.contentKind == "particle"', layer_color)
+        self.assertIn(
+            "$0.id == layerID && $0.supportsDirectLayerColorConsumer",
+            layer_color,
+        )
+
+        eligibility = method_body(
+            self.layer,
+            "nonisolated var supportsDirectLayerColorConsumer: Bool",
+        )
+        self.assertIn('contentKind == "solid"', eligibility)
+        self.assertIn('contentKind == "image" && effects.isEmpty', eligibility)
+        self.assertNotIn('contentKind == "text"', eligibility)
+        self.assertNotIn('contentKind == "particle"', eligibility)
+
+        consumers = method_body(
+            self.live_consumers, "static func activeLiveConsumerTargets("
+        )
+        image_case = consumers[
+            consumers.index('case "image":') : consumers.index('case "text":')
+        ]
+        self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
+        self.assertIn("visibleLayerIDs.contains(layer.id)", image_case)
+        self.assertIn(
+            ".layer(layerID: layer.id, field: .color)", image_case
+        )
 
     def test_particle_properties_are_actionable_only_for_particle_layers(self) -> None:
         support = method_body(self.service, "private func supportsScenePropertyTarget(")

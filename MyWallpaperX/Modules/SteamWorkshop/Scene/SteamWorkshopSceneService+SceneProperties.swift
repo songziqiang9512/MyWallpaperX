@@ -231,7 +231,7 @@ extension SteamWorkshopService {
             }
         case let .layerColor(layerID):
             return renderDescriptor.layers.contains {
-                $0.id == layerID && $0.contentKind == "solid"
+                $0.id == layerID && $0.supportsDirectLayerColorConsumer
             }
         case let .camera(field):
             let normalizedField = field.localizedLowercase

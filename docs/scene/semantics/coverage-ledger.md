@@ -1,5 +1,7 @@
 # Scene 官方语义与实现覆盖台账
 
+2026-08-29 的 V4 ordinary-image color value-only 批次把当前有效可见、`effects.isEmpty` 的 direct `.layer(.color)` target 接入既有 per-surface property snapshot 与唯一 image compositor；没有新增 renderer、property state、resource registry、graph 或 output owner。同 key 任一 sibling 没有 active consumer 时仍原子拒绝 live transaction并走既有整场重建，hidden image、effectful image、dependency/provider 与 unsupported target没有被伪装为live。基于真实 `2974757317:1716` 资源的受控派生正门在同一surface/window把白色轮廓一次更新为蓝色并保持后续11帧稳定；hidden反门按预期报告`live property update rejected`且前后截图逐像素相同。fresh只读104 Scene根另观察到33条direct color→ordinary image authored occurrence / 3 samples，其中仅2条位于effectless image；这只是作者影响面，不是live支持率或完整样本兼容。见[E-V4-USER-PROPERTY-IMAGE-LAYER-COLOR](runtime-evidence-index.md#e-v4-user-property-image-layer-color)。
+
 2026-08-29 的 V4 Sound 后继批次已让准入的 wallpaper-local Sound 在存在真实 Program/VM/particle audio consumer 时进入唯一 `SystemAudioSpectrumService` tap 与 `SceneAudioSpectrumInbox`；Sound 本身不制造采集需求，也没有第二份 FFT/provider。当前只读 live corpus 为 104 个 Scene 样本、30 个 Sound layer / 27 个样本；共享 admission 可接收其中 26 个，余下 4 个多音源 layer 继续 typed unsupported。loop 上的 min/max metadata 现保真但不阻断播放，显式 `spatialization=false` 按非 spatial 处理，true 或含调参但缺布尔值的歧义结构仍局部拒绝。真实 `3780119725` 同时证明 layer 400 单 MP3 播放、layer 467 多音源拒绝、同一 include-current-process scope 下 layers 436/594/666 的 Program/GPU/compositor/next-frame 与可见频谱条；整份 selection 仍因无关 layer 380 graph 失败严格 NON-PASS。scope epoch、resource generation 与 retry/restart sequence 共同拒绝旧 tap/延迟恢复 publication；系统 tap 仍可能混入外部进程声音，因此不声称本地声音独立幅度、官方 FFT 数值或完整样本 parity。见 [E-V4-SCENE-SOUND-PLAYBACK](runtime-evidence-index.md#e-v4-scene-sound-playback) 与 [E-V4-SCENE-SOUND-SHARED-SPECTRUM](runtime-evidence-index.md#e-v4-scene-sound-shared-spectrum)。
 
 2026-08-29 的 V4 direct property scalar→`float2` 批次纠正了真实`2067939514` Precise Blur 的首断点：两个`g_Scale` consumer实际都是作者slider `blurbackground`的isotropic pair，不是旧记录所称三分量attachment。共享finalizer仅在exact `{user,value}`、无script、active non-array `float2`、equal-lane shader default、作者scalar/equal-pair fallback与wrapper fallback bit-exact一致时，允许作者零哨兵越过仅供编辑器使用的shader range；任意不一致越界值仍局部拒绝。默认`0→(0,0)`与隔离live `1.5→(1.5,1.5)`均使两个节点进入普通Program、GPU publication、terminal compositor与next-frame；整样本继续因本批外宽域期待严格NON-PASS，不据此声称完整Precise Blur或样本parity。见[E-V4-USER-PROPERTY-FLOAT2-BLUR](runtime-evidence-index.md#e-v4-user-property-float2-blur)。
@@ -605,12 +607,12 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 ### 6.2 User Properties
 
-完整控件和target计数见[运行输入与属性覆盖表](runtime-input-property-coverage.md)。2026-07-22的21样本census为424 definitions、952 bindings、195条conditional bindings；本轮26样本完整运行门没有重做这项专项census，因此不把旧计数冒充当前全集。layer alpha 73条已编译并由当前image/solid/text consumer live执行；layer color 73条全部指向solid，其中25条属于纯color key可live，`3122339805:basecolor`的48条因同键还含未支持目标继续重建；exact Local Contrast strength 1条现由共享MaterialProgram live消费，`2902406982`的stock Opacity direct binding继续由其现役bounded consumer执行。SceneScript Opacity candidates继续计入unsupported/fail-closed，不冒充direct binding。
+完整控件和target计数见[运行输入与属性覆盖表](runtime-input-property-coverage.md)。2026-07-22的21样本census为424 definitions、952 bindings、195条conditional bindings；其layer color 73条全部指向solid，其中25条属于纯color key可live，`3122339805:basecolor`的48条因同键还含未支持目标继续重建。fresh只读104 Scene根另观察到33条direct color→ordinary image authored occurrence / 3 samples，其中仅2条位于effectless image；两个快照分母不同，不能相加或冒充当前支持率。layer alpha 73条已编译并由当前image/solid/text consumer live执行；layer color现在还只让当前有效可见、`effects.isEmpty`的ordinary image进入同一snapshot/compositor bounded live cohort，effectful、hidden/no-consumer、dependency/provider或mixed unsupported sibling继续整key重建。exact Local Contrast strength 1条现由共享MaterialProgram live消费，`2902406982`的stock Opacity direct binding继续由其现役bounded consumer执行。SceneScript Opacity candidates继续计入unsupported/fail-closed，不冒充direct binding。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
 | Catalog/bindings | `L3` | 2026-07-22 的 21 样本专项 census、format 22 binding program 与受控 fallback；direct text content/point-size/color、Local Contrast/Opacity live，mixed/hidden/no-consumer/SceneScript fail closed |
-| `color` | `L3` | UI/持久化/solid-only live consumer；补颜色空间、non-solid 与全部 target |
+| `color` | `L3 bounded` | UI/持久化、solid与当前有效可见的effectless ordinary-image live consumer；effectful、hidden/no-consumer、dependency/provider与mixed unsupported sibling继续整key重建；补颜色空间、premultiply golden与其余target |
 | `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |

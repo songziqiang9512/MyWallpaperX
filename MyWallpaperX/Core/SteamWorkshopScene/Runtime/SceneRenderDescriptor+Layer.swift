@@ -67,6 +67,11 @@ extension SceneRenderDescriptor {
             contentKind == "image" || contentKind == "solid"
         }
 
+        nonisolated var supportsDirectLayerColorConsumer: Bool {
+            contentKind == "solid"
+                || (contentKind == "image" && effects.isEmpty)
+        }
+
         nonisolated var renderSizeWH: [Float]? {
             sizeWH
         }

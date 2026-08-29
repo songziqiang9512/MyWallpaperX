@@ -18,6 +18,10 @@ extension SceneDesktopWallpaperHost {
             switch layer.contentKind {
             case "image":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
+                if layer.supportsDirectLayerColorConsumer,
+                   visibleLayerIDs.contains(layer.id) {
+                    targets.insert(.layer(layerID: layer.id, field: .color))
+                }
                 for animationLayer in layer.puppetAnimationLayers
                     where animationLayer.visibilityBinding != nil {
                     guard let animationLayerID = animationLayer.id else { continue }

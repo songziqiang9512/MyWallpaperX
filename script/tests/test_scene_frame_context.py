@@ -951,14 +951,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(
             "targets.insert(.layer(layerID: layer.id, field: .alpha))", derivation
         )
-        solid_color = ".layer(layerID: layer.id, field: .color)"
-        self.assertEqual(derivation.count(solid_color), 1)
-        color_position = derivation.index(solid_color)
-        self.assertGreater(color_position, derivation.index('case "solid":'))
-        self.assertLess(
-            color_position,
-            derivation.index('case "composition", "project", "fullscreen":'),
-        )
+        layer_color = ".layer(layerID: layer.id, field: .color)"
+        self.assertEqual(derivation.count(layer_color), 2)
+        image_case = derivation[
+            derivation.index('case "image":') : derivation.index('case "text":')
+        ]
+        self.assertIn("if layer.supportsDirectLayerColorConsumer", image_case)
+        self.assertIn("visibleLayerIDs.contains(layer.id)", image_case)
+        self.assertIn(layer_color, image_case)
+        solid_case = derivation[
+            derivation.index('case "solid":') : derivation.index(
+                'case "particle":'
+            )
+        ]
+        self.assertIn(layer_color, solid_case)
         self.assertIn('case "particle"', derivation)
         self.assertIn(".particle(layerID: layer.id, field: $0)", derivation)
         self.assertIn("visibleLayerIDs.contains(layer.id)", derivation)
