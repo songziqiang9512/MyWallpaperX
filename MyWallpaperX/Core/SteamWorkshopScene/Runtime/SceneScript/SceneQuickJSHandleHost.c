@@ -440,6 +440,7 @@ void mwx_scene_quickjs_domain_reset_budget(
 
 void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) return;
+    owner->authored_layer_baseline_available = false;
     owner->generation += 1;
     owner->disabled = true;
 }
@@ -515,6 +516,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     }
 
     owner->teardown_started = true;
+    owner->authored_layer_baseline_available = false;
     MWXSceneQuickJSDomain *domain = owner->domain;
     JSContext *context = domain->context;
     domain->interrupted = false;

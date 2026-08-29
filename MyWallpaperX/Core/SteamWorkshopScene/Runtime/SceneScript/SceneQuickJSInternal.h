@@ -145,6 +145,10 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     bool rejection_overflow;
     size_t layer_mutation_count;
+    bool authored_layer_baseline_available;
+    double authored_layer_baseline_origin[3];
+    double authored_layer_baseline_scale[3];
+    double authored_layer_baseline_angles[3];
     uint32_t authored_layer_mutation_fields;
     double authored_layer_mutation_origin[3];
     double authored_layer_mutation_scale[3];

@@ -268,6 +268,36 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
+    def test_cursor_change_selects_capture_continuity_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/"
+                "SceneScriptCursorProgram.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-script-runtime", groups)
+        self.assertIn("scene-script-cursor", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_cursor_capture_continuity", focused.command)
+        self.assertIn("test_scene_frame_vm_routing", focused.command)
+        self.assertIn("test_scene_surface_pointer_event_buffer", focused.command)
+
+    def test_pointer_producer_change_selects_cursor_transaction_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [
+                "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
+                "SceneDesktopWallpaperHost+PointerEvents.swift"
+            ],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("scene-script-cursor", groups)
+        focused = next(gate for gate in gates if gate.gate_id == "focused-tests")
+        self.assertIn("test_scene_cursor_capture_continuity", focused.command)
+        self.assertIn("test_scene_surface_pointer_event_buffer", focused.command)
+
     def test_resource_catalog_change_selects_catalog_and_material_contracts(
         self,
     ) -> None:

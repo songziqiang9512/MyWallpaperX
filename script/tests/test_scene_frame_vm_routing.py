@@ -223,16 +223,28 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("else if surfaces.count == 1,", frame_driver)
         self.assertIn("let metalView = surfaces.values.first?.metalView", frame_driver)
         self.assertIn("sceneScriptCursorFrameBatch(", frame_driver)
+        self.assertIn("capturedOwnerLayerIDs:", frame_driver)
         self.assertIn("drainSceneScriptPointerEvents()", frame_driver)
         self.assertIn("surface: sceneScriptSurfaceInput(", interaction)
         self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
         self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)
         self.assertIn("with: sample.surface", cursor_program)
         self.assertIn("pointerPosition: pointer.normalizedPosition", interaction)
+        self.assertIn("ownerProjections: projections", interaction)
+        self.assertIn("? ownerLayerIDs : captureCandidates", interaction)
+        self.assertIn("originInteractionProjections(", interaction)
         self.assertIn(
             "sample.pointerPosition != previousPointerPosition",
             cursor_program,
         )
+        self.assertIn("sample.ownerProjections.filter", cursor_program)
+        self.assertIn(
+            "? admittedProjections[binding.layerID]",
+            cursor_program,
+        )
+        self.assertIn("Self.mergingAuthoredMutation(", cursor_program)
+        self.assertIn("authoredTransformBaseline:", cursor_program)
+        self.assertIn("discardCandidates(ownerLayerID:", cursor_program)
         self.assertIn("owner.exportedCursorEvents", cursor_program)
         self.assertIn('case .move: "cursorMove"', event_bridge)
         self.assertIn("let scale = layer.scaleXYZ ?? [1, 1, 1]", cursor_program)

@@ -276,6 +276,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_authored_layer_baseline(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const double origin[3],
+    const double scale[3],
+    const double angles[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+void mwx_scene_quickjs_owner_clear_authored_layer_baseline(
+    MWXSceneQuickJSOwner *owner
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_has_function(
     MWXSceneQuickJSOwner *owner,
     const char *name,

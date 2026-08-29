@@ -113,6 +113,23 @@
       ]
     },
     {
+      "id": "scene-script-cursor",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptCursorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+SceneScriptCursorInteraction.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneSurfacePointerState.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+Pointer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+PointerEvents.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView+PointerEvents.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+      ],
+      "modules": [
+        "test_scene_cursor_capture_continuity",
+        "test_scene_frame_vm_routing",
+        "test_scene_surface_pointer_event_buffer"
+      ]
+    },
+    {
       "id": "resolved-material-runtime-execution",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**"],
       "modules": [

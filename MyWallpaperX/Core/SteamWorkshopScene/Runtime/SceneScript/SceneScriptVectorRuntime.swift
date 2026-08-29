@@ -267,11 +267,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         _ event: SceneScriptCursorEventInput,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
+        authoredTransformBaseline: SceneScriptLayerMutation? = nil,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
         guard case let .layer(layerID, _) = target,
               layerID == event.layerID else {
             return .failure(.invalidArgument("cursor owner identity mismatch"))
+        }
+        if let failure = configureCursorAuthoredTransformBaseline(
+            authoredTransformBaseline,
+            layerID: layerID
+        ) {
+            return .failure(failure)
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         return SceneScriptMediaEventBridge.dispatchCursor(
@@ -282,6 +289,57 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
+    }
+
+    func clearCursorAuthoredTransformBaseline() {
+        mwx_scene_quickjs_owner_clear_authored_layer_baseline(handle)
+    }
+
+    private func configureCursorAuthoredTransformBaseline(
+        _ baseline: SceneScriptLayerMutation?,
+        layerID: Int
+    ) -> SceneScriptScalarRuntimeFailure? {
+        guard let baseline else {
+            clearCursorAuthoredTransformBaseline()
+            return nil
+        }
+        guard baseline.kind == .upsert,
+              !baseline.isDynamic,
+              baseline.layerID == layerID,
+              baseline.origin.x.isFinite,
+              baseline.origin.y.isFinite,
+              baseline.origin.z.isFinite,
+              baseline.scale.x.isFinite,
+              baseline.scale.y.isFinite,
+              baseline.scale.z.isFinite,
+              baseline.angles.x.isFinite,
+              baseline.angles.y.isFinite,
+              baseline.angles.z.isFinite else {
+            return .invalidArgument("invalid cursor authored transform baseline")
+        }
+        var origin = [baseline.origin.x, baseline.origin.y, baseline.origin.z]
+        var scale = [baseline.scale.x, baseline.scale.y, baseline.scale.z]
+        var angles = [baseline.angles.x, baseline.angles.y, baseline.angles.z]
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let raw = origin.withUnsafeMutableBufferPointer { originPointer in
+            scale.withUnsafeMutableBufferPointer { scalePointer in
+                angles.withUnsafeMutableBufferPointer { anglesPointer in
+                    mwx_scene_quickjs_owner_set_authored_layer_baseline(
+                        handle,
+                        generation,
+                        originPointer.baseAddress,
+                        scalePointer.baseAddress,
+                        anglesPointer.baseAddress,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                }
+            }
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return Self.failure(raw, diagnostic)
+        }
+        return nil
     }
 
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }

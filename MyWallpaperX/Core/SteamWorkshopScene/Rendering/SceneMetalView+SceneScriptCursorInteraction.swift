@@ -85,6 +85,7 @@ extension SceneMetalView {
 
     func sceneScriptCursorFrameBatch(
         ownerLayerIDs: Set<Int>,
+        capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
     ) -> SceneScriptCursorFrameBatch {
@@ -97,24 +98,41 @@ extension SceneMetalView {
         var events = drained.events
         if events.last != current { events.append(current) }
         if events.isEmpty { events = [current] }
-        return .init(
-            samples: events.map { pointer in
-                .init(
-                    hits: originInteractionHits(
-                        ownerLayerIDs,
-                        pointer: pointer,
-                        timing: timing,
-                        dynamicValues: dynamicValues
-                    ),
-                    pointerPosition: pointer.normalizedPosition,
-                    primaryButtonIsDown: pointer.primaryButtonIsDown,
-                    surface: sceneScriptSurfaceInput(
-                        pointer: pointer,
-                        timing: timing,
-                        dynamicValues: dynamicValues
-                    )
+        var captureCandidates = capturedOwnerLayerIDs
+        var samples: [SceneScriptCursorFrameSample] = []
+        samples.reserveCapacity(events.count)
+        for pointer in events {
+            let projectedOwnerLayerIDs = pointer.isInside
+                ? ownerLayerIDs : captureCandidates
+            let projections = originInteractionProjections(
+                projectedOwnerLayerIDs,
+                pointer: pointer,
+                timing: timing,
+                dynamicValues: dynamicValues
+            )
+            let hits = originInteractionHits(
+                projections,
+                pointerIsInside: pointer.isInside
+            )
+            samples.append(.init(
+                hits: hits,
+                ownerProjections: projections,
+                pointerPosition: pointer.normalizedPosition,
+                primaryButtonIsDown: pointer.primaryButtonIsDown,
+                surface: sceneScriptSurfaceInput(
+                    pointer: pointer,
+                    timing: timing,
+                    dynamicValues: dynamicValues
                 )
-            },
+            ))
+            if pointer.primaryButtonIsDown {
+                captureCandidates.formUnion(hits.keys)
+            } else {
+                captureCandidates = []
+            }
+        }
+        return .init(
+            samples: samples,
             overflowed: drained.overflowed
         )
     }
@@ -125,8 +143,36 @@ extension SceneMetalView {
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
     ) -> [Int: SceneScriptCursorHit] {
-        guard pointer.isInside,
-              metalLayer.drawableSize.width > 0,
+        guard pointer.isInside else { return [:] }
+        return originInteractionHits(
+            originInteractionProjections(
+                ownerLayerIDs,
+                pointer: pointer,
+                timing: timing,
+                dynamicValues: dynamicValues
+            ),
+            pointerIsInside: pointer.isInside
+        )
+    }
+
+    private func originInteractionHits(
+        _ projections: [Int: SceneScriptCursorHit],
+        pointerIsInside: Bool
+    ) -> [Int: SceneScriptCursorHit] {
+        guard pointerIsInside else { return [:] }
+        return projections.filter { _, hit in
+            hit.localPosition.x >= -0.5 && hit.localPosition.x <= 0.5
+                && hit.localPosition.y >= -0.5 && hit.localPosition.y <= 0.5
+        }
+    }
+
+    private func originInteractionProjections(
+        _ ownerLayerIDs: Set<Int>,
+        pointer: SceneSurfacePointerEvent,
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> [Int: SceneScriptCursorHit] {
+        guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
               !ownerLayerIDs.isEmpty else { return [:] }
         let frameContext = makeFrameContext(
@@ -160,8 +206,7 @@ extension SceneMetalView {
             guard let local = SceneLayerCursorGeometry.layerPoint(
                 mouseNormalized: pointer.normalizedPosition,
                 modelViewProjection: modelViewProjection
-            ), local.x >= -0.5, local.x <= 0.5,
-               local.y >= -0.5, local.y <= 0.5 else { continue }
+            ) else { continue }
             let projectedWorld = model * SIMD4(local.x, local.y, local.z, 1)
             guard projectedWorld.w.isFinite, abs(projectedWorld.w) > 1e-8 else {
                 continue

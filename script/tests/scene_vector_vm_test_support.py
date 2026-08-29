@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptCursorProgram.swift",
+    VM / "SceneScriptDynamicLayerRuntime.swift",
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
@@ -223,6 +224,13 @@ struct SceneRenderDescriptor {
     }
 
     var layers: [Layer]
+    var renderOrderLayerIDs: [Int] { layers.map(\.id) }
+}
+
+extension SceneRenderDescriptor.Layer {
+    static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
+        nil
+    }
 }
 '''
 

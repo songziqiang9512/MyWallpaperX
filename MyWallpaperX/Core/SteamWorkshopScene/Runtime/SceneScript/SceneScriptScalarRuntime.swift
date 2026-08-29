@@ -31,7 +31,7 @@ nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let maximumCandidateSourceBytes: Int
 
     static let `default` = SceneScriptScalarBudget(
-        heapBytes: 2 * 1024 * 1024,
+        heapBytes: 16 * 1024 * 1024,
         stackBytes: 512 * 1024,
         interruptBudget: 100_000,
         maximumOwnerSourceBytes: 256 * 1024,

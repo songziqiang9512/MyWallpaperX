@@ -359,6 +359,8 @@ extension SceneDesktopWallpaperHost {
                   let metalView = surfaces.values.first?.metalView {
             cursorBatch = metalView.sceneScriptCursorFrameBatch(
                 ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
+                capturedOwnerLayerIDs:
+                    launchContext.sceneScriptCursorProgram.capturedOwnerLayerIDs,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript
             )

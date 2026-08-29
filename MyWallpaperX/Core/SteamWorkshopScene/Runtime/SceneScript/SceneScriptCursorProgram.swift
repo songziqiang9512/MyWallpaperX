@@ -8,17 +8,20 @@ nonisolated struct SceneScriptCursorHit: Equatable, Sendable {
 
 nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
     let hits: [Int: SceneScriptCursorHit]
+    let ownerProjections: [Int: SceneScriptCursorHit]
     let pointerPosition: SIMD2<Float>?
     let primaryButtonIsDown: Bool
     let surface: SceneScriptSurfaceInput?
 
     init(
         hits: [Int: SceneScriptCursorHit],
+        ownerProjections: [Int: SceneScriptCursorHit]? = nil,
         pointerPosition: SIMD2<Float>? = nil,
         primaryButtonIsDown: Bool,
         surface: SceneScriptSurfaceInput? = nil
     ) {
         self.hits = hits
+        self.ownerProjections = ownerProjections ?? hits
         self.pointerPosition = pointerPosition
         self.primaryButtonIsDown = primaryButtonIsDown
         self.surface = surface
@@ -57,6 +60,11 @@ private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let ownsOwner: Bool
 }
 
+private nonisolated struct SceneScriptCursorAuthoredMutationKey: Hashable {
+    let ownerLayerID: Int
+    let targetLayerID: Int
+}
+
 /// Executes authored cursor callbacks against the shared scene VM. Hit
 /// testing remains a typed host responsibility; JavaScript receives immutable
 /// world/local positions and can only publish through existing mutation paths.
@@ -70,6 +78,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var disabledLayerIDs: Set<Int> = []
 
     var ownerLayerIDs: Set<Int> { Set(bindings.map(\.layerID)) }
+    var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
 
     private init(
@@ -250,6 +259,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptCursorFrameResult {
+        defer {
+            bindings.forEach {
+                $0.owner.clearCursorAuthoredTransformBaseline()
+            }
+        }
         if batch.overflowed {
             if let latest = batch.samples.last {
                 synchronize(
@@ -270,14 +284,44 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             )
         }
         var failures: [Int: SceneScriptScalarRuntimeFailure] = [:]
-        var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
-        var animations: [SceneTimelinePlaybackMutation] = []
-        var layers: [SceneScriptLayerMutation] = []
+        var materialFunctions: [(
+            ownerLayerID: Int,
+            mutation: SceneScriptMaterialFunctionMutation
+        )] = []
+        var animations: [(
+            ownerLayerID: Int,
+            mutation: SceneTimelinePlaybackMutation
+        )] = []
+        var layers: [(
+            ownerLayerID: Int,
+            mutation: SceneScriptLayerMutation
+        )] = []
+        var authoredBaselines: [Int: SceneScriptLayerMutation] = [:]
+        var authoredMutationIndices: [
+            SceneScriptCursorAuthoredMutationKey: Int
+        ] = [:]
+        func discardCandidates(ownerLayerID: Int) {
+            materialFunctions.removeAll { $0.ownerLayerID == ownerLayerID }
+            animations.removeAll { $0.ownerLayerID == ownerLayerID }
+            layers.removeAll { $0.ownerLayerID == ownerLayerID }
+            authoredBaselines.removeValue(forKey: ownerLayerID)
+            authoredMutationIndices = [:]
+            for (index, candidate) in layers.enumerated()
+                where !candidate.mutation.isDynamic
+                    && candidate.mutation.kind == .upsert {
+                authoredMutationIndices[.init(
+                    ownerLayerID: candidate.ownerLayerID,
+                    targetLayerID: candidate.mutation.layerID
+                )] = index
+            }
+        }
         func emit(
             _ kind: SceneScriptCursorEventKind,
             binding: SceneScriptCursorBinding,
             hit: SceneScriptCursorHit,
-            callbackFrame: SceneScriptFrameInput
+            callbackFrame: SceneScriptFrameInput,
+            captureActive: Bool,
+            currentHit: Bool
         ) {
             guard binding.events.contains(kind),
                   !disabledLayerIDs.contains(binding.layerID) else { return }
@@ -290,12 +334,39 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             switch binding.owner.dispatchCursor(
                 event, frame: callbackFrame,
                 userPropertiesJSON: userPropertiesJSON,
+                authoredTransformBaseline: authoredBaselines[binding.layerID],
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
-                materialFunctions.append(contentsOf: mutations.materialFunctions)
-                animations.append(contentsOf: mutations.animations)
-                layers.append(contentsOf: mutations.layers)
+                materialFunctions.append(contentsOf: mutations.materialFunctions.map {
+                    (binding.layerID, $0)
+                })
+                animations.append(contentsOf: mutations.animations.map {
+                    (binding.layerID, $0)
+                })
+                for mutation in mutations.layers {
+                    guard !mutation.isDynamic, mutation.kind == .upsert else {
+                        layers.append((binding.layerID, mutation))
+                        continue
+                    }
+                    let key = SceneScriptCursorAuthoredMutationKey(
+                        ownerLayerID: binding.layerID,
+                        targetLayerID: mutation.layerID
+                    )
+                    if let index = authoredMutationIndices[key] {
+                        layers[index].mutation = Self.mergingAuthoredMutation(
+                            layers[index].mutation, with: mutation
+                        )
+                    } else {
+                        authoredMutationIndices[key] = layers.count
+                        layers.append((binding.layerID, mutation))
+                    }
+                    authoredBaselines[binding.layerID] = authoredBaselines[
+                        binding.layerID
+                    ].map {
+                        Self.mergingAuthoredMutation($0, with: mutation)
+                    } ?? mutation
+                }
                 for mutation in mutations.layers
                     where mutation.fields.contains(.origin) {
                     NSLog(
@@ -305,12 +376,17 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     )
                 }
                 NSLog(
-                    "MWX SceneScript VM: layerID=%d event=%@ route=generic-only",
-                    binding.layerID, kind.callbackName
+                    "MWX SceneScript VM: layerID=%d event=%@ captureActive=%d currentHit=%d local=%.6f,%.6f,%.6f route=generic-only",
+                    binding.layerID, kind.callbackName,
+                    captureActive ? 1 : 0, currentHit ? 1 : 0,
+                    hit.localPosition.x, hit.localPosition.y,
+                    hit.localPosition.z
                 )
             case let .failure(failure):
+                discardCandidates(ownerLayerID: binding.layerID)
                 failures[binding.layerID] = failure
                 disabledLayerIDs.insert(binding.layerID)
+                capturedHits.removeValue(forKey: binding.layerID)
             }
         }
         for sample in batch.samples {
@@ -319,6 +395,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 with: sample.surface
             )
             let admittedHits = sample.hits.filter {
+                ownerLayerIDs.contains($0.key)
+                    && !disabledLayerIDs.contains($0.key)
+            }
+            let admittedProjections = sample.ownerProjections.filter {
                 ownerLayerIDs.contains($0.key)
                     && !disabledLayerIDs.contains($0.key)
             }
@@ -336,41 +416,59 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                    let hit = previousHits[binding.layerID] {
                     emit(
                         .leave, binding: binding, hit: hit,
-                        callbackFrame: callbackFrame
+                        callbackFrame: callbackFrame,
+                        captureActive: capturedHits[binding.layerID] != nil,
+                        currentHit: false
                     )
                 }
                 if entering.contains(binding.layerID),
                    let hit = admittedHits[binding.layerID] {
                     emit(
                         .enter, binding: binding, hit: hit,
-                        callbackFrame: callbackFrame
+                        callbackFrame: callbackFrame,
+                        captureActive: capturedHits[binding.layerID] != nil,
+                        currentHit: true
                     )
                 }
                 if pressed, let hit = admittedHits[binding.layerID] {
                     emit(
                         .down, binding: binding, hit: hit,
-                        callbackFrame: callbackFrame
+                        callbackFrame: callbackFrame,
+                        captureActive: false, currentHit: true
                     )
                     if !disabledLayerIDs.contains(binding.layerID) {
                         capturedHits[binding.layerID] = hit
                     }
                 }
-                if moved, let hit = admittedHits[binding.layerID] {
+                let captured = capturedHits[binding.layerID] != nil
+                let moveHit = captured
+                    ? admittedProjections[binding.layerID]
+                    : admittedHits[binding.layerID]
+                if moved, let hit = moveHit {
                     emit(
                         .move, binding: binding, hit: hit,
-                        callbackFrame: callbackFrame
+                        callbackFrame: callbackFrame,
+                        captureActive: captured,
+                        currentHit: admittedHits[binding.layerID] != nil
                     )
+                    if captured, !disabledLayerIDs.contains(binding.layerID) {
+                        capturedHits[binding.layerID] = hit
+                    }
                 }
                 if released, let captured = capturedHits[binding.layerID] {
-                    let releaseHit = admittedHits[binding.layerID] ?? captured
+                    let releaseHit = admittedProjections[binding.layerID]
+                        ?? captured
                     emit(
                         .up, binding: binding, hit: releaseHit,
-                        callbackFrame: callbackFrame
+                        callbackFrame: callbackFrame,
+                        captureActive: true,
+                        currentHit: admittedHits[binding.layerID] != nil
                     )
                     if admittedHits[binding.layerID] != nil {
                         emit(
                             .click, binding: binding, hit: releaseHit,
-                            callbackFrame: callbackFrame
+                            callbackFrame: callbackFrame,
+                            captureActive: true, currentHit: true
                         )
                     }
                 }
@@ -384,10 +482,35 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         return .init(
             failures: failures,
-            materialFunctionMutations: materialFunctions,
-            animationMutations: animations,
-            layerMutations: layers,
+            materialFunctionMutations: materialFunctions.map { $0.mutation },
+            animationMutations: animations.map { $0.mutation },
+            layerMutations: layers.map { $0.mutation },
             inputBatchOverflowed: false
+        )
+    }
+
+    private static func mergingAuthoredMutation(
+        _ previous: SceneScriptLayerMutation,
+        with current: SceneScriptLayerMutation
+    ) -> SceneScriptLayerMutation {
+        .init(
+            kind: current.kind,
+            isDynamic: false,
+            fields: previous.fields.union(current.fields),
+            layerID: current.layerID,
+            orderIndex: current.orderIndex,
+            visible: current.visible,
+            alpha: current.alpha,
+            origin: current.fields.contains(.origin)
+                ? current.origin : previous.origin,
+            scale: current.fields.contains(.scale)
+                ? current.scale : previous.scale,
+            angles: current.fields.contains(.angles)
+                ? current.angles : previous.angles,
+            color: current.color,
+            pointSize: current.pointSize,
+            text: current.text,
+            font: current.font
         )
     }
 
