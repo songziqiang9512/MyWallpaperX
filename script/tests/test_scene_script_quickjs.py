@@ -1279,8 +1279,11 @@ int main(void) {
         "shared.hover=event.worldPosition.x===10&&event.localPosition.y===0.25;}"
         "export function cursorLeave(event){shared.hover=false;}"
         "export function cursorDown(event){shared.pointerOrder='down';}"
+        "export function cursorMove(event){"
+        "if(shared.pointerOrder!=='down')throw new Error('cursor move order');"
+        "shared.pointerOrder='move';}"
         "export function cursorUp(event){"
-        "if(shared.pointerOrder!=='down')throw new Error('cursor order');"
+        "if(shared.pointerOrder!=='move')throw new Error('cursor order');"
         "shared.pointerOrder='up';}"
         "export function cursorClick(event){"
         "if(shared.pointerOrder!=='up')throw new Error('cursor order');"
@@ -1327,6 +1330,10 @@ int main(void) {
     failures += cursor_event(
         cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_DOWN,
         MWX_SCENE_QUICKJS_OK, "cursor down event"
+    );
+    failures += cursor_event(
+        cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_MOVE,
+        MWX_SCENE_QUICKJS_OK, "cursor move event"
     );
     failures += cursor_event(
         cursor_owner, 26, MWX_SCENE_QUICKJS_CURSOR_UP,
@@ -2119,9 +2126,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
         self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
-        self.assertIn("cursorDown,cursorUp,cursorClick", launch)
+        self.assertIn("cursorDown,cursorMove,cursorUp,cursorClick", launch)
         for callback in (
-            "cursorEnter", "cursorLeave", "cursorDown", "cursorUp", "cursorClick",
+            "cursorEnter", "cursorLeave", "cursorDown", "cursorMove", "cursorUp",
+            "cursorClick",
         ):
             self.assertIn(f'(.{callback.removeprefix("cursor").lower()}, "{callback}")', cursor)
         self.assertIn("previousHits", cursor)

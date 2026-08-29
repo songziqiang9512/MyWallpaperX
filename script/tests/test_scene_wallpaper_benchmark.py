@@ -17,6 +17,10 @@ sys.path.insert(0, str(SCRIPT_DIR))
 DEBUG_RUNNER_SOURCE = (
     SCRIPT_DIR.parent / "MyWallpaperX/App/DebugScenePlaybackRunner.swift"
 )
+DEBUG_POINTER_DRAG_SOURCE = (
+    SCRIPT_DIR.parent
+    / "MyWallpaperX/App/DebugScenePlaybackRunner+PointerDrag.swift"
+)
 
 import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
@@ -717,6 +721,85 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
                     benchmark.cursor_primary_click_subframe({
                         "cursor_primary_click_subframe": value
                     })
+
+    def test_cursor_drag_to_normalized_accepts_only_finite_pairs(self) -> None:
+        self.assertEqual(
+            benchmark.cursor_drag_to_normalized({
+                "cursor_drag_to_normalized": [0.25, -0.5]
+            }),
+            (0.25, -0.5),
+        )
+        self.assertIsNone(benchmark.cursor_drag_to_normalized({}))
+        for value in ([0], [0, 2], [float("nan"), 0], "0,0", [True, 0]):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    benchmark.cursor_drag_to_normalized({
+                        "cursor_drag_to_normalized": value
+                    })
+
+    def test_cursor_drag_requires_hover_and_owns_primary_edges(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(json.dumps({
+                "schema_version": 1,
+                "name": "fixture",
+                "samples": [{
+                    "id": "1",
+                    "cursor_drag_to_normalized": [0.1, 0.2],
+                }],
+            }), encoding="utf-8")
+            with self.assertRaisesRegex(
+                ValueError,
+                "cursor_drag_to_normalized requires hover_pointer_normalized",
+            ):
+                benchmark.load_matrix(path)
+
+    def test_cursor_drag_output_changes_then_preserves_settled_position(self) -> None:
+        motion = {
+            "before_to_hover": {"changed_ratio": 0.08},
+            "hover_to_after": {"changed_ratio": 0.0},
+        }
+        sample = {
+            "minimum_hover_changed_ratio": 0.05,
+            "maximum_drag_settle_changed_ratio": 0.001,
+        }
+        self.assertEqual(
+            benchmark.cursor_interaction_output_failures(
+                sample, motion, (0.6, 0.4)
+            ),
+            [],
+        )
+        self.assertIn(
+            "drag interaction output evidence below minimum",
+            benchmark.cursor_interaction_output_failures(
+                sample,
+                {**motion, "before_to_hover": {"changed_ratio": 0.01}},
+                (0.6, 0.4),
+            ),
+        )
+        self.assertIn(
+            "drag interaction output did not preserve settled position",
+            benchmark.cursor_interaction_output_failures(
+                sample,
+                {**motion, "hover_to_after": {"changed_ratio": 0.01}},
+                (0.6, 0.4),
+            ),
+        )
+
+    def test_debug_runner_sequences_drag_between_press_and_release(self) -> None:
+        source = DEBUG_POINTER_DRAG_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("--mwx-debug-scene-cursor-drag-to-json", source)
+        press = source.index('state: "press"')
+        drag = source.index('state: "drag"', press)
+        release = source.index('state: "release"', drag)
+        hover = source.index('reason: "hover"', release)
+        outside = source.index("setPointerOutside()", hover)
+        after = source.index('reason: "after"', outside)
+        self.assertLess(press, drag)
+        self.assertLess(drag, release)
+        self.assertLess(release, hover)
+        self.assertLess(hover, outside)
+        self.assertLess(outside, after)
 
     def test_debug_runner_sequences_before_hover_and_after_frames(self) -> None:
         source = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")

@@ -716,6 +716,10 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
         self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)
         self.assertIn("with: sample.surface", cursor_program)
+        self.assertIn("pointerPosition: pointer.normalizedPosition", interaction)
+        self.assertIn("sample.pointerPosition != previousPointerPosition", cursor_program)
+        self.assertIn("(.move, \"cursorMove\")", cursor_program)
+        self.assertIn("let scale = layer.scaleXYZ ?? [1, 1, 1]", cursor_program)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

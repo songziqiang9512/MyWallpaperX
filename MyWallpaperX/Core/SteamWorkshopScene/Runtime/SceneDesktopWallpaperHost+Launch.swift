@@ -107,7 +107,7 @@ struct SceneDesktopWallpaperLaunchContext {
             "scene cursor events: schema=quickjs-ng-cursor-v1"
                 + " owners=\(sceneScriptCursorProgram.ownerCount)"
                 + " layerIDs=\(sceneScriptCursorProgram.ownerLayerIDs.sorted())"
-                + " events=cursorEnter,cursorLeave,cursorDown,cursorUp,cursorClick"
+                + " events=cursorEnter,cursorLeave,cursorDown,cursorMove,cursorUp,cursorClick"
                 + " route=generic-only",
             "scene property vector scripts: schema=quickjs-ng-vec3-v1"
                 + " bindings=\(propertyVectorScriptProgram.bindings.count)"

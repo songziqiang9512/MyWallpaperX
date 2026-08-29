@@ -270,7 +270,8 @@ enum DebugScenePlaybackRunner {
                         outputDirectory: evidenceDirectory,
                         hoverPointer: hoverPointer,
                         stationaryEntry: requestedHoverPointerStationaryEntry,
-                        primaryClick: requestedPrimaryClick
+                        primaryClick: requestedPrimaryClick,
+                        dragPointer: requestedDragPointer
                     )
                     schedulePeriodicSnapshots(outputDirectory: evidenceDirectory)
                 } else {
@@ -428,7 +429,8 @@ enum DebugScenePlaybackRunner {
         outputDirectory: URL,
         hoverPointer: SIMD2<Float>,
         stationaryEntry: Bool,
-        primaryClick: Bool
+        primaryClick: Bool,
+        dragPointer: SIMD2<Float>?
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             requestSnapshot(reason: "before", outputDirectory: outputDirectory)
@@ -439,6 +441,7 @@ enum DebugScenePlaybackRunner {
                         outputDirectory: outputDirectory,
                         pointer: hoverPointer,
                         primaryClick: primaryClick,
+                        dragPointer: dragPointer,
                         after: 0.28
                     )
                 } else {
@@ -449,6 +452,7 @@ enum DebugScenePlaybackRunner {
                             outputDirectory: outputDirectory,
                             pointer: hoverPointer,
                             primaryClick: primaryClick,
+                            dragPointer: dragPointer,
                             after: 0.2
                         )
                     }
@@ -461,10 +465,17 @@ enum DebugScenePlaybackRunner {
         outputDirectory: URL,
         pointer: SIMD2<Float>,
         primaryClick: Bool,
+        dragPointer: SIMD2<Float>?,
         after delay: TimeInterval
     ) {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            if primaryClick {
+            if let dragPointer {
+                schedulePointerDrag(
+                    outputDirectory: outputDirectory,
+                    from: pointer,
+                    to: dragPointer
+                )
+            } else if primaryClick {
                 setPointer(at: pointer, primaryButtonIsDown: true, state: "press")
                 if requestedPrimaryClickSubframe {
                     setPointer(at: pointer, primaryButtonIsDown: false, state: "release")
@@ -546,7 +557,7 @@ enum DebugScenePlaybackRunner {
         )
     }
 
-    private static func setPointer(
+    static func setPointer(
         at normalized: SIMD2<Float>,
         primaryButtonIsDown: Bool,
         state: String
@@ -566,7 +577,7 @@ enum DebugScenePlaybackRunner {
         )
     }
 
-    private static func setPointerOutside() {
+    static func setPointerOutside() {
         SceneDesktopWallpaperHost.shared.setDebugPointerOverride(.init())
         NSLog("MWX DEBUG SCENE: phase=pointer-state state=outside")
     }

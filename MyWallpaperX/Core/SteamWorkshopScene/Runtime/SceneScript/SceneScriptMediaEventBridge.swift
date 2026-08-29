@@ -64,6 +64,7 @@ nonisolated enum SceneScriptCursorEventKind: Equatable, Hashable, Sendable {
     case enter
     case leave
     case down
+    case move
     case up
     case click
 
@@ -72,6 +73,7 @@ nonisolated enum SceneScriptCursorEventKind: Equatable, Hashable, Sendable {
         case .enter: "cursorEnter"
         case .leave: "cursorLeave"
         case .down: "cursorDown"
+        case .move: "cursorMove"
         case .up: "cursorUp"
         case .click: "cursorClick"
         }
@@ -154,6 +156,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         case .enter: MWX_SCENE_QUICKJS_CURSOR_ENTER
         case .leave: MWX_SCENE_QUICKJS_CURSOR_LEAVE
         case .down: MWX_SCENE_QUICKJS_CURSOR_DOWN
+        case .move: MWX_SCENE_QUICKJS_CURSOR_MOVE
         case .up: MWX_SCENE_QUICKJS_CURSOR_UP
         case .click: MWX_SCENE_QUICKJS_CURSOR_CLICK
         }

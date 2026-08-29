@@ -8,15 +8,18 @@ nonisolated struct SceneScriptCursorHit: Equatable, Sendable {
 
 nonisolated struct SceneScriptCursorFrameSample: Equatable, Sendable {
     let hits: [Int: SceneScriptCursorHit]
+    let pointerPosition: SIMD2<Float>?
     let primaryButtonIsDown: Bool
     let surface: SceneScriptSurfaceInput?
 
     init(
         hits: [Int: SceneScriptCursorHit],
+        pointerPosition: SIMD2<Float>? = nil,
         primaryButtonIsDown: Bool,
         surface: SceneScriptSurfaceInput? = nil
     ) {
         self.hits = hits
+        self.pointerPosition = pointerPosition
         self.primaryButtonIsDown = primaryButtonIsDown
         self.surface = surface
     }
@@ -51,6 +54,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private let generation: UInt64
     private var previousHits: [Int: SceneScriptCursorHit] = [:]
     private var capturedHits: [Int: SceneScriptCursorHit] = [:]
+    private var previousPointerPosition: SIMD2<Float>?
     private var previousPrimaryButtonIsDown = false
     private var disabledLayerIDs: Set<Int> = []
 
@@ -130,10 +134,14 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             if let latest = batch.samples.last {
                 synchronize(
                     hits: latest.hits,
+                    pointerPosition: latest.pointerPosition,
                     primaryButtonIsDown: latest.primaryButtonIsDown
                 )
             } else {
-                synchronize(hits: [:], primaryButtonIsDown: false)
+                synchronize(
+                    hits: [:], pointerPosition: nil,
+                    primaryButtonIsDown: false
+                )
             }
             return .init(
                 failures: [:], materialFunctionMutations: [],
@@ -168,6 +176,14 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 materialFunctions.append(contentsOf: mutations.materialFunctions)
                 animations.append(contentsOf: mutations.animations)
                 layers.append(contentsOf: mutations.layers)
+                for mutation in mutations.layers
+                    where mutation.fields.contains(.origin) {
+                    NSLog(
+                        "MWX SceneScript VM: layerID=%d event=%@ mutation=origin value=%.6f,%.6f,%.6f route=generic-only",
+                        mutation.layerID, kind.callbackName,
+                        mutation.origin.x, mutation.origin.y, mutation.origin.z
+                    )
+                }
                 NSLog(
                     "MWX SceneScript VM: layerID=%d event=%@ route=generic-only",
                     binding.layerID, kind.callbackName
@@ -192,6 +208,9 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 && !previousPrimaryButtonIsDown
             let released = !sample.primaryButtonIsDown
                 && previousPrimaryButtonIsDown
+            let moved = sample.pointerPosition != nil
+                && previousPointerPosition != nil
+                && sample.pointerPosition != previousPointerPosition
             for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
                 if leaving.contains(binding.layerID),
                    let hit = previousHits[binding.layerID] {
@@ -216,6 +235,12 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                         capturedHits[binding.layerID] = hit
                     }
                 }
+                if moved, let hit = admittedHits[binding.layerID] {
+                    emit(
+                        .move, binding: binding, hit: hit,
+                        callbackFrame: callbackFrame
+                    )
+                }
                 if released, let captured = capturedHits[binding.layerID] {
                     let releaseHit = admittedHits[binding.layerID] ?? captured
                     emit(
@@ -231,6 +256,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 }
             }
             if released { capturedHits = [:] }
+            previousPointerPosition = sample.pointerPosition
             previousPrimaryButtonIsDown = sample.primaryButtonIsDown
             previousHits = admittedHits.filter {
                 !disabledLayerIDs.contains($0.key)
@@ -247,11 +273,13 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
 
     private func synchronize(
         hits: [Int: SceneScriptCursorHit],
+        pointerPosition: SIMD2<Float>?,
         primaryButtonIsDown: Bool
     ) {
         previousHits = hits.filter {
             ownerLayerIDs.contains($0.key) && !disabledLayerIDs.contains($0.key)
         }
+        previousPointerPosition = pointerPosition
         previousPrimaryButtonIsDown = primaryButtonIsDown
         capturedHits = [:]
     }
@@ -260,6 +288,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         bindings.filter(\.ownsOwner).forEach { $0.owner.invalidate() }
         previousHits = [:]
         capturedHits = [:]
+        previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
     }
 
@@ -276,6 +305,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         }
         previousHits = [:]
         capturedHits = [:]
+        previousPointerPosition = nil
         previousPrimaryButtonIsDown = false
         return outcomes
     }
@@ -323,7 +353,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     ) -> Set<SceneScriptCursorEventKind> {
         let pairs: [(SceneScriptCursorEventKind, String)] = [
             (.enter, "cursorEnter"), (.leave, "cursorLeave"),
-            (.down, "cursorDown"), (.up, "cursorUp"), (.click, "cursorClick"),
+            (.down, "cursorDown"), (.move, "cursorMove"),
+            (.up, "cursorUp"), (.click, "cursorClick"),
         ]
         return Set(pairs.compactMap { owner.exports($0.1) ? $0.0 : nil })
     }
@@ -333,9 +364,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     ) -> Bool {
         guard let origin = layer.originXYZ, origin.count == 3,
               let size = layer.sizeWH, size.count == 2,
-              let scale = layer.scaleXYZ, scale.count == 3,
+              (layer.scaleXYZ?.count ?? 3) == 3,
               (layer.anglesXYZ?.count ?? 3) == 3,
               (layer.parallaxDepthXY?.count ?? 2) == 2 else { return false }
+        let scale = layer.scaleXYZ ?? [1, 1, 1]
         let angles = layer.anglesXYZ ?? [0, 0, 0]
         let parallax = layer.parallaxDepthXY ?? [0, 0]
         return origin.allSatisfy(\.isFinite)

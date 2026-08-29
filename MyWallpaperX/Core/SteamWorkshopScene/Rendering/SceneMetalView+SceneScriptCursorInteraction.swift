@@ -106,6 +106,7 @@ extension SceneMetalView {
                         timing: timing,
                         dynamicValues: dynamicValues
                     ),
+                    pointerPosition: pointer.normalizedPosition,
                     primaryButtonIsDown: pointer.primaryButtonIsDown,
                     surface: sceneScriptSurfaceInput(
                         pointer: pointer,

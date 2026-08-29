@@ -681,6 +681,7 @@ def load_matrix(path: Path) -> dict[str, Any]:
         stationary_entry = hover_pointer_stationary_entry(sample)
         primary_click = cursor_primary_click(sample)
         subframe_click = cursor_primary_click_subframe(sample)
+        drag_pointer = cursor_drag_to_normalized(sample)
         if stationary_entry and hover_pointer is None:
             raise ValueError(
                 "hover_pointer_stationary_entry requires hover_pointer_normalized"
@@ -692,6 +693,14 @@ def load_matrix(path: Path) -> dict[str, Any]:
         if subframe_click and not primary_click:
             raise ValueError(
                 "cursor_primary_click_subframe requires cursor_primary_click"
+            )
+        if drag_pointer is not None and hover_pointer is None:
+            raise ValueError(
+                "cursor_drag_to_normalized requires hover_pointer_normalized"
+            )
+        if drag_pointer is not None and primary_click:
+            raise ValueError(
+                "cursor_drag_to_normalized cannot be combined with cursor_primary_click"
             )
     return payload
 
@@ -754,6 +763,51 @@ def cursor_primary_click_subframe(sample: dict[str, Any]) -> bool:
     if type(raw) is not bool:
         raise ValueError("cursor_primary_click_subframe must be a boolean")
     return raw
+
+
+def cursor_drag_to_normalized(
+    sample: dict[str, Any],
+) -> tuple[float, float] | None:
+    raw = sample.get("cursor_drag_to_normalized")
+    if raw is None:
+        return None
+    if (
+        not isinstance(raw, list)
+        or len(raw) != 2
+        or any(type(value) not in (int, float) for value in raw)
+    ):
+        raise ValueError("cursor_drag_to_normalized must contain two numbers")
+    x, y = (float(raw[0]), float(raw[1]))
+    if not math.isfinite(x) or not math.isfinite(y) or not (-1 <= x <= 1 and -1 <= y <= 1):
+        raise ValueError("cursor_drag_to_normalized must stay within [-1, 1]")
+    return (x, y)
+
+
+def cursor_interaction_output_failures(
+    sample: dict[str, Any],
+    hover_motion: dict[str, dict[str, float] | None] | None,
+    drag_pointer: tuple[float, float] | None,
+) -> list[str]:
+    minimum = float(sample.get("minimum_hover_changed_ratio", 0))
+    before = (hover_motion or {}).get("before_to_hover")
+    after = (hover_motion or {}).get("hover_to_after")
+    if drag_pointer is None:
+        ratios = [
+            metrics["changed_ratio"]
+            for metrics in (before, after)
+            if metrics is not None
+        ]
+        return (
+            ["hover interaction output evidence below minimum"]
+            if len(ratios) != 2 or min(ratios) <= minimum else []
+        )
+    failures: list[str] = []
+    if before is None or before["changed_ratio"] <= minimum:
+        failures.append("drag interaction output evidence below minimum")
+    maximum_settle = float(sample.get("maximum_drag_settle_changed_ratio", 0.001))
+    if after is None or after["changed_ratio"] > maximum_settle:
+        failures.append("drag interaction output did not preserve settled position")
+    return failures
 
 
 def scene_package_path(source: Path) -> Path | None:
@@ -5350,6 +5404,7 @@ def run_sample(
     hover_pointer_stationary = hover_pointer_stationary_entry(sample)
     primary_click = cursor_primary_click(sample)
     subframe_click = cursor_primary_click_subframe(sample)
+    drag_pointer = cursor_drag_to_normalized(sample)
     if hover_pointer is not None:
         command.extend([
             "--mwx-debug-scene-hover-pointer-json",
@@ -5364,6 +5419,14 @@ def run_sample(
             command.append("--mwx-debug-scene-primary-click")
             if subframe_click:
                 command.append("--mwx-debug-scene-primary-click-subframe")
+        if drag_pointer is not None:
+            command.extend([
+                "--mwx-debug-scene-cursor-drag-to-json",
+                json.dumps(
+                    {"x": drag_pointer[0], "y": drag_pointer[1]},
+                    separators=(",", ":"),
+                ),
+            ])
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
@@ -5636,11 +5699,14 @@ def run_sample(
             failures.append("pointer movement transition evidence missing")
         if "phase=pointer-state state=hold" not in log_text:
             failures.append("pointer stationary transition evidence missing")
-        if primary_click:
+        if primary_click or drag_pointer is not None:
             if log_text.count("phase=pointer-state state=press") != 1:
                 failures.append("primary pointer press evidence mismatch")
             if log_text.count("phase=pointer-state state=release") != 1:
                 failures.append("primary pointer release evidence mismatch")
+        if drag_pointer is not None:
+            if log_text.count("phase=pointer-state state=drag") != 1:
+                failures.append("primary pointer drag evidence mismatch")
     if camera_match is None or camera_match.group("projection") != "cover":
         failures.append("camera projection evidence missing")
     expected_parallax = sample.get("expected_camera_parallax")
@@ -6007,14 +6073,9 @@ def run_sample(
     if hover_pointer is not None:
         if not hover_non_black:
             failures.append("hover window evidence missing")
-        minimum_hover_ratio = float(sample.get("minimum_hover_changed_ratio", 0))
-        hover_ratios = [
-            metrics["changed_ratio"]
-            for metrics in (hover_motion or {}).values()
-            if metrics is not None
-        ]
-        if len(hover_ratios) != 2 or min(hover_ratios) <= minimum_hover_ratio:
-            failures.append("hover interaction output evidence below minimum")
+        failures.extend(cursor_interaction_output_failures(
+            sample, hover_motion, drag_pointer
+        ))
     if sample.get("requires_motion"):
         minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
         if motion is None or motion["changed_ratio"] < minimum_changed_ratio:
@@ -6089,6 +6150,9 @@ def run_sample(
             "hover_pointer_stationary_entry": hover_pointer_stationary,
             "cursor_primary_click": primary_click,
             "cursor_primary_click_subframe": subframe_click,
+            "cursor_drag_to_normalized": (
+                list(drag_pointer) if drag_pointer is not None else None
+            ),
             "cursor_ripple_persistence": cursor_ripple_persistence,
             "cursor_ripple_visible": cursor_ripple_visible,
             "live_property_update": live_property_update,

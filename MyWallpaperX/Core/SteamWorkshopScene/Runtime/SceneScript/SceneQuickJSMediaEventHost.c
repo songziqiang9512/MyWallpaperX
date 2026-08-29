@@ -488,6 +488,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
     case MWX_SCENE_QUICKJS_CURSOR_ENTER: callback = "cursorEnter"; break;
     case MWX_SCENE_QUICKJS_CURSOR_LEAVE: callback = "cursorLeave"; break;
     case MWX_SCENE_QUICKJS_CURSOR_DOWN: callback = "cursorDown"; break;
+    case MWX_SCENE_QUICKJS_CURSOR_MOVE: callback = "cursorMove"; break;
     case MWX_SCENE_QUICKJS_CURSOR_UP: callback = "cursorUp"; break;
     case MWX_SCENE_QUICKJS_CURSOR_CLICK: callback = "cursorClick"; break;
     default: break;
