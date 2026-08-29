@@ -460,6 +460,8 @@ extension SceneDesktopWallpaperHost {
             ("property-vector", propertyVectorScriptTargets,
              propertyVectorScriptTargets.count,
              model.propertyVectorProjection.animationTargets),
+            ("shared-alpha", Set(model.sharedLayerAlphaProgram.definitions.map(\.target)),
+             model.sharedLayerAlphaProgram.definitions.count, []),
         ]
         var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
         var boundedProducerConflicts: [String] =

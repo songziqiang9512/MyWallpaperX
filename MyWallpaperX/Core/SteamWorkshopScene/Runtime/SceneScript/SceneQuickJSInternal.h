@@ -96,6 +96,10 @@ struct MWXSceneQuickJSDomain {
     JSValue active_layer;
     JSValue active_scene;
     JSValue active_object;
+    JSValue user_properties_snapshot;
+    char *user_properties_json;
+    size_t user_properties_json_length;
+    bool user_properties_snapshot_valid;
     JSClassID layer_handle_class_id;
     uint64_t interrupt_budget;
     uint64_t owner_creation_budget;

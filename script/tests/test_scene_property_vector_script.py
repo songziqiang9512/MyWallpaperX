@@ -602,6 +602,50 @@ enum Harness {
             inputs: [animatedAlphaTarget: .scalar(0.75)],
             frame: frame
         )
+        let genericAlpha = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [alphaBinding(
+                source: "export function update(value) { return value + engine.frametime; }",
+                value: 0.75,
+                wrapperKeys: ["script", "value"]
+            )],
+            generation: 141
+        )
+        let genericAlphaResult = genericAlpha.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.75)],
+            frame: frame
+        )
+        let genericPropertyAlpha = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [alphaBinding(
+                source: """
+                export var scriptProperties = createScriptProperties()
+                export function update(value) {
+                    return value + scriptProperties.step;
+                }
+                """,
+                value: 0.75,
+                properties: ["step": .number(0.25)],
+                wrapperKeys: ["script", "scriptproperties", "value"]
+            )],
+            generation: 142
+        )
+        let genericPropertyAlphaResult = genericPropertyAlpha.evaluate(
+            inputs: [animatedAlphaTarget: .scalar(0.75)],
+            frame: frame
+        )
+        let rejectedAlphaWrapper = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [alphaBinding(
+                source: "export function update(value) { return value; }",
+                value: 0.75,
+                wrapperKeys: ["extra", "script", "value"]
+            )],
+            generation: 143
+        )
         let mediaOrigin = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -736,6 +780,13 @@ enum Harness {
             "alphaAnimationCommands": animatedAlphaResult.animationMutations.map {
                 $0.command.rawValue
             },
+            "genericAlphaBindings": genericAlpha.bindings.count,
+            "genericAlphaValue": scalar(genericAlphaResult.values[animatedAlphaTarget]),
+            "genericPropertyAlphaBindings": genericPropertyAlpha.bindings.count,
+            "genericPropertyAlphaValue": scalar(
+                genericPropertyAlphaResult.values[animatedAlphaTarget]
+            ),
+            "genericAlphaWrongWrapperRejected": rejectedAlphaWrapper.bindings.isEmpty,
             "mediaAnimationCommands": mediaOriginResult.animationMutations.map {
                 $0.command.rawValue
             },
@@ -821,7 +872,12 @@ enum Harness {
         )
     }
 
-    static func alphaBinding(source: String, value: Double) -> SceneScriptBindingIR {
+    static func alphaBinding(
+        source: String,
+        value: Double,
+        properties: [String: SceneJSONValue] = [:],
+        wrapperKeys: [String] = ["animation", "script", "value"]
+    ) -> SceneScriptBindingIR {
         .init(
             source: source,
             owner: .init(
@@ -829,10 +885,10 @@ enum Harness {
                 effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
             ),
             targetPath: [.key("objects"), .index(0), .key("alpha")],
-            properties: [:],
+            properties: properties,
             authoredValue: .number(value),
             valueType: .number,
-            wrapperKeys: ["animation", "script", "value"]
+            wrapperKeys: wrapperKeys
         )
     }
 
@@ -1210,6 +1266,11 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["alphaAnimationBindings"], 1)
         self.assertEqual(value["alphaAnimationValue"], 0.75)
         self.assertEqual(value["alphaAnimationCommands"], ["play"])
+        self.assertEqual(value["genericAlphaBindings"], 1)
+        self.assertAlmostEqual(value["genericAlphaValue"], 0.75 + 1 / 60)
+        self.assertEqual(value["genericPropertyAlphaBindings"], 1)
+        self.assertEqual(value["genericPropertyAlphaValue"], 1.0)
+        self.assertTrue(value["genericAlphaWrongWrapperRejected"])
         self.assertEqual(value["mediaAnimationCommands"], ["stop", "play"])
         self.assertTrue(value["mediaGenerationDeduplicated"])
         self.assertEqual(value["playbackBindings"], 1)

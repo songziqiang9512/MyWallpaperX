@@ -173,6 +173,7 @@
       "SceneScript": {
         "file_globs": [
           "SceneScriptScalarProgram.swift",
+          "SceneScriptScalarDisplayProjection.swift",
           "SceneScriptScalarRuntime.swift",
           "SceneScriptStringProgram.swift",
           "SceneScriptStringRuntime.swift",

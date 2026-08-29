@@ -468,6 +468,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "route": "generic-only",
         }])
 
+    def test_scene_script_typed_metrics_keep_object_scalar_completions(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-typed-v2 bindings=1 "
+            "vectorBindings=0 stringBindings=0 targets=1 "
+            "route=generic-only fallback=current-frame-lower-priority",
+            "MWX SceneScript VM: target=layer(layerID: 345, field: "
+            "MyWallpaperX.SceneDynamicLayerField.alpha) callback=completed "
+            "input=0.73 output=0.2 mutations=0 mutationTargets= "
+            "route=generic-only",
+        )
+        self.assertEqual(metrics["object_scalar_completions"], [{
+            "layer_id": 345,
+            "target_kind": "layer",
+            "field": "alpha",
+            "input": 0.73,
+            "output": 0.2,
+            "mutation_count": 0,
+            "route": "generic-only",
+        }])
+
     def test_scene_script_typed_metrics_capture_pass_vec2_and_audio_value(self) -> None:
         metrics = benchmark.scene_script_scalar_runtime_metrics(
             "scene script VM: schema=quickjs-ng-typed-v2 bindings=2 "

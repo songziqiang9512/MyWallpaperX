@@ -83,13 +83,19 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
         self.assertEqual(self.value["duplicates"], 1)
         self.assertEqual(self.value["duplicateProjected"], 0)
 
-    def test_aggregate_work_budget_rejects_the_domain_without_source_blame(
+    def test_aggregate_work_budget_charges_actual_candidate_attempts(
         self,
     ) -> None:
-        self.assertFalse(self.value["aggregateDomainCommitted"])
-        self.assertEqual(self.value["aggregateFailures"], 90)
+        self.assertTrue(self.value["aggregateDomainCommitted"])
+        self.assertEqual(self.value["aggregateFailures"], 0)
         self.assertEqual(
             self.value["aggregateFailureCodes"],
+            [],
+        )
+        self.assertFalse(self.value["hardAggregateDomainCommitted"])
+        self.assertEqual(self.value["hardAggregateFailures"], 4_097)
+        self.assertEqual(
+            self.value["hardAggregateFailureCodes"],
             ["budget-exceeded"],
         )
 

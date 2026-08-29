@@ -241,6 +241,63 @@ static bool valid_frame_input(const MWXSceneQuickJSFrameInput *frame) {
         isfinite(frame->cursor_screen_y);
 }
 
+static bool user_properties_snapshot(
+    MWXSceneQuickJSDomain *domain,
+    const char *json,
+    size_t length,
+    JSValue *snapshot
+) {
+    if (domain == NULL || snapshot == NULL || (length > 0 && json == NULL)) {
+        return false;
+    }
+    if (domain->user_properties_snapshot_valid &&
+        domain->user_properties_json_length == length &&
+        (length == 0 || memcmp(domain->user_properties_json, json, length) == 0)) {
+        *snapshot = JS_DupValue(
+            domain->context, domain->user_properties_snapshot
+        );
+        return true;
+    }
+
+    JSContext *context = domain->context;
+    JSValue value = length == 0
+        ? JS_NewObject(context)
+        : JS_ParseJSON(context, json, length, "engine.userProperties");
+    if (JS_IsException(value) || !JS_IsObject(value)) {
+        JS_FreeValue(context, value);
+        return false;
+    }
+    JSValue freeze_argument = JS_DupValue(context, value);
+    JSValue frozen = JS_Call(
+        context, domain->deep_freeze, JS_UNDEFINED, 1, &freeze_argument
+    );
+    JS_FreeValue(context, freeze_argument);
+    if (JS_IsException(frozen)) {
+        JS_FreeValue(context, frozen);
+        JS_FreeValue(context, value);
+        return false;
+    }
+    JS_FreeValue(context, frozen);
+
+    char *json_copy = NULL;
+    if (length > 0) {
+        json_copy = malloc(length);
+        if (json_copy == NULL) {
+            JS_FreeValue(context, value);
+            return false;
+        }
+        memcpy(json_copy, json, length);
+    }
+    JS_FreeValue(context, domain->user_properties_snapshot);
+    free(domain->user_properties_json);
+    domain->user_properties_snapshot = value;
+    domain->user_properties_json = json_copy;
+    domain->user_properties_json_length = length;
+    domain->user_properties_snapshot_valid = true;
+    *snapshot = JS_DupValue(context, value);
+    return true;
+}
+
 bool mwx_scene_quickjs_bind_frame_engine_host(
     MWXSceneQuickJSOwner *owner,
     const MWXSceneQuickJSFrameInput *frame,
@@ -258,37 +315,16 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
         return false;
     }
     const int read_only = JS_PROP_ENUMERABLE;
-    JSValue user_properties = JS_NewObject(context);
-    if (user_properties_json != NULL && user_properties_length > 0) {
-        JS_FreeValue(context, user_properties);
-        user_properties = JS_ParseJSON(
-            context,
+    JSValue user_properties = JS_UNDEFINED;
+    if (!user_properties_snapshot(
+            owner->domain,
             user_properties_json,
             user_properties_length,
-            "engine.userProperties"
-        );
-        if (JS_IsException(user_properties) || !JS_IsObject(user_properties)) {
-            JS_FreeValue(context, user_properties);
-            JS_FreeValue(context, engine);
-            return false;
-        }
-    }
-    JSValue freeze_argument = JS_DupValue(context, user_properties);
-    JSValue frozen = JS_Call(
-        context,
-        owner->domain->deep_freeze,
-        JS_UNDEFINED,
-        1,
-        &freeze_argument
-    );
-    JS_FreeValue(context, freeze_argument);
-    if (JS_IsException(frozen)) {
-        JS_FreeValue(context, frozen);
-        JS_FreeValue(context, user_properties);
+            &user_properties
+        )) {
         JS_FreeValue(context, engine);
         return false;
     }
-    JS_FreeValue(context, frozen);
     if (frame->has_surface_input == 1) {
         JSValue canvas_size = new_vec2_snapshot(
             owner->domain,
@@ -914,6 +950,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     domain->active_layer = JS_UNDEFINED;
     domain->active_scene = JS_UNDEFINED;
     domain->active_object = JS_UNDEFINED;
+    domain->user_properties_snapshot = JS_UNDEFINED;
     if (!mwx_scene_quickjs_install_active_engine_host(domain) ||
         !mwx_scene_quickjs_install_owner_handle_globals(domain) ||
         !mwx_scene_quickjs_install_value_host(domain) ||
@@ -941,6 +978,8 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         JS_FreeValue(domain->context, domain->active_layer);
         JS_FreeValue(domain->context, domain->active_scene);
         JS_FreeValue(domain->context, domain->active_object);
+        JS_FreeValue(domain->context, domain->user_properties_snapshot);
+        free(domain->user_properties_json);
         if (domain->layers != NULL) {
             for (uint32_t index = 0; index < domain->layer_count; ++index) {
                 free(domain->layers[index].name);

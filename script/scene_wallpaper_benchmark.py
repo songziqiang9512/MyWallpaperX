@@ -154,6 +154,13 @@ SCENE_SCRIPT_SCALAR_COMPLETION_RE = re.compile(
     r"input=(?P<input>\S+) output=(?P<output>\S+) mutations=(?P<mutations>\d+) "
     r"mutationTargets=(?P<mutation_targets>\S*) route=(?P<route>\S+)"
 )
+SCENE_SCRIPT_OBJECT_SCALAR_COMPLETION_RE = re.compile(
+    r"MWX SceneScript VM: target=(?P<kind>layer|text|particle)\(layerID: "
+    r"(?P<layer>\d+), field: [^)]*\.(?P<field>alpha|pointSize|rate)\) "
+    r"callback=completed input=(?P<input>\S+) output=(?P<output>\S+) "
+    r"mutations=(?P<mutations>\d+) mutationTargets=(?P<mutation_targets>\S*) "
+    r"route=(?P<route>\S+)"
+)
 SCENE_SCRIPT_AUDIO_SCALAR_PUBLICATION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
     r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
@@ -1597,6 +1604,21 @@ def scene_script_scalar_runtime_metrics(
         value["pass_index"],
         value["constant"],
     ))
+    object_scalar_completions = [
+        {
+            "layer_id": int(match.group("layer")),
+            "target_kind": match.group("kind"),
+            "field": match.group("field"),
+            "input": float(match.group("input")),
+            "output": float(match.group("output")),
+            "mutation_count": int(match.group("mutations")),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_OBJECT_SCALAR_COMPLETION_RE.finditer(log_text)
+    ]
+    object_scalar_completions.sort(key=lambda value: (
+        value["layer_id"], value["target_kind"], value["field"],
+    ))
     audio_scalar_publications = [
         {
             "layer_id": int(match.group("layer")),
@@ -1676,6 +1698,7 @@ def scene_script_scalar_runtime_metrics(
         "route": count_match.group("route") if count_match else None,
         "fallback": count_match.group("fallback") if count_match else None,
         "completions": completions,
+        "object_scalar_completions": object_scalar_completions,
         "audio_scalar_publications": audio_scalar_publications,
         "vec3_completions": vec3_completions,
         "effect_vector_completions": effect_vector_completions,
@@ -6328,6 +6351,9 @@ def run_sample(
             ),
             "scene_script_scalar_completions": (
                 scene_script_scalar_runtime["completions"]
+            ),
+            "scene_script_object_scalar_completions": (
+                scene_script_scalar_runtime["object_scalar_completions"]
             ),
             "scene_script_audio_scalar_publications": (
                 scene_script_scalar_runtime["audio_scalar_publications"]

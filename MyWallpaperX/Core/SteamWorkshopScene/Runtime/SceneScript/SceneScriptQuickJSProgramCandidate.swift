@@ -143,16 +143,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
             + expectedScalarTargets.count + expectedStringTargets.count
             + projectedCursorLayerIDs.count
         let aggregateConstructionWorkLimit = 4_096
-        let aggregateConstructionWorkUpperBound = expectedOwnerCount > 89
-            ? Int.max
-            : (expectedOwnerCount + 1) * (expectedOwnerCount + 2) / 2
         try cancellationCheck()
-        guard aggregateConstructionWorkUpperBound
-                <= aggregateConstructionWorkLimit else {
-            return makeUnavailable(.budgetExceeded(
-                "SceneScript candidate aggregate construction work exceeds 4096"
-            ))
-        }
         let plannedVectorTargets = vectorProjection.nonPassTargets.union(
             admittedVectorPassTargets.intersection(vectorProjection.passTargets)
         )
@@ -204,11 +195,24 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         ] = [:]
         var cursorFailures: [Int: SceneScriptScalarRuntimeFailure] = [:]
         var expectedCursorLayerIDs: Set<Int> = []
+        var aggregateConstructionWork = 0
         let control = SceneScriptQuickJSCandidateControl(
             cancellationCheck: cancellationCheck
         )
 
         for _ in 0...maximumAttempts {
+            let rejectedOwnerCount = rejectedVectorTargets.count
+                + rejectedScalarTargets.count + rejectedStringTargets.count
+                + rejectedCursorLayerIDs.count
+            let remainingOwnerCount = expectedOwnerCount - rejectedOwnerCount
+            guard remainingOwnerCount >= 0,
+                  remainingOwnerCount <= aggregateConstructionWorkLimit
+                    - aggregateConstructionWork else {
+                return makeUnavailable(.budgetExceeded(
+                    "SceneScript candidate aggregate construction work exceeds 4096"
+                ))
+            }
+            aggregateConstructionWork += remainingOwnerCount
             try control.checkBoundary()
             let domain: SceneScriptQuickJSDomain
             do {

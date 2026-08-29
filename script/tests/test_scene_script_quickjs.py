@@ -790,6 +790,28 @@ int main(void) {
         "scalar engine.userProperties",
         diagnostic
     );
+    scalar_user_result =
+        mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+            scalar_user, 15, 0, &scalar_user_frame,
+            "{\"live\":6}", strlen("{\"live\":6}"),
+            &scalar_user_output, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        scalar_user_result == MWX_SCENE_QUICKJS_OK && scalar_user_output == 6,
+        "unchanged user property snapshot",
+        diagnostic
+    );
+    scalar_user_result =
+        mwx_scene_quickjs_owner_update_scalar_with_user_properties(
+            scalar_user, 15, 0, &scalar_user_frame,
+            "{\"live\":7}", strlen("{\"live\":7}"),
+            &scalar_user_output, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        scalar_user_result == MWX_SCENE_QUICKJS_OK && scalar_user_output == 7,
+        "changed user property snapshot",
+        diagnostic
+    );
 
     const char *vec3_source =
         "'use strict';\n"

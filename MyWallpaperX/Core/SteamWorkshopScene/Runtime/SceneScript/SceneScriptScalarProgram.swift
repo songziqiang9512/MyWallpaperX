@@ -503,14 +503,20 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 return .particle(layerID: layerID, field: .rate)
             }
             let target = SceneDynamicTarget.layer(layerID: layerID, field: .alpha)
-            guard binding.properties.isEmpty,
-                  binding.targetKey == "alpha",
-                  binding.wrapperKeys == ["animation", "script", "value"],
+            let isTimelineWrapper =
+                binding.wrapperKeys == ["animation", "script", "value"]
+                    && binding.properties.isEmpty
+                    && timelineTargets.contains(target)
+            let isPropertyWrapper =
+                (binding.wrapperKeys == ["script", "value"]
+                    && binding.properties.isEmpty)
+                || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+            guard binding.targetKey == "alpha",
+                  isTimelineWrapper || isPropertyWrapper,
                   binding.targetPath == [
                       .key("objects"), .index(objectIndex), .key("alpha"),
                   ],
-                  descriptor.layers[objectIndex].alpha?.bitPattern == authored.bitPattern,
-                  timelineTargets.contains(target)
+                  descriptor.layers[objectIndex].alpha?.bitPattern == authored.bitPattern
             else { return nil }
             return target
         }

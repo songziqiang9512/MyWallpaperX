@@ -127,10 +127,17 @@ struct SceneRuntimeModelBuilder {
             scriptBindings: sceneDocument.scriptBindings,
             sourceEvidence: sceneDocument.scriptSourceEvidence
         )
+        let sharedAlphaTargets = Set(
+            sharedLayerAlphaProgram.definitions.map(\.target)
+        )
         let projectedScalarTargets = SceneScriptScalarProgram.projectedTargets(
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets
+        ).subtracting(sharedAlphaTargets)
+        let scalarProjectedDescriptor = SceneScriptScalarDisplayProjection.apply(
+            admittedTargets: projectedScalarTargets,
+            to: mediaProjectedDescriptor
         )
         let admittedParticleRateLayerIDs = Set(
             projectedScalarTargets.compactMap { target -> Int? in
@@ -140,7 +147,7 @@ struct SceneRuntimeModelBuilder {
         )
         let particleProjectedDescriptor = SceneScriptParticleProjection.apply(
             admittedRateLayerIDs: admittedParticleRateLayerIDs,
-            to: mediaProjectedDescriptor
+            to: scalarProjectedDescriptor
         )
         let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
             admittedSceneScriptScaleLayerIDs:

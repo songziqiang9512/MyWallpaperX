@@ -148,6 +148,10 @@ enum Harness {
             scriptBindings: [bindings[0], bindings[0]]
         )
         let aggregateCandidate = try aggregateBudgetCandidate()
+        let hardAggregateCandidate = try aggregateBudgetCandidate(
+            ownerCount: 4_097,
+            generation: 41
+        )
         let plannedFamilySources = [
             vectorFailedSource, cursorFailedSource, scalarFailedSource,
             stringFailedSource, claimedSource, passFailedSource,
@@ -274,6 +278,13 @@ enum Harness {
                 .vectorFailures.count,
             "aggregateFailureCodes": Array(Set(
                 aggregateCandidate.constructionReport.vectorFailures
+                    .values.map(\.code)
+            )).sorted(),
+            "hardAggregateDomainCommitted": hardAggregateCandidate.domain != nil,
+            "hardAggregateFailures": hardAggregateCandidate.constructionReport
+                .vectorFailures.count,
+            "hardAggregateFailureCodes": Array(Set(
+                hardAggregateCandidate.constructionReport.vectorFailures
                     .values.map(\.code)
             )).sorted(),
             "exactSourceBoundaryCommitted": exactSourceBoundaryCandidate.domain != nil,
