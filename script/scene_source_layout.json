@@ -179,9 +179,13 @@
           "SceneScriptAnimationHandleBridge.swift",
           "SceneScriptAudioHost.swift",
           "SceneScriptCursorProgram.swift",
+          "SceneScriptDynamicLayerRuntime.swift",
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptLayerHandleBridge.swift",
+          "SceneScriptLayerRuntimeDescriptorBridge.swift",
+          "SceneScriptLayerTopologyProjection.swift",
           "SceneScriptMediaEventBridge.swift",
+          "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
           "SceneScriptVectorProgram.swift",
           "SceneScriptVectorRuntime.swift"

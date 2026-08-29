@@ -130,7 +130,7 @@ class SceneGovernanceContractTests(unittest.TestCase):
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
         self.assertIn("## 4. AI 主动纠偏合同", roadmap)
-        self.assertIn("## 8. 当前 V2 选择协议", roadmap)
+        self.assertIn("## 8. 当前 V3 选择协议", roadmap)
         self.assertIn("当前代码、旧测试、旧类型层级和历史 matrix", roadmap)
         self.assertIn("readiness 的唯一事实入口", roadmap)
         self.assertIn("任何 `selection-required` 成员都不能执行或计为", roadmap)
