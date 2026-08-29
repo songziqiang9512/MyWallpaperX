@@ -19,6 +19,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
+    private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
 
@@ -287,6 +288,19 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         mutationSummary
                     )
                 }
+                if binding.hasAudioRegistration,
+                   audioSpectrum.generation > 0, !audioSpectrum.isSilent,
+                   reportedAudioValueTargets.insert(binding.target).inserted,
+                   case let .scalar(inputValue) = input,
+                   case let .scalar(outputValue) = evaluation.value {
+                    NSLog(
+                        "MWX SceneScript VM: target=%@ callback=audioValuePublished type=scalar generation=%llu input=%.9g output=%.9g route=generic-only",
+                        String(describing: binding.target),
+                        audioSpectrum.generation,
+                        inputValue,
+                        outputValue
+                    )
+                }
             case let .failure(failure):
                 failures[binding.target] = failure
                 disabledTargets.insert(binding.target)
@@ -369,8 +383,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             else { return nil }
             return target
         }
-        guard binding.properties.isEmpty,
-              binding.owner.kind == .pass,
+        guard binding.owner.kind == .pass,
               let effectIndex = binding.owner.effectIndex,
               let passIndex = binding.owner.passIndex,
               descriptor.layers[objectIndex].effects.indices.contains(effectIndex) else {
@@ -396,6 +409,18 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
               value.components?.first?.bitPattern == authored.bitPattern else {
             return nil
         }
+        let validWrapper =
+            (binding.wrapperKeys == ["script", "value"]
+                && binding.properties.isEmpty
+                && value.userValueKind == nil)
+            || (binding.wrapperKeys == ["script", "scriptproperties", "value"]
+                && value.userValueKind == nil)
+            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+                && value.userValueKind == .null)
+            || (binding.wrapperKeys == ["script", "user", "value"]
+                && binding.properties.isEmpty
+                && value.userValueKind == .null)
+        guard validWrapper else { return nil }
         return .effectConstant(
             layerID: layerID,
             effectIndex: effectIndex,

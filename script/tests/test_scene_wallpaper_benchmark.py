@@ -493,6 +493,27 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(metrics["audio_vector_publications"][0]["output"],
                          "vector2(1.25, 1.25)")
 
+    def test_scene_script_typed_metrics_capture_pass_scalar_audio_value(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-typed-v2 bindings=1 "
+            "vectorBindings=0 stringBindings=0 targets=1 "
+            "route=generic-only fallback=previous-current",
+            "MWX SceneScript VM: target=effectConstant(layerID: 1509, "
+            "effectIndex: 4, passIndex: 0, name: \"strength\") "
+            "callback=audioValuePublished type=scalar generation=3 "
+            "input=1 output=1.5 route=generic-only",
+        )
+        self.assertEqual(metrics["audio_scalar_publications"], [{
+            "layer_id": 1509,
+            "effect_index": 4,
+            "pass_index": 0,
+            "constant": "strength",
+            "generation": 3,
+            "input": 1.0,
+            "output": 1.5,
+            "route": "generic-only",
+        }])
+
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
             root = Path(directory)

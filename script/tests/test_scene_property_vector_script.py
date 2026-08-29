@@ -205,6 +205,15 @@ enum Harness {
                                 scriptSource: passColorSource,
                                 components: [1, 1, 1]
                             ),
+                            "audioScalar": .init(
+                                scriptSource: passAudioScalarSource,
+                                components: [1]
+                            ),
+                            "audioScalarUser": .init(
+                                scriptSource: passAudioScalarSource,
+                                components: [1],
+                                userValueKind: .string
+                            ),
                         ]
                     )]
                 )]
@@ -381,6 +390,46 @@ enum Harness {
             left64: Array(repeating: 0, count: 64),
             right64: Array(repeating: 0, count: 64),
             generation: 1
+        )
+        let passAudioTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "audioScalar"
+        )
+        let passAudioProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "audioScalar", source: passAudioScalarSource, value: 1,
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: [
+                    "frequency": .number(0), "minvalue": .number(1),
+                    "maxvalue": .number(2), "smoothing": .number(20),
+                ]
+            )],
+            generation: 24
+        )
+        let passAudioResult = passAudioProgram.evaluate(
+            inputs: [passAudioTarget: .scalar(1)], frame: frame,
+            audioSpectrum: audioSnapshot
+        )
+        let rejectedPassAudioWrapper = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "audioScalar", source: passAudioScalarSource, value: 1,
+                wrapperKeys: ["extra", "script", "scriptproperties", "value"],
+                properties: ["frequency": .number(0)]
+            )],
+            generation: 25
+        )
+        let rejectedPassAudioProvider = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "audioScalarUser", source: passAudioScalarSource, value: 1,
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: ["frequency": .number(0)]
+            )],
+            generation: 26
         )
         let audioScaleResult = audioScaleProgram.evaluate(
             inputs: [.layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5)],
@@ -615,6 +664,12 @@ enum Harness {
             "passColorBindings": passColorProgram.bindings.count,
             "passColorValue": vector(passColorResult.values[passColorTarget]),
             "passColorFailures": passColorResult.failures.count,
+            "passAudioBindings": passAudioProgram.bindings.count,
+            "passAudioDemand": passAudioProgram.hasAudioConsumers,
+            "passAudioValue": scalar(passAudioResult.values[passAudioTarget]),
+            "passAudioFailures": passAudioResult.failures.count,
+            "passAudioWrongWrapperRejected": rejectedPassAudioWrapper.bindings.isEmpty,
+            "passAudioUserProviderRejected": rejectedPassAudioProvider.bindings.isEmpty,
             "layerOrigin": vector(
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ),
@@ -762,7 +817,9 @@ enum Harness {
     static func passBinding(
         key: String,
         source: String,
-        value: Double
+        value: Double,
+        wrapperKeys: [String] = ["script", "value"],
+        properties: [String: SceneJSONValue] = [:]
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
@@ -775,10 +832,10 @@ enum Harness {
                 .key("passes"), .index(0), .key("constantshadervalues"),
                 .key(key),
             ],
-            properties: [:],
+            properties: properties,
             authoredValue: .number(value),
             valueType: .number,
-            wrapperKeys: ["script", "value"]
+            wrapperKeys: wrapperKeys
         )
     }
 
@@ -971,6 +1028,24 @@ enum Harness {
     }
     """
 
+    static let passAudioScalarSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: "frequency", value: 0})
+        .addSlider({name: "minvalue", value: 1})
+        .addSlider({name: "maxvalue", value: 2})
+        .addSlider({name: "smoothing", value: 20})
+        .finish();
+    const audioBuffer = engine.registerAudioBuffers(engine.AUDIO_RESOLUTION_16);
+    let initialValue = 0;
+    export function init(value) { initialValue = value; return value; }
+    export function update() {
+        return initialValue * (
+            scriptProperties.minvalue
+            + audioBuffer.average[scriptProperties.frequency]
+        );
+    }
+    """
+
     static let particleAudioSource = """
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "frequency", value: 0})
@@ -1065,6 +1140,15 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passColorBindings"], 1)
         self.assertEqual(value["passColorValue"], [0, 1, 1])
         self.assertEqual(value["passColorFailures"], 0)
+
+    def test_generic_pass_scalar_executes_static_properties_and_audio(self) -> None:
+        value = self.result()
+        self.assertEqual(value["passAudioBindings"], 1)
+        self.assertTrue(value["passAudioDemand"])
+        self.assertEqual(value["passAudioValue"], 1.5)
+        self.assertEqual(value["passAudioFailures"], 0)
+        self.assertTrue(value["passAudioWrongWrapperRejected"])
+        self.assertTrue(value["passAudioUserProviderRejected"])
 
     def test_bad_return_is_local_and_duplicate_target_is_rejected(self) -> None:
         value = self.result()

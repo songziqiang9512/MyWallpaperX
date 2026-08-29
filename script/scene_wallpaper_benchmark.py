@@ -147,6 +147,13 @@ SCENE_SCRIPT_SCALAR_COMPLETION_RE = re.compile(
     r"input=(?P<input>\S+) output=(?P<output>\S+) mutations=(?P<mutations>\d+) "
     r"mutationTargets=(?P<mutation_targets>\S*) route=(?P<route>\S+)"
 )
+SCENE_SCRIPT_AUDIO_SCALAR_PUBLICATION_RE = re.compile(
+    r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<constant>[^"]+)"\) callback=audioValuePublished '
+    r"type=scalar generation=(?P<generation>\d+) "
+    r"input=(?P<input>\S+) output=(?P<output>\S+) route=(?P<route>\S+)"
+)
 MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE = re.compile(
     r"^mediaThumbnailCurrentBindingCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1554,6 +1561,23 @@ def scene_script_scalar_runtime_metrics(
         value["pass_index"],
         value["constant"],
     ))
+    audio_scalar_publications = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "generation": int(match.group("generation")),
+            "input": float(match.group("input")),
+            "output": float(match.group("output")),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_AUDIO_SCALAR_PUBLICATION_RE.finditer(log_text)
+    ]
+    audio_scalar_publications.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["pass_index"],
+        value["constant"],
+    ))
     vec3_completions = [
         {
             "layer_id": int(match.group("layer")),
@@ -1616,6 +1640,7 @@ def scene_script_scalar_runtime_metrics(
         "route": count_match.group("route") if count_match else None,
         "fallback": count_match.group("fallback") if count_match else None,
         "completions": completions,
+        "audio_scalar_publications": audio_scalar_publications,
         "vec3_completions": vec3_completions,
         "effect_vector_completions": effect_vector_completions,
         "audio_vector_publications": audio_vector_publications,
@@ -6237,6 +6262,9 @@ def run_sample(
             ),
             "scene_script_scalar_completions": (
                 scene_script_scalar_runtime["completions"]
+            ),
+            "scene_script_audio_scalar_publications": (
+                scene_script_scalar_runtime["audio_scalar_publications"]
             ),
             "scene_script_vec3_binding_count": (
                 scene_script_scalar_runtime["vector_binding_count"]
