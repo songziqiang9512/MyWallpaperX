@@ -577,6 +577,34 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     }
 }
 
+void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) {
+    if (owner == NULL || owner->domain == NULL) return;
+    MWXSceneQuickJSDomain *domain = owner->domain;
+    for (uint32_t index = 0; index < domain->layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+        if (!record->configured || !record->dynamic ||
+            record->owner_identity != owner->identity) continue;
+        record->destroyed = true;
+        record->dirty = false;
+        record->dirty_owner_identity = 0;
+    }
+    for (uint32_t index = 0; index < domain->layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+        if (!record->configured || record->destroyed) continue;
+        int32_t order = 0;
+        for (uint32_t candidate = 0; candidate < domain->layer_count; ++candidate) {
+            MWXSceneQuickJSLayerRecord *other = &domain->layers[candidate];
+            if (!other->configured || other->destroyed || other == record) continue;
+            if (other->order_index < record->order_index ||
+                (other->order_index == record->order_index && candidate < index)) {
+                order += 1;
+            }
+        }
+        record->order_index = order;
+    }
+    owner->layer_mutation_count = 0;
+}
+
 size_t mwx_scene_quickjs_owner_layer_mutation_count(const MWXSceneQuickJSOwner *owner) {
     return owner == NULL ? 0 : owner->layer_mutation_count;
 }

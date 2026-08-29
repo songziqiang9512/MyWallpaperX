@@ -70,6 +70,41 @@ static int update(
     );
 }
 
+static int teardown_owner(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    MWXSceneQuickJSResult expected,
+    uint32_t expected_invoked,
+    uint32_t expected_destroy_count,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 0,
+        .runtime = 3,
+    };
+    uint32_t invoked = 0;
+    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_teardown(
+        owner, generation, &frame, NULL, 0, "{}", 2,
+        &invoked, diagnostic, sizeof(diagnostic)
+    );
+    MWXSceneQuickJSLifecycleSnapshot snapshot = {0};
+    MWXSceneQuickJSResult snapshot_result =
+        mwx_scene_quickjs_owner_lifecycle_snapshot(owner, &snapshot);
+    return check(
+        actual == expected && invoked == expected_invoked &&
+            snapshot_result == MWX_SCENE_QUICKJS_OK &&
+            snapshot.teardown_started == 1 &&
+            snapshot.destroy_callback_count == expected_destroy_count &&
+            snapshot.active_timer_count == 0 &&
+            snapshot.pending_layer_mutation_count == 0 &&
+            snapshot.active_dynamic_layer_count == 0 &&
+            snapshot.has_job_residue == 0 && snapshot.callback_active == 0,
+        label, diagnostic
+    );
+}
+
 static int media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -1681,6 +1716,72 @@ int main(void) {
         "dynamic layer budget rejected"
     );
 
+    const char *teardown_source =
+        "export function init(value){"
+        "thisScene.createLayer({text:'live'});"
+        "engine.setInterval(()=>{},1000);return value;}"
+        "export function destroy(){"
+        "thisScene.createLayer({text:'destroy'});"
+        "engine.setTimeout(()=>{},0);Promise.resolve().then(()=>{});}";
+    MWXSceneQuickJSOwner *teardown = mwx_scene_quickjs_owner_create(
+        domain, teardown_source, strlen(teardown_source),
+        46, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(teardown != NULL, "teardown owner compile", diagnostic);
+    failures += configure_owner_layer(teardown, 42, "teardown owner identity");
+    failures += update(
+        teardown, 46, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "teardown owner initialized"
+    );
+    MWXSceneQuickJSLifecycleSnapshot before_teardown = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_lifecycle_snapshot(
+            teardown, &before_teardown
+        ) == MWX_SCENE_QUICKJS_OK &&
+            before_teardown.active_timer_count == 1 &&
+            before_teardown.active_dynamic_layer_count == 1,
+        "teardown precondition has live resources", diagnostic
+    );
+    failures += teardown_owner(
+        teardown, 46, MWX_SCENE_QUICKJS_OK, 1, 1,
+        "destroy exactly once and resources quiesce"
+    );
+    failures += teardown_owner(
+        teardown, 46, MWX_SCENE_QUICKJS_OK, 0, 1,
+        "teardown is idempotent"
+    );
+    failures += update(
+        teardown, 46, 1, MWX_SCENE_QUICKJS_STALE_OWNER, 0,
+        "teardown revokes old generation"
+    );
+
+    const char *teardown_exception_source =
+        "export function update(value){return value;}"
+        "export function destroy(){thisScene.createLayer({text:'discard'});"
+        "engine.setInterval(()=>{},1);throw new Error('destroy failure');}";
+    MWXSceneQuickJSOwner *teardown_exception = mwx_scene_quickjs_owner_create(
+        domain, teardown_exception_source, strlen(teardown_exception_source),
+        47, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        teardown_exception != NULL, "teardown exception compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        teardown_exception, 17, "teardown exception identity"
+    );
+    failures += update(
+        teardown_exception, 47, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "teardown exception owner active"
+    );
+    failures += teardown_owner(
+        teardown_exception, 47, MWX_SCENE_QUICKJS_EXCEPTION, 1, 1,
+        "destroy exception still quiesces owner"
+    );
+    failures += update(
+        isolated, 2, 2, MWX_SCENE_QUICKJS_OK, 12,
+        "destroy exception preserves peer owner"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -1721,6 +1822,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(static_setter);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
+    mwx_scene_quickjs_owner_destroy(teardown_exception);
+    mwx_scene_quickjs_owner_destroy(teardown);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -1893,7 +1996,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertLess(timeline, preliminary)
         self.assertLess(preliminary, evaluate)
         self.assertLess(evaluate, final_snapshot)
-        self.assertIn("sceneScriptScalarProgram.invalidate()", frame)
+        self.assertIn("teardownSceneScriptOwners(launchContext, reason: reason)", frame)
+        self.assertNotIn("sceneScriptScalarProgram.invalidate()", frame)
 
 
 if __name__ == "__main__":

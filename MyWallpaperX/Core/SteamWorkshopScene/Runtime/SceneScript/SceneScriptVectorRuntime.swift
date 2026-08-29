@@ -263,6 +263,21 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
 
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String,
+        userPropertiesJSON: String
+    ) -> SceneScriptOwnerTeardownOutcome {
+        domain.resetBudget(budget.interruptBudget)
+        return SceneScriptOwnerLifecycleBridge.teardown(
+            owner: handle,
+            generation: generation,
+            frame: frame,
+            scriptPropertiesJSON: scriptPropertiesJSON,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     private static func failure(
         _ raw: MWXSceneQuickJSResult,
         _ buffer: [CChar]

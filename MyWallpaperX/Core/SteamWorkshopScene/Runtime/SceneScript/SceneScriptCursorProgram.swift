@@ -186,6 +186,22 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         capturedHits = [:]
     }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        let outcomes = bindings.filter(\.ownsOwner).map {
+            $0.owner.teardown(
+                frame: frame,
+                scriptPropertiesJSON: "",
+                userPropertiesJSON: userPropertiesJSON
+            )
+        }
+        previousHits = [:]
+        capturedHits = [:]
+        return outcomes
+    }
+
     private struct OwnerIdentity {
         let layerID: Int
         let authoredOrder: Int

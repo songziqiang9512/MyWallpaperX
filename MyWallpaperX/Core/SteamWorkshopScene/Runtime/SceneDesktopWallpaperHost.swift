@@ -94,10 +94,9 @@ final class SceneDesktopWallpaperHost {
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
             epoch: nextVideoProviderEpoch
         )
-        launchContext?.sceneScriptScalarProgram.invalidate()
-        launchContext?.sceneScriptStringProgram.invalidate()
-        launchContext?.sceneScriptCursorProgram.invalidate()
-        launchContext?.propertyVectorScriptProgram.invalidate()
+        if let launchContext {
+            teardownSceneScriptOwners(launchContext, reason: teardownReason)
+        }
         launchContext = context
         mediaColorTransitionRuntime = .init(
             program: context.mediaColorTransitionProgram

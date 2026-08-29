@@ -211,6 +211,15 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
 
     func invalidate() { bindings.forEach { $0.invalidate() } }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        bindings.map {
+            $0.teardown(frame: frame, userPropertiesJSON: userPropertiesJSON)
+        }
+    }
+
     private func dispatch(
         _ result: Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure>,
         binding: SceneScriptStringOwner,

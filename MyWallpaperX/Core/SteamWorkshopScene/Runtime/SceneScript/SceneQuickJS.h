@@ -58,6 +58,16 @@ typedef struct MWXSceneQuickJSFrameInput {
     double runtime;
 } MWXSceneQuickJSFrameInput;
 
+typedef struct MWXSceneQuickJSLifecycleSnapshot {
+    uint32_t teardown_started;
+    uint32_t destroy_callback_count;
+    uint32_t active_timer_count;
+    uint32_t pending_layer_mutation_count;
+    uint32_t active_dynamic_layer_count;
+    uint32_t has_job_residue;
+    uint32_t callback_active;
+} MWXSceneQuickJSLifecycleSnapshot;
+
 typedef struct MWXSceneQuickJSMediaThumbnailEvent {
     uint32_t has_thumbnail;
 } MWXSceneQuickJSMediaThumbnailEvent;
@@ -252,6 +262,24 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
 );
 
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    uint32_t *destroy_callback_invoked,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_lifecycle_snapshot(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSLifecycleSnapshot *snapshot
+);
 
 uint32_t mwx_scene_quickjs_owner_active_timer_count(
     MWXSceneQuickJSOwner *owner

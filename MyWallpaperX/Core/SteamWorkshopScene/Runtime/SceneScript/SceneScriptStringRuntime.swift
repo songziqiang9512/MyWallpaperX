@@ -228,6 +228,20 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
 
     func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> SceneScriptOwnerTeardownOutcome {
+        domain.resetBudget(budget.interruptBudget)
+        return SceneScriptOwnerLifecycleBridge.teardown(
+            owner: handle,
+            generation: generation,
+            frame: frame,
+            scriptPropertiesJSON: "",
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     private func dispatch(
         event: (OpaquePointer, Int) -> Result<
             SceneScriptMediaEventMutations,

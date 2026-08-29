@@ -98,6 +98,8 @@ struct MWXSceneQuickJSOwner {
     uint64_t generation;
     bool initialized;
     bool disabled;
+    bool teardown_started;
+    uint32_t destroy_callback_count;
     JSValue material_function_layer;
     JSValue scene_handle;
     JSValue object_handle;
@@ -148,6 +150,7 @@ bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain)
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,

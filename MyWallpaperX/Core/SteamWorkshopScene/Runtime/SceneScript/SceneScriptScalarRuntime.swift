@@ -300,6 +300,20 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         mwx_scene_quickjs_owner_invalidate(handle)
     }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> SceneScriptOwnerTeardownOutcome {
+        domain.resetBudget(budget.interruptBudget)
+        return SceneScriptOwnerLifecycleBridge.teardown(
+            owner: handle,
+            generation: generation,
+            frame: frame,
+            scriptPropertiesJSON: scriptPropertiesJSON,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     private static func diagnostic(_ buffer: [CChar]) -> String {
         let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
         return String(decoding: bytes, as: UTF8.self)

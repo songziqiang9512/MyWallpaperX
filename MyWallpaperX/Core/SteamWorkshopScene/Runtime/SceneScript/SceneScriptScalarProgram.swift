@@ -305,6 +305,15 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         bindings.forEach { $0.invalidate() }
     }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        bindings.map {
+            $0.teardown(frame: frame, userPropertiesJSON: userPropertiesJSON)
+        }
+    }
+
     private static func empty(
         budget: SceneScriptScalarBudget,
         generation: UInt64

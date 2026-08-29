@@ -6,7 +6,7 @@
 >
 > 启动日期：2026-08-15
 >
-> 当前主线：V1-A correctness 与 V1-B 产品 owner debt 已按专项表及 fresh 运行证据闭合；现役主线进入 V2 真实 SceneScript VM。V4 typed input/provider 继续作为 V2 consumer 的横切轨，不提前进入 V3/V5
+> 当前主线：V1-A correctness、V1-B 产品 owner debt 与 V2 bounded SceneScript 完成门已按专项表及 fresh 运行证据闭合；现役主线进入 V3 Particle component interpreter。V4 typed input/provider 继续作为 V3 consumer 的横切轨，不提前进入 V5
 >
 > 当前能力只查[能力台账](semantics/coverage-ledger.md)，架构理由只查[兼容运行时架构](runtime-architecture.md)，已运行结果只查[运行证据索引](semantics/runtime-evidence-index.md)。
 
@@ -74,7 +74,7 @@ V1-B 完成门：所有纳入 V1 完成范围的 profile 都有显式 route stat
 
 只有 V1-A 与 V1-B 同时通过，主线才进入 V2。
 
-### V2：真实 SceneScript VM——现在
+### V2：真实 SceneScript VM——已闭合 bounded 完成门
 
 首条纵向链：
 
@@ -101,7 +101,9 @@ inline/file source
 
 V2 完成门：以[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)为当前事实，一个真实 property script 和一个 lifecycle/event script 通过 VM 改变画面或产生预登记事件结果；无限循环、exception、OOM、reload/teardown 与 stale handle 只终止对应 script owner；所需 typed handle、job/timer 与 mutation transaction 有正反门。纳入 V2 完成范围的 bounded Swift/fixed owner 已完成 `generic-only` 迁移或在专项表明确保持 unsupported，不再承担静默产品 fallback。V2 通过后才进入 V3。
 
-### V3：Particle component interpreter
+当前段位：2026-08-29 已由[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)和[运行证据索引](semantics/runtime-evidence-index.md)通过上述 bounded 完成门。停止与场景切换现在对每个 owner 恰好调用一次 `destroy()`，并在 callback 即使创建 timer、Promise job 或动态层后仍原子归零；旧 generation 继续 stale fail-closed。该结论不外推 file module、完整 API、所有 value type、multi-surface、官方行为 parity 或 stock clock 等未闭合 consumer，它们保持专项表中的明确边界，不再阻塞 V3 主线。
+
+### V3：Particle component interpreter——现在
 
 按官方组件面把 definition 编译为共享 operation stream：
 
@@ -263,21 +265,21 @@ remaining_deviation_and_exit_condition:
 
 没有统一 collector 的字段必须明确写 `not-collected`，不能填零或推测；本轮治理只建立字段合同，不声称已有自动 collector。指标只使用可实际采集的分母，不提前写百分比目标。compile success、route count、matrix PASS、非黑截图和进程存活均不能单独证明效果或兼容性。
 
-## 8. 当前 V2 选择协议
+## 8. 当前 V3 选择协议
 
-当前主线只从[能力台账](semantics/coverage-ledger.md)、[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)、typed input/provider 对应专项表和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V2 公共 VM/API 纵向结果。已完成 V1 批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
+当前主线只从[能力台账](semantics/coverage-ledger.md)、[Particle 组件覆盖表](semantics/particle-component-coverage.md)、typed input/provider 对应专项表和[运行证据索引](semantics/runtime-evidence-index.md)中选择一个尚未闭合的 V3 公共 component-operation 纵向结果。已完成 V1/V2 批次的逐项过程、样本身份、报告路径、截图与当时的“下一门”只属于对应证据和 Git 历史，不得复制回本路线，也不得从其中续接任务。
 
 下一批必须同时满足：
 
-1. 对应一个真实 authored SceneScript source、attachment 或 API consumer，并能指出 source→VM→typed snapshot→现有 consumer 主链上的首断点；
-2. 通过普通 authored schema、ECMAScript 语义、typed ABI/domain 和共享 execution identity 定义 capability，不以 effect/sample/layer/path/hash 固化脚本结果；
-3. 复用唯一 per-scene VM、property/frame snapshot、Program、GraphExecutor、publication、rollback 和 compositor owner，不新增第二 property state、clock 或输出链；
+1. 对应一个真实 authored particle definition/component 组合，并能指出 definition→ordered operation stream→instance lifecycle→现有 Metal consumer 主链上的首断点；
+2. 通过普通 component schema、typed component registry、数值/资源合同和共享 instance identity 定义 capability，不以 definition/sample/layer/path/hash 固化粒子结果；
+3. 复用现有 frame/resource publication、generation/epoch、completion/rollback、GraphExecutor/particle Metal execution 和唯一 compositor owner，不新增第二 particle state、clock、resource registry 或输出链；
 4. 能在一个批次内闭合正常返回、exception/timeout或bad-return局部失败、新组合/未见 fixture与真实隔离运行；
-5. 能明确本批只达到 `slice-executable`、`slice-visible`，还是还包含旧固定脚本/profile owner撤权；没有真实VM执行和consumer闭合不得只凭parse/IR/API census宣告完成。
+5. 能明确本批只达到 `slice-executable`、`slice-visible`，还是还包含 strict particle profile owner撤权；没有真实 spawn/update/render/teardown 与 consumer 闭合不得只凭 parse/IR/component census 宣告完成。
 
-候选只从[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)、[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)和[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个纵向结果；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V1 历史断点，也不以新增固定脚本profile制造可见结果。
+候选只从[Particle 组件覆盖表](semantics/particle-component-coverage.md)、[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)和[运行证据索引当前快照](semantics/runtime-evidence-index.md#1-当前证据快照)选择，不在本文维护名单。主实现者在编码前填写第 6 节纠偏卡并冻结一个纵向结果；并行研究只能提供候选证据，不能各自建立路线、修改共享权威文档或同时取得产品输出权。若当前证据不能让任一候选满足上述五项，先补最小可区分证据，不退回 V1/V2 历史断点，也不以新增完整 particle definition profile 制造可见结果。
 
-V1-A/V1-B 完成事实已由能力台账、专项表与运行证据索引同步证明；若后续发现V1回归，按失败半径撤回对应产品route并修共享路径，不把V2主线改写成回收旧专用owner。V2完成门成立前不得进入V3，roadmap只据权威当前事实推进段位。
+V1-A/V1-B/V2 bounded 完成事实已由能力台账、专项表与运行证据索引同步证明；若后续发现回归，按失败半径撤回对应产品 route 并修共享路径，不把 V3 主线改写成回收旧专用 owner。roadmap 只据权威当前事实推进段位，V3 完成门成立前不得进入 V4 收口或 V5。
 
 ## 9. 完成与退役
 

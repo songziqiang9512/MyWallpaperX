@@ -390,3 +390,158 @@ void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
     owner->generation += 1;
     owner->disabled = true;
 }
+
+static bool valid_teardown_frame(const MWXSceneQuickJSFrameInput *frame) {
+    return frame != NULL && isfinite(frame->time_of_day) &&
+        frame->time_of_day >= 0 && frame->time_of_day <= 1 &&
+        isfinite(frame->frame_time) && frame->frame_time >= 0 &&
+        isfinite(frame->runtime) && frame->runtime >= 0;
+}
+
+static uint32_t active_dynamic_layer_count(const MWXSceneQuickJSOwner *owner) {
+    if (owner == NULL || owner->domain == NULL) return 0;
+    uint32_t count = 0;
+    for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
+        const MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
+        if (record->configured && record->dynamic && !record->destroyed &&
+            record->owner_identity == owner->identity) count += 1;
+    }
+    return count;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_lifecycle_snapshot(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSLifecycleSnapshot *snapshot
+) {
+    if (owner == NULL || snapshot == NULL) {
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *snapshot = (MWXSceneQuickJSLifecycleSnapshot){
+        .teardown_started = owner->teardown_started ? 1 : 0,
+        .destroy_callback_count = owner->destroy_callback_count,
+        .active_timer_count = mwx_scene_quickjs_owner_active_timer_count(owner),
+        .pending_layer_mutation_count = (uint32_t)owner->layer_mutation_count,
+        .active_dynamic_layer_count = active_dynamic_layer_count(owner),
+        .has_job_residue = mwx_scene_quickjs_owner_has_job_residue(owner) ? 1 : 0,
+        .callback_active = owner->domain != NULL &&
+            owner->domain->callback_active && owner->domain->active_owner == owner ? 1 : 0,
+    };
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    uint32_t *destroy_callback_invoked,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (destroy_callback_invoked != NULL) *destroy_callback_invoked = 0;
+    if (owner == NULL || destroy_callback_invoked == NULL ||
+        !valid_teardown_frame(frame)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid SceneScript teardown"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (owner->teardown_started) return MWX_SCENE_QUICKJS_OK;
+    if (owner->generation != expected_generation) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "stale SceneScript owner generation"
+        );
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+
+    owner->teardown_started = true;
+    MWXSceneQuickJSDomain *domain = owner->domain;
+    JSContext *context = domain->context;
+    domain->interrupted = false;
+    mwx_scene_quickjs_discard_jobs(owner);
+    mwx_scene_quickjs_destroy_job_host(owner);
+    mwx_scene_quickjs_destroy_timer_host(owner);
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
+    owner->material_function_count = 0;
+    owner->material_function_overflow = false;
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
+
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    JSValue function = JS_UNDEFINED;
+    if (!mwx_scene_quickjs_assign_script_properties(
+            owner, script_properties_json, script_properties_length
+        )) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "SceneScript teardown properties unavailable"
+        );
+        result = MWX_SCENE_QUICKJS_EXCEPTION;
+    } else {
+        function = JS_GetPropertyStr(context, owner->module, "destroy");
+        if (JS_IsException(function)) {
+            mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
+            result = MWX_SCENE_QUICKJS_EXCEPTION;
+        }
+    }
+
+    JSValue previous_layer = JS_UNDEFINED;
+    JSValue previous_scene = JS_UNDEFINED;
+    JSValue previous_object = JS_UNDEFINED;
+    JSValue previous_engine = JS_UNDEFINED;
+    bool callback_started = false;
+    bool handles_bound = false;
+    bool engine_bound = false;
+    if (result == MWX_SCENE_QUICKJS_OK && JS_IsFunction(context, function)) {
+        mwx_scene_quickjs_begin_callback(owner);
+        callback_started = true;
+        handles_bound = mwx_scene_quickjs_bind_owner_handles(
+            owner, &previous_layer, &previous_scene, &previous_object
+        );
+        engine_bound = handles_bound && mwx_scene_quickjs_bind_frame_engine_host(
+            owner, frame, user_properties_json, user_properties_length,
+            &previous_engine
+        );
+        if (!engine_bound) {
+            mwx_scene_quickjs_write_diagnostic(
+                diagnostic, diagnostic_capacity, "SceneScript teardown host unavailable"
+            );
+            result = MWX_SCENE_QUICKJS_EXCEPTION;
+        } else {
+            owner->destroy_callback_count += 1;
+            *destroy_callback_invoked = 1;
+            JSValue callback_result = JS_Call(
+                context, function, owner->module, 0, NULL
+            );
+            if (JS_IsException(callback_result)) {
+                result = mwx_scene_quickjs_exception_result(
+                    domain, diagnostic, diagnostic_capacity
+                );
+            }
+            JS_FreeValue(context, callback_result);
+        }
+    }
+
+    if (engine_bound && !mwx_scene_quickjs_restore_frame_engine_host(
+            owner, previous_engine
+        )) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    if (handles_bound && !mwx_scene_quickjs_restore_owner_handles(
+            owner, previous_layer, previous_scene, previous_object
+        )) result = MWX_SCENE_QUICKJS_EXCEPTION;
+    if (callback_started) mwx_scene_quickjs_end_callback(owner);
+    JS_FreeValue(context, function);
+
+    mwx_scene_quickjs_discard_jobs(owner);
+    mwx_scene_quickjs_destroy_job_host(owner);
+    mwx_scene_quickjs_destroy_timer_host(owner);
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
+    mwx_scene_quickjs_owner_remove_dynamic_layers(owner);
+    owner->material_function_count = 0;
+    owner->animation_command_count = 0;
+    owner->generation += 1;
+    owner->disabled = true;
+    return result;
+}

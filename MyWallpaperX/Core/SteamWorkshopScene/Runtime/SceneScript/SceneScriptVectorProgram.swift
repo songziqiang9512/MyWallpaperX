@@ -448,6 +448,24 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         bindings.forEach { $0.owner.invalidate() }
     }
 
+    func teardown(
+        frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        bindings.map { binding in
+            let propertiesJSON = Self.scriptPropertiesJSON(
+                binding.properties,
+                effectiveValues: effectivePropertyValues
+            ) ?? ""
+            return binding.owner.teardown(
+                frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
+                userPropertiesJSON: userPropertiesJSON
+            )
+        }
+    }
+
     private struct Candidate {
         let source: String
         let definition: SceneDynamicTargetDefinition
