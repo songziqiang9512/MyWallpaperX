@@ -5,6 +5,7 @@ nonisolated struct SceneScriptStringFrameResult: Equatable, Sendable {
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 /// Generic string-valued SceneScript owners. Current admission is the authored
@@ -111,6 +112,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
         var animations: [SceneTimelinePlaybackMutation] = []
+        var layerMutations: [SceneScriptLayerMutation] = []
         for binding in bindings {
             guard !disabledTargets.contains(binding.target),
                   let input = inputs[binding.target],
@@ -126,6 +128,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             }
             var ownerMaterialFunctions: [SceneScriptMaterialFunctionMutation] = []
             var ownerAnimations: [SceneTimelinePlaybackMutation] = []
+            var ownerLayerMutations: [SceneScriptLayerMutation] = []
             if let playback, !dispatch(
                 binding.dispatchMediaPlayback(
                     playback, frame: frame, userPropertiesJSON: userPropertiesJSON,
@@ -134,6 +137,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 binding: binding,
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
+                layers: &ownerLayerMutations,
                 failures: &failures
             ) { continue }
             if let properties, !dispatch(
@@ -144,6 +148,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 binding: binding,
                 materialFunctions: &ownerMaterialFunctions,
                 animations: &ownerAnimations,
+                layers: &ownerLayerMutations,
                 failures: &failures
             ) { continue }
             switch binding.evaluate(
@@ -158,6 +163,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     contentsOf: evaluation.materialFunctionMutations
                 )
                 ownerAnimations.append(contentsOf: evaluation.animationMutations)
+                ownerLayerMutations.append(contentsOf: evaluation.layerMutations)
                 if let thumbnail, !dispatch(
                     binding.dispatchMediaThumbnail(
                         thumbnail, frame: frame,
@@ -167,11 +173,13 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     binding: binding,
                     materialFunctions: &ownerMaterialFunctions,
                     animations: &ownerAnimations,
+                    layers: &ownerLayerMutations,
                     failures: &failures
                 ) { continue }
                 values[binding.target] = evaluation.value
                 materialFunctions.append(contentsOf: ownerMaterialFunctions)
                 animations.append(contentsOf: ownerAnimations)
+                layerMutations.append(contentsOf: ownerLayerMutations)
                 if let properties {
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaPropertiesChanged generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d route=generic-only",
@@ -196,7 +204,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             values: values,
             failures: failures,
             materialFunctionMutations: materialFunctions,
-            animationMutations: animations
+            animationMutations: animations,
+            layerMutations: layerMutations
         )
     }
 
@@ -207,12 +216,14 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         binding: SceneScriptStringOwner,
         materialFunctions: inout [SceneScriptMaterialFunctionMutation],
         animations: inout [SceneTimelinePlaybackMutation],
+        layers: inout [SceneScriptLayerMutation],
         failures: inout [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     ) -> Bool {
         switch result {
         case let .success(mutations):
             materialFunctions.append(contentsOf: mutations.materialFunctions)
             animations.append(contentsOf: mutations.animations)
+            layers.append(contentsOf: mutations.layers)
             return true
         case let .failure(failure):
             failures[binding.target] = failure

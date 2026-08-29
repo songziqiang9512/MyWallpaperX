@@ -878,11 +878,12 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     mwx_scene_quickjs_install_job_host(domain);
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
-    if (!install_value_host(domain)) {
+    if (!install_value_host(domain) ||
+        !mwx_scene_quickjs_install_layer_handle_class(domain)) {
         JS_FreeContext(domain->context);
         JS_FreeRuntime(domain->runtime);
         free(domain);
-        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript value host unavailable");
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript value or layer host unavailable");
         return NULL;
     }
     return domain;
@@ -898,6 +899,8 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         if (domain->layers != NULL) {
             for (uint32_t index = 0; index < domain->layer_count; ++index) {
                 free(domain->layers[index].name);
+                free(domain->layers[index].text);
+                free(domain->layers[index].font);
             }
             free(domain->layers);
         }
@@ -1242,6 +1245,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
     MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
@@ -1340,6 +1344,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
     MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
@@ -1438,6 +1443,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
     MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(

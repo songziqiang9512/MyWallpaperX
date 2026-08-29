@@ -232,6 +232,7 @@ static MWXSceneQuickJSResult dispatch_event(
     domain->interrupted = false;
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
     MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(

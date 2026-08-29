@@ -4,6 +4,7 @@ nonisolated struct SceneScriptStringEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 /// Owns one string-valued property in the shared per-scene QuickJS domain.
@@ -49,6 +50,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
         }
         do {
+            try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             var updateAvailable: UInt32 = 0
             let updateResult = "update".withCString {
                 mwx_scene_quickjs_owner_has_function(
@@ -157,10 +159,16 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         case let .success(value): animations = value
         case let .failure(failure): return .failure(failure)
         }
+        let layerMutations: [SceneScriptLayerMutation]
+        switch SceneScriptLayerMutationBridge.mutations(owner: handle) {
+        case let .success(value): layerMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             value: .string(value),
             materialFunctionMutations: materialFunctions,
-            animationMutations: animations
+            animationMutations: animations,
+            layerMutations: layerMutations
         ))
     }
 

@@ -243,6 +243,7 @@ class SceneMetalView: NSView {
 
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
+        layerTopology: SceneScriptLayerTopologySnapshot,
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         mediaInput: SceneMediaThumbnailInbox.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
@@ -264,7 +265,10 @@ class SceneMetalView: NSView {
         let particleBatches = advanceParticles(
             timing: timing, dynamicValues: dynamicValues,
             frameContext: frameContext, cameraFrame: cameraFrame)
-        dynamicTextTextures?.update(from: dynamicValues)
+        dynamicTextTextures?.update(
+            from: dynamicValues,
+            dynamicLayers: layerTopology.dynamicLayers
+        )
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update(from: mediaInput)
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
@@ -285,6 +289,7 @@ class SceneMetalView: NSView {
         }
         renderer.renderFrame(
             imageTextures: frameImageTextures,
+            layerTopology: layerTopology,
             dynamicTextRenderSizes: dynamicTextSnapshot?.renderSizes ?? [:],
             userPropertyTextures: userPropertyTextureLoad.textures,
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,

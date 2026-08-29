@@ -5,6 +5,7 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 /// Generic pass-constant SceneScript owners. The program is deliberately
@@ -152,6 +153,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
+        var layerMutations: [SceneScriptLayerMutation] = []
         for binding in bindings {
             guard !disabledTargets.contains(binding.target) else { continue }
             guard let input = inputs[binding.target],
@@ -184,6 +186,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var playbackMutationCount = 0
             if let pendingPlaybackEvent {
                 switch binding.dispatchMediaPlayback(
@@ -201,6 +204,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     callbackAnimationMutations.append(
                         contentsOf: eventMutations.animations
                     )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
@@ -221,6 +225,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 callbackAnimationMutations.append(
                     contentsOf: evaluation.animationMutations
                 )
+                callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
                 var thumbnailMutationCount = 0
                 if let pendingMediaEvent {
                     switch binding.dispatchMediaThumbnail(
@@ -238,6 +243,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                         callbackAnimationMutations.append(
                             contentsOf: eventMutations.animations
                         )
+                        callbackLayerMutations.append(contentsOf: eventMutations.layers)
                     case let .failure(failure):
                         failures[binding.target] = failure
                         disabledTargets.insert(binding.target)
@@ -247,6 +253,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 values[binding.target] = evaluation.value
                 materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
                 animationMutations.append(contentsOf: callbackAnimationMutations)
+                layerMutations.append(contentsOf: callbackLayerMutations)
                 if pendingMediaEvent != nil {
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ mutations=%d route=generic-only",
@@ -289,7 +296,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             values: values,
             failures: failures,
             materialFunctionMutations: materialFunctionMutations,
-            animationMutations: animationMutations
+            animationMutations: animationMutations,
+            layerMutations: layerMutations
         )
     }
 

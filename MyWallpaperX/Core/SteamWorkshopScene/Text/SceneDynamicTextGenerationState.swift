@@ -37,6 +37,25 @@ nonisolated struct SceneDynamicTextGenerationState {
         }
     }
 
+    nonisolated mutating func registerDynamic(
+        layerID: Int,
+        signature: SceneDynamicTextSignature
+    ) -> RenderRequest? {
+        guard requested[layerID] == nil else { return nil }
+        requested[layerID] = signature
+        generations[layerID] = 1
+        renderingGenerations[layerID] = 1
+        return .init(layerID: layerID, signature: signature, generation: 1)
+    }
+
+    nonisolated mutating func unregister(layerID: Int) {
+        requested.removeValue(forKey: layerID)
+        ready.removeValue(forKey: layerID)
+        generations.removeValue(forKey: layerID)
+        readyGenerations.removeValue(forKey: layerID)
+        renderingGenerations.removeValue(forKey: layerID)
+    }
+
     nonisolated mutating func request(
         layerID: Int,
         signature: SceneDynamicTextSignature

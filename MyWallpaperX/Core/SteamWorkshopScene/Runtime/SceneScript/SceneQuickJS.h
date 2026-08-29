@@ -25,6 +25,27 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutation {
     const char *function_name;
 } MWXSceneQuickJSMaterialFunctionMutation;
 
+typedef enum MWXSceneQuickJSLayerMutationKind {
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT = 1,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY = 2
+} MWXSceneQuickJSLayerMutationKind;
+
+typedef struct MWXSceneQuickJSLayerMutation {
+    uint32_t kind;
+    uint32_t dynamic;
+    int64_t layer_id;
+    int32_t order_index;
+    uint32_t visible;
+    double alpha;
+    double origin[3];
+    double scale[3];
+    double angles[3];
+    double color[3];
+    double point_size;
+    const char *text;
+    const char *font;
+} MWXSceneQuickJSLayerMutation;
+
 typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_PLAY = 1,
     MWX_SCENE_QUICKJS_ANIMATION_PAUSE = 2,
@@ -98,6 +119,56 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     const char *name,
     size_t name_length,
     const double origin[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    int64_t layer_id,
+    const char *name,
+    size_t name_length,
+    const double origin[3],
+    const double scale[3],
+    const double angles[3],
+    uint32_t visible,
+    double alpha,
+    const char *text,
+    size_t text_length,
+    const char *font,
+    size_t font_length,
+    double point_size,
+    const double color[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    const double scale[3],
+    const double angles[3],
+    uint32_t visible,
+    double alpha,
+    const char *text,
+    size_t text_length,
+    const char *font,
+    size_t font_length,
+    double point_size,
+    const double color[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+size_t mwx_scene_quickjs_owner_layer_mutation_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSLayerMutation *mutation,
     char *diagnostic,
     size_t diagnostic_capacity
 );

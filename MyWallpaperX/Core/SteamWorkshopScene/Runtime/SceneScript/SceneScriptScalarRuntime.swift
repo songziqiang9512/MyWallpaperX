@@ -44,6 +44,7 @@ nonisolated struct SceneScriptScalarEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
@@ -120,6 +121,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             )
         }
         do {
+            try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
@@ -229,10 +231,16 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         case let .success(value): animationMutations = value
         case let .failure(failure): return .failure(failure)
         }
+        let layerMutations: [SceneScriptLayerMutation]
+        switch SceneScriptLayerMutationBridge.mutations(owner: handle) {
+        case let .success(value): layerMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             value: .scalar(output),
             materialFunctionMutations: mutations,
-            animationMutations: animationMutations
+            animationMutations: animationMutations,
+            layerMutations: layerMutations
         ))
     }
 

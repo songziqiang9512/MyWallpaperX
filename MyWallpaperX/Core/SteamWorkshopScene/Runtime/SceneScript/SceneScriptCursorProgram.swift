@@ -10,6 +10,7 @@ nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
     let failures: [Int: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
@@ -114,6 +115,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         var failures: [Int: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
         var animations: [SceneTimelinePlaybackMutation] = []
+        var layers: [SceneScriptLayerMutation] = []
         func emit(
             _ kind: SceneScriptCursorEventKind,
             binding: SceneScriptCursorBinding,
@@ -134,6 +136,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             case let .success(mutations):
                 materialFunctions.append(contentsOf: mutations.materialFunctions)
                 animations.append(contentsOf: mutations.animations)
+                layers.append(contentsOf: mutations.layers)
                 NSLog(
                     "MWX SceneScript VM: layerID=%d event=%@ route=generic-only",
                     binding.layerID, kind.callbackName
@@ -172,7 +175,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         return .init(
             failures: failures,
             materialFunctionMutations: materialFunctions,
-            animationMutations: animations
+            animationMutations: animations,
+            layerMutations: layers
         )
     }
 

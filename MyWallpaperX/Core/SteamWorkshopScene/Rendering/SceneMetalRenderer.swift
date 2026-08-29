@@ -75,6 +75,7 @@ struct SceneMetalRenderer {
 
     func renderFrame(
         imageTextures: SceneBaseImageTextureSnapshot,
+        layerTopology: SceneScriptLayerTopologySnapshot? = nil,
         dynamicTextRenderSizes: [Int: [Float]] = [:],
         userPropertyTextures: [String: MTLTexture] = [:],
         userPropertyTextureStates: [
@@ -107,8 +108,18 @@ struct SceneMetalRenderer {
             frameIndex: frameContext.frameIndex
         )
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
-        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(descriptor: renderDescriptor,
-            byID: layersByID, snapshot: frameContext.dynamicValues, staticFrames: worldFramesByLayerID)
+        let frameDescriptor = layerTopology.map(renderDescriptor.applying) ?? renderDescriptor
+        let frameLayersByID = Dictionary(
+            uniqueKeysWithValues: frameDescriptor.layers.map { ($0.id, $0) }
+        )
+        let frameStaticWorldFrames = SceneLayerWorldFrameResolver.compute(
+            descriptor: frameDescriptor, byID: frameLayersByID
+        )
+        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+            descriptor: frameDescriptor, byID: frameLayersByID,
+            snapshot: frameContext.dynamicValues,
+            staticFrames: frameStaticWorldFrames
+        )
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
@@ -116,7 +127,12 @@ struct SceneMetalRenderer {
             cameraFrame: cameraFrame,
             viewportSize: viewportSize
         )
-        let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap { layersByID[$0] }
+        let orderedLayers = frameDescriptor.renderOrderLayerIDs.compactMap {
+            frameLayersByID[$0]
+        }
+        let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: frameDescriptor
+        )
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
@@ -188,7 +204,7 @@ struct SceneMetalRenderer {
                     mainPass: mainPass
                 )
             }
-            guard visibleLayerIDs.contains(layer.id) else { continue }
+            guard frameVisibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {
             case "image", "solid", "text":
                 guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }

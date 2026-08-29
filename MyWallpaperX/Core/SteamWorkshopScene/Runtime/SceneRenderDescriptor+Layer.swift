@@ -20,9 +20,9 @@ extension SceneRenderDescriptor {
         let parentAttachmentBindFrame: [Float]?
         let puppetAnimationLayers: [ScenePuppetAnimationLayer]
         var visible: Bool?
-        let alpha: Double?
+        var alpha: Double?
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
-        let colorRGB: [Float]?
+        var colorRGB: [Float]?
         let colorBlendMode: Int?
         // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
         let brightness: Double?
@@ -38,10 +38,10 @@ extension SceneRenderDescriptor {
         // sizeWH: world-space size in pixels (2 floats, defaults to [0,0]).
         // scaleXYZ: per-axis scale factor (3 floats, defaults to [1,1,1]).
         // anglesXYZ: rotation in radians around X/Y/Z (3 floats, defaults to [0,0,0]).
-        let originXYZ: [Float]?
+        var originXYZ: [Float]?
         let sizeWH: [Float]?
-        let scaleXYZ: [Float]?
-        let anglesXYZ: [Float]?
+        var scaleXYZ: [Float]?
+        var anglesXYZ: [Float]?
         let parallaxDepthXY: [Float]?
         let disablesParallaxPropagation: Bool
         // layer 级宿主属性上的 Timeline；effect constant 的那份由

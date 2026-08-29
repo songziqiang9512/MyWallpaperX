@@ -5,6 +5,7 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 nonisolated enum SceneScriptHostValue: Equatable, Sendable {
@@ -229,6 +230,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
+        var layerMutations: [SceneScriptLayerMutation] = []
         if let domain {
             do {
                 try domain.publishLayerSnapshot(
@@ -242,7 +244,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 return .init(
                     values: [:], failures: failures,
                     materialFunctionMutations: [],
-                    animationMutations: []
+                    animationMutations: [],
+                    layerMutations: []
                 )
             } catch {
                 for binding in bindings {
@@ -253,7 +256,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 return .init(
                     values: [:], failures: failures,
                     materialFunctionMutations: [],
-                    animationMutations: []
+                    animationMutations: [],
+                    layerMutations: []
                 )
             }
         }
@@ -279,6 +283,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.materialFunctions
                     )
                     animationMutations.append(contentsOf: eventMutations.animations)
+                    layerMutations.append(contentsOf: eventMutations.layers)
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -314,6 +319,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var playbackMutationCount = 0
             if let pendingPlaybackEvent {
                 switch binding.owner.dispatchMediaPlayback(
@@ -331,6 +337,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackAnimationMutations.append(
                         contentsOf: eventMutations.animations
                     )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -353,6 +360,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 callbackAnimationMutations.append(
                     contentsOf: evaluation.animationMutations
                 )
+                callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
                 var thumbnailMutationCount = 0
                 if let pendingMediaEvent {
                     switch binding.owner.dispatchMediaThumbnail(
@@ -370,6 +378,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         callbackAnimationMutations.append(
                             contentsOf: eventMutations.animations
                         )
+                        callbackLayerMutations.append(contentsOf: eventMutations.layers)
                     case let .failure(failure):
                         failures[target] = failure
                         disabledTargets.insert(target)
@@ -381,6 +390,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: callbackMaterialMutations
                 )
                 animationMutations.append(contentsOf: callbackAnimationMutations)
+                layerMutations.append(contentsOf: callbackLayerMutations)
                 if pendingMediaEvent != nil {
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ mutations=%d route=generic-only",
@@ -420,7 +430,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             values: values,
             failures: failures,
             materialFunctionMutations: materialFunctionMutations,
-            animationMutations: animationMutations
+            animationMutations: animationMutations,
+            layerMutations: layerMutations
         )
     }
 

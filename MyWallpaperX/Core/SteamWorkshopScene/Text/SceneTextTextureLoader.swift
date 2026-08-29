@@ -180,8 +180,7 @@ enum SceneTextTextureLoader {
         font: CTFont,
         baseRenderSize: [Float]?
     ) -> [Float]? {
-        guard let baseRenderSize, baseRenderSize.count >= 2,
-              !style.limitWidth else {
+        guard !style.limitWidth else {
             return baseRenderSize
         }
         let attributes = [kCTFontAttributeName: font] as CFDictionary
@@ -204,9 +203,13 @@ enum SceneTextTextureLoader {
             nil
         )
         let padding = max(0, style.padding) * 2
+        let baseWidth = baseRenderSize?.first ?? 1
+        let baseHeight = baseRenderSize.flatMap {
+            $0.indices.contains(1) ? $0[1] : nil
+        } ?? 1
         return [
-            min(maxAutoSizeDimension, max(baseRenderSize[0], Float(ceil(measured.width)) + padding)),
-            min(maxAutoSizeDimension, max(baseRenderSize[1], Float(ceil(measured.height)) + padding)),
+            min(maxAutoSizeDimension, max(baseWidth, Float(ceil(measured.width)) + padding)),
+            min(maxAutoSizeDimension, max(baseHeight, Float(ceil(measured.height)) + padding)),
         ]
     }
 

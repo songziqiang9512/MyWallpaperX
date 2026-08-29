@@ -110,7 +110,7 @@ struct SceneRuntimeModelBuilder {
         }
         let sceneScriptDomain: SceneScriptQuickJSDomain? = {
             guard let domain = try? SceneScriptQuickJSDomain(),
-                  (try? domain.configureLayerCatalog(renderDescriptor)) != nil else {
+                  (try? domain.configureLayerRuntimeFields(renderDescriptor)) != nil else {
                 return nil
             }
             return domain

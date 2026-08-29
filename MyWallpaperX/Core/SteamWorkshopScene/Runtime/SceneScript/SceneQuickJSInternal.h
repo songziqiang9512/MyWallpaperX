@@ -13,6 +13,10 @@
 #define MWX_SCENE_QUICKJS_MAX_EFFECT_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
+#define MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS 64
+#define MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS 256
+#define MWX_SCENE_QUICKJS_MAX_LAYER_TEXT 4096
+#define MWX_SCENE_QUICKJS_MAX_LAYER_FONT 1024
 #define MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS 3
 #define MWX_SCENE_QUICKJS_MAX_TIMERS 32
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
@@ -26,8 +30,22 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
 typedef struct MWXSceneQuickJSLayerRecord {
     int64_t layer_id;
     char *name;
+    char *text;
+    char *font;
     double authored_origin[3];
     double current_origin[3];
+    double scale[3];
+    double angles[3];
+    double color[3];
+    double alpha;
+    double point_size;
+    int32_t order_index;
+    uint64_t owner_identity;
+    uint64_t dirty_owner_identity;
+    bool visible;
+    bool dynamic;
+    bool destroyed;
+    bool dirty;
     bool configured;
 } MWXSceneQuickJSLayerRecord;
 
@@ -59,10 +77,12 @@ struct MWXSceneQuickJSDomain {
     JSContext *context;
     JSValue vec3_constructor;
     JSValue deep_freeze;
+    JSClassID layer_handle_class_id;
     uint64_t interrupt_budget;
     bool interrupted;
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
+    uint32_t authored_layer_count;
     uint64_t layer_snapshot_generation;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
@@ -96,6 +116,7 @@ struct MWXSceneQuickJSOwner {
     bool timer_runtime_initialized;
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     bool rejection_overflow;
+    size_t layer_mutation_count;
     MWXSceneQuickJSRejectionRecord rejections[
         MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS
     ];
@@ -122,8 +143,11 @@ void mwx_scene_quickjs_write_exception(
 );
 
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain);
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,

@@ -383,6 +383,11 @@ extension SceneDesktopWallpaperHost {
             sceneScriptResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
+        let layerMutations = sceneScriptVectorResult.layerMutations
+            + sceneScriptStringResult.layerMutations
+            + sceneScriptResult.layerMutations
+            + cursorResult.layerMutations
+        let layerTopology = launchContext.sceneScriptDynamicLayerRuntime.snapshot()
         let animationMutations = cursorResult.animationMutations
             + sceneScriptVectorResult.animationMutations
             + sceneScriptStringResult.animationMutations
@@ -453,6 +458,7 @@ extension SceneDesktopWallpaperHost {
 #endif
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
+                layerTopology: layerTopology,
                 materialFunctionMutations:
                     cursorResult.materialFunctionMutations
                     + sceneScriptVectorResult.materialFunctionMutations
@@ -470,6 +476,21 @@ extension SceneDesktopWallpaperHost {
                 )
             }
 #endif
+        }
+        if !layerMutations.isEmpty {
+            switch launchContext.sceneScriptDynamicLayerRuntime.apply(layerMutations) {
+            case .success:
+                NSLog(
+                    "MWX SceneScript VM: layerMutations=%d callback=committed nextFrame=true route=generic-only",
+                    layerMutations.count
+                )
+            case let .failure(failure):
+                NSLog(
+                    "MWX SceneScript VM: layerMutations=%d callback=rejected failure=%@ fallback=previous-current",
+                    layerMutations.count,
+                    String(describing: failure)
+                )
+            }
         }
         return .rendered
     }

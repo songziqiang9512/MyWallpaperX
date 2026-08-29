@@ -73,6 +73,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
+    let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -591,6 +592,9 @@ extension SceneDesktopWallpaperHost {
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
+            sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime(
+                descriptor: runtimeInput.renderDescriptor
+            ),
             mediaThumbnailBindings: mediaThumbnailBindings,
             liveState: ScenePropertyLiveUpdateState(
                 program: runtimeInput.propertyBindingProgram,

@@ -11,7 +11,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     private let cacheDirectory: URL
     private let device: MTLDevice
-    private let layersByID: [Int: SceneRenderDescriptor.Layer]
+    private let authoredLayerIDs: Set<Int>
+    private var layersByID: [Int: SceneRenderDescriptor.Layer]
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene.dynamic-text", qos: .userInitiated)
     private let lock = NSLock()
     private var generationState = SceneDynamicTextGenerationState()
@@ -37,6 +38,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         self.cacheDirectory = cacheDirectory
         self.device = device
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
+        authoredLayerIDs = Set(layers.map(\.id))
         self.currentTextures = initialTextures
         self.currentRenderSizes = Dictionary(uniqueKeysWithValues: layers.compactMap { layer in
             layer.renderSizeWH.map { (layer.id, $0) }
@@ -50,8 +52,40 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
     }
 
-    func update(from snapshot: SceneDynamicSnapshot) {
-        for layer in layersByID.values {
+    func update(
+        from snapshot: SceneDynamicSnapshot,
+        dynamicLayers: [SceneRenderDescriptor.Layer] = []
+    ) {
+        let admittedDynamic = dynamicLayers.filter {
+            $0.contentKind == "text" && $0.text != nil && $0.textStyle != nil
+        }
+        let admittedIDs = Set(admittedDynamic.map(\.id))
+        lock.lock()
+        let retired = Set(layersByID.keys).subtracting(authoredLayerIDs).subtracting(admittedIDs)
+        for layerID in retired {
+            layersByID.removeValue(forKey: layerID)
+            currentTextures.removeValue(forKey: layerID)
+            currentRenderSizes.removeValue(forKey: layerID)
+            generationState.unregister(layerID: layerID)
+        }
+        for layer in admittedDynamic {
+            if layersByID[layer.id] == nil {
+                layersByID[layer.id] = layer
+                let signature = Self.signature(for: layer, snapshot: nil)
+                if let request = generationState.registerDynamic(
+                    layerID: layer.id, signature: signature
+                ) {
+                    lock.unlock()
+                    schedule(request)
+                    lock.lock()
+                }
+            } else {
+                layersByID[layer.id] = layer
+            }
+        }
+        let layers = Array(layersByID.values)
+        lock.unlock()
+        for layer in layers {
             let signature = Self.signature(for: layer, snapshot: snapshot)
             lock.lock()
             let request = generationState.schedule(layerID: layer.id, signature: signature)
@@ -108,7 +142,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     }
 
     private func render(_ request: SceneDynamicTextGenerationState.RenderRequest) {
-        guard let layer = layersByID[request.layerID] else { return }
+        lock.lock()
+        let layer = layersByID[request.layerID]
+        lock.unlock()
+        guard let layer else { return }
         let rendered = SceneTextTextureLoader.makeDynamicTexture(
             for: layer,
             content: request.signature.content,

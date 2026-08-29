@@ -4,6 +4,7 @@ nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
     let value: SceneDynamicValue
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
 }
 
 nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
@@ -144,10 +145,16 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case let .success(value): animationMutations = value
         case let .failure(failure): return .failure(failure)
         }
+        let layerMutations: [SceneScriptLayerMutation]
+        switch SceneScriptLayerMutationBridge.mutations(owner: handle) {
+        case let .success(value): layerMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             value: .vector3(output[0], output[1], output[2]),
             materialFunctionMutations: mutations,
-            animationMutations: animationMutations
+            animationMutations: animationMutations,
+            layerMutations: layerMutations
         ))
     }
 

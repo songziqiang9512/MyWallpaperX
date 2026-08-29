@@ -359,6 +359,33 @@ static int configure_owner_layer(
     return check(result == MWX_SCENE_QUICKJS_OK, label, diagnostic);
 }
 
+static int layer_mutation(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    uint32_t expected_kind,
+    int expected_dynamic,
+    int64_t expected_id,
+    int expected_order,
+    const char *expected_text,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSLayerMutation mutation = {0};
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_layer_mutation_at(
+        owner, index, &mutation, diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        result == MWX_SCENE_QUICKJS_OK
+            && mutation.kind == expected_kind
+            && mutation.dynamic == (uint32_t)expected_dynamic
+            && (expected_id == 0 || mutation.layer_id == expected_id)
+            && mutation.order_index == expected_order
+            && strcmp(mutation.text, expected_text) == 0,
+        label,
+        diagnostic
+    );
+}
+
 static int configure_layers(MWXSceneQuickJSDomain *domain) {
     char diagnostic[512] = {0};
     const double authored_zero[3] = {1, 2, 3};
@@ -377,6 +404,16 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
             domain, 1, 42, "C1", strlen("C1"), authored_day,
             diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        const double scale[3] = {2, 3, 4};
+        const double angles[3] = {0, 0, 0};
+        const double color[3] = {1, 1, 1};
+        result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
+            domain, 1, scale, angles, 1, 0.75,
+            "clock", strlen("clock"), "clock.ttf", strlen("clock.ttf"),
+            48, color, diagnostic, sizeof(diagnostic)
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
@@ -1538,6 +1575,112 @@ int main(void) {
         "timer exception preserves peer owner"
     );
 
+    const char *dynamic_layer_source =
+        "let shadow;"
+        "export function init(value){"
+        "shadow=thisScene.createLayer({text:'shadow',color:'0 0 0',alpha:1,"
+        "pointsize:thisLayer.pointsize,font:thisLayer.font});"
+        "shadow.origin=thisLayer.origin;shadow.scale=thisLayer.scale;"
+        "thisScene.sortLayer(shadow,thisScene.getLayerIndex(thisLayer));"
+        "shared.dynamicLayer=shadow;return value;}"
+        "export function update(value){"
+        "shadow.text='tick';shadow.angles=new Vec3(1,2,3);"
+        "return thisScene.getLayerIndex(shadow)*100+thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *dynamic_layer = mwx_scene_quickjs_owner_create(
+        domain, dynamic_layer_source, strlen(dynamic_layer_source),
+        40, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(dynamic_layer != NULL, "dynamic layer owner compile", diagnostic);
+    failures += configure_owner_layer(dynamic_layer, 42, "dynamic layer owner identity");
+    failures += update(
+        dynamic_layer, 40, 1, MWX_SCENE_QUICKJS_OK, 103,
+        "dynamic layer create update"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(dynamic_layer) == 1,
+        "dynamic layer mutation coalesced", ""
+    );
+    failures += layer_mutation(
+        dynamic_layer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+        1, 0, 1, "tick", "dynamic layer snapshot"
+    );
+    failures += update(
+        dynamic_layer, 40, 1, MWX_SCENE_QUICKJS_OK, 103,
+        "dynamic layer handle persists"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(dynamic_layer) == 0,
+        "unchanged dynamic layer setters are deduplicated", ""
+    );
+
+    MWXSceneQuickJSOwner *dynamic_intruder = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){thisScene.sortLayer(shared.dynamicLayer,0);return value;}",
+        strlen("export function update(value){thisScene.sortLayer(shared.dynamicLayer,0);return value;}"),
+        41, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(dynamic_intruder != NULL, "dynamic intruder compile", diagnostic);
+    failures += configure_owner_layer(dynamic_intruder, 17, "dynamic intruder identity");
+    failures += update(
+        dynamic_intruder, 41, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "cross-owner dynamic layer handle rejected"
+    );
+
+    MWXSceneQuickJSOwner *static_sort = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){thisScene.sortLayer(thisLayer,0);return value;}",
+        strlen("export function update(value){thisScene.sortLayer(thisLayer,0);return value;}"),
+        44, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(static_sort != NULL, "static sort owner compile", diagnostic);
+    failures += configure_owner_layer(static_sort, 42, "static sort owner identity");
+    failures += update(
+        static_sort, 44, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "static layer sort rejected until topology publication is supported"
+    );
+
+    MWXSceneQuickJSOwner *static_setter = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){thisLayer.origin=new Vec3(1,2,3);return value;}",
+        strlen("export function update(value){thisLayer.origin=new Vec3(1,2,3);return value;}"),
+        45, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(static_setter != NULL, "static setter owner compile", diagnostic);
+    failures += configure_owner_layer(static_setter, 42, "static setter owner identity");
+    failures += update(
+        static_setter, 45, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "static layer setter rejected until state publication is supported"
+    );
+
+    const char *forged_layer_source =
+        "export function update(value){"
+        "if(thisScene.getLayerIndex({id:42})!==-1)throw new Error('forged index');"
+        "thisScene.sortLayer({id:42},0);return value;}";
+    MWXSceneQuickJSOwner *forged_layer = mwx_scene_quickjs_owner_create(
+        domain, forged_layer_source, strlen(forged_layer_source),
+        43, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(forged_layer != NULL, "forged layer owner compile", diagnostic);
+    failures += configure_owner_layer(forged_layer, 42, "forged layer owner identity");
+    failures += update(
+        forged_layer, 43, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "forged layer object rejected"
+    );
+
+    const char *dynamic_budget_source =
+        "export function update(value){for(let i=0;i<65;i+=1)"
+        "thisScene.createLayer({text:'x'});return value;}";
+    MWXSceneQuickJSOwner *dynamic_budget = mwx_scene_quickjs_owner_create(
+        domain, dynamic_budget_source, strlen(dynamic_budget_source),
+        42, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(dynamic_budget != NULL, "dynamic budget compile", diagnostic);
+    failures += configure_owner_layer(dynamic_budget, 17, "dynamic budget identity");
+    failures += update(
+        dynamic_budget, 42, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "dynamic layer budget rejected"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -1572,6 +1715,12 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(invalid_timer);
     mwx_scene_quickjs_owner_destroy(timer_budget);
     mwx_scene_quickjs_owner_destroy(timer_exception);
+    mwx_scene_quickjs_owner_destroy(dynamic_layer);
+    mwx_scene_quickjs_owner_destroy(dynamic_intruder);
+    mwx_scene_quickjs_owner_destroy(static_sort);
+    mwx_scene_quickjs_owner_destroy(static_setter);
+    mwx_scene_quickjs_owner_destroy(forged_layer);
+    mwx_scene_quickjs_owner_destroy(dynamic_budget);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -1622,6 +1771,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),
