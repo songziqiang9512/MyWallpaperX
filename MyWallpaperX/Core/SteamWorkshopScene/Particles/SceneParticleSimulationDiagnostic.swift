@@ -20,6 +20,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case vortexUnsupported
     case capVelocityBounded
     case capVelocityUnsupported
+    case remapValueBounded
+    case remapValueUnsupported
     case controlPointForceBounded
     case controlPointForceUnsupported
     case unsupportedRenderer
@@ -189,6 +191,9 @@ extension SceneParticleSimulationMath {
             case .capVelocity:
                 add(value.capVelocityPlan == nil
                     ? .capVelocityUnsupported : .capVelocityBounded, "capvelocity")
+            case .remapValue:
+                add(value.boundedVelocityRemapPlan == nil
+                    ? .remapValueUnsupported : .remapValueBounded, "remapvalue")
             case let .inheritEventColor(declaration):
                 add(declaration.isBoundedSetColor
                     && eventColorContext.operatorColor != nil

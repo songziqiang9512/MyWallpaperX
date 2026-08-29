@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -605,6 +606,28 @@ enum Harness {
             value.advance(by: 0.1)
             return value
         }
+        var remapVelocity = simulator(remapVelocityJSON, seed: 53, step: 0.1)
+        var remapVelocityRepeat = simulator(remapVelocityJSON, seed: 53, step: 0.1)
+        var remapVelocityDifferentSeed = simulator(remapVelocityJSON, seed: 54, step: 0.1)
+        remapVelocity.advance(by: 0.1)
+        remapVelocityRepeat.advance(by: 0.1)
+        remapVelocityDifferentSeed.advance(by: 0.1)
+        let remapVelocityEarly = remapVelocity.particles[0].velocity
+        let remapPositionEarly = remapVelocity.particles[0].position
+        remapVelocity.advance(by: 0.2)
+        let invalidRemapValues = [
+            #""output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"velocity","outputrangemin":-10,"outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"speed","outputrangemin":-5,"outputrangemax":7,"transformfunction":"fbmnoise","transforminputscale":8"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":0"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10,"flags":3"#,
+            #""operation":"remap","input":"particlesystemtime","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#,
+            #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10,"future":1"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(remapVelocityJSON(fields), seed: 53, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
         var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
         var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
         uniformSize.advance(by: 0.1)
@@ -1163,6 +1186,22 @@ enum Harness {
                 vector($0.particles[0].position)
             },
             "invalidPositionOffsetDiagnostics": invalidPositionOffsets.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "remapVelocity": vector(remapVelocityEarly),
+            "remapPosition": vector(remapPositionEarly),
+            "remapVelocityDeterministic":
+                remapVelocityRepeat.particles[0].velocity == remapVelocityEarly,
+            "remapVelocityDifferentSeed":
+                remapVelocityDifferentSeed.particles[0].velocity != remapVelocityEarly,
+            "remapVelocityDifferentTime":
+                remapVelocity.particles[0].velocity != remapVelocityEarly,
+            "remapVelocityDiagnostics":
+                remapVelocityRepeat.diagnostics.map(\.kind.rawValue),
+            "invalidRemapVelocities": invalidRemapValues.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidRemapDiagnostics": invalidRemapValues.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
             "uniformSizeAmount": uniformSizeAmount,
@@ -1897,6 +1936,20 @@ enum Harness {
         """
     }
 
+    private static let remapVelocityJSON = remapVelocityJSON(
+        #""operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10"#
+    )
+
+    private static func remapVelocityJSON(_ fields: String) -> String {
+        """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"1 2 3","max":"1 2 3"}],
+         "operator":[{"name":"remapvalue",\(fields)},{"name":"movement"}],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
     private static let uniformSizeJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -2483,6 +2536,32 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(
             self.results["invalidPositionOffsetDiagnostics"],
             [["positionOffsetUnsupported"]] * 13,
+        )
+
+    def test_remap_value_executes_bounded_velocity_noise_in_operator_order(self) -> None:
+        velocity = self.results["remapVelocity"]
+        self.assertGreaterEqual(velocity[0], -10)
+        self.assertLessEqual(velocity[0], 10)
+        self.assertGreaterEqual(velocity[1], -40)
+        self.assertLessEqual(velocity[1], -20)
+        self.assertEqual(velocity[2], 0)
+        position = self.results["remapPosition"]
+        for component in range(3):
+            self.assertAlmostEqual(position[component], velocity[component] * 0.1)
+        self.assertTrue(self.results["remapVelocityDeterministic"])
+        self.assertTrue(self.results["remapVelocityDifferentSeed"])
+        self.assertTrue(self.results["remapVelocityDifferentTime"])
+        self.assertEqual(
+            self.results["remapVelocityDiagnostics"], ["remapValueBounded"]
+        )
+
+    def test_remap_value_rejects_other_lifecycle_input_and_transform_shapes(self) -> None:
+        self.assertEqual(
+            self.results["invalidRemapVelocities"], [[1, 2, 3]] * 7
+        )
+        self.assertEqual(
+            self.results["invalidRemapDiagnostics"],
+            [["remapValueUnsupported"]] * 7,
         )
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:

@@ -184,6 +184,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case boids(SceneParticleBoids)
     case vortex(SceneParticleVortex)
     case capVelocity(SceneParticleCapVelocity)
+    case remapValue(SceneParticleRemapValue)
     case inheritEventColor(SceneParticleEventColorDeclaration)
     case unsupported(String)
 }

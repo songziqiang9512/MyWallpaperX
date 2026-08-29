@@ -15,6 +15,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
+    SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -86,6 +87,7 @@ enum Harness {
             {"id":30,"name":"turbulence","mask":"1 1 0","phasemin":0.1,"phasemax":0.5,"scale":0.02,"speedmin":50,"speedmax":100,"timescale":0.25},
             {"id":31,"name":"vortex","axis":"0 1 0","distanceinner":2,"distanceouter":8,"speedinner":10,"speedouter":20,"flags":1,"audioprocessingmode":1,"audioprocessingbounds":"0.3 0.7"},
             {"id":32,"name":"capvelocity","maxspeed":100,"blendinstart":0.5,"blendinend":0.6},
+            {"id":34,"name":"remapvalue","operation":"remap","output":"velocity","outputrangemin":"-10 -20 0","outputrangemax":"10 -40 0","transformfunction":"simplexnoise","transforminputscale":10},
             {"id":33,"name":"futureOperator"}
           ],
           "renderer":[
@@ -130,6 +132,9 @@ enum Harness {
             throw HarnessError.invalidJSON
         }
         guard case let .capVelocity(capVelocity) = definition.operators[12].kind else {
+            throw HarnessError.invalidJSON
+        }
+        guard let remapPlan = definition.operators[13].boundedVelocityRemapPlan else {
             throw HarnessError.invalidJSON
         }
         return [
@@ -215,6 +220,13 @@ enum Harness {
             ],
             "capVelocityMalformed": capVelocity.hasMalformedFields,
             "capVelocityUnsupportedFields": capVelocity.unsupportedFieldNames,
+            "remapVelocityMinimum": [
+                remapPlan.minimum.x, remapPlan.minimum.y, remapPlan.minimum.z,
+            ],
+            "remapVelocityMaximum": [
+                remapPlan.maximum.x, remapPlan.maximum.y, remapPlan.maximum.z,
+            ],
+            "remapInputScale": remapPlan.inputScale,
             "rendererKinds": definition.renderers.map { rendererName($0.kind) },
             "spriteWorldSpace": definition.renderers[0].isWorldSpace,
             "ropeSegments": definition.renderers[2].segments ?? -1,
@@ -533,6 +545,7 @@ enum Harness {
         case .boids: "boids"
         case .vortex: "vortex"
         case .capVelocity: "capvelocity"
+        case .remapValue: "remapvalue"
         case .inheritEventColor: "inheritvaluefromevent"
         case let .unsupported(name): name
         }
@@ -657,7 +670,7 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["positionOffsetOctaves"], 4)
         self.assertEqual(result["positionOffsetScale"], 0.25)
         self.assertEqual(result["positionOffsetTimeScale"], 2)
-        self.assertEqual(len(result["operatorKinds"]), 14)
+        self.assertEqual(len(result["operatorKinds"]), 15)
         self.assertEqual(result["movementGravity"], [0, -9.8, 0])
         self.assertEqual(result["movementDrag"], 0.2)
         self.assertEqual(result["fadeOut"], 0.9)
@@ -677,6 +690,9 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["capVelocityBlend"], [0.5, 0.6])
         self.assertFalse(result["capVelocityMalformed"])
         self.assertEqual(result["capVelocityUnsupportedFields"], [])
+        self.assertEqual(result["remapVelocityMinimum"], [-10, -20, 0])
+        self.assertEqual(result["remapVelocityMaximum"], [10, -40, 0])
+        self.assertEqual(result["remapInputScale"], 10)
         self.assertEqual(
             result["rendererKinds"],
             ["sprite", "spritetrail", "rope", "ropetrail", "futurerenderer"],

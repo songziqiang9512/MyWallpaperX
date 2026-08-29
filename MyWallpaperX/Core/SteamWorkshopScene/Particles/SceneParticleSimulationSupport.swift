@@ -240,6 +240,38 @@ nonisolated enum SceneParticleSimulationMath {
         first + (second - first) * amount
     }
 
+    /// Project-owned coherent approximation for the bounded Rain Remap Value
+    /// cohort. This is deliberately not described as official simplex parity.
+    static func remapNoiseAmount(
+        position: SIMD3<Double>,
+        time: Double,
+        particleID: UInt64,
+        simulationSeed: UInt64,
+        inputScale: Double
+    ) -> Double? {
+        guard position.x.isFinite, position.y.isFinite, position.z.isFinite,
+              time.isFinite, inputScale.isFinite, inputScale > 0 else { return nil }
+        var phaseRandom = SceneParticleRandomGenerator(
+            state: simulationSeed ^ (particleID &* 0x9E3779B97F4A7C15)
+        )
+        let phase = SIMD3(
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096),
+            phaseRandom.value(-4096, 4096)
+        )
+        let temporal = time * inputScale * 0.1
+        let point = position * 0.001 + phase + SIMD3(
+            temporal, temporal * 0.754_877_666, temporal * 1.324_717_957
+        )
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite,
+              abs(point.x) < 1e12, abs(point.y) < 1e12, abs(point.z) < 1e12 else {
+            return nil
+        }
+        let noise = gradientNoise(point, seed: 0xA0761D6478BD642F)
+        guard noise.isFinite else { return nil }
+        return min(max(noise * 0.5 + 0.5, 0), 1)
+    }
+
     static func positionOffset(
         _ plan: SceneParticlePositionOffsetPlan,
         position: SIMD3<Double>,

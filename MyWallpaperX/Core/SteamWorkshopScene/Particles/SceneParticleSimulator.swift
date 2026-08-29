@@ -374,6 +374,19 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             applyVortex(value, duration: duration)
         case .capVelocity:
             applyCapVelocity(value)
+        case .remapValue:
+            guard let plan = value.boundedVelocityRemapPlan else { break }
+            for index in particles.indices {
+                guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
+                    position: particles[index].position,
+                    time: simulationTime,
+                    particleID: particles[index].id,
+                    simulationSeed: simulationSeed,
+                    inputScale: plan.inputScale
+                ) else { continue }
+                particles[index].velocity = plan.minimum
+                    + (plan.maximum - plan.minimum) * amount
+            }
         case let .inheritEventColor(declaration):
             guard declaration.isBoundedSetColor,
                   let color = eventColorContext.operatorColor else { break }
