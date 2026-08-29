@@ -24,6 +24,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case remapValueUnsupported
     case reduceMovementBounded
     case reduceMovementUnsupported
+    case collisionPlaneBounded
+    case collisionPlaneUnsupported
     case controlPointForceBounded
     case controlPointForceUnsupported
     case unsupportedRenderer
@@ -200,6 +202,10 @@ extension SceneParticleSimulationMath {
                 add(definition.supportsBoundedReduceMovement(value)
                     ? .reduceMovementBounded : .reduceMovementUnsupported,
                     "reducemovementnearcontrolpoint")
+            case .collisionPlane:
+                add(value.collisionPlanePlan == nil
+                    ? .collisionPlaneUnsupported : .collisionPlaneBounded,
+                    "collisionplane")
             case let .inheritEventColor(declaration):
                 add(declaration.isBoundedSetColor
                     && eventColorContext.operatorColor != nil

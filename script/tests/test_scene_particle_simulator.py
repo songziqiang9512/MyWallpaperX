@@ -19,6 +19,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
+    SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -29,6 +30,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ReduceMovement.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+CollisionPlane.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+AudioResponse.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
@@ -723,6 +725,57 @@ enum Harness {
         worldReduce.advance(by: 0.1)
         perspectiveReduce.advance(by: 0.1)
         let allInvalidReduce = invalidReduceValues + [worldReduce, perspectiveReduce]
+        let stockCollisionFields = #""distance":0,"bouncefactor":0.5"#
+        var collision = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        collision.advance(by: 0.1)
+        var explicitCollision = simulator(
+            collisionPlaneJSON(
+                #""plane":"2 0 0","distance":0,"bouncefactor":0.5"#,
+                origin: "1 0 0", velocity: "-20 3 0"
+            ), seed: 61, step: 0.1
+        )
+        explicitCollision.advance(by: 0.1)
+        var collisionOutside = simulator(
+            collisionPlaneJSON(
+                stockCollisionFields, origin: "0 1 0", velocity: "0 20 0"
+            ), seed: 61, step: 0.1
+        )
+        collisionOutside.advance(by: 0.1)
+        var collisionBeforeMovement = simulator(
+            collisionPlaneJSON(stockCollisionFields, collisionFirst: true),
+            seed: 61, step: 0.1
+        )
+        collisionBeforeMovement.advance(by: 0.1)
+        var collisionPartitioned = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        var collisionPartitionedFrames = simulator(
+            collisionPlaneJSON(stockCollisionFields), seed: 61, step: 0.1
+        )
+        collisionPartitioned.advance(by: 0.2)
+        collisionPartitionedFrames.advance(by: 0.1)
+        collisionPartitionedFrames.advance(by: 0.1)
+        let invalidCollisionValues = [
+            #""bouncefactor":0.5"#,
+            #""distance":0"#,
+            #""distance":0,"bouncefactor":-1"#,
+            #""distance":0,"bouncefactor":101"#,
+            #""plane":1,"distance":0,"bouncefactor":0.5"#,
+            #""plane":"0 0 0","distance":0,"bouncefactor":0.5"#,
+            #""distance":0,"bouncefactor":0.5,"flags":1"#,
+            #""distance":0,"bouncefactor":0.5,"blendinstart":0.1"#,
+            #""distance":0,"bouncefactor":0.5,"audioprocessingmode":1"#,
+            #""distance":0,"bouncefactor":0.5,"future":1"#,
+            #""distance":"bad","bouncefactor":0.5"#,
+        ].map { fields -> SceneParticleSimulator in
+            var value = simulator(
+                collisionPlaneJSON(fields), seed: 61, step: 0.1
+            )
+            value.advance(by: 0.1)
+            return value
+        }
         var uniformSize = simulator(uniformSizeJSON, seed: 17, step: 0.1)
         var biasedSize = simulator(biasedSizeJSON, seed: 17, step: 0.1)
         uniformSize.advance(by: 0.1)
@@ -1317,6 +1370,32 @@ enum Harness {
                 vector($0.particles[0].velocity)
             },
             "invalidReduceDiagnostics": allInvalidReduce.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+            "collisionPosition": vector(collision.particles[0].position),
+            "collisionVelocity": vector(collision.particles[0].velocity),
+            "explicitCollisionPosition":
+                vector(explicitCollision.particles[0].position),
+            "explicitCollisionVelocity":
+                vector(explicitCollision.particles[0].velocity),
+            "collisionOutsidePosition":
+                vector(collisionOutside.particles[0].position),
+            "collisionOutsideVelocity":
+                vector(collisionOutside.particles[0].velocity),
+            "collisionBeforeMovementPosition":
+                vector(collisionBeforeMovement.particles[0].position),
+            "collisionBeforeMovementVelocity":
+                vector(collisionBeforeMovement.particles[0].velocity),
+            "collisionPartitioned":
+                collisionPartitioned.particles == collisionPartitionedFrames.particles,
+            "collisionDiagnostics": collision.diagnostics.map(\.kind.rawValue),
+            "invalidCollisionPositions": invalidCollisionValues.map {
+                vector($0.particles[0].position)
+            },
+            "invalidCollisionVelocities": invalidCollisionValues.map {
+                vector($0.particles[0].velocity)
+            },
+            "invalidCollisionDiagnostics": invalidCollisionValues.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
             "uniformSizeAmount": uniformSizeAmount,
@@ -2086,6 +2165,25 @@ enum Harness {
         """
     }
 
+    private static func collisionPlaneJSON(
+        _ fields: String,
+        origin: String = "0 1 0",
+        velocity: String = "3 -20 0",
+        collisionFirst: Bool = false
+    ) -> String {
+        let collision = #"{"name":"collisionplane",\#(fields)}"#
+        let movement = #"{"name":"movement"}"#
+        let operators = collisionFirst
+            ? "\(collision),\(movement)" : "\(movement),\(collision)"
+        return """
+        {"material":"p.json","maxcount":1,
+         "emitter":[{"name":"boxrandom","instantaneous":1,"origin":"\(origin)","distancemax":0}],
+         "initializer":[{"name":"lifetimerandom","min":10,"max":10},{"name":"velocityrandom","min":"\(velocity)","max":"\(velocity)"}],
+         "operator":[\(operators)],
+         "renderer":[{"name":"sprite"}]}
+        """
+    }
+
     private static let uniformSizeJSON = #"""
     {"material":"p.json","maxcount":1,
      "emitter":[{"name":"boxrandom","instantaneous":1,"distancemin":"0 0 0","distancemax":"0 0 0"}],
@@ -2720,6 +2818,39 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         for value in diagnostics:
             self.assertIn("reduceMovementUnsupported", value)
         self.assertIn("audioResponseIgnored", diagnostics[9])
+
+    def test_collision_plane_projects_and_reflects_in_authored_order(self) -> None:
+        for actual, expected in zip(self.results["collisionPosition"], [0.3, 0, 0]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionVelocity"], [3, 10, 0])
+        for actual, expected in zip(
+            self.results["explicitCollisionPosition"], [0, 0.3, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["explicitCollisionVelocity"], [10, 3, 0])
+        for actual, expected in zip(
+            self.results["collisionOutsidePosition"], [0, 3, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionOutsideVelocity"], [0, 20, 0])
+        for actual, expected in zip(
+            self.results["collisionBeforeMovementPosition"], [0.3, -1, 0]
+        ):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["collisionBeforeMovementVelocity"], [3, -20, 0])
+        self.assertTrue(self.results["collisionPartitioned"])
+        self.assertEqual(self.results["collisionDiagnostics"], ["collisionPlaneBounded"])
+
+    def test_collision_plane_rejects_malformed_unbounded_and_unsafe_profiles(self) -> None:
+        for position in self.results["invalidCollisionPositions"]:
+            for actual, expected in zip(position, [0.3, -1, 0]):
+                self.assertAlmostEqual(actual, expected)
+        self.assertEqual(self.results["invalidCollisionVelocities"], [[3, -20, 0]] * 11)
+        diagnostics = self.results["invalidCollisionDiagnostics"]
+        self.assertEqual(len(diagnostics), 11)
+        for value in diagnostics:
+            self.assertIn("collisionPlaneUnsupported", value)
+        self.assertIn("audioResponseIgnored", diagnostics[8])
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
         uniform = self.results["uniformSizeAmount"]

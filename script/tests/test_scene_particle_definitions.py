@@ -17,6 +17,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
+    SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -40,6 +41,8 @@ enum Harness {
             try printJSON(eventColorResult())
         case "reduce-movement":
             try printJSON(reduceMovementResult())
+        case "collision-plane":
+            try printJSON(collisionPlaneResult())
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
@@ -382,6 +385,48 @@ enum Harness {
         ]
     }
 
+    private static func collisionPlaneResult() -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func definition(_ fields: [String: Any]) -> SceneParticleDefinition {
+            parser.parse(root: [
+                "material": "p.json",
+                "emitter": [["name": "sphererandom", "instantaneous": 1]],
+                "operator": [["name": "collisionplane"]
+                    .merging(fields) { _, value in value }],
+                "renderer": [["name": "sprite"]],
+            ])
+        }
+        let stock = definition(["distance": -70, "bouncefactor": 3])
+        let explicit = definition([
+            "plane": "0 2 0", "distance": 10, "bouncefactor": 0.5,
+        ])
+        let malformed = definition([
+            "plane": "bad", "distance": 10, "bouncefactor": 1,
+        ])
+        let unknown = definition([
+            "distance": 10, "bouncefactor": 1, "future": true,
+        ])
+        guard case let .collisionPlane(declaration) = stock.operators[0].kind,
+              let stockPlan = stock.operators[0].collisionPlanePlan,
+              let explicitPlan = explicit.operators[0].collisionPlanePlan else {
+            return ["recognized": false]
+        }
+        return [
+            "recognized": true,
+            "stockNormal": [stockPlan.normal.x, stockPlan.normal.y, stockPlan.normal.z],
+            "stockDistance": stockPlan.distance,
+            "stockBounceFactor": stockPlan.bounceFactor,
+            "explicitNormal": [
+                explicitPlan.normal.x, explicitPlan.normal.y, explicitPlan.normal.z,
+            ],
+            "malformed": declaration.hasMalformedFields,
+            "unsupportedFields": declaration.unsupportedFieldNames,
+            "malformedRejected": malformed.operators[0].collisionPlanePlan == nil,
+            "unknownRejected": unknown.operators[0].collisionPlanePlan == nil,
+            "parserDiagnostics": stock.diagnostics.count + explicit.diagnostics.count,
+        ]
+    }
+
     private static func censusResult(rootPath: String) throws -> [String: Any] {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
         let sampleURLs = try FileManager.default.contentsOfDirectory(
@@ -595,6 +640,7 @@ enum Harness {
         case .capVelocity: "capvelocity"
         case .remapValue: "remapvalue"
         case .reduceMovement: "reducemovementnearcontrolpoint"
+        case .collisionPlane: "collisionplane"
         case .inheritEventColor: "inheritvaluefromevent"
         case let .unsupported(name): name
         }
@@ -814,6 +860,19 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertEqual(result["unsupportedFields"], [])
         self.assertTrue(result["unknownRejected"])
         self.assertTrue(result["malformedRejected"])
+        self.assertEqual(result["parserDiagnostics"], 0)
+
+    def test_collision_plane_parser_preserves_and_bounds_the_stock_shape(self) -> None:
+        result = self.run_harness("collision-plane")
+        self.assertTrue(result["recognized"])
+        self.assertEqual(result["stockNormal"], [0, 1, 0])
+        self.assertEqual(result["stockDistance"], -70)
+        self.assertEqual(result["stockBounceFactor"], 3)
+        self.assertEqual(result["explicitNormal"], [0, 1, 0])
+        self.assertFalse(result["malformed"])
+        self.assertEqual(result["unsupportedFields"], [])
+        self.assertTrue(result["malformedRejected"])
+        self.assertTrue(result["unknownRejected"])
         self.assertEqual(result["parserDiagnostics"], 0)
 
 if __name__ == "__main__":

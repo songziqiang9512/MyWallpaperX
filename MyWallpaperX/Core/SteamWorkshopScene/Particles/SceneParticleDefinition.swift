@@ -186,6 +186,7 @@ nonisolated enum SceneParticleOperatorKind: Equatable, Sendable {
     case capVelocity(SceneParticleCapVelocity)
     case remapValue(SceneParticleRemapValue)
     case reduceMovement(SceneParticleReduceMovement)
+    case collisionPlane(SceneParticleCollisionPlane)
     case inheritEventColor(SceneParticleEventColorDeclaration)
     case unsupported(String)
 }

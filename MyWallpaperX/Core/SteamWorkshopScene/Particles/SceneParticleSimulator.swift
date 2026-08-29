@@ -389,6 +389,8 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
         case .reduceMovement:
             applyReduceMovement(value, duration: duration)
+        case .collisionPlane:
+            applyCollisionPlane(value)
         case let .inheritEventColor(declaration):
             guard declaration.isBoundedSetColor,
                   let color = eventColorContext.operatorColor else { break }

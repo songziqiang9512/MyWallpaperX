@@ -25,6 +25,7 @@ extension SceneParticleDefinitionParser {
         case "remapvalue": kind = .remapValue(.init(root: root))
         case "reducemovementnearcontrolpoint":
             kind = .reduceMovement(.init(root: root))
+        case "collisionplane": kind = .collisionPlane(.init(root: root))
         case "inheritvaluefromevent":
             kind = .inheritEventColor(.init(root: root))
         default:
