@@ -234,6 +234,14 @@ static MWXSceneQuickJSResult dispatch_event(
     owner->material_function_overflow = false;
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
 
     JSValue function = JS_GetPropertyStr(
         context, owner->module, callback_name

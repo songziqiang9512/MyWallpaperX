@@ -14,6 +14,7 @@
 #define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS 3
+#define MWX_SCENE_QUICKJS_MAX_TIMERS 32
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -36,6 +37,15 @@ typedef struct MWXSceneQuickJSAudioRegistration {
     JSValue average;
 } MWXSceneQuickJSAudioRegistration;
 
+typedef struct MWXSceneQuickJSTimerRecord {
+    uint64_t identity;
+    double remaining_seconds;
+    double interval_seconds;
+    JSValue callback;
+    bool repeating;
+    bool active;
+} MWXSceneQuickJSTimerRecord;
+
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
@@ -46,6 +56,7 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint64_t layer_snapshot_generation;
+    uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;
     MWXSceneQuickJSOwner *active_owner;
@@ -55,6 +66,7 @@ struct MWXSceneQuickJSDomain {
 struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSDomain *domain;
     JSValue module;
+    uint64_t identity;
     uint64_t generation;
     bool initialized;
     bool disabled;
@@ -71,6 +83,10 @@ struct MWXSceneQuickJSOwner {
     uint32_t effect_count;
     char **effect_names;
     size_t audio_registration_count;
+    uint64_t next_timer_identity;
+    double timer_runtime;
+    bool timer_runtime_initialized;
+    MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     MWXSceneQuickJSAudioRegistration audio_registrations[
         MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS
     ];
@@ -127,6 +143,19 @@ bool mwx_scene_quickjs_restore_module_engine_host(
     MWXSceneQuickJSOwner *owner,
     JSValue previous_global_engine
 );
+bool mwx_scene_quickjs_install_timer_engine(
+    MWXSceneQuickJSOwner *owner,
+    JSValue engine
+);
+MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
+    MWXSceneQuickJSOwner *owner,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+void mwx_scene_quickjs_destroy_timer_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_audio_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner);

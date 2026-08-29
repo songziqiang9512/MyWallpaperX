@@ -308,7 +308,7 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
             "userProperties",
             user_properties,
             read_only
-        ) < 0) {
+        ) < 0 || !mwx_scene_quickjs_install_timer_engine(owner, engine)) {
         JS_FreeValue(context, engine);
         return false;
     }
@@ -914,6 +914,14 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     }
     owner->domain = domain;
     owner->module = JS_UNDEFINED;
+    domain->next_owner_identity += 1;
+    if (domain->next_owner_identity == 0 || domain->next_owner_identity > INT64_MAX) {
+        JS_FreeValue(domain->context, module);
+        free(owner);
+        write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript owner identity exhausted");
+        return NULL;
+    }
+    owner->identity = domain->next_owner_identity;
     owner->generation = generation;
     owner->material_function_layer = JS_UNDEFINED;
     owner->scene_handle = JS_UNDEFINED;
@@ -923,6 +931,9 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         owner->audio_registrations[index].left = JS_UNDEFINED;
         owner->audio_registrations[index].right = JS_UNDEFINED;
         owner->audio_registrations[index].average = JS_UNDEFINED;
+    }
+    for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
+        owner->timers[index].callback = JS_UNDEFINED;
     }
     owner->effect_names = calloc(1, sizeof(*owner->effect_names));
     if (owner->effect_names == NULL) {
@@ -1068,6 +1079,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) {
         return;
     }
+    mwx_scene_quickjs_destroy_timer_host(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);
     }
@@ -1159,6 +1171,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar_with_properties(
     owner->material_function_overflow = false;
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
     if (!owner->initialized) {
         JSValue init = JS_UNDEFINED;
         if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
@@ -1249,6 +1269,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     owner->material_function_overflow = false;
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
     char current[65537];
     if (input_length > 0) memcpy(current, input, input_length);
     current[input_length] = '\0';
@@ -1339,6 +1367,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     owner->material_function_overflow = false;
     owner->animation_command_count = 0;
     owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
     double current[3] = {input[0], input[1], input[2]};
     if (!owner->initialized) {
         JSValue init = JS_UNDEFINED;

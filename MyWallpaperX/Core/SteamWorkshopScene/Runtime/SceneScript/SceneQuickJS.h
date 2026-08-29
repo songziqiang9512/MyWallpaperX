@@ -182,6 +182,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(
 
 void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner);
 
+uint32_t mwx_scene_quickjs_owner_active_timer_count(
+    MWXSceneQuickJSOwner *owner
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,

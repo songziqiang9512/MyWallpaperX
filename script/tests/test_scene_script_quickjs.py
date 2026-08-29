@@ -28,10 +28,12 @@ static int check(int condition, const char *label, const char *diagnostic) {
     return 1;
 }
 
-static int update(
+static int update_at(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
     double input,
+    double frame_time,
+    double runtime,
     MWXSceneQuickJSResult expected,
     double expected_output,
     const char *label
@@ -40,8 +42,8 @@ static int update(
     double output = 0;
     MWXSceneQuickJSFrameInput frame = {
         .time_of_day = 0.25,
-        .frame_time = 1.0 / 60.0,
-        .runtime = 2.0,
+        .frame_time = frame_time,
+        .runtime = runtime,
     };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_scalar(
         owner, generation, input, &frame, &output, diagnostic, sizeof(diagnostic)
@@ -51,6 +53,20 @@ static int update(
             && (expected != MWX_SCENE_QUICKJS_OK || output == expected_output),
         label,
         diagnostic
+    );
+}
+
+static int update(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    double input,
+    MWXSceneQuickJSResult expected,
+    double expected_output,
+    const char *label
+) {
+    return update_at(
+        owner, generation, input, 1.0 / 60.0, 2.0,
+        expected, expected_output, label
     );
 }
 
@@ -1220,6 +1236,161 @@ int main(void) {
         "audio registration is global-only"
     );
 
+    const char *timer_source =
+        "let once=0,ticks=0,cancelInterval;"
+        "export function init(value){"
+        "engine.setTimeout(()=>{once=5;},100);"
+        "cancelInterval=engine.setInterval(()=>{"
+        "ticks+=1;if(ticks===2)cancelInterval();},50);"
+        "const cancelled=engine.setTimeout(()=>{once=99;},0);"
+        "cancelled();return value;}"
+        "export function update(value){return value+once+ticks;}";
+    MWXSceneQuickJSOwner *timer_owner = mwx_scene_quickjs_owner_create(
+        domain, timer_source, strlen(timer_source),
+        30, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(timer_owner != NULL, "timer owner compile", diagnostic);
+    failures += update_at(
+        timer_owner, 30, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "timer initialization"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_owner) == 2,
+        "cancelled timer removed", ""
+    );
+    failures += update_at(
+        timer_owner, 30, 1, 0.04, 0.04,
+        MWX_SCENE_QUICKJS_OK, 1, "timers wait for delay"
+    );
+    failures += update_at(
+        timer_owner, 30, 1, 0.02, 0.06,
+        MWX_SCENE_QUICKJS_OK, 2, "interval first tick"
+    );
+    failures += update_at(
+        timer_owner, 30, 1, 0.06, 0.12,
+        MWX_SCENE_QUICKJS_OK, 8, "timeout and self-cancel interval"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_owner) == 0,
+        "timer slots released", ""
+    );
+    failures += update_at(
+        timer_owner, 30, 1, 0.06, 0.12,
+        MWX_SCENE_QUICKJS_OK, 8, "same runtime does not advance timers"
+    );
+
+    const char *interval_source =
+        "let ticks=0;"
+        "export function init(value){"
+        "engine.setInterval(()=>{ticks+=1;},10);return value;}"
+        "export function update(value){return value+ticks;}";
+    MWXSceneQuickJSOwner *interval_owner = mwx_scene_quickjs_owner_create(
+        domain, interval_source, strlen(interval_source),
+        31, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(interval_owner != NULL, "interval owner compile", diagnostic);
+    failures += update_at(
+        interval_owner, 31, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "interval initialization"
+    );
+    failures += update_at(
+        interval_owner, 31, 1, 1, 1,
+        MWX_SCENE_QUICKJS_OK, 2, "interval long frame runs once"
+    );
+    failures += update_at(
+        interval_owner, 31, 1, 1, 2,
+        MWX_SCENE_QUICKJS_OK, 3, "interval does not catch up"
+    );
+
+    const char *timer_cancel_owner_source =
+        "export function init(value){"
+        "shared.cancel=engine.setTimeout(()=>{},1000);return value;}"
+        "export function update(value){return value;}";
+    MWXSceneQuickJSOwner *timer_cancel_owner = mwx_scene_quickjs_owner_create(
+        domain, timer_cancel_owner_source, strlen(timer_cancel_owner_source),
+        35, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        timer_cancel_owner != NULL, "timer cancel owner compile", diagnostic
+    );
+    failures += update_at(
+        timer_cancel_owner, 35, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "timer cancel owner initialization"
+    );
+    MWXSceneQuickJSOwner *timer_cancel_intruder = mwx_scene_quickjs_owner_create(
+        domain,
+        "export function update(value){shared.cancel();return value;}",
+        strlen("export function update(value){shared.cancel();return value;}"),
+        36, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        timer_cancel_intruder != NULL, "timer cancel intruder compile", diagnostic
+    );
+    failures += update_at(
+        timer_cancel_intruder, 36, 1, 0, 0,
+        MWX_SCENE_QUICKJS_EXCEPTION, 0, "cross-owner timer cancel rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_cancel_owner) == 1,
+        "cross-owner cancel preserves timer", ""
+    );
+
+    const char *invalid_timer_source =
+        "export function update(value){"
+        "engine.setTimeout(()=>{},-1);return value;}";
+    MWXSceneQuickJSOwner *invalid_timer = mwx_scene_quickjs_owner_create(
+        domain, invalid_timer_source, strlen(invalid_timer_source),
+        32, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(invalid_timer != NULL, "invalid timer owner compile", diagnostic);
+    failures += update_at(
+        invalid_timer, 32, 1, 0, 0,
+        MWX_SCENE_QUICKJS_EXCEPTION, 0, "invalid timer disables owner"
+    );
+
+    const char *timer_budget_source =
+        "export function update(value){"
+        "for(let i=0;i<33;i+=1)engine.setTimeout(()=>{},1000);"
+        "return value;}";
+    MWXSceneQuickJSOwner *timer_budget = mwx_scene_quickjs_owner_create(
+        domain, timer_budget_source, strlen(timer_budget_source),
+        33, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(timer_budget != NULL, "timer budget owner compile", diagnostic);
+    failures += update_at(
+        timer_budget, 33, 1, 0, 0,
+        MWX_SCENE_QUICKJS_EXCEPTION, 0, "timer budget disables owner"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_budget) == 32,
+        "timer budget remains bounded", ""
+    );
+
+    const char *timer_exception_source =
+        "export function init(value){"
+        "engine.setTimeout(()=>{throw new Error('timer boom');},0);"
+        "return value;}"
+        "export function update(value){return value;}";
+    MWXSceneQuickJSOwner *timer_exception = mwx_scene_quickjs_owner_create(
+        domain, timer_exception_source, strlen(timer_exception_source),
+        34, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        timer_exception != NULL, "timer exception owner compile", diagnostic
+    );
+    failures += update_at(
+        timer_exception, 34, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "timer exception initialization"
+    );
+    failures += update_at(
+        timer_exception, 34, 1, 0.01, 0.01,
+        MWX_SCENE_QUICKJS_EXCEPTION, 0, "timer exception disables owner"
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "timer exception preserves peer owner"
+    );
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -1240,6 +1411,13 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(cursor_owner);
     mwx_scene_quickjs_owner_destroy(audio_owner);
     mwx_scene_quickjs_owner_destroy(callback_audio);
+    mwx_scene_quickjs_owner_destroy(timer_owner);
+    mwx_scene_quickjs_owner_destroy(interval_owner);
+    mwx_scene_quickjs_owner_destroy(timer_cancel_owner);
+    mwx_scene_quickjs_owner_destroy(timer_cancel_intruder);
+    mwx_scene_quickjs_owner_destroy(invalid_timer);
+    mwx_scene_quickjs_owner_destroy(timer_budget);
+    mwx_scene_quickjs_owner_destroy(timer_exception);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(stale_layer);
@@ -1290,6 +1468,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),
             str(QUICKJS / "dtoa.c"),
             str(QUICKJS / "libregexp.c"),
