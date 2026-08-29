@@ -6,12 +6,12 @@
 
 ## 1. 当前结论
 
-- 当前真实 Scene 根发现 **104** 个样本，**104/104** 的 project、PKGV 索引和入口 JSON 可解析。
-- tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1315486372, 1480826543, 1507593643, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2356604986, 2684431262, 2775915974, 2797913147, 2813231542, 2824109832, 2896873092, 2917306763, 2932631210, 2942486721, 2959875782, 2986218263, 3002649614, 3167210190, 3211615441, 3219398263, 3233141951, 3389974179, 3395392965, 3396722575, 3437487219, 3472940912, 3585875739, 3629927359, 3748311238, 3749463715, 3754630802, 3754639143, 3763323436, 3765904723, 3777761326, 3779026256, 3780119725, 3780391264, 3780940857, 3781307553, 3782740481, 3784012236, 3786185473, 3786641495, 3787355076, 3788066613, 3788467391, 3788645041, 3788698200, 3788897599`，是否曾单独运行不能由静态扫描判断。
-- 全量 authored census 共保存 **41453** 个 typed occurrence、**1747** 个公共结构 family、**1244** 个参数 profile 与 **6702** 个 JSON 字段 profile。
-- 物理 corpus 共 **6192** 个 PKG entry / **6191** 个唯一路径，包体约 **3.071 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
+- 当前真实 Scene 根发现 **119** 个样本，**119/119** 的 project、PKGV 索引和入口 JSON 可解析。
+- tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；本 census 新发现但未 join 运行证据的样本为 `1300076567, 1315486372, 1439846152, 1480826543, 1507413154, 1507593643, 1511889295, 1989767609, 1994794519, 2069136288, 2112262451, 2163522240, 2179185481, 2181251652, 2231088993, 2269193950, 2304304373, 2356604986, 2505351195, 2684431262, 2775915974, 2794098047, 2797913147, 2808874251, 2813231542, 2824109832, 2837223712, 2896873092, 2917306763, 2932631210, 2942486721, 2959875782, 2986218263, 3002649614, 3025969015, 3113287126, 3167210190, 3211615441, 3219398263, 3233141951, 3264246690, 3323988600, 3363252053, 3389974179, 3395392965, 3396722575, 3437487219, 3472940912, 3509243656, 3585875739, 3629927359, 3748311238, 3749463715, 3754630802, 3754639143, 3763323436, 3765904723, 3777761326, 3779026256, 3780119725, 3780391264, 3780940857, 3781307553, 3782740481, 3784012236, 3786185473, 3786641495, 3787355076, 3788066613, 3788467391, 3788645041, 3788698200, 3788897599, 3790956325`，是否曾单独运行不能由静态扫描判断。
+- 全量 authored census 共保存 **46414** 个 typed occurrence、**1981** 个公共结构 family、**1287** 个参数 profile 与 **8533** 个 JSON 字段 profile。
+- 物理 corpus 共 **6997** 个 PKG entry / **6996** 个唯一路径，包体约 **3.512 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
-- 结构 fallback 记录为 **0**，另有 **2** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
+- 结构 fallback 记录为 **0**，另有 **6** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -28,28 +28,28 @@
 
 | 大类 | occurrence | family | family 语义/专项入口（非 current 状态） |
 |---|---:|---:|---|
-| `resource` | 3323 | 12 | [格式/资源](scene-format-and-render-graph.md) |
-| `shader` | 1456 | 251 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `layer` | 3309 | 610 | [格式/对象](scene-format-and-render-graph.md) |
-| `material` | 4202 | 32 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `effect` | 2425 | 12 | [Effect](effect-execution-coverage.md) |
-| `render-graph` | 2996 | 24 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `render-target` | 361 | 7 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `texture` | 8339 | 61 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
-| `particle` | 9523 | 531 | [粒子](particle-component-coverage.md) |
-| `dynamic-input` | 4202 | 180 | [属性/输入](runtime-input-property-coverage.md) |
-| `project-property` | 1317 | 27 | [属性/输入](runtime-input-property-coverage.md) |
+| `resource` | 3779 | 12 | [格式/资源](scene-format-and-render-graph.md) |
+| `shader` | 1652 | 264 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `layer` | 3768 | 737 | [格式/对象](scene-format-and-render-graph.md) |
+| `material` | 4570 | 38 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `effect` | 2594 | 13 | [Effect](effect-execution-coverage.md) |
+| `render-graph` | 3222 | 25 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `render-target` | 396 | 7 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `texture` | 9083 | 62 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
+| `particle` | 10569 | 573 | [粒子](particle-component-coverage.md) |
+| `dynamic-input` | 5003 | 219 | [属性/输入](runtime-input-property-coverage.md) |
+| `project-property` | 1778 | 31 | [属性/输入](runtime-input-property-coverage.md) |
 
 ### 3.1 纹理本体与使用点
 
-- 包内物理 TEX：**1413**；格式分布：`{"0": 722, "4": 50, "6": 12, "7": 14, "8": 230, "9": 385}`。
-- TEX 结构特征：`{"animated": 14, "static": 1399}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
-- 纹理使用 occurrence：**6926**；slot 状态：`{"hole": 1850, "missing": 26, "resolved": 3778, "runtime-provided": 1272}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
+- 包内物理 TEX：**1566**；格式分布：`{"0": 794, "4": 63, "6": 12, "7": 19, "8": 245, "9": 433}`。
+- TEX 结构特征：`{"animated": 17, "static": 1549}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
+- 纹理使用 occurrence：**7517**；slot 状态：`{"hole": 1978, "missing": 29, "resolved": 4118, "runtime-provided": 1392}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
 
 ### 3.2 对象、Effect 与动态输入
 
-- 对象类型：`{"camera": 1, "image": 1210, "light": 7, "particle": 327, "shape": 14, "sound": 30, "text": 463, "utility": 47}`；静态非 hidden：`{"image": 719, "light": 7, "particle": 270, "shape": 8, "sound": 30, "text": 285, "utility": 15}`。
-- Effect instance **2425**，粒子 root layer **327**；动态 wrapper：`{"condition_wrappers": 720, "script_wrappers": 1073, "timeline_wrappers": 199, "user_bindings": 2294}`。
+- 对象类型：`{"camera": 3, "image": 1352, "light": 7, "particle": 370, "shape": 14, "sound": 37, "text": 552, "utility": 81}`；静态非 hidden：`{"camera": 2, "image": 815, "light": 7, "particle": 311, "shape": 8, "sound": 37, "text": 351, "utility": 46}`。
+- Effect instance **2594**，粒子 root layer **370**；动态 wrapper：`{"condition_wrappers": 763, "script_wrappers": 1371, "timeline_wrappers": 214, "user_bindings": 2745}`。
 - 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。
 
 ## 4. 当前公共 family 影响面索引
@@ -58,86 +58,86 @@
 
 | family | domain/kind | occurrence | 样本 | 可见 occurrence / 样本 | 修复事件（非能力状态） |
 |---|---|---:|---:|---:|---|
-| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 2658 | 97 | 1519 / 96 | `untriaged` |
-| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 680 | 96 | 444 / 96 | `untriaged` |
-| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 2122 | 94 | 1138 / 93 | `untriaged` |
-| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 2122 | 94 | 1138 / 93 | `untriaged` |
-| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 1825 | 93 | 1104 / 93 | `untriaged` |
-| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 594 | 82 | 371 / 82 | `untriaged` |
-| `layer/image@5e4c8117d0220cb3` | `layer/image` | 218 | 69 | 146 / 64 | `untriaged` |
-| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 627 | 65 | 380 / 61 | `untriaged` |
-| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 742 | 61 | 424 / 61 | `untriaged` |
-| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 364 | 60 | 291 / 58 | `untriaged` |
-| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 450 | 59 | 373 / 58 | `untriaged` |
-| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 466 | 55 | 261 / 55 | `untriaged` |
-| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 319 | 57 | 260 / 54 | `untriaged` |
-| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 361 | 52 | 286 / 51 | `untriaged` |
-| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 346 | 52 | 274 / 51 | `untriaged` |
-| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 275 | 50 | 239 / 48 | `untriaged` |
-| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 228 | 50 | 204 / 48 | `untriaged` |
-| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 310 | 48 | 245 / 47 | `untriaged` |
-| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 170 | 44 | 152 / 43 | `untriaged` |
-| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 308 | 43 | 220 / 41 | `untriaged` |
-| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 181 | 40 | 161 / 39 | `untriaged` |
-| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 452 | 41 | 310 / 38 | `untriaged` |
-| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 153 | 39 | 103 / 35 | `untriaged` |
-| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 261 | 35 | 122 / 34 | `untriaged` |
-| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 125 | 35 | 88 / 34 | `untriaged` |
-| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 113 | 35 | 79 / 34 | `untriaged` |
-| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 94 | 35 | 68 / 32 | `untriaged` |
-| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 94 | 35 | 68 / 32 | `untriaged` |
-| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 94 | 35 | 68 / 32 | `untriaged` |
-| `layer/image@740da70a0906f520` | `layer/image` | 230 | 32 | 93 / 31 | `untriaged` |
-| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 154 | 32 | 109 / 30 | `untriaged` |
-| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 101 | 32 | 68 / 30 | `untriaged` |
-| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 110 | 29 | 98 / 26 | `untriaged` |
-| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 82 | 26 | 53 / 26 | `untriaged` |
-| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 158 | 28 | 107 / 25 | `untriaged` |
-| `layer/image@1963ea2b13ddb536` | `layer/image` | 161 | 25 | 104 / 25 | `untriaged` |
-| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 161 | 25 | 104 / 25 | `untriaged` |
-| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 86 | 26 | 73 / 23 | `untriaged` |
-| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 269 | 22 | 128 / 22 | `untriaged` |
-| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 62 | 23 | 45 / 21 | `untriaged` |
-| `layer/image@ce6e6edd1955feb5` | `layer/image` | 227 | 22 | 112 / 21 | `untriaged` |
-| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 89 | 21 | 69 / 21 | `untriaged` |
-| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 126 | 22 | 85 / 20 | `untriaged` |
-| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 49 | 21 | 45 / 20 | `untriaged` |
-| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 95 | 20 | 73 / 19 | `untriaged` |
-| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 43 | 20 | 42 / 19 | `untriaged` |
-| `effect/authored-graph@812aa00e4d7bfe07` | `effect/authored-graph` | 53 | 20 | 41 / 18 | `untriaged` |
+| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 756 | 111 | 495 / 111 | `untriaged` |
+| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 2853 | 108 | 1670 / 107 | `untriaged` |
+| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 2259 | 105 | 1237 / 104 | `untriaged` |
+| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 2259 | 105 | 1237 / 104 | `untriaged` |
+| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 1952 | 104 | 1204 / 104 | `untriaged` |
+| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 645 | 93 | 410 / 93 | `untriaged` |
+| `layer/image@5e4c8117d0220cb3` | `layer/image` | 241 | 78 | 160 / 72 | `untriaged` |
+| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 498 | 72 | 419 / 70 | `untriaged` |
+| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 400 | 72 | 325 / 70 | `untriaged` |
+| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 664 | 72 | 406 / 68 | `untriaged` |
+| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 796 | 68 | 474 / 68 | `untriaged` |
+| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 355 | 70 | 294 / 67 | `untriaged` |
+| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 397 | 65 | 323 / 64 | `untriaged` |
+| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 398 | 64 | 323 / 63 | `untriaged` |
+| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 320 | 63 | 284 / 61 | `untriaged` |
+| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 484 | 61 | 275 / 61 | `untriaged` |
+| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 245 | 60 | 221 / 58 | `untriaged` |
+| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 352 | 59 | 287 / 58 | `untriaged` |
+| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 192 | 54 | 174 / 53 | `untriaged` |
+| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 202 | 49 | 182 / 48 | `untriaged` |
+| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 344 | 48 | 252 / 45 | `untriaged` |
+| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 508 | 46 | 360 / 42 | `untriaged` |
+| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 165 | 45 | 115 / 41 | `untriaged` |
+| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 285 | 42 | 143 / 41 | `untriaged` |
+| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 105 | 41 | 77 / 38 | `untriaged` |
+| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 105 | 41 | 77 / 38 | `untriaged` |
+| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 105 | 41 | 77 / 38 | `untriaged` |
+| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 139 | 40 | 100 / 38 | `untriaged` |
+| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 128 | 40 | 92 / 38 | `untriaged` |
+| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 176 | 37 | 129 / 34 | `untriaged` |
+| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 115 | 37 | 80 / 34 | `untriaged` |
+| `layer/image@740da70a0906f520` | `layer/image` | 246 | 35 | 106 / 34 | `untriaged` |
+| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 118 | 33 | 106 / 30 | `untriaged` |
+| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 108 | 32 | 95 / 29 | `untriaged` |
+| `layer/image@1963ea2b13ddb536` | `layer/image` | 171 | 29 | 111 / 29 | `untriaged` |
+| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 171 | 29 | 111 / 29 | `untriaged` |
+| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 181 | 32 | 128 / 28 | `untriaged` |
+| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 286 | 28 | 143 / 28 | `untriaged` |
+| `layer/image@ce6e6edd1955feb5` | `layer/image` | 238 | 28 | 122 / 27 | `untriaged` |
+| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 83 | 27 | 54 / 27 | `untriaged` |
+| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 95 | 25 | 75 / 25 | `untriaged` |
+| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 55 | 25 | 51 / 24 | `untriaged` |
+| `particle/children-child-definition@9ac07766b41dd3ec` | `particle/children` | 92 | 24 | 87 / 24 | `untriaged` |
+| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 70 | 25 | 53 / 23 | `untriaged` |
+| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 103 | 23 | 79 / 22 | `untriaged` |
+| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 53 | 23 | 50 / 22 | `untriaged` |
+| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 63 | 22 | 47 / 22 | `untriaged` |
+| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 129 | 24 | 86 / 21 | `untriaged` |
+| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 49 | 22 | 48 / 21 | `untriaged` |
+| `effect/authored-graph@812aa00e4d7bfe07` | `effect/authored-graph` | 61 | 22 | 49 / 20 | `untriaged` |
+| `layer/particle@7e8a8ba4b06bd409` | `layer/particle` | 74 | 20 | 72 / 20 | `untriaged` |
+| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 54 | 21 | 31 / 19 | `untriaged` |
+| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 54 | 21 | 31 / 19 | `untriaged` |
+| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 38 | 20 | 33 / 19 | `untriaged` |
+| `particle/emitter-sphererandom@d1f27f5059ca5180` | `particle/emitter` | 33 | 19 | 33 / 19 | `untriaged` |
+| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 19 | 19 | 19 / 19 | `untriaged` |
+| `particle/material@39fc82b1fae017f5` | `particle/material` | 40 | 20 | 33 / 18 | `untriaged` |
+| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 106 | 19 | 71 / 18 | `untriaged` |
 | `particle/operator-angularmovement@60d6a8e0f4658b34` | `particle/operator` | 36 | 19 | 33 / 18 | `untriaged` |
-| `particle/children-child-definition@9ac07766b41dd3ec` | `particle/children` | 85 | 18 | 80 / 18 | `untriaged` |
-| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 54 | 18 | 38 / 18 | `untriaged` |
-| `particle/material@39fc82b1fae017f5` | `particle/material` | 39 | 19 | 32 / 17 | `untriaged` |
-| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 48 | 18 | 45 / 17 | `untriaged` |
-| `particle/emitter-sphererandom@d1f27f5059ca5180` | `particle/emitter` | 31 | 17 | 31 / 17 | `untriaged` |
+| `particle/operator-oscillateposition@c49553200c2ce38b` | `particle/operator` | 39 | 18 | 38 / 18 | `untriaged` |
+| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 59 | 18 | 47 / 17 | `untriaged` |
+| `particle/operator-oscillatealpha@2022845e81a0933b` | `particle/operator` | 53 | 18 | 37 / 17 | `untriaged` |
+| `particle/operator-sizechange@82c34119f9ad1e27` | `particle/operator` | 49 | 17 | 49 / 17 | `untriaged` |
+| `layer/image@46ce5d8c009d3a5b` | `layer/image` | 48 | 17 | 27 / 17 | `untriaged` |
 | `particle/initializer-angularvelocityrandom@198daf786a62e408` | `particle/initializer` | 35 | 19 | 30 / 16 | `untriaged` |
-| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 103 | 17 | 68 / 16 | `untriaged` |
-| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 48 | 17 | 27 / 16 | `untriaged` |
-| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 48 | 17 | 27 / 16 | `untriaged` |
-| `particle/operator-oscillateposition@c49553200c2ce38b` | `particle/operator` | 37 | 16 | 36 / 16 | `untriaged` |
-| `layer/image@46ce5d8c009d3a5b` | `layer/image` | 47 | 16 | 26 / 16 | `untriaged` |
-| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 16 | 16 | 16 / 16 | `untriaged` |
-| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 81 | 16 | 58 / 15 | `untriaged` |
-| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 33 | 16 | 28 / 15 | `untriaged` |
-| `layer/particle@7e8a8ba4b06bd409` | `layer/particle` | 56 | 15 | 54 / 15 | `untriaged` |
-| `particle/initializer-sizerandom@e0dd54a817ccc18e` | `particle/initializer` | 35 | 17 | 26 / 14 | `untriaged` |
-| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 52 | 15 | 42 / 14 | `untriaged` |
-| `particle/operator-oscillatealpha@2022845e81a0933b` | `particle/operator` | 49 | 15 | 33 / 14 | `untriaged` |
-| `particle/controlpoint-2@7c86ea44340e0cde` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/controlpoint-3@3bdff8cdd5c735a6` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/controlpoint-4@b3f2f2b3dee04ff7` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/controlpoint-5@023884c1ea1cda46` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/controlpoint-6@e8fb3f11c6b7a3f8` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/controlpoint-7@e40b75574f9be222` | `particle/controlpoint` | 58 | 16 | 48 / 13 | `untriaged` |
-| `particle/emitter-boxrandom@4e417bee7aab34b7` | `particle/emitter` | 39 | 14 | 37 / 13 | `untriaged` |
+| `particle/initializer-sizerandom@e0dd54a817ccc18e` | `particle/initializer` | 38 | 19 | 29 / 16 | `untriaged` |
+| `particle/initializer-lifetimerandom@95632b66f37d7953` | `particle/initializer` | 74 | 18 | 71 / 16 | `untriaged` |
+| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 87 | 17 | 64 / 16 | `untriaged` |
+| `particle/emitter-boxrandom@4e417bee7aab34b7` | `particle/emitter` | 43 | 17 | 41 / 16 | `untriaged` |
+| `particle/initializer-rotationrandom@5933ed3a457c6381` | `particle/initializer` | 36 | 16 | 34 / 15 | `untriaged` |
+| `particle/initializer-alpharandom@d9898c95d8929745` | `particle/initializer` | 28 | 15 | 28 / 15 | `untriaged` |
+| `particle/emitter-sphererandom@5a95afd97c419886` | `particle/emitter` | 28 | 15 | 27 / 15 | `untriaged` |
+| `layer/image@afc7972d972dbecb` | `layer/image` | 28 | 15 | 26 / 15 | `untriaged` |
 
 完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。
 
@@ -145,9 +145,13 @@
 
 | 样本 | 标题 | 对象 | Effect | 粒子层 | occurrence | 人工对照 | matrix/runtime |
 |---|---|---:|---:|---:|---:|---|---|
+| `1300076567` | 阳光少女 | 6 | 0 | 4 | 159 | 无 | 新增 / census未join runtime |
 | `1315486372` | 貂蝉拜月 | 3 | 1 | 2 | 72 | 无 | 新增 / census未join runtime |
+| `1439846152` | 腿 | 2 | 0 | 1 | 33 | 无 | 新增 / census未join runtime |
 | `1480826543` | Emilia X-ray NSFW | 2 | 2 | 1 | 62 | 无 | 新增 / census未join runtime |
+| `1507413154` | 百褶裙 | 3 | 1 | 1 | 72 | 无 | 新增 / census未join runtime |
 | `1507593643` | 蕾丝吊带 | 3 | 0 | 2 | 83 | 无 | 新增 / census未join runtime |
+| `1511889295` | 死库水 | 3 | 1 | 2 | 119 | 无 | 新增 / census未join runtime |
 | `1553008362` | [Jidan Hua] Ichigo and 002 (Darling in the Franxx) - animated | 1 | 4 | 0 | 50 | 截图+说明 | tracked45 / census未join runtime |
 | `1636394814` | [Jaku Denpa] Shigure (Kantai Collection) - animated xray | 3 | 21 | 0 | 191 | 截图+说明 | tracked45 / census未join runtime |
 | `1937925563` | Tropical Paradise 4K [Customizable Colors &amp; Audio Visualizer] - Vaporwave &amp; Neon | 16 | 51 | 3 | 735 | 截图+说明 | tracked45 / census未join runtime |
@@ -169,12 +173,16 @@
 | `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 272 | 截图+说明 | tracked45 / census未join runtime |
 | `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图+说明 | tracked45 / census未join runtime |
 | `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 105 | 截图+说明 | tracked45 / census未join runtime |
+| `2505351195` | Nier Automata / +21 \| NSFW &amp; SFW | 2 | 6 | 1 | 95 | 无 | 新增 / census未join runtime |
 | `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 262 | 无 | 新增 / census未join runtime |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 144 | 无 | 新增 / census未join runtime |
+| `2794098047` | 麻匪 是姐姐还是妹妹 windows | 15 | 20 | 1 | 319 | 无 | 新增 / census未join runtime |
 | `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 79 | 无 | 新增 / census未join runtime |
 | `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 184 | 截图+说明 | tracked45 / census未join runtime |
+| `2808874251` | youer | 6 | 0 | 5 | 138 | 无 | 新增 / census未join runtime |
 | `2813231542` | 清新美女 R-18 | 6 | 13 | 1 | 196 | 无 | 新增 / census未join runtime |
 | `2824109832` | Yor Forger - NIXEU 4K | 5 | 17 | 2 | 283 | 无 | 新增 / census未join runtime |
+| `2837223712` | 李擎洲：阿狸[4K] | 7 | 1 | 4 | 142 | 无 | 新增 / census未join runtime |
 | `2884628849` | 麻匪 小姐姐 | 26 | 33 | 0 | 442 | 截图+说明 | tracked45 / census未join runtime |
 | `2896873092` | Genshin Impact: Thicc Girls Spread Collage X-Ray R18+ | 11 | 64 | 0 | 536 | 无 | 新增 / census未join runtime |
 | `2902406982` | 麻匪 月半与鬼哭 所有元素自定义 | 140 | 115 | 1 | 1670 | 截图+说明 | tracked45 / census未join runtime |
@@ -187,21 +195,27 @@
 | `2986218263` | Tokisaki Asaba &amp; Tokisaki Mio │18+ X-Ray │NSFW &amp; SFW│VERSIONS | 5 | 1 | 1 | 73 | 无 | 新增 / census未join runtime |
 | `2998757800` | 碧蓝航线-利托里奥【R18版/可触摸/天气变化】-B站慕慕慕慕斯小蛋糕 | 22 | 22 | 15 | 722 | 截图+说明 | tracked45 / census未join runtime |
 | `3002649614` | 纯欲少女 | 4 | 0 | 0 | 25 | 无 | 新增 / census未join runtime |
+| `3025969015` | 黑龙闹海 | 9 | 7 | 7 | 278 | 无 | 新增 / census未join runtime |
 | `3028090166` | WLOP [Tian Nan2] | 12 | 20 | 2 | 347 | 截图+说明 | tracked45 / census未join runtime |
 | `3088601835` | Winter Wanderer Xayah - League of Legends [ NAMAKXIN ] | 31 | 36 | 19 | 853 | 截图+说明 | tracked45 / census未join runtime |
+| `3113287126` | Dome 4k {Artwork by WLOP} | 31 | 46 | 5 | 789 | 无 | 新增 / census未join runtime |
 | `3122339805` | Pixels | 190 | 17 | 0 | 786 | 截图+说明 | tracked45 / census未join runtime |
 | `3141421197` | GraspOfTheAbyss | 1 | 1 | 0 | 12 | 截图+说明 | tracked45 / census未join runtime |
 | `3167210190` | [Blue Archive] 奶牛装明日奈 | 1 | 5 | 0 | 61 | 无 | 新增 / census未join runtime |
 | `3211615441` | 捆绑悬挂 \| Bind &amp; Suspend [ 可交互/interactive \| iumu \| X-ray \| 4k \| 明日方舟/Arknights ] | 26 | 116 | 0 | 998 | 无 | 新增 / census未join runtime |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 10 | 1 | 6 | 187 | 无 | 新增 / census未join runtime |
 | `3233141951` | 熠烛 御剑驭龙-红鸾樱落 高度自定义Red Warbler-Sakura falls （Highly customizable） | 65 | 59 | 9 | 998 | 无 | 新增 / census未join runtime |
+| `3264246690` | 麻匪 wlop 鬼刀 月牙儿 16:9 16:10 21:9 32:9 | 36 | 33 | 0 | 558 | 无 | 新增 / census未join runtime |
 | `3290491250` | frieren | 5 | 3 | 1 | 73 | 截图+说明 | tracked45 / census未join runtime |
 | `3299228616` | Lonely Cat: Audio visualizer , Clock , Chill , Multi language | 271 | 276 | 42 | 4189 | 截图+说明 | tracked45 / census未join runtime |
+| `3323988600` | Hentai Goddess of Victory Nikke ANIMATED \| Huge Ass Cowgirl \| NSFW R-18 \| Customizable | 6 | 6 | 4 | 205 | 无 | 新增 / census未join runtime |
+| `3363252053` | 【Parallax视差】Hatsune Miku 初音未来 光与影——夜莺Night Light and Shadow | 48 | 34 | 4 | 776 | 无 | 新增 / census未join runtime |
 | `3389974179` | 落日与白皙的大腿 | 4 | 4 | 0 | 99 | 无 | 新增 / census未join runtime |
 | `3395392965` | 请叫我帅锅-小姨定制 | 1 | 1 | 0 | 21 | 无 | 新增 / census未join runtime |
 | `3396722575` | 麻匪 NIXEU 黄泉 超多自定义模块 音频识别 Media Player 16:9 16:10 4:3 21:9 32:9 | 61 | 76 | 16 | 1797 | 无 | 新增 / census未join runtime |
 | `3437487219` | 3D Earth - Close Orbit [HDR10 Optimized] | 21 | 4 | 2 | 201 | 无 | 新增 / census未join runtime |
 | `3472940912` | -Tsukatsuki Rio [ blue archive ] - 4K | 3 | 6 | 0 | 90 | 无 | 新增 / census未join runtime |
+| `3509243656` | 三体实时演算 \| Three-Body problem - SYKM | 142 | 12 | 4 | 1248 | 无 | 新增 / census未join runtime |
 | `3585875739` | Miku Monitoring | 3 | 6 | 2 | 133 | 无 | 新增 / census未join runtime |
 | `3629927359` | 奶牛大鸭鸭 2 | 25 | 0 | 0 | 203 | 无 | 新增 / census未join runtime |
 | `3738202317` | Albedo. | 1 | 4 | 0 | 57 | 截图+说明 | tracked45 / census未join runtime |
@@ -249,6 +263,7 @@
 | `3788645041` | 奥黛塔(破洞版) | 3 | 8 | 0 | 97 | 无 | 新增 / census未join runtime |
 | `3788698200` | NFFA画风 维琳娜2（可去防封马赛克+可去时钟） | 3 | 1 | 1 | 69 | 无 | 新增 / census未join runtime |
 | `3788897599` | ArT丨R18丨4K丨Red Q | 18 | 25 | 3 | 532 | 无 | 新增 / census未join runtime |
+| `3790956325` | 骚暖暖 | 1 | 2 | 0 | 30 | 无 | 新增 / census未join runtime |
 
 ## 6. 修复事件记录与防回归合同
 
