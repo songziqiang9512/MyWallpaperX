@@ -3,6 +3,50 @@ import QuartzCore
 import simd
 
 extension SceneMetalView {
+    /// Publishes one immutable callback snapshot from the same surface camera
+    /// and pointer state used by rendering. The host only calls this when a
+    /// scene has exactly one output surface, so no screen identity is guessed.
+    func sceneScriptSurfaceInput(
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> SceneScriptSurfaceInput? {
+        guard metalLayer.drawableSize.width > 0,
+              metalLayer.drawableSize.height > 0 else { return nil }
+        let frameContext = makeFrameContext(
+            timing: timing,
+            dynamicValues: dynamicValues,
+            parallax: .zero,
+            audioSpectrum: .silent
+        )
+        let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
+        guard let world = SceneLayerCursorGeometry.layerPoint(
+            mouseNormalized: pointerState.sceneScriptCurrent,
+            modelViewProjection: cameraFrame.orthographicViewProjection
+        ) else { return nil }
+        let screenWidth = Double(frameContext.screenSize.width)
+        let screenHeight = Double(frameContext.screenSize.height)
+        let canvasWidth = Double(frameContext.canvasSize.width)
+        let canvasHeight = Double(frameContext.canvasSize.height)
+        let cursorScreen = SIMD2<Double>(
+            (Double(pointerState.sceneScriptCurrent.x) + 1) * 0.5 * screenWidth,
+            (1 - Double(pointerState.sceneScriptCurrent.y)) * 0.5 * screenHeight
+        )
+        guard screenWidth.isFinite, screenWidth > 0,
+              screenHeight.isFinite, screenHeight > 0,
+              canvasWidth.isFinite, canvasWidth > 0,
+              canvasHeight.isFinite, canvasHeight > 0,
+              cursorScreen.x.isFinite, cursorScreen.y.isFinite else { return nil }
+        return SceneScriptSurfaceInput(
+            canvasSize: SIMD2(canvasWidth, canvasHeight),
+            screenSize: SIMD2(screenWidth, screenHeight),
+            cursorWorldPosition: SIMD3(
+                Double(world.x), Double(world.y), Double(world.z)
+            ),
+            cursorScreenPosition: cursorScreen,
+            cursorLeftDown: pointerState.sceneScriptPrimaryButtonIsDown
+        )
+    }
+
     /// Uses the same cover camera, authored world frames and quad inverse as
     /// rendering. Hidden transparent interaction owners remain hit-testable;
     /// visibility is intentionally not consulted here.

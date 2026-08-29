@@ -43,6 +43,15 @@ enum Harness {
         let projected = transformedMVP * local
         let normalized = SIMD2(projected.x, projected.y) / projected.w
         let singular = SceneMatrix.scale(SIMD3(0, 1, 1))
+        let largeDepthProjection = SceneMatrix.ortho(
+            left: -128, right: 128,
+            bottom: 128, top: -128,
+            near: 0.1, far: 10_000
+        ) * SceneMatrix.lookAt(
+            eye: SIMD3(0, 0, 1),
+            center: .zero,
+            up: SIMD3(0, 1, 0)
+        )
         let singularUnusedProjection = SceneLayerCursorGeometry
             .effectProjectionInverse(singular, required: false)
         let inverseRestoresKnownPoint: Bool = {
@@ -77,6 +86,11 @@ enum Harness {
                 singularUnusedProjection == matrix_identity_float4x4,
             "singularRequiredProjectionRejected": SceneLayerCursorGeometry
                 .effectProjectionInverse(singular, required: true) == nil,
+            "largeDepthOrthographicProjectionAccepted":
+                SceneLayerCursorGeometry.layerPoint(
+                    mouseNormalized: .zero,
+                    modelViewProjection: largeDepthProjection
+                ) != nil,
             "invertibleRequiredProjectionMatchesStrictInverse":
                 SceneLayerCursorGeometry.effectProjectionInverse(
                     transformedMVP,
@@ -177,6 +191,9 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
 
     def test_public_inverse_matches_layer_local_projection(self) -> None:
         self.assertTrue(self.result["inverseRestoresKnownPoint"])
+
+    def test_large_depth_orthographic_projection_is_not_rejected_by_scale(self) -> None:
+        self.assertTrue(self.result["largeDepthOrthographicProjectionAccepted"])
 
     def test_effect_projection_placeholder_requires_an_unobserved_matrix(self) -> None:
         self.assertTrue(self.result["singularUnusedProjectionUsesIdentity"])

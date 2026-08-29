@@ -30,11 +30,7 @@ nonisolated enum SceneScriptOwnerLifecycleBridge {
     ) -> SceneScriptOwnerTeardownOutcome {
         var diagnostic = [CChar](repeating: 0, count: 512)
         var invoked: UInt32 = 0
-        var rawFrame = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var rawFrame = frame.quickJSValue
         let raw = scriptPropertiesJSON.withCString { scriptProperties in
             userPropertiesJSON.withCString { userProperties in
                 mwx_scene_quickjs_owner_teardown(

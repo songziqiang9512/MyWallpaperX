@@ -35,6 +35,8 @@ extension SceneMetalView {
 
     func applyPointerState(_ state: SceneSurfacePointerState) {
         pointerState = state
+        pointerState.sceneScriptCurrent = state.current
+        pointerState.sceneScriptPrimaryButtonIsDown = state.isPrimaryButtonDown
         let parallaxTarget = state.isInside ? state.current : .zero
         parallaxPointerSmoother.setTarget(
             parallaxTarget,
@@ -44,12 +46,19 @@ extension SceneMetalView {
 
     private func updatePointer(_ windowPoint: CGPoint) {
         let local = convert(windowPoint, from: nil)
-        guard bounds.contains(local), bounds.width > 0, bounds.height > 0 else {
+        guard bounds.width > 0, bounds.height > 0 else {
             setPointerOutside()
             return
         }
         let nx = Float((local.x / bounds.width) * 2 - 1)
         let ny = Float((local.y / bounds.height) * 2 - 1)
+        pointerState.sceneScriptCurrent = SIMD2(nx, ny)
+        pointerState.sceneScriptPrimaryButtonIsDown =
+            NSEvent.pressedMouseButtons & 1 != 0
+        guard bounds.contains(local) else {
+            setPointerOutside()
+            return
+        }
         let normalized = SIMD2(
             max(-1, min(1, nx)),
             max(-1, min(1, ny))

@@ -108,11 +108,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
-        var rawFrame = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var rawFrame = frame.quickJSValue
         var output = [CChar](repeating: 0, count: 65_537)
         var outputLength = 0
         var diagnostic = [CChar](repeating: 0, count: 512)

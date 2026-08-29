@@ -320,6 +320,16 @@ extension SceneDesktopWallpaperHost {
         ).snapshot
         let userPropertiesJSON = launchContext.propertyVectorScriptProgram
             .userPropertiesJSON(effectiveValues: launchContext.liveState.effectiveValues)
+        let sceneScriptSurfaceInput = surfaces.count == 1
+            ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
+                timing: timing,
+                dynamicValues: preliminaryForSceneScript
+            )
+            : nil
+        let sceneScriptFrame = SceneScriptFrameInput(
+            timing: timing,
+            surface: sceneScriptSurfaceInput
+        )
         let cursorHits = surfaces.values.reduce(
             into: [Int: SceneScriptCursorHit]()
         ) { result, surface in
@@ -334,7 +344,7 @@ extension SceneDesktopWallpaperHost {
             primaryButtonIsDown: surfaces.values.contains {
                 $0.metalView.pointerState.isPrimaryButtonDown
             },
-            frame: SceneScriptFrameInput(timing: timing),
+            frame: sceneScriptFrame,
             userPropertiesJSON: userPropertiesJSON
         )
         for (layerID, failure) in cursorResult.failures {
@@ -355,7 +365,7 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptVectorResult = launchContext.propertyVectorScriptProgram.evaluate(
             inputs: sceneScriptVectorInputs,
             effectivePropertyValues: launchContext.liveState.effectiveValues,
-            frame: SceneScriptFrameInput(timing: timing),
+            frame: sceneScriptFrame,
             layerSnapshot: preliminaryForSceneScript,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
             mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
@@ -381,7 +391,7 @@ extension SceneDesktopWallpaperHost {
             }
         let sceneScriptStringResult = launchContext.sceneScriptStringProgram.evaluate(
             inputs: sceneScriptStringInputs,
-            frame: SceneScriptFrameInput(timing: timing),
+            frame: sceneScriptFrame,
             userPropertiesJSON: userPropertiesJSON,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
             mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
@@ -409,7 +419,7 @@ extension SceneDesktopWallpaperHost {
         }
         let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
             inputs: sceneScriptInputs,
-            frame: SceneScriptFrameInput(timing: timing),
+            frame: sceneScriptFrame,
             userPropertiesJSON: userPropertiesJSON,
             mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
             mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,

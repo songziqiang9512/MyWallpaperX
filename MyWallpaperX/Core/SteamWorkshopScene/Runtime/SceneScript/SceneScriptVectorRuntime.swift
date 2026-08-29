@@ -98,11 +98,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         let source = [input.x, input.y, input.z]
         var output = [Double](repeating: 0, count: 3)
-        var frameInput = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = source.withUnsafeBufferPointer { sourceBuffer in
             output.withUnsafeMutableBufferPointer { outputBuffer in

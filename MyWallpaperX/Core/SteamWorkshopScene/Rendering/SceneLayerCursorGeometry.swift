@@ -41,7 +41,10 @@ enum SceneLayerCursorGeometry {
         _ modelViewProjection: simd_float4x4
     ) -> simd_float4x4? {
         let determinant = simd_determinant(modelViewProjection)
-        guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
+        // A fixed determinant epsilon rejects valid orthographic cameras whose
+        // canvas and depth ranges are large. Exact singularity plus a finite
+        // inverse/residual check is scale-aware and still rejects unsafe input.
+        guard determinant.isFinite, determinant != 0 else { return nil }
         let inverse = simd_inverse(modelViewProjection)
         let columns = [
             inverse.columns.0, inverse.columns.1,
@@ -51,6 +54,15 @@ enum SceneLayerCursorGeometry {
             column.x.isFinite && column.y.isFinite
                 && column.z.isFinite && column.w.isFinite
         }) else { return nil }
+        let restored = modelViewProjection * inverse
+        let identity = matrix_identity_float4x4
+        for column in 0..<4 {
+            for row in 0..<4 {
+                if abs(restored[column][row] - identity[column][row]) > 1e-3 {
+                    return nil
+                }
+            }
+        }
         return inverse
     }
 

@@ -44,6 +44,17 @@ static int update_at(
         .time_of_day = 0.25,
         .frame_time = frame_time,
         .runtime = runtime,
+        .has_surface_input = 1,
+        .canvas_width = 100,
+        .canvas_height = 50,
+        .screen_width = 200,
+        .screen_height = 100,
+        .cursor_world_x = 10,
+        .cursor_world_y = 20,
+        .cursor_world_z = 0,
+        .cursor_screen_x = 30,
+        .cursor_screen_y = 40,
+        .cursor_left_down = 1,
     };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_scalar(
         owner, generation, input, &frame, &output, diagnostic, sizeof(diagnostic)
@@ -608,6 +619,138 @@ int main(void) {
     failures += update(
         time_of_day, 11, 0, MWX_SCENE_QUICKJS_OK, 1,
         "WEMath engine.timeOfDay"
+    );
+
+    const char *surface_input_source =
+        "'use strict';\n"
+        "export function update(value) {\n"
+        "  const world = input.cursorWorldPosition;\n"
+        "  const screen = input.cursorScreenPosition;\n"
+        "  const canvas = engine.canvasSize;\n"
+        "  if (!Object.isFrozen(input) || !Object.isFrozen(world) ||\n"
+        "      !Object.isFrozen(screen) || !Object.isFrozen(canvas)) {\n"
+        "    throw new Error('mutable surface snapshot');\n"
+        "  }\n"
+        "  const divisor = new Vec3(canvas, 1).divide(new Vec3(10, 5, 1));\n"
+        "  const arithmetic = new Vec3(15, 15, 2).subtract(divisor);\n"
+        "  return value + world.x + world.y + world.z +\n"
+        "    screen.x + screen.y + canvas.x + canvas.y +\n"
+        "    (input.cursorLeftDown ? 1 : 0) +\n"
+        "    arithmetic.x + arithmetic.y + arithmetic.z;\n"
+        "}";
+    MWXSceneQuickJSOwner *surface_input = mwx_scene_quickjs_owner_create(
+        domain, surface_input_source, strlen(surface_input_source),
+        48, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        surface_input != NULL, "surface input compile", diagnostic
+    );
+    failures += update(
+        surface_input, 48, 1, MWX_SCENE_QUICKJS_OK, 263,
+        "callback surface input and Vec3 arithmetic"
+    );
+    MWXSceneQuickJSFrameInput refreshed_surface_frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+        .has_surface_input = 1,
+        .canvas_width = 200,
+        .canvas_height = 100,
+        .screen_width = 400,
+        .screen_height = 200,
+        .cursor_world_x = 1,
+        .cursor_world_y = 2,
+        .cursor_world_z = 3,
+        .cursor_screen_x = 4,
+        .cursor_screen_y = 5,
+        .cursor_left_down = 0,
+    };
+    double refreshed_surface_output = 0;
+    failures += check(
+        mwx_scene_quickjs_owner_update_scalar(
+            surface_input, 48, 1, &refreshed_surface_frame,
+            &refreshed_surface_output, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK && refreshed_surface_output == 307,
+        "surface input refreshes per callback",
+        diagnostic
+    );
+
+    const char *immutable_surface_source =
+        "'use strict'; export function update(value) {"
+        "input.cursorWorldPosition.x = 99; return value; }";
+    MWXSceneQuickJSOwner *immutable_surface = mwx_scene_quickjs_owner_create(
+        domain, immutable_surface_source, strlen(immutable_surface_source),
+        49, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        immutable_surface != NULL, "immutable surface compile", diagnostic
+    );
+    failures += update(
+        immutable_surface, 49, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "surface snapshots are immutable"
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "surface mutation failure preserves peer owner"
+    );
+
+    const char *global_surface_source =
+        "let rejected = false; "
+        "try { input.cursorWorldPosition; } catch (error) { rejected = true; } "
+        "export function update(value) { return rejected ? value + 1 : -1; }";
+    MWXSceneQuickJSOwner *global_surface = mwx_scene_quickjs_owner_create(
+        domain, global_surface_source, strlen(global_surface_source),
+        50, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        global_surface != NULL,
+        "global phase rejects surface input",
+        diagnostic
+    );
+    failures += update(
+        global_surface, 50, 1, MWX_SCENE_QUICKJS_OK, 2,
+        "global phase rejection is observable"
+    );
+
+    MWXSceneQuickJSFrameInput missing_surface_frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    double missing_surface_output = 0;
+    failures += check(
+        mwx_scene_quickjs_owner_update_scalar(
+            surface_input, 48, 1, &missing_surface_frame,
+            &missing_surface_output, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_EXCEPTION,
+        "missing exact surface fails only consumer callback",
+        diagnostic
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "missing surface failure preserves peer owner"
+    );
+
+    MWXSceneQuickJSFrameInput invalid_surface_frame = missing_surface_frame;
+    invalid_surface_frame.has_surface_input = 1;
+    invalid_surface_frame.canvas_width = 0;
+    invalid_surface_frame.canvas_height = 50;
+    invalid_surface_frame.screen_width = 200;
+    invalid_surface_frame.screen_height = 100;
+    MWXSceneQuickJSOwner *invalid_surface = mwx_scene_quickjs_owner_create(
+        domain, surface_input_source, strlen(surface_input_source),
+        51, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        invalid_surface != NULL, "invalid surface owner compile", diagnostic
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_update_scalar(
+            invalid_surface, 51, 1, &invalid_surface_frame,
+            &missing_surface_output, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_EXCEPTION,
+        "invalid surface ABI fails closed",
+        diagnostic
     );
 
     MWXSceneQuickJSOwner *wemath_mix = mwx_scene_quickjs_owner_create(
@@ -1838,6 +1981,10 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(time_of_day);
     mwx_scene_quickjs_owner_destroy(invalid_wemath_mix);
     mwx_scene_quickjs_owner_destroy(wemath_mix);
+    mwx_scene_quickjs_owner_destroy(immutable_surface);
+    mwx_scene_quickjs_owner_destroy(surface_input);
+    mwx_scene_quickjs_owner_destroy(invalid_surface);
+    mwx_scene_quickjs_owner_destroy(global_surface);
     mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_owner_destroy(vec3);
     mwx_scene_quickjs_owner_destroy(immutable_user);
@@ -1988,7 +2135,8 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             launch[legacy_text_compile:launch.index("let provenSceneScriptValueTargets =")],
         )
         self.assertNotIn("SceneTimeOfDayEffectScriptProgram", launch)
-        self.assertIn("SceneScriptFrameInput(timing: timing)", frame)
+        self.assertIn("let sceneScriptFrame = SceneScriptFrameInput(", frame)
+        self.assertIn("surface: sceneScriptSurfaceInput", frame)
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("let sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate")

@@ -192,11 +192,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         var rawEvent = MWXSceneQuickJSMediaThumbnailEvent(
             has_thumbnail: event.hasThumbnail ? 1 : 0
         )
-        var rawFrame = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var rawFrame = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let raw = userPropertiesJSON.withCString { userProperties in
             mwx_scene_quickjs_owner_dispatch_media_thumbnail(
@@ -231,11 +227,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         var rawEvent = MWXSceneQuickJSMediaPlaybackEvent(
             state: UInt32(event.state)
         )
-        var rawFrame = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var rawFrame = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let raw = userPropertiesJSON.withCString { userProperties in
             mwx_scene_quickjs_owner_dispatch_media_playback(
@@ -270,11 +262,7 @@ nonisolated enum SceneScriptMediaEventBridge {
               !event.artist.contains("\0") else {
             return .failure(.invalidArgument("invalid media properties payload"))
         }
-        var rawFrame = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var rawFrame = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let raw = event.title.withCString { title in
             event.artist.withCString { artist in
@@ -357,11 +345,7 @@ nonisolated enum SceneScriptMediaEventBridge {
     private static func rawFrame(
         _ frame: SceneScriptFrameInput
     ) -> MWXSceneQuickJSFrameInput {
-        MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        frame.quickJSValue
     }
 }
 

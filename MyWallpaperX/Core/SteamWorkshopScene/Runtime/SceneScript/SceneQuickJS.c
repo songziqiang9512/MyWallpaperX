@@ -87,13 +87,18 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
         "(() => {"
         "class Vec3 {"
         "constructor(x=0,y=x,z=x){if(x&&typeof x==='object'){"
-        "this.x=Number(x.x);this.y=Number(x.y);this.z=Number(x.z);return;}"
+        "this.x=Number(x.x);this.y=Number(x.y);"
+        "this.z=Number(x.z===undefined?y:x.z);return;}"
         "this.x=Number(x);this.y=Number(y);this.z=Number(z);}"
         "copy(){return new Vec3(this.x,this.y,this.z);}"
         "add(v){if(typeof v==='number'){return new Vec3(this.x+v,this.y+v,this.z+v);}"
         "return new Vec3(this.x+v.x,this.y+v.y,this.z+v.z);}"
+        "subtract(v){if(typeof v==='number'){return new Vec3(this.x-v,this.y-v,this.z-v);}"
+        "return new Vec3(this.x-v.x,this.y-v.y,this.z-v.z);}"
         "multiply(v){if(typeof v==='number'){return new Vec3(this.x*v,this.y*v,this.z*v);}"
         "return new Vec3(this.x*v.x,this.y*v.y,this.z*v.z);}"
+        "divide(v){if(typeof v==='number'){return new Vec3(this.x/v,this.y/v,this.z/v);}"
+        "return new Vec3(this.x/v.x,this.y/v.y,this.z/v.z);}"
         "isFinite(){return Number.isFinite(this.x)&&Number.isFinite(this.y)&&Number.isFinite(this.z);}"
         "}"
         "function createScriptProperties(){"
@@ -159,6 +164,171 @@ static bool install_value_host(MWXSceneQuickJSDomain *domain) {
     JS_FreeValue(context, global);
     return vec_result >= 0 && builder_result >= 0
         && media_playback_result >= 0 && shared_result >= 0;
+}
+
+enum SceneInputProperty {
+    SCENE_INPUT_CURSOR_WORLD_POSITION,
+    SCENE_INPUT_CURSOR_SCREEN_POSITION,
+    SCENE_INPUT_CURSOR_LEFT_DOWN,
+};
+
+static JSValue freeze_snapshot_value(
+    MWXSceneQuickJSDomain *domain,
+    JSValue value
+) {
+    if (JS_IsException(value)) return value;
+    JSValue argument = JS_DupValue(domain->context, value);
+    JSValue frozen = JS_Call(
+        domain->context,
+        domain->deep_freeze,
+        JS_UNDEFINED,
+        1,
+        &argument
+    );
+    JS_FreeValue(domain->context, argument);
+    if (JS_IsException(frozen)) {
+        JS_FreeValue(domain->context, value);
+        return JS_EXCEPTION;
+    }
+    JS_FreeValue(domain->context, frozen);
+    return value;
+}
+
+static JSValue new_vec2_snapshot(
+    MWXSceneQuickJSDomain *domain,
+    double x,
+    double y
+) {
+    JSContext *context = domain->context;
+    JSValue value = JS_NewObject(context);
+    const int read_only = JS_PROP_ENUMERABLE;
+    if (JS_IsException(value) ||
+        JS_DefinePropertyValueStr(
+            context, value, "x", JS_NewFloat64(context, x), read_only
+        ) < 0 ||
+        JS_DefinePropertyValueStr(
+            context, value, "y", JS_NewFloat64(context, y), read_only
+        ) < 0) {
+        JS_FreeValue(context, value);
+        return JS_EXCEPTION;
+    }
+    return freeze_snapshot_value(domain, value);
+}
+
+static JSValue new_vec3_snapshot(
+    MWXSceneQuickJSDomain *domain,
+    double x,
+    double y,
+    double z
+) {
+    JSContext *context = domain->context;
+    JSValue arguments[3] = {
+        JS_NewFloat64(context, x),
+        JS_NewFloat64(context, y),
+        JS_NewFloat64(context, z),
+    };
+    JSValue value = JS_CallConstructor(
+        context,
+        domain->vec3_constructor,
+        3,
+        arguments
+    );
+    for (size_t index = 0; index < 3; ++index) {
+        JS_FreeValue(context, arguments[index]);
+    }
+    return freeze_snapshot_value(domain, value);
+}
+
+static JSValue scene_input_getter(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv,
+    int magic
+) {
+    (void)this_value;
+    (void)argc;
+    (void)argv;
+    MWXSceneQuickJSDomain *domain = JS_GetContextOpaque(context);
+    if (domain == NULL || !domain->callback_active ||
+        !domain->frame_input_active ||
+        domain->active_frame_input.has_surface_input != 1) {
+        return JS_ThrowTypeError(
+            context,
+            "input is only available in a single-surface callback"
+        );
+    }
+    const MWXSceneQuickJSFrameInput *frame = &domain->active_frame_input;
+    switch ((enum SceneInputProperty)magic) {
+    case SCENE_INPUT_CURSOR_WORLD_POSITION:
+        return new_vec3_snapshot(
+            domain,
+            frame->cursor_world_x,
+            frame->cursor_world_y,
+            frame->cursor_world_z
+        );
+    case SCENE_INPUT_CURSOR_SCREEN_POSITION:
+        return new_vec2_snapshot(
+            domain,
+            frame->cursor_screen_x,
+            frame->cursor_screen_y
+        );
+    case SCENE_INPUT_CURSOR_LEFT_DOWN:
+        return JS_NewBool(context, frame->cursor_left_down != 0);
+    }
+    return JS_UNDEFINED;
+}
+
+static bool install_input_host(MWXSceneQuickJSDomain *domain) {
+    JSContext *context = domain->context;
+    JSValue input = JS_NewObject(context);
+    if (JS_IsException(input)) return false;
+    const struct {
+        const char *name;
+        enum SceneInputProperty property;
+    } fields[] = {
+        {"cursorWorldPosition", SCENE_INPUT_CURSOR_WORLD_POSITION},
+        {"cursorScreenPosition", SCENE_INPUT_CURSOR_SCREEN_POSITION},
+        {"cursorLeftDown", SCENE_INPUT_CURSOR_LEFT_DOWN},
+    };
+    for (size_t index = 0; index < sizeof(fields) / sizeof(fields[0]); ++index) {
+        JSValue getter = JS_NewCFunctionMagic(
+            context,
+            scene_input_getter,
+            fields[index].name,
+            0,
+            JS_CFUNC_generic_magic,
+            fields[index].property
+        );
+        JSAtom atom = JS_NewAtom(context, fields[index].name);
+        int result = JS_DefinePropertyGetSet(
+            context,
+            input,
+            atom,
+            getter,
+            JS_UNDEFINED,
+            JS_PROP_ENUMERABLE
+        );
+        JS_FreeAtom(context, atom);
+        if (result < 0) {
+            JS_FreeValue(context, input);
+            return false;
+        }
+    }
+    if (JS_PreventExtensions(context, input) < 0) {
+        JS_FreeValue(context, input);
+        return false;
+    }
+    JSValue global = JS_GetGlobalObject(context);
+    int result = JS_DefinePropertyValueStr(
+        context,
+        global,
+        "input",
+        input,
+        JS_PROP_ENUMERABLE
+    );
+    JS_FreeValue(context, global);
+    return result >= 0;
 }
 
 static JSModuleDef *load_allowlisted_module(
@@ -234,6 +404,26 @@ static void write_value_diagnostic(
     }
 }
 
+static bool valid_frame_input(const MWXSceneQuickJSFrameInput *frame) {
+    if (frame == NULL || !isfinite(frame->time_of_day) ||
+        frame->time_of_day < 0 || frame->time_of_day > 1 ||
+        !isfinite(frame->frame_time) || frame->frame_time < 0 ||
+        !isfinite(frame->runtime) || frame->runtime < 0 ||
+        frame->has_surface_input > 1 || frame->cursor_left_down > 1) {
+        return false;
+    }
+    if (frame->has_surface_input == 0) return true;
+    return isfinite(frame->canvas_width) && frame->canvas_width > 0 &&
+        isfinite(frame->canvas_height) && frame->canvas_height > 0 &&
+        isfinite(frame->screen_width) && frame->screen_width > 0 &&
+        isfinite(frame->screen_height) && frame->screen_height > 0 &&
+        isfinite(frame->cursor_world_x) &&
+        isfinite(frame->cursor_world_y) &&
+        isfinite(frame->cursor_world_z) &&
+        isfinite(frame->cursor_screen_x) &&
+        isfinite(frame->cursor_screen_y);
+}
+
 bool mwx_scene_quickjs_bind_frame_engine_host(
     MWXSceneQuickJSOwner *owner,
     const MWXSceneQuickJSFrameInput *frame,
@@ -241,7 +431,8 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
     size_t user_properties_length,
     JSValue *previous_global_engine
 ) {
-    if (owner == NULL || frame == NULL || previous_global_engine == NULL) {
+    if (owner == NULL || !valid_frame_input(frame) ||
+        previous_global_engine == NULL) {
         return false;
     }
     JSContext *context = owner->domain->context;
@@ -281,6 +472,30 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
         return false;
     }
     JS_FreeValue(context, frozen);
+    if (frame->has_surface_input == 1) {
+        JSValue canvas_size = new_vec2_snapshot(
+            owner->domain,
+            frame->canvas_width,
+            frame->canvas_height
+        );
+        if (JS_IsException(canvas_size)) {
+            JS_FreeValue(context, canvas_size);
+            JS_FreeValue(context, user_properties);
+            JS_FreeValue(context, engine);
+            return false;
+        }
+        if (JS_DefinePropertyValueStr(
+                context,
+                engine,
+                "canvasSize",
+                canvas_size,
+                read_only
+            ) < 0) {
+            JS_FreeValue(context, user_properties);
+            JS_FreeValue(context, engine);
+            return false;
+        }
+    }
     if (JS_DefinePropertyValueStr(
             context,
             engine,
@@ -324,6 +539,8 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
         JS_FreeValue(context, global);
         return false;
     }
+    owner->domain->active_frame_input = *frame;
+    owner->domain->frame_input_active = true;
     *previous_global_engine = previous;
     JS_FreeValue(context, global);
     return true;
@@ -336,6 +553,12 @@ bool mwx_scene_quickjs_restore_frame_engine_host(
     if (owner == NULL) {
         return false;
     }
+    owner->domain->frame_input_active = false;
+    memset(
+        &owner->domain->active_frame_input,
+        0,
+        sizeof(owner->domain->active_frame_input)
+    );
     JSContext *context = owner->domain->context;
     JSValue global = JS_GetGlobalObject(context);
     int result = JS_SetPropertyStr(
@@ -879,6 +1102,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
     if (!install_value_host(domain) ||
+        !install_input_host(domain) ||
         !mwx_scene_quickjs_install_layer_handle_class(domain)) {
         JS_FreeContext(domain->context);
         JS_FreeRuntime(domain->runtime);

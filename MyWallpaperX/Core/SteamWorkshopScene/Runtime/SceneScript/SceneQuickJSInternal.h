@@ -87,6 +87,8 @@ struct MWXSceneQuickJSDomain {
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;
+    bool frame_input_active;
+    MWXSceneQuickJSFrameInput active_frame_input;
     MWXSceneQuickJSOwner *active_owner;
     MWXSceneQuickJSOwner *module_owner;
 };

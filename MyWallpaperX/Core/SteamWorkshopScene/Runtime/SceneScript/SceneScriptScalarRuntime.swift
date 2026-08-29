@@ -51,8 +51,13 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
     let timeOfDay: Double
     let frameTime: TimeInterval
     let runtime: TimeInterval
+    let surface: SceneScriptSurfaceInput?
 
-    init(timing: SceneFrameTiming, timeZone: TimeZone = .current) {
+    init(
+        timing: SceneFrameTiming,
+        timeZone: TimeZone = .current,
+        surface: SceneScriptSurfaceInput? = nil
+    ) {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = timeZone
         let components = calendar.dateComponents(
@@ -66,7 +71,35 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
         timeOfDay = min(max(seconds / 86_400, 0), 1)
         frameTime = max(timing.simulationFrameTime, 0)
         runtime = max(timing.sceneTime, 0)
+        self.surface = surface
     }
+
+    var quickJSValue: MWXSceneQuickJSFrameInput {
+        MWXSceneQuickJSFrameInput(
+            time_of_day: timeOfDay,
+            frame_time: frameTime,
+            runtime: runtime,
+            has_surface_input: surface == nil ? 0 : 1,
+            canvas_width: surface?.canvasSize.x ?? 0,
+            canvas_height: surface?.canvasSize.y ?? 0,
+            screen_width: surface?.screenSize.x ?? 0,
+            screen_height: surface?.screenSize.y ?? 0,
+            cursor_world_x: surface?.cursorWorldPosition.x ?? 0,
+            cursor_world_y: surface?.cursorWorldPosition.y ?? 0,
+            cursor_world_z: surface?.cursorWorldPosition.z ?? 0,
+            cursor_screen_x: surface?.cursorScreenPosition.x ?? 0,
+            cursor_screen_y: surface?.cursorScreenPosition.y ?? 0,
+            cursor_left_down: surface?.cursorLeftDown == true ? 1 : 0
+        )
+    }
+}
+
+nonisolated struct SceneScriptSurfaceInput: Equatable, Sendable {
+    let canvasSize: SIMD2<Double>
+    let screenSize: SIMD2<Double>
+    let cursorWorldPosition: SIMD3<Double>
+    let cursorScreenPosition: SIMD2<Double>
+    let cursorLeftDown: Bool
 }
 
 /// Owns one scalar property binding inside a shared per-scene QuickJS domain.
@@ -175,11 +208,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var output = 0.0
-        var frameInput = MWXSceneQuickJSFrameInput(
-            time_of_day: frame.timeOfDay,
-            frame_time: frame.frameTime,
-            runtime: frame.runtime
-        )
+        var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = scriptPropertiesJSON.withCString { scriptProperties in
             userPropertiesJSON.withCString { userProperties in

@@ -10,7 +10,7 @@
 
 ## 1. 当前结论与评级口径
 
-当前结论只有一条：项目已用同一 QuickJS-NG scene domain 执行 pass-owned numeric scalar、object-owned text String、object-owned origin/scale Vec3与object `instanceoverride.rate` scalar `init/update`，并开放 allowlisted `WEMath.smoothStep/mix`、callback-scoped immutable `engine.timeOfDay/frametime/runtime`、typed `engine.userProperties` snapshot、descriptor-bound `thisLayer` effect lookup、callback-scoped `thisScene` layer lookup，以及有界text layer `createLayer/destroyLayer/sortLayer/getLayerIndex`与typed layer setter；动态拓扑通过launch-scoped mutation transaction在下一帧进入现有CoreText publication和唯一Metal compositor。现役还包括global-only `engine.registerAudioBuffers`及retained 16/32/64 `AudioBuffers`、三个typed media event、bounded object `cursorEnter/cursorLeave/cursorDown/cursorUp/cursorClick`、per-scene mutable `shared` carrier、Vec3 owner首次全量/后续delta `applyUserProperties`、callback-scoped owner-isolated timer与Promise job drain，以及stop/scene-switch时exact-once `destroy()`和owner异步/动态层归零；但**没有完整 SceneScript API/host runtime**。逐 API 表继续使用本专题定义的 `L0-L4` 表达接口覆盖；`S*` 只引用[运行证据索引](runtime-evidence-index.md)对精确 identity 的证据闭合等级。两轴正交，不能互相批量推导，也不能与其他专题的同名 `L` 横向比较。
+当前结论只有一条：项目已用同一QuickJS-NG scene domain执行scalar、String与Vec3 owner，并开放bounded `WEMath`、callback-scoped immutable engine/user-property/single-surface pointer与canvas snapshot、typed effect/layer/animation/dynamic-text handles、16/32/64 AudioBuffers、media/cursor/property events、timer/Promise job及exact-once teardown；它们进入现有property transaction、resource publication和唯一Metal compositor，但**没有完整SceneScript API/host runtime**。逐API表继续使用本专题定义的`L0-L4`表达接口覆盖；`S*`只引用[运行证据索引](runtime-evidence-index.md)的精确证据等级，不能由一个bounded consumer批量外推。
 
 | 能力面 | 当前结果 | 精确边界 |
 |---|---|---|
@@ -249,13 +249,13 @@ existing inline source/binding IR
 
 | Global/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `thisLayer` / `thisScene` | 当前 owner 和 scene 的 typed handles | `L0` | `D/N` | 见对象句柄门；不可跨 scene/屏幕泄漏 |
+| `thisLayer` / `thisScene` | 当前owner和scene的typed handles | `L3 bounded` | descriptor-bound static layer getter/effect/animation identity与scene lookup已执行；owned dynamic text layer支持typed setter/create/destroy/sort，generation/owner/伪造handle拒绝 | authored static setter/sort、asset/model/image layer、完整parent/topology、跨scene/screen泄漏负门与官方parity |
 | `console` | `log(...any)`、`error(...any)` | `L0` | `N` | per-script tag、速率限制、值序列化、错误不递归 |
 | `renderContext` | v2.8 声明 `IRenderContext` 为空 | `L0` | `N` | 保留空 host object；未来声明升级前不得自创成员 |
-| `input` | 全局输入快照 | `L0` | renderer pointer 不等于 JS global | 同帧不可变 snapshot、多屏坐标和权限降级 |
+| `input` | 全局输入快照 | `L3 bounded single-surface` | 同一QuickJS domain安装不可扩展只读getter host；只在callback且存在精确single-surface frame snapshot时取值，global phase与无归属surface拒绝 | 其他input device、multi-surface screen identity、权限降级与官方对照 |
 | `localStorage` | screen/global 两个持久化域 | `L0` | `G` 确认默认 screen、仅精确字符串 `global` 切域，其他值回落 screen；项目无 bridge，`N` | wallpaper/scene/screen namespace、配额、原子写、跨屏/重启和迁移策略 |
 | `engine` environment queries | editor、portrait/landscape、desktop/mobile、wallpaper/screensaver | `L0` | `N` | macOS 模式映射和稳定 fixture；不伪装未支持平台 |
-| `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与 2D canvas/full wallpaper 尺寸 | `L0` | frame context 有 viewport，但无 JS bridge | scale factor、跨屏 canvas、resize 顺序和 pixel/point 门 |
+| `engine.screenResolution` / `canvasSize` | 每屏物理分辨率与2D canvas/full wallpaper尺寸 | `screenResolution L0`；`canvasSize L3 bounded single-surface / S4 representative visible` | 唯一surface callback从现有frame context发布冻结`canvasSize`，代表text consumer完成并显示数值；无精确single surface时不猜identity并局部拒绝 | `screenResolution`、multi-surface、resize顺序、Retina pixel/point及官方对照 |
 | `engine.userProperties` | 当前用户属性对象；color属性自动呈现为Vec3 | `L3 bounded contract-executable` | scalar与Vec3 callback都接收同一effective property map的深冻结typed snapshot；number/bool/string保留类型，project color string转为`{x,y,z}`。C/Swift门覆盖读取与不可变性；当前真实Vec3样本消费的是同源`scriptProperties`，未直接读取该global | 真实authored consumer、key normalization官方对照、首次/增量/多屏一致性、更多property kind |
 | `engine.timeOfDay` | 24 小时归一化到 `[0,1]` | `L3 bounded / S4 real visible differential` | Swift 从同帧 wall date 按当前时区计算本地民用日秒并限制到 `[0,1]`，C bridge 以 callback-scoped immutable scalar 暴露。真实 `2134765860` 的 4 个 `multiply` 与 2 个 `alpha` owner 在本地 12:00 均输出 0、22:00 均输出 1，旧固定 AST owner 已删除 | 时区/DST、跨午夜长稳、同帧 Date 一致性、非scalar/其他target、官方数值/像素 golden 与独立 effect ROI parity |
 | `engine.frametime` / `runtime` | 上帧秒数（重绘可为 0）和scene累计运行时间 | `L3 bounded contract-executable` | 同一 immutable callback snapshot 分别暴露 host `simulationFrameTime` 与 `sceneTime`；C harness真实读取二者并覆盖非法/负值输入和脚本改写失败。真实 time-of-day 样本建立同一 bridge，但其作者 source 不消费这两个字段 | 真实 authored consumer、raw/effective数值 parity、0 delta、pause/switch/seek、inverse4 与 Windows 同帧多屏 golden |
@@ -265,9 +265,9 @@ existing inline source/binding IR
 
 | API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
-| `input.cursorWorldPosition` | 当前 cursor 世界坐标，当前主要 X/Y | `L0` | `G` 确认 global-phase 拒绝、scene cursor pixel snapshot 经当前 view/projection 逆变换为 Vec3，2D policy 可把 z 置 0；项目无 JS bridge，`N` | camera/viewport 数值、屏外、resize 与 event snapshot 同帧 golden |
-| `input.cursorScreenPosition` | 屏幕像素坐标 | `L0` | `G` 确认 global-phase 拒绝、与 world getter 共用 snapshot并按 canvas/viewport scale 与 Y policy输出像素坐标；项目无 bridge，`N` | Retina、多屏 origin、屏外、resize 和坐标取整 fixture |
-| `input.cursorLeftDown` | 左键当前状态 | API `L0`；native state `L2` | per-surface primary-button state已由AppKit down/up更新并驱动generic cursor edge dispatch；没有JS getter/bridge | ordered down/up snapshot、失焦、VM getter与event snapshot同帧 |
+| `input.cursorWorldPosition` | 当前cursor世界坐标，当前主要X/Y | `L3 bounded single-surface / S4 representative visible` | 同帧未裁剪AppKit位置经现有orthographic camera inverse成为冻结Vec3；合法大canvas/depth矩阵使用finite inverse/residual门。C门覆盖逐callback刷新/global拒绝/非法ABI；代表text consumer完成，stock clock已越过本getter | parent/perspective、resize、屏外/event同帧golden、multi-surface与官方数值对照 |
+| `input.cursorScreenPosition` | 屏幕像素坐标 | `L3 bounded single-surface / S4 representative visible` | 与world getter共用surface snapshot，以drawable物理像素和top-down Y发布冻结`{x,y}`；无精确surface局部拒绝 | Retina缩放、跨屏origin、resize、坐标取整与官方golden |
+| `input.cursorLeftDown` | 左键当前状态 | `L3 bounded single-surface / S3 executed` | 同一surface snapshot读取当前AppKit primary-button identity；getter只在callback开放，代表consumer同轮执行 | ordered sub-frame down/up、失焦、event snapshot同帧、multi-button/multi-surface |
 | `CursorEvent.worldPosition/localPosition/hitBox?` | 事件时 world/local 坐标与 puppet hit box；声明明确 screenPosition/button 未使用 | `L3 bounded world/local` | generic enter/leave/down/up/click均在dispatch前复制immutable world/local Vec3；C/Swift门锁定DTO不可写。当前不伪造`hitBox` | parent/rotated/puppet数值、detail identity、event时序/坐标官方对照；未使用字段不得伪造 |
 | [audio resolution constants](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | `AUDIO_RESOLUTION_16/32/64` | `L3 bounded` | module求值期的engine只暴露三个只读常量；callback期engine不携带注册常量/API | 其他数值、callback注册和非法分辨率失败关闭；完整module/lifecycle仍缺 |
 | [`engine.registerAudioBuffers(resolution)`](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IEngine.html) | 必须在 script global context 注册，返回逐帧频谱 | `L3 bounded` | module求值期开放默认16及exact 16/32/64；重复同档返回同一object，callback期注册和错误档位拒绝；owner存在性驱动既有唯一音频采集需求 | stop/reload注销与多scene/multi-surface生命周期仍待V2 lifecycle门；不证明官方FFT数值 |
