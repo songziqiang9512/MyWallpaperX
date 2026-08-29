@@ -91,7 +91,11 @@ private enum Harness {
     }
 
     static func main() throws {
-        setenv("MWX_SCENE_GENERIC_SHADER_ROUTE", "disable-generic", 1)
+        setenv(
+            "MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES",
+            "ordinary-shader=disable-generic",
+            1
+        )
         guard let device = MTLCreateSystemDefaultDevice(),
               let queue = device.makeCommandQueue() else {
             print("{\"metalAvailable\":false}")

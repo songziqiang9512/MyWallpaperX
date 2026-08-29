@@ -514,6 +514,71 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "route": "generic-only",
         }])
 
+    def test_typed_user_property_scalar_uniform_publications_keep_exact_identity(self) -> None:
+        publications = benchmark.typed_user_property_scalar_uniform_publications(
+            "MWX typed input publication: channel=user-property "
+            "consumer=material-uniform layer=530 effect=1 "
+            "descriptor=530#effect#538 node=0 property=newproperty39 "
+            "pass=0 constant=strength uniform=g_Strength stage=fragment "
+            "type=float frame=4 generation=2 value=0.075000003\n"
+            "MWX typed input publication: channel=user-property "
+            "consumer=material-uniform layer=410 effect=0 "
+            "descriptor=410#effect#1369 node=0 property=newproperty52 "
+            "pass=0 constant=direction uniform=g_Direction stage=fragment "
+            "type=float frame=3 generation=2 value=37"
+        )
+        self.assertEqual(publications, [
+            {
+                "layer_id": 410,
+                "effect_index": 0,
+                "descriptor_id": "410#effect#1369",
+                "node_index": 0,
+                "property_key": "newproperty52",
+                "pass_index": 0,
+                "constant": "direction",
+                "uniform": "g_Direction",
+                "stage": "fragment",
+                "type": "float",
+                "frame": 3,
+                "generation": 2,
+                "value": 37.0,
+            },
+            {
+                "layer_id": 530,
+                "effect_index": 1,
+                "descriptor_id": "530#effect#538",
+                "node_index": 0,
+                "property_key": "newproperty39",
+                "pass_index": 0,
+                "constant": "strength",
+                "uniform": "g_Strength",
+                "stage": "fragment",
+                "type": "float",
+                "frame": 4,
+                "generation": 2,
+                "value": 0.075000003,
+            },
+        ])
+
+    def test_typed_user_property_bool_activation_publications_keep_decision(self) -> None:
+        publications = benchmark.typed_user_property_bool_activation_publications(
+            "MWX typed input publication: channel=user-property "
+            "consumer=effect-activation layer=530 effect=1 "
+            "descriptor=530#effect#538 property=newproperty7 type=bool "
+            "frame=0 generation=1 value=true decision=active"
+        )
+        self.assertEqual(publications, [{
+            "layer_id": 530,
+            "effect_index": 1,
+            "descriptor_id": "530#effect#538",
+            "property_key": "newproperty7",
+            "type": "bool",
+            "frame": 0,
+            "generation": 1,
+            "value": True,
+            "decision": "active",
+        }])
+
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
             root = Path(directory)

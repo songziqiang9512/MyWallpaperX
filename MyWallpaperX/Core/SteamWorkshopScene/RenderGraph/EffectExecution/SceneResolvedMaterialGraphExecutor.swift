@@ -124,6 +124,8 @@ final class SceneResolvedMaterialGraphExecutor {
     private var pairContentGeneration: UInt64 = 0
     let effectLocalFallbackLock = NSLock()
     var effectLocalFallbackCounts: [String: Int] = [:]
+    let typedUniformPublicationLock = NSLock()
+    var typedUniformPublicationIdentities: Set<String> = []
 
     init?(
         device: MTLDevice,

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Metal
 
 extension SceneResolvedMaterialGraphExecutor {
@@ -27,10 +28,17 @@ extension SceneResolvedMaterialGraphExecutor {
             programKeyCount: programKeys.count
         )
         if let activation = stageCapability.activationPolicy {
-            switch activation.evaluate(
+            let decision = activation.evaluate(
                 dynamicValues: frameInputs.dynamicValues,
                 pointerIsInside: frameInputs.pointerIsInside
-            ) {
+            )
+            recordTypedUserPropertyBoolActivationPublication(
+                activation: activation,
+                decision: decision,
+                graph: graph,
+                frameInputs: frameInputs
+            )
+            switch decision {
             case .active:
                 break
             case let .inactive(reasonCode):
@@ -295,6 +303,12 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
                 commands.append(.material(prepared))
                 programKeys.append(program.preparedShader.cacheKey)
+                recordTypedUserPropertyScalarUniformPublications(
+                    program: program,
+                    effect: node.effect,
+                    nodeIndex: nodeIndex,
+                    frameInputs: frameInputs
+                )
                 SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
                     routeDecision: program.routeDecision,
                     backend: program.frontendProgram.backend,
@@ -429,6 +443,102 @@ extension SceneResolvedMaterialGraphExecutor {
             representation: representation
         )
         return nil
+    }
+
+    private func recordTypedUserPropertyScalarUniformPublications(
+        program: SceneResolvedMaterialProgram,
+        effect: Graph.EffectKey,
+        nodeIndex: Int,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) {
+        for uniform in program.resolvedUniforms {
+            guard uniform.field.type == .float,
+                  uniform.field.arrayCount == nil,
+                  uniform.encodedValue.count == MemoryLayout<Float>.size,
+                  case let .dynamic(
+                      declared: .userProperty(propertyKey),
+                      target: target,
+                      resolvedSource: .userProperty,
+                      scriptAttachments: attachments
+                  ) = uniform.source,
+                  attachments.isEmpty,
+                  case let .effectConstant(
+                      layerID, effectIndex, passIndex, constant
+                  ) = target,
+                  layerID == effect.layerID,
+                  effectIndex == effect.effectIndex else { continue }
+            let value = uniform.encodedValue.withUnsafeBytes {
+                $0.loadUnaligned(as: Float.self)
+            }
+            guard value.isFinite else { continue }
+            let stage = uniform.field.stage?.rawValue ?? "shared"
+            let identity = [
+                String(layerID), String(effectIndex), String(passIndex),
+                constant, propertyKey, uniform.field.name, stage,
+                String(value.bitPattern),
+            ].joined(separator: "\u{1f}")
+            typedUniformPublicationLock.lock()
+            let inserted = typedUniformPublicationIdentities.insert(identity).inserted
+            typedUniformPublicationLock.unlock()
+            guard inserted else { continue }
+            NSLog(
+                "MWX typed input publication: channel=user-property consumer=material-uniform layer=%d effect=%d descriptor=%@ node=%d property=%@ pass=%d constant=%@ uniform=%@ stage=%@ type=float frame=%llu generation=%llu value=%.9g",
+                layerID,
+                effectIndex,
+                effect.descriptorID,
+                nodeIndex,
+                propertyKey,
+                passIndex,
+                constant,
+                uniform.field.name,
+                stage,
+                frameInputs.dynamicValues.frameIndex,
+                frameInputs.dynamicValues.generation,
+                value
+            )
+        }
+    }
+
+    private func recordTypedUserPropertyBoolActivationPublication(
+        activation: SceneResolvedMaterialStageActivationPolicy,
+        decision: SceneResolvedMaterialStageActivationPolicy.Decision,
+        graph: Graph,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) {
+        guard let target = activation.effectVisibilityTarget,
+              let propertyKey = activation.effectVisibilityPropertyKey,
+              case let .effectVisibility(layerID, effectIndex) = target,
+              let effect = graph.effects.first?.key,
+              effect.layerID == layerID,
+              effect.effectIndex == effectIndex,
+              let resolved = frameInputs.dynamicValues[target],
+              resolved.source == .userProperty,
+              case let .bool(value) = resolved.value else { return }
+        let decisionName: String
+        switch decision {
+        case .active: decisionName = "active"
+        case .inactive: decisionName = "inactive"
+        case .rejected: return
+        }
+        let identity = [
+            String(layerID), String(effectIndex), propertyKey,
+            String(value), decisionName,
+        ].joined(separator: "\u{1f}")
+        typedUniformPublicationLock.lock()
+        let inserted = typedUniformPublicationIdentities.insert(identity).inserted
+        typedUniformPublicationLock.unlock()
+        guard inserted else { return }
+        NSLog(
+            "MWX typed input publication: channel=user-property consumer=effect-activation layer=%d effect=%d descriptor=%@ property=%@ type=bool frame=%llu generation=%llu value=%@ decision=%@",
+            layerID,
+            effectIndex,
+            effect.descriptorID,
+            propertyKey,
+            frameInputs.dynamicValues.frameIndex,
+            frameInputs.dynamicValues.generation,
+            value ? "true" : "false",
+            decisionName
+        )
     }
 
     private func validate(

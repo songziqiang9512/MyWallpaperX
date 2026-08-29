@@ -20,8 +20,21 @@ nonisolated struct SceneResolvedMaterialStageActivationPolicy:
     }
 
     let effectVisibilityTarget: SceneDynamicTarget?
+    let effectVisibilityPropertyKey: String?
     let requiresPointerPositionProvider: Bool
     let scalarMinimum: ScalarMinimum?
+
+    init(
+        effectVisibilityTarget: SceneDynamicTarget?,
+        effectVisibilityPropertyKey: String? = nil,
+        requiresPointerPositionProvider: Bool,
+        scalarMinimum: ScalarMinimum?
+    ) {
+        self.effectVisibilityTarget = effectVisibilityTarget
+        self.effectVisibilityPropertyKey = effectVisibilityPropertyKey
+        self.requiresPointerPositionProvider = requiresPointerPositionProvider
+        self.scalarMinimum = scalarMinimum
+    }
 
     var liveConsumerTargets: Set<SceneDynamicTarget> {
         effectVisibilityTarget.map { [$0] } ?? []

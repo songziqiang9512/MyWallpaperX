@@ -114,6 +114,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         return .init(
             effectVisibilityTarget: resolvedVisibilityTarget,
+            effectVisibilityPropertyKey: resolvedVisibilityTarget == nil
+                ? nil : visibilityProducers.first?.propertyKey,
             requiresPointerPositionProvider: requiresPointer,
             scalarMinimum: pointerScalarMinimum
         )

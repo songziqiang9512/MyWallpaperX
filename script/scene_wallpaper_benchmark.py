@@ -154,6 +154,24 @@ SCENE_SCRIPT_AUDIO_SCALAR_PUBLICATION_RE = re.compile(
     r"type=scalar generation=(?P<generation>\d+) "
     r"input=(?P<input>\S+) output=(?P<output>\S+) route=(?P<route>\S+)"
 )
+TYPED_USER_PROPERTY_SCALAR_UNIFORM_PUBLICATION_RE = re.compile(
+    r"MWX typed input publication: channel=user-property "
+    r"consumer=material-uniform layer=(?P<layer>-?\d+) "
+    r"effect=(?P<effect>-?\d+) descriptor=(?P<descriptor>\S+) "
+    r"node=(?P<node>\d+) property=(?P<property>\S+) "
+    r"pass=(?P<pass>\d+) constant=(?P<constant>\S+) "
+    r"uniform=(?P<uniform>\S+) stage=(?P<stage>vertex|fragment|shared) "
+    r"type=float frame=(?P<frame>\d+) generation=(?P<generation>\d+) "
+    rf"value=(?P<value>{FLOAT_PATTERN})"
+)
+TYPED_USER_PROPERTY_BOOL_ACTIVATION_PUBLICATION_RE = re.compile(
+    r"MWX typed input publication: channel=user-property "
+    r"consumer=effect-activation layer=(?P<layer>-?\d+) "
+    r"effect=(?P<effect>-?\d+) descriptor=(?P<descriptor>\S+) "
+    r"property=(?P<property>\S+) type=bool frame=(?P<frame>\d+) "
+    r"generation=(?P<generation>\d+) value=(?P<value>true|false) "
+    r"decision=(?P<decision>active|inactive)"
+)
 MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE = re.compile(
     r"^mediaThumbnailCurrentBindingCount: (?P<count>\d+)$",
     re.MULTILINE,
@@ -1654,6 +1672,61 @@ def scene_script_scalar_runtime_metrics(
             for completion in completions
         ],
     }
+
+
+def typed_user_property_scalar_uniform_publications(
+    log_text: str,
+) -> list[dict[str, Any]]:
+    publications = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "descriptor_id": match.group("descriptor"),
+            "node_index": int(match.group("node")),
+            "property_key": match.group("property"),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "uniform": match.group("uniform"),
+            "stage": match.group("stage"),
+            "type": "float",
+            "frame": int(match.group("frame")),
+            "generation": int(match.group("generation")),
+            "value": float(match.group("value")),
+        }
+        for match in TYPED_USER_PROPERTY_SCALAR_UNIFORM_PUBLICATION_RE.finditer(
+            log_text
+        )
+    ]
+    publications.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["node_index"],
+        value["property_key"], value["uniform"], value["stage"],
+    ))
+    return publications
+
+
+def typed_user_property_bool_activation_publications(
+    log_text: str,
+) -> list[dict[str, Any]]:
+    publications = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "descriptor_id": match.group("descriptor"),
+            "property_key": match.group("property"),
+            "type": "bool",
+            "frame": int(match.group("frame")),
+            "generation": int(match.group("generation")),
+            "value": match.group("value") == "true",
+            "decision": match.group("decision"),
+        }
+        for match in TYPED_USER_PROPERTY_BOOL_ACTIVATION_PUBLICATION_RE.finditer(
+            log_text
+        )
+    ]
+    publications.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["property_key"],
+    ))
+    return publications
 
 
 def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
@@ -5565,6 +5638,12 @@ def run_sample(
         preview_text,
         log_text,
     )
+    user_property_scalar_uniform_publications = (
+        typed_user_property_scalar_uniform_publications(log_text)
+    )
+    user_property_bool_activation_publications = (
+        typed_user_property_bool_activation_publications(log_text)
+    )
     media_thumbnail_runtime = media_thumbnail_runtime_metrics(preview_text)
     media_thumbnail_store = media_thumbnail_store_metrics(log_text)
     solid_runtime = solid_runtime_metrics(preview_text)
@@ -6265,6 +6344,12 @@ def run_sample(
             ),
             "scene_script_audio_scalar_publications": (
                 scene_script_scalar_runtime["audio_scalar_publications"]
+            ),
+            "typed_user_property_scalar_uniform_publications": (
+                user_property_scalar_uniform_publications
+            ),
+            "typed_user_property_bool_activation_publications": (
+                user_property_bool_activation_publications
             ),
             "scene_script_vec3_binding_count": (
                 scene_script_scalar_runtime["vector_binding_count"]
