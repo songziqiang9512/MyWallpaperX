@@ -335,6 +335,36 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 23
         )
+        let partitionedPassProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [
+                passVectorBinding(
+                    source: passVectorSource, value: "1 1",
+                    wrapperKeys: ["script", "user", "value"]
+                ),
+                passVectorBinding(
+                    key: "color", source: passColorSource, value: "1 1 1",
+                    wrapperKeys: ["script", "scriptproperties", "value"],
+                    properties: [
+                        "speed": .number(0.25),
+                        "saturation": .number(1),
+                        "brightness": .number(1),
+                    ]
+                ),
+            ],
+            userPropertyDefinitions: [],
+            excludedTargets: [passColorTarget],
+            generation: 24
+        )
+        let partitionedPassResult = partitionedPassProgram.evaluate(
+            inputs: [
+                passVectorTarget: .vector2(1, 1),
+                passColorTarget: .vector3(1, 1, 1),
+            ],
+            effectivePropertyValues: [:],
+            frame: frame
+        )
         let passColorResult = passColorProgram.evaluate(
             inputs: [passColorTarget: .vector3(1, 1, 1)],
             effectivePropertyValues: [:],
@@ -664,6 +694,16 @@ enum Harness {
             "passColorBindings": passColorProgram.bindings.count,
             "passColorValue": vector(passColorResult.values[passColorTarget]),
             "passColorFailures": passColorResult.failures.count,
+            "partitionedMediaTargetExcluded": !partitionedPassProgram.definitions
+                .contains { $0.target == passColorTarget },
+            "partitionedGenericPeerPreserved": partitionedPassProgram.definitions
+                .map(\.target) == [passVectorTarget],
+            "partitionedGenericPeerValue": vector2(
+                partitionedPassResult.values[passVectorTarget]
+            ),
+            "partitionedMediaTargetNotPublished":
+                partitionedPassResult.values[passColorTarget] == nil,
+            "partitionedGenericPeerSucceeded": partitionedPassResult.failures.isEmpty,
             "passAudioBindings": passAudioProgram.bindings.count,
             "passAudioDemand": passAudioProgram.hasAudioConsumers,
             "passAudioValue": scalar(passAudioResult.values[passAudioTarget]),
@@ -1140,6 +1180,14 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passColorBindings"], 1)
         self.assertEqual(value["passColorValue"], [0, 1, 1])
         self.assertEqual(value["passColorFailures"], 0)
+
+    def test_exact_media_target_partition_preserves_disjoint_generic_peer(self) -> None:
+        value = self.result()
+        self.assertTrue(value["partitionedMediaTargetExcluded"])
+        self.assertTrue(value["partitionedGenericPeerPreserved"])
+        self.assertEqual(value["partitionedGenericPeerValue"], [2, 2])
+        self.assertTrue(value["partitionedMediaTargetNotPublished"])
+        self.assertTrue(value["partitionedGenericPeerSucceeded"])
 
     def test_generic_pass_scalar_executes_static_properties_and_audio(self) -> None:
         value = self.result()

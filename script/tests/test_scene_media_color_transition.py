@@ -257,6 +257,7 @@ enum Harness {
         let result: [String: Any] = [
             "projectFixtureCompiled": binding != nil,
             "programValidated": program?.bindings.count == 2,
+            "programTargetsPreserved": program?.targets == [target, otherTarget],
             "exactVectorTarget": binding?.definition.target == target,
             "vectorValueType": binding?.definition.valueType == .vector3,
             "initial": initial,
@@ -795,6 +796,7 @@ class SceneMediaColorTransitionTests(unittest.TestCase):
     def test_project_owned_vector_profile_compiles(self) -> None:
         self.assertTrue(self.result["projectFixtureCompiled"])
         self.assertTrue(self.result["programValidated"])
+        self.assertTrue(self.result["programTargetsPreserved"])
         self.assertTrue(self.result["exactVectorTarget"])
         self.assertTrue(self.result["vectorValueType"])
         self.assertTrue(self.result["authoredWrapperOverrideCompiled"])

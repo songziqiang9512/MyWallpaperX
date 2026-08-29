@@ -493,6 +493,26 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(metrics["audio_vector_publications"][0]["output"],
                          "vector2(1.25, 1.25)")
 
+    def test_media_color_metrics_capture_bounded_completion(self) -> None:
+        metrics = benchmark.media_color_transition_metrics(
+            "MWX Scene media color: event=thumbnail-color-completed "
+            "target=effectConstant(layerID: 1089, effectIndex: 0, "
+            "passIndex: 0, name: \"color\") generation=2 "
+            "channel=secondary output=0.1,0.3,1 fallback=none "
+            "route=disable-generic"
+        )
+        self.assertEqual(metrics, [{
+            "layer_id": 1089,
+            "effect_index": 0,
+            "pass_index": 0,
+            "constant": "color",
+            "generation": 2,
+            "channel": "secondary",
+            "output": [0.1, 0.3, 1.0],
+            "fallback": "none",
+            "route": "disable-generic",
+        }])
+
     def test_scene_script_typed_metrics_capture_pass_scalar_audio_value(self) -> None:
         metrics = benchmark.scene_script_scalar_runtime_metrics(
             "scene script VM: schema=quickjs-ng-typed-v2 bindings=1 "

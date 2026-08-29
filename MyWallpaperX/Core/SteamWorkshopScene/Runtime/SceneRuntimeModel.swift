@@ -9,6 +9,7 @@ struct SceneRuntimeModel {
     let capabilityProfile: SceneCapabilityProfile
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
+    let mediaColorTransitionCandidateProgram: SceneMediaColorTransitionProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptDomain: SceneScriptQuickJSDomain?
@@ -43,6 +44,7 @@ struct SceneRuntimeModelBuilder {
         case missingAssetCatalog
         case missingResourceReferences
         case missingRenderDescriptor
+        case invalidMediaColorTransitionProgram
 
         var errorDescription: String? {
             switch self {
@@ -59,6 +61,8 @@ struct SceneRuntimeModelBuilder {
                 return "无法构建 Scene runtime：资源引用索引未建立。"
             case .missingRenderDescriptor:
                 return "无法构建 Scene runtime：renderer 输入描述未建立。"
+            case .invalidMediaColorTransitionProgram:
+                return "无法构建 Scene runtime：media color target identity 冲突。"
             }
         }
     }
@@ -119,12 +123,20 @@ struct SceneRuntimeModelBuilder {
             SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
                 .bindings.map(\.target)
         )
+        guard let mediaColorTransitionCandidateProgram =
+                SceneMediaColorTransitionProgramCompiler.compile(
+                    descriptor: renderDescriptor,
+                    scriptBindings: sceneDocument.scriptBindings
+                ) else {
+            throw BuildError.invalidMediaColorTransitionProgram
+        }
         let propertyVectorScriptProgram = SceneScriptVectorProgram.compile(
             domain: sceneScriptDomain,
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             userPropertyDefinitions: project.userProperties.definitions,
             timelineTargets: timelineTargets,
+            excludedTargets: mediaColorTransitionCandidateProgram.targets,
             generation: sceneScriptGeneration
         )
         let sceneScriptCursorProgram = SceneScriptCursorProgram.compile(
@@ -185,6 +197,8 @@ struct SceneRuntimeModelBuilder {
             capabilityProfile: capabilityProfile,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
+            mediaColorTransitionCandidateProgram:
+                mediaColorTransitionCandidateProgram,
             sceneScriptCursorProgram: sceneScriptCursorProgram,
             propertyVectorScriptProgram: propertyVectorScriptProgram,
             sceneScriptDomain: sceneScriptDomain,

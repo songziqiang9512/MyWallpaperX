@@ -2169,6 +2169,30 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("excludedTargets: boundedSceneScriptTargets", launch)
         self.assertIn("route=generic-only fallback=previous-current", launch)
+        media_candidate_compile = model.index(
+            "let mediaColorTransitionCandidateProgram ="
+        )
+        vector_compile = model.index("let propertyVectorScriptProgram =")
+        self.assertLess(media_candidate_compile, vector_compile)
+        vector_partition = model[media_candidate_compile:vector_compile + 800]
+        self.assertIn(
+            "excludedTargets: mediaColorTransitionCandidateProgram.targets",
+            vector_partition,
+        )
+        self.assertIn(
+            "throw BuildError.invalidMediaColorTransitionProgram",
+            vector_partition,
+        )
+        self.assertIn(
+            "model.mediaColorTransitionCandidateProgram", launch
+        )
+        self.assertNotIn(
+            "SceneMediaColorTransitionProgramCompiler.compile(", launch
+        )
+        self.assertIn("route=disable-generic", launch)
+        self.assertIn(
+            "reason=thumbnail-color-event-contract-unavailable", launch
+        )
         bounded_ownership = launch[
             launch.index("let boundedProducerTargets:"):
             launch.index("let sceneScriptScalarProgram =")
@@ -2180,6 +2204,12 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertNotIn('("hover-origin"', bounded_ownership)
         self.assertNotIn('("media-placeholder"', bounded_ownership)
         self.assertNotIn('("time-of-day"', bounded_ownership)
+        self.assertIn("targets.count != definitionCount", bounded_ownership)
+        for conflict in ("duplicate", "property", "timeline", "bounded-peer"):
+            self.assertIn(
+                f'boundedProducerConflicts.append("\\(name)/{conflict}")',
+                bounded_ownership,
+            )
         self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
         self.assertIn("cursorDown,cursorMove,cursorUp,cursorClick", launch)
         for callback in (

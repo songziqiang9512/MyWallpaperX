@@ -30,6 +30,9 @@ nonisolated struct SceneMediaColorTransitionRuntime {
     private var playbackMode = PlaybackMode.stopped
     private var consumedThumbnailGeneration: UInt64 = 0
     private var consumedPlaybackGeneration: UInt64 = 0
+#if DEBUG
+    private var reportedThumbnailCompletionGenerations: [SceneDynamicTarget: UInt64] = [:]
+#endif
 
     nonisolated init(program: SceneMediaColorTransitionProgram) {
         bindings = program.bindings
@@ -66,9 +69,54 @@ nonisolated struct SceneMediaColorTransitionRuntime {
             guard Self.isNormalizedColor(output) else { continue }
             states[target] = state
             result[target] = .vector3(output.x, output.y, output.z)
+#if DEBUG
+            reportThumbnailCompletionIfNeeded(
+                binding: binding,
+                state: state,
+                output: output
+            )
+#endif
         }
         return result
     }
+
+#if DEBUG
+    private mutating func reportThumbnailCompletionIfNeeded(
+        binding: SceneMediaColorTransitionBinding,
+        state: State,
+        output: SIMD3<Double>
+    ) {
+        let generation = consumedThumbnailGeneration
+        guard generation > 0,
+              state.timer >= binding.plan.duration,
+              reportedThumbnailCompletionGenerations[binding.definition.target]
+                != generation else { return }
+        let fallback: String
+        if state.newColor == .zero {
+            fallback = "missing-color"
+        } else if playbackMode == .stopped {
+            fallback = "playback-stopped"
+        } else {
+            guard output == state.newColor else { return }
+            fallback = "none"
+        }
+        let channel = switch binding.plan.thumbnailColorChannel {
+        case .primary: "primary"
+        case .secondary: "secondary"
+        }
+        reportedThumbnailCompletionGenerations[binding.definition.target] = generation
+        NSLog(
+            "MWX Scene media color: event=thumbnail-color-completed target=%@ generation=%llu channel=%@ output=%.9g,%.9g,%.9g fallback=%@ route=disable-generic",
+            String(describing: binding.definition.target),
+            generation,
+            channel,
+            output.x,
+            output.y,
+            output.z,
+            fallback
+        )
+    }
+#endif
 
     private mutating func initializeStates(
         topColors: [SceneDynamicTarget: SIMD3<Double>]

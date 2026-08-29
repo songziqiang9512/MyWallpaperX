@@ -132,6 +132,16 @@ SCENE_SCRIPT_EFFECT_VECTOR_COMPLETION_RE = re.compile(
     r"type=(?P<type>vector[23]) input=(?P<input>vector[23]\([^)]*\)) "
     r"output=(?P<output>vector[23]\([^)]*\)).* route=(?P<route>\S+)"
 )
+SCENE_MEDIA_COLOR_COMPLETION_RE = re.compile(
+    r"MWX Scene media color: event=thumbnail-color-completed "
+    r"target=effectConstant\(layerID: (?P<layer>\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<constant>[^"]+)"\) generation=(?P<generation>\d+) '
+    r"channel=(?P<channel>primary|secondary) "
+    rf"output=(?P<red>{FLOAT_PATTERN}),(?P<green>{FLOAT_PATTERN}),"
+    rf"(?P<blue>{FLOAT_PATTERN}) fallback=(?P<fallback>\S+) "
+    r"route=(?P<route>\S+)"
+)
 SCENE_SCRIPT_AUDIO_VECTOR_PUBLICATION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
     r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
@@ -1683,6 +1693,32 @@ def scene_script_scalar_runtime_metrics(
             for completion in completions
         ],
     }
+
+
+def media_color_transition_metrics(log_text: str) -> list[dict[str, Any]]:
+    completions = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "generation": int(match.group("generation")),
+            "channel": match.group("channel"),
+            "output": [
+                float(match.group("red")),
+                float(match.group("green")),
+                float(match.group("blue")),
+            ],
+            "fallback": match.group("fallback"),
+            "route": match.group("route"),
+        }
+        for match in SCENE_MEDIA_COLOR_COMPLETION_RE.finditer(log_text)
+    ]
+    completions.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["pass_index"],
+        value["constant"], value["generation"],
+    ))
+    return completions
 
 
 def typed_user_property_scalar_uniform_publications(
@@ -5681,6 +5717,7 @@ def run_sample(
         preview_text,
         log_text,
     )
+    media_color_completions = media_color_transition_metrics(log_text)
     user_property_scalar_uniform_publications = (
         typed_user_property_scalar_uniform_publications(log_text)
     )
@@ -6415,6 +6452,7 @@ def run_sample(
             "scene_script_audio_vector_publications": (
                 scene_script_scalar_runtime["audio_vector_publications"]
             ),
+            "media_color_completions": media_color_completions,
             "media_thumbnail_current_binding_count": (
                 media_thumbnail_runtime["current_binding_count"]
             ),

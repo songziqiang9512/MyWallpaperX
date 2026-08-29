@@ -68,6 +68,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
     let mediaColorTransitionProgram: SceneMediaColorTransitionProgram
+    let mediaColorTransitionCandidateTargets: Set<SceneDynamicTarget>
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let sceneScriptCursorProgram: SceneScriptCursorProgram
     let propertyVectorScriptProgram: SceneScriptVectorProgram
@@ -98,8 +99,14 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " missingState=unavailable"
                 + " reason=snapshot-lifecycle-unproven",
             "scene media color transition: schema=bounded-thumbnail-palette-v2"
+                + " candidates=\(mediaColorTransitionCandidateTargets.count)"
                 + " bindings=\(mediaColorTransitionProgram.bindings.count)"
-                + " input=typed-inbox liveProvider=unavailable",
+                + " unclaimed=\(mediaColorTransitionUnclaimedTargets.count)"
+                + " route=disable-generic"
+                + " reason=thumbnail-color-event-contract-unavailable"
+                + " input=typed-inbox liveProvider=unavailable"
+                + " excludedTargets=\(mediaColorTransitionTargetNames)"
+                + " unclaimedTargets=\(mediaColorTransitionUnclaimedTargetNames)",
             "scene shared layer alpha: schema=bounded-shared-alpha-v1"
                 + " flags=\(sharedLayerAlphaProgram.initialFlags.keys.sorted())"
                 + " bindings=\(sharedLayerAlphaProgram.bindings.count)"
@@ -122,6 +129,25 @@ struct SceneDesktopWallpaperLaunchContext {
         sceneScriptScalarProgram.definitions.count
             + propertyVectorScriptProgram.definitions.count
             + sceneScriptStringProgram.definitions.count
+    }
+
+    private var mediaColorTransitionClaimedTargets: Set<SceneDynamicTarget> {
+        mediaColorTransitionProgram.targets
+    }
+
+    private var mediaColorTransitionUnclaimedTargets: Set<SceneDynamicTarget> {
+        mediaColorTransitionCandidateTargets
+            .subtracting(mediaColorTransitionClaimedTargets)
+    }
+
+    private var mediaColorTransitionTargetNames: [String] {
+        mediaColorTransitionCandidateTargets
+            .map { String(describing: $0) }.sorted()
+    }
+
+    private var mediaColorTransitionUnclaimedTargetNames: [String] {
+        mediaColorTransitionUnclaimedTargets
+            .map { String(describing: $0) }.sorted()
     }
 
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
@@ -407,17 +433,10 @@ extension SceneDesktopWallpaperHost {
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
                 definitions: propertyBindingDefinitions
             )
-        guard let mediaColorTransitionCandidates =
-                SceneMediaColorTransitionProgramCompiler.compile(
-                    descriptor: runtimeInput.renderDescriptor,
-                    scriptBindings: model.sceneDocument.scriptBindings
-                ) else {
-            throw SceneDesktopWallpaperHostLaunchError
-                .invalidBoundedSceneScriptProgramAt("media-color-candidates")
-        }
-        let mediaColorTransitionCandidateTargets = Set(
-            mediaColorTransitionCandidates.bindings.map(\.definition.target)
-        )
+        let mediaColorTransitionCandidates =
+            model.mediaColorTransitionCandidateProgram
+        let mediaColorTransitionCandidateTargets =
+            mediaColorTransitionCandidates.targets
         let boundedProducerTargets: [(
             String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>
         )] = [
@@ -603,6 +622,8 @@ extension SceneDesktopWallpaperHost {
             ),
             textScriptProgram: textScriptProgram,
             mediaColorTransitionProgram: mediaColorTransitionProgram,
+            mediaColorTransitionCandidateTargets:
+                mediaColorTransitionCandidateTargets,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
             sceneScriptCursorProgram: model.sceneScriptCursorProgram,
             propertyVectorScriptProgram: model.propertyVectorScriptProgram,

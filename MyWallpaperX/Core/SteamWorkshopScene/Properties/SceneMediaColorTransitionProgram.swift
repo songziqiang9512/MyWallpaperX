@@ -7,6 +7,10 @@ nonisolated struct SceneMediaColorTransitionProgram: Equatable, Sendable {
 
     nonisolated static let empty = SceneMediaColorTransitionProgram(bindings: [])
 
+    nonisolated var targets: Set<SceneDynamicTarget> {
+        Set(bindings.map(\.definition.target))
+    }
+
     private nonisolated init(bindings: [SceneMediaColorTransitionBinding]) {
         self.bindings = bindings
     }
