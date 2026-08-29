@@ -20,6 +20,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
     SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
+    SOURCE_ROOT / "Particles/SceneParticlePositionAroundControlPoint.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -31,6 +32,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+ReduceMovement.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+CollisionPlane.swift",
+    SOURCE_ROOT / "Particles/SceneParticleSimulator+PositionAroundControlPoint.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+AudioResponse.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
@@ -55,11 +57,104 @@ import simd
 @main
 enum Harness {
     static func main() throws {
-        if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "census" {
+        if CommandLine.arguments.count == 2,
+           CommandLine.arguments[1] == "position-around-control-point" {
+            try printJSON(positionAroundControlPointResults())
+        } else if CommandLine.arguments.count == 3,
+                  CommandLine.arguments[1] == "census" {
             try printJSON(census(rootPath: CommandLine.arguments[2]))
         } else {
             try printJSON(syntheticResults())
         }
+    }
+
+    private static func positionAroundControlPointResults() throws -> [String: Any] {
+        let fields = #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#
+        var sequence = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        sequence.advance(by: 0.1)
+        var partitioned = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        var partitionedFrames = simulator(positionAroundJSON(fields), seed: 71, step: 0.1)
+        partitioned.advance(by: 0.2)
+        partitionedFrames.advance(by: 0.1)
+        partitionedFrames.advance(by: 0.1)
+
+        let pointerJSON = positionAroundJSON(
+            fields, point: #"{"id":0,"flags":1,"offset":"0 0 0"}"#
+        )
+        let pointerDefinition = try SceneParticleDefinitionParser().parse(
+            data: Data(pointerJSON.utf8)
+        )
+        let pointerValues = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(5, 6, 0)
+        )
+        var pointer = simulator(pointerJSON, seed: 71, step: 0.1)
+        pointer.advance(by: 0.1, dynamicControlPoints: pointerValues)
+        var missingPointer = simulator(pointerJSON, seed: 71, step: 0.1)
+        missingPointer.advance(by: 0.1)
+        var pointerBaseline = simulator(
+            positionAroundJSON("", point: #"{"id":0,"flags":1,"offset":"0 0 0"}"#),
+            seed: 71, step: 0.1
+        )
+        pointerBaseline.advance(by: 0.1)
+
+        var unseenBox = simulator(positionAroundJSON(
+            #""axis":"0 0 2","bounds":"0.25 0.75","count":2,"controlpoint":2,"limitbehavior":"repeat","speedmin":"1 0 0","speedmax":"1 0 0""#,
+            point: #"{"id":2,"flags":0,"offset":"3 4 0"}"#,
+            emitter: #"{"name":"boxrandom","instantaneous":4,"directions":"1 1 0","distancemax":"2 3 0"}"#
+        ), seed: 72, step: 0.1)
+        unseenBox.advance(by: 0.1)
+
+        let invalidFields = [
+            #""count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":0,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"mirror","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":0,"speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 3 0","speedmax":"0 2 0""#,
+            #""bounds":"0.8 0.2","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0","flags":1"#,
+            #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0","future":1"#,
+            #""axis":"0 0 0","bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":"0 1","count":4,"controlpoint":8,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+        ]
+        let invalid = invalidFields.map { authored -> SceneParticleSimulator in
+            var value = simulator(positionAroundJSON(authored), seed: 71, step: 0.1)
+            value.advance(by: 0.1)
+            return value
+        }
+        var staticBaseline = simulator(positionAroundJSON(""), seed: 71, step: 0.1)
+        staticBaseline.advance(by: 0.1)
+        return [
+            "positions": sequence.particles.map { vector($0.position) },
+            "velocities": sequence.particles.map { vector($0.velocity) },
+            "diagnostics": sequence.diagnostics.map(\.kind.rawValue),
+            "partitioned": partitioned.particles == partitionedFrames.particles,
+            "pointerValues": pointerValues.keys.sorted(),
+            "pointerFirstPosition": vector(pointer.particles[0].position),
+            "pointerDiagnostics": pointer.diagnostics.map(\.kind.rawValue),
+            "missingPointerPreservesCurrent": missingPointer.particles
+                == pointerBaseline.particles,
+            "unseenBoxFinite": unseenBox.particles.allSatisfy {
+                $0.position.x.isFinite && $0.position.y.isFinite
+                    && $0.velocity.x.isFinite && $0.velocity.y.isFinite
+            },
+            "unseenBoxDiagnostics": unseenBox.diagnostics.map(\.kind.rawValue),
+            "invalidPreserveCurrent": invalid.map { $0.particles }
+                .allSatisfy { $0 == staticBaseline.particles },
+            "invalidDiagnostics": invalid.map {
+                $0.diagnostics.map(\.kind.rawValue)
+            },
+        ]
+    }
+
+    private static func positionAroundJSON(
+        _ fields: String,
+        point: String = #"{"id":0,"flags":0,"offset":"10 20 0"}"#,
+        emitter: String = #"{"name":"sphererandom","instantaneous":4,"directions":"1 0 0","distancemin":2,"distancemax":2}"#
+    ) -> String {
+        let initializer = fields.isEmpty
+            ? #"{"name":"unsupported-position-around-baseline"}"#
+            : #"{"name":"mapsequencearoundcontrolpoint",\#(fields)}"#
+        return #"{"material":"p.json","maxcount":8,"controlpoint":[\#(point)],"emitter":[\#(emitter)],"initializer":[\#(initializer)],"renderer":[{"name":"sprite"}]}"#
     }
 
     private static func syntheticResults() throws -> [String: Any] {
@@ -2851,6 +2946,45 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         for value in diagnostics:
             self.assertIn("collisionPlaneUnsupported", value)
         self.assertIn("audioResponseIgnored", diagnostics[8])
+
+    def test_position_around_control_point_maps_repeat_sequence_and_pointer(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        expected_positions = [[12, 20, 0], [10, 22, 0], [8, 20, 0], [10, 18, 0]]
+        expected_velocities = [[0, 2, 0], [-2, 0, 0], [0, -2, 0], [2, 0, 0]]
+        for actual, expected in zip(result["positions"], expected_positions):
+            for value, wanted in zip(actual, expected):
+                self.assertAlmostEqual(value, wanted)
+        for actual, expected in zip(result["velocities"], expected_velocities):
+            for value, wanted in zip(actual, expected):
+                self.assertAlmostEqual(value, wanted)
+        self.assertEqual(
+            result["diagnostics"],
+            ["emitterShapeBounded", "positionAroundControlPointBounded"],
+        )
+        self.assertTrue(result["partitioned"])
+        self.assertEqual(result["pointerValues"], [0])
+        for actual, expected in zip(result["pointerFirstPosition"], [7, 6, 0]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertEqual(
+            result["pointerDiagnostics"],
+            [
+                "emitterShapeBounded", "positionAroundControlPointBounded",
+                "pointerControlPointBounded",
+            ],
+        )
+        self.assertTrue(result["missingPointerPreservesCurrent"])
+        self.assertTrue(result["unseenBoxFinite"])
+        self.assertEqual(
+            result["unseenBoxDiagnostics"],
+            ["emitterShapeBounded", "positionAroundControlPointBounded"],
+        )
+
+    def test_position_around_control_point_invalid_profiles_preserve_current(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        self.assertTrue(result["invalidPreserveCurrent"])
+        self.assertEqual(len(result["invalidDiagnostics"]), 10)
+        for diagnostics in result["invalidDiagnostics"]:
+            self.assertIn("positionAroundControlPointUnsupported", diagnostics)
 
     def test_random_initializer_exponent_biases_values_towards_minimum(self) -> None:
         uniform = self.results["uniformSizeAmount"]

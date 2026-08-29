@@ -110,6 +110,8 @@ nonisolated struct SceneParticleDefinitionParser {
         case "angularvelocityrandom": kind = .angularVelocity
         case "turbulentvelocityrandom": kind = .turbulentVelocity
         case "positionoffsetrandom": kind = .positionOffset
+        case "mapsequencearoundcontrolpoint":
+            kind = .positionAroundControlPoint(.init(root: root))
         case "inheritinitialvaluefromevent":
             kind = .inheritEventColor(.init(root: root))
         default:

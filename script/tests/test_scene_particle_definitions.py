@@ -18,6 +18,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",
     SOURCE_ROOT / "Particles/SceneParticleCollisionPlane.swift",
+    SOURCE_ROOT / "Particles/SceneParticlePositionAroundControlPoint.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
@@ -43,6 +44,8 @@ enum Harness {
             try printJSON(reduceMovementResult())
         case "collision-plane":
             try printJSON(collisionPlaneResult())
+        case "position-around-control-point":
+            try printJSON(positionAroundControlPointResult())
         case "census":
             guard CommandLine.arguments.count == 3 else { throw HarnessError.missingSampleRoot }
             try printJSON(censusResult(rootPath: CommandLine.arguments[2]))
@@ -427,6 +430,77 @@ enum Harness {
         ]
     }
 
+    private static func positionAroundControlPointResult() -> [String: Any] {
+        let parser = SceneParticleDefinitionParser()
+        func definition(
+            _ fields: [String: Any], point: [String: Any] = [
+                "id": 0, "flags": 1, "offset": "0 0 0",
+            ], emitter: [String: Any] = [
+                "name": "sphererandom", "distancemin": 1, "distancemax": 1,
+            ]
+        ) -> SceneParticleDefinition {
+            parser.parse(root: [
+                "material": "p.json", "maxcount": 32,
+                "controlpoint": [point], "emitter": [emitter],
+                "initializer": [["name": "mapsequencearoundcontrolpoint"]
+                    .merging(fields) { _, value in value }],
+                "renderer": [["name": "sprite"]],
+            ])
+        }
+        let stock = definition([
+            "bounds": "0 1", "count": 5, "limitbehavior": "repeat",
+            "speedmin": "0 100 0", "speedmax": "0 100 0",
+        ])
+        let explicit = definition([
+            "axis": "0 0 2", "bounds": "0.25 0.75", "count": 4,
+            "controlpoint": 2, "limitbehavior": "REPEAT",
+            "speedmin": "-1 2 0", "speedmax": "1 4 0",
+        ], point: ["id": 2, "flags": 0, "offset": "10 20 0"])
+        let malformed = definition([
+            "bounds": "bad", "count": 5, "limitbehavior": "repeat",
+            "speedmin": "0 1 0", "speedmax": "0 1 0",
+        ])
+        let unknown = definition([
+            "bounds": "0 1", "count": 5, "limitbehavior": "repeat",
+            "speedmin": "0 1 0", "speedmax": "0 1 0", "future": true,
+        ])
+        let mirror = definition([
+            "bounds": "0 1", "count": 5, "limitbehavior": "mirror",
+            "speedmin": "0 1 0", "speedmax": "0 1 0",
+        ])
+        guard case .positionAroundControlPoint = stock.initializers[0].kind,
+              let stockPlan = stock.initializers[0].positionAroundControlPointPlan,
+              let explicitPlan = explicit.initializers[0].positionAroundControlPointPlan
+        else { return ["recognized": false] }
+        return [
+            "recognized": true,
+            "stockBounds": [stockPlan.bounds.lowerBound, stockPlan.bounds.upperBound],
+            "stockCount": stockPlan.count,
+            "stockAxis": [stockPlan.axis.x, stockPlan.axis.y, stockPlan.axis.z],
+            "stockControlPoint": stockPlan.controlPoint,
+            "stockSupported": stock.supportsBoundedPositionAroundControlPoint(
+                stock.initializers[0]
+            ),
+            "pointerIdentities": stock.positionAroundPointerControlPointIdentities.sorted(),
+            "explicitBounds": [
+                explicitPlan.bounds.lowerBound, explicitPlan.bounds.upperBound,
+            ],
+            "explicitAxis": [
+                explicitPlan.axis.x, explicitPlan.axis.y, explicitPlan.axis.z,
+            ],
+            "explicitControlPoint": explicitPlan.controlPoint,
+            "explicitSupported": explicit.supportsBoundedPositionAroundControlPoint(
+                explicit.initializers[0]
+            ),
+            "malformedRejected": malformed.initializers[0]
+                .positionAroundControlPointPlan == nil,
+            "unknownRejected": unknown.initializers[0]
+                .positionAroundControlPointPlan == nil,
+            "mirrorRejected": mirror.initializers[0]
+                .positionAroundControlPointPlan == nil,
+        ]
+    }
+
     private static func censusResult(rootPath: String) throws -> [String: Any] {
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
         let sampleURLs = try FileManager.default.contentsOfDirectory(
@@ -617,6 +691,7 @@ enum Harness {
         case .angularVelocity: "angularvelocityrandom"
         case .turbulentVelocity: "turbulentvelocityrandom"
         case .positionOffset: "positionoffsetrandom"
+        case .positionAroundControlPoint: "mapsequencearoundcontrolpoint"
         case .inheritEventColor: "inheritinitialvaluefromevent"
         case let .unsupported(name): name
         }
@@ -874,6 +949,23 @@ class SceneParticleDefinitionTests(unittest.TestCase):
         self.assertTrue(result["malformedRejected"])
         self.assertTrue(result["unknownRejected"])
         self.assertEqual(result["parserDiagnostics"], 0)
+
+    def test_position_around_control_point_parser_preserves_the_repeat_shape(self) -> None:
+        result = self.run_harness("position-around-control-point")
+        self.assertTrue(result["recognized"])
+        self.assertEqual(result["stockBounds"], [0, 1])
+        self.assertEqual(result["stockCount"], 5)
+        self.assertEqual(result["stockAxis"], [0, 0, 1])
+        self.assertEqual(result["stockControlPoint"], 0)
+        self.assertTrue(result["stockSupported"])
+        self.assertEqual(result["pointerIdentities"], [0])
+        self.assertEqual(result["explicitBounds"], [0.25, 0.75])
+        self.assertEqual(result["explicitAxis"], [0, 0, 1])
+        self.assertEqual(result["explicitControlPoint"], 2)
+        self.assertTrue(result["explicitSupported"])
+        self.assertTrue(result["malformedRejected"])
+        self.assertTrue(result["unknownRejected"])
+        self.assertTrue(result["mirrorRejected"])
 
 if __name__ == "__main__":
     unittest.main()

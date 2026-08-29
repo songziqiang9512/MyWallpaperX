@@ -9,6 +9,8 @@ nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendab
     case colorListUnsupported
     case positionOffsetBounded
     case positionOffsetUnsupported
+    case positionAroundControlPointBounded
+    case positionAroundControlPointUnsupported
     case eventColorInitializerBounded
     case eventColorInitializerUnsupported
     case unsupportedOperator
@@ -169,6 +171,11 @@ extension SceneParticleSimulationMath {
                 add(initializer.boundedPositionOffset == nil
                     ? .positionOffsetUnsupported : .positionOffsetBounded,
                     "positionoffsetrandom")
+            case .positionAroundControlPoint:
+                add(definition.supportsBoundedPositionAroundControlPoint(initializer)
+                    ? .positionAroundControlPointBounded
+                    : .positionAroundControlPointUnsupported,
+                    "mapsequencearoundcontrolpoint")
             case let .inheritEventColor(declaration):
                 add(declaration.isBoundedSetColor
                     && eventColorContext.initializerColor != nil
@@ -235,7 +242,14 @@ extension SceneParticleSimulationMath {
         if !definition.children.isEmpty { add(.childSystemsIgnored, "children") }
         let pointerPoints = definition.controlPoints.filter(\.followsPointer)
         if !pointerPoints.isEmpty {
-            add(pointerPoints.allSatisfy(\.hasBoundedPointerInput) ? .pointerControlPointBounded : .pointerControlPointUnsupported, "sources=\(pointerPoints.count)")
+            let positionAroundIdentities = definition.positionAroundPointerControlPointIdentities
+            let supported = pointerPoints.allSatisfy { point in
+                point.hasBoundedPointerInput
+                    || point.id.map(positionAroundIdentities.contains) == true
+            }
+            add(supported ? .pointerControlPointBounded
+                          : .pointerControlPointUnsupported,
+                "sources=\(pointerPoints.count)")
         }
 
         let scalarValues = [instanceOverride?.alpha, instanceOverride?.size,

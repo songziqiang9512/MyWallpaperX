@@ -29,9 +29,10 @@ nonisolated extension SceneParticleSimulator {
         if let point = definition.controlPoints.first(where: { $0.id == identity }) {
             result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
             // Pointer-linked control points have no authored static position. A missing
-            // or outside pointer must disable this force instead of attracting particles
-            // to the system origin.
-            if point.hasBoundedPointerInput {
+            // or outside pointer must disable the bounded consumer instead of mapping
+            // particles to the system origin.
+            if point.hasBoundedPointerInput
+                || point.hasBoundedPositionAroundPointerInput {
                 guard let dynamic = dynamicControlPoints[identity], dynamic.isFinite else {
                     return nil
                 }

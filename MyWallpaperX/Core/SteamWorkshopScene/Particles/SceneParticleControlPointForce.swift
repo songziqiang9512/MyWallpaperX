@@ -259,7 +259,7 @@ nonisolated extension SceneParticleDefinition {
     func pointerControlPointValues(
         at position: SIMD3<Double>?
     ) -> [Int: SIMD3<Double>] {
-        let identities = Set(operators.compactMap { value -> Int? in
+        var identities = Set(operators.compactMap { value -> Int? in
             guard supportsBoundedControlPointForce(value),
                   case let .supported(plan) = value.controlPointForceAdmission,
                   controlPoints.contains(where: {
@@ -267,6 +267,7 @@ nonisolated extension SceneParticleDefinition {
                   }) else { return nil }
             return plan.controlPoint
         })
+        identities.formUnion(positionAroundPointerControlPointIdentities)
         guard !identities.isEmpty else { return [:] }
         let value: SIMD3<Double>
         if let position, position.x.isFinite, position.y.isFinite,

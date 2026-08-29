@@ -51,6 +51,8 @@ extension SceneParticleSimulator {
                         to: &particle.position
                     )
                 }
+            case .positionAroundControlPoint:
+                applyPositionAroundControlPoint(initializer, to: &particle)
             case let .inheritEventColor(declaration):
                 if declaration.isBoundedSetColor,
                    let color = eventColorContext.initializerColor {
