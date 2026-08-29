@@ -106,6 +106,7 @@
         "test_scene_script_quickjs",
         "test_scene_script_quickjs_media_lifecycle",
         "test_scene_script_quickjs_owner_budget",
+        "test_scene_script_layer_transform_projection",
         "test_scene_script_string_lifecycle",
         "test_scene_script_text_pointsize",
         "test_scene_vector_media_events",

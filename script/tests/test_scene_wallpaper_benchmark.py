@@ -454,17 +454,17 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "vec3Bindings=3 targets=0 route=generic-only "
             "fallback=previous-current",
             "MWX SceneScript VM: target=layer(layerID: 235, field: "
-            "MyWallpaperX.SceneDynamicLayerField.origin) callback=completed "
-            "type=Vec3 input=(-81,41,0) output=(-81,-43,0) "
-            "route=generic-only",
+            "MyWallpaperX.SceneDynamicLayerField.angles) callback=completed "
+            "type=vector3 input=vector3(-81,41,0) output=vector3(-81,-43,0) "
+            "audio=false audioGeneration=0 route=generic-only",
         )
         self.assertEqual(metrics["binding_count"], 0)
         self.assertEqual(metrics["vec3_binding_count"], 3)
         self.assertEqual(metrics["vec3_completions"], [{
             "layer_id": 235,
-            "field": "origin",
-            "input": "(-81,41,0)",
-            "output": "(-81,-43,0)",
+            "field": "angles",
+            "input": "vector3(-81,41,0)",
+            "output": "vector3(-81,-43,0)",
             "route": "generic-only",
         }])
 

@@ -113,7 +113,7 @@ nonisolated extension SceneScriptVectorProgram {
             return candidate
         }
         guard binding.owner.kind == .object,
-              binding.targetKey == "origin" || binding.targetKey == "scale",
+              ["origin", "scale", "angles"].contains(binding.targetKey),
               binding.valueType == .string,
               let sourceValue = binding.authoredValue?.stringValue,
               let authored = vector3(sourceValue),
@@ -134,6 +134,9 @@ nonisolated extension SceneScriptVectorProgram {
         case "scale":
             descriptorValue = layer.scaleXYZ
             target = .layer(layerID: layerID, field: .scale)
+        case "angles":
+            descriptorValue = layer.anglesXYZ
+            target = .layer(layerID: layerID, field: .angles)
         default:
             return nil
         }
