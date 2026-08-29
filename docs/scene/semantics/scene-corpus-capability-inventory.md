@@ -52,13 +52,6 @@
 - Effect instance **2425**，粒子 root layer **327**；动态 wrapper：`{"condition_wrappers": 720, "script_wrappers": 1073, "timeline_wrappers": 199, "user_bindings": 2294}`。
 - 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。
 
-#### V2 authored sentinel（防上下文丢失，不是支持清单）
-
-- 当前 104 样本的全部 `script_wrappers` 已按无 payload 的 owner/target/wrapper shape 保存在机器快照；后续不需要靠聊天记录恢复“新增样本里出现过什么”。只有某个真实纵向批需要判断 API/source 语义时，才对精确样本做只读重读并把结果写回对应专项覆盖表。
-- 只读真实 `2134765860` 当前可复核出 **11 个 pass scalar VM owner**：6 个为 `WEMath.smoothStep + engine.timeOfDay`（4 个 `multiply` wrapper 显式带 `user:null`，另 2 个写 `alpha`），其余 5 个为普通 scalar `multiply` update。该结构属于 `authored-corpus-observation`；当前 App 的实际执行等级只查 [E-V2-SCENESCRIPT-ENGINE-TIME-OF-DAY](runtime-evidence-index.md#e-v2-scenescript-engine-time-of-day)。
-- 当前104样本只读census中，`engine.registerAudioBuffers`共有 **195个binding / 52份唯一source / 24个样本**；这只说明authoring影响面。现役产品证据只覆盖`2684431262`的8个object scale owner，完整Audio Bars dynamic-layer脚本、nested particle wrapper及其他样本仍分别查专项表与运行证据。
-- 这 11 项不能外推同一样本或 corpus 的 Vec/bool/string/object、audio registration、event、timer、layer handle、file module、particle script 或完整 SceneScript 支持；这些仍由 [SceneScript API 覆盖表](scenescript-api-coverage.md)逐 API 登记，不在本 inventory 猜测 current。
-
 ## 4. 当前公共 family 影响面索引
 
 > 这里只按静态可见覆盖排序，不能自动决定实施。最后一列是修复事件工作流，不是能力状态；`untriaged` 不表示缺失。真正开批前必须由 fresh 隔离运行确认第一断裂边；高频但位于链后段的 family 不得抢占当前可见首断点。
@@ -176,7 +169,7 @@
 | `2419444134` | Nier Reincarnation - Akeha | 10 | 13 | 4 | 272 | 截图+说明 | tracked45 / census未join runtime |
 | `2470144420` | 女孩独享的宁静傍晚 | 4 | 6 | 2 | 124 | 截图+说明 | tracked45 / census未join runtime |
 | `2473638329` | Genshin Impact \| +18 / NSFW &amp; SFW | 2 | 7 | 1 | 105 | 截图+说明 | tracked45 / census未join runtime |
-| `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 262 | 无 | 新增 / V2 AudioBuffers targeted runtime；整景预览仍有明显视觉差异 |
+| `2684431262` | 麻匪 炫酷音频律动 Windows | 17 | 25 | 1 | 262 | 无 | 新增 / census未join runtime |
 | `2775915974` | R18*JK(escalator)エスカレーターJKさんX-ray | 4 | 12 | 0 | 144 | 无 | 新增 / census未join runtime |
 | `2797913147` | 【R18】连体黑丝#4K#视差#可互动臀部#动态 | 3 | 7 | 0 | 79 | 无 | 新增 / census未join runtime |
 | `2802243144` | 冰公主-by Wlop 时间日期已修复 16:9 -music 订阅后点赞，养成好习惯 | 12 | 8 | 2 | 184 | 截图+说明 | tracked45 / census未join runtime |

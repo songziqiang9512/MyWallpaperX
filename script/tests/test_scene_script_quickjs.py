@@ -838,6 +838,57 @@ int main(void) {
         "Vec3/scriptProperties/engine.userProperties"
     );
 
+    const char *wecolor_source =
+        "import * as WEColor from 'WEColor';\n"
+        "export function update(value) {\n"
+        "  return WEColor.hsv2rgb({x:0.5,y:1,z:1}).multiply(0.5);\n"
+        "}";
+    MWXSceneQuickJSOwner *wecolor = mwx_scene_quickjs_owner_create(
+        domain, wecolor_source, strlen(wecolor_source),
+        52, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(wecolor != NULL, "WEColor.hsv2rgb compile", diagnostic);
+    const double wecolor_expected[3] = {0, 0.5, 0.5};
+    failures += update_vec3(
+        wecolor, 52, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, wecolor_expected,
+        "WEColor.hsv2rgb returns Vec3"
+    );
+
+    const char *wecolor_wrap_source =
+        "import * as WEColor from 'WEColor';\n"
+        "export function update(value) {\n"
+        "  return WEColor.hsv2rgb({x:2,y:1,z:1});\n"
+        "}";
+    MWXSceneQuickJSOwner *wecolor_wrap = mwx_scene_quickjs_owner_create(
+        domain, wecolor_wrap_source, strlen(wecolor_wrap_source),
+        53, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(wecolor_wrap != NULL, "WEColor hue wrap compile", diagnostic);
+    const double red[3] = {1, 0, 0};
+    failures += update_vec3(
+        wecolor_wrap, 53, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, red, "WEColor hue wraps"
+    );
+
+    const char *wecolor_invalid_source =
+        "import * as WEColor from 'WEColor';\n"
+        "export function update(value) {\n"
+        "  return WEColor.hsv2rgb({x:0,y:2,z:1});\n"
+        "}";
+    MWXSceneQuickJSOwner *wecolor_invalid = mwx_scene_quickjs_owner_create(
+        domain, wecolor_invalid_source, strlen(wecolor_invalid_source),
+        54, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        wecolor_invalid != NULL, "invalid WEColor compile", diagnostic
+    );
+    failures += update_vec3(
+        wecolor_invalid, 54, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_EXCEPTION, vec3_input,
+        "WEColor rejects non-normalized saturation"
+    );
+
     const char *immutable_user_source =
         "'use strict'; export function update(value) {"
         "engine.userProperties.live = 9; return value; }";
@@ -2023,6 +2074,9 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(global_surface);
     mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_owner_destroy(vec3);
+    mwx_scene_quickjs_owner_destroy(wecolor);
+    mwx_scene_quickjs_owner_destroy(wecolor_wrap);
+    mwx_scene_quickjs_owner_destroy(wecolor_invalid);
     mwx_scene_quickjs_owner_destroy(immutable_user);
     mwx_scene_quickjs_owner_destroy(scalar_user);
     mwx_scene_quickjs_domain_destroy(domain);
@@ -2053,6 +2107,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             "-I",
             str(QUICKJS),
             str(SCENE_SCRIPT / "SceneQuickJS.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSModuleHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAnimationHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),

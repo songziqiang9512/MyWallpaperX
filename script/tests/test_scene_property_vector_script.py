@@ -201,6 +201,10 @@ enum Harness {
                                 components: [1, 1],
                                 userValueKind: .string
                             ),
+                            "color": .init(
+                                scriptSource: passColorSource,
+                                components: [1, 1, 1]
+                            ),
                         ]
                     )]
                 )]
@@ -303,6 +307,29 @@ enum Harness {
             )],
             userPropertyDefinitions: [],
             generation: 22
+        )
+        let passColorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "color"
+        )
+        let passColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passVectorBinding(
+                key: "color", source: passColorSource, value: "1 1 1",
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: [
+                    "speed": .number(0.25),
+                    "saturation": .number(1),
+                    "brightness": .number(1),
+                ]
+            )],
+            userPropertyDefinitions: [],
+            generation: 23
+        )
+        let passColorResult = passColorProgram.evaluate(
+            inputs: [passColorTarget: .vector3(1, 1, 1)],
+            effectivePropertyValues: [:],
+            frame: frame
         )
         let propertyEventProgram = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -585,6 +612,9 @@ enum Harness {
             "passVectorFailures": passVectorResult.failures.count,
             "passVectorWrongWrapperRejected": rejectedPassVectorProgram.bindings.isEmpty,
             "passVectorUserProviderRejected": userBoundPassVectorProgram.bindings.isEmpty,
+            "passColorBindings": passColorProgram.bindings.count,
+            "passColorValue": vector(passColorResult.values[passColorTarget]),
+            "passColorFailures": passColorResult.failures.count,
             "layerOrigin": vector(
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ),
@@ -756,7 +786,8 @@ enum Harness {
         key: String = "scale",
         source: String,
         value: String,
-        wrapperKeys: [String]
+        wrapperKeys: [String],
+        properties: [String: SceneJSONValue] = [:]
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
@@ -769,7 +800,7 @@ enum Harness {
                 .key("passes"), .index(0), .key("constantshadervalues"),
                 .key(key),
             ],
-            properties: [:],
+            properties: properties,
             authoredValue: .string(value),
             valueType: .string,
             wrapperKeys: wrapperKeys
@@ -924,6 +955,22 @@ enum Harness {
     export function update(value) { return value.multiply(2); }
     """
 
+    static let passColorSource = """
+    import * as WEColor from 'WEColor';
+    export let scriptProperties = createScriptProperties()
+        .addSlider({name: 'speed', value: 0.25})
+        .addSlider({name: 'saturation', value: 1})
+        .addSlider({name: 'brightness', value: 1})
+        .finish();
+    export function update(value) {
+        return WEColor.hsv2rgb({
+            x: engine.runtime * scriptProperties.speed,
+            y: scriptProperties.saturation,
+            z: scriptProperties.brightness
+        });
+    }
+    """
+
     static let particleAudioSource = """
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "frequency", value: 0})
@@ -954,6 +1001,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         objects: list[Path] = []
         for source in [
             VM / "SceneQuickJS.c", VM / "SceneQuickJSAnimationHost.c",
+            VM / "SceneQuickJSModuleHost.c",
             VM / "SceneQuickJSAudioHost.c",
             VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
@@ -1011,6 +1059,12 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passVectorFailures"], 0)
         self.assertTrue(value["passVectorWrongWrapperRejected"])
         self.assertTrue(value["passVectorUserProviderRejected"])
+
+    def test_generic_pass_vec3_executes_wecolor_into_typed_publication(self) -> None:
+        value = self.result()
+        self.assertEqual(value["passColorBindings"], 1)
+        self.assertEqual(value["passColorValue"], [0, 1, 1])
+        self.assertEqual(value["passColorFailures"], 0)
 
     def test_bad_return_is_local_and_duplicate_target_is_rejected(self) -> None:
         value = self.result()

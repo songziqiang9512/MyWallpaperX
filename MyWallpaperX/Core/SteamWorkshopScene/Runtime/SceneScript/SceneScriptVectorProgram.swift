@@ -494,7 +494,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>
     ) -> Candidate? {
-        if let candidate = passVector2Projection(binding, descriptor: descriptor) {
+        if let candidate = passVectorProjection(binding, descriptor: descriptor) {
             return candidate
         }
         guard binding.owner.kind == .object,
@@ -554,14 +554,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
     }
 
-    private static func passVector2Projection(
+    private static func passVectorProjection(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor
     ) -> Candidate? {
         guard binding.owner.kind == .pass,
               binding.valueType == .string,
               let sourceValue = binding.authoredValue?.stringValue,
-              let authored = vector2(sourceValue),
               let objectIndex = binding.owner.objectIndex,
               let layerID = binding.owner.objectID,
               let effectIndex = binding.owner.effectIndex,
@@ -582,10 +581,36 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                   passIndex: passIndex, name: name
               ),
               let descriptorValue = pass.constantShaderValues[name],
-              descriptorValue.scriptSource == binding.source,
-              descriptorValue.components?.count == 2,
-              descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
-              descriptorValue.components?[1].bitPattern == authored.y.bitPattern else {
+              descriptorValue.scriptSource == binding.source else {
+            return nil
+        }
+        let definition: SceneDynamicTargetDefinition
+        if let authored = vector2(sourceValue),
+           descriptorValue.components?.count == 2,
+           descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
+           descriptorValue.components?[1].bitPattern == authored.y.bitPattern {
+            definition = .init(
+                target: .effectConstant(
+                    layerID: layerID, effectIndex: effectIndex,
+                    passIndex: passIndex, name: name
+                ),
+                valueType: .vector2,
+                authoredValue: .vector2(authored.x, authored.y)
+            )
+        } else if let authored = vector3(sourceValue),
+                  descriptorValue.components?.count == 3,
+                  descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
+                  descriptorValue.components?[1].bitPattern == authored.y.bitPattern,
+                  descriptorValue.components?[2].bitPattern == authored.z.bitPattern {
+            definition = .init(
+                target: .effectConstant(
+                    layerID: layerID, effectIndex: effectIndex,
+                    passIndex: passIndex, name: name
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(authored.x, authored.y, authored.z)
+            )
+        } else {
             return nil
         }
         let validWrapper =
@@ -608,14 +633,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         }
         return .init(
             source: binding.source,
-            definition: .init(
-                target: .effectConstant(
-                    layerID: layerID, effectIndex: effectIndex,
-                    passIndex: passIndex, name: name
-                ),
-                valueType: .vector2,
-                authoredValue: .vector2(authored.x, authored.y)
-            ),
+            definition: definition,
             properties: properties,
             hasCurrentAnimation: false
         )

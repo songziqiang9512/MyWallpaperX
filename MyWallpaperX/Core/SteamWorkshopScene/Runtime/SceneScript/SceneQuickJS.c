@@ -1,5 +1,6 @@
 #include "SceneQuickJS.h"
 #include "SceneQuickJSInternal.h"
+#include "SceneQuickJSModuleHost.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -7,80 +8,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-static JSValue wemath_smooth_step(
-    JSContext *context,
-    JSValueConst this_value,
-    int argc,
-    JSValueConst *argv
-) {
-    (void)this_value;
-    if (argc != 3) {
-        return JS_ThrowTypeError(context, "WEMath.smoothStep expects three numbers");
-    }
-    double minimum = 0;
-    double maximum = 0;
-    double value = 0;
-    if (JS_ToFloat64(context, &minimum, argv[0]) < 0 ||
-        JS_ToFloat64(context, &maximum, argv[1]) < 0 ||
-        JS_ToFloat64(context, &value, argv[2]) < 0 ||
-        !isfinite(minimum) || !isfinite(maximum) || !isfinite(value) ||
-        minimum == maximum) {
-        return JS_ThrowTypeError(context, "WEMath.smoothStep arguments are invalid");
-    }
-    double normalized = (value - minimum) / (maximum - minimum);
-    normalized = fmin(fmax(normalized, 0), 1);
-    return JS_NewFloat64(
-        context,
-        normalized * normalized * (3 - 2 * normalized)
-    );
-}
-
-static JSValue wemath_mix(
-    JSContext *context,
-    JSValueConst this_value,
-    int argc,
-    JSValueConst *argv
-) {
-    (void)this_value;
-    if (argc != 3) {
-        return JS_ThrowTypeError(context, "WEMath.mix expects three numbers");
-    }
-    double start = 0;
-    double end = 0;
-    double amount = 0;
-    if (JS_ToFloat64(context, &start, argv[0]) < 0 ||
-        JS_ToFloat64(context, &end, argv[1]) < 0 ||
-        JS_ToFloat64(context, &amount, argv[2]) < 0 ||
-        !isfinite(start) || !isfinite(end) || !isfinite(amount)) {
-        return JS_ThrowTypeError(context, "WEMath.mix arguments are invalid");
-    }
-    const double result = start + ((end - start) * amount);
-    if (!isfinite(result)) {
-        return JS_ThrowRangeError(context, "WEMath.mix result is not finite");
-    }
-    return JS_NewFloat64(context, result);
-}
-
-static int initialize_wemath_module(JSContext *context, JSModuleDef *module) {
-    JSValue smooth_step = JS_NewCFunction(
-        context,
-        wemath_smooth_step,
-        "smoothStep",
-        3
-    );
-    if (JS_IsException(smooth_step)) {
-        return -1;
-    }
-    if (JS_SetModuleExport(context, module, "smoothStep", smooth_step) < 0) {
-        return -1;
-    }
-    JSValue mix = JS_NewCFunction(context, wemath_mix, "mix", 3);
-    if (JS_IsException(mix)) {
-        return -1;
-    }
-    return JS_SetModuleExport(context, module, "mix", mix);
-}
 
 static bool install_value_host(MWXSceneQuickJSDomain *domain) {
     static const char source[] =
@@ -329,32 +256,6 @@ static bool install_input_host(MWXSceneQuickJSDomain *domain) {
     );
     JS_FreeValue(context, global);
     return result >= 0;
-}
-
-static JSModuleDef *load_allowlisted_module(
-    JSContext *context,
-    const char *module_name,
-    void *opaque
-) {
-    (void)opaque;
-    if (module_name == NULL || strcmp(module_name, "WEMath") != 0) {
-        JS_ThrowReferenceError(
-            context,
-            "SceneScript module is not allowlisted: %s",
-            module_name != NULL ? module_name : "<null>"
-        );
-        return NULL;
-    }
-    JSModuleDef *module = JS_NewCModule(
-        context,
-        module_name,
-        initialize_wemath_module
-    );
-    if (module == NULL || JS_AddModuleExport(context, module, "smoothStep") < 0 ||
-        JS_AddModuleExport(context, module, "mix") < 0) {
-        return NULL;
-    }
-    return module;
 }
 
 static void clear_diagnostic(char *diagnostic, size_t capacity) {
@@ -1087,7 +988,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     JS_SetModuleLoaderFunc(
         domain->runtime,
         NULL,
-        load_allowlisted_module,
+        mwx_scene_quickjs_load_allowlisted_module,
         domain
     );
     domain->context = JS_NewContext(domain->runtime);
