@@ -1236,6 +1236,153 @@ int main(void) {
         "audio registration is global-only"
     );
 
+    const char *promise_source =
+        "let state=0;"
+        "export function init(value){"
+        "Promise.resolve().then(()=>{state=4;});return value;}"
+        "export function update(value){return value+state;}";
+    MWXSceneQuickJSOwner *promise_owner = mwx_scene_quickjs_owner_create(
+        domain, promise_source, strlen(promise_source),
+        37, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(promise_owner != NULL, "promise owner compile", diagnostic);
+    failures += update(
+        promise_owner, 37, 1, MWX_SCENE_QUICKJS_OK, 5,
+        "promise job drains before next owner hook"
+    );
+
+    const char *promise_mutation_source =
+        "export function update(value){"
+        "Promise.resolve().then(()=>{"
+        "thisLayer.getEffect(0).executeMaterialFunction('asyncMutate');});"
+        "return value;}";
+    MWXSceneQuickJSOwner *promise_mutation = mwx_scene_quickjs_owner_create(
+        domain, promise_mutation_source, strlen(promise_mutation_source),
+        43, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        promise_mutation != NULL, "promise mutation compile", diagnostic
+    );
+    failures += configure_effects(
+        promise_mutation, 1, 0, "async", "promise mutation catalog"
+    );
+    failures += update(
+        promise_mutation, 43, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "promise mutation callback"
+    );
+    failures += mutation(
+        promise_mutation, 0, 0, "asyncMutate",
+        "promise job retains owner handle"
+    );
+
+    const char *event_promise_source =
+        "export function cursorClick(){"
+        "Promise.resolve().then(()=>{shared.eventJob=9;});}"
+        "export function update(value){return value+(shared.eventJob||0);}";
+    MWXSceneQuickJSOwner *event_promise = mwx_scene_quickjs_owner_create(
+        domain, event_promise_source, strlen(event_promise_source),
+        44, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        event_promise != NULL, "event promise compile", diagnostic
+    );
+    failures += cursor_event(
+        event_promise, 44, MWX_SCENE_QUICKJS_CURSOR_CLICK,
+        MWX_SCENE_QUICKJS_OK, "event promise drains before return"
+    );
+    failures += update(
+        event_promise, 44, 1, MWX_SCENE_QUICKJS_OK, 10,
+        "event promise state is visible"
+    );
+
+    const char *handled_rejection_source =
+        "let state=0;"
+        "export function init(value){"
+        "Promise.reject(new Error('handled')).catch(()=>{state=3;});"
+        "return value;}"
+        "export function update(value){return value+state;}";
+    MWXSceneQuickJSOwner *handled_rejection = mwx_scene_quickjs_owner_create(
+        domain, handled_rejection_source, strlen(handled_rejection_source),
+        38, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        handled_rejection != NULL, "handled rejection compile", diagnostic
+    );
+    failures += update(
+        handled_rejection, 38, 1, MWX_SCENE_QUICKJS_OK, 4,
+        "handled rejection remains healthy"
+    );
+
+    const char *unhandled_rejection_source =
+        "export function update(value){"
+        "Promise.reject(new Error('unhandled'));return value;}";
+    MWXSceneQuickJSOwner *unhandled_rejection = mwx_scene_quickjs_owner_create(
+        domain, unhandled_rejection_source, strlen(unhandled_rejection_source),
+        39, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        unhandled_rejection != NULL, "unhandled rejection compile", diagnostic
+    );
+    failures += update(
+        unhandled_rejection, 39, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "unhandled rejection disables owner"
+    );
+
+    const char *job_budget_source =
+        "export function update(value){"
+        "let chain=Promise.resolve();"
+        "for(let i=0;i<65;i+=1)chain=chain.then(()=>{});"
+        "return value;}";
+    MWXSceneQuickJSOwner *job_budget = mwx_scene_quickjs_owner_create(
+        domain, job_budget_source, strlen(job_budget_source),
+        40, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(job_budget != NULL, "job budget compile", diagnostic);
+    failures += update(
+        job_budget, 40, 1, MWX_SCENE_QUICKJS_BUDGET_EXCEEDED, 0,
+        "job budget disables owner"
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "job failure preserves peer owner"
+    );
+
+    const char *module_job_source =
+        "Promise.resolve().then(()=>{});"
+        "export function update(value){return value;}";
+    MWXSceneQuickJSOwner *module_job = mwx_scene_quickjs_owner_create(
+        domain, module_job_source, strlen(module_job_source),
+        41, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        module_job == NULL, "module job rejected and discarded", diagnostic
+    );
+    failures += update(
+        isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
+        "module job rejection preserves peer owner"
+    );
+
+    const char *timer_promise_source =
+        "let state=0,resolveValue;"
+        "export function init(value){"
+        "new Promise(resolve=>{resolveValue=resolve;})"
+        ".then(next=>{state=next;});"
+        "engine.setTimeout(()=>{resolveValue(6);},10);return value;}"
+        "export function update(value){return value+state;}";
+    MWXSceneQuickJSOwner *timer_promise = mwx_scene_quickjs_owner_create(
+        domain, timer_promise_source, strlen(timer_promise_source),
+        42, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(timer_promise != NULL, "timer promise compile", diagnostic);
+    failures += update_at(
+        timer_promise, 42, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "timer promise initialization"
+    );
+    failures += update_at(
+        timer_promise, 42, 1, 0.01, 0.01,
+        MWX_SCENE_QUICKJS_OK, 7, "timer resolves promise before update"
+    );
+
     const char *timer_source =
         "let once=0,ticks=0,cancelInterval;"
         "export function init(value){"
@@ -1411,6 +1558,13 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(cursor_owner);
     mwx_scene_quickjs_owner_destroy(audio_owner);
     mwx_scene_quickjs_owner_destroy(callback_audio);
+    mwx_scene_quickjs_owner_destroy(promise_owner);
+    mwx_scene_quickjs_owner_destroy(promise_mutation);
+    mwx_scene_quickjs_owner_destroy(event_promise);
+    mwx_scene_quickjs_owner_destroy(handled_rejection);
+    mwx_scene_quickjs_owner_destroy(unhandled_rejection);
+    mwx_scene_quickjs_owner_destroy(job_budget);
+    mwx_scene_quickjs_owner_destroy(timer_promise);
     mwx_scene_quickjs_owner_destroy(timer_owner);
     mwx_scene_quickjs_owner_destroy(interval_owner);
     mwx_scene_quickjs_owner_destroy(timer_cancel_owner);
@@ -1468,6 +1622,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(SCENE_SCRIPT / "SceneQuickJSAudioHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSMediaEventHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),
             str(QUICKJS / "dtoa.c"),

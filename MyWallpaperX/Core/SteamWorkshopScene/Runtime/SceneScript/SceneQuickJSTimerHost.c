@@ -224,11 +224,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
         );
         JS_FreeValue(owner->domain->context, callback);
         if (JS_IsException(callback_result)) {
+            mwx_scene_quickjs_discard_jobs(owner);
             JS_FreeValue(owner->domain->context, callback_result);
             result = timer_exception(owner, diagnostic, diagnostic_capacity);
             break;
         }
+        result = mwx_scene_quickjs_drain_jobs(
+            owner, diagnostic, diagnostic_capacity
+        );
         JS_FreeValue(owner->domain->context, callback_result);
+        if (result != MWX_SCENE_QUICKJS_OK) break;
     }
 
     const bool engine_restored = mwx_scene_quickjs_restore_frame_engine_host(

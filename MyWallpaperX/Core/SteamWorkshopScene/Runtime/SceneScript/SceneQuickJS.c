@@ -395,6 +395,21 @@ void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner) {
     domain->callback_active = false;
 }
 
+static MWXSceneQuickJSResult drain_jobs_after_call(
+    MWXSceneQuickJSOwner *owner,
+    JSValueConst result,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (JS_IsException(result)) {
+        mwx_scene_quickjs_discard_jobs(owner);
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    return mwx_scene_quickjs_drain_jobs(
+        owner, diagnostic, diagnostic_capacity
+    );
+}
+
 bool mwx_scene_quickjs_assign_script_properties(
     MWXSceneQuickJSOwner *owner,
     const char *json,
@@ -469,6 +484,9 @@ static MWXSceneQuickJSResult call_scalar(
         &argument
     );
     JS_FreeValue(domain->context, argument);
+    MWXSceneQuickJSResult job_result = drain_jobs_after_call(
+        owner, result, diagnostic, diagnostic_capacity
+    );
     const bool engine_restored = mwx_scene_quickjs_restore_frame_engine_host(
         owner,
         previous_global_engine
@@ -487,6 +505,10 @@ static MWXSceneQuickJSResult call_scalar(
             "SceneScript material function host restore failed"
         );
         return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (job_result != MWX_SCENE_QUICKJS_OK) {
+        JS_FreeValue(domain->context, result);
+        return job_result;
     }
     if (JS_IsException(result)) {
         MWXSceneQuickJSResult failure = mwx_scene_quickjs_exception_result(
@@ -576,6 +598,9 @@ static MWXSceneQuickJSResult call_string(
         ? JS_EXCEPTION
         : JS_Call(domain->context, function, owner->module, 1, &argument);
     JS_FreeValue(domain->context, argument);
+    MWXSceneQuickJSResult job_result = drain_jobs_after_call(
+        owner, result, diagnostic, diagnostic_capacity
+    );
     const bool engine_restored = mwx_scene_quickjs_restore_frame_engine_host(
         owner, previous_global_engine
     );
@@ -590,6 +615,10 @@ static MWXSceneQuickJSResult call_string(
             diagnostic, diagnostic_capacity, "SceneScript host restore failed"
         );
         return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (job_result != MWX_SCENE_QUICKJS_OK) {
+        JS_FreeValue(domain->context, result);
+        return job_result;
     }
     if (JS_IsException(result)) {
         MWXSceneQuickJSResult failure = mwx_scene_quickjs_exception_result(
@@ -763,6 +792,9 @@ static MWXSceneQuickJSResult call_vec3(
     JSValue callback_argument = JS_DupValue(domain->context, argument);
     JSValue result = JS_Call(domain->context, function, owner->module, 1, &callback_argument);
     JS_FreeValue(domain->context, callback_argument);
+    MWXSceneQuickJSResult job_result = drain_jobs_after_call(
+        owner, result, diagnostic, diagnostic_capacity
+    );
     const bool engine_restored = mwx_scene_quickjs_restore_frame_engine_host(
         owner, previous_global_engine
     );
@@ -776,6 +808,11 @@ static MWXSceneQuickJSResult call_vec3(
         JS_FreeValue(domain->context, result);
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript host restore failed");
         return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (job_result != MWX_SCENE_QUICKJS_OK) {
+        JS_FreeValue(domain->context, argument);
+        JS_FreeValue(domain->context, result);
+        return job_result;
     }
     if (JS_IsException(result)) {
         JS_FreeValue(domain->context, argument);
@@ -838,6 +875,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
         return NULL;
     }
     JS_SetContextOpaque(domain->context, domain);
+    mwx_scene_quickjs_install_job_host(domain);
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
     if (!install_value_host(domain)) {
@@ -935,6 +973,14 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
         owner->timers[index].callback = JS_UNDEFINED;
     }
+    for (
+        size_t index = 0;
+        index < MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS;
+        ++index
+    ) {
+        owner->rejections[index].promise = JS_UNDEFINED;
+        owner->rejections[index].reason = JS_UNDEFINED;
+    }
     owner->effect_names = calloc(1, sizeof(*owner->effect_names));
     if (owner->effect_names == NULL) {
         JS_FreeValue(domain->context, module);
@@ -964,7 +1010,9 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     const bool engine_restored = mwx_scene_quickjs_restore_module_engine_host(
         owner, previous_global_engine
     );
+    const bool module_job_residue = mwx_scene_quickjs_owner_has_job_residue(owner);
     if (!engine_restored) {
+        mwx_scene_quickjs_discard_jobs(owner);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
@@ -977,10 +1025,12 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
         return NULL;
     }
     if (JS_IsException(evaluation)) {
+        mwx_scene_quickjs_discard_jobs(owner);
         mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
+        mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
         free(owner);
         return NULL;
@@ -996,9 +1046,11 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
             "SceneScript module evaluation rejected"
         );
         JS_FreeValue(domain->context, reason);
+        mwx_scene_quickjs_discard_jobs(owner);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
+        mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
         free(owner);
         return NULL;
@@ -1009,11 +1061,28 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
             diagnostic_capacity,
             "SceneScript top-level await is unsupported"
         );
+        mwx_scene_quickjs_discard_jobs(owner);
         JS_FreeValue(domain->context, evaluation);
         JS_FreeValue(domain->context, module);
         mwx_scene_quickjs_destroy_audio_host(owner);
+        mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
         free(owner);
+        return NULL;
+    }
+    if (module_job_residue) {
+        mwx_scene_quickjs_discard_jobs(owner);
+        JS_FreeValue(domain->context, evaluation);
+        JS_FreeValue(domain->context, module);
+        mwx_scene_quickjs_destroy_audio_host(owner);
+        mwx_scene_quickjs_destroy_job_host(owner);
+        free(owner->effect_names);
+        free(owner);
+        write_diagnostic(
+            diagnostic,
+            diagnostic_capacity,
+            "SceneScript module jobs are unsupported"
+        );
         return NULL;
     }
     JS_FreeValue(domain->context, evaluation);
@@ -1021,9 +1090,11 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     JSValue namespace = JS_GetModuleNamespace(domain->context, module_definition);
     JS_FreeValue(domain->context, module);
     if (JS_IsException(namespace)) {
+        mwx_scene_quickjs_discard_jobs(owner);
         mwx_scene_quickjs_write_exception(domain, diagnostic, diagnostic_capacity);
         JS_FreeValue(domain->context, namespace);
         mwx_scene_quickjs_destroy_audio_host(owner);
+        mwx_scene_quickjs_destroy_job_host(owner);
         free(owner->effect_names);
         free(owner);
         return NULL;
@@ -1079,6 +1150,8 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) {
         return;
     }
+    mwx_scene_quickjs_discard_jobs(owner);
+    mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->module);

@@ -2557,6 +2557,22 @@ int JS_ExecutePendingJob(JSRuntime *rt, JSContext **pctx)
     return ret;
 }
 
+/* MyWallpaperX host extension: release jobs after an owner-local failure. */
+void JS_DiscardPendingJobs(JSRuntime *rt)
+{
+    struct list_head *el, *el1;
+    int i;
+
+    list_for_each_safe(el, el1, &rt->job_list) {
+        JSJobEntry *e = list_entry(el, JSJobEntry, link);
+        list_del(&e->link);
+        for(i = 0; i < e->argc; i++) {
+            JS_FreeValueRT(rt, e->argv[i]);
+        }
+        js_free_rt(rt, e);
+    }
+}
+
 static inline uint32_t atom_get_free(const JSAtomStruct *p)
 {
     return (uintptr_t)p >> 1;

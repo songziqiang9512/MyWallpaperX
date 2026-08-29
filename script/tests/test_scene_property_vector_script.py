@@ -850,6 +850,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             VM / "SceneQuickJSAudioHost.c",
             VM / "SceneQuickJSMediaEventHost.c",
             VM / "SceneQuickJSHandleHost.c",
+            VM / "SceneQuickJSJobHost.c",
             VM / "SceneQuickJSTimerHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",
             QUICKJS / "libregexp.c", QUICKJS / "libunicode.c",

@@ -15,6 +15,8 @@
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS 3
 #define MWX_SCENE_QUICKJS_MAX_TIMERS 32
+#define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
+#define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -45,6 +47,12 @@ typedef struct MWXSceneQuickJSTimerRecord {
     bool repeating;
     bool active;
 } MWXSceneQuickJSTimerRecord;
+
+typedef struct MWXSceneQuickJSRejectionRecord {
+    JSValue promise;
+    JSValue reason;
+    bool active;
+} MWXSceneQuickJSRejectionRecord;
 
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
@@ -87,6 +95,10 @@ struct MWXSceneQuickJSOwner {
     double timer_runtime;
     bool timer_runtime_initialized;
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
+    bool rejection_overflow;
+    MWXSceneQuickJSRejectionRecord rejections[
+        MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS
+    ];
     MWXSceneQuickJSAudioRegistration audio_registrations[
         MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS
     ];
@@ -156,6 +168,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
     size_t diagnostic_capacity
 );
 void mwx_scene_quickjs_destroy_timer_host(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_install_job_host(MWXSceneQuickJSDomain *domain);
+MWXSceneQuickJSResult mwx_scene_quickjs_drain_jobs(
+    MWXSceneQuickJSOwner *owner,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+void mwx_scene_quickjs_discard_jobs(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_owner_has_job_residue(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_destroy_job_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_audio_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_begin_callback(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_end_callback(MWXSceneQuickJSOwner *owner);

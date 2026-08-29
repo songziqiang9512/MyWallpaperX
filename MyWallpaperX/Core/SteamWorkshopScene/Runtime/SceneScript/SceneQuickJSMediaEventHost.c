@@ -295,6 +295,14 @@ static MWXSceneQuickJSResult dispatch_event(
         : JS_Call(context, function, owner->module, 1, &argument);
     JS_FreeValue(context, argument);
     JS_FreeValue(context, function);
+    MWXSceneQuickJSResult job_result = MWX_SCENE_QUICKJS_OK;
+    if (JS_IsException(result)) {
+        mwx_scene_quickjs_discard_jobs(owner);
+    } else {
+        job_result = mwx_scene_quickjs_drain_jobs(
+            owner, diagnostic, diagnostic_capacity
+        );
+    }
 
     const bool engine_restored = mwx_scene_quickjs_restore_frame_engine_host(
         owner, previous_engine
@@ -310,6 +318,11 @@ static MWXSceneQuickJSResult dispatch_event(
         );
         owner->disabled = true;
         return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (job_result != MWX_SCENE_QUICKJS_OK) {
+        JS_FreeValue(context, result);
+        owner->disabled = true;
+        return job_result;
     }
     if (JS_IsException(result)) {
         JS_FreeValue(context, result);
