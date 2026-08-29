@@ -28,6 +28,7 @@ SOURCES = [
     VM / "SceneScriptAudioHost.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
+    VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptStringProgram.swift",
@@ -112,9 +113,25 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
+    enum SceneShaderUserValueKind { case null, string }
+    struct TextStyle {
+        let fontPath: String?
+        let colorRGB: [Float]?
+        let pointSize: Float?
+    }
     struct ShaderValue {
         let scriptSource: String?
         let components: [Double]?
+        let userValueKind: SceneShaderUserValueKind?
+
+        init(
+            scriptSource: String?, components: [Double]?,
+            userValueKind: SceneShaderUserValueKind? = nil
+        ) {
+            self.scriptSource = scriptSource
+            self.components = components
+            self.userValueKind = userValueKind
+        }
     }
     struct PassDescriptor {
         let passIndex: Int
@@ -143,6 +160,8 @@ struct SceneRenderDescriptor {
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
+        let anglesXYZ: [Float]? = nil
+        let colorRGB: [Float]? = nil
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]
@@ -150,6 +169,7 @@ struct SceneRenderDescriptor {
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil
         var textScript: SceneTextScriptDefinition? = nil
         var text: String? = nil
+        var textStyle: TextStyle? = nil
     }
     var layers: [Layer]
 }
@@ -170,6 +190,16 @@ enum Harness {
                             "alpha": .init(
                                 scriptSource: mediaPlaybackSource,
                                 components: [1]
+                            ),
+                            "scale": .init(
+                                scriptSource: passVectorSource,
+                                components: [1, 1],
+                                userValueKind: .null
+                            ),
+                            "scaleUser": .init(
+                                scriptSource: passVectorSource,
+                                components: [1, 1],
+                                userValueKind: .string
                             ),
                         ]
                     )]
@@ -235,6 +265,44 @@ enum Harness {
                 "x1": .number(40), "y1": .number(2100), "size": .number(1.25),
             ],
             frame: frame
+        )
+        let passVectorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "scale"
+        )
+        let passVectorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passVectorBinding(
+                source: passVectorSource, value: "1 1",
+                wrapperKeys: ["script", "user", "value"]
+            )],
+            userPropertyDefinitions: [],
+            generation: 20
+        )
+        let passVectorResult = passVectorProgram.evaluate(
+            inputs: [passVectorTarget: .vector2(1, 1)],
+            effectivePropertyValues: [:],
+            frame: frame
+        )
+        let rejectedPassVectorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passVectorBinding(
+                source: passVectorSource, value: "1 1",
+                wrapperKeys: ["extra", "script", "user", "value"]
+            )],
+            userPropertyDefinitions: [],
+            generation: 21
+        )
+        let userBoundPassVectorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passVectorBinding(
+                key: "scaleUser", source: passVectorSource, value: "1 1",
+                wrapperKeys: ["script", "user", "value"]
+            )],
+            userPropertyDefinitions: [],
+            generation: 22
         )
         let propertyEventProgram = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -512,6 +580,11 @@ enum Harness {
                 ["layerID": $0.layerID, "effectIndex": $0.effectIndex,
                  "name": $0.functionName] as [String: Any]
             },
+            "passVectorBindings": passVectorProgram.bindings.count,
+            "passVectorValue": vector2(passVectorResult.values[passVectorTarget]),
+            "passVectorFailures": passVectorResult.failures.count,
+            "passVectorWrongWrapperRejected": rejectedPassVectorProgram.bindings.isEmpty,
+            "passVectorUserProviderRejected": userBoundPassVectorProgram.bindings.isEmpty,
             "layerOrigin": vector(
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ),
@@ -580,6 +653,11 @@ enum Harness {
     static func vector(_ value: SceneDynamicValue?) -> [Double] {
         guard case let .vector3(x, y, z)? = value else { return [] }
         return [x, y, z]
+    }
+
+    static func vector2(_ value: SceneDynamicValue?) -> [Double] {
+        guard case let .vector2(x, y)? = value else { return [] }
+        return [x, y]
     }
 
     static func scalar(_ value: SceneDynamicValue?) -> Double {
@@ -671,6 +749,30 @@ enum Harness {
             authoredValue: .number(value),
             valueType: .number,
             wrapperKeys: ["script", "value"]
+        )
+    }
+
+    static func passVectorBinding(
+        key: String = "scale",
+        source: String,
+        value: String,
+        wrapperKeys: [String]
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .pass, objectIndex: 0, objectID: 10,
+                effectIndex: 0, effectID: 100, passIndex: 0, passID: 200
+            ),
+            targetPath: [
+                .key("objects"), .index(0), .key("effects"), .index(0),
+                .key("passes"), .index(0), .key("constantshadervalues"),
+                .key(key),
+            ],
+            properties: [:],
+            authoredValue: .string(value),
+            valueType: .string,
+            wrapperKeys: wrapperKeys
         )
     }
 
@@ -818,6 +920,10 @@ enum Harness {
     }
     """
 
+    static let passVectorSource = """
+    export function update(value) { return value.multiply(2); }
+    """
+
     static let particleAudioSource = """
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "frequency", value: 0})
@@ -897,6 +1003,14 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         ])
         self.assertEqual(value["layerOrigin"], [4, 5, 6])
         self.assertEqual(value["layerFailures"], 0)
+
+    def test_generic_pass_vec2_uses_typed_scene_script_publication(self) -> None:
+        value = self.result()
+        self.assertEqual(value["passVectorBindings"], 1)
+        self.assertEqual(value["passVectorValue"], [2, 2])
+        self.assertEqual(value["passVectorFailures"], 0)
+        self.assertTrue(value["passVectorWrongWrapperRejected"])
+        self.assertTrue(value["passVectorUserProviderRejected"])
 
     def test_bad_return_is_local_and_duplicate_target_is_rejected(self) -> None:
         value = self.result()

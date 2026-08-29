@@ -61,7 +61,7 @@ nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
     let owner: SceneScriptVectorOwner
 }
 
-/// Generic object-property Vec3 VM route. Admission is based only on the
+/// Generic typed vector VM route. Admission is based only on the
 /// loss-preserving binding owner/path/type and descriptor identity. JavaScript
 /// semantics remain owned by QuickJS; there is no source-shape interpreter.
 nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
@@ -74,6 +74,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
+    private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
     private var consumedMediaThumbnailGeneration: UInt64 = 0
     private var consumedMediaPlaybackGeneration: UInt64 = 0
     private var lastEffectivePropertyValues: [String: SceneUserPropertyValue]?
@@ -163,12 +164,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             .mapValues(\.count)
         let bindings = candidates.compactMap { candidate -> SceneScriptVectorBinding? in
             guard counts[candidate.definition.target] == 1,
-                  case let .layer(layerID, _) = candidate.definition.target,
+                  let layerID = SceneScriptLayerMutationBridge.layerID(
+                      for: candidate.definition.target
+                  ),
                   let layer = descriptor.layers.first(where: { $0.id == layerID }),
                   let owner = try? SceneScriptVectorOwner(
                       domain: domain,
                       source: candidate.source,
                       target: candidate.definition.target,
+                      valueType: candidate.definition.valueType,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
                       generation: generation,
@@ -265,7 +269,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             let target = binding.definition.target
             guard !disabledTargets.contains(target),
                   let input = inputs[target],
-                  case let .vector3(x, y, z) = input,
+                  input.valueType == binding.definition.valueType,
                   let propertiesJSON = Self.scriptPropertiesJSON(
                       binding.properties,
                       effectiveValues: effectivePropertyValues
@@ -345,7 +349,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
             }
             switch binding.owner.evaluate(
-                input: SIMD3(x, y, z),
+                input: input,
                 frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userJSON,
@@ -409,15 +413,27 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         playbackMutationCount
                     )
                 }
-                if reportedTargets.insert(target).inserted,
-                   case let .vector3(outputX, outputY, outputZ) = value {
+                if reportedTargets.insert(target).inserted {
                     NSLog(
-                        "MWX SceneScript VM: target=%@ callback=completed type=Vec3 input=(%.9g,%.9g,%.9g) output=(%.9g,%.9g,%.9g) audio=%@ audioGeneration=%llu route=generic-only",
+                        "MWX SceneScript VM: target=%@ callback=completed type=%@ input=%@ output=%@ audio=%@ audioGeneration=%llu route=generic-only",
                         String(describing: target),
-                        x, y, z,
-                        outputX, outputY, outputZ,
+                        binding.definition.valueType.rawValue,
+                        String(describing: input),
+                        String(describing: value),
                         binding.owner.hasAudioRegistration ? "true" : "false",
                         audioSpectrum.generation
+                    )
+                }
+                if binding.owner.hasAudioRegistration,
+                   audioSpectrum.generation > 0, !audioSpectrum.isSilent,
+                   reportedAudioValueTargets.insert(target).inserted {
+                    NSLog(
+                        "MWX SceneScript VM: target=%@ callback=audioValuePublished type=%@ generation=%llu input=%@ output=%@ route=generic-only",
+                        String(describing: target),
+                        binding.definition.valueType.rawValue,
+                        audioSpectrum.generation,
+                        String(describing: input),
+                        String(describing: value)
                     )
                 }
             case let .failure(failure):
@@ -478,6 +494,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>
     ) -> Candidate? {
+        if let candidate = passVector2Projection(binding, descriptor: descriptor) {
+            return candidate
+        }
         guard binding.owner.kind == .object,
               binding.targetKey == "origin" || binding.targetKey == "scale",
               binding.valueType == .string,
@@ -535,6 +554,84 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
     }
 
+    private static func passVector2Projection(
+        _ binding: SceneScriptBindingIR,
+        descriptor: SceneRenderDescriptor
+    ) -> Candidate? {
+        guard binding.owner.kind == .pass,
+              binding.valueType == .string,
+              let sourceValue = binding.authoredValue?.stringValue,
+              let authored = vector2(sourceValue),
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              let effectIndex = binding.owner.effectIndex,
+              let passIndex = binding.owner.passIndex,
+              descriptor.layers.indices.contains(objectIndex) else { return nil }
+        let layer = descriptor.layers[objectIndex]
+        guard layer.id == layerID, layer.layerIndex == objectIndex,
+              layer.effects.indices.contains(effectIndex) else { return nil }
+        let effect = layer.effects[effectIndex]
+        guard effect.effectID == binding.owner.effectID,
+              effect.passes.indices.contains(passIndex) else { return nil }
+        let pass = effect.passes[passIndex]
+        let name = binding.targetKey
+        guard pass.passIndex == passIndex, pass.id == binding.owner.passID,
+              !name.isEmpty,
+              binding.targetPath == passConstantPath(
+                  objectIndex: objectIndex, effectIndex: effectIndex,
+                  passIndex: passIndex, name: name
+              ),
+              let descriptorValue = pass.constantShaderValues[name],
+              descriptorValue.scriptSource == binding.source,
+              descriptorValue.components?.count == 2,
+              descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
+              descriptorValue.components?[1].bitPattern == authored.y.bitPattern else {
+            return nil
+        }
+        let validWrapper =
+            (binding.wrapperKeys == ["script", "value"]
+                && binding.properties.isEmpty
+                && descriptorValue.userValueKind == nil)
+            || (binding.wrapperKeys == ["script", "scriptproperties", "value"]
+                && descriptorValue.userValueKind == nil)
+            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+                && descriptorValue.userValueKind == .null)
+            || (binding.wrapperKeys == ["script", "user", "value"]
+                && binding.properties.isEmpty
+                && descriptorValue.userValueKind == .null)
+        guard validWrapper else { return nil }
+        var properties: [String: SceneScriptPropertyInput] = [:]
+        for entry in binding.properties {
+            guard validName(entry.key),
+                  let input = propertyInput(entry.value) else { return nil }
+            properties[entry.key] = input
+        }
+        return .init(
+            source: binding.source,
+            definition: .init(
+                target: .effectConstant(
+                    layerID: layerID, effectIndex: effectIndex,
+                    passIndex: passIndex, name: name
+                ),
+                valueType: .vector2,
+                authoredValue: .vector2(authored.x, authored.y)
+            ),
+            properties: properties,
+            hasCurrentAnimation: false
+        )
+    }
+
+    private static func passConstantPath(
+        objectIndex: Int, effectIndex: Int, passIndex: Int, name: String
+    ) -> [SceneScriptBindingPathComponent] {
+        [
+            .key("objects"), .index(objectIndex),
+            .key("effects"), .index(effectIndex),
+            .key("passes"), .index(passIndex),
+            .key("constantshadervalues"), .key(name),
+        ]
+    }
+
     private static func propertyInput(
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
@@ -564,6 +661,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         let numbers = parts.compactMap { Double($0) }
         guard numbers.count == 3, numbers.allSatisfy(\.isFinite) else { return nil }
         return .init(numbers[0], numbers[1], numbers[2])
+    }
+
+    private static func vector2(_ value: String) -> SIMD2<Double>? {
+        let parts = value.split { $0.isWhitespace || $0 == "," }
+        guard parts.count == 2 else { return nil }
+        let numbers = parts.compactMap { Double($0) }
+        guard numbers.count == 2, numbers.allSatisfy(\.isFinite) else { return nil }
+        return .init(numbers[0], numbers[1])
     }
 
     private static func validName(_ value: String) -> Bool {

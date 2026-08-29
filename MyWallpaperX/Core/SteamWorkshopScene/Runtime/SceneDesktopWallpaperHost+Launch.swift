@@ -88,7 +88,7 @@ struct SceneDesktopWallpaperLaunchContext {
             + materialAssetCatalog.reportLines + [
             "scene script VM: schema=quickjs-ng-typed-v2"
                 + " bindings=\(sceneScriptScalarProgram.bindings.count)"
-                + " vec3Bindings=\(propertyVectorScriptProgram.bindings.count)"
+                + " vectorBindings=\(propertyVectorScriptProgram.bindings.count)"
                 + " stringBindings=\(sceneScriptStringProgram.bindings.count)"
                 + " targets=\(sceneScriptTargetCount)"
                 + " route=generic-only fallback=previous-current",
@@ -119,6 +119,7 @@ struct SceneDesktopWallpaperLaunchContext {
 
     private var sceneScriptTargetCount: Int {
         sceneScriptScalarProgram.definitions.count
+            + propertyVectorScriptProgram.definitions.count
             + sceneScriptStringProgram.definitions.count
     }
 
@@ -498,6 +499,7 @@ extension SceneDesktopWallpaperHost {
             excludedTargets: sceneScriptStringTargets
         )
         let provenSceneScriptValueTargets = mediaColorTransitionCandidateTargets
+            .union(propertyVectorScriptTargets)
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
         let resolvedMaterialAdmissionCandidates =

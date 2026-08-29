@@ -14,22 +14,26 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
+    private let valueType: SceneDynamicValueType
 
     init(
         domain: SceneScriptQuickJSDomain,
         source: String,
         target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType = .vector3,
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
         guard !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              valueType == .vector2 || valueType == .vector3,
               generation > 0 else { throw SceneScriptScalarRuntimeFailure.invalidSource }
         self.domain = domain
         self.target = target
         self.generation = generation
         self.budget = budget
+        self.valueType = valueType
         var diagnostic = [CChar](repeating: 0, count: 512)
         let created = source.withCString {
             mwx_scene_quickjs_owner_create(
@@ -41,7 +45,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             throw Self.failure(MWX_SCENE_QUICKJS_COMPILE_ERROR, diagnostic)
         }
         do {
-            guard case let .layer(layerID, _) = target else {
+            guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     "SceneScript owner layer identity unavailable"
                 )
@@ -84,19 +88,25 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     }
 
     func evaluate(
-        input: SIMD3<Double>,
+        input: SceneDynamicValue,
         frame: SceneScriptFrameInput,
         scriptPropertiesJSON: String,
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?
     ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
-        guard input.x.isFinite, input.y.isFinite, input.z.isFinite else {
-            return .failure(.invalidArgument("non-finite Vec3 input"))
+        guard input.valueType == valueType, input.isFinite else {
+            return .failure(.invalidArgument("invalid typed vector input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
-        let source = [input.x, input.y, input.z]
+        let source: [Double]
+        switch input {
+        case let .vector2(x, y): source = [x, y, 0]
+        case let .vector3(x, y, z): source = [x, y, z]
+        default:
+            return .failure(.invalidArgument("invalid typed vector input"))
+        }
         var output = [Double](repeating: 0, count: 3)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -122,7 +132,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         guard output.allSatisfy(\.isFinite) else {
             return .failure(.badReturn("non-finite Vec3 output"))
         }
-        guard case let .layer(layerID, _) = target else {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
         let mutations: [SceneScriptMaterialFunctionMutation]
@@ -146,8 +156,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case let .success(value): layerMutations = value
         case let .failure(failure): return .failure(failure)
         }
+        let publishedValue: SceneDynamicValue = valueType == .vector2
+            ? .vector2(output[0], output[1])
+            : .vector3(output[0], output[1], output[2])
         return .success(.init(
-            value: .vector3(output[0], output[1], output[2]),
+            value: publishedValue,
             materialFunctionMutations: mutations,
             animationMutations: animationMutations,
             layerMutations: layerMutations
@@ -160,7 +173,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard case let .layer(layerID, _) = target else {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
@@ -181,7 +194,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard case let .layer(layerID, _) = target else {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
@@ -203,7 +216,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         userPropertiesJSON: String,
         interruptBudget: UInt64? = nil
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard case let .layer(layerID, _) = target else {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)

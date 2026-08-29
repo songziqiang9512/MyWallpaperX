@@ -113,7 +113,8 @@ TEXT_SCRIPT_BINDING_RE = re.compile(
 )
 SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE = re.compile(
     r"^scene script VM: schema=quickjs-ng-(?:scalar-v1|typed-v2) "
-    r"bindings=(?P<count>\d+)(?: vec3Bindings=(?P<vec3_count>\d+))? "
+    r"bindings=(?P<count>\d+)(?: (?:vec3Bindings|vectorBindings)="
+    r"(?P<vector_count>\d+))?(?: stringBindings=\d+)? "
     r"targets=(?P<targets>\d+) "
     r"route=(?P<route>\S+) fallback=(?P<fallback>\S+)$",
     re.MULTILINE,
@@ -123,6 +124,21 @@ SCENE_SCRIPT_VEC3_COMPLETION_RE = re.compile(
     r"field: [^)]*\.(?P<field>origin|scale)\) callback=completed type=Vec3 "
     r"input=(?P<input>\([^)]*\)) output=(?P<output>\([^)]*\)) "
     r"route=(?P<route>\S+)"
+)
+SCENE_SCRIPT_EFFECT_VECTOR_COMPLETION_RE = re.compile(
+    r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<constant>[^"]+)"\) callback=completed '
+    r"type=(?P<type>vector[23]) input=(?P<input>vector[23]\([^)]*\)) "
+    r"output=(?P<output>vector[23]\([^)]*\)).* route=(?P<route>\S+)"
+)
+SCENE_SCRIPT_AUDIO_VECTOR_PUBLICATION_RE = re.compile(
+    r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
+    r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
+    r'name: "(?P<constant>[^"]+)"\) callback=audioValuePublished '
+    r"type=(?P<type>vector[23]) generation=(?P<generation>\d+) "
+    r"input=(?P<input>vector[23]\([^)]*\)) "
+    r"output=(?P<output>vector[23]\([^)]*\)) route=(?P<route>\S+)"
 )
 SCENE_SCRIPT_SCALAR_COMPLETION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
@@ -1549,11 +1565,51 @@ def scene_script_scalar_runtime_metrics(
         for match in SCENE_SCRIPT_VEC3_COMPLETION_RE.finditer(log_text)
     ]
     vec3_completions.sort(key=lambda value: (value["layer_id"], value["field"]))
+    effect_vector_completions = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "type": match.group("type"),
+            "input": match.group("input"),
+            "output": match.group("output"),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_EFFECT_VECTOR_COMPLETION_RE.finditer(log_text)
+    ]
+    effect_vector_completions.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["pass_index"],
+        value["constant"],
+    ))
+    audio_vector_publications = [
+        {
+            "layer_id": int(match.group("layer")),
+            "effect_index": int(match.group("effect")),
+            "pass_index": int(match.group("pass")),
+            "constant": match.group("constant"),
+            "type": match.group("type"),
+            "generation": int(match.group("generation")),
+            "input": match.group("input"),
+            "output": match.group("output"),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_AUDIO_VECTOR_PUBLICATION_RE.finditer(log_text)
+    ]
+    audio_vector_publications.sort(key=lambda value: (
+        value["layer_id"], value["effect_index"], value["pass_index"],
+        value["constant"],
+    ))
     return {
         "binding_count": int(count_match.group("count")) if count_match else None,
+        "vector_binding_count": (
+            int(count_match.group("vector_count"))
+            if count_match and count_match.group("vector_count") is not None
+            else None
+        ),
         "vec3_binding_count": (
-            int(count_match.group("vec3_count"))
-            if count_match and count_match.group("vec3_count") is not None
+            int(count_match.group("vector_count"))
+            if count_match and count_match.group("vector_count") is not None
             else None
         ),
         "target_count": int(count_match.group("targets")) if count_match else None,
@@ -1561,6 +1617,8 @@ def scene_script_scalar_runtime_metrics(
         "fallback": count_match.group("fallback") if count_match else None,
         "completions": completions,
         "vec3_completions": vec3_completions,
+        "effect_vector_completions": effect_vector_completions,
+        "audio_vector_publications": audio_vector_publications,
         "bindings": [
             {
                 "layer_id": completion["layer_id"],
@@ -6181,10 +6239,19 @@ def run_sample(
                 scene_script_scalar_runtime["completions"]
             ),
             "scene_script_vec3_binding_count": (
-                scene_script_scalar_runtime["vec3_binding_count"]
+                scene_script_scalar_runtime["vector_binding_count"]
+            ),
+            "scene_script_vector_binding_count": (
+                scene_script_scalar_runtime["vector_binding_count"]
             ),
             "scene_script_vec3_completions": (
                 scene_script_scalar_runtime["vec3_completions"]
+            ),
+            "scene_script_effect_vector_completions": (
+                scene_script_scalar_runtime["effect_vector_completions"]
+            ),
+            "scene_script_audio_vector_publications": (
+                scene_script_scalar_runtime["audio_vector_publications"]
             ),
             "media_thumbnail_current_binding_count": (
                 media_thumbnail_runtime["current_binding_count"]

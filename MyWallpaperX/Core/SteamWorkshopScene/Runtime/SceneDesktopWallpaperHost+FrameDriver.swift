@@ -388,7 +388,9 @@ extension SceneDesktopWallpaperHost {
             .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
                 let target = binding.definition.target
                 guard let resolved = preliminaryForSceneScript[target],
-                      case .vector3 = resolved.value else { return }
+                      resolved.value.valueType == binding.definition.valueType else {
+                    return
+                }
                 inputs[target] = resolved.value
             }
         let sceneScriptVectorResult = launchContext.propertyVectorScriptProgram.evaluate(

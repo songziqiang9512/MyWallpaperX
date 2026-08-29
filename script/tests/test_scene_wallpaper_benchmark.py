@@ -468,6 +468,31 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             "route": "generic-only",
         }])
 
+    def test_scene_script_typed_metrics_capture_pass_vec2_and_audio_value(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-typed-v2 bindings=2 "
+            "vectorBindings=25 stringBindings=0 targets=27 "
+            "route=generic-only fallback=previous-current",
+            "MWX SceneScript VM: target=effectConstant(layerID: 65, "
+            "effectIndex: 2, passIndex: 0, name: \"scale\") "
+            "callback=completed type=vector2 input=vector2(1.0, 1.0) "
+            "output=vector2(1.0, 1.0) audio=true audioGeneration=0 "
+            "route=generic-only\n"
+            "MWX SceneScript VM: target=effectConstant(layerID: 65, "
+            "effectIndex: 2, passIndex: 0, name: \"scale\") "
+            "callback=audioValuePublished type=vector2 generation=2 "
+            "input=vector2(1.0, 1.0) output=vector2(1.25, 1.25) "
+            "route=generic-only",
+        )
+        self.assertEqual(metrics["binding_count"], 2)
+        self.assertEqual(metrics["vector_binding_count"], 25)
+        self.assertEqual(metrics["target_count"], 27)
+        self.assertEqual(metrics["effect_vector_completions"][0]["output"],
+                         "vector2(1.0, 1.0)")
+        self.assertEqual(metrics["audio_vector_publications"][0]["generation"], 2)
+        self.assertEqual(metrics["audio_vector_publications"][0]["output"],
+                         "vector2(1.25, 1.25)")
+
     def test_project_preview_path_stays_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-preview-path-") as directory:
             root = Path(directory)
