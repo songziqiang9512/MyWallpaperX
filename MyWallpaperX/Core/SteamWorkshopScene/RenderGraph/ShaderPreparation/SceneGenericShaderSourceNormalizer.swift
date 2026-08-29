@@ -66,7 +66,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         do {
             let typedVertexSource = rewriteAssignmentVectorConversions(
                 rewriteBuiltInVectorArguments(
-                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                    SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                         vertexSource
                     ),
                     stage: .vertex
@@ -75,7 +75,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             )
             let typedFragmentSource = rewriteAssignmentVectorConversions(
                 rewriteBuiltInVectorArguments(
-                    SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(
+                    SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                         fragmentSource
                     ),
                     stage: .fragment
@@ -678,7 +678,14 @@ void main() {
         }
         guard !vectorNames.isEmpty else { return source }
         let vectorRegex = try! NSRegularExpression(pattern:
-            #"\b(?:"# + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|") + #")\b"#
+            #"\b(?:"# + vectorNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + #")\b(?!\s*(?:\[[^\]]*\]|\.\s*[xyzwrgba]\b))"#
+        )
+        let functionCallRegex = try! NSRegularExpression(pattern:
+            #"\b[A-Za-z_][A-Za-z0-9_]*\s*\("#
+        )
+        let scalarResultRegex = try! NSRegularExpression(pattern:
+            #"(?:\.\s*[xyzwrgba]|\[[^\]]*\])\s*$"#
         )
         var result = source
         for match in regex.matches(
@@ -687,7 +694,16 @@ void main() {
         ).reversed() {
             guard let expressionRange = Range(match.range(at: 1), in: result) else { continue }
             let expression = String(result[expressionRange])
-            guard vectorRegex.firstMatch(
+            guard !expression.contains(","),
+                  scalarResultRegex.firstMatch(
+                    in: expression,
+                    range: NSRange(expression.startIndex..., in: expression)
+                  ) == nil,
+                  functionCallRegex.firstMatch(
+                    in: expression,
+                    range: NSRange(expression.startIndex..., in: expression)
+                  ) == nil,
+                  vectorRegex.firstMatch(
                 in: expression,
                 range: NSRange(expression.startIndex..., in: expression)
             ) != nil,

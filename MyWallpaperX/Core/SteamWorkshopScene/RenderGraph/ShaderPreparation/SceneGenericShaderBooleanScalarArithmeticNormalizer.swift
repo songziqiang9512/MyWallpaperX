@@ -9,10 +9,24 @@ nonisolated enum SceneGenericShaderBooleanScalarArithmeticNormalizer {
             + #"\s*(?:<=|>=|==|!=|<|>)\s*"# + atom
             + #")\s*\)(?=\s*[+\-*/])"#
         let regex = try! NSRegularExpression(pattern: pattern)
-        return regex.stringByReplacingMatches(
+        var result = regex.stringByReplacingMatches(
             in: source,
             range: NSRange(source.startIndex..., in: source),
             withTemplate: "float($1)"
         )
+        let compound = try! NSRegularExpression(pattern:
+            #"\b[A-Za-z_][A-Za-z0-9_]*(?:\s*(?:\.\s*[xyzwrgba]|\[[^\]\r\n]+\]))*\s*(?:\+=|-=|\*=|\/=)\s*([^;?\r\n]*(?:<=|>=|==|!=|<|>)[^;?\r\n]*)(\s*;)"#
+        )
+        for match in compound.matches(
+            in: result,
+            range: NSRange(result.startIndex..., in: result)
+        ).reversed() {
+            guard let range = Range(match.range(at: 1), in: result) else { continue }
+            let expression = String(result[range])
+            guard !expression.trimmingCharacters(in: .whitespaces)
+                .hasPrefix("float(") else { continue }
+            result.replaceSubrange(range, with: "float(\(expression))")
+        }
+        return result
     }
 }

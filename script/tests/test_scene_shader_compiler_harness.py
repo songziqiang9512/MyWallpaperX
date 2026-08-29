@@ -714,8 +714,25 @@ varying vec4 v_TexCoord;
 void main() {
     vec4 scene = texSample2D(g_Texture0, v_TexCoord);
     float pointer = g_PointerPosition * 0.5;
+    float alreadyNarrowed = (g_PointerPosition * 0.5).x;
+    float projected = g_PointerPosition.x * 0.25;
+    float interpolated = mix(g_PointerPosition.x, g_PointerPosition.y, 0.5);
+    float magnitude = length(g_PointerPosition);
+    float indexed = g_PointerPosition[0] * 0.25;
+    float left = g_PointerPosition.y * 0.05, right = left;
+    float numericBool = 1.0;
+    numericBool += g_PointerPosition.x < 0.5;
+    numericBool *= g_PointerPosition.x > 0.0 && g_PointerPosition.y < 1.0;
+    float frequency = g_PointerPosition.x * 64.0;
+    uint wrapped = frequency % 64;
+    uint integerOnly = 65 % 64;
+    float interpolatedIntegerEndpoints = lerp(0, 1, projected);
+    float smoothedIntegerEndpoints = smoothstep(0, 1, projected);
     vec3 finalColor = vec4(scene.r, scene.g, scene.b, 1.0);
-    gl_FragColor = vec4(finalColor + pointer.x, scene.a);
+    gl_FragColor = vec4(
+        finalColor + pointer + alreadyNarrowed + projected + interpolated + magnitude + indexed + left + right + numericBool + interpolatedIntegerEndpoints + smoothedIntegerEndpoints + float(wrapped + integerOnly),
+        scene.a
+    );
 }
 """,
             },
@@ -723,6 +740,43 @@ void main() {
         fragment = normalized[1]["source"]
         self.assertIn("texSample2D(g_Texture0, v_TexCoord.xy)", fragment)
         self.assertIn("(g_PointerPosition * 0.5).x", fragment)
+        self.assertIn(
+            "float alreadyNarrowed = (g_PointerPosition * 0.5).x;",
+            fragment,
+        )
+        self.assertNotIn("((g_PointerPosition * 0.5).x).x", fragment)
+        self.assertIn("float projected = g_PointerPosition.x * 0.25;", fragment)
+        self.assertIn(
+            "float interpolated = mix(g_PointerPosition.x, g_PointerPosition.y, 0.5);",
+            fragment,
+        )
+        self.assertIn("float magnitude = length(g_PointerPosition);", fragment)
+        self.assertIn("float indexed = g_PointerPosition[0] * 0.25;", fragment)
+        self.assertIn(
+            "float left = g_PointerPosition.y * 0.05, right = left;",
+            fragment,
+        )
+        self.assertIn(
+            "numericBool += float(g_PointerPosition.x < 0.5);",
+            fragment,
+        )
+        self.assertIn(
+            "numericBool *= float(g_PointerPosition.x > 0.0 && g_PointerPosition.y < 1.0);",
+            fragment,
+        )
+        self.assertIn(
+            "uint wrapped = uint(mod(float(frequency), float(64)));",
+            fragment,
+        )
+        self.assertIn("uint integerOnly = 65 % 64;", fragment)
+        self.assertIn(
+            "float interpolatedIntegerEndpoints = mix(0.0, 1.0, projected);",
+            fragment,
+        )
+        self.assertIn(
+            "float smoothedIntegerEndpoints = smoothstep(0.0, 1.0, projected);",
+            fragment,
+        )
         self.assertIn("vec3 finalColor = vec4(scene.r, scene.g, scene.b, 1.0).xyz;", fragment)
 
     def test_inactive_varying_call_is_not_pruned_without_purity_proof(self) -> None:

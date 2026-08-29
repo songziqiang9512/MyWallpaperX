@@ -258,6 +258,21 @@ private struct TypedMixNormalizationOutput: Codable {
     let unsignedIntegerSwizzlePreserved: Bool
 }
 
+private struct ScalarVectorAssignmentOutput: Codable {
+    let projectedComponentPreserved: Bool
+    let scalarFunctionPreserved: Bool
+    let vectorIndexPreserved: Bool
+    let commaDeclarationPreserved: Bool
+    let bareVectorArithmeticNarrowed: Bool
+    let numericBoolCompoundNormalized: Bool
+    let numericCompoundPreserved: Bool
+    let controlFlowPreserved: Bool
+    let floatingModuloNormalized: Bool
+    let integerModuloPreserved: Bool
+    let scalarBuiltInEndpointsNormalized: Bool
+    let arithmeticRewriteIdempotent: Bool
+}
+
 private struct CanonicalizerOutput: Codable {
     let arraysCompacted: Bool
     let loopsUnrolled: Bool
@@ -879,6 +894,88 @@ private struct GenericShaderArtifactHarness {
                     guard case let .success(pair) = readOnly else { return false }
                     return !pair.fragment.contains("mwxMutable_v_TexCoord")
                 }()
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--normalizer-scalar-vector-assignment" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            let fragment = [
+                "varying vec2 v_TexCoord;",
+                "uniform sampler2D g_Texture0;",
+                "uniform vec2 sampleRange;",
+                "void main() {",
+                "    vec4 source = texSample2D(g_Texture0, v_TexCoord);",
+                "    float projected = sampleRange.x * 0.25;",
+                "    float interpolated = mix(sampleRange.x, sampleRange.y, 0.5);",
+                "    float magnitude = length(sampleRange);",
+                "    float indexed = sampleRange[0] * 0.25;",
+                "    float left = sampleRange.y * 0.05, right = left;",
+                "    float narrowed = sampleRange * 0.5;",
+                "    gl_FragColor = source + projected + interpolated + magnitude + indexed + left + right + narrowed;",
+                "}",
+            ].joined(separator: "\n")
+            let normalized: String
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex,
+                fragmentSource: fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair): normalized = pair.fragment
+            case .failure: normalized = ""
+            }
+            let booleanSource = [
+                "value += upper - lower < 0.0;",
+                "value *= coordinate.x > 0.0 && coordinate.x < 1.0;",
+                "value *= 0.5;",
+                "if (coordinate.x < 0.0) { value = 0.0; }",
+                "float frequency = coordinate.x * 64.0;",
+                "uint wrapped = frequency % 64;",
+                "uint integerOnly = 65 % 64;",
+                "float interpolated = lerp(0, 1, frequency);",
+                "float smoothed = smoothstep(0, 1, frequency);",
+            ].joined(separator: "\n")
+            let booleanFirst = SceneGenericShaderScalarArithmeticNormalizer
+                .rewrite(booleanSource)
+            let booleanSecond = SceneGenericShaderScalarArithmeticNormalizer
+                .rewrite(booleanFirst)
+            let output = ScalarVectorAssignmentOutput(
+                projectedComponentPreserved:
+                    normalized.contains("float projected = sampleRange.x * 0.25;"),
+                scalarFunctionPreserved:
+                    normalized.contains("float interpolated = mix(sampleRange.x, sampleRange.y, 0.5);")
+                    && normalized.contains("float magnitude = length(sampleRange);"),
+                vectorIndexPreserved:
+                    normalized.contains("float indexed = sampleRange[0] * 0.25;"),
+                commaDeclarationPreserved:
+                    normalized.contains("float left = sampleRange.y * 0.05, right = left;"),
+                bareVectorArithmeticNarrowed:
+                    normalized.contains("float narrowed = (sampleRange * 0.5).x;"),
+                numericBoolCompoundNormalized:
+                    booleanFirst.contains("value += float(upper - lower < 0.0);")
+                    && booleanFirst.contains(
+                        "value *= float(coordinate.x > 0.0 && coordinate.x < 1.0);"
+                    ),
+                numericCompoundPreserved: booleanFirst.contains("value *= 0.5;"),
+                controlFlowPreserved:
+                    booleanFirst.contains("if (coordinate.x < 0.0)"),
+                floatingModuloNormalized: booleanFirst.contains(
+                    "uint wrapped = uint(mod(float(frequency), float(64)));"
+                ),
+                integerModuloPreserved:
+                    booleanFirst.contains("uint integerOnly = 65 % 64;"),
+                scalarBuiltInEndpointsNormalized:
+                    booleanFirst.contains("mix(0.0, 1.0, frequency)")
+                    && booleanFirst.contains("smoothstep(0.0, 1.0, frequency)"),
+                arithmeticRewriteIdempotent: booleanFirst == booleanSecond
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -3941,6 +4038,29 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "unsignedLiteralPreserved": True,
             "signedIntegerSwizzlePreserved": True,
             "unsignedIntegerSwizzlePreserved": True,
+        })
+
+    def test_product_normalizer_preserves_scalar_vector_expressions(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-scalar-vector-assignment"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "projectedComponentPreserved": True,
+            "scalarFunctionPreserved": True,
+            "vectorIndexPreserved": True,
+            "commaDeclarationPreserved": True,
+            "bareVectorArithmeticNarrowed": True,
+            "numericBoolCompoundNormalized": True,
+            "numericCompoundPreserved": True,
+            "controlFlowPreserved": True,
+            "floatingModuloNormalized": True,
+            "integerModuloPreserved": True,
+            "scalarBuiltInEndpointsNormalized": True,
+            "arithmeticRewriteIdempotent": True,
         })
 
     def test_product_normalizer_preserves_vertex_position_contract(self):

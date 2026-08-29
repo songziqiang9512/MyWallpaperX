@@ -271,11 +271,31 @@ def _rewrite_scalar_vector_assignments(
         r"\bfloat\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*([^;]+);"
     )
     vector = re.compile(
-        r"\b(?:" + "|".join(map(re.escape, sorted(vector_names))) + r")\b"
+        r"\b(?:" + "|".join(map(re.escape, sorted(vector_names)))
+        + r")\b(?!\s*(?:\[[^\]]*\]|\.\s*[xyzwrgba]\b))"
     )
+    function_call = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\s*\(")
+    scalar_result = re.compile(r"(?:\.\s*[xyzwrgba]|\[[^\]]*\])\s*$")
+
+    def contains_top_level_comma(expression: str) -> bool:
+        depth = 0
+        for character in expression:
+            if character in "([{":
+                depth += 1
+            elif character in ")]}":
+                depth = max(0, depth - 1)
+            elif character == "," and depth == 0:
+                return True
+        return False
 
     def replacement(match: re.Match[str]) -> str:
         expression = match.group(1)
+        if contains_top_level_comma(expression):
+            return match.group(0)
+        if scalar_result.search(expression):
+            return match.group(0)
+        if function_call.search(expression):
+            return match.group(0)
         if not vector.search(expression):
             return match.group(0)
         if expression.strip().startswith("vec"):
@@ -283,6 +303,81 @@ def _rewrite_scalar_vector_assignments(
         return match.group(0).replace(expression, f"({expression}).x", 1)
 
     return assignment.sub(replacement, source)
+
+
+def _rewrite_boolean_scalar_compound_assignments(source: str) -> str:
+    assignment = re.compile(
+        r"\b[A-Za-z_][A-Za-z0-9_]*"
+        r"(?:\s*(?:\.\s*[xyzwrgba]|\[[^\]\r\n]+\]))*"
+        r"\s*(?:\+=|-=|\*=|/=)\s*"
+        r"([^;?\r\n]*(?:<=|>=|==|!=|<|>)[^;?\r\n]*)(\s*;)"
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        expression = match.group(1)
+        if expression.strip().startswith("float("):
+            return match.group(0)
+        start, end = match.span(1)
+        relative_start = start - match.start()
+        relative_end = end - match.start()
+        return (
+            match.group(0)[:relative_start]
+            + f"float({expression})"
+            + match.group(0)[relative_end:]
+        )
+
+    return assignment.sub(replacement, source)
+
+
+def _rewrite_floating_modulo_assignments(source: str) -> str:
+    declarations = {
+        name: value_type
+        for value_type, name in re.findall(
+            r"\b(float|int|uint)\s+([A-Za-z_][A-Za-z0-9_]*)\b",
+            source,
+        )
+    }
+    atom = r"(?:[A-Za-z_][A-Za-z0-9_]*|[-+]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+))"
+    assignment = re.compile(
+        rf"\b(float|int|uint)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*"
+        rf"({atom})\s*%\s*({atom})\s*;"
+    )
+
+    def scalar_type(value: str) -> str:
+        return declarations.get(value, "float" if "." in value else "int")
+
+    def replacement(match: re.Match[str]) -> str:
+        target, name, left, right = match.groups()
+        if scalar_type(left) != "float" and scalar_type(right) != "float":
+            return match.group(0)
+        remainder = f"mod(float({left}), float({right}))"
+        value = remainder if target == "float" else f"{target}({remainder})"
+        return f"{target} {name} = {value};"
+
+    return assignment.sub(replacement, source)
+
+
+def _rewrite_scalar_builtin_integer_endpoints(source: str) -> str:
+    user_defined = set(re.findall(
+        r"\b(?:bool|int|uint|float|[biu]?vec[2-4])\s+"
+        r"(lerp|smoothstep)\s*\(",
+        source,
+    ))
+    call = re.compile(
+        r"\b(lerp|smoothstep)\s*\(\s*"
+        r"([-+]?[0-9]+)\s*,\s*([-+]?[0-9]+)\s*,"
+    )
+
+    def replacement(match: re.Match[str]) -> str:
+        name, first, second = match.groups()
+        if name in user_defined:
+            return match.group(0)
+        return f"{name}({first}.0, {second}.0,"
+
+    result = call.sub(replacement, source)
+    if "lerp" not in user_defined:
+        result = re.sub(r"\blerp(?=\s*\()", "mix", result)
+    return result
 
 
 def _rewrite_vector_constructor_assignments(
@@ -485,6 +580,15 @@ def normalize_wallpaper_engine_pair(
     parsed["fragment"]["body"] = _rewrite_texture_coordinates(
         parsed["fragment"]["body"],
         {**varying_shapes, **uniform_shapes},
+    )
+    parsed["fragment"]["body"] = _rewrite_boolean_scalar_compound_assignments(
+        parsed["fragment"]["body"]
+    )
+    parsed["fragment"]["body"] = _rewrite_floating_modulo_assignments(
+        parsed["fragment"]["body"]
+    )
+    parsed["fragment"]["body"] = _rewrite_scalar_builtin_integer_endpoints(
+        parsed["fragment"]["body"]
     )
     parsed["fragment"]["body"] = _rewrite_scalar_vector_assignments(
         parsed["fragment"]["body"],
