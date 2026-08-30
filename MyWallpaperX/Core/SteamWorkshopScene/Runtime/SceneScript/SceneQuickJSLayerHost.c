@@ -164,7 +164,15 @@ static JSValue layer_get(
                 record->angles
             ) : record->angles
         );
-    case LAYER_VISIBLE: return JS_NewBool(context, record->visible);
+    case LAYER_VISIBLE:
+        return JS_NewBool(
+            context,
+            authored_target &&
+                    (owner->authored_layer_mutation_fields &
+                     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
+                ? owner->authored_layer_mutation_visible
+                : record->visible
+        );
     case LAYER_TEXT: return JS_NewString(context, record->text == NULL ? "" : record->text);
     case LAYER_POINT_SIZE: return JS_NewFloat64(context, record->point_size);
     case LAYER_FONT: return JS_NewString(context, record->font == NULL ? "" : record->font);
@@ -275,10 +283,28 @@ static JSValue layer_set(
         break;
     }
     case LAYER_VISIBLE: {
-        if (authored_target)
-            return JS_ThrowTypeError(context, "authored layer visible mutation is unsupported");
         int value = JS_ToBool(context, argv[0]);
         if (value < 0) return JS_EXCEPTION;
+        if (authored_target) {
+            const bool current =
+                (owner->authored_layer_mutation_fields &
+                 MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
+                    ? owner->authored_layer_mutation_visible
+                    : record->visible;
+            if (current == (value != 0)) break;
+            if (owner->authored_layer_mutation_fields == 0) {
+                if (owner->layer_mutation_count >=
+                    MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS)
+                    return JS_ThrowInternalError(
+                        context, "layer mutation buffer exceeded"
+                    );
+                owner->layer_mutation_count += 1;
+            }
+            owner->authored_layer_mutation_visible = value != 0;
+            owner->authored_layer_mutation_fields |=
+                MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY;
+            break;
+        }
         if (record->visible == (value != 0)) break;
         if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
@@ -735,7 +761,12 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
                 .kind = MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
                 .dynamic = 0, .fields = owner->authored_layer_mutation_fields,
                 .layer_id = record->layer_id, .order_index = record->order_index,
-                .visible = record->visible, .alpha = record->alpha,
+                .visible =
+                    (owner->authored_layer_mutation_fields &
+                     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY) != 0
+                        ? owner->authored_layer_mutation_visible
+                        : record->visible,
+                .alpha = record->alpha,
                 .point_size = record->point_size,
                 .text = record->text == NULL ? "" : record->text,
                 .font = record->font == NULL ? "" : record->font,

@@ -64,6 +64,24 @@ SCENE_SCRIPT_VECTOR_MEDIA_STARTUP_RE = re.compile(
     r"profile=(?P<profile>\S+) input=(?P<input>\S+) "
     r"liveProvider=(?P<live_provider>\S+) targets=(?P<targets>\[.*\])"
 )
+SCENE_SCRIPT_MEDIA_TIMELINE_RE = re.compile(
+    r"MWX SceneScript VM: target=(?P<target>.+?) "
+    r"event=mediaTimelineChanged generation=(?P<generation>\d+) "
+    rf"position=(?P<position>{FLOAT_PATTERN}) "
+    rf"duration=(?P<duration>{FLOAT_PATTERN}) "
+    r"route=(?P<route>\S+)"
+)
+SCENE_SCRIPT_MEDIA_PROPERTIES_OWNER_RE = re.compile(
+    r"MWX SceneScript VM: target=(?P<target>.+?) "
+    r"event=mediaPropertiesChanged generation=(?P<generation>\d+) "
+    r"titleUTF8Bytes=(?P<title>\d+) artistUTF8Bytes=(?P<artist>\d+) "
+    r"subTitleUTF8Bytes=(?P<sub_title>\d+) "
+    r"albumTitleUTF8Bytes=(?P<album_title>\d+) "
+    r"albumArtistUTF8Bytes=(?P<album_artist>\d+) "
+    r"genresUTF8Bytes=(?P<genres>\d+) "
+    r"contentTypeUTF8Bytes=(?P<content_type>\d+) "
+    r"layerMutations=(?P<layer_mutations>\d+) route=(?P<route>\S+)"
+)
 
 MEDIA_COLOR_FIELDS = (
     "primary_color",
@@ -137,6 +155,118 @@ def append_media_properties_arguments(
         value = optional[key]
         if value is not None:
             command.extend([flag, value])
+
+
+def append_media_timeline_arguments(
+    command: list[str],
+    position: Any,
+    duration: Any,
+    failures: list[str],
+) -> None:
+    if position is None and duration is None:
+        return
+    if (
+        isinstance(position, bool)
+        or not isinstance(position, (int, float))
+        or not math.isfinite(position)
+        or position < 0
+        or isinstance(duration, bool)
+        or not isinstance(duration, (int, float))
+        or not math.isfinite(duration)
+        or duration < 0
+    ):
+        failures.append("invalid media timeline")
+        return
+    command.extend([
+        "--mwx-debug-scene-media-position", str(position),
+        "--mwx-debug-scene-media-duration", str(duration),
+    ])
+
+
+def media_timeline_callback_metrics(log_text: str) -> list[dict[str, Any]]:
+    return [
+        {
+            "target": match.group("target"),
+            "generation": int(match.group("generation")),
+            "position": float(match.group("position")),
+            "duration": float(match.group("duration")),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_MEDIA_TIMELINE_RE.finditer(log_text)
+    ]
+
+
+def media_properties_owner_callback_metrics(
+    log_text: str,
+) -> list[dict[str, Any]]:
+    return [
+        {
+            "target": match.group("target"),
+            "generation": int(match.group("generation")),
+            "title_utf8_bytes": int(match.group("title")),
+            "artist_utf8_bytes": int(match.group("artist")),
+            "sub_title_utf8_bytes": int(match.group("sub_title")),
+            "album_title_utf8_bytes": int(match.group("album_title")),
+            "album_artist_utf8_bytes": int(match.group("album_artist")),
+            "genres_utf8_bytes": int(match.group("genres")),
+            "content_type_utf8_bytes": int(match.group("content_type")),
+            "layer_mutations": int(match.group("layer_mutations")),
+            "route": match.group("route"),
+        }
+        for match in SCENE_SCRIPT_MEDIA_PROPERTIES_OWNER_RE.finditer(log_text)
+    ]
+
+
+def media_properties_owner_expectation_failures(
+    sample: dict[str, Any],
+    callbacks: list[dict[str, Any]],
+) -> list[str]:
+    if "expected_media_properties_owner_callback_count" not in sample:
+        return []
+    expected = sample["expected_media_properties_owner_callback_count"]
+    if isinstance(expected, bool) or not isinstance(expected, int) or expected < 0:
+        return ["invalid media properties owner callback count"]
+    return [] if len(callbacks) == expected else [
+        "media properties owner callback count mismatch"
+    ]
+
+
+def media_timeline_expectation_failures(
+    sample: dict[str, Any],
+    callbacks: list[dict[str, Any]],
+) -> list[str]:
+    failures: list[str] = []
+    if "expected_media_timeline_callback_count" in sample:
+        expected_count = sample["expected_media_timeline_callback_count"]
+        if (
+            isinstance(expected_count, bool)
+            or not isinstance(expected_count, int)
+            or expected_count < 0
+        ):
+            failures.append("invalid media timeline callback count")
+        elif len(callbacks) != expected_count:
+            failures.append("media timeline callback count mismatch")
+    if "expected_media_timeline_callbacks" not in sample:
+        return failures
+    expected = sample["expected_media_timeline_callbacks"]
+    allowed = {"target", "generation", "position", "duration", "route"}
+    if (
+        not isinstance(expected, list)
+        or any(
+            not isinstance(item, dict)
+            or not {"target", "generation", "route"}.issubset(item)
+            or not set(item).issubset(allowed)
+            for item in expected
+        )
+    ):
+        failures.append("invalid media timeline callbacks")
+        return failures
+    if len(expected) != len(callbacks) or any(
+        any(actual.get(key) != value for key, value in wanted.items())
+        for wanted, actual in zip(expected, callbacks, strict=False)
+    ):
+        failures.append("media timeline callbacks mismatch")
+    return failures
 MEDIA_COLOR_EXPECTATION_COMMON_REQUIRED_FIELDS = frozenset({
     "layer_id",
     "generation",

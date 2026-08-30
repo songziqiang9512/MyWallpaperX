@@ -472,6 +472,15 @@ enum Harness {
             effectivePropertyValues: ["mode": .number(4)],
             frame: mediaFrame
         )
+        let propertyOnlyMediaProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor,
+            scriptBindings: [objectBinding(
+                source: mediaPropertiesOnlySource, properties: [:]
+            )],
+            userPropertyDefinitions: [],
+            generation: 30
+        )
 
         let allRoutePayload: [String: Any] = [
             "allRouteGenericMediaTargets":
@@ -605,6 +614,10 @@ enum Harness {
             "propertyRecovered": vector(
                 propertyRecovered.values[propertyTarget]
             ),
+            "propertyOnlyMediaOwnerTarget":
+                propertyOnlyMediaProgram.mediaOwnerTargets == [propertyTarget],
+            "propertyOnlyThumbnailTargetsEmpty":
+                propertyOnlyMediaProgram.mediaThumbnailTargets.isEmpty,
         ]
         payload.merge(allRoutePayload) { _, routeValue in routeValue }
         let data = try JSONSerialization.data(
@@ -785,6 +798,11 @@ enum Harness {
       return value;
     }
     """
+
+    static let mediaPropertiesOnlySource = """
+    export function mediaPropertiesChanged() {}
+    export function update(value) { return value; }
+    """
 }
 '''
 
@@ -842,6 +860,8 @@ class SceneVectorMediaEventTests(unittest.TestCase):
             self.assertEqual(value[key], [0.1, 0.3, 1])
         self.assertEqual(value["retryFailures"], 0)
         self.assertEqual(value["propertyRecovered"], [7, 2250, 0])
+        self.assertTrue(value["propertyOnlyMediaOwnerTarget"])
+        self.assertTrue(value["propertyOnlyThumbnailTargetsEmpty"])
 
     def test_failure_and_disabled_frames_follow_lower_priority_current(
         self,

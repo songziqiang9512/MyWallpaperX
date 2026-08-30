@@ -48,7 +48,7 @@ enum Harness {
         )
         let runtime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
-            authoredTransformLayerIDs: [10]
+            authoredMutationLayerIDs: [10]
         )
         let dragApplied = success(runtime.apply(drag.layerMutations))
         let committed = runtime.snapshot().authoredLayerValues[
@@ -133,7 +133,7 @@ enum Harness {
 
         let conflictRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
-            authoredTransformLayerIDs: [10]
+            authoredMutationLayerIDs: [10]
         )
         let conflict = conflictRuntime.apply([
             authoredOrigin(x: 1), authoredOrigin(x: 2),

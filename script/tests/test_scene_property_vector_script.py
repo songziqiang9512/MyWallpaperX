@@ -41,7 +41,9 @@ SOURCES = [
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
+    VM / "SceneScriptMediaFrameCoordinator.swift",
     VM / "SceneScriptScalarProgram.swift",
+    VM / "SceneScriptScalarProgram+Projection.swift",
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorCandidateCatalog.swift",
@@ -63,6 +65,7 @@ final class SceneMediaThumbnailInbox {
         struct Properties {
             let title, artist, subTitle, albumTitle, albumArtist, genres, contentType: String
         }
+        struct Timeline { let position, duration: Double }
         let current: Data?
         let primaryColor: SIMD3<Double>?
         let secondaryColor: SIMD3<Double>?
@@ -74,6 +77,8 @@ final class SceneMediaThumbnailInbox {
         let playbackGeneration: UInt64
         let properties: Properties?
         let propertiesGeneration: UInt64
+        let timeline: Timeline?
+        let timelineGeneration: UInt64
     }
 }
 
@@ -1099,6 +1104,69 @@ enum Harness {
             frame: frame,
             mediaPropertiesEvent: stringEvent
         )
+        let orderedDomain = try SceneScriptQuickJSDomain()
+        var orderedDescriptor = descriptor
+        orderedDescriptor.layers[2].textScript = .init(
+            source: orderedStringMediaSource
+        )
+        let orderedBindings = [
+            alphaBinding(
+                source: orderedScalarMediaSource, value: 0.75,
+                wrapperKeys: ["script", "value"]
+            ),
+            binding(
+                key: "origin", source: orderedVectorMediaSource,
+                value: "10 20 30", properties: [:],
+                objectIndex: 1, objectID: 42,
+                wrapperKeys: ["script", "value"]
+            ),
+            textBinding(source: orderedStringMediaSource, value: "Placeholder"),
+        ]
+        let orderedVector = SceneScriptVectorProgram.compile(
+            domain: orderedDomain, descriptor: orderedDescriptor,
+            scriptBindings: orderedBindings,
+            userPropertyDefinitions: [], generation: 18
+        )
+        let orderedString = SceneScriptStringProgram.compile(
+            domain: orderedDomain, descriptor: orderedDescriptor,
+            scriptBindings: orderedBindings, generation: 18
+        )
+        let orderedScalar = SceneScriptScalarProgram.compile(
+            domain: orderedDomain, descriptor: orderedDescriptor,
+            scriptBindings: orderedBindings, generation: 18
+        )
+        let orderedEvents = SceneScriptMediaFrameEvents(
+            playback: .init(state: 1, generation: 1),
+            properties: stringEvent,
+            thumbnail: .init(hasThumbnail: true, generation: 1),
+            timeline: .init(position: 12.5, duration: 90, generation: 1)
+        )
+        let orderedResult = SceneScriptMediaFrameCoordinator.evaluate(
+            vectorProgram: orderedVector,
+            stringProgram: orderedString,
+            scalarProgram: orderedScalar,
+            vectorInputs: [
+                .layer(layerID: 42, field: .origin): .vector3(10, 20, 30)
+            ],
+            stringInputs: [stringTarget: .string("Placeholder")],
+            scalarInputs: [animatedAlphaTarget: .scalar(0.75)],
+            effectivePropertyValues: [:], frame: frame,
+            userPropertiesJSON: "{}", events: orderedEvents,
+            audioSpectrum: .silent
+        )
+        let orderedDuplicate = SceneScriptMediaFrameCoordinator.evaluate(
+            vectorProgram: orderedVector,
+            stringProgram: orderedString,
+            scalarProgram: orderedScalar,
+            vectorInputs: [
+                .layer(layerID: 42, field: .origin): .vector3(10, 20, 30)
+            ],
+            stringInputs: [stringTarget: .string("Placeholder")],
+            scalarInputs: [animatedAlphaTarget: .scalar(0.75)],
+            effectivePropertyValues: [:], frame: frame,
+            userPropertiesJSON: "{}", events: orderedEvents,
+            audioSpectrum: .silent
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -1248,6 +1316,17 @@ enum Harness {
             "stringGenerationDeduplicated":
                 string(duplicateStringResult.values[stringTarget]) ==
                     "春日歌 / Artist / Live / Album / Album Artist / Rock,Pop / music",
+            "orderedMediaTrace": string(orderedResult.string.values[stringTarget]),
+            "orderedMediaDuplicateTrace":
+                string(orderedDuplicate.string.values[stringTarget]),
+            "orderedMediaFailures": orderedResult.vector.failures.count
+                + orderedResult.string.failures.count
+                + orderedResult.scalar.failures.count,
+            "orderedLayerMutationOrder": orderedResult.layerMutations.map(\.layerID),
+            "orderedLayerMutationFields": orderedResult.layerMutations.map {
+                $0.fields == [.visibility] && !$0.visible
+            },
+            "orderedDuplicateLayerMutations": orderedDuplicate.layerMutations.count,
             "audioScaleBindings": audioScaleProgram.bindings.count,
             "audioScaleDemand": audioScaleProgram.hasAudioConsumers,
             "audioScaleValue": vector(audioScaleResult.values[
@@ -1369,15 +1448,17 @@ enum Harness {
         value: String,
         properties: [String: SceneJSONValue],
         ownerKind: SceneScriptBindingOwner.Kind = .object,
+        objectIndex: Int = 0,
+        objectID: Int = 10,
         wrapperKeys: [String]? = nil
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
             owner: .init(
-                kind: ownerKind, objectIndex: 0, objectID: 10,
+                kind: ownerKind, objectIndex: objectIndex, objectID: objectID,
                 effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
             ),
-            targetPath: [.key("objects"), .index(0), .key(key)],
+            targetPath: [.key("objects"), .index(objectIndex), .key(key)],
             properties: properties,
             authoredValue: .string(value),
             valueType: .string,
@@ -1614,6 +1695,34 @@ enum Harness {
     }
     """
 
+    static let orderedScalarMediaSource = """
+    function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
+    export function mediaPlaybackChanged() { mark("sP"); }
+    export function mediaPropertiesChanged() { thisLayer.visible = false; mark("sR"); }
+    export function mediaThumbnailChanged() { mark("sH"); }
+    export function mediaTimelineChanged() { mark("sL"); }
+    export function update(value) { mark("sU"); return value; }
+    """
+
+    static let orderedVectorMediaSource = """
+    function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
+    export function mediaPlaybackChanged() { mark("vP"); }
+    export function mediaPropertiesChanged() { thisLayer.visible = false; mark("vR"); }
+    export function mediaThumbnailChanged() { mark("vH"); }
+    export function mediaTimelineChanged() { mark("vL"); }
+    export function update(value) { mark("vU"); return value; }
+    """
+
+    static let orderedStringMediaSource = """
+    function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
+    export function mediaPlaybackChanged() { mark("tP"); }
+    export function mediaPropertiesChanged() { thisLayer.visible = false; mark("tR"); }
+    export function mediaThumbnailChanged() { mark("tH"); }
+    export function mediaTimelineChanged() { mark("tL"); }
+    export function update() { mark("tU"); return shared.mediaOrder; }
+    """
+
+
     static let audioScaleSource = """
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "frequency", value: 0})
@@ -1835,6 +1944,16 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["stringValue"], "春日歌 / Artist / Live / Album / Album Artist / Rock,Pop / music")
         self.assertEqual(value["stringFailures"], 0)
         self.assertTrue(value["stringGenerationDeduplicated"])
+
+    def test_media_events_follow_authored_family_and_callback_order(self) -> None:
+        value = self.result()
+        first = "sPsRsHsLsUvPvRvHvLvUtPtRtHtLtU"
+        self.assertEqual(value["orderedMediaTrace"], first)
+        self.assertEqual(value["orderedMediaDuplicateTrace"], first + "sUvUtU")
+        self.assertEqual(value["orderedMediaFailures"], 0)
+        self.assertEqual(value["orderedLayerMutationOrder"], [10, 42, 77])
+        self.assertEqual(value["orderedLayerMutationFields"], [True, True, True])
+        self.assertEqual(value["orderedDuplicateLayerMutations"], 0)
 
     def test_audio_buffers_update_generic_vec3_owner(self) -> None:
         value = self.result()

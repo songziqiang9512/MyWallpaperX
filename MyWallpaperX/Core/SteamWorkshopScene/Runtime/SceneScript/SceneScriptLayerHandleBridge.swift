@@ -15,7 +15,12 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let angles = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES.rawValue
         ))
-        static let authoredTransform: Self = [.origin, .scale, .angles]
+        static let visibility = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY.rawValue
+        ))
+        static let authoredFields: Self = [
+            .origin, .scale, .angles, .visibility,
+        ]
     }
 
     let kind: Kind
@@ -84,7 +89,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
             }
             let fields = SceneScriptLayerMutation.Fields(rawValue: raw.fields)
             guard raw.dynamic != 0 || (
-                !fields.isEmpty && fields.isSubset(of: .authoredTransform)
+                !fields.isEmpty && fields.isSubset(of: .authoredFields)
             ) else {
                 return .failure(.invalidArgument("invalid authored layer mutation fields"))
             }

@@ -32,7 +32,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let origin = Self(rawValue: 1 << 0)
         static let scale = Self(rawValue: 1 << 1)
         static let angles = Self(rawValue: 1 << 2)
-        static let authoredTransform: Self = [.origin, .scale, .angles]
+        static let visibility = Self(rawValue: 1 << 3)
+        static let authoredFields: Self = [.origin, .scale, .angles, .visibility]
     }
     let kind: Kind
     let isDynamic: Bool
@@ -50,12 +51,13 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let font: String
 }
 
-nonisolated enum SceneDynamicValueType: Sendable { case vector3 }
+nonisolated enum SceneDynamicValueType: Sendable { case bool, vector3 }
 nonisolated enum SceneDynamicValue: Equatable, Sendable {
+    case bool(Bool)
     case vector3(Double, Double, Double)
 }
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case origin, scale, angles
+    case visibility, origin, scale, angles
 }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
@@ -69,6 +71,7 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Layer: Sendable {
         let id: Int
+        let visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
@@ -77,6 +80,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
             return .init(
                 id: mutation.layerID,
+                visible: mutation.visible,
                 originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil
             )
         }
@@ -94,12 +98,13 @@ func mutation(
     alpha: Double = 1,
     text: String = "text",
     fields: SceneScriptLayerMutation.Fields = [],
-    angles: SIMD3<Double> = .zero
+    angles: SIMD3<Double> = .zero,
+    visible: Bool = true
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
         layerID: id, orderIndex: order,
-        visible: true, alpha: alpha, origin: .zero,
+        visible: visible, alpha: alpha, origin: .zero,
         scale: .init(repeating: 1), angles: angles,
         color: .init(repeating: 1), pointSize: 32, text: text, font: ""
     )
@@ -117,14 +122,14 @@ enum Harness {
     static func main() throws {
         let descriptor = SceneRenderDescriptor(
             layers: [
-                .init(id: 10, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
-                .init(id: 20, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
+                .init(id: 10, visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
+                .init(id: 20, visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
             ],
             renderOrderLayerIDs: [10, 20]
         )
         let runtime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
-            authoredTransformLayerIDs: [10]
+            authoredMutationLayerIDs: [10]
         )
         let beforeCreate = runtime.snapshot()
         let create = runtime.apply([mutation(-1, order: 1)])
@@ -134,7 +139,8 @@ enum Harness {
         let staticUpdate = runtime.apply([
             mutation(
                 10, dynamic: false,
-                fields: [.angles], angles: .init(7, 8, 9)
+                fields: [.angles, .visibility],
+                angles: .init(7, 8, 9), visible: false
             )
         ])
         let afterStatic = runtime.snapshot()
@@ -156,6 +162,10 @@ enum Harness {
             "staticAnglesPublished": afterStatic.authoredLayerValues[
                 .layer(layerID: 10, field: .angles)
             ] == .vector3(7, 8, 9),
+            "staticVisibilityPublished": afterStatic.authoredLayerValues[
+                .layer(layerID: 10, field: .visibility)
+            ] == .bool(false),
+            "authoredDefinitionCount": runtime.authoredLayerDefinitions.count,
             "rejected": !succeeded(rejected),
             "rollbackLayers": afterRejected.dynamicLayers.map(\.id),
             "rollbackOrder": afterRejected.renderOrderLayerIDs,
@@ -210,6 +220,8 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
     def test_static_transform_mutation_and_failed_batch_are_atomic(self) -> None:
         self.assertTrue(self.result["staticAccepted"])
         self.assertTrue(self.result["staticAnglesPublished"])
+        self.assertTrue(self.result["staticVisibilityPublished"])
+        self.assertEqual(self.result["authoredDefinitionCount"], 4)
         self.assertTrue(self.result["rejected"])
         self.assertEqual(self.result["rollbackLayers"], [-1])
         self.assertEqual(self.result["rollbackOrder"], [10, 20, -1])

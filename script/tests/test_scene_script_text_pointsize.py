@@ -34,6 +34,7 @@ SOURCES = [
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptScalarProgram.swift",
+    VM / "SceneScriptScalarProgram+Projection.swift",
 ]
 
 HARNESS = r'''
@@ -48,9 +49,9 @@ struct SceneFrameTiming {
 final class SceneMediaThumbnailInbox {
     struct Snapshot {
         struct Properties {
-            let title: String
-            let artist: String
+            let title, artist, subTitle, albumTitle, albumArtist, genres, contentType: String
         }
+        struct Timeline { let position, duration: Double }
         let current: Data?
         let primaryColor: SIMD3<Double>?
         let secondaryColor: SIMD3<Double>?
@@ -62,6 +63,8 @@ final class SceneMediaThumbnailInbox {
         let playbackGeneration: UInt64
         let properties: Properties?
         let propertiesGeneration: UInt64
+        let timeline: Timeline?
+        let timelineGeneration: UInt64
     }
 }
 

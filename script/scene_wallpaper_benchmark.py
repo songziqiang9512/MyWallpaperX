@@ -48,10 +48,15 @@ from scene_wallpaper_graph_output_metrics import (
 )
 from scene_wallpaper_media_event import (
     append_media_properties_arguments,
+    append_media_timeline_arguments,
     append_media_thumbnail_argument,
     media_color_transition_metrics,
     media_event_expectation_failures,
     media_owner_output_metrics,
+    media_properties_owner_callback_metrics,
+    media_properties_owner_expectation_failures,
+    media_timeline_callback_metrics,
+    media_timeline_expectation_failures,
     scene_script_vector_media_startup_metrics,
 )
 from scene_wallpaper_media_properties import (
@@ -6316,6 +6321,12 @@ def run_sample(
         genres=sample.get("media_genres"),
         content_type=sample.get("media_content_type"),
     )
+    append_media_timeline_arguments(
+        command,
+        sample.get("media_timeline_position"),
+        sample.get("media_timeline_duration"),
+        failures,
+    )
     append_media_thumbnail_argument(
         command,
         sample.get("media_thumbnail_path"),
@@ -6436,6 +6447,16 @@ def run_sample(
     media_properties_callbacks = media_properties_callback_metrics(log_text)
     failures.extend(media_properties_expectation_failures(
         sample, media_properties_callbacks
+    ))
+    media_timeline_callbacks = media_timeline_callback_metrics(log_text)
+    failures.extend(media_timeline_expectation_failures(
+        sample, media_timeline_callbacks
+    ))
+    media_properties_owner_callbacks = media_properties_owner_callback_metrics(
+        log_text
+    )
+    failures.extend(media_properties_owner_expectation_failures(
+        sample, media_properties_owner_callbacks
     ))
     user_property_scalar_uniform_publications = (
         typed_user_property_scalar_uniform_publications(log_text)
@@ -7198,6 +7219,8 @@ def run_sample(
             "media_color_completions": media_color_completions,
             "media_owner_outputs": media_owner_outputs,
             "media_properties_callbacks": media_properties_callbacks,
+            "media_timeline_callbacks": media_timeline_callbacks,
+            "media_properties_owner_callbacks": media_properties_owner_callbacks,
             "scene_script_vector_media_startup": (
                 scene_script_vector_media_startup
             ),

@@ -210,6 +210,28 @@ static JSValue playback_argument(JSContext *context, const void *payload) {
     return argument;
 }
 
+static JSValue timeline_argument(JSContext *context, const void *payload) {
+    const MWXSceneQuickJSMediaTimelineEvent *event = payload;
+    JSValue argument = JS_NewObject(context);
+    if (JS_IsException(argument) || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "position",
+            JS_NewFloat64(context, event->position),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "duration",
+            JS_NewFloat64(context, event->duration),
+            JS_PROP_ENUMERABLE
+        ) < 0) {
+        JS_FreeValue(context, argument);
+        return JS_EXCEPTION;
+    }
+    return freeze_argument(context, argument);
+}
+
 static JSValue properties_argument(JSContext *context, const void *payload) {
     const MWXSceneQuickJSMediaPropertiesEvent *event = payload;
     JSValue argument = JS_NewObject(context);
@@ -500,6 +522,39 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
         expected_generation,
         "mediaPlaybackChanged",
         playback_argument,
+        event,
+        NULL,
+        0,
+        frame,
+        user_properties_json,
+        user_properties_length,
+        diagnostic,
+        diagnostic_capacity
+    );
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_timeline(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaTimelineEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (event == NULL || !isfinite(event->position) || event->position < 0 ||
+        !isfinite(event->duration) || event->duration < 0) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid media timeline event"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    return dispatch_event(
+        owner,
+        expected_generation,
+        "mediaTimelineChanged",
+        timeline_argument,
         event,
         NULL,
         0,

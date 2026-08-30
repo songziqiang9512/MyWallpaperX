@@ -169,6 +169,26 @@ nonisolated struct SceneScriptMediaPropertiesEventInput: Equatable, Sendable {
     }
 }
 
+nonisolated struct SceneScriptMediaTimelineEventInput: Equatable, Sendable {
+    let position: Double
+    let duration: Double
+    let generation: UInt64
+
+    init(position: Double, duration: Double, generation: UInt64) {
+        self.position = position
+        self.duration = duration
+        self.generation = generation
+    }
+
+    init?(snapshot: SceneMediaThumbnailInbox.Snapshot) {
+        guard snapshot.timelineGeneration > 0,
+              let timeline = snapshot.timeline else { return nil }
+        position = timeline.position
+        duration = timeline.duration
+        generation = snapshot.timelineGeneration
+    }
+}
+
 nonisolated protocol SceneScriptGeneratedEvent: Equatable, Sendable {
     var generation: UInt64 { get }
 }
@@ -176,6 +196,66 @@ nonisolated protocol SceneScriptGeneratedEvent: Equatable, Sendable {
 extension SceneScriptMediaThumbnailEventInput: SceneScriptGeneratedEvent {}
 extension SceneScriptMediaPlaybackEventInput: SceneScriptGeneratedEvent {}
 extension SceneScriptMediaPropertiesEventInput: SceneScriptGeneratedEvent {}
+extension SceneScriptMediaTimelineEventInput: SceneScriptGeneratedEvent {}
+
+/// One immutable frame view of the media provider. The coordinator passes the
+/// same values to every authored owner; absent provider fields stay absent and
+/// never synthesize callbacks.
+nonisolated struct SceneScriptMediaFrameEvents: Equatable, Sendable {
+    let playback: SceneScriptMediaPlaybackEventInput?
+    let properties: SceneScriptMediaPropertiesEventInput?
+    let thumbnail: SceneScriptMediaThumbnailEventInput?
+    let timeline: SceneScriptMediaTimelineEventInput?
+
+    static let empty = Self(
+        playback: nil,
+        properties: nil,
+        thumbnail: nil,
+        timeline: nil
+    )
+}
+
+nonisolated enum SceneScriptMediaRuntimeDiagnostics {
+    static func logProperties(
+        target: SceneDynamicTarget,
+        event: SceneScriptMediaPropertiesEventInput,
+        layerMutationCount: Int
+    ) {
+        NSLog(
+            "MWX SceneScript VM: target=%@ event=mediaPropertiesChanged generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d subTitleUTF8Bytes=%d albumTitleUTF8Bytes=%d albumArtistUTF8Bytes=%d genresUTF8Bytes=%d contentTypeUTF8Bytes=%d layerMutations=%d route=generic-only",
+            String(describing: target), event.generation,
+            event.title.utf8.count, event.artist.utf8.count,
+            event.subTitle.utf8.count, event.albumTitle.utf8.count,
+            event.albumArtist.utf8.count, event.genres.utf8.count,
+            event.contentType.utf8.count, layerMutationCount
+        )
+    }
+
+    static func logTimeline(
+        target: SceneDynamicTarget,
+        event: SceneScriptMediaTimelineEventInput
+    ) {
+        NSLog(
+            "MWX SceneScript VM: target=%@ event=mediaTimelineChanged generation=%llu position=%.9g duration=%.9g route=generic-only",
+            String(describing: target), event.generation,
+            event.position, event.duration
+        )
+    }
+}
+
+nonisolated enum SceneScriptMediaOwnerFamily: Int, Equatable, Sendable {
+    case vector
+    case string
+    case scalar
+}
+
+/// Loss-preserving authored order attached to the existing VM owner. This is
+/// a scheduler view, not a second owner registry.
+nonisolated struct SceneScriptMediaOwnerRegistration: Equatable, Sendable {
+    let authoredOrdinal: Int
+    let target: SceneDynamicTarget
+    let family: SceneScriptMediaOwnerFamily
+}
 
 nonisolated enum SceneScriptOwnerExportBridge {
     static func contains(_ name: String, owner: OpaquePointer) throws -> Bool {
@@ -528,6 +608,43 @@ nonisolated enum SceneScriptMediaEventBridge {
                     }
                 }
             }
+        }
+        guard raw == MWX_SCENE_QUICKJS_OK else {
+            return .failure(failure(raw, diagnostic))
+        }
+        return mutations(owner: owner, target: target, layerID: layerID)
+    }
+
+    static func dispatchTimeline(
+        owner: OpaquePointer,
+        target: SceneDynamicTarget,
+        layerID: Int,
+        ownerGeneration: UInt64,
+        event: SceneScriptMediaTimelineEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard event.position.isFinite, event.position >= 0,
+              event.duration.isFinite, event.duration >= 0 else {
+            return .failure(.invalidArgument("invalid media timeline payload"))
+        }
+        var rawEvent = MWXSceneQuickJSMediaTimelineEvent(
+            position: event.position,
+            duration: event.duration
+        )
+        var rawFrame = frame.quickJSValue
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let raw = userPropertiesJSON.withCString { userProperties in
+            mwx_scene_quickjs_owner_dispatch_media_timeline(
+                owner,
+                ownerGeneration,
+                &rawEvent,
+                &rawFrame,
+                userProperties,
+                userPropertiesJSON.utf8.count,
+                &diagnostic,
+                diagnostic.count
+            )
         }
         guard raw == MWX_SCENE_QUICKJS_OK else {
             return .failure(failure(raw, diagnostic))

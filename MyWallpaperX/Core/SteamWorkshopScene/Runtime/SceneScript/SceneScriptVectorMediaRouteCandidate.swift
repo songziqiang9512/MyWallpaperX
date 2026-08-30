@@ -25,7 +25,7 @@ nonisolated struct SceneScriptVectorMediaRouteCandidate: @unchecked Sendable {
             admitted, excludedVectorTargets
         )
         while let candidate = programs {
-            mediaTargets.formUnion(candidate.vectorProgram.mediaThumbnailTargets)
+            mediaTargets.formUnion(candidate.vectorProgram.mediaOwnerTargets)
             let nextAdmitted = route.admittedVectorPassTargets(
                 initialPassTargets, mediaOwnerTargets: mediaTargets
             )

@@ -1,6 +1,7 @@
 import Foundation
 
 nonisolated struct SceneScriptVectorCandidate: Sendable {
+    let authoredOrdinal: Int
     let source: String
     let definition: SceneDynamicTargetDefinition
     let properties: [String: SceneScriptPropertyInput]
@@ -110,9 +111,11 @@ nonisolated extension SceneScriptVectorProgram {
             SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
                 in: descriptor.layers
             )
-        return .init(candidates: scriptBindings.compactMap {
+        return .init(candidates: scriptBindings.enumerated().compactMap {
+            authoredOrdinal, binding in
             projection(
-                $0,
+                binding,
+                authoredOrdinal: authoredOrdinal,
                 descriptor: descriptor,
                 timelineTargets: timelineTargets,
                 admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
@@ -123,6 +126,7 @@ nonisolated extension SceneScriptVectorProgram {
 
     private static func projection(
         _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>,
         admittedLayerColorConsumerIDs: Set<Int>,
@@ -130,6 +134,7 @@ nonisolated extension SceneScriptVectorProgram {
     ) -> SceneScriptVectorCandidate? {
         if let candidate = visibilityProjection(
             binding,
+            authoredOrdinal: authoredOrdinal,
             descriptor: descriptor,
             namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
         ) {
@@ -137,13 +142,18 @@ nonisolated extension SceneScriptVectorProgram {
         }
         if let candidate = layerColorProjection(
             binding,
+            authoredOrdinal: authoredOrdinal,
             descriptor: descriptor,
             admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
             namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
         ) {
             return candidate
         }
-        if let candidate = passVectorProjection(binding, descriptor: descriptor) {
+        if let candidate = passVectorProjection(
+            binding,
+            authoredOrdinal: authoredOrdinal,
+            descriptor: descriptor
+        ) {
             return candidate
         }
         guard binding.owner.kind == .object,
@@ -197,6 +207,7 @@ nonisolated extension SceneScriptVectorProgram {
             properties[entry.key] = input
         }
         return .init(
+            authoredOrdinal: authoredOrdinal,
             source: binding.source,
             definition: .init(
                 target: target,
@@ -219,6 +230,7 @@ nonisolated extension SceneScriptVectorProgram {
     /// without evaluating an owner that has no valid output route.
     private static func layerColorProjection(
         _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
         descriptor: SceneRenderDescriptor,
         admittedLayerColorConsumerIDs: Set<Int>,
         namedTextureDependencyLayerIDs: Set<Int>
@@ -255,6 +267,7 @@ nonisolated extension SceneScriptVectorProgram {
             return nil
         }
         return .init(
+            authoredOrdinal: authoredOrdinal,
             source: binding.source,
             definition: .init(
                 target: .layer(layerID: layerID, field: .color),
@@ -269,6 +282,7 @@ nonisolated extension SceneScriptVectorProgram {
 
     private static func visibilityProjection(
         _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
         descriptor: SceneRenderDescriptor,
         namedTextureDependencyLayerIDs: Set<Int>
     ) -> SceneScriptVectorCandidate? {
@@ -309,6 +323,7 @@ nonisolated extension SceneScriptVectorProgram {
             properties[entry.key] = input
         }
         return .init(
+            authoredOrdinal: authoredOrdinal,
             source: binding.source,
             definition: .init(
                 target: .layer(layerID: layerID, field: .visibility),
@@ -362,6 +377,7 @@ nonisolated extension SceneScriptVectorProgram {
 
     private static func passVectorProjection(
         _ binding: SceneScriptBindingIR,
+        authoredOrdinal: Int,
         descriptor: SceneRenderDescriptor
     ) -> SceneScriptVectorCandidate? {
         guard binding.owner.kind == .pass,
@@ -441,6 +457,7 @@ nonisolated extension SceneScriptVectorProgram {
             properties[entry.key] = input
         }
         return .init(
+            authoredOrdinal: authoredOrdinal,
             source: binding.source,
             definition: definition,
             properties: properties,

@@ -2,10 +2,15 @@ import Foundation
 import os.lock
 
 /// Producer-agnostic media ingress. Artwork and its event-derived color share
-/// one generation; playback and title/artist properties each advance their own
-/// generation because either can change without replacing artwork.
+/// one generation; playback, seven-field properties, and timeline each advance
+/// their own generation because any channel can change without replacing art.
 final class SceneMediaThumbnailInbox: @unchecked Sendable {
     struct Snapshot: Equatable, Sendable {
+        struct Timeline: Equatable, Sendable {
+            let position: Double
+            let duration: Double
+        }
+
         struct Properties: Equatable, Sendable {
             let title: String
             let artist: String
@@ -27,6 +32,8 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         let playbackGeneration: UInt64
         let properties: Properties?
         let propertiesGeneration: UInt64
+        let timeline: Timeline?
+        let timelineGeneration: UInt64
 
         init(
             current: Data?,
@@ -39,7 +46,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             playbackState: Int?,
             playbackGeneration: UInt64,
             properties: Properties? = nil,
-            propertiesGeneration: UInt64 = 0
+            propertiesGeneration: UInt64 = 0,
+            timeline: Timeline? = nil,
+            timelineGeneration: UInt64 = 0
         ) {
             self.current = current
             self.primaryColor = primaryColor
@@ -52,6 +61,8 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             self.playbackGeneration = playbackGeneration
             self.properties = properties
             self.propertiesGeneration = propertiesGeneration
+            self.timeline = timeline
+            self.timelineGeneration = timelineGeneration
         }
 
         static let empty = Snapshot(
@@ -119,7 +130,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: snapshot.properties,
-            propertiesGeneration: snapshot.propertiesGeneration
+            propertiesGeneration: snapshot.propertiesGeneration,
+            timeline: snapshot.timeline,
+            timelineGeneration: snapshot.timelineGeneration
         )
         return true
     }
@@ -142,7 +155,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             playbackState: state,
             playbackGeneration: snapshot.playbackGeneration + 1,
             properties: snapshot.properties,
-            propertiesGeneration: snapshot.propertiesGeneration
+            propertiesGeneration: snapshot.propertiesGeneration,
+            timeline: snapshot.timeline,
+            timelineGeneration: snapshot.timelineGeneration
         )
         return true
     }
@@ -187,7 +202,42 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: properties,
-            propertiesGeneration: snapshot.propertiesGeneration + 1
+            propertiesGeneration: snapshot.propertiesGeneration + 1,
+            timeline: snapshot.timeline,
+            timelineGeneration: snapshot.timelineGeneration
+        )
+        return true
+    }
+
+    /// Publishes the player position and total duration as one generation.
+    /// Position is deliberately not constrained to duration because producers
+    /// can report an advancing position before a duration refresh arrives.
+    @discardableResult
+    func publishMediaTimeline(position: Double, duration: Double) -> Bool {
+        guard position.isFinite, position >= 0,
+              duration.isFinite, duration >= 0 else { return false }
+        let timeline = Snapshot.Timeline(
+            position: position,
+            duration: duration
+        )
+        os_unfair_lock_lock(&lock)
+        defer { os_unfair_lock_unlock(&lock) }
+        guard snapshot.timeline != timeline else { return true }
+        guard snapshot.timelineGeneration < .max else { return false }
+        snapshot = Snapshot(
+            current: snapshot.current,
+            primaryColor: snapshot.primaryColor,
+            secondaryColor: snapshot.secondaryColor,
+            tertiaryColor: snapshot.tertiaryColor,
+            textColor: snapshot.textColor,
+            highContrastColor: snapshot.highContrastColor,
+            generation: snapshot.generation,
+            playbackState: snapshot.playbackState,
+            playbackGeneration: snapshot.playbackGeneration,
+            properties: snapshot.properties,
+            propertiesGeneration: snapshot.propertiesGeneration,
+            timeline: timeline,
+            timelineGeneration: snapshot.timelineGeneration + 1
         )
         return true
     }
@@ -207,7 +257,9 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
             playbackState: snapshot.playbackState,
             playbackGeneration: snapshot.playbackGeneration,
             properties: snapshot.properties,
-            propertiesGeneration: snapshot.propertiesGeneration
+            propertiesGeneration: snapshot.propertiesGeneration,
+            timeline: snapshot.timeline,
+            timelineGeneration: snapshot.timelineGeneration
         )
     }
 

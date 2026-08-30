@@ -458,7 +458,12 @@ class SceneFrameContextTests(unittest.TestCase):
         scalar_program = SCALAR_PROGRAM_SOURCE.read_text(encoding="utf-8")
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
 
-        self.assertIn("sceneScriptResult.materialFunctionMutations", frame_driver)
+        self.assertIn(
+            "coordinatedSceneScript.materialFunctionMutations", frame_driver
+        )
+        self.assertNotIn(
+            "+ sceneScriptResult.materialFunctionMutations", frame_driver
+        )
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",
             view,
@@ -525,31 +530,32 @@ class SceneFrameContextTests(unittest.TestCase):
         properties_event_position = frame_driver.index(
             "SceneScriptMediaPropertiesEventInput(snapshot: mediaInput)", render_position
         )
-        string_vm_position = frame_driver.index(
-            "launchContext.sceneScriptStringProgram.evaluate(", render_position
+        timeline_event_position = frame_driver.index(
+            "SceneScriptMediaTimelineEventInput(snapshot: mediaInput)", render_position
         )
-        scalar_vm_position = frame_driver.index(
-            "launchContext.sceneScriptScalarProgram.evaluate(", render_position
+        media_vm_position = frame_driver.index(
+            "SceneScriptMediaFrameCoordinator.evaluate(", render_position
         )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.evaluate", broadcast_position
         )
         self.assertLess(media_input_position, playback_event_position)
         self.assertLess(playback_event_position, properties_event_position)
-        self.assertLess(properties_event_position, string_vm_position)
-        self.assertLess(string_vm_position, scalar_vm_position)
-        self.assertLess(playback_event_position, scalar_vm_position)
-        self.assertLess(scalar_vm_position, broadcast_position)
+        self.assertLess(properties_event_position, timeline_event_position)
+        self.assertLess(timeline_event_position, media_vm_position)
+        self.assertLess(playback_event_position, media_vm_position)
+        self.assertLess(media_vm_position, broadcast_position)
         self.assertLess(broadcast_position, snapshot_position)
         self.assertEqual(
             frame_driver.count("SceneMediaThumbnailInbox.shared.latest()"), 1
         )
         self.assertIn(
-            "mediaPlaybackEvent: sceneScriptMediaPlaybackEvent", frame_driver
+            "playback: sceneScriptMediaPlaybackEvent", frame_driver
         )
         self.assertIn(
-            "mediaPropertiesEvent: sceneScriptMediaPropertiesEvent", frame_driver
+            "properties: sceneScriptMediaPropertiesEvent", frame_driver
         )
+        self.assertIn("timeline: sceneScriptMediaTimelineEvent", frame_driver)
         self.assertIn("mediaThumbnail: mediaThumbnailSnapshot", frame_driver)
         self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
         self.assertNotIn("mediaPlaybackPlaceholderFade", frame_driver)
@@ -621,10 +627,10 @@ class SceneFrameContextTests(unittest.TestCase):
             bounded_ownership,
         )
         self.assertIn("sceneScriptCursorProgram.dispatch(", host_render)
-        self.assertIn("propertyVectorScriptProgram.evaluate(", host_render)
+        self.assertIn("SceneScriptMediaFrameCoordinator.evaluate(", host_render)
         self.assertLess(
             host_render.index("sceneScriptCursorProgram.dispatch("),
-            host_render.index("propertyVectorScriptProgram.evaluate("),
+            host_render.index("SceneScriptMediaFrameCoordinator.evaluate("),
         )
         self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
 

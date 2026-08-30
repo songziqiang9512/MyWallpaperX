@@ -54,6 +54,20 @@ LAYER_COLOR_COMPLETION_LINE = (
     "highContrast=0.5,0.6,0.7 output=vector3(1.0, 1.0, 1.0) "
     "mutations=0 route=generic-only fallback=none"
 )
+MEDIA_TIMELINE_LINE = (
+    "MWX SceneScript VM: target=effectConstant(layerID: 1089, "
+    "effectIndex: 0, passIndex: 0, name: \"Progress\") "
+    "event=mediaTimelineChanged generation=1 position=12.5 duration=90 "
+    "route=generic-only"
+)
+MEDIA_PROPERTIES_OWNER_LINE = (
+    "MWX SceneScript VM: target=layer(layerID: 10, "
+    "field: MyWallpaperX.SceneDynamicLayerField.origin) "
+    "event=mediaPropertiesChanged generation=1 titleUTF8Bytes=5 "
+    "artistUTF8Bytes=6 subTitleUTF8Bytes=0 albumTitleUTF8Bytes=0 "
+    "albumArtistUTF8Bytes=0 genresUTF8Bytes=0 contentTypeUTF8Bytes=5 "
+    "layerMutations=1 route=generic-only"
+)
 
 
 def vector_media_startup_line(
@@ -79,6 +93,77 @@ def vector_media_startup_line(
 
 
 class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
+    def test_cross_type_media_properties_owner_callback_is_structured(self) -> None:
+        callbacks = benchmark.media_properties_owner_callback_metrics(
+            MEDIA_PROPERTIES_OWNER_LINE
+        )
+        self.assertEqual(len(callbacks), 1)
+        self.assertEqual(callbacks[0]["target"], (
+            "layer(layerID: 10, field: "
+            "MyWallpaperX.SceneDynamicLayerField.origin)"
+        ))
+        self.assertEqual(callbacks[0]["layer_mutations"], 1)
+        self.assertEqual(
+            benchmark.media_properties_owner_expectation_failures(
+                {"expected_media_properties_owner_callback_count": 1},
+                callbacks,
+            ),
+            [],
+        )
+
+    def test_timeline_argument_and_callback_contract_are_typed(self) -> None:
+        command = ["MyWallpaperX"]
+        failures: list[str] = []
+        benchmark.append_media_timeline_arguments(
+            command, 12.5, 90, failures
+        )
+        self.assertEqual(failures, [])
+        self.assertEqual(command, [
+            "MyWallpaperX",
+            "--mwx-debug-scene-media-position", "12.5",
+            "--mwx-debug-scene-media-duration", "90",
+        ])
+        callbacks = benchmark.media_timeline_callback_metrics(
+            MEDIA_TIMELINE_LINE
+        )
+        self.assertEqual(callbacks, [{
+            "target": (
+                "effectConstant(layerID: 1089, effectIndex: 0, "
+                'passIndex: 0, name: "Progress")'
+            ),
+            "generation": 1,
+            "position": 12.5,
+            "duration": 90.0,
+            "route": "generic-only",
+        }])
+        self.assertEqual(
+            benchmark.media_timeline_expectation_failures(
+                {
+                    "expected_media_timeline_callback_count": 1,
+                    "expected_media_timeline_callbacks": callbacks,
+                },
+                callbacks,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.media_timeline_expectation_failures(
+                {"expected_media_timeline_callback_count": 0}, callbacks
+            ),
+            ["media timeline callback count mismatch"],
+        )
+
+    def test_timeline_argument_rejects_partial_or_invalid_values(self) -> None:
+        for position, duration in ((1, None), (None, 2), (-1, 2), (1, float("inf"))):
+            with self.subTest(position=position, duration=duration):
+                command = ["MyWallpaperX"]
+                failures: list[str] = []
+                benchmark.append_media_timeline_arguments(
+                    command, position, duration, failures
+                )
+                self.assertEqual(command, ["MyWallpaperX"])
+                self.assertEqual(failures, ["invalid media timeline"])
+
     def test_generic_five_color_completion_is_reported(self) -> None:
         metrics = benchmark.media_color_transition_metrics(MEDIA_COMPLETION_LINE)
         self.assertEqual(metrics, [{

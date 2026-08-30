@@ -25,7 +25,11 @@ CURSOR_INTERACTION_SOURCE = (
 SCALAR_RUNTIME_SOURCE = SCRIPT / "SceneScriptScalarRuntime.swift"
 CURSOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptCursorProgram.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = SCRIPT / "SceneScriptMediaEventBridge.swift"
+MEDIA_FRAME_COORDINATOR_SOURCE = SCRIPT / "SceneScriptMediaFrameCoordinator.swift"
 LAUNCH_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+Launch.swift"
+STARTUP_REPORT_SOURCE = (
+    RUNTIME / "SceneDesktopWallpaperLaunchContext+StartupReport.swift"
+)
 MODEL_SOURCE = RUNTIME / "SceneRuntimeModel.swift"
 CANDIDATE_SOURCE = SCRIPT / "SceneScriptQuickJSProgramCandidate.swift"
 ROUTE_CANDIDATE_SOURCE = SCRIPT / "SceneScriptVectorMediaRouteCandidate.swift"
@@ -53,6 +57,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self,
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        startup_report = STARTUP_REPORT_SOURCE.read_text(encoding="utf-8")
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         model = MODEL_SOURCE.read_text(encoding="utf-8")
         candidate = CANDIDATE_SOURCE.read_text(encoding="utf-8")
@@ -72,7 +77,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
         self.assertIn("while let candidate = programs", route)
         self.assertIn("mediaTargets.formUnion(", route)
-        self.assertIn("candidate.vectorProgram.mediaThumbnailTargets", route)
+        self.assertIn("candidate.vectorProgram.mediaOwnerTargets", route)
         self.assertIn("initialPassTargets, mediaOwnerTargets: mediaTargets", route)
         self.assertIn("route.excludedVectorOwnerTargets(", route)
         self.assertIn("nextExcluded.isSuperset(of: excludedVectorTargets)", route)
@@ -103,7 +108,9 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("SceneScriptFallbackCatalog(", launch)
         self.assertIn("+ launchContext.sceneScriptFallbackDefinitions", frame)
         self.assertIn("fallbackCatalog.targets.isDisjoint(", launch)
-        self.assertIn("activeBindings=", launch)
+        self.assertIn("activeBindings=", startup_report)
+        self.assertIn("mediaThumbnailTargets.count", startup_report)
+        self.assertIn("mediaOwnerTargets.intersection", startup_report)
         self.assertNotIn("MWX_SCENE_SCRIPT_VECTOR_MEDIA_ROUTE", frame)
         self.assertNotIn("SceneScriptVectorMediaRouteState.resolve(", frame)
         self.assertNotIn("retainAdmittedPassTargets", model + launch + candidate)
@@ -132,23 +139,23 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
     def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+        media_frame = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
         render = swift_body(frame, "private func renderFrame()")
         publication = render.index(".publishLayerSnapshot(")
         cursor_batch = render.index("let cursorBatch:")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
-        vector_callback = render.index("propertyVectorScriptProgram.evaluate(")
-        string_callback = render.index("sceneScriptStringProgram.evaluate(")
-        scalar_callback = render.index("sceneScriptScalarProgram.evaluate(")
+        media_callback = render.index("SceneScriptMediaFrameCoordinator.evaluate(")
         self.assertLess(publication, cursor_batch)
         self.assertLess(publication, cursor)
-        self.assertLess(publication, vector_callback)
-        self.assertLess(publication, string_callback)
-        self.assertLess(publication, scalar_callback)
+        self.assertLess(publication, media_callback)
         self.assertIn("if sceneScriptLayerSnapshotFailure != nil", render)
-        self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 5)
+        self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 3)
         self.assertIn("cursorBatch = .init(samples: [], overflowed: false)", render)
         self.assertNotIn("publishLayerSnapshot", vector)
         self.assertNotIn("layerSnapshot:", vector)
+        self.assertIn("vectorProgram.evaluate(", media_frame)
+        self.assertIn("stringProgram.evaluate(", media_frame)
+        self.assertIn("scalarProgram.evaluate(", media_frame)
 
     def test_one_media_snapshot_feeds_vm_before_every_surface(self) -> None:
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
@@ -174,8 +181,8 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         event_position = host_render.index(
             "SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)"
         )
-        vector_vm_position = host_render.index(
-            "launchContext.propertyVectorScriptProgram.evaluate("
+        media_vm_position = host_render.index(
+            "SceneScriptMediaFrameCoordinator.evaluate("
         )
         surface_loop_position = host_render.index(
             "for (displayID, surface) in surfaces"
@@ -186,8 +193,8 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         )
         self.assertLess(snapshot_position, preparation_position)
         self.assertLess(preparation_position, event_position)
-        self.assertLess(event_position, vector_vm_position)
-        self.assertLess(vector_vm_position, surface_loop_position)
+        self.assertLess(event_position, media_vm_position)
+        self.assertLess(media_vm_position, surface_loop_position)
         self.assertNotIn("mediaColorTransitionRuntime", host_render)
 
         surface_loop = host_render[surface_loop_position:]

@@ -41,12 +41,16 @@ private let root = SceneDynamicTarget.layer(layerID: 1, field: .visibility)
 private let child = SceneDynamicTarget.layer(layerID: 2, field: .visibility)
 private let owned = SceneDynamicTarget.layer(layerID: 4, field: .visibility)
 private let alphaOwned = SceneDynamicTarget.layer(layerID: 6, field: .visibility)
+private let sideEffect = SceneDynamicTarget.layer(layerID: 3, field: .visibility)
 private let definitions = [
     SceneDynamicTargetDefinition(target: root, valueType: .bool, authoredValue: .bool(false)),
     SceneDynamicTargetDefinition(target: child, valueType: .bool, authoredValue: .bool(true)),
     SceneDynamicTargetDefinition(target: owned, valueType: .bool, authoredValue: .bool(true)),
     SceneDynamicTargetDefinition(
         target: alphaOwned, valueType: .bool, authoredValue: .bool(true)
+    ),
+    SceneDynamicTargetDefinition(
+        target: sideEffect, valueType: .bool, authoredValue: .bool(true)
     ),
 ]
 private let descriptor = SceneRenderDescriptor(layers: [
@@ -155,6 +159,12 @@ enum Harness {
                 layerID: 6,
                 [alphaOwned: .bool(true)]
             ),
+            "sideEffectHidden": visible([sideEffect: .bool(false)]),
+            "sideEffectShown": visible([sideEffect: .bool(true)]),
+            "sideEffectHasSourceAuthority": sourceAuthority(
+                layerID: 3,
+                [sideEffect: .bool(true)]
+            ),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -196,6 +206,9 @@ class SceneDynamicLayerVisibilityTests(unittest.TestCase):
         self.assertTrue(value["unownedHasSourceAuthority"])
         self.assertFalse(value["authoredHiddenHasSourceAuthority"])
         self.assertFalse(value["alphaOwnerHasSourceAuthority"])
+        self.assertEqual(value["sideEffectHidden"], [])
+        self.assertEqual(value["sideEffectShown"], [3])
+        self.assertTrue(value["sideEffectHasSourceAuthority"])
 
 
 if __name__ == "__main__":

@@ -40,6 +40,13 @@ enum SceneLayerVisibility {
         for layer: SceneRenderDescriptor.Layer,
         snapshot: SceneDynamicSnapshot?
     ) -> Bool {
+        if let resolved = snapshot?[
+            .layer(layerID: layer.id, field: .visibility)
+        ], layer.displayScriptOwnership?.alpha != true,
+           resolved.source == .sceneScript,
+           case let .bool(value) = resolved.value {
+            return value
+        }
         guard let ownership = layer.displayScriptOwnership,
               !ownership.isEmpty else { return layer.visible != false }
         guard ownership.alpha != true,
@@ -62,12 +69,10 @@ enum SceneLayerVisibility {
         var current: SceneRenderDescriptor.Layer? = layer
         var visited: Set<Int> = []
         while let candidate = current {
-            let ownership = candidate.displayScriptOwnership
             let scriptVisibility = snapshot?[
                 .layer(layerID: candidate.id, field: .visibility)
             ].flatMap { resolved -> Bool? in
-                guard ownership?.visible == true,
-                      resolved.source == .sceneScript,
+                guard resolved.source == .sceneScript,
                       case let .bool(value) = resolved.value else { return nil }
                 return value
             }

@@ -160,6 +160,7 @@ struct MWXSceneQuickJSOwner {
     double authored_layer_mutation_origin[3];
     double authored_layer_mutation_scale[3];
     double authored_layer_mutation_angles[3];
+    bool authored_layer_mutation_visible;
     MWXSceneQuickJSRejectionRecord rejections[
         MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS
     ];

@@ -8,24 +8,24 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
 
 /// Launch-scoped layer mutation transaction. VM callbacks publish bounded
 /// mutations; rendering reads one immutable snapshot and commits successful
-/// dynamic topology or authored transform fields only after the current frame.
+/// dynamic topology or authored fields only after the current frame.
 nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
-    let authoredTransformDefinitions: [SceneDynamicTargetDefinition]
+    let authoredLayerDefinitions: [SceneDynamicTargetDefinition]
     private let authoredLayerIDs: Set<Int>
-    private let authoredTransformLayerIDs: Set<Int>
+    private let authoredMutationLayerIDs: Set<Int>
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
 
     init(
         descriptor: SceneRenderDescriptor,
-        authoredTransformLayerIDs: Set<Int>
+        authoredMutationLayerIDs: Set<Int>
     ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
-        self.authoredTransformLayerIDs = authoredTransformLayerIDs
+        self.authoredMutationLayerIDs = authoredMutationLayerIDs
         order = descriptor.renderOrderLayerIDs
-        authoredTransformDefinitions = descriptor.layers.filter {
-            authoredTransformLayerIDs.contains($0.id)
+        authoredLayerDefinitions = descriptor.layers.filter {
+            authoredMutationLayerIDs.contains($0.id)
         }.flatMap {
             layer -> [SceneDynamicTargetDefinition] in
             let origin = Self.vector3(layer.originXYZ, fallback: [0, 0, 0])
@@ -43,6 +43,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 .init(
                     target: .layer(layerID: layer.id, field: .angles),
                     valueType: .vector3, authoredValue: angles
+                ),
+                .init(
+                    target: .layer(layerID: layer.id, field: .visibility),
+                    valueType: .bool,
+                    authoredValue: .bool(layer.visible ?? true)
                 ),
             ]
         }
@@ -77,9 +82,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             if !mutation.isDynamic {
                 guard mutation.kind == .upsert,
                       authoredLayerIDs.contains(mutation.layerID),
-                      authoredTransformLayerIDs.contains(mutation.layerID),
+                      authoredMutationLayerIDs.contains(mutation.layerID),
                       !mutation.fields.isEmpty,
-                      mutation.fields.isSubset(of: .authoredTransform) else {
+                      mutation.fields.isSubset(of: .authoredFields) else {
                     return .failure(.invalidArgument("invalid authored layer mutation"))
                 }
                 let values: [(
@@ -103,6 +108,17 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     candidateAuthoredValues[target] = .vector3(
                         value.x, value.y, value.z
                     )
+                }
+                if mutation.fields.contains(.visibility) {
+                    let target = SceneDynamicTarget.layer(
+                        layerID: mutation.layerID, field: .visibility
+                    )
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument(
+                            "conflicting authored layer mutation target"
+                        ))
+                    }
+                    candidateAuthoredValues[target] = .bool(mutation.visible)
                 }
                 continue
             }

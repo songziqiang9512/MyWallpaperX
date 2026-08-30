@@ -155,6 +155,32 @@ static int media_properties(
     return check(actual == expected, label, diagnostic);
 }
 
+static int media_timeline(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    double position,
+    double duration,
+    MWXSceneQuickJSResult expected,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSMediaTimelineEvent event = {
+        .position = position,
+        .duration = duration,
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_dispatch_media_timeline(
+            owner, generation, &event, &frame, "{}", 2,
+            diagnostic, sizeof(diagnostic)
+        );
+    return check(actual == expected, label, diagnostic);
+}
+
 static int user_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -1324,6 +1350,40 @@ int main(void) {
         MWX_SCENE_QUICKJS_STALE_OWNER, "stale media properties owner"
     );
 
+    const char *media_timeline_source =
+        "let progress=0;"
+        "export function mediaTimelineChanged(event){"
+        "if(!Object.isFrozen(event))throw new Error('mutable timeline');"
+        "progress=event.duration===0?0:event.position/event.duration;}"
+        "export function update(){return progress;}";
+    MWXSceneQuickJSOwner *media_timeline_owner = mwx_scene_quickjs_owner_create(
+        domain, media_timeline_source, strlen(media_timeline_source),
+        25, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        media_timeline_owner != NULL, "media timeline compile", diagnostic
+    );
+    failures += media_timeline(
+        media_timeline_owner, 25, 12.5, 100,
+        MWX_SCENE_QUICKJS_OK, "media timeline event"
+    );
+    failures += update(
+        media_timeline_owner, 25, 0, MWX_SCENE_QUICKJS_OK, 0.125,
+        "media timeline update"
+    );
+    failures += media_timeline(
+        media_timeline_owner, 25, -1, 100,
+        MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "negative media timeline"
+    );
+    failures += media_timeline(
+        media_timeline_owner, 25, 1, INFINITY,
+        MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "non-finite media timeline"
+    );
+    failures += update(
+        media_timeline_owner, 25, 0, MWX_SCENE_QUICKJS_OK, 0.125,
+        "invalid media timeline preserves owner"
+    );
+
     const char *cursor_source =
         "export function cursorEnter(event){"
         "if(!Object.isFrozen(event)||!Object.isFrozen(event.worldPosition)||"
@@ -1909,12 +1969,26 @@ int main(void) {
     failures += check(static_visible != NULL, "static visible owner compile", diagnostic);
     failures += configure_owner_layer(static_visible, 42, "static visible owner identity");
     failures += update(
-        static_visible, 46, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "static layer non-transform setter remains rejected"
+        static_visible, 46, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "static layer visibility setter accepted"
     );
     failures += check(
-        mwx_scene_quickjs_owner_layer_mutation_count(static_visible) == 0,
-        "failed static layer setter publishes no mutation", ""
+        mwx_scene_quickjs_owner_layer_mutation_count(static_visible) == 1,
+        "static layer visibility mutation coalesced", ""
+    );
+    failures += layer_mutation(
+        static_visible, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+        0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY,
+        42, 1, "clock", "static layer visibility snapshot"
+    );
+    MWXSceneQuickJSLayerMutation static_visibility_mutation = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_at(
+            static_visible, 0, &static_visibility_mutation,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK &&
+            static_visibility_mutation.visible == 0,
+        "static layer visibility value", diagnostic
     );
 
     const char *forged_layer_source =
@@ -1961,6 +2035,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(playback_error);
     mwx_scene_quickjs_owner_destroy(media_playback_owner);
     mwx_scene_quickjs_owner_destroy(media_properties_owner);
+    mwx_scene_quickjs_owner_destroy(media_timeline_owner);
     mwx_scene_quickjs_owner_destroy(bad_string);
     mwx_scene_quickjs_owner_destroy(cursor_consumer);
     mwx_scene_quickjs_owner_destroy(cursor_owner);
@@ -2090,6 +2165,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
         ).read_text(encoding="utf-8")
+        startup_report = (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperLaunchContext+StartupReport.swift"
+        ).read_text(encoding="utf-8")
         frame = (
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
@@ -2108,7 +2187,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertIn(
             "route=generic-only fallback=current-frame-lower-priority",
-            launch,
+            startup_report,
         )
         self.assertIn("let propertyVectorProjection =", model)
         self.assertNotIn("SceneScriptVectorProgram.compileNonPass(", model)
@@ -2153,8 +2232,12 @@ class SceneScriptQuickJSTest(unittest.TestCase):
                 f'boundedProducerConflicts.append("\\(name)/{conflict}")',
                 bounded_ownership,
             )
-        self.assertIn("scene cursor events: schema=quickjs-ng-cursor-v1", launch)
-        self.assertIn("cursorDown,cursorMove,cursorUp,cursorClick", launch)
+        self.assertIn(
+            "scene cursor events: schema=quickjs-ng-cursor-v1", startup_report
+        )
+        self.assertIn(
+            "cursorDown,cursorMove,cursorUp,cursorClick", startup_report
+        )
         self.assertIn("owner.exportedCursorEvents", cursor)
         self.assertIn("previousHits", cursor)
         self.assertNotIn("launchTransitionTargets", model)
@@ -2175,7 +2258,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertLess(
             frame.index("sceneScriptCursorProgram.dispatch"),
-            frame.index("propertyVectorScriptProgram.evaluate"),
+            frame.index("SceneScriptMediaFrameCoordinator.evaluate"),
         )
         scalar_ownership = launch[
             launch.index("let sceneScriptScalarTargets ="):
@@ -2203,7 +2286,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertIn("surface: sceneScriptSurfaceInput", frame)
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
-        evaluate = frame.index("sceneScriptScalarProgram.evaluate(")
+        evaluate = frame.index("SceneScriptMediaFrameCoordinator.evaluate(")
         final_snapshot = frame.index("let resolvedDynamicValues = surface.evaluationTransaction.evaluate")
         self.assertLess(timeline, preliminary)
         self.assertLess(preliminary, evaluate)

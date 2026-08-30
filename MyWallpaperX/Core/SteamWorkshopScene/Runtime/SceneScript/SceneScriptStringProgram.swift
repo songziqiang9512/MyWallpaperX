@@ -26,6 +26,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptStringOwner]
     let generation: UInt64
+    private let authoredOrdinals: [SceneDynamicTarget: Int]
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var observedMediaThumbnailEvent =
@@ -34,9 +35,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
     private var observedMediaPropertiesEvent =
         SceneScriptObservedEvent<SceneScriptMediaPropertiesEventInput>()
+    private var observedMediaTimelineEvent =
+        SceneScriptObservedEvent<SceneScriptMediaTimelineEventInput>()
     private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: \.hasAudioRegistration)
@@ -78,21 +82,25 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptStringProgramConstruction {
-        let candidates = scriptBindings.compactMap { binding -> (
-            SceneScriptBindingIR, SceneDynamicTarget, String, [String?]
+        let candidates = scriptBindings.enumerated().compactMap {
+            authoredOrdinal, binding -> (
+            Int, SceneScriptBindingIR, SceneDynamicTarget, String, [String?]
         )? in
             guard let projection = projection(binding, descriptor: descriptor),
                   !excludedTargets.contains(projection.target) else { return nil }
-            return (binding, projection.target, projection.authored, projection.effects)
+            return (
+                authoredOrdinal, binding, projection.target,
+                projection.authored, projection.effects
+            )
         }
-        let counts = Dictionary(grouping: candidates, by: { $0.1 }).mapValues(\.count)
+        let counts = Dictionary(grouping: candidates, by: { $0.2 }).mapValues(\.count)
         let requestedTargets = Set(candidates.compactMap { candidate in
-            counts[candidate.1] == 1 ? candidate.1 : nil
+            counts[candidate.2] == 1 ? candidate.2 : nil
         }).subtracting(rejectedTargets)
         var owners: [SceneScriptStringOwner] = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         for candidate in candidates {
-            let (binding, target, _, effects) = candidate
+            let (_, binding, target, _, effects) = candidate
             guard requestedTargets.contains(target) else { continue }
             do {
                 owners.append(try SceneScriptStringOwner(
@@ -115,11 +123,19 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         let authoredValues = candidates.reduce(
             into: [SceneDynamicTarget: String]()
         ) { values, candidate in
-            if values[candidate.1] == nil { values[candidate.1] = candidate.2 }
+            if values[candidate.2] == nil { values[candidate.2] = candidate.3 }
+        }
+        let authoredOrdinals = candidates.reduce(
+            into: [SceneDynamicTarget: Int]()
+        ) { values, candidate in
+            if requestedTargets.contains(candidate.2) {
+                values[candidate.2] = candidate.0
+            }
         }
         let program = SceneScriptStringProgram(
             bindings: owners,
             authoredValues: authoredValues,
+            authoredOrdinals: authoredOrdinals,
             generation: generation
         )
         return .init(
@@ -183,14 +199,33 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     private init(
         bindings: [SceneScriptStringOwner],
         authoredValues: [SceneDynamicTarget: String],
+        authoredOrdinals: [SceneDynamicTarget: Int] = [:],
         generation: UInt64
     ) {
         self.bindings = bindings
+        self.authoredOrdinals = authoredOrdinals
         self.generation = generation
         definitions = bindings.compactMap { owner in
             authoredValues[owner.target].map {
                 .init(target: owner.target, valueType: .string, authoredValue: .string($0))
             }
+        }
+    }
+
+    var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
+        bindings.compactMap { binding in
+            guard binding.handlesMediaPlayback
+                    || binding.handlesMediaProperties
+                    || binding.handlesMediaThumbnail
+                    || binding.handlesMediaTimeline,
+                  let authoredOrdinal = authoredOrdinals[binding.target] else {
+                return nil
+            }
+            return .init(
+                authoredOrdinal: authoredOrdinal,
+                target: binding.target,
+                family: .string
+            )
         }
     }
 
@@ -201,6 +236,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
+        mediaTimelineEvent: SceneScriptMediaTimelineEventInput? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptStringFrameResult {
@@ -212,6 +248,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         )
         let observedProperties = observedMediaPropertiesEvent.observe(
             mediaPropertiesEvent
+        )
+        let observedTimeline = observedMediaTimelineEvent.observe(
+            mediaTimelineEvent
         )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
@@ -235,6 +274,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             let thumbnail = observedThumbnail.flatMap { event in
                 binding.handlesMediaThumbnail && event.generation
                     > consumedMediaThumbnailGenerations[binding.target, default: 0]
+                    ? event : nil
+            }
+            let timeline = observedTimeline.flatMap { event in
+                binding.handlesMediaTimeline && event.generation
+                    > consumedMediaTimelineGenerations[binding.target, default: 0]
                     ? event : nil
             }
             if binding.hasAudioRegistration {
@@ -289,6 +333,19 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             ) {
                 continue
             }
+            if let timeline, !dispatch(
+                binding.dispatchMediaTimeline(
+                    timeline, frame: frame, userPropertiesJSON: userPropertiesJSON,
+                    interruptBudget: interruptBudget
+                ),
+                binding: binding,
+                materialFunctions: &ownerMaterialFunctions,
+                animations: &ownerAnimations,
+                layers: &ownerLayerMutations,
+                failures: &failures
+            ) {
+                continue
+            }
             switch binding.evaluate(
                 input: current,
                 frame: frame,
@@ -304,6 +361,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 if let properties {
                     consumedMediaPropertiesGenerations[binding.target] =
                         properties.generation
+                }
+                if let timeline {
+                    consumedMediaTimelineGenerations[binding.target] =
+                        timeline.generation
                 }
                 if let thumbnail {
                     consumedMediaThumbnailGenerations[binding.target] =
@@ -330,6 +391,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                         properties.genres.utf8.count,
                         properties.contentType.utf8.count,
                         output.utf8.count
+                    )
+                }
+                if let timeline {
+                    SceneScriptMediaRuntimeDiagnostics.logTimeline(
+                        target: binding.target, event: timeline
                     )
                 }
                 if reportedTargets.insert(binding.target).inserted,

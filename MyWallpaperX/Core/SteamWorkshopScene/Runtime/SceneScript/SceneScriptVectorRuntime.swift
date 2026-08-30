@@ -13,6 +13,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let hasAudioRegistration: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
+    let handlesMediaProperties: Bool
+    let handlesMediaTimeline: Bool
     let exportedCursorEvents: Set<SceneScriptCursorEventKind>
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
@@ -66,6 +68,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         }
         var handlesMediaThumbnail = false
         var handlesMediaPlayback = false
+        var handlesMediaProperties = false
+        var handlesMediaTimeline = false
         var exportedCursorEvents: Set<SceneScriptCursorEventKind> = []
         var ownerHasAudioRegistration = false
         do {
@@ -97,6 +101,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             handlesMediaPlayback = try SceneScriptOwnerExportBridge.contains(
                 "mediaPlaybackChanged", owner: created
             )
+            handlesMediaProperties = try SceneScriptOwnerExportBridge.contains(
+                "mediaPropertiesChanged", owner: created
+            )
+            handlesMediaTimeline = try SceneScriptOwnerExportBridge.contains(
+                "mediaTimelineChanged", owner: created
+            )
             for event in SceneScriptCursorEventKind.allCases {
                 if try SceneScriptOwnerExportBridge.contains(
                     event.callbackName, owner: created
@@ -120,6 +130,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 guard hasValueHook, !handlesUserProperties,
                       !handlesDestroy,
                       !handlesMediaThumbnail, !handlesMediaPlayback,
+                      !handlesMediaProperties, !handlesMediaTimeline,
                       exportedCursorEvents.isEmpty,
                       !ownerHasAudioRegistration else {
                     throw SceneScriptScalarRuntimeFailure.invalidSource
@@ -133,6 +144,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         hasAudioRegistration = ownerHasAudioRegistration
         self.handlesMediaThumbnail = handlesMediaThumbnail
         self.handlesMediaPlayback = handlesMediaPlayback
+        self.handlesMediaProperties = handlesMediaProperties
+        self.handlesMediaTimeline = handlesMediaTimeline
         self.exportedCursorEvents = exportedCursorEvents
     }
 
@@ -291,6 +304,40 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             ownerGeneration: generation,
             event: event,
             frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
+    func dispatchMediaProperties(
+        _ event: SceneScriptMediaPropertiesEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchProperties(
+            owner: handle, target: target, layerID: layerID,
+            ownerGeneration: generation, event: event, frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
+    func dispatchMediaTimeline(
+        _ event: SceneScriptMediaTimelineEventInput,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchTimeline(
+            owner: handle, target: target, layerID: layerID,
+            ownerGeneration: generation, event: event, frame: frame,
             userPropertiesJSON: userPropertiesJSON
         )
     }

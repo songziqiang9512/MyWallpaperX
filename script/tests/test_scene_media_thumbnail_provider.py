@@ -503,6 +503,25 @@ let oversizedPropertyRejected = !eventInbox.publishMediaProperties(
     subTitle: String(repeating: "界", count: 1_366)
 )
 let afterInvalidProperties = eventInbox.latest()
+let timelineAccepted = eventInbox.publishMediaTimeline(
+    position: 12.5, duration: 90
+)
+let afterTimeline = eventInbox.latest()
+let duplicateTimelineAccepted = eventInbox.publishMediaTimeline(
+    position: 12.5, duration: 90
+)
+let afterDuplicateTimeline = eventInbox.latest()
+let seekTimelineAccepted = eventInbox.publishMediaTimeline(
+    position: 3.25, duration: 90
+)
+let afterTimelineSeek = eventInbox.latest()
+let negativeTimelineRejected = !eventInbox.publishMediaTimeline(
+    position: -1, duration: 90
+)
+let nonFiniteTimelineRejected = !eventInbox.publishMediaTimeline(
+    position: 3.25, duration: .infinity
+)
+let afterInvalidTimeline = eventInbox.latest()
 let imageColorAccepted = eventInbox.publish(
     a,
     primaryColor: primaryColor,
@@ -811,6 +830,20 @@ let result: [String: Any] = [
     "controlPropertyRejected": controlPropertyRejected,
     "oversizedPropertyRejected": oversizedPropertyRejected,
     "invalidPropertiesPreserveSnapshot": afterInvalidProperties == afterArtistChange,
+    "timelineAccepted": timelineAccepted,
+    "timelineGeneration": afterTimeline.timelineGeneration,
+    "timelineExact": afterTimeline.timeline == .init(
+        position: 12.5, duration: 90
+    ),
+    "duplicateTimelineAccepted": duplicateTimelineAccepted,
+    "duplicateTimelineStable": afterDuplicateTimeline == afterTimeline,
+    "seekTimelineAccepted": seekTimelineAccepted,
+    "seekTimelineAllowsDecrease":
+        afterTimelineSeek.timelineGeneration == 2
+        && afterTimelineSeek.timeline == .init(position: 3.25, duration: 90),
+    "negativeTimelineRejected": negativeTimelineRejected,
+    "nonFiniteTimelineRejected": nonFiniteTimelineRejected,
+    "invalidTimelinePreservesSnapshot": afterInvalidTimeline == afterTimelineSeek,
     "imageColorAccepted": imageColorAccepted,
     "imageColorGeneration": afterImageColor.generation,
     "imageColorPlaybackGeneration": afterImageColor.playbackGeneration,
@@ -818,6 +851,9 @@ let result: [String: Any] = [
         afterImageColor.properties == afterArtistChange.properties
         && afterImageColor.propertiesGeneration
             == afterArtistChange.propertiesGeneration,
+    "imageColorPreservesTimeline":
+        afterImageColor.timeline == afterTimelineSeek.timeline
+        && afterImageColor.timelineGeneration == afterTimelineSeek.timelineGeneration,
     "imageColorExact":
         afterImageColor.primaryColor == primaryColor
         && afterImageColor.secondaryColor == secondaryColor
@@ -872,6 +908,9 @@ let result: [String: Any] = [
         afterEventClear.properties == afterArtistChange.properties
         && afterEventClear.propertiesGeneration
             == afterArtistChange.propertiesGeneration,
+    "eventClearPreservesTimeline":
+        afterEventClear.timeline == afterTimelineSeek.timeline
+        && afterEventClear.timelineGeneration == afterTimelineSeek.timelineGeneration,
     "duplicateEventClearStable": afterDuplicateEventClear == afterEventClear,
     "emptyPropertiesAccepted": emptyPropertiesAccepted,
     "emptyPropertiesClearOldValues":
@@ -1056,10 +1095,21 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["controlPropertyRejected"])
         self.assertTrue(result["oversizedPropertyRejected"])
         self.assertTrue(result["invalidPropertiesPreserveSnapshot"])
+        self.assertTrue(result["timelineAccepted"])
+        self.assertEqual(result["timelineGeneration"], 1)
+        self.assertTrue(result["timelineExact"])
+        self.assertTrue(result["duplicateTimelineAccepted"])
+        self.assertTrue(result["duplicateTimelineStable"])
+        self.assertTrue(result["seekTimelineAccepted"])
+        self.assertTrue(result["seekTimelineAllowsDecrease"])
+        self.assertTrue(result["negativeTimelineRejected"])
+        self.assertTrue(result["nonFiniteTimelineRejected"])
+        self.assertTrue(result["invalidTimelinePreservesSnapshot"])
         self.assertTrue(result["imageColorAccepted"])
         self.assertEqual(result["imageColorGeneration"], 1)
         self.assertEqual(result["imageColorPlaybackGeneration"], 0)
         self.assertTrue(result["imageColorPreservesProperties"])
+        self.assertTrue(result["imageColorPreservesTimeline"])
         self.assertTrue(result["imageColorExact"])
         self.assertTrue(result["duplicateImageColorAccepted"])
         self.assertTrue(result["duplicateImageColorGenerationStable"])
@@ -1090,6 +1140,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["eventClearColorIsZero"])
         self.assertTrue(result["eventClearPreservesPlayback"])
         self.assertTrue(result["eventClearPreservesProperties"])
+        self.assertTrue(result["eventClearPreservesTimeline"])
         self.assertTrue(result["duplicateEventClearStable"])
         self.assertTrue(result["emptyPropertiesAccepted"])
         self.assertTrue(result["emptyPropertiesClearOldValues"])

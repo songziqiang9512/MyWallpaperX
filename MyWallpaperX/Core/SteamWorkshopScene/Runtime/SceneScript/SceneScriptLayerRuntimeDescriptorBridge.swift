@@ -40,7 +40,11 @@ nonisolated extension SceneScriptQuickJSDomain {
                                 mwx_scene_quickjs_domain_update_layer_runtime_fields(
                                     handle, UInt32(index), scalePointer.baseAddress,
                                     anglesPointer.baseAddress,
-                                    layer.visible == false ? 0 : 1,
+                                    layerBool(
+                                        layerID: layer.id, field: .visibility,
+                                        authored: layer.visible ?? true,
+                                        snapshot: snapshot
+                                    ) ? 1 : 0,
                                     layer.alpha ?? 1,
                                     textPointer, text.utf8.count,
                                     fontPointer, font.utf8.count,
@@ -75,5 +79,16 @@ nonisolated extension SceneScriptQuickJSDomain {
         return (0..<3).map { index in
             index < values.count ? values[index] : fallback[index]
         }
+    }
+
+    private func layerBool(
+        layerID: Int,
+        field: SceneDynamicLayerField,
+        authored: Bool,
+        snapshot: SceneDynamicSnapshot
+    ) -> Bool {
+        guard let resolved = snapshot[.layer(layerID: layerID, field: field)],
+              case let .bool(value) = resolved.value else { return authored }
+        return value
     }
 }

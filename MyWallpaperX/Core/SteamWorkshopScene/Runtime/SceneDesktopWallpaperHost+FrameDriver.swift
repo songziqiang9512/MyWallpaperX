@@ -274,7 +274,7 @@ extension SceneDesktopWallpaperHost {
                 + launchContext.sceneScriptScalarProgram.definitions
                 + launchContext.sceneScriptStringProgram.definitions
                 + launchContext.sceneScriptDynamicLayerRuntime
-                    .authoredTransformDefinitions
+                    .authoredLayerDefinitions
         )
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
@@ -301,6 +301,14 @@ extension SceneDesktopWallpaperHost {
             SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)
         let sceneScriptMediaPropertiesEvent =
             SceneScriptMediaPropertiesEventInput(snapshot: mediaInput)
+        let sceneScriptMediaTimelineEvent =
+            SceneScriptMediaTimelineEventInput(snapshot: mediaInput)
+        let sceneScriptMediaEvents = SceneScriptMediaFrameEvents(
+            playback: sceneScriptMediaPlaybackEvent,
+            properties: sceneScriptMediaPropertiesEvent,
+            thumbnail: sceneScriptMediaThumbnailEvent,
+            timeline: sceneScriptMediaTimelineEvent
+        )
         let mediaProperties = mediaInput.properties.map {
             SceneTextMediaPropertiesSnapshot(
                 title: $0.title,
@@ -448,81 +456,12 @@ extension SceneDesktopWallpaperHost {
                 projectedSceneScriptVectorInputs,
                 mediaOwnerTargets: launchContext.propertyVectorMediaTargets
             )
-        let sceneScriptVectorResult: SceneScriptVectorFrameResult
-        if let failure = sceneScriptLayerSnapshotFailure {
-            sceneScriptVectorResult = .init(
-                values: [:],
-                failures: Dictionary(uniqueKeysWithValues:
-                    launchContext.propertyVectorScriptProgram.bindings.map {
-                        ($0.definition.target, failure)
-                    }
-                ),
-                materialFunctionMutations: [], animationMutations: [],
-                layerMutations: []
-            )
-        } else {
-            sceneScriptVectorResult = launchContext.propertyVectorScriptProgram.evaluate(
-                inputs: sceneScriptVectorInputs,
-                effectivePropertyValues: launchContext.liveState.effectiveValues,
-                frame: sceneScriptFrame,
-                mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
-                mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
-                audioSpectrum: audioSpectrum
-            )
-        }
-        for (target, failure) in sceneScriptVectorResult.failures {
-            NSLog(
-                "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=current-frame-lower-priority",
-                String(describing: target),
-                String(describing: failure),
-                failure.code
-            )
-        }
-        commonSceneScriptValues.merge(
-            sceneScriptVectorResult.values,
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
         let sceneScriptStringInputs = launchContext.sceneScriptStringProgram.bindings
             .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
                 guard let resolved = preliminaryForSceneScript[binding.target],
                       case .string = resolved.value else { return }
                 inputs[binding.target] = resolved.value
             }
-        let sceneScriptStringResult: SceneScriptStringFrameResult
-        if let failure = sceneScriptLayerSnapshotFailure {
-            sceneScriptStringResult = .init(
-                values: [:],
-                failures: Dictionary(uniqueKeysWithValues:
-                    launchContext.sceneScriptStringProgram.bindings.map {
-                        ($0.target, failure)
-                    }
-                ),
-                materialFunctionMutations: [], animationMutations: [],
-                layerMutations: []
-            )
-        } else {
-            sceneScriptStringResult = launchContext.sceneScriptStringProgram.evaluate(
-                inputs: sceneScriptStringInputs,
-                frame: sceneScriptFrame,
-                userPropertiesJSON: userPropertiesJSON,
-                mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
-                mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
-                mediaPropertiesEvent: sceneScriptMediaPropertiesEvent,
-                audioSpectrum: audioSpectrum
-            )
-        }
-        for (target, failure) in sceneScriptStringResult.failures {
-            NSLog(
-                "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=current-frame-lower-priority",
-                String(describing: target),
-                String(describing: failure),
-                failure.code
-            )
-        }
-        commonSceneScriptValues.merge(
-            sceneScriptStringResult.values,
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
         let sceneScriptInputs = launchContext.sceneScriptScalarProgram.bindings.reduce(
             into: [SceneDynamicTarget: SceneDynamicValue]()
         ) { inputs, binding in
@@ -530,31 +469,67 @@ extension SceneDesktopWallpaperHost {
                   case .scalar = resolved.value else { return }
             inputs[binding.target] = resolved.value
         }
-        let sceneScriptResult: SceneScriptScalarFrameResult
+        let coordinatedSceneScript: SceneScriptMediaFrameCoordinatorResult
         if let failure = sceneScriptLayerSnapshotFailure {
-            sceneScriptResult = .init(
-                values: [:],
-                failures: Dictionary(uniqueKeysWithValues:
-                    launchContext.sceneScriptScalarProgram.bindings.map {
-                        ($0.target, failure)
-                    }
+            coordinatedSceneScript = .init(
+                vector: .init(
+                    values: [:],
+                    failures: Dictionary(uniqueKeysWithValues:
+                        launchContext.propertyVectorScriptProgram.bindings.map {
+                            ($0.definition.target, failure)
+                        }
+                    ),
+                    materialFunctionMutations: [], animationMutations: [],
+                    layerMutations: []
                 ),
-                materialFunctionMutations: [], animationMutations: [],
+                string: .init(
+                    values: [:],
+                    failures: Dictionary(uniqueKeysWithValues:
+                        launchContext.sceneScriptStringProgram.bindings.map {
+                            ($0.target, failure)
+                        }
+                    ),
+                    materialFunctionMutations: [], animationMutations: [],
+                    layerMutations: []
+                ),
+                scalar: .init(
+                    values: [:],
+                    failures: Dictionary(uniqueKeysWithValues:
+                        launchContext.sceneScriptScalarProgram.bindings.map {
+                            ($0.target, failure)
+                        }
+                    ),
+                    materialFunctionMutations: [], animationMutations: [],
+                    layerMutations: []
+                ),
+                materialFunctionMutations: [],
+                animationMutations: [],
                 layerMutations: []
             )
         } else {
-            sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
-                inputs: sceneScriptInputs,
-                frame: sceneScriptFrame,
+            coordinatedSceneScript = SceneScriptMediaFrameCoordinator.evaluate(
+                vectorProgram: launchContext.propertyVectorScriptProgram,
+                stringProgram: launchContext.sceneScriptStringProgram,
+                scalarProgram: launchContext.sceneScriptScalarProgram,
+                vectorInputs: sceneScriptVectorInputs,
+                stringInputs: sceneScriptStringInputs,
+                scalarInputs: sceneScriptInputs,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
+                frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON,
-                mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
-                mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,
+                events: sceneScriptMediaEvents,
                 audioSpectrum: audioSpectrum
             )
         }
-        if !sceneScriptResult.failures.isEmpty {
-            for (target, failure) in sceneScriptResult.failures {
+        let sceneScriptVectorResult = coordinatedSceneScript.vector
+        let sceneScriptStringResult = coordinatedSceneScript.string
+        let sceneScriptResult = coordinatedSceneScript.scalar
+        for failures in [
+            sceneScriptVectorResult.failures,
+            sceneScriptStringResult.failures,
+            sceneScriptResult.failures,
+        ] {
+            for (target, failure) in failures {
                 NSLog(
                     "MWX SceneScript VM: target=%@ failure=%@ code=%@ fallback=current-frame-lower-priority",
                     String(describing: target),
@@ -564,18 +539,22 @@ extension SceneDesktopWallpaperHost {
             }
         }
         commonSceneScriptValues.merge(
+            sceneScriptVectorResult.values,
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
+        commonSceneScriptValues.merge(
+            sceneScriptStringResult.values,
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
+        commonSceneScriptValues.merge(
             sceneScriptResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
-        let layerMutations = sceneScriptVectorResult.layerMutations
-            + sceneScriptStringResult.layerMutations
-            + sceneScriptResult.layerMutations
+        let layerMutations = coordinatedSceneScript.layerMutations
             + cursorResult.layerMutations
         let layerTopology = layerMutationSnapshot
         let animationMutations = cursorResult.animationMutations
-            + sceneScriptVectorResult.animationMutations
-            + sceneScriptStringResult.animationMutations
-            + sceneScriptResult.animationMutations
+            + coordinatedSceneScript.animationMutations
         if !animationMutations.isEmpty {
             switch launchContext.timelinePlaybackRuntime.apply(
                 animationMutations,
@@ -647,9 +626,7 @@ extension SceneDesktopWallpaperHost {
                 layerTopology: layerTopology,
                 materialFunctionMutations:
                     cursorResult.materialFunctionMutations
-                    + sceneScriptVectorResult.materialFunctionMutations
-                    + sceneScriptStringResult.materialFunctionMutations
-                    + sceneScriptResult.materialFunctionMutations,
+                    + coordinatedSceneScript.materialFunctionMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow

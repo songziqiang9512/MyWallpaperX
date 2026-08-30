@@ -9,12 +9,15 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
 }
 
 nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
+    let authoredOrdinal: Int
     let definition: SceneDynamicTargetDefinition
     let properties: [String: SceneScriptPropertyInput]
     let livePropertyInputTargets: Set<SceneDynamicTarget>
     let hasCurrentAnimation: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
+    let handlesMediaProperties: Bool
+    let handlesMediaTimeline: Bool
     let owner: SceneScriptVectorOwner
 }
 
@@ -42,8 +45,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
     private var observedMediaPlaybackEvent =
         SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
+    private var observedMediaPropertiesEvent =
+        SceneScriptObservedEvent<SceneScriptMediaPropertiesEventInput>()
+    private var observedMediaTimelineEvent =
+        SceneScriptObservedEvent<SceneScriptMediaTimelineEventInput>()
     private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var appliedUserPropertiesByTarget:
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
 
@@ -101,6 +110,24 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         Set(bindings.compactMap { binding in
             binding.handlesMediaThumbnail ? binding.definition.target : nil
         })
+    }
+
+    var mediaOwnerTargets: Set<SceneDynamicTarget> {
+        Set(mediaOwnerRegistrations.map(\.target))
+    }
+
+    var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
+        bindings.compactMap { binding in
+            guard binding.handlesMediaPlayback
+                    || binding.handlesMediaProperties
+                    || binding.handlesMediaThumbnail
+                    || binding.handlesMediaTimeline else { return nil }
+            return .init(
+                authoredOrdinal: binding.authoredOrdinal,
+                target: binding.definition.target,
+                family: .vector
+            )
+        }
     }
 
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
@@ -303,18 +330,17 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 break
             }
             bindings.append(.init(
+                authoredOrdinal: candidate.authoredOrdinal,
                 definition: candidate.definition,
                 properties: candidate.properties,
                 livePropertyInputTargets: candidate.livePropertyInputTargets,
                 hasCurrentAnimation: candidate.hasCurrentAnimation,
                 handlesMediaThumbnail: owner.handlesMediaThumbnail,
                 handlesMediaPlayback: owner.handlesMediaPlayback,
+                handlesMediaProperties: owner.handlesMediaProperties,
+                handlesMediaTimeline: owner.handlesMediaTimeline,
                 owner: owner
             ))
-        }
-        bindings.sort {
-            String(describing: $0.definition.target)
-                < String(describing: $1.definition.target)
         }
         definitions = bindings.map(\.definition)
         return failures
@@ -326,6 +352,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         frame: SceneScriptFrameInput,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
+        mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
+        mediaTimelineEvent: SceneScriptMediaTimelineEventInput? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptVectorFrameResult {
@@ -334,6 +362,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
         let observedPlaybackEvent = observedMediaPlaybackEvent.observe(
             mediaPlaybackEvent
+        )
+        let observedPropertiesEvent = observedMediaPropertiesEvent.observe(
+            mediaPropertiesEvent
+        )
+        let observedTimelineEvent = observedMediaTimelineEvent.observe(
+            mediaTimelineEvent
         )
         let userJSON = userPropertiesJSON(
             effectiveValues: effectivePropertyValues
@@ -367,10 +401,21 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     > consumedMediaThumbnailGenerations[target, default: 0]
                     ? event : nil
             }
+            let pendingPropertiesEvent = observedPropertiesEvent.flatMap { event in
+                binding.handlesMediaProperties && event.generation
+                    > consumedMediaPropertiesGenerations[target, default: 0]
+                    ? event : nil
+            }
+            let pendingTimelineEvent = observedTimelineEvent.flatMap { event in
+                binding.handlesMediaTimeline && event.generation
+                    > consumedMediaTimelineGenerations[target, default: 0]
+                    ? event : nil
+            }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var playbackMutationCount = 0
+            var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
             if let changedUserPropertiesJSON {
                 switch binding.owner.dispatchUserProperties(
@@ -444,6 +489,28 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     continue
                 }
             }
+            if let pendingPropertiesEvent {
+                switch binding.owner.dispatchMediaProperties(
+                    pendingPropertiesEvent,
+                    frame: frame,
+                    userPropertiesJSON: userJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    propertiesLayerMutationCount = eventMutations.layers.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
             if let pendingMediaEvent {
                 switch binding.owner.dispatchMediaThumbnail(
                     pendingMediaEvent,
@@ -454,6 +521,27 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .success(eventMutations):
                     thumbnailMutationCount = eventMutations.materialFunctions.count
                         + eventMutations.animations.count
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
+            if let pendingTimelineEvent {
+                switch binding.owner.dispatchMediaTimeline(
+                    pendingTimelineEvent,
+                    frame: frame,
+                    userPropertiesJSON: userJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
                     callbackMaterialMutations.append(
                         contentsOf: eventMutations.materialFunctions
                     )
@@ -484,6 +572,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 if let pendingMediaEvent {
                     consumedMediaThumbnailGenerations[target] =
                         pendingMediaEvent.generation
+                }
+                if let pendingPropertiesEvent {
+                    consumedMediaPropertiesGenerations[target] =
+                        pendingPropertiesEvent.generation
+                }
+                if let pendingTimelineEvent {
+                    consumedMediaTimelineGenerations[target] =
+                        pendingTimelineEvent.generation
                 }
                 appliedUserPropertiesByTarget[target] = effectivePropertyValues
                 callbackMaterialMutations.append(
@@ -531,6 +627,18 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         pendingPlaybackEvent?.generation ?? 0,
                         pendingPlaybackEvent?.state ?? -1,
                         playbackMutationCount
+                    )
+                }
+                if let pendingPropertiesEvent {
+                    SceneScriptMediaRuntimeDiagnostics.logProperties(
+                        target: target,
+                        event: pendingPropertiesEvent,
+                        layerMutationCount: propertiesLayerMutationCount
+                    )
+                }
+                if let pendingTimelineEvent {
+                    SceneScriptMediaRuntimeDiagnostics.logTimeline(
+                        target: target, event: pendingTimelineEvent
                     )
                 }
                 if reportedTargets.insert(target).inserted {

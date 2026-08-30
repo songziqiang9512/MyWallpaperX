@@ -4,6 +4,7 @@ import Foundation
 extension DebugScenePlaybackRunner {
     static func publishRequestedMediaThumbnail(rootURL: URL) {
         publishRequestedMediaProperties()
+        publishRequestedMediaTimeline()
         guard let relativePath = argumentValue(
             after: "--mwx-debug-scene-media-thumbnail"
         ) else { return }
@@ -117,6 +118,35 @@ extension DebugScenePlaybackRunner {
             snapshot.properties?.albumArtist.utf8.count ?? 0,
             snapshot.properties?.genres.utf8.count ?? 0,
             snapshot.properties?.contentType.utf8.count ?? 0
+        )
+    }
+
+    private static func publishRequestedMediaTimeline() {
+        let rawPosition = argumentValue(
+            after: "--mwx-debug-scene-media-position"
+        )
+        let rawDuration = argumentValue(
+            after: "--mwx-debug-scene-media-duration"
+        )
+        guard rawPosition != nil || rawDuration != nil else { return }
+        guard let rawPosition, let rawDuration,
+              let position = Double(rawPosition), position.isFinite, position >= 0,
+              let duration = Double(rawDuration), duration.isFinite, duration >= 0,
+              SceneMediaThumbnailInbox.shared.publishMediaTimeline(
+                  position: position,
+                  duration: duration
+              ) else {
+            NSLog(
+                "MWX DEBUG SCENE: phase=media-timeline-rejected reason=invalid"
+            )
+            return
+        }
+        let snapshot = SceneMediaThumbnailInbox.shared.latest()
+        NSLog(
+            "MWX DEBUG SCENE: phase=media-timeline-published generation=%llu position=%.9g duration=%.9g",
+            snapshot.timelineGeneration,
+            snapshot.timeline?.position ?? 0,
+            snapshot.timeline?.duration ?? 0
         )
     }
 

@@ -176,6 +176,7 @@
       "SceneScript": {
         "file_globs": [
           "SceneScriptScalarProgram.swift",
+          "SceneScriptScalarProgram+Projection.swift",
           "SceneScriptScalarDisplayProjection.swift",
           "SceneScriptScalarRuntime.swift",
           "SceneScriptStringProgram.swift",
@@ -191,6 +192,7 @@
           "SceneScriptLayerRuntimeDescriptorBridge.swift",
           "SceneScriptLayerTopologyProjection.swift",
           "SceneScriptMediaEventBridge.swift",
+          "SceneScriptMediaFrameCoordinator.swift",
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
           "SceneScriptPropertyInput.swift",

@@ -35,6 +35,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN = 1u << 0,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE = 1u << 1,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES = 1u << 2,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY = 1u << 3,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -109,6 +110,11 @@ typedef struct MWXSceneQuickJSMediaThumbnailEvent {
 typedef struct MWXSceneQuickJSMediaPlaybackEvent {
     uint32_t state;
 } MWXSceneQuickJSMediaPlaybackEvent;
+
+typedef struct MWXSceneQuickJSMediaTimelineEvent {
+    double position;
+    double duration;
+} MWXSceneQuickJSMediaTimelineEvent;
 
 typedef struct MWXSceneQuickJSMediaPropertiesEvent {
     const char *title;
@@ -490,6 +496,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_playback(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
     const MWXSceneQuickJSMediaPlaybackEvent *event,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_timeline(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const MWXSceneQuickJSMediaTimelineEvent *event,
     const MWXSceneQuickJSFrameInput *frame,
     const char *user_properties_json,
     size_t user_properties_length,
