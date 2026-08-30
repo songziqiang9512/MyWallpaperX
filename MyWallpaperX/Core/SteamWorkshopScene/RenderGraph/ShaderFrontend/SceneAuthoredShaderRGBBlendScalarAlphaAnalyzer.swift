@@ -2,8 +2,9 @@ import Foundation
 
 /// Proves one bounded straight-color carrier whose final scalar drives both
 /// an authored RGB blend and multiplicative alpha. The proof is independent
-/// of effect/path identity and admits at most one distinct red-channel data
-/// sample in the scalar graph plus one optional post-transform opacity mask.
+/// of effect/path identity and admits distinct, single-sample red-channel data
+/// slots from the bounded authored slot space plus one optional post-transform
+/// opacity mask.
 nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
@@ -142,8 +143,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
               let terminalTransform = terminalOutput(
                 Array(fragment.tokens[statements.last!]),
                 carrierName: carrier
-              ), auxiliarySlots.count <= 1,
-              Set(auxiliarySlots).count == auxiliarySlots.count,
+              ), Set(auxiliarySlots).count == auxiliarySlots.count,
               !auxiliarySlots.contains(source.slot),
               pendingMask?.slot != source.slot,
               pendingMask.map({ !auxiliarySlots.contains($0.slot) }) ?? true,
@@ -435,14 +435,125 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
     ) -> Bool {
         let helpers = fragment.functions.filter { $0.name == "ApplyBlending" }
         guard helpers.count == 1, let helper = helpers.first,
-              blend.mode == 9,
               let names = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .blendParameterNames(helper, fragment: fragment),
               let returns = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .rootReturnExpressions(helper, fragment: fragment),
               returns.count == 2 else { return false }
-        return modeNineAddBlend(returns[0], names: names)
+        let selectedModeIsProven = switch blend.mode {
+        case 3: modeThreeColorBurnBlend(returns[0], names: names)
+        case 9: modeNineAddBlend(returns[0], names: names)
+        default: false
+        }
+        return selectedModeIsProven
             && normalFallback(returns[1], names: names)
+    }
+
+    private static func modeThreeColorBurnBlend(
+        _ expression: ArraySlice<Token>,
+        names: [String]
+    ) -> Bool {
+        guard let mix = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(expression),
+              ["mix", "lerp"].contains(mix.name),
+              mix.arguments.count == 3,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(mix.arguments[0]) == names[1],
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(mix.arguments[2]) == names[3],
+              let colorBurn = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(mix.arguments[1]),
+              ["CAST3", "vec3", "float3"].contains(colorBurn.name),
+              colorBurn.arguments.count == 3 else { return false }
+        return zip(colorBurn.arguments, ["r", "g", "b"]).allSatisfy {
+            colorBurnComponent(
+                $0.0,
+                baseName: names[1],
+                blendName: names[2],
+                component: $0.1
+            )
+        }
+    }
+
+    private static func colorBurnComponent(
+        _ expression: ArraySlice<Token>,
+        baseName: String,
+        blendName: String,
+        component: String
+    ) -> Bool {
+        guard let branches = rootTernary(expression),
+              let equality = binary(branches.condition, operator: "=="),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                equality.left, name: blendName, component: component
+              ), SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(equality.right) == 0,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                branches.trueValue, name: blendName, component: component
+              ), let maximum = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(branches.falseValue),
+              maximum.name == "max", maximum.arguments.count == 2,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(maximum.arguments[1]) == 0,
+              let outer = binary(maximum.arguments[0], operator: "-"),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(outer.left) == 1,
+              let division = binary(outer.right, operator: "/"),
+              let inner = binary(division.left, operator: "-"),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(inner.left) == 1,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                inner.right, name: baseName, component: component
+              ), SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                division.right, name: blendName, component: component
+              ) else { return false }
+        return true
+    }
+
+    private static func rootTernary(
+        _ expression: ArraySlice<Token>
+    ) -> (
+        condition: ArraySlice<Token>,
+        trueValue: ArraySlice<Token>,
+        falseValue: ArraySlice<Token>
+    )? {
+        let value = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .strippingParentheses(expression)
+        var depth = 0
+        var question: Int?
+        var colon: Int?
+        for index in value.indices {
+            if ["(", "["].contains(value[index].text) { depth += 1 }
+            if [")", "]"].contains(value[index].text) { depth -= 1 }
+            guard depth >= 0 else { return nil }
+            if depth == 0, value[index].text == "?" {
+                guard question == nil, colon == nil else { return nil }
+                question = index
+            } else if depth == 0, value[index].text == ":" {
+                guard question != nil, colon == nil else { return nil }
+                colon = index
+            }
+        }
+        guard depth == 0, let question, let colon,
+              value.startIndex < question, question + 1 < colon,
+              colon + 1 < value.endIndex else { return nil }
+        return (
+            value[..<question],
+            value[(question + 1)..<colon],
+            value[(colon + 1)...]
+        )
+    }
+
+    private static func binary(
+        _ expression: ArraySlice<Token>,
+        operator operation: String
+    ) -> (left: ArraySlice<Token>, right: ArraySlice<Token>)? {
+        let value = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .strippingParentheses(expression)
+        guard let index = soleTopLevelOperator(operation, in: value),
+              value.startIndex < index, index + 1 < value.endIndex else {
+            return nil
+        }
+        return (value[..<index], value[(index + 1)...])
     }
 
     private static func modeNineAddBlend(

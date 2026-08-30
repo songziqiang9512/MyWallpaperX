@@ -41,6 +41,8 @@ private struct Output: Codable {
     let audioAuxiliarySlots: [Int]?
     let maskedScalarAuxiliarySlots: [Int]?
     let maskedMaskSlot: Int?
+    let multiScalarAuxiliarySlots: [Int]?
+    let multiMaskSlot: Int?
     let renamedAccepted: Bool
     let staticTransferAccepted: Bool
     let audioTransferAccepted: Bool
@@ -49,6 +51,10 @@ private struct Output: Codable {
     let renamedLoweringAccepted: Bool
     let maskedTransferAccepted: Bool
     let maskedLoweringAccepted: Bool
+    let multiTransferAccepted: Bool
+    let multiLoweringAccepted: Bool
+    let modeThreeTransferAccepted: Bool
+    let modeThreeLoweringAccepted: Bool
     let saturateTransferAccepted: Bool
     let saturateLoweringAccepted: Bool
     let saturateCompilerTerminalDriftRejected: Bool
@@ -74,14 +80,21 @@ private struct Output: Codable {
     let sourceMaskTransformRejected: Bool
     let sourceMaskFactorRejected: Bool
     let compilerMaskSlotRejected: Bool
+    let compilerSecondAuxiliaryDetachedRejected: Bool
+    let modeThreeHelperDriftRejected: Bool
+    let modeThreeFallbackDriftRejected: Bool
+    let modeThreeCallModeDriftRejected: Bool
     let staticRouteProfile: String
     let audioRouteProfile: String
     let maskedRouteProfile: String
+    let multiRouteProfile: String
+    let modeThreeRouteProfile: String
     let renamedRouteProfile: String
     let routeState: String
     let rollbackOwner: String
     let missingTypedPurposeRejected: Bool
     let wrongMaskPurposeRejected: Bool
+    let modeThreeMissingMaskPurposeRejected: Bool
     let providerRejected: Bool
     let graphTargetRejected: Bool
     let secondGraphInputRejected: Bool
@@ -203,6 +216,45 @@ private let maskedMSL = staticMSL.replacingOccurrences(
     ].joined(separator: "\n")
 )
 
+private let multiAuthored = maskedAuthored
+    .replacingOccurrences(
+        of: "uniform sampler2D g_Texture2;",
+        with: "uniform sampler2D g_Texture2;\nuniform sampler2D g_Texture3;"
+    )
+    .replacingOccurrences(
+        of: "    pulse = g_Pulse;",
+        with: [
+            "    float phase = texSample2D(g_Texture3, v_TexCoord).r;",
+            "    pulse = g_Pulse + phase;",
+        ].joined(separator: "\n")
+    )
+
+private let multiMSL = maskedMSL
+    .replacingOccurrences(
+        of: "    pulse = g_Pulse;",
+        with: [
+            "    float phase = g_Texture3.sample(g_Texture3Smplr, in.v_TexCoord).x;",
+            "    pulse = g_Pulse + phase;",
+        ].joined(separator: "\n")
+    )
+
+private let modeThreeAuthored = multiAuthored
+    .replacingOccurrences(
+        of: "    return mix(base, min(base + blend, CAST3(1.0)), opacity);",
+        with: [
+            "    return mix(base, vec3(",
+            "        ((blend.r == 0.0) ? blend.r : max((1.0 - ((1.0 - base.r) / blend.r)), 0.0)),",
+            "        ((blend.g == 0.0) ? blend.g : max((1.0 - ((1.0 - base.g) / blend.g)), 0.0)),",
+            "        ((blend.b == 0.0) ? blend.b : max((1.0 - ((1.0 - base.b) / blend.b)), 0.0))",
+            "    ), opacity);",
+        ].joined(separator: "\n")
+    )
+    .replacingOccurrences(of: "ApplyBlending(9,", with: "ApplyBlending(3,")
+
+private let modeThreeMSL = multiMSL.replacingOccurrences(
+    of: "ApplyBlending(9,", with: "ApplyBlending(3,"
+)
+
 private let saturateAuthored = staticAuthored.replacingOccurrences(
     of: "gl_FragColor = vec4(max(CAST3(0), albedo.rgb), albedo.a);",
     with: "gl_FragColor = saturate(albedo);"
@@ -303,10 +355,15 @@ private enum RGBBlendScalarAlphaHarness {
         let staticFact = fact(staticAuthored)
         let audioFact = fact(audioAuthored)
         let maskedFact = fact(maskedAuthored)
+        let multiFact = fact(multiAuthored)
         let staticLowered = lowered(staticMSL, authored: staticAuthored)
         let audioLowered = lowered(audioMSL, authored: audioAuthored)
         let renamedLowered = lowered(renamedMSL, authored: renamedAuthored)
         let maskedLowered = lowered(maskedMSL, authored: maskedAuthored)
+        let multiLowered = lowered(multiMSL, authored: multiAuthored)
+        let modeThreeLowered = lowered(
+            modeThreeMSL, authored: modeThreeAuthored
+        )
         let expected = SceneGenericShaderCapabilityProfile
             .sourceProvenGraphInputRGBBlendScalarAlpha
         let staticProfile = profile(
@@ -324,6 +381,14 @@ private enum RGBBlendScalarAlphaHarness {
         let maskedProfile = profile(
             authored: maskedAuthored, active: [0, 1, 2], typed: [1, 2],
             graphInputs: [0], opacityMasks: [2]
+        )
+        let multiProfile = profile(
+            authored: multiAuthored, active: [0, 1, 2, 3],
+            typed: [1, 2, 3], graphInputs: [0], opacityMasks: [2]
+        )
+        let modeThreeProfile = profile(
+            authored: modeThreeAuthored, active: [0, 1, 2, 3],
+            typed: [1, 2, 3], graphInputs: [0], opacityMasks: [2, 3]
         )
         let saturateProfile = profile(
             authored: saturateAuthored,
@@ -346,6 +411,9 @@ private enum RGBBlendScalarAlphaHarness {
             maskedScalarAuxiliarySlots:
                 maskedFact?.scalarAuxiliarySlots.sorted(),
             maskedMaskSlot: maskedFact?.maskSlot,
+            multiScalarAuxiliarySlots:
+                multiFact?.scalarAuxiliarySlots.sorted(),
+            multiMaskSlot: multiFact?.maskSlot,
             renamedAccepted: fact(renamedAuthored) != nil,
             staticTransferAccepted: transferAccepted(staticAuthored, slot: 0),
             audioTransferAccepted: transferAccepted(audioAuthored, slot: 0),
@@ -354,6 +422,12 @@ private enum RGBBlendScalarAlphaHarness {
             renamedLoweringAccepted: renamedLowered != nil,
             maskedTransferAccepted: transferAccepted(maskedAuthored, slot: 0),
             maskedLoweringAccepted: maskedLowered != nil,
+            multiTransferAccepted: transferAccepted(multiAuthored, slot: 0),
+            multiLoweringAccepted: multiLowered != nil,
+            modeThreeTransferAccepted: transferAccepted(
+                modeThreeAuthored, slot: 0
+            ),
+            modeThreeLoweringAccepted: modeThreeLowered != nil,
             saturateTransferAccepted: unormTransferAccepted(
                 saturateAuthored, slot: 0
             ),
@@ -479,9 +553,34 @@ private enum RGBBlendScalarAlphaHarness {
                 ),
                 authored: maskedAuthored
             ) == nil,
+            compilerSecondAuxiliaryDetachedRejected: lowered(
+                multiMSL.replacingOccurrences(
+                    of: "pulse = g_Pulse + phase;",
+                    with: "pulse = g_Pulse;"
+                ),
+                authored: multiAuthored
+            ) == nil,
+            modeThreeHelperDriftRejected: fact(
+                modeThreeAuthored.replacingOccurrences(
+                    of: "(1.0 - base.g)", with: "(0.5 - base.g)"
+                )
+            ) == nil,
+            modeThreeFallbackDriftRejected: fact(
+                modeThreeAuthored.replacingOccurrences(
+                    of: "    return mix(base, (blend), opacity);",
+                    with: "    return mix(base, vec3(1.0), opacity);"
+                )
+            ) == nil,
+            modeThreeCallModeDriftRejected: fact(
+                modeThreeAuthored.replacingOccurrences(
+                    of: "ApplyBlending(3,", with: "ApplyBlending(9,"
+                )
+            ) == nil,
             staticRouteProfile: staticProfile.rawValue,
             audioRouteProfile: audioProfile.rawValue,
             maskedRouteProfile: maskedProfile.rawValue,
+            multiRouteProfile: multiProfile.rawValue,
+            modeThreeRouteProfile: modeThreeProfile.rawValue,
             renamedRouteProfile: renamedProfile.rawValue,
             routeState: expected.defaultRouteState.rawValue,
             rollbackOwner: expected.validatedRollbackOwner.rawValue,
@@ -492,6 +591,10 @@ private enum RGBBlendScalarAlphaHarness {
             wrongMaskPurposeRejected: profile(
                 authored: maskedAuthored,
                 active: [0, 1, 2], typed: [1, 2], graphInputs: [0]
+            ) != expected,
+            modeThreeMissingMaskPurposeRejected: profile(
+                authored: modeThreeAuthored, active: [0, 1, 2, 3],
+                typed: [1, 2, 3], graphInputs: [0], opacityMasks: [3]
             ) != expected,
             providerRejected: profile(
                 authored: staticAuthored,
@@ -566,6 +669,8 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         self.assertEqual(self.result["audioAuxiliarySlots"], [])
         self.assertEqual(self.result["maskedScalarAuxiliarySlots"], [1])
         self.assertEqual(self.result["maskedMaskSlot"], 2)
+        self.assertEqual(self.result["multiScalarAuxiliarySlots"], [1, 3])
+        self.assertEqual(self.result["multiMaskSlot"], 2)
         for key in (
             "renamedAccepted",
             "staticTransferAccepted",
@@ -575,6 +680,10 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "renamedLoweringAccepted",
             "maskedTransferAccepted",
             "maskedLoweringAccepted",
+            "multiTransferAccepted",
+            "multiLoweringAccepted",
+            "modeThreeTransferAccepted",
+            "modeThreeLoweringAccepted",
             "saturateTransferAccepted",
             "saturateLoweringAccepted",
             "sourceUnpremultipliedOnce",
@@ -588,6 +697,8 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         self.assertEqual(self.result["audioRouteProfile"], expected)
         self.assertEqual(self.result["renamedRouteProfile"], expected)
         self.assertEqual(self.result["maskedRouteProfile"], expected)
+        self.assertEqual(self.result["multiRouteProfile"], expected)
+        self.assertEqual(self.result["modeThreeRouteProfile"], expected)
         self.assertEqual(self.result["saturateRouteProfile"], expected)
         self.assertEqual(self.result["routeState"], "generic-only")
         self.assertEqual(self.result["rollbackOwner"], "none")
@@ -611,6 +722,10 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
             "sourceMaskTransformRejected",
             "sourceMaskFactorRejected",
             "compilerMaskSlotRejected",
+            "compilerSecondAuxiliaryDetachedRejected",
+            "modeThreeHelperDriftRejected",
+            "modeThreeFallbackDriftRejected",
+            "modeThreeCallModeDriftRejected",
             "saturateCompilerTerminalDriftRejected",
         ):
             self.assertTrue(self.result[key], key)
@@ -619,6 +734,7 @@ class SceneRGBBlendScalarAlphaTests(unittest.TestCase):
         for key in (
             "missingTypedPurposeRejected",
             "wrongMaskPurposeRejected",
+            "modeThreeMissingMaskPurposeRejected",
             "providerRejected",
             "graphTargetRejected",
             "secondGraphInputRejected",

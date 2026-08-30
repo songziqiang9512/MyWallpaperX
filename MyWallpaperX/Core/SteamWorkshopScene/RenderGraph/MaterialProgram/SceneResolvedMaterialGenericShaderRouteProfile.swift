@@ -478,8 +478,15 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   rgbBlendScalarAlphaFact?.sourceSlot == sourceSlot,
                   rgbBlendScalarAlphaFact?.auxiliarySlots
                     == typedStaticDataAuxiliarySlots,
-                  activeOpacityMaskSlots == (
+                  (rgbBlendScalarAlphaFact?.maskSlot.map {
+                    activeOpacityMaskSlots.contains($0)
+                  } ?? activeOpacityMaskSlots.isSubset(
+                    of: rgbBlendScalarAlphaFact?.scalarAuxiliarySlots ?? []
+                  )),
+                  activeOpacityMaskSlots.subtracting(
                     rgbBlendScalarAlphaFact?.maskSlot.map { Set([$0]) } ?? []
+                  ).isSubset(
+                    of: rgbBlendScalarAlphaFact?.scalarAuxiliarySlots ?? []
                   ),
                   activeTextureSlots
                     == typedStaticDataAuxiliarySlots.union([sourceSlot]),
