@@ -124,7 +124,8 @@ private func launchGateVariant(
         sameAlphaReconstructedRGBInputContract:
             base.sameAlphaReconstructedRGBInputContract,
         activeUniforms: base.activeUniforms,
-        neutralTextureResolution: base.neutralTextureResolution
+        neutralTextureResolution: base.neutralTextureResolution,
+        sameSlotMappedCoordinateFacts: base.sameSlotMappedCoordinateFacts
     )
 }
 

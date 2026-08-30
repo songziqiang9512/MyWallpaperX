@@ -62,6 +62,22 @@ void main() {
 }
 """
 
+private let accumulated = """
+uniform sampler2D g_Texture0;
+uniform vec3 u_tint;
+varying vec4 v_TexCoord;
+void main() {
+    vec3 paint = u_tint;
+    float coverage = 0.0;
+    [loop]
+    for (int tap = 0; tap < 8; tap++) {
+        float candidate = max(0.0, min(1.0, float(tap) / 8.0 + v_TexCoord.x));
+        coverage = max(coverage, candidate);
+    }
+    gl_FragColor = vec4(paint, coverage);
+}
+"""
+
 private let msl = """
 #include <metal_stdlib>
 using namespace metal;
@@ -104,6 +120,23 @@ private struct Output: Codable {
     let rollbackOwner: String
     let externalProviderRejected: Bool
     let graphInputRejected: Bool
+    let accumulatedFactAlpha: String
+    let accumulatedTransferAccepted: Bool
+    let accumulatedBoundedAccepted: Bool
+    let accumulatedPremultiplies: Bool
+    let accumulatedLoopHintRemoved: Bool
+    let accumulatedArtifactAccepted: Bool
+    let accumulatedSampleRejected: Bool
+    let accumulatedNonzeroSeedRejected: Bool
+    let accumulatedSecondWriteRejected: Bool
+    let accumulatedRGBDependencyRejected: Bool
+    let accumulatedRGBUniformDependencyRejected: Bool
+    let accumulatedEarlyContinueRejected: Bool
+    let accumulatedRuntimeBoundRejected: Bool
+    let accumulatedRuntimeBoundArrays: [String]
+    let accumulatedRuntimeBoundDiagnostics: [String]
+    let accumulatedNonMaxRejected: Bool
+    let accumulatedDiagnostics: [String]
 }
 
 private func fact(_ source: String) ->
@@ -159,6 +192,38 @@ private enum GeneratedStraightRGBAHarness {
         let artifact = try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
             msl: msl,
             authoredSource: authored
+        )
+        let accumulatedCompilation = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertex,
+            fragmentSource: accumulated
+        )
+        let accumulatedProgram = accumulatedCompilation.program
+        let accumulatedArtifact = try? SceneGenericShaderArtifactBuilder
+            .prepareColorTransfer(
+                msl: msl,
+                authoredSource: accumulated
+            )
+        let runtimeBounded = accumulated
+            .replacingOccurrences(
+                of: "uniform vec3 u_tint;",
+                with: "uniform vec3 u_tint;\nuniform float u_lower;\nuniform float u_limit;\nuniform float u_signal[64];"
+            )
+            .replacingOccurrences(of: "int tap = 0", with: "int tap = u_lower")
+            .replacingOccurrences(of: "tap < 8", with: "tap < u_limit")
+            .replacingOccurrences(
+                of: "max(0.0, min(1.0, float(tap) / 8.0 + v_TexCoord.x))",
+                with: "u_signal[tap]"
+            )
+        let runtimeBoundedSyntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: runtimeBounded,
+                stage: .fragment
+            ),
+            stage: .fragment,
+            provenRuntimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds(
+                vertex: [:],
+                fragment: ["u_lower": 0, "u_limit": 8]
+            ).fragment
         )
         let expected = SceneGenericShaderCapabilityProfile.ordinaryShader
         let route = profile(source: authored)
@@ -304,7 +369,81 @@ private enum GeneratedStraightRGBAHarness {
             externalProviderRejected:
                 profile(source: authored, provider: true) == expected,
             graphInputRejected:
-                profile(source: authored, graphInputs: [0]) == expected
+                profile(source: authored, graphInputs: [0]) == expected,
+            accumulatedFactAlpha: fact(accumulated)?.alphaName ?? "unresolved",
+            accumulatedTransferAccepted:
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: accumulated
+                ) == .generatedStraightAlpha,
+            accumulatedBoundedAccepted: accumulatedProgram != nil,
+            accumulatedPremultiplies: accumulatedProgram?.metalSource.contains(
+                "return mwxPremultiply(mwxFragColor);"
+            ) == true,
+            accumulatedLoopHintRemoved:
+                accumulatedProgram?.metalSource.contains("[ loop ]") == false
+                && accumulatedProgram?.metalSource.contains(
+                    "for ( int tap = 0 ; tap < 8 ; tap ++ )"
+                ) == true,
+            accumulatedArtifactAccepted:
+                accumulatedArtifact?.transfer.kind == "generated-straight-alpha"
+                && accumulatedArtifact?.msl.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(col, 0.75));"
+                ) == true,
+            accumulatedSampleRejected: fact(accumulated.replacingOccurrences(
+                of: "max(0.0, min(1.0, float(tap) / 8.0 + v_TexCoord.x))",
+                with: "texture2D(g_Texture0, v_TexCoord.xy).a"
+            )) == nil,
+            accumulatedNonzeroSeedRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "float coverage = 0.0;",
+                    with: "float coverage = 0.25;"
+                )
+            ) == nil,
+            accumulatedSecondWriteRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "coverage = max(coverage, candidate);",
+                    with: "coverage = candidate;\n        coverage = max(coverage, candidate);"
+                )
+            ) == nil,
+            accumulatedRGBDependencyRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "max(0.0, min(1.0, float(tap) / 8.0 + v_TexCoord.x))",
+                    with: "max(0.0, paint.r)"
+                )
+            ) == nil,
+            accumulatedRGBUniformDependencyRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "max(0.0, min(1.0, float(tap) / 8.0 + v_TexCoord.x))",
+                    with: "max(0.0, u_tint.r)"
+                )
+            ) == nil,
+            accumulatedEarlyContinueRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "float candidate =",
+                    with: "if (tap < 2) { continue; }\n        float candidate ="
+                )
+            ) == nil,
+            accumulatedRuntimeBoundRejected:
+                runtimeBoundedSyntax.diagnostics.isEmpty
+                && runtimeBoundedSyntax.unit.flatMap {
+                    SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyze($0)
+                } == nil,
+            accumulatedRuntimeBoundArrays: Array(
+                runtimeBoundedSyntax.unit?.exactRuntimeLoopUniformArrays ?? []
+            ).sorted(),
+            accumulatedRuntimeBoundDiagnostics:
+                runtimeBoundedSyntax.diagnostics.map {
+                    "\($0.code.rawValue):\($0.message)"
+                },
+            accumulatedNonMaxRejected: fact(
+                accumulated.replacingOccurrences(
+                    of: "coverage = max(coverage, candidate);",
+                    with: "coverage = min(coverage, candidate);"
+                )
+            ) == nil,
+            accumulatedDiagnostics: accumulatedCompilation.diagnostics.map {
+                "\($0.code.rawValue):\($0.message)"
+            }
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -396,6 +535,28 @@ class SceneGeneratedStraightRGBATests(unittest.TestCase):
             "compilerHelperConflictRejected",
             "externalProviderRejected",
             "graphInputRejected",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_bounded_max_accumulator_uses_the_same_color_boundary(self) -> None:
+        self.assertEqual(self.result["accumulatedFactAlpha"], "coverage")
+        self.assertEqual(self.result["accumulatedDiagnostics"], [])
+        self.assertEqual(self.result["accumulatedRuntimeBoundArrays"], ["u_signal"])
+        self.assertEqual(self.result["accumulatedRuntimeBoundDiagnostics"], [])
+        for key in (
+            "accumulatedTransferAccepted",
+            "accumulatedBoundedAccepted",
+            "accumulatedPremultiplies",
+            "accumulatedLoopHintRemoved",
+            "accumulatedArtifactAccepted",
+            "accumulatedSampleRejected",
+            "accumulatedNonzeroSeedRejected",
+            "accumulatedSecondWriteRejected",
+            "accumulatedRGBDependencyRejected",
+            "accumulatedRGBUniformDependencyRejected",
+            "accumulatedEarlyContinueRejected",
+            "accumulatedRuntimeBoundRejected",
+            "accumulatedNonMaxRejected",
         ):
             self.assertTrue(self.result[key], key)
 

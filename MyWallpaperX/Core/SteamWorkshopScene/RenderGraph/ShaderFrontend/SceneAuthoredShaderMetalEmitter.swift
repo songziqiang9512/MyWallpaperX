@@ -261,6 +261,17 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
         var index = 0
         while index < tokens.count {
             let token = tokens[index]
+            if token.text == "[",
+               index + 3 < tokens.count,
+               tokens[index + 1].text == "loop",
+               tokens[index + 2].text == "]",
+               tokens[index + 3].text == "for" {
+                // Wallpaper Engine's `[loop]` is a source-dialect control-flow
+                // hint, not an MSL expression. The syntax owner has already
+                // proven this exact loop is bounded.
+                index += 3
+                continue
+            }
             if let count = narrowingBoundaries.starts[index] {
                 output.append(String(repeating: "(", count: count))
             }
