@@ -6777,6 +6777,46 @@ utility layer 763: skippedHidden kind=composition
                 "named target consumer 182 binding should succeed",
             ],
         )
+        expected_passthrough = {
+            benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [{
+                "layer_id": 182,
+                "effect_index": 0,
+                "descriptor_id": "182#effect#223",
+                "reason": "external-primary-provider-source-unavailable",
+            }]
+        }
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                expected_passthrough,
+                2,
+                binding_metrics,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                expected_passthrough,
+                3,
+                binding_metrics,
+            ),
+            ["named target binding execution below planned count"],
+        )
+        self.assertEqual(
+            benchmark.named_target_binding_failures(
+                {
+                    benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [{
+                        "layer_id": 245,
+                        "effect_index": 0,
+                        "descriptor_id": "245#effect#246",
+                        "reason":
+                            "external-primary-provider-source-unavailable",
+                    }]
+                },
+                2,
+                binding_metrics,
+            ),
+            ["named target binding unavailable set mismatch"],
+        )
 
         missing = benchmark.particle_runtime_metrics("loaded: 20 / 24\n")
         self.assertEqual(

@@ -5723,8 +5723,25 @@ def named_target_binding_failures(
     metrics: dict[str, Any],
 ) -> list[str]:
     succeeded = set(metrics["succeeded_layer_ids"])
+    failed_only = set(metrics["failed_layer_ids"]).difference(succeeded)
     failures: list[str] = []
-    if len(succeeded) < planned_count:
+    expects_passthrough, passthrough_valid, expected_passthroughs = (
+        effect_local_passthrough_expectation(sample)
+    )
+    expected_provider_unavailable = {
+        layer_id
+        for layer_id, _, _, reason in expected_passthroughs
+        if reason == "external-primary-provider-source-unavailable"
+    } if expects_passthrough and passthrough_valid else set()
+    if expected_provider_unavailable and (
+        failed_only != expected_provider_unavailable
+        or len(expected_provider_unavailable) > planned_count
+    ):
+        failures.append("named target binding unavailable set mismatch")
+    required_success_count = max(
+        0, planned_count - len(expected_provider_unavailable)
+    )
+    if len(succeeded) < required_success_count:
         failures.append("named target binding execution below planned count")
     for layer_id in sample.get("required_named_target_binding_succeeded_layer_ids", []):
         if layer_id not in succeeded:

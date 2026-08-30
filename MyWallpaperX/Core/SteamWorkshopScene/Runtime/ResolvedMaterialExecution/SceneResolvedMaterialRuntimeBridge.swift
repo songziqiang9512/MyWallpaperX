@@ -116,6 +116,11 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     struct FrameInputs {
+        enum DependencyUnavailability: String, Hashable {
+            case providerSourceUnavailable =
+                "external-primary-provider-source-unavailable"
+        }
+
         let dynamicValues: SceneDynamicSnapshot
         let cursorUV: SIMD2<Float>
         let previousCursorUV: SIMD2<Float>
@@ -129,6 +134,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
         let dependencyEffect: SceneDependencyEffectInput?
+        var dependencyUnavailability: DependencyUnavailability? = nil
 
         func withDependencyEffect(
             _ dependencyEffect: SceneDependencyEffectInput?
@@ -147,7 +153,8 @@ final class SceneResolvedMaterialRuntimeBridge {
                 frameTime: frameTime,
                 time: time,
                 audioSpectrum: audioSpectrum,
-                dependencyEffect: dependencyEffect
+                dependencyEffect: dependencyEffect,
+                dependencyUnavailability: dependencyUnavailability
             )
         }
     }
@@ -400,6 +407,10 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func preparedOutputTexturesByLayerID() -> [Int: MTLTexture]? {
         submissions.preparedOutputTexturesByLayerID()
+    }
+
+    func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
+        submissions.preparedExternalDependencyBypassReason(layerID: layerID)
     }
 
     func rejectPreparedExternalDependencyLocally(

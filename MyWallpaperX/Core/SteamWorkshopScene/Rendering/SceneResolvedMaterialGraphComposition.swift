@@ -401,6 +401,14 @@ extension SceneImageLayerCompositor {
         resolvedMaterialRuntime?.preparedOutputTexturesByLayerID()
     }
 
+    func preparedResolvedMaterialExternalDependencyBypassReason(
+        layerID: Int
+    ) -> String? {
+        resolvedMaterialRuntime?.preparedExternalDependencyBypassReason(
+            layerID: layerID
+        )
+    }
+
     func rejectResolvedMaterialDependencySubgraphLocally(
         layerID: Int,
         reasonCode: String

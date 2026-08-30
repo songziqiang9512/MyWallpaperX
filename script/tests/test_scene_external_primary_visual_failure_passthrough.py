@@ -104,9 +104,11 @@ HARNESS = replace_once(
             capability: Capabilities.LayerCapability?,
             reason: String,
             injectedPreparedKey: String?,
-            leaseGeneration: UInt64
+            leaseGeneration: UInt64,
+            frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs? = nil
         ) -> ExternalFailureRun {
-            guard let claim, let capability, let externalDependencyInput,
+            guard let claim, let capability,
+                  let selectedFrameInputs = frameInputs ?? externalDependencyInput,
                   case .externalPrimary = capability.dependencyOwnership,
                   let leases = makeChainedLeases(
                       capability,
@@ -132,7 +134,7 @@ HARNESS = replace_once(
                 sourceTexture: makeSource(device, width: 2, height: 2),
                 sourceUniforms: .neutral(),
                 sourcePipeline: sourcePipeline,
-                frameInputs: externalDependencyInput,
+                frameInputs: selectedFrameInputs,
                 commandBuffer: command,
                 previousStates: [:],
                 previousGraphResources: [:],
@@ -235,6 +237,17 @@ HARNESS = replace_once(
             injectedPreparedKey: externalRuntimePreparedKey,
             leaseGeneration: 65
         )
+        let externalProviderUnavailable = runExternalFailure(
+            capabilities: externalReadyCapabilities,
+            claim: externalReadyClaim,
+            capability: externalReadyCapability,
+            reason: "external-primary-provider-source-unavailable",
+            injectedPreparedKey: nil,
+            leaseGeneration: 67,
+            frameInputs: .init(
+                dependencyUnavailability: .providerSourceUnavailable
+            )
+        )
         let externalLaunchStaleResource =
             SceneFrameTextureResource.reservedNamedLayerTarget(
                 reference: namedReference,
@@ -332,6 +345,13 @@ HARNESS = replace_once(
                     && externalRuntimeFailure.previousCurrent
                     && externalRuntimeFailure.suffix
                     && externalRuntimeFailure.providerPreserved,
+            "externalProviderSourceUnavailableLocalizesAndContinues":
+                externalProviderUnavailable.prepared
+                    && externalProviderUnavailable.encoded
+                    && externalProviderUnavailable.gpu
+                    && externalProviderUnavailable.previousCurrent
+                    && externalProviderUnavailable.suffix
+                    && externalProviderUnavailable.providerPreserved,
             "externalLaunchFailureCannotMaskStaleProvider":
                 externalLaunchFailureWithStaleProvider.failureCode
                     == Executor.Failure.graphPublicationRejected.rawValue
@@ -350,6 +370,8 @@ HARNESS = replace_once(
                     externalLaunchFailure.failureCode,
                 "externalRuntimeFailure":
                     externalRuntimeFailure.failureCode,
+                "externalProviderUnavailable":
+                    externalProviderUnavailable.failureCode,
                 "externalLaunchFailureWithStaleProvider":
                     externalLaunchFailureWithStaleProvider.failureCode,
                 "crossLayer": crossLayerFailure,
@@ -380,6 +402,7 @@ class ExternalPrimaryVisualFailurePassthroughTests(unittest.TestCase):
         for key in (
             "externalLaunchFailureLocalizesAndContinues",
             "externalRuntimeFailureLocalizesAndContinues",
+            "externalProviderSourceUnavailableLocalizesAndContinues",
             "externalLaunchFailureCannotMaskStaleProvider",
             "externalConsumerRecovers",
             "crossLayerMissingProviderRejectedAtomically",
@@ -390,6 +413,10 @@ class ExternalPrimaryVisualFailurePassthroughTests(unittest.TestCase):
             self.assertTrue(payload["results"][key], (key, payload))
         self.assertEqual(payload["failureCodes"]["externalLaunchFailure"], "success")
         self.assertEqual(payload["failureCodes"]["externalRuntimeFailure"], "success")
+        self.assertEqual(
+            payload["failureCodes"]["externalProviderUnavailable"],
+            "success",
+        )
         self.assertEqual(
             payload["failureCodes"]["externalLaunchFailureWithStaleProvider"],
             "graph-publication-rejected",

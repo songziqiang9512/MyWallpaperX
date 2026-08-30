@@ -108,6 +108,16 @@ extension SceneResolvedMaterialGraphExecutor {
                 effectLocalFailureReasonCode: &effectLocalFailureReasonCode
             )
         }
+        if let result = prepareUnavailableDependencyPassthrough(
+            frameInputs: frameInputs, dependencyOwnership: capability.dependencyOwnership,
+            transition: transition, graph: graph, pairStep: pairStep, lease: lease,
+            snapshot: visualFailureSnapshot, pair: &pair,
+            publications: &publications, commands: &commands,
+            programKeys: &programKeys,
+            effectLocalFailureReasonCode: &effectLocalFailureReasonCode
+        ) {
+            return result
+        }
         let dependencyFrame: SceneResolvedMaterialFrameSnapshot
         if let dependency = frameInputs.dependencyEffect {
             guard dependency.frameEpoch > 0,

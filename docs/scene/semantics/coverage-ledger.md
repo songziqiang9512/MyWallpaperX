@@ -848,6 +848,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 从同一只读来源派生的 `9000000997/9000000998` 在旧 App baseline 均由 Standard Blur dedicated owner 执行；新 Developer ID App 的 live/default 与 fresh recovery 均为 **2/2 PASS**，`blurscale=0.5` 被共享 producer 接受，两项目标均为 4 authored / 4 material / 0 rejected、7 Program / 0 dedicated，并闭合 GPU、publication、唯一 compositor 与 next-frame。删除 property definition 的 `9000000999` 仍为 **1/1 PASS** 且保留 dedicated owner；profile-local `disable-generic` 按未放宽 Program 期待为 **0/2 NON-PASS**，raw transaction 则证明两项目标均以 4 / 0 / 4 previous-current 完成 GPU/publication/compositor/next-frame，0 dedicated。最高结论只到该 exact childless mixed-source cohort 的 bounded owner migration，不证明独立 Blur fidelity、整个 family、Fast/fixed/full 或官方 parity。精确身份见 [E-V1-STANDARD-BLUR-MIXED-USER-SCALAR-OWNER](runtime-evidence-index.md#e-v1-standard-blur-mixed-user-scalar-owner)。
 
+### 2026-08-30 V1 external-primary provider source 局部失败回补（V4 执行中）
+
+目标合同由`MyWallpaperX-strategy`限定：普通 external-primary provider 暂无可发布 source 时，只能停用实际消费它的最小 effect/pass 并保留 previous-current；identity、ABI、generation/epoch、target hazard、publication、lifecycle、OOM/预算错误仍拒绝最小不安全单元。现役 preflight、runtime bridge、submission coordinator、renderer 与 GraphExecutor 现在传递同一个 typed `external-primary-provider-source-unavailable`，只有拥有该 external slot 的 graph effect 进入既有 GPU visual-failure passthrough；不伪造 texture/provider，不跳过后缀 effect，也没有新增 renderer、registry、history 或 compositor owner。benchmark 只在 exact expected passthrough identity/reason 与 failed-only binding 集合相等时扣除这些本不应成功的 binding；任何遗漏或额外失败仍为 NON-PASS。
+
+fresh 只读真实`2902406982`隔离运行最终为 selection-required **1/1 PASS**：38 submitted / 37 completed / 0 GPU failed，1230 claim / 1230 encode / 1230 GPU encoded，94 graph transaction success / 0 failed outcome；7 个 exact consumer `70#110, 182#223, 217#219, 245#246, 265#266, 285#286, 791#792`局部保住 previous-current 并各有 next-frame 证据，其他41个 accepted graph layer及5个 utility capture继续完成。该结果最高为`S3 executable shared failure-radius / whole-composition safety`，不是7个 provider视觉效果恢复、独立ROI、完整140 corpus、官方parity、V4完成或V5切换；真实provider publication仍是后续typed input/provider债务。精确身份与组合候选披露见[E-V1-EXTERNAL-PRIMARY-PROVIDER-LOCAL-FAILURE](runtime-evidence-index.md#e-v1-external-primary-provider-local-failure)。本批由`authored-corpus-observation`、当前typed诊断和`MyWallpaperX-current-evidence`即可决定，没有使用Ghidra或Mirage实现表达。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

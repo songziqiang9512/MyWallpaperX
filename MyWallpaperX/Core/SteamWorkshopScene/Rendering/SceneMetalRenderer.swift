@@ -245,15 +245,25 @@ struct SceneMetalRenderer {
                 guard let imagePipeline, let baseSource else { continue }
                 let texture = baseSource.texture
                 let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
-                let requiresDependencyEffect = resolvedFramePlan?
-                    .consumesExternalPrimaryDependency
-                    ?? dependencyRuntime.requiresEffect(for: layer.id)
+                let dependencyBypassReason = resolvedFramePlan == nil
+                    ? nil
+                    : imageCompositor
+                        .preparedResolvedMaterialExternalDependencyBypassReason(
+                            layerID: layer.id
+                        )
+                let requiresDependencyEffect = (
+                    resolvedFramePlan?.consumesExternalPrimaryDependency
+                        ?? dependencyRuntime.requiresEffect(for: layer.id)
+                ) && dependencyBypassReason == nil
                 let dependencyEffect: SceneDependencyEffectInput?
                 let resolvedDependencyFailure: (
                     reasonCode: String,
                     isOrdinaryUnavailable: Bool
                 )?
-                if requiresDependencyEffect, resolvedFramePlan != nil {
+                if dependencyBypassReason != nil {
+                    dependencyEffect = nil
+                    resolvedDependencyFailure = nil
+                } else if requiresDependencyEffect, resolvedFramePlan != nil {
                     switch dependencyRuntime.resolvedMaterialEffectInputResolution(
                         for: layer.id,
                         textureRegistry: textureRegistry
@@ -489,8 +499,13 @@ struct SceneMetalRenderer {
         // downstream consumer then takes the ordinary provider-miss path.
         guard framePlan != nil else { return true }
 
+        let dependencyBypassReason = imageCompositor
+            .preparedResolvedMaterialExternalDependencyBypassReason(
+                layerID: layer.id
+            )
         let dependencyEffect: SceneDependencyEffectInput?
-        if dependencyRuntime.requiresEffect(for: layer.id) {
+        if dependencyRuntime.requiresEffect(for: layer.id),
+           dependencyBypassReason == nil {
             switch dependencyRuntime.resolvedMaterialEffectInputResolution(
                 for: layer.id,
                 textureRegistry: textureRegistry

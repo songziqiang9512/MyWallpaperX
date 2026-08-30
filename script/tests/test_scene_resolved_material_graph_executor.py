@@ -192,15 +192,22 @@ struct AdmittedLayerGraph {
 
 final class SceneResolvedMaterialRuntimeBridge {
     struct FrameInputs {
+        enum DependencyUnavailability: String, Hashable {
+            case providerSourceUnavailable =
+                "external-primary-provider-source-unavailable"
+        }
+
         let time: Float
         let dynamicValues: SceneDynamicSnapshot
         let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
+        let dependencyUnavailability: DependencyUnavailability?
 
         init(
             dependencyEffect: SceneDependencyEffectInput? = nil,
+            dependencyUnavailability: DependencyUnavailability? = nil,
             dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
             pointerIsInside: Bool = true
         ) {
@@ -210,6 +217,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             layerModelMatrix = matrix_identity_float4x4
             effectTextureProjectionMatrixInverse = matrix_identity_float4x4
             self.dependencyEffect = dependencyEffect
+            self.dependencyUnavailability = dependencyUnavailability
         }
     }
 }

@@ -8,6 +8,41 @@ extension SceneResolvedMaterialGraphExecutor {
         let programKeyCount: Int
     }
 
+    /// The outer optional means this graph owns no slot for the unavailable
+    /// dependency; the inner optional is the normal passthrough result.
+    func prepareUnavailableDependencyPassthrough(
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
+        dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        transition: State.Transition,
+        graph: Graph,
+        pairStep: Pair.EffectStep,
+        lease: SceneGraphRenderTargetLease,
+        snapshot: VisualFailureSnapshot,
+        pair: inout PairAtom,
+        publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
+        commands: inout [Command],
+        programKeys: inout [String],
+        effectLocalFailureReasonCode: inout String?
+    ) -> Failure?? {
+        guard let unavailable = frameInputs.dependencyUnavailability,
+              let slots = dependencyOwnership.preEncodeVisualFailureSlots(in: graph),
+              !slots.isEmpty else { return nil }
+        return .some(prepareVisualFailurePassthrough(
+            reasonCode: unavailable.rawValue,
+            dependencyOwnership: dependencyOwnership,
+            transition: transition,
+            graph: graph,
+            pairStep: pairStep,
+            lease: lease,
+            snapshot: snapshot,
+            pair: &pair,
+            publications: &publications,
+            commands: &commands,
+            programKeys: &programKeys,
+            effectLocalFailureReasonCode: &effectLocalFailureReasonCode
+        ))
+    }
+
     /// Preserves the previous current for one launch-time visual contract or
     /// pre-encode frame preparation failure. This is an exact pair-member copy,
     /// not a fabricated shader result. Live resource availability, target,
@@ -62,6 +97,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "effect-activation-scalar-type-invalid",
             "dependency-stage-reference-unavailable",
             "dependency-stage-secondary-reference-unavailable",
+            "external-primary-provider-source-unavailable",
         ].contains(reasonCode),
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,
@@ -216,7 +252,8 @@ extension SceneResolvedMaterialGraphExecutor {
             return false
         }
         if reasonCode == "dependency-stage-reference-unavailable"
-            || reasonCode == "dependency-stage-secondary-reference-unavailable" {
+            || reasonCode == "dependency-stage-secondary-reference-unavailable"
+            || reasonCode == "external-primary-provider-source-unavailable" {
             guard transition.nextState.historyClosureIdentities.isEmpty else {
                 return false
             }

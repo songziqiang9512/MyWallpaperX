@@ -1490,6 +1490,7 @@ private func makeLedger(
         capabilityToken: .init(value: 7),
         prepared: prepared,
         preparedDependencyEffect: preparedDependencyEffect,
+        preparedDependencyUnavailability: nil,
         commandBuffer: commandBuffer,
         committedBaseTails: coordinator.committedTails,
         blueprint: blueprint,
@@ -4370,6 +4371,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             encoding="utf-8"
         )
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+        metal_renderer = METAL_RENDERER.read_text(encoding="utf-8")
 
         self.assertIn("static func executeClaimed(", composition)
         self.assertIn("static func preflight(", composition)
@@ -4433,6 +4435,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn(
             "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
             compositor,
+        )
+        self.assertIn(
+            "if dependencyBypassReason != nil {\n"
+            "                    dependencyEffect = nil",
+            metal_renderer,
         )
         self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
         self.assertIn("unclaimed-visible-effects-\\(reason.rawValue)", compositor)
@@ -4511,6 +4518,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn(
             "dependencyReservationMatches("
             "request.frameInputs.dependencyEffect,"
+            "unavailability:request.frameInputs.dependencyUnavailability,"
             "ownership:claim.dependencyOwnership)",
             compact_coordinator,
         )
@@ -4518,6 +4526,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         compact_execution = "".join(execution.split())
         self.assertIn(
             "dependenciesMatch(prepared:ledger.preparedDependencyEffect,"
+            "preparedUnavailability:ledger.preparedDependencyUnavailability,"
             "ready:dependencyEffect,ownership:claim.dependencyOwnership)",
             compact_execution,
         )

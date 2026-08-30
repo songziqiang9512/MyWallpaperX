@@ -344,8 +344,13 @@ extension SceneMetalRenderer {
                 return invalid("layer-\(layerID)-claim-token-mismatch")
             }
             let dependencyEffect: SceneDependencyEffectInput?
+            let dependencyUnavailability:
+                SceneResolvedMaterialRuntimeBridge.FrameInputs
+                    .DependencyUnavailability?
             switch claim.dependencyOwnership {
-            case .none, .graphInternal: dependencyEffect = nil
+            case .none, .graphInternal:
+                dependencyEffect = nil
+                dependencyUnavailability = nil
             case .externalPrimary(let binding):
                 guard binding.consumerLayerID == layerID,
                       let providerLayer = layersByID[binding.providerLayerID] else {
@@ -365,11 +370,22 @@ extension SceneMetalRenderer {
                         )
                 )
                 guard let providerSource = providerSelection.source else {
-                    return invalid(
-                        "layer-\(layerID)-dependency-provider-source-"
-                            + (providerSelection.rejectedProviderReason
-                                ?? "missing")
-                    )
+                    switch providerSelection {
+                    case .missing:
+                        dependencyEffect = nil
+                        dependencyUnavailability = .providerSourceUnavailable
+                        break
+                    case let .rejected(reasonCode):
+                        return invalid(
+                            "layer-\(layerID)-dependency-provider-source-"
+                                + reasonCode
+                        )
+                    case .source:
+                        return invalid(
+                            "layer-\(layerID)-dependency-provider-source-invariant"
+                        )
+                    }
+                    break
                 }
                 var dependencyFailureReason: String?
                 guard let reservedInput = dependencyRuntime.reserveEffectInput(
@@ -388,6 +404,7 @@ extension SceneMetalRenderer {
                     )
                 }
                 dependencyEffect = reservedInput
+                dependencyUnavailability = nil
             }
             let sourceMVP: simd_float4x4
             let outputMVP: simd_float4x4
@@ -559,7 +576,8 @@ extension SceneMetalRenderer {
                 frameTime: Float(frameContext.frameTime),
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,
-                dependencyEffect: dependencyEffect
+                dependencyEffect: dependencyEffect,
+                dependencyUnavailability: dependencyUnavailability
             )
             let materialFunctionInvocations = frameContext.materialFunctionMutations
                 .filter { $0.layerID == layerID }

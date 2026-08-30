@@ -47,6 +47,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
         let preparedDependencyEffect: SceneDependencyEffectInput?
+        let preparedDependencyUnavailability:
+            Bridge.FrameInputs.DependencyUnavailability?
         let commandBuffer: MTLCommandBuffer
         let committedBaseTails: [Graph.EffectKey: Tail]
         var blueprint: CandidateBlueprint?
@@ -257,6 +259,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   capability.dependencyOwnership == claim.dependencyOwnership,
                   dependencyReservationMatches(
                       request.frameInputs.dependencyEffect,
+                      unavailability:
+                        request.frameInputs.dependencyUnavailability,
                       ownership: claim.dependencyOwnership
                   ), sceneBackgroundReservationMatches(
                       request.sceneBackgroundResource,
@@ -287,6 +291,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let claim = request.claim
             let targets = preparedTargets[index]
             let preparedDependencyEffect: SceneDependencyEffectInput?
+            let preparedDependencyUnavailability =
+                request.frameInputs.dependencyUnavailability
             switch claim.dependencyOwnership {
             case .none, .graphInternal:
                 preparedDependencyEffect = request.frameInputs.dependencyEffect
@@ -304,7 +310,18 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     emit(emission)
                     return .rejected(reasonCode: reason)
                 }
-                if let provider = providerCandidates.first {
+                if preparedDependencyUnavailability != nil {
+                    guard original == nil, providerCandidates.isEmpty else {
+                        let reason = "prepared-provider-unavailability-mismatch"
+                        emission = framePreparationFailureLocked(
+                            candidates, reason: reason
+                        )
+                        lock.unlock()
+                        emit(emission)
+                        return .rejected(reasonCode: reason)
+                    }
+                    preparedDependencyEffect = nil
+                } else if let provider = providerCandidates.first {
                     guard let original,
                           original.providerLayerID == provider.layerID else {
                         let reason = "prepared-provider-input-mismatch"
@@ -417,6 +434,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 capabilityToken: claim.token,
                 prepared: prepared,
                 preparedDependencyEffect: preparedDependencyEffect,
+                preparedDependencyUnavailability:
+                    preparedDependencyUnavailability,
                 commandBuffer: commandBuffer,
                 committedBaseTails: committedTails,
                 blueprint: blueprint,
@@ -479,6 +498,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 capabilityToken: candidate.capabilityToken,
                 prepared: candidate.prepared,
                 preparedDependencyEffect: candidate.preparedDependencyEffect,
+                preparedDependencyUnavailability:
+                    candidate.preparedDependencyUnavailability,
                 commandBuffer: candidate.commandBuffer,
                 committedBaseTails: candidate.committedBaseTails,
                 blueprint: candidate.blueprint,

@@ -28,6 +28,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               !ledger.claimConsumed,
               dependencyReservationMatches(
                   ledger.preparedDependencyEffect,
+                  unavailability: ledger.preparedDependencyUnavailability,
                   ownership: capability.dependencyOwnership
               ),
               ledger.prepared.historyTokensByEffect.isEmpty,
@@ -107,6 +108,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
               commandBuffer.status == .notEnqueued,
               dependenciesMatch(
                   prepared: ledger.preparedDependencyEffect,
+                  preparedUnavailability:
+                    ledger.preparedDependencyUnavailability,
                   ready: dependencyEffect,
                   ownership: claim.dependencyOwnership
               ), sceneBackgroundTextureMatches(
@@ -148,7 +151,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         activeByID[identity] = ledger
         frameEncoded += 1
         let consumesExternalPrimaryDependency: Bool
-        if case .externalPrimary = claim.dependencyOwnership {
+        if case .externalPrimary = claim.dependencyOwnership,
+           ledger.preparedDependencyUnavailability == nil {
             consumesExternalPrimaryDependency = true
         } else {
             consumesExternalPrimaryDependency = false
@@ -180,11 +184,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     func dependencyReservationMatches(
         _ input: SceneDependencyEffectInput?,
+        unavailability:
+            Bridge.FrameInputs.DependencyUnavailability? = nil,
         ownership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
         switch ownership {
         case .none, .graphInternal:
-            return input == nil
+            return input == nil && unavailability == nil
         case .externalPrimary(let binding):
             switch binding.kind {
             case .resolvedMaterial:
@@ -202,6 +208,10 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 1,
                       binding.blendMode == 0 else { return false }
+            }
+            if let unavailability {
+                return input == nil
+                    && unavailability == .providerSourceUnavailable
             }
             guard let input else { return false }
             return input.consumerLayerID == binding.consumerLayerID
@@ -233,16 +243,45 @@ extension SceneResolvedMaterialSubmissionCoordinator {
 
     private func dependenciesMatch(
         prepared: SceneDependencyEffectInput?,
+        preparedUnavailability:
+            Bridge.FrameInputs.DependencyUnavailability?,
         ready: SceneDependencyEffectInput?,
         ownership: SceneResolvedMaterialDependencyOwnership
     ) -> Bool {
-        guard dependencyReservationMatches(prepared, ownership: ownership),
-              dependencyReservationMatches(ready, ownership: ownership) else {
+        guard dependencyReservationMatches(
+                prepared,
+                unavailability: preparedUnavailability,
+                ownership: ownership
+              ),
+              preparedUnavailability == nil
+                || ready == nil,
+              preparedUnavailability != nil
+                || dependencyReservationMatches(ready, ownership: ownership) else {
             return false
         }
+        if preparedUnavailability != nil { return true }
         guard let prepared, let ready else { return true }
         return prepared.frameEpoch == ready.frameEpoch
             && prepared.texture === ready.texture
+    }
+
+    func preparedExternalDependencyBypassReason(layerID: Int) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard frameIsActive, framePreparationComplete,
+              !frameRequiresDrop, frameFailure == nil,
+              let identity = preparedLedgerByLayerID[layerID],
+              let ledger = activeByID[identity],
+              ledger.layerID == layerID,
+              ledger.phase == .allocationCommitted,
+              !ledger.claimConsumed,
+              let unavailable = ledger.preparedDependencyUnavailability,
+              ledger.preparedDependencyEffect == nil,
+              ledger.prepared.stages.contains(where: {
+                  $0.effect.layerID == layerID
+                      && $0.effectLocalFailureReasonCode == unavailable.rawValue
+              }) else { return nil }
+        return unavailable.rawValue
     }
 
     private func sceneBackgroundTextureMatches(
