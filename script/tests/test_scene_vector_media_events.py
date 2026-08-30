@@ -52,6 +52,18 @@ enum Harness {
                         ]
                     )]
                 )]
+            ),
+            .init(
+                id: 500,
+                layerIndex: 1,
+                name: "direct-color",
+                visible: true,
+                originXYZ: [0, 0, 0],
+                scaleXYZ: [1, 1, 1],
+                colorRGB: [0.25, 0.5, 0.75],
+                scaleHasScript: false,
+                alpha: 1,
+                effects: []
             )
         ])
         let mediaFrame = SceneScriptFrameInput(
@@ -358,6 +370,84 @@ enum Harness {
         )
         let routeCommittedTargets = Set(routeProgram.definitions.map(\.target))
 
+        let directColorTarget = SceneDynamicTarget.layer(
+            layerID: 500, field: .color
+        )
+        let allRouteBindings = routeBindings + [directColorBinding(
+            source: directColorMediaSource
+        )]
+        let allRouteProjection = SceneScriptVectorProgram.project(
+            descriptor: descriptor,
+            scriptBindings: allRouteBindings,
+            admittedLayerColorConsumerIDs: [500]
+        )
+        let buildRoutedPrograms: (
+            SceneScriptVectorMediaRouteState, UInt64
+        ) throws -> SceneScriptVectorMediaRouteCandidate? = { route, generation in
+            try SceneScriptVectorMediaRouteCandidate.compile(
+                initialPassTargets: [mediaTarget, rollbackPeerTarget],
+                route: route,
+                cancellationCheck: {},
+                builder: { admittedPassTargets, excludedVectorTargets in
+                    try SceneScriptQuickJSProgramCandidate.compile(
+                        authoredDescriptor: descriptor,
+                        runtimeDescriptor: descriptor,
+                        scriptBindings: allRouteBindings,
+                        vectorProjection: allRouteProjection.excludingTargets(
+                            excludedVectorTargets
+                        ),
+                        userPropertyDefinitions: [],
+                        timelineTargets: [],
+                        scalarExcludedTargets: [],
+                        stringExcludedTargets: [],
+                        admittedVectorPassTargets: admittedPassTargets,
+                        generation: generation
+                    )
+                }
+            )
+        }
+        let genericRouteCandidate = try! buildRoutedPrograms(
+            .genericOnly, 40
+        )!
+        let genericRouteResult = genericRouteCandidate.programs.vectorProgram
+            .evaluate(
+                inputs: [
+                    mediaTarget: .vector3(0.2, 0.4, 0.6),
+                    rollbackPeerTarget: .vector3(1, 2, 3),
+                    directColorTarget: .vector3(0.25, 0.5, 0.75),
+                ],
+                effectivePropertyValues: [:], frame: mediaFrame,
+                mediaThumbnailEvent: blueEvent
+            )
+        let disabledRouteCandidate = try! buildRoutedPrograms(
+            .disableGeneric, 41
+        )!
+        let disabledRouteFallback = SceneScriptFallbackCatalog(
+            authoredDescriptor: descriptor,
+            runtimeDescriptor: descriptor,
+            scriptBindings: allRouteBindings,
+            vectorProjection: allRouteProjection,
+            constructionReport:
+                disabledRouteCandidate.programs.constructionReport,
+            timelineTargets: [],
+            scalarExcludedTargets: [],
+            stringExcludedTargets: [],
+            routeDisabledTargets: disabledRouteCandidate.mediaOwnerTargets
+        )!
+        let disabledRouteResult = disabledRouteCandidate.programs.vectorProgram
+            .evaluate(
+                inputs: [
+                    mediaTarget: .vector3(0.2, 0.4, 0.6),
+                    rollbackPeerTarget: .vector3(1, 2, 3),
+                    directColorTarget: .vector3(0.25, 0.5, 0.75),
+                ],
+                effectivePropertyValues: [:], frame: mediaFrame,
+                mediaThumbnailEvent: blueEvent
+            )
+        let freshGenericRouteCandidate = try! buildRoutedPrograms(
+            .genericOnly, 42
+        )!
+
         let propertyTarget = SceneDynamicTarget.layer(
             layerID: 10,
             field: .origin
@@ -383,7 +473,41 @@ enum Harness {
             frame: mediaFrame
         )
 
-        let payload: [String: Any] = [
+        let allRoutePayload: [String: Any] = [
+            "allRouteGenericMediaTargets":
+                genericRouteCandidate.mediaOwnerTargets.count,
+            "allRouteGenericDirectValue": vector(
+                genericRouteResult.values[directColorTarget]
+            ),
+            "allRouteGenericPeer": vector(
+                genericRouteResult.values[rollbackPeerTarget]
+            ),
+            "allRouteDisabledMediaTargets":
+                disabledRouteCandidate.mediaOwnerTargets.count,
+            "allRouteDisabledActiveMediaTargets":
+                disabledRouteCandidate.programs.vectorProgram
+                    .mediaThumbnailTargets.count,
+            "allRouteDisabledDirectPublished":
+                disabledRouteResult.values[directColorTarget] != nil,
+            "allRouteDisabledPassPublished":
+                disabledRouteResult.values[mediaTarget] != nil,
+            "allRouteDisabledPeer": vector(
+                disabledRouteResult.values[rollbackPeerTarget]
+            ),
+            "allRouteDisabledFallbackTargets":
+                disabledRouteFallback.targets.count,
+            "allRouteDisabledDirectFallback":
+                disabledRouteFallback.definitions.contains {
+                    $0.target == directColorTarget
+                        && $0.authoredValue == .vector3(0.25, 0.5, 0.75)
+                },
+            "allRouteFreshGenericMediaTargets":
+                freshGenericRouteCandidate.mediaOwnerTargets.count,
+            "allRouteFreshGenericDirectRestored":
+                freshGenericRouteCandidate.programs.vectorProgram.definitions
+                    .contains { $0.target == directColorTarget },
+        ]
+        var payload: [String: Any] = [
             "bindings": mediaProgram.bindings.count,
             "start": vector(blueStart.values[mediaTarget]),
             "midpoint": vector(blueMidpoint.values[mediaTarget]),
@@ -482,6 +606,7 @@ enum Harness {
                 propertyRecovered.values[propertyTarget]
             ),
         ]
+        payload.merge(allRoutePayload) { _, routeValue in routeValue }
         let data = try JSONSerialization.data(
             withJSONObject: payload,
             options: [.sortedKeys]
@@ -560,6 +685,30 @@ enum Harness {
         )
     }
 
+    static func directColorBinding(
+        source: String
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 1,
+                objectID: 500,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [
+                .key("objects"), .index(1), .key("color"),
+            ],
+            properties: [:],
+            authoredValue: .string("0.25 0.5 0.75"),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
     static func vector(_ value: SceneDynamicValue?) -> [Double] {
         guard case let .vector3(x, y, z)? = value else { return [] }
         return [x, y, z]
@@ -610,6 +759,16 @@ enum Harness {
 
     static let mediaRollbackPeerSource = """
     export function update(value) { return value.multiply(2) }
+    """
+
+    static let directColorMediaSource = """
+    let currentColor = new Vec3(0.25, 0.5, 0.75)
+    export function mediaThumbnailChanged(event) {
+      currentColor.x = event.primaryColor.x
+      currentColor.y = event.primaryColor.y
+      currentColor.z = event.primaryColor.z
+    }
+    export function update(value) { return currentColor.copy() }
     """
 
     static let propertyEventSource = """
@@ -726,6 +885,23 @@ class SceneVectorMediaEventTests(unittest.TestCase):
         self.assertEqual(value["routeDisabledSnapshotSource"], "timeline")
         self.assertEqual(value["routeAuthoredFallbackSnapshot"], [0.2, 0.4, 0.6])
         self.assertEqual(value["routeAuthoredFallbackSource"], "authored")
+
+    def test_media_route_rebuilds_non_pass_color_owner_in_fresh_domain(
+        self,
+    ) -> None:
+        value = self.value
+        self.assertEqual(value["allRouteGenericMediaTargets"], 2)
+        self.assertEqual(value["allRouteGenericDirectValue"], [0.9, 0.1, 0.2])
+        self.assertEqual(value["allRouteGenericPeer"], [2, 4, 6])
+        self.assertEqual(value["allRouteDisabledMediaTargets"], 2)
+        self.assertEqual(value["allRouteDisabledActiveMediaTargets"], 0)
+        self.assertFalse(value["allRouteDisabledDirectPublished"])
+        self.assertFalse(value["allRouteDisabledPassPublished"])
+        self.assertEqual(value["allRouteDisabledPeer"], [2, 4, 6])
+        self.assertEqual(value["allRouteDisabledFallbackTargets"], 2)
+        self.assertTrue(value["allRouteDisabledDirectFallback"])
+        self.assertEqual(value["allRouteFreshGenericMediaTargets"], 2)
+        self.assertTrue(value["allRouteFreshGenericDirectRestored"])
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
 }
 
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case visibility, origin, scale, angles
+    case visibility, origin, scale, angles, color
 }
 
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
@@ -137,7 +137,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
-        let effects: [EffectDescriptor]
+        var colorRGB: [Float]? = nil
+        var effects: [EffectDescriptor]
         var visible: Bool? = true
         var contentKind = "image"
         var parentID: Int? = nil
@@ -146,9 +147,14 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
         var utilityLayer: Int? = nil
+
+        var supportsDirectLayerColorConsumer: Bool {
+            contentKind == "solid"
+                || (contentKind == "image" && effects.isEmpty)
+        }
     }
 
-    let layers: [Layer]
+    var layers: [Layer]
 }
 
 nonisolated enum SceneScriptVectorProgram {
@@ -247,6 +253,47 @@ enum Harness {
                 binding(key: "angles", value: "7 8 9", pathKey: "origin"),
             ]
         )
+        var colorDescriptor = descriptor
+        colorDescriptor.layers[0].colorRGB = [0.25, 0.5, 0.75]
+        let color = SceneScriptVectorProgram.project(
+            descriptor: colorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
+            admittedLayerColorConsumerIDs: [101]
+        )
+        let unclaimedColor = SceneScriptVectorProgram.project(
+            descriptor: colorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")]
+        )
+        let mismatchedColor = SceneScriptVectorProgram.project(
+            descriptor: colorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.7")],
+            admittedLayerColorConsumerIDs: [101]
+        )
+        var hiddenColorDescriptor = colorDescriptor
+        hiddenColorDescriptor.layers[0].visible = false
+        let hiddenColor = SceneScriptVectorProgram.project(
+            descriptor: hiddenColorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
+            admittedLayerColorConsumerIDs: [101]
+        )
+        var effectColorDescriptor = colorDescriptor
+        effectColorDescriptor.layers[0].effects = [.init(
+            id: "effect", name: "effect", effectID: 1, visible: true,
+            passes: []
+        )]
+        let effectColor = SceneScriptVectorProgram.project(
+            descriptor: effectColorDescriptor,
+            scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
+            admittedLayerColorConsumerIDs: [101]
+        )
+        let duplicateColor = SceneScriptVectorProgram.project(
+            descriptor: colorDescriptor,
+            scriptBindings: [
+                binding(key: "color", value: "0.25 0.5 0.75"),
+                binding(key: "color", value: "0.25 0.5 0.75"),
+            ],
+            admittedLayerColorConsumerIDs: [101]
+        )
         let expectedTargets: Set<SceneDynamicTarget> = [
             .layer(layerID: 101, field: .origin),
             .layer(layerID: 101, field: .scale),
@@ -265,6 +312,19 @@ enum Harness {
                 ],
             "mismatchRejected": mismatched.candidates.isEmpty,
             "wrongPathRejected": wrongPath.candidates.isEmpty,
+            "colorDefinition": color.definitions.contains {
+                $0.target == .layer(layerID: 101, field: .color)
+                    && $0.valueType == .vector3
+                    && $0.authoredValue == .vector3(0.25, 0.5, 0.75)
+            },
+            "unclaimedColorRejected": unclaimedColor.candidates.isEmpty,
+            "mismatchedColorRejected": mismatchedColor.candidates.isEmpty,
+            "hiddenColorRejected": hiddenColor.candidates.isEmpty,
+            "effectColorRejected": effectColor.candidates.isEmpty,
+            "duplicateColorRejected": duplicateColor.uniqueCandidates.isEmpty
+                && duplicateColor.duplicateTargets == [
+                    .layer(layerID: 101, field: .color),
+                ],
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -314,6 +374,14 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["duplicateRejected"])
         self.assertTrue(self.result["mismatchRejected"])
         self.assertTrue(self.result["wrongPathRejected"])
+
+    def test_image_color_requires_exact_visible_direct_consumer(self) -> None:
+        self.assertTrue(self.result["colorDefinition"])
+        self.assertTrue(self.result["unclaimedColorRejected"])
+        self.assertTrue(self.result["mismatchedColorRejected"])
+        self.assertTrue(self.result["hiddenColorRejected"])
+        self.assertTrue(self.result["effectColorRejected"])
+        self.assertTrue(self.result["duplicateColorRejected"])
 
 
 if __name__ == "__main__":

@@ -430,7 +430,7 @@ extension SceneDesktopWallpaperHost {
         let sceneScriptVectorInputs = launchContext.sceneScriptVectorMediaRoute
             .admittedVectorInputs(
                 projectedSceneScriptVectorInputs,
-                mediaOwnerTargets: launchContext.propertyVectorMediaPassTargets
+                mediaOwnerTargets: launchContext.propertyVectorMediaTargets
             )
         let sceneScriptVectorResult: SceneScriptVectorFrameResult
         if let failure = sceneScriptLayerSnapshotFailure {

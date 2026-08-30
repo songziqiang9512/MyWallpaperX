@@ -19,6 +19,9 @@ import scene_wallpaper_benchmark as benchmark
 MEDIA_TARGET = (
     'effectConstant(layerID: 1089, effectIndex: 0, passIndex: 0, name: "color")'
 )
+LAYER_COLOR_TARGET = (
+    "layer(layerID: 419, field: MyWallpaperX.SceneDynamicLayerField.color)"
+)
 MEDIA_COMPLETION_LINE = (
     "MWX SceneScript VM: target=effectConstant(layerID: 1089, "
     "effectIndex: 0, passIndex: 0, name: \"color\") "
@@ -42,6 +45,15 @@ MEDIA_CALLBACK_EXPECTATION = {
     "high_contrast_color": [0.5, 0.6, 0.7],
     "route": "generic-only",
 }
+LAYER_COLOR_COMPLETION_LINE = (
+    "MWX SceneScript VM: target=layer(layerID: 419, "
+    "field: MyWallpaperX.SceneDynamicLayerField.color) "
+    "event=mediaThumbnailChanged generation=2 hasThumbnail=true "
+    "primary=0.1,0.2,0.3 secondary=0.2,0.3,0.4 "
+    "tertiary=0.3,0.4,0.5 text=0.4,0.5,0.6 "
+    "highContrast=0.5,0.6,0.7 output=vector3(1.0, 1.0, 1.0) "
+    "mutations=0 route=generic-only fallback=none"
+)
 
 
 def vector_media_startup_line(
@@ -70,6 +82,7 @@ class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
     def test_generic_five_color_completion_is_reported(self) -> None:
         metrics = benchmark.media_color_transition_metrics(MEDIA_COMPLETION_LINE)
         self.assertEqual(metrics, [{
+            "target_kind": "effectConstant",
             "layer_id": 1089,
             "effect_index": 0,
             "pass_index": 0,
@@ -98,6 +111,54 @@ class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
             "mutations=0 route=generic-only fallback=none"
         )
         self.assertEqual(malformed, [])
+
+    def test_direct_layer_color_media_completion_is_reported(self) -> None:
+        self.assertEqual(
+            benchmark.media_color_transition_metrics(LAYER_COLOR_COMPLETION_LINE),
+            [{
+                "target_kind": "layer",
+                "layer_id": 419,
+                "field": "color",
+                "generation": 2,
+                "has_thumbnail": True,
+                "primary_color": [0.1, 0.2, 0.3],
+                "secondary_color": [0.2, 0.3, 0.4],
+                "tertiary_color": [0.3, 0.4, 0.5],
+                "text_color": [0.4, 0.5, 0.6],
+                "high_contrast_color": [0.5, 0.6, 0.7],
+                "output_type": "vector3",
+                "output": [1.0, 1.0, 1.0],
+                "mutations": 0,
+                "fallback": "none",
+                "route": "generic-only",
+            }],
+        )
+
+    def test_direct_layer_color_callback_expectation_is_exact(self) -> None:
+        completions = benchmark.media_color_transition_metrics(
+            LAYER_COLOR_COMPLETION_LINE
+        )
+        expectation = {
+            "target_kind": "layer",
+            "layer_id": 419,
+            "field": "color",
+            "generation": 2,
+            "has_thumbnail": True,
+            "primary_color": [0.1, 0.2, 0.3],
+            "secondary_color": [0.2, 0.3, 0.4],
+            "tertiary_color": [0.3, 0.4, 0.5],
+            "text_color": [0.4, 0.5, 0.6],
+            "high_contrast_color": [0.5, 0.6, 0.7],
+            "route": "generic-only",
+        }
+        self.assertEqual(
+            benchmark.media_event_expectation_failures(
+                {"expected_media_color_callbacks": [expectation]},
+                completions,
+                benchmark.scene_script_vector_media_startup_metrics(""),
+            ),
+            [],
+        )
 
     def test_startup_route_is_structured_for_the_report(self) -> None:
         metrics = benchmark.scene_script_vector_media_startup_metrics(
@@ -200,6 +261,28 @@ class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
                 startup,
                 [],
             ),
+            [],
+        )
+
+    def test_media_owner_outputs_include_direct_layer_color(self) -> None:
+        layer_output = {
+            "layer_id": 419,
+            "field": "color",
+            "input": "vector3(1, 1, 1)",
+            "output": "vector3(0.2, 0.4, 0.8)",
+            "route": "generic-only",
+        }
+        startup = benchmark.scene_script_vector_media_startup_metrics(
+            vector_media_startup_line(targets=[LAYER_COLOR_TARGET])
+        )
+        self.assertEqual(
+            benchmark.media_owner_output_metrics([layer_output], startup),
+            [layer_output],
+        )
+        self.assertEqual(
+            benchmark.media_owner_output_metrics([
+                {**layer_output, "layer_id": 408},
+            ], startup),
             [],
         )
 

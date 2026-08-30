@@ -28,6 +28,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptAudioHost.swift",
     VM / "SceneScriptEffectHandleBridge.swift",
+    VM / "SceneScriptFallbackCatalog.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptMediaEventBridge.swift",
@@ -37,6 +38,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorCandidateCatalog.swift",
+    VM / "SceneScriptVectorMediaRouteCandidate.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
     VM / "SceneScriptQuickJSProgramCandidate.swift",
@@ -231,7 +233,7 @@ struct SceneRenderDescriptor {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]? = nil
-        let colorRGB: [Float]? = nil
+        var colorRGB: [Float]? = nil
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]

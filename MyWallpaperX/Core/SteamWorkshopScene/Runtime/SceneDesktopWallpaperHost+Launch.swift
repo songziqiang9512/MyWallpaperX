@@ -73,7 +73,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let propertyVectorPassCandidateTargets: Set<SceneDynamicTarget>
     let propertyVectorPassConsumerTargets: Set<SceneDynamicTarget>
     let propertyVectorPassFailedTargets: Set<SceneDynamicTarget>
-    let propertyVectorMediaPassTargets: Set<SceneDynamicTarget>
+    let propertyVectorMediaTargets: Set<SceneDynamicTarget>
     let sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition]
     let sceneScriptVectorMediaRoute: SceneScriptVectorMediaRouteState
     let sceneScriptScalarProgram: SceneScriptScalarProgram
@@ -103,8 +103,8 @@ struct SceneDesktopWallpaperLaunchContext {
                 + " missingState=unavailable"
                 + " reason=snapshot-lifecycle-unproven",
             "scene media thumbnail colors: schema=quickjs-ng-thumbnail-colors-v1"
-                + " bindings=\(propertyVectorMediaPassTargets.count)"
-                + " activeBindings=\(propertyVectorScriptProgram.mediaThumbnailTargets.intersection(propertyVectorMediaPassTargets).count)"
+                + " bindings=\(propertyVectorMediaTargets.count)"
+                + " activeBindings=\(propertyVectorScriptProgram.mediaThumbnailTargets.intersection(propertyVectorMediaTargets).count)"
                 + " route=\(sceneScriptVectorMediaRoute.rawValue)"
                 + " fallback=current-frame-lower-priority"
                 + " reason=\(sceneScriptVectorMediaRoute.reportReason)"
@@ -154,7 +154,7 @@ struct SceneDesktopWallpaperLaunchContext {
     }
 
     private var mediaThumbnailTargetNames: [String] {
-        propertyVectorMediaPassTargets
+        propertyVectorMediaTargets
             .map { String(describing: $0) }.sorted()
     }
 
@@ -585,13 +585,16 @@ extension SceneDesktopWallpaperHost {
             provisionalMaterialExecutionCapabilities
         try cancellation?.check()
         let compileSceneScriptPrograms: (
-            Set<SceneDynamicTarget>
-        ) throws -> SceneScriptQuickJSProgramCandidate = { vectorPassTargets in
+            Set<SceneDynamicTarget>, Set<SceneDynamicTarget>
+        ) throws -> SceneScriptQuickJSProgramCandidate = {
+            vectorPassTargets, excludedVectorTargets in
             try SceneScriptQuickJSProgramCandidate.compile(
                 authoredDescriptor: authoredRenderDescriptor,
                 runtimeDescriptor: runtimeInput.renderDescriptor,
                 scriptBindings: model.sceneDocument.scriptBindings,
-                vectorProjection: model.propertyVectorProjection,
+                vectorProjection: model.propertyVectorProjection.excludingTargets(
+                    excludedVectorTargets
+                ),
                 userPropertyDefinitions: model.project.userProperties.definitions,
                 timelineTargets: timelineTargets,
                 scalarExcludedTargets: boundedSceneScriptTargets,
@@ -612,7 +615,7 @@ extension SceneDesktopWallpaperHost {
         }
         let committedPrograms = routedPrograms.programs
         let committedVectorPassTargets = routedPrograms.admittedPassTargets
-        let propertyVectorMediaPassTargets = routedPrograms.mediaPassTargets
+        let propertyVectorMediaTargets = routedPrograms.mediaOwnerTargets
         guard committedPrograms.constructionReport.isComplete else {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt(
@@ -629,7 +632,7 @@ extension SceneDesktopWallpaperHost {
             scalarExcludedTargets: boundedSceneScriptTargets,
             stringExcludedTargets: sceneScriptStringExcludedTargets,
             routeDisabledTargets: sceneScriptVectorMediaRoute == .disableGeneric
-                ? propertyVectorMediaPassTargets : []
+                ? propertyVectorMediaTargets : []
         ) else {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("scenescript-fallback-catalog")
@@ -729,8 +732,7 @@ extension SceneDesktopWallpaperHost {
                 admittedVectorPassTargets,
             propertyVectorPassFailedTargets:
                 rejectedVectorPassTargets,
-            propertyVectorMediaPassTargets:
-                propertyVectorMediaPassTargets,
+            propertyVectorMediaTargets: propertyVectorMediaTargets,
             sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
             sceneScriptVectorMediaRoute: sceneScriptVectorMediaRoute,
             sceneScriptScalarProgram: sceneScriptScalarProgram,

@@ -237,7 +237,7 @@ struct SceneLayerFragmentUniforms {
     var dependencyBlendMode: UInt32
     var usesDependencyBlend: UInt32
     var cursorUV: SIMD2<Float>
-    var _pad1: SIMD2<Float>
+    var sourceSampling: SIMD2<Float>
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>

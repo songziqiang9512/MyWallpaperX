@@ -56,6 +56,15 @@ nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
         })
     }
 
+    func excludingTargets(
+        _ targets: Set<SceneDynamicTarget>
+    ) -> SceneScriptVectorCandidateCatalog {
+        guard !targets.isEmpty else { return self }
+        return .init(candidates: candidates.filter {
+            !targets.contains($0.definition.target)
+        })
+    }
+
     var admittedScaleLayerIDs: Set<Int> {
         Set(uniqueCandidates.compactMap { candidate in
             guard case let .layer(layerID, .scale) = candidate.definition.target else {
@@ -93,6 +102,7 @@ nonisolated extension SceneScriptVectorProgram {
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
         timelineTargets: Set<SceneDynamicTarget> = [],
+        admittedLayerColorConsumerIDs: Set<Int> = [],
         excludedTargets: Set<SceneDynamicTarget> = []
     ) -> SceneScriptVectorCandidateCatalog {
         let namedTextureDependencyLayerIDs =
@@ -104,6 +114,7 @@ nonisolated extension SceneScriptVectorProgram {
                 $0,
                 descriptor: descriptor,
                 timelineTargets: timelineTargets,
+                admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
                 namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
             )
         }.filter { !excludedTargets.contains($0.definition.target) })
@@ -113,11 +124,20 @@ nonisolated extension SceneScriptVectorProgram {
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor,
         timelineTargets: Set<SceneDynamicTarget>,
+        admittedLayerColorConsumerIDs: Set<Int>,
         namedTextureDependencyLayerIDs: Set<Int>
     ) -> SceneScriptVectorCandidate? {
         if let candidate = visibilityProjection(
             binding,
             descriptor: descriptor,
+            namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
+        ) {
+            return candidate
+        }
+        if let candidate = layerColorProjection(
+            binding,
+            descriptor: descriptor,
+            admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
             namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
         ) {
             return candidate
@@ -182,6 +202,59 @@ nonisolated extension SceneScriptVectorProgram {
             ),
             properties: properties,
             hasCurrentAnimation: hasCurrentAnimation
+        )
+    }
+
+    /// Object color scripts only become VM owners after launch planning has
+    /// identified a visible, effectless image consumer in the one image
+    /// compositor. Hidden and effect-bearing layers keep their authored value
+    /// without evaluating an owner that has no valid output route.
+    private static func layerColorProjection(
+        _ binding: SceneScriptBindingIR,
+        descriptor: SceneRenderDescriptor,
+        admittedLayerColorConsumerIDs: Set<Int>,
+        namedTextureDependencyLayerIDs: Set<Int>
+    ) -> SceneScriptVectorCandidate? {
+        guard binding.owner.kind == .object,
+              binding.targetKey == "color",
+              binding.valueType == .string,
+              binding.wrapperKeys == ["script", "value"],
+              binding.properties.isEmpty,
+              let sourceValue = binding.authoredValue?.stringValue,
+              let authored = vector3(sourceValue),
+              let objectIndex = binding.owner.objectIndex,
+              let layerID = binding.owner.objectID,
+              admittedLayerColorConsumerIDs.contains(layerID),
+              descriptor.layers.indices.contains(objectIndex) else { return nil }
+        let layer = descriptor.layers[objectIndex]
+        guard layer.id == layerID,
+              layer.layerIndex == objectIndex,
+              layer.contentKind == "image",
+              layer.visible != false,
+              layer.effects.isEmpty,
+              layer.dependencyLayerIDs.isEmpty,
+              layer.authoredDependencies.isEmpty,
+              !namedTextureDependencyLayerIDs.contains(layerID),
+              case nil = layer.utilityLayer,
+              binding.targetPath == [
+                  .key("objects"), .index(objectIndex), .key("color"),
+              ],
+              let descriptorValue = layer.colorRGB,
+              descriptorValue.count == 3,
+              Float(authored.x).bitPattern == descriptorValue[0].bitPattern,
+              Float(authored.y).bitPattern == descriptorValue[1].bitPattern,
+              Float(authored.z).bitPattern == descriptorValue[2].bitPattern else {
+            return nil
+        }
+        return .init(
+            source: binding.source,
+            definition: .init(
+                target: .layer(layerID: layerID, field: .color),
+                valueType: .vector3,
+                authoredValue: .vector3(authored.x, authored.y, authored.z)
+            ),
+            properties: [:],
+            hasCurrentAnimation: false
         )
     }
 

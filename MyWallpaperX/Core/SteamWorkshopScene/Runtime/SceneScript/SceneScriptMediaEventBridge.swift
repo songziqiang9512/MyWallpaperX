@@ -46,6 +46,17 @@ nonisolated enum SceneScriptVectorMediaRouteState: String, Equatable, Sendable {
         }
     }
 
+    func excludedVectorOwnerTargets(
+        mediaOwnerTargets: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        switch self {
+        case .preferGeneric, .genericOnly:
+            []
+        case .disableGeneric:
+            mediaOwnerTargets
+        }
+    }
+
     func authoredFallbackDefinitions(
         _ definitions: [SceneDynamicTargetDefinition],
         mediaOwnerTargets: Set<SceneDynamicTarget>

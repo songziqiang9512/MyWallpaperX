@@ -193,7 +193,7 @@ struct SceneRenderDescriptor {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]? = nil
-        let colorRGB: [Float]? = nil
+        var colorRGB: [Float]? = nil
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]
@@ -284,6 +284,12 @@ enum Harness {
                     normalizedColor: nil, controlPoints: [:],
                     controlPointAngles: [:]
                 )
+            ),
+            .init(
+                id: 500, layerIndex: 4, name: "Direct color", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                colorRGB: [0.2, 0.3, 0.4],
+                scaleHasScript: false, alpha: 1, effects: []
             ),
         ])
         let domain = try SceneScriptQuickJSDomain()
@@ -548,6 +554,108 @@ enum Harness {
             effectivePropertyValues: [:],
             frame: frame
         )
+        let colorTarget = SceneDynamicTarget.layer(
+            layerID: 500, field: .color
+        )
+        let colorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(source: layerColorSource)],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [500],
+            generation: 101
+        )
+        let colorResult = colorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.2, 0.3, 0.4)],
+            effectivePropertyValues: [:], frame: frame,
+            mediaThumbnailEvent: .init(
+                hasThumbnail: true,
+                primaryColor: .init(0.7, 0.5, 0.25),
+                generation: 1
+            )
+        )
+        let currentColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(source: thisLayerColorSource)],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [500],
+            generation: 102
+        )
+        let currentColorSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 2,
+            generation: 2,
+            definitions: currentColorProgram.definitions,
+            sceneScriptValues: [colorTarget: .vector3(0.6, 0.4, 0.2)]
+        ).snapshot
+        try! domain.publishLayerSnapshot(
+            currentColorSnapshot, descriptor: descriptor
+        )
+        let currentColorResult = currentColorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.6, 0.4, 0.2)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let undefinedColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(source: undefinedColorSource)],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [500],
+            generation: 103
+        )
+        let undefinedColorResult = undefinedColorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.2, 0.3, 0.4)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let failingColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(source: failingColorSource)],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [500],
+            generation: 104
+        )
+        let failingColorFirst = failingColorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.2, 0.3, 0.4)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let failingColorSecond = failingColorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.2, 0.3, 0.4)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let failingColorThird = failingColorProgram.evaluate(
+            inputs: [colorTarget: .vector3(0.2, 0.3, 0.4)],
+            effectivePropertyValues: [:], frame: frame
+        )
+        let failingColorFallback = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3,
+            generation: 2,
+            definitions: failingColorProgram.definitions,
+            sceneScriptValues: failingColorSecond.values
+        ).snapshot
+        let colorFailurePeer = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [
+                binding(
+                    key: "origin", source: layerSource,
+                    value: "20 2250 0", properties: [:]
+                ),
+                colorBinding(
+                    source: "export function update(value) { return {}; }"
+                ),
+            ],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [500],
+            generation: 105
+        )
+        let colorFailurePeerResult = colorFailurePeer.evaluate(
+            inputs: [
+                .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
+                colorTarget: .vector3(0.2, 0.3, 0.4),
+            ],
+            effectivePropertyValues: [:], frame: frame
+        )
         let bad = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -796,6 +904,36 @@ enum Harness {
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ),
             "layerFailures": layerResult.failures.count,
+            "layerColorBindings": colorProgram.bindings.count,
+            "layerColorMediaTargets": colorProgram.mediaThumbnailTargets
+                == [colorTarget],
+            "layerColorValue": vector(colorResult.values[colorTarget]),
+            "layerColorFailures": colorResult.failures.count,
+            "layerColorCurrent": vector(currentColorResult.values[colorTarget]),
+            "layerColorUndefined": vector(
+                undefinedColorResult.values[colorTarget]
+            ),
+            "layerColorUndefinedFailures": undefinedColorResult.failures.count,
+            "layerColorFirst": vector(failingColorFirst.values[colorTarget]),
+            "layerColorSecondFailure":
+                failingColorSecond.failures[colorTarget]?.code ?? "",
+            "layerColorSecondPublished":
+                failingColorSecond.values[colorTarget] != nil,
+            "layerColorThirdFailures": failingColorThird.failures.count,
+            "layerColorThirdPublished":
+                failingColorThird.values[colorTarget] != nil,
+            "layerColorFallback": vector(
+                failingColorFallback[colorTarget]?.value
+            ),
+            "layerColorFallbackSource":
+                failingColorFallback[colorTarget]?.source.rawValue ?? "",
+            "layerColorFailurePeer": vector(
+                colorFailurePeerResult.values[
+                    .layer(layerID: 10, field: .origin)
+                ]
+            ),
+            "layerColorFailurePeerFailures":
+                colorFailurePeerResult.failures.count,
             "badReturn": badResult.failures.values.first?.code ?? "",
             "badPublished": !badResult.values.isEmpty,
             "duplicateRejected": duplicate.bindings.isEmpty,
@@ -948,6 +1086,24 @@ enum Harness {
         )
     }
 
+    static func colorBinding(
+        source: String,
+        value: String = "0.2 0.3 0.4"
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object, objectIndex: 4, objectID: 500,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
+            ),
+            targetPath: [.key("objects"), .index(4), .key("color")],
+            properties: [:],
+            authoredValue: .string(value),
+            valueType: .string,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
     static func passBinding(
         key: String,
         source: String,
@@ -1063,6 +1219,33 @@ enum Harness {
       const day = 1;
       const destination = thisScene.getLayer(`C${day}`).origin;
       return destination.copy();
+    }
+    """
+
+    static let layerColorSource = """
+    let color = new Vec3(0.2, 0.3, 0.4);
+    export function mediaThumbnailChanged(event) {
+      color.x = event.primaryColor.x;
+      color.y = event.primaryColor.y;
+      color.z = event.primaryColor.z;
+    }
+    export function update(value) { return color.copy(); }
+    """
+
+    static let thisLayerColorSource = """
+    export function update(value) { return thisLayer.color; }
+    """
+
+    static let undefinedColorSource = """
+    export function update(value) {}
+    """
+
+    static let failingColorSource = """
+    let calls = { value: 0 };
+    export function update(value) {
+      calls.value += 1;
+      if (calls.value == 1) { return value.multiply(2); }
+      throw new Error('color failure');
     }
     """
 
@@ -1270,6 +1453,25 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passVectorFailures"], 0)
         self.assertTrue(value["passVectorWrongWrapperRejected"])
         self.assertTrue(value["passVectorUserProviderRejected"])
+
+    def test_direct_image_color_uses_shared_vec3_vm_and_current_fallback(self) -> None:
+        value = self.result()
+        self.assertEqual(value["layerColorBindings"], 1)
+        self.assertTrue(value["layerColorMediaTargets"])
+        self.assertEqual(value["layerColorValue"], [0.7, 0.5, 0.25])
+        self.assertEqual(value["layerColorFailures"], 0)
+        self.assertEqual(value["layerColorCurrent"], [0.6, 0.4, 0.2])
+        self.assertEqual(value["layerColorUndefined"], [0.2, 0.3, 0.4])
+        self.assertEqual(value["layerColorUndefinedFailures"], 0)
+        self.assertEqual(value["layerColorFirst"], [0.4, 0.6, 0.8])
+        self.assertEqual(value["layerColorSecondFailure"], "exception")
+        self.assertFalse(value["layerColorSecondPublished"])
+        self.assertEqual(value["layerColorThirdFailures"], 0)
+        self.assertFalse(value["layerColorThirdPublished"])
+        self.assertEqual(value["layerColorFallback"], [0.2, 0.3, 0.4])
+        self.assertEqual(value["layerColorFallbackSource"], "authored")
+        self.assertEqual(value["layerColorFailurePeer"], [10, 20, 30])
+        self.assertEqual(value["layerColorFailurePeerFailures"], 1)
 
     def test_generic_pass_vec3_executes_wecolor_into_typed_publication(self) -> None:
         value = self.result()

@@ -72,16 +72,21 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
         self.assertIn("while let candidate = programs", route)
         self.assertIn("mediaTargets.formUnion(", route)
+        self.assertIn("candidate.vectorProgram.mediaThumbnailTargets", route)
         self.assertIn("initialPassTargets, mediaOwnerTargets: mediaTargets", route)
-        self.assertIn("next.isStrictSubset(of: admitted)", route)
+        self.assertIn("route.excludedVectorOwnerTargets(", route)
+        self.assertIn("nextExcluded.isSuperset(of: excludedVectorTargets)", route)
         discard = route.index("programs = nil")
         cancellation = route.index("try cancellationCheck()")
-        rebuild = route.index("programs = try builder(admitted)", discard)
+        rebuild = route.index(
+            "programs = try builder(admitted, excludedVectorTargets)", discard
+        )
         self.assertLess(discard, cancellation)
         self.assertLess(cancellation, rebuild)
         self.assertIn("SceneScriptVectorMediaRouteCandidate.compile(", launch)
         self.assertIn("let committedPrograms = routedPrograms.programs", launch)
-        self.assertIn("routedPrograms.mediaPassTargets", launch)
+        self.assertIn("routedPrograms.mediaOwnerTargets", launch)
+        self.assertIn("model.propertyVectorProjection.excludingTargets(", launch)
         self.assertEqual(launch.count("SceneScriptVectorMediaRouteState.resolve("), 1)
 
         for failure_family in (

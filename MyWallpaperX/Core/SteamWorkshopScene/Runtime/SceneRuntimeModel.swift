@@ -109,7 +109,7 @@ struct SceneRuntimeModelBuilder {
             SceneTimelineTargetCompiler.compile(descriptor: renderDescriptor)
                 .bindings.map(\.target)
         )
-        let propertyVectorProjection = SceneScriptVectorProgram.project(
+        let structuralPropertyVectorProjection = SceneScriptVectorProgram.project(
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets
@@ -151,8 +151,25 @@ struct SceneRuntimeModelBuilder {
         )
         let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
             admittedSceneScriptScaleLayerIDs:
-                propertyVectorProjection.admittedScaleLayerIDs,
+                structuralPropertyVectorProjection.admittedScaleLayerIDs,
             to: particleProjectedDescriptor
+        )
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: runtimeDescriptor
+        )
+        let directImageColorConsumerLayerIDs: Set<Int> = Set(
+            runtimeDescriptor.layers.compactMap { layer in
+                guard layer.contentKind == "image",
+                      layer.supportsDirectLayerColorConsumer,
+                      visibleLayerIDs.contains(layer.id) else { return nil }
+                return layer.id
+            }
+        )
+        let propertyVectorProjection = SceneScriptVectorProgram.project(
+            descriptor: renderDescriptor,
+            scriptBindings: sceneDocument.scriptBindings,
+            timelineTargets: timelineTargets,
+            admittedLayerColorConsumerIDs: directImageColorConsumerLayerIDs
         )
         let runtimeInput = SceneRuntimeInput(
             renderDescriptor: runtimeDescriptor,

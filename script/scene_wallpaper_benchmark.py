@@ -128,7 +128,7 @@ SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE = re.compile(
 )
 SCENE_SCRIPT_VEC3_COMPLETION_RE = re.compile(
     r"MWX SceneScript VM: target=layer\(layerID: (?P<layer>\d+), "
-    r"field: [^)]*\.(?P<field>origin|scale|angles)\) callback=completed "
+    r"field: [^)]*\.(?P<field>origin|scale|angles|color)\) callback=completed "
     r"type=vector3 input=(?P<input>vector3\([^)]*\)) "
     r"output=(?P<output>vector3\([^)]*\)).* route=(?P<route>\S+)"
 )
@@ -5634,7 +5634,8 @@ def run_sample(
         scene_script_vector_media_startup_metrics(preview_text)
     )
     media_owner_outputs = media_owner_output_metrics(
-        scene_script_scalar_runtime["effect_vector_completions"],
+        scene_script_scalar_runtime["effect_vector_completions"]
+            + scene_script_scalar_runtime["vec3_completions"],
         scene_script_vector_media_startup,
     )
     failures.extend(

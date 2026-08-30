@@ -27,6 +27,9 @@ LAYER_SOURCE = REPOSITORY_ROOT / (
     "MyWallpaperX/Core/SteamWorkshopScene/Runtime/"
     "SceneRenderDescriptor+Layer.swift"
 )
+RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / (
+    "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneRuntimeModel.swift"
+)
 
 
 def method_body(source: str, signature: str) -> str:
@@ -51,6 +54,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         cls.editor = EDITOR_SOURCE.read_text(encoding="utf-8")
         cls.live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         cls.layer = LAYER_SOURCE.read_text(encoding="utf-8")
+        cls.runtime_model = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
 
     def test_single_update_persists_before_live_attempt_and_rebuilds_on_rejection(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")
@@ -149,6 +153,19 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         self.assertIn("visibleLayerIDs.contains(layer.id)", image_case)
         self.assertIn(
             ".layer(layerID: layer.id, field: .color)", image_case
+        )
+
+        model = self.runtime_model
+        self.assertIn(
+            "let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(",
+            model,
+        )
+        self.assertIn('guard layer.contentKind == "image"', model)
+        self.assertIn("layer.supportsDirectLayerColorConsumer", model)
+        self.assertIn("visibleLayerIDs.contains(layer.id)", model)
+        self.assertIn(
+            "admittedLayerColorConsumerIDs: directImageColorConsumerLayerIDs",
+            model,
         )
 
     def test_particle_properties_are_actionable_only_for_particle_layers(self) -> None:

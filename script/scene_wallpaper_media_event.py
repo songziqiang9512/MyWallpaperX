@@ -32,6 +32,28 @@ SCENE_SCRIPT_MEDIA_THUMBNAIL_COLOR_RE = re.compile(
     r"mutations=(?P<mutations>\d+) route=(?P<route>\S+) "
     r"fallback=(?P<fallback>\S+)"
 )
+SCENE_SCRIPT_MEDIA_THUMBNAIL_LAYER_COLOR_RE = re.compile(
+    r"MWX SceneScript VM: "
+    r"target=layer\(layerID: (?P<layer>\d+), "
+    r"field: [^)]*\.(?P<field>color)\) "
+    r"event=mediaThumbnailChanged "
+    r"generation=(?P<generation>\d+) "
+    r"hasThumbnail=(?P<has_thumbnail>true|false) "
+    rf"primary=(?P<primary_red>{FLOAT_PATTERN}),"
+    rf"(?P<primary_green>{FLOAT_PATTERN}),(?P<primary_blue>{FLOAT_PATTERN}) "
+    rf"secondary=(?P<secondary_red>{FLOAT_PATTERN}),"
+    rf"(?P<secondary_green>{FLOAT_PATTERN}),(?P<secondary_blue>{FLOAT_PATTERN}) "
+    rf"tertiary=(?P<tertiary_red>{FLOAT_PATTERN}),"
+    rf"(?P<tertiary_green>{FLOAT_PATTERN}),(?P<tertiary_blue>{FLOAT_PATTERN}) "
+    rf"text=(?P<text_red>{FLOAT_PATTERN}),"
+    rf"(?P<text_green>{FLOAT_PATTERN}),(?P<text_blue>{FLOAT_PATTERN}) "
+    rf"highContrast=(?P<high_contrast_red>{FLOAT_PATTERN}),"
+    rf"(?P<high_contrast_green>{FLOAT_PATTERN}),"
+    rf"(?P<high_contrast_blue>{FLOAT_PATTERN}) "
+    r"output=(?P<output_type>vector[23])\((?P<output>[^)]*)\) "
+    r"mutations=(?P<mutations>\d+) route=(?P<route>\S+) "
+    r"fallback=(?P<fallback>\S+)"
+)
 SCENE_SCRIPT_VECTOR_MEDIA_STARTUP_PREFIX = "scene media thumbnail colors: "
 SCENE_SCRIPT_VECTOR_MEDIA_STARTUP_RE = re.compile(
     r"scene media thumbnail colors: schema=(?P<schema>\S+) "
@@ -49,15 +71,21 @@ MEDIA_COLOR_FIELDS = (
     "text_color",
     "high_contrast_color",
 )
-MEDIA_COLOR_EXPECTATION_REQUIRED_FIELDS = frozenset({
+MEDIA_COLOR_EXPECTATION_COMMON_REQUIRED_FIELDS = frozenset({
     "layer_id",
-    "effect_index",
-    "pass_index",
-    "constant",
     "generation",
     "has_thumbnail",
     "route",
     *MEDIA_COLOR_FIELDS,
+})
+MEDIA_COLOR_EXPECTATION_EFFECT_IDENTITY_FIELDS = frozenset({
+    "effect_index",
+    "pass_index",
+    "constant",
+})
+MEDIA_COLOR_EXPECTATION_LAYER_IDENTITY_FIELDS = frozenset({
+    "target_kind",
+    "field",
 })
 MEDIA_COLOR_EXPECTATION_OPTIONAL_FIELDS = frozenset({
     "fallback",
@@ -82,66 +110,78 @@ SCENE_SCRIPT_VECTOR_MEDIA_STARTUP_FIELDS = frozenset({
 def media_color_transition_metrics(log_text: str) -> list[dict[str, Any]]:
     """Return generic SceneScript thumbnail-color completions from a preview log."""
 
-    completions = []
+    completions: list[dict[str, Any]] = []
     for match in SCENE_SCRIPT_MEDIA_THUMBNAIL_COLOR_RE.finditer(log_text):
-        try:
-            output = [
-                float(component.strip())
-                for component in match.group("output").split(",")
-            ]
-        except ValueError:
-            continue
-        expected_component_count = (
-            2 if match.group("output_type") == "vector2" else 3
-        )
-        if len(output) != expected_component_count:
-            continue
-        completions.append({
-            "layer_id": int(match.group("layer")),
-            "effect_index": int(match.group("effect")),
-            "pass_index": int(match.group("pass")),
-            "constant": match.group("constant"),
-            "generation": int(match.group("generation")),
-            "has_thumbnail": match.group("has_thumbnail") == "true",
-            "primary_color": [
-                float(match.group("primary_red")),
-                float(match.group("primary_green")),
-                float(match.group("primary_blue")),
-            ],
-            "secondary_color": [
-                float(match.group("secondary_red")),
-                float(match.group("secondary_green")),
-                float(match.group("secondary_blue")),
-            ],
-            "tertiary_color": [
-                float(match.group("tertiary_red")),
-                float(match.group("tertiary_green")),
-                float(match.group("tertiary_blue")),
-            ],
-            "text_color": [
-                float(match.group("text_red")),
-                float(match.group("text_green")),
-                float(match.group("text_blue")),
-            ],
-            "high_contrast_color": [
-                float(match.group("high_contrast_red")),
-                float(match.group("high_contrast_green")),
-                float(match.group("high_contrast_blue")),
-            ],
-            "output_type": match.group("output_type"),
-            "output": output,
-            "mutations": int(match.group("mutations")),
-            "fallback": match.group("fallback"),
-            "route": match.group("route"),
-        })
-    completions.sort(key=lambda value: (
-        value["layer_id"],
-        value["effect_index"],
-        value["pass_index"],
-        value["constant"],
-        value["generation"],
-    ))
+        completion = _media_color_completion(match)
+        if completion is not None:
+            completion.update({
+                "target_kind": "effectConstant",
+                "layer_id": int(match.group("layer")),
+                "effect_index": int(match.group("effect")),
+                "pass_index": int(match.group("pass")),
+                "constant": match.group("constant"),
+            })
+            completions.append(completion)
+    for match in SCENE_SCRIPT_MEDIA_THUMBNAIL_LAYER_COLOR_RE.finditer(log_text):
+        completion = _media_color_completion(match)
+        if completion is not None:
+            completion.update({
+                "target_kind": "layer",
+                "layer_id": int(match.group("layer")),
+                "field": match.group("field"),
+            })
+            completions.append(completion)
+    completions.sort(key=_callback_identity)
     return completions
+
+
+def _media_color_completion(match: re.Match[str]) -> dict[str, Any] | None:
+    try:
+        output = [
+            float(component.strip())
+            for component in match.group("output").split(",")
+        ]
+    except ValueError:
+        return None
+    expected_component_count = (
+        2 if match.group("output_type") == "vector2" else 3
+    )
+    if len(output) != expected_component_count:
+        return None
+    return {
+        "generation": int(match.group("generation")),
+        "has_thumbnail": match.group("has_thumbnail") == "true",
+        "primary_color": [
+            float(match.group("primary_red")),
+            float(match.group("primary_green")),
+            float(match.group("primary_blue")),
+        ],
+        "secondary_color": [
+            float(match.group("secondary_red")),
+            float(match.group("secondary_green")),
+            float(match.group("secondary_blue")),
+        ],
+        "tertiary_color": [
+            float(match.group("tertiary_red")),
+            float(match.group("tertiary_green")),
+            float(match.group("tertiary_blue")),
+        ],
+        "text_color": [
+            float(match.group("text_red")),
+            float(match.group("text_green")),
+            float(match.group("text_blue")),
+        ],
+        "high_contrast_color": [
+            float(match.group("high_contrast_red")),
+            float(match.group("high_contrast_green")),
+            float(match.group("high_contrast_blue")),
+        ],
+        "output_type": match.group("output_type"),
+        "output": output,
+        "mutations": int(match.group("mutations")),
+        "fallback": match.group("fallback"),
+        "route": match.group("route"),
+    }
 
 
 def scene_script_vector_media_startup_metrics(
@@ -210,23 +250,42 @@ def scene_script_vector_media_startup_metrics(
 
 
 def media_owner_output_metrics(
-    effect_vector_completions: list[dict[str, Any]],
+    vector_completions: list[dict[str, Any]],
     startup: dict[str, Any],
 ) -> list[dict[str, Any]]:
     """Select generic vector publications owned by the media route targets."""
 
-    targets = set(startup.get("targets", []))
+    targets = startup.get("targets", [])
     outputs = []
-    for completion in effect_vector_completions:
-        identity = (
-            f"effectConstant(layerID: {completion.get('layer_id')}, "
-            f"effectIndex: {completion.get('effect_index')}, "
-            f"passIndex: {completion.get('pass_index')}, "
-            f'name: "{completion.get("constant")}")'
-        )
-        if identity in targets:
+    for completion in vector_completions:
+        if any(_media_target_owns_output(target, completion) for target in targets):
             outputs.append(completion)
     return outputs
+
+
+def _media_target_owns_output(
+    target: Any,
+    completion: dict[str, Any],
+) -> bool:
+    if not isinstance(target, str):
+        return False
+    effect_identity = (
+        f"effectConstant(layerID: {completion.get('layer_id')}, "
+        f"effectIndex: {completion.get('effect_index')}, "
+        f"passIndex: {completion.get('pass_index')}, "
+        f'name: "{completion.get("constant")}")'
+    )
+    if target == effect_identity:
+        return True
+    match = re.fullmatch(
+        r"layer\(layerID: (?P<layer>\d+), field: (?:[^)]*\.)?(?P<field>[^.)]+)\)",
+        target,
+    )
+    return (
+        match is not None
+        and int(match.group("layer")) == completion.get("layer_id")
+        and match.group("field") == completion.get("field")
+    )
 
 
 def media_event_expectation_failures(
@@ -286,7 +345,9 @@ def _normalized_callback_expectations(
         return None
     normalized: list[dict[str, Any]] = []
     allowed_fields = (
-        MEDIA_COLOR_EXPECTATION_REQUIRED_FIELDS
+        MEDIA_COLOR_EXPECTATION_COMMON_REQUIRED_FIELDS
+        | MEDIA_COLOR_EXPECTATION_EFFECT_IDENTITY_FIELDS
+        | MEDIA_COLOR_EXPECTATION_LAYER_IDENTITY_FIELDS
         | MEDIA_COLOR_EXPECTATION_OPTIONAL_FIELDS
     )
     for callback in value:
@@ -294,15 +355,23 @@ def _normalized_callback_expectations(
             return None
         fields = set(callback)
         if (
-            not MEDIA_COLOR_EXPECTATION_REQUIRED_FIELDS.issubset(fields)
+            not MEDIA_COLOR_EXPECTATION_COMMON_REQUIRED_FIELDS.issubset(fields)
             or not fields.issubset(allowed_fields)
         ):
             return None
-        identity_values = (
-            callback["layer_id"],
-            callback["effect_index"],
-            callback["pass_index"],
+        is_layer = callback.get("target_kind") == "layer"
+        required_identity = (
+            MEDIA_COLOR_EXPECTATION_LAYER_IDENTITY_FIELDS
+            if is_layer else MEDIA_COLOR_EXPECTATION_EFFECT_IDENTITY_FIELDS
         )
+        if not required_identity.issubset(fields):
+            return None
+        identity_values = [callback["layer_id"]]
+        if not is_layer:
+            identity_values.extend([
+                callback["effect_index"],
+                callback["pass_index"],
+            ])
         if any(
             isinstance(member, bool)
             or not isinstance(member, int)
@@ -315,11 +384,18 @@ def _normalized_callback_expectations(
             isinstance(generation, bool)
             or not isinstance(generation, int)
             or generation <= 0
-            or not isinstance(callback["constant"], str)
-            or not callback["constant"]
             or not isinstance(callback["has_thumbnail"], bool)
             or not isinstance(callback["route"], str)
             or not callback["route"]
+        ):
+            return None
+        if is_layer:
+            if callback.get("field") != "color":
+                return None
+        elif (
+            not isinstance(callback.get("constant"), str)
+            or not callback["constant"]
+            or callback.get("target_kind") not in (None, "effectConstant")
         ):
             return None
         current = dict(callback)
@@ -388,9 +464,11 @@ def _callbacks_match(
 def _callback_identity(value: dict[str, Any]) -> tuple[Any, ...]:
     return (
         value.get("layer_id"),
+        value.get("target_kind", "effectConstant"),
         value.get("effect_index"),
         value.get("pass_index"),
         value.get("constant"),
+        value.get("field"),
         value.get("generation"),
     )
 

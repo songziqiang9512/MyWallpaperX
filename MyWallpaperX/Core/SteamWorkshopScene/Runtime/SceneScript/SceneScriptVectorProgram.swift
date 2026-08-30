@@ -148,6 +148,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         scriptBindings: [SceneScriptBindingIR],
         userPropertyDefinitions: [SceneUserPropertyDefinition],
         timelineTargets: Set<SceneDynamicTarget> = [],
+        admittedLayerColorConsumerIDs: Set<Int> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
@@ -156,6 +157,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             descriptor: descriptor,
             scriptBindings: scriptBindings,
             timelineTargets: timelineTargets,
+            admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
             excludedTargets: excludedTargets
         )
         let program = compileNonPass(

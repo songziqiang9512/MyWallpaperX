@@ -80,12 +80,13 @@ static MWXSceneQuickJSResult stage_fields(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
     double scale_value,
+    double color_value,
     const char *text,
     char diagnostic[256]
 ) {
     double scale[3] = {scale_value, scale_value, scale_value};
     double angles[3] = {0, 0, 0};
-    double color[3] = {1, 1, 1};
+    double color[3] = {color_value, color_value, color_value};
     return mwx_scene_quickjs_domain_update_layer_runtime_fields(
         domain,
         layer_index,
@@ -129,9 +130,9 @@ int main(void) {
         &domain, 8, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "begin commit", diagnostic);
-    result = stage_fields(&domain, 0, 2, "new-a", diagnostic);
+    result = stage_fields(&domain, 0, 2, 0.25, "new-a", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage first", diagnostic);
-    result = stage_fields(&domain, 1, 3, "new-b", diagnostic);
+    result = stage_fields(&domain, 1, 3, 0.75, "new-b", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage second", diagnostic);
     double committed_origin[3] = {9, 8, 7};
     result = mwx_scene_quickjs_domain_set_layer_origin(
@@ -145,16 +146,18 @@ int main(void) {
     failures += check(domain.layer_snapshot_generation == 8, "committed generation", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "committed first text", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 2, "committed first scale");
+    failures += check_number(domain.layers[0].color[0], 0.25, "committed first color");
     failures += check_number(domain.layers[0].current_origin[0], 9, "committed explicit origin");
     failures += check(strcmp(domain.layers[1].text, "new-b") == 0, "committed second text", diagnostic);
     failures += check_number(domain.layers[1].scale[0], 3, "committed second scale");
+    failures += check_number(domain.layers[1].color[0], 0.75, "committed second color");
     failures += check_number(domain.layers[1].current_origin[0], 1, "committed authored origin");
 
     result = mwx_scene_quickjs_domain_begin_layer_snapshot(
         &domain, 9, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "begin rollback", diagnostic);
-    result = stage_fields(&domain, 0, 7, "poisoned-a", diagnostic);
+    result = stage_fields(&domain, 0, 7, 0.9, "poisoned-a", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage rollback first", diagnostic);
     double invalid_scale[3] = {NAN, 4, 4};
     double angles[3] = {0, 0, 0};
@@ -172,17 +175,19 @@ int main(void) {
     failures += check(domain.layer_snapshot_generation == 8, "failed generation unchanged", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "first active text unchanged before abort", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 2, "first active scale unchanged before abort");
+    failures += check_number(domain.layers[0].color[0], 0.25, "first active color unchanged before abort");
     mwx_scene_quickjs_domain_abort_layer_snapshot(&domain);
     failures += check(domain.pending_layer_snapshot == NULL, "abort clears pending", diagnostic);
     failures += check(domain.layer_snapshot_generation == 8, "aborted generation unchanged", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "first active text unchanged after abort", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 2, "first active scale unchanged after abort");
+    failures += check_number(domain.layers[0].color[0], 0.25, "first active color unchanged after abort");
 
     result = mwx_scene_quickjs_domain_begin_layer_snapshot(
         &domain, 9, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "begin incomplete", diagnostic);
-    result = stage_fields(&domain, 0, 5, "incomplete-a", diagnostic);
+    result = stage_fields(&domain, 0, 5, 0.6, "incomplete-a", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage incomplete first", diagnostic);
     result = mwx_scene_quickjs_domain_commit_layer_snapshot(
         &domain, diagnostic, sizeof(diagnostic)
@@ -194,6 +199,7 @@ int main(void) {
     );
     failures += check(domain.layer_snapshot_generation == 8, "incomplete generation unchanged", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "incomplete active text unchanged", diagnostic);
+    failures += check_number(domain.layers[0].color[0], 0.25, "incomplete active color unchanged");
     mwx_scene_quickjs_domain_abort_layer_snapshot(&domain);
 
     for (uint32_t index = 0; index < domain.layer_count; ++index) {

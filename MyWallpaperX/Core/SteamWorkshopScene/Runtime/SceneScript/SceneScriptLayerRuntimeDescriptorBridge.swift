@@ -14,20 +14,23 @@ nonisolated extension SceneScriptQuickJSDomain {
     ) throws {
         try configureLayerCatalog(descriptor)
         for (index, layer) in descriptor.layers.enumerated() {
-            let scale = layerTransform(
+            let scale = layerVector3(
                 layerID: layer.id, field: .scale,
                 authored: layer.scaleXYZ, fallback: [1, 1, 1],
                 snapshot: snapshot
             )
-            let angles = layerTransform(
+            let angles = layerVector3(
                 layerID: layer.id, field: .angles,
                 authored: layer.anglesXYZ, fallback: [0, 0, 0],
                 snapshot: snapshot
             )
             let text = layer.text ?? ""
             let font = layer.textStyle?.fontPath ?? ""
-            let color = (layer.textStyle?.colorRGB ?? layer.colorRGB ?? [1, 1, 1])
-                .map(Double.init)
+            let color = layerVector3(
+                layerID: layer.id, field: .color,
+                authored: layer.textStyle?.colorRGB ?? layer.colorRGB,
+                fallback: [1, 1, 1], snapshot: snapshot
+            )
             var diagnostic = [CChar](repeating: 0, count: 512)
             let result = text.withCString { textPointer in
                 font.withCString { fontPointer in
@@ -56,7 +59,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
     }
 
-    private func layerTransform(
+    private func layerVector3(
         layerID: Int,
         field: SceneDynamicLayerField,
         authored: [Float]?,
