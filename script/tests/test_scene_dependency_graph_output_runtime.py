@@ -77,6 +77,7 @@ struct SceneDependencyRenderPlan {
         let slot: SceneEffectPassSlot
         let blendMode: Int
         let kind: Kind
+        let requiresForwardCapture = false
     }
 
     let bindingsByConsumerLayerID: [Int: Binding]

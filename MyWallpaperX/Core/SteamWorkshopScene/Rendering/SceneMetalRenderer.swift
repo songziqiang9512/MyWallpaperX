@@ -158,6 +158,19 @@ struct SceneMetalRenderer {
             target: drawable.texture,
             clearColor: sceneClearColor
         )
+        if let imagePipeline {
+            captureForwardDependencyProviders(
+                orderedLayers: orderedLayers,
+                imageTextures: imageTextures,
+                imagePipeline: imagePipeline,
+                frameContext: frameContext,
+                worldFramesByLayerID: frameWorldFrames,
+                cameraFrame: cameraFrame,
+                parallaxConfiguration: parallaxConfiguration,
+                viewportSize: viewportSize,
+                mainPass: mainPass
+            )
+        }
         frameLayers: for layer in orderedLayers {
             defer {
                 if !stopsAfterClaimedFailure { renderUtilityPlans(triggeredBy: layer.id,
@@ -601,5 +614,55 @@ struct SceneMetalRenderer {
         return dynamicValues[
             .layer(layerID: layer.id, field: .color)
         ] != nil
+    }
+
+    /// Publishes only the plan-proven static image providers whose authored
+    /// compositor position is later than their consumer. The source capture
+    /// is offscreen and does not reorder either layer's final composition.
+    private func captureForwardDependencyProviders(
+        orderedLayers: [SceneRenderDescriptor.Layer],
+        imageTextures: SceneBaseImageTextureSnapshot,
+        imagePipeline: SceneImageLayerPipeline,
+        frameContext: SceneFrameContext,
+        worldFramesByLayerID: [Int: simd_float4x4],
+        cameraFrame: SceneParticleCameraFrame,
+        parallaxConfiguration: SceneLayerParallax.Configuration,
+        viewportSize: CGSize,
+        mainPass: SceneMainPassEncoder
+    ) {
+        for provider in orderedLayers where dependencyRuntime
+            .requiresForwardCapture(for: provider.id) {
+            let baseSource = baseMaterialTextureSelection(
+                for: provider,
+                imageTextures: imageTextures,
+                readyProviderUsesAuthoredLayerColor:
+                    baseMaterialReadyProviderUsesAuthoredLayerColor(
+                        for: provider,
+                        dynamicValues: frameContext.dynamicValues
+                    )
+            ).source
+            let model = imageModelMatrix(
+                for: provider,
+                worldFramesByLayerID: worldFramesByLayerID,
+                renderSizeOverride: imageTextures.layerSourceRenderSize(
+                    for: provider.id
+                ),
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents
+            )
+            _ = dependencyRuntime.captureProviderIfRequired(
+                layer: provider,
+                sourceTexture: baseSource?.texture,
+                sourceCandidate: baseSource?.candidate,
+                usesAuthoredLayerColor:
+                    baseSource?.usesAuthoredLayerColor ?? true,
+                layerMVP: cameraFrame.orthographicViewProjection * model,
+                viewportSize: viewportSize,
+                pipeline: imagePipeline,
+                textureRegistry: textureRegistry,
+                mainPass: mainPass
+            )
+        }
     }
 }

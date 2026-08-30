@@ -58,6 +58,13 @@ final class SceneDependencyFrameRuntime {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
     }
 
+    func requiresForwardCapture(for providerLayerID: Int) -> Bool {
+        plan.bindingsByConsumerLayerID.values.contains {
+            $0.providerLayerID == providerLayerID
+                && $0.requiresForwardCapture
+        }
+    }
+
     func requiresGraphOutputCapture(for providerLayerID: Int) -> Bool {
         plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID)
     }

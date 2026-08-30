@@ -379,6 +379,7 @@ enum Harness {
         ]
         let solidCarrier = plan.bindingsByConsumerLayerID[31]
         let imageBlend = imageBlendBinding()
+        let forwardImageBlend = imageBlendBinding(providerFirst: false)
         let nestedImageBlend = nestedImageBlendPlan()
         let brokenNestedImageBlend = nestedImageBlendPlan(
             middleDependencyMismatch: true
@@ -540,6 +541,13 @@ enum Harness {
                 "slot": imageBlend?.slot.slotIndex ?? -1,
                 "blend": imageBlend?.blendMode ?? -1,
                 "imageBlend": imageBlend?.kind == .imageLayerBlend,
+                "forwardCapture": imageBlend?.requiresForwardCapture ?? false,
+            ],
+            "forwardImageBlendBinding": [
+                "consumer": forwardImageBlend?.consumerLayerID ?? -1,
+                "provider": forwardImageBlend?.providerLayerID ?? -1,
+                "imageBlend": forwardImageBlend?.kind == .imageLayerBlend,
+                "forwardCapture": forwardImageBlend?.requiresForwardCapture ?? false,
             ],
             "imageBlendRejects": [
                 "visibleProvider": imageBlendBinding(providerVisible: true) == nil,
@@ -552,6 +560,25 @@ enum Harness {
             ],
             "imageBlendEffectfulProvider":
                 imageBlendBinding(providerEffectful: true)?.providerLayerID == 300,
+            "forwardImageBlendRejects": [
+                "effectful": imageBlendBinding(
+                    providerEffectful: true, providerFirst: false
+                ) == nil,
+                "inactiveEffect": imageBlendBinding(
+                    providerEffectful: true,
+                    providerEffectVisible: false,
+                    providerFirst: false
+                ) == nil,
+                "dependency": imageBlendBinding(
+                    providerDependencies: [299], providerFirst: false
+                ) == nil,
+                "child": imageBlendBinding(
+                    providerChildLayerIDs: [302], providerFirst: false
+                ) == nil,
+                "secondary": imageBlendBinding(
+                    variantSuffix: "b", providerFirst: false
+                ) == nil,
+            ],
             "nestedImageBlend": [
                 "bindings": nestedImageBlend.bindingsByConsumerLayerID.keys.sorted(),
                 "providers": nestedImageBlend.requiredProviderLayerIDs.sorted(),
@@ -964,12 +991,16 @@ enum Harness {
         providerVisible: Bool? = false,
         providerContentKind: String = "image",
         providerEffectful: Bool = false,
+        providerEffectVisible: Bool? = true,
+        providerDependencies: [Int] = [],
+        providerChildLayerIDs: [Int] = [],
         variantSuffix: String = "a",
         userTextureOverride: Bool = false,
         extraReference: Bool = false,
         dependencyMismatch: Bool = false,
         extraCombos: [String: Int] = [:],
-        multiply: Double = 1
+        multiply: Double = 1,
+        providerFirst: Bool = true
     ) -> SceneDependencyRenderPlan.Binding? {
         let providerID = 300
         let consumerID = 301
@@ -977,15 +1008,15 @@ enum Harness {
             ? [.init(
                 id: "provider-effect",
                 file: "effects/tint/effect.json",
-                visible: true,
+                visible: providerEffectVisible,
                 passes: []
             )] : []
         let provider = SceneRenderDescriptor.Layer(
             id: providerID,
             contentKind: providerContentKind,
             utilityLayer: nil,
-            dependencyLayerIDs: [],
-            childLayerIDs: [],
+            dependencyLayerIDs: providerDependencies,
+            childLayerIDs: providerChildLayerIDs,
             visible: providerVisible,
             effects: providerEffects
         )
@@ -1022,7 +1053,8 @@ enum Harness {
         )
         let descriptor = SceneRenderDescriptor(
             layers: [provider, consumer],
-            renderOrderLayerIDs: [providerID, consumerID]
+            renderOrderLayerIDs: providerFirst
+                ? [providerID, consumerID] : [consumerID, providerID]
         )
         return SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -1259,6 +1291,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "slot": -1,
                 "blend": -1,
                 "imageBlend": False,
+                "forwardCapture": False,
             },
         )
         self.assertEqual(
@@ -1404,6 +1437,25 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         draw_outcome = renderer.index("let drawOutcome = imageCompositor.drawOutcome(")
         self.assertLess(visibility_guard, draw_outcome)
 
+    def test_forward_static_image_capture_precedes_authored_layer_loop(self) -> None:
+        renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
+        forward_capture = renderer.index(
+            "captureForwardDependencyProviders(", main_pass
+        )
+        authored_loop = renderer.index("frameLayers: for layer in orderedLayers")
+        self.assertLess(main_pass, forward_capture)
+        self.assertLess(forward_capture, authored_loop)
+        self.assertIn(
+            ".requiresForwardCapture(for: provider.id)",
+            renderer,
+        )
+        self.assertIn(
+            "$0.requiresForwardCapture",
+            dependency_runtime,
+        )
+
     def test_structural_slot3_hidden_solid_dependency_is_generic_and_fail_closed(
         self,
     ) -> None:
@@ -1433,10 +1485,21 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "slot": 1,
                 "blend": 0,
                 "imageBlend": True,
+                "forwardCapture": False,
+            },
+        )
+        self.assertEqual(
+            self.result["forwardImageBlendBinding"],
+            {
+                "consumer": 301,
+                "provider": 300,
+                "imageBlend": True,
+                "forwardCapture": True,
             },
         )
         self.assertTrue(all(self.result["imageBlendRejects"].values()))
         self.assertTrue(self.result["imageBlendEffectfulProvider"])
+        self.assertTrue(all(self.result["forwardImageBlendRejects"].values()))
         self.assertEqual(
             self.result["nestedImageBlend"],
             {

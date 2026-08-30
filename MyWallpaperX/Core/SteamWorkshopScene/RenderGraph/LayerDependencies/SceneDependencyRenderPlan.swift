@@ -25,6 +25,10 @@ nonisolated struct SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+        /// The exact static image provider appears after its consumer in
+        /// authored compositor order and must publish in the offscreen
+        /// prepass. This never changes final layer composition order.
+        let requiresForwardCapture: Bool
 
         init(
             consumerLayerID: Int,
@@ -32,7 +36,8 @@ nonisolated struct SceneDependencyRenderPlan {
             slot: SceneEffectPassSlot,
             referenceSlots: [SceneEffectPassSlot]? = nil,
             blendMode: Int,
-            kind: Kind
+            kind: Kind,
+            requiresForwardCapture: Bool = false
         ) {
             self.consumerLayerID = consumerLayerID
             self.providerLayerID = providerLayerID
@@ -40,6 +45,7 @@ nonisolated struct SceneDependencyRenderPlan {
             self.referenceSlots = referenceSlots ?? [slot]
             self.blendMode = blendMode
             self.kind = kind
+            self.requiresForwardCapture = requiresForwardCapture
         }
     }
 
@@ -380,6 +386,21 @@ nonisolated struct SceneDependencyRenderPlan {
         let providerHasVisibleEffects = provider.effects.contains {
             $0.visible != false
         }
+        guard let providerOrder = order[provider.id],
+              let consumerOrder = order[layer.id],
+              providerOrder != consumerOrder else {
+            issues.append(Issue(
+                kind: .forwardUtilityProvider,
+                layerID: layer.id,
+                providerLayerID: provider.id
+            ))
+            return nil
+        }
+        let requiresForwardCapture = providerOrder > consumerOrder
+        let supportsForwardCapture = requiresForwardCapture
+            && contract.kind == .imageLayerBlend
+            && provider.effects.isEmpty
+            && provider.dependencyLayerIDs.isEmpty
         let providerKindIsSupported = switch contract.kind {
         case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
@@ -406,7 +427,7 @@ nonisolated struct SceneDependencyRenderPlan {
               )),
               provider.childLayerIDs.isEmpty,
               (provider.dependencyLayerIDs.isEmpty || providerHasVisibleEffects),
-              (order[provider.id] ?? .max) < (order[layer.id] ?? .min) else {
+              providerOrder < consumerOrder || supportsForwardCapture else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
                 layerID: layer.id,
@@ -433,7 +454,8 @@ nonisolated struct SceneDependencyRenderPlan {
             referenceSlots: contract.kind == .resolvedMaterial
                 ? references.map(\.slot) : [reference.slot],
             blendMode: contract.blendMode,
-            kind: contract.kind
+            kind: contract.kind,
+            requiresForwardCapture: requiresForwardCapture
         )
     }
 
