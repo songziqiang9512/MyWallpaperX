@@ -121,6 +121,8 @@ extension SceneGenericShaderArtifactBuilder {
                 ?? SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
                     ?? SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerDirectOutputAlphaMutation(source, expectedSlot: expectedSlot)
+                    ?? SceneGenericShaderStraightAlphaPreservingLowering
                         .lowerStraightOutput(source, expectedSlot: expectedSlot)
             guard let lowered else { throw Failure.colorTransfer }
             return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))

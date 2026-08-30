@@ -56,7 +56,8 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
     }
 
     /// Returns the source slot only when one sampled color is preserved in RGB
-    /// and receives exactly one unconditional alpha mutation before output.
+    /// and receives exactly one unconditional alpha mutation before output or
+    /// directly on the root output.
     /// This provenance is deliberately narrower than `.straightAlpha`: it can
     /// own a route without upgrading conditional, reconstructed, or auxiliary
     /// sampler forms that merely share the same compositor representation.
@@ -70,7 +71,8 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             outputUses: outputUses,
             fragment: fragment,
             main: main
-        )
+        ) ?? SceneAuthoredShaderAlphaAttenuationAnalyzer
+            .directOutputFact(fragment)?.sourceSlot
     }
 
     /// Returns the source slot only for a bounded same-slot channel
@@ -256,6 +258,10 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             main: main
         ) {
             return .straightAlphaPreserving(textureSlot: slot)
+        }
+        if let fact = SceneAuthoredShaderAlphaAttenuationAnalyzer
+            .directOutputFact(fragment) {
+            return .straightAlpha(textureSlot: fact.sourceSlot)
         }
         if let fact = SceneAuthoredShaderStraightColorOverlayAnalyzer.analyze(
             fragment

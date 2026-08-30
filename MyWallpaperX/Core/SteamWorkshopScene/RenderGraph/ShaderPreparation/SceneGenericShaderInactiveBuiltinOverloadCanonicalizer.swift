@@ -1,7 +1,8 @@
 import Foundation
 
-/// Namespaces an inactive authored overload that collides with an external
-/// GLSL built-in. The function body remains intact for compiler validation.
+/// Namespaces an exact authored overload that collides with an external GLSL
+/// built-in. Inactive definitions and statically mat3-typed active calls are
+/// rewritten atomically; function bodies remain intact for compiler validation.
 nonisolated enum SceneGenericShaderInactiveBuiltinOverloadCanonicalizer {
     private static let authoredName = "inverse"
     private static let canonicalName = "mwxInactiveInverse"
@@ -35,22 +36,24 @@ nonisolated enum SceneGenericShaderInactiveBuiltinOverloadCanonicalizer {
         let candidates = functions.filter { isExactCollision($0, tokens: tokens) }
         guard !candidates.isEmpty else { return source }
 
+        guard candidates.count == 1 else { return source }
         let definitionNames = Set(candidates.map(\.nameTokenIndex))
-        for index in tokens.indices where tokens[index].text == authoredName {
-            guard index + 1 < tokens.count, tokens[index + 1].text == "(" else {
-                continue
-            }
-            if !definitionNames.contains(index) {
-                return source
-            }
+        let activeCalls = tokens.indices.filter { index in
+            tokens[index].text == authoredName
+                && index + 1 < tokens.count
+                && tokens[index + 1].text == "("
+                && !definitionNames.contains(index)
         }
+        guard activeCalls.allSatisfy({
+            isStaticallyMat3Call($0, tokens: tokens, functions: functions)
+        }) else { return source }
 
         var result = source
-        for candidate in candidates.sorted(by: {
-            tokens[$0.nameTokenIndex].scalarRange.lowerBound
-                > tokens[$1.nameTokenIndex].scalarRange.lowerBound
+        let rewrittenNames = definitionNames.union(activeCalls)
+        for nameIndex in rewrittenNames.sorted(by: {
+            tokens[$0].scalarRange.lowerBound > tokens[$1].scalarRange.lowerBound
         }) {
-            let scalarRange = tokens[candidate.nameTokenIndex].scalarRange
+            let scalarRange = tokens[nameIndex].scalarRange
             let lower = result.unicodeScalars.index(
                 result.unicodeScalars.startIndex,
                 offsetBy: scalarRange.lowerBound
@@ -65,6 +68,119 @@ nonisolated enum SceneGenericShaderInactiveBuiltinOverloadCanonicalizer {
             )
         }
         return result
+    }
+
+    private static func isStaticallyMat3Call(
+        _ nameIndex: Int,
+        tokens: [Token],
+        functions: [FunctionDefinition]
+    ) -> Bool {
+        guard nameIndex + 1 < tokens.count,
+              let close = matchingCloseParenthesis(
+                  at: nameIndex + 1,
+                  tokens: tokens
+              ),
+              let argument = singleArgumentRange(
+                  (nameIndex + 2)..<close,
+                  tokens: tokens
+              ) else { return false }
+        return isStaticallyMat3Expression(
+            argument,
+            before: nameIndex,
+            tokens: tokens,
+            functions: functions
+        )
+    }
+
+    private static func isStaticallyMat3Expression(
+        _ rawRange: Range<Int>,
+        before limit: Int,
+        tokens: [Token],
+        functions: [FunctionDefinition]
+    ) -> Bool {
+        let range = strippingParentheses(rawRange, tokens: tokens)
+        guard !range.isEmpty else { return false }
+        if range.count == 1, tokens[range.lowerBound].kind == .identifier {
+            return lastDeclaredType(
+                of: tokens[range.lowerBound].text,
+                before: limit,
+                tokens: tokens
+            ) == "mat3"
+        }
+        guard range.count >= 3,
+              tokens[range.lowerBound].kind == .identifier,
+              tokens[range.lowerBound + 1].text == "(",
+              matchingCloseParenthesis(
+                  at: range.lowerBound + 1,
+                  tokens: tokens
+              ) == range.upperBound - 1 else { return false }
+        let callee = tokens[range.lowerBound].text
+        if callee == "mat3" { return true }
+        let matchingFunctions = functions.filter {
+            tokens[$0.nameTokenIndex].text == callee
+        }
+        return matchingFunctions.count == 1
+            && tokens[matchingFunctions[0].startTokenIndex].text == "mat3"
+    }
+
+    private static func strippingParentheses(
+        _ rawRange: Range<Int>,
+        tokens: [Token]
+    ) -> Range<Int> {
+        var range = rawRange
+        while range.count >= 2,
+              tokens[range.lowerBound].text == "(",
+              matchingCloseParenthesis(
+                  at: range.lowerBound,
+                  tokens: tokens
+              ) == range.upperBound - 1 {
+            range = (range.lowerBound + 1)..<(range.upperBound - 1)
+        }
+        return range
+    }
+
+    private static func lastDeclaredType(
+        of name: String,
+        before limit: Int,
+        tokens: [Token]
+    ) -> String? {
+        let valueTypes: Set<String> = [
+            "bool", "int", "uint", "float", "vec2", "vec3", "vec4",
+            "ivec2", "ivec3", "ivec4", "uvec2", "uvec3", "uvec4",
+            "bvec2", "bvec3", "bvec4", "mat2", "mat3", "mat4",
+        ]
+        var result: String?
+        guard limit >= 2 else { return nil }
+        for index in 0..<(limit - 1) where
+            valueTypes.contains(tokens[index].text)
+                && tokens[index + 1].kind == .identifier
+                && tokens[index + 1].text == name
+                && (index + 2 >= tokens.count || tokens[index + 2].text != "(") {
+            result = tokens[index].text
+        }
+        return result
+    }
+
+    private static func singleArgumentRange(
+        _ range: Range<Int>,
+        tokens: [Token]
+    ) -> Range<Int>? {
+        guard !range.isEmpty else { return nil }
+        var parenthesisDepth = 0
+        var bracketDepth = 0
+        for index in range {
+            switch tokens[index].text {
+            case "(": parenthesisDepth += 1
+            case ")": parenthesisDepth -= 1
+            case "[": bracketDepth += 1
+            case "]": bracketDepth -= 1
+            case "," where parenthesisDepth == 0 && bracketDepth == 0:
+                return nil
+            default: break
+            }
+            guard parenthesisDepth >= 0, bracketDepth >= 0 else { return nil }
+        }
+        return parenthesisDepth == 0 && bracketDepth == 0 ? range : nil
     }
 
     private static func isExactCollision(
@@ -198,6 +314,25 @@ nonisolated enum SceneGenericShaderInactiveBuiltinOverloadCanonicalizer {
                 depth -= 1
                 if depth == 0 { return index }
             }
+        }
+        return nil
+    }
+
+    private static func matchingCloseParenthesis(
+        at start: Int,
+        tokens: [Token]
+    ) -> Int? {
+        guard tokens.indices.contains(start), tokens[start].text == "(" else {
+            return nil
+        }
+        var depth = 0
+        for index in start..<tokens.count {
+            if tokens[index].text == "(" { depth += 1 }
+            if tokens[index].text == ")" {
+                depth -= 1
+                if depth == 0 { return index }
+            }
+            guard depth >= 0 else { return nil }
         }
         return nil
     }

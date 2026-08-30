@@ -115,6 +115,31 @@ private let cases: [String: Sources] = [
         }
         """
     ),
+    "active-builtin-overload": .init(
+        vertex: """
+        mat3 inverse(mat3 value) {
+            return value;
+        }
+        mat3 squareToQuad(vec2 value) {
+            return mat3(value.x + 1.0);
+        }
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        void main() {
+            mat3 live = inverse(squareToQuad(a_TexCoord));
+            v_TexCoord = a_TexCoord;
+            gl_Position = vec4(live[0][0] * a_Position, 1.0);
+        }
+        """,
+        fragment: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        """
+    ),
     "both-stages": .init(
         vertex: """
         attribute vec3 a_Position;
@@ -161,16 +186,17 @@ private let rejectedCases: [String: Sources] = [
         }
         """
     ),
-    "active-overload": .init(
+    "active-mat4-overload": .init(
         vertex: """
         mat3 inverse(mat3 value) {
             return value;
         }
+        uniform mat4 g_Matrix;
         attribute vec3 a_Position;
         attribute vec2 a_TexCoord;
         varying vec2 v_TexCoord;
         void main() {
-            mat3 live = inverse(mat3(1.0));
+            mat4 live = inverse(g_Matrix);
             v_TexCoord = a_TexCoord;
             gl_Position = vec4(live[0][0] * a_Position, 1.0);
         }
@@ -307,6 +333,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
         "vertex-only",
         "helper",
         "inactive-builtin-overload",
+        "active-builtin-overload",
         "both-stages",
     )
 
@@ -473,7 +500,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
 
     @classmethod
     def _assert_rejected_overload_cases(cls, root: Path) -> None:
-        for name in ("inactive-invalid-body", "active-overload"):
+        for name in ("inactive-invalid-body", "active-mat4-overload"):
             completed = subprocess.run(
                 [
                     str(GLSLANG), "-V", "--auto-map-bindings",

@@ -122,6 +122,124 @@ inline float4 \(premultiply)(float4 color) {
         return transformed
     }
 
+    /// Conserves a source-proven direct sampled output followed by one alpha
+    /// attenuation. The sample enters authored math as straight color and the
+    /// fully mutated output crosses the compositor boundary exactly once.
+    static func lowerDirectOutputAlphaMutation(
+        _ source: String,
+        expectedSlot: Int
+    ) -> String? {
+        let unpremultiply = "mwxGenericUnpremultiply"
+        let premultiply = "mwxGenericPremultiply"
+        guard (0 ..< 8).contains(expectedSlot),
+              !unionContainsWord(unpremultiply, in: source),
+              !unionContainsWord(premultiply, in: source),
+              unionMatches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              let bodyRange = unionFragmentBody(in: source),
+              let body = unionSubstring(bodyRange, in: source) else { return nil }
+
+        let samples = textureSampleCalls(in: body)
+        let allSamples = textureSampleCalls(in: source)
+        guard samples.count == 1,
+              samples.count == allSamples.count,
+              samples[0].slot == expectedSlot else { return nil }
+
+        let bindings = unionMatches(
+            #"\btexture(?:1d|2d|3d|cube)(?:_array)?\s*<[^>]+>\s+g_Texture([0-7])\b"#,
+            in: source
+        )
+        let references = unionMatches(#"\bg_Texture([0-7])\b"#, in: source)
+        guard bindings.count == 1,
+              unionCapture(bindings[0], 1, in: source) == String(expectedSlot),
+              references.count == bindings.count + allSamples.count,
+              references.allSatisfy({
+                  unionCapture($0, 1, in: source) == String(expectedSlot)
+              }) else { return nil }
+
+        let maskedBody = unionMaskComments(body)
+        let writes = unionMatches(
+            #"(?m)^[ \t]*out\.mwxFragColor(?:\s*\.[xyzwrgba]{1,4})?\s*(?:[+\-*/]=|=(?!=))"#,
+            in: maskedBody
+        )
+        let whole = unionMatches(
+            #"(?m)^[ \t]*out\.mwxFragColor\s*=\s*g_Texture"#
+                + String(expectedSlot) + #"\.sample\([^;]+\)\s*;[ \t]*$"#,
+            in: maskedBody
+        )
+        let alpha = unionMatches(
+            #"(?m)^[ \t]*out\.mwxFragColor\.(?:w|a)\s*\*=\s*[^;]+;[ \t]*$"#,
+            in: maskedBody
+        )
+        let outputReferences = unionMatches(
+            #"\bout\.mwxFragColor\b"#,
+            in: maskedBody
+        )
+        let returns = unionMatches(
+            #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
+            in: maskedBody
+        )
+        guard writes.count == 2,
+              whole.count == 1,
+              alpha.count == 1,
+              outputReferences.count == 2,
+              returns.count == 1,
+              unionMatches(#"\breturn\b"#, in: maskedBody).count == 1,
+              whole[0].range.location < alpha[0].range.location,
+              alpha[0].range.location < returns[0].range.location else { return nil }
+
+        var transformedBody = body
+        guard let sampleRange = Range(samples[0].range, in: transformedBody),
+              let sample = unionSubstring(samples[0].range, in: body) else {
+            return nil
+        }
+        transformedBody.replaceSubrange(
+            sampleRange,
+            with: "\(unpremultiply)(\(sample))"
+        )
+        let transformedMaskedBody = unionMaskComments(transformedBody)
+        let transformedReturns = unionMatches(
+            #"(?m)^([ \t]*)return\s+out\s*;[ \t]*$"#,
+            in: transformedMaskedBody
+        )
+        guard transformedReturns.count == 1,
+              let terminalReturn = transformedReturns.first,
+              let indent = unionCapture(terminalReturn, 1, in: transformedMaskedBody),
+              let returnRange = Range(terminalReturn.range, in: transformedBody)
+        else { return nil }
+        transformedBody.replaceSubrange(
+            returnRange,
+            with: "\(indent)out.mwxFragColor = \(premultiply)(out.mwxFragColor);\n"
+                + "\(indent)return out;"
+        )
+
+        guard let sourceBodyRange = Range(bodyRange, in: source) else {
+            return nil
+        }
+        var transformed = source
+        transformed.replaceSubrange(sourceBodyRange, with: transformedBody)
+        let helpers = """
+
+inline float4 \(unpremultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    const float3 rgb = alpha > 0.0
+        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
+        : float3(0.0);
+    return float4(rgb, alpha);
+}
+
+inline float4 \(premultiply)(float4 color) {
+    const float alpha = clamp(color.w, 0.0, 1.0);
+    return float4(color.xyz * alpha, alpha);
+}
+"""
+        guard let namespace = transformed.range(
+            of: #"\busing\s+namespace\s+metal\s*;"#,
+            options: .regularExpression
+        ) else { return nil }
+        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
+        return transformed
+    }
+
     private struct TextureSampleCall {
         let range: NSRange
         let slot: Int

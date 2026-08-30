@@ -37,6 +37,13 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
               !statements.isEmpty else {
             return nil
         }
+        if let direct = directOutputFact(
+            fragment,
+            main: main,
+            statements: statements
+        ) {
+            return direct
+        }
         let tokens = fragment.tokens
         let outputUses = main.bodyRange.filter {
             tokens[$0].text == "gl_FragColor"
@@ -133,6 +140,98 @@ nonisolated enum SceneAuthoredShaderAlphaAttenuationAnalyzer {
             sourceSlot: source.slot,
             auxiliaryRedSlots: Set(attenuation.auxiliarySlots)
         )
+    }
+
+    /// Proves the equivalent root-output spelling used by perspective-style
+    /// materials: one direct sample is written to the whole output, then a
+    /// source-independent scalar multiplies only its alpha. Keeping this form
+    /// in the attenuation owner prevents a parallel color-contract analyzer.
+    static func directOutputFact(
+        _ fragment: SceneAuthoredShaderSyntaxUnit
+    ) -> Fact? {
+        guard fragment.stage == .fragment,
+              let main = fragment.functions.first(where: { $0.name == "main" }),
+              let statements = topLevelStatements(
+                  in: main.bodyRange,
+                  tokens: fragment.tokens
+              ) else { return nil }
+        return directOutputFact(fragment, main: main, statements: statements)
+    }
+
+    private static func directOutputFact(
+        _ fragment: Unit,
+        main: Unit.Function,
+        statements: [Range<Int>]
+    ) -> Fact? {
+        guard fragment.functions.count == 1,
+              statements.count >= 2 else { return nil }
+        let tokens = fragment.tokens
+        let outputUses = main.bodyRange.filter {
+            tokens[$0].text == "gl_FragColor"
+        }
+        let allOutputUses = tokens.indices.filter {
+            tokens[$0].text == "gl_FragColor"
+        }
+        guard outputUses.count == 2,
+              outputUses == allOutputUses,
+              let wholeOutput = outputUses.first,
+              let alphaOutput = outputUses.last,
+              statements[statements.count - 2].contains(wholeOutput),
+              statements[statements.count - 1].contains(alphaOutput),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  wholeOutput,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  alphaOutput,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              wholeOutput + 1 < tokens.count,
+              tokens[wholeOutput + 1].text == "=",
+              let source = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: wholeOutput,
+                    in: tokens,
+                    body: main.bodyRange
+                ),
+              let sourceSlot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(source),
+              let factor = rootAlphaMultiplication(
+                  Array(tokens[statements[statements.count - 1]])
+              ),
+              sourceIndependent(factor),
+              sampleCallCount(tokens: tokens, body: tokens.indices) == 1,
+              fragment.declarations.filter({
+                  $0.storage == .uniform
+                      && $0.typeName == "sampler2D"
+                      && $0.arraySize == nil
+                      && $0.name == "g_Texture\(sourceSlot)"
+              }).count == 1,
+              !main.bodyRange.contains(where: {
+                  ["discard", "imageStore", "return"].contains(tokens[$0].text)
+              }) else { return nil }
+        return Fact(sourceSlot: sourceSlot, auxiliaryRedSlots: [])
+    }
+
+    private static func rootAlphaMultiplication(
+        _ statement: [Token]
+    ) -> [Token]? {
+        guard statement.count >= 5,
+              statement[0].text == "gl_FragColor",
+              statement[1].text == ".",
+              ["a", "w"].contains(statement[2].text),
+              statement[3].text == "*=" else { return nil }
+        return Array(statement.dropFirst(4))
+    }
+
+    private static func sourceIndependent(_ expression: [Token]) -> Bool {
+        !expression.isEmpty && !expression.contains(where: {
+            $0.text == "gl_FragColor"
+                || $0.text == "imageStore"
+                || ["texSample2D", "texture2D"].contains($0.text)
+        })
     }
 
     private struct DeclarationFacts {

@@ -706,6 +706,24 @@ private struct GenericShaderArtifactHarness {
                 "mat3 inverse(mat3 value) { return value; }",
                 "mat3 retainedCaller(mat3 value) { return inverse(value); }",
             ])
+            let nestedCall = normalizedVertex([
+                "mat3 inverse(mat3 value) { return value; }",
+                "mat3 squareToQuad(vec2 value) { return mat3(value.x); }",
+            ], mainBody: [
+                "void main() {",
+                "    mat3 live = inverse(squareToQuad(a_TexCoord));",
+                "    gl_Position = vec4(live[0][0] * a_Position, 1.0);",
+                "}",
+            ])
+            let mixedMatrixCall = ([
+                "mat3 inverse(mat3 value) { return value; }",
+                "uniform mat4 g_Matrix;",
+            ] + vertexPrefix + [
+                "void main() {",
+                "    mat4 live = inverse(g_Matrix);",
+                "    gl_Position = live * vec4(a_Position, 1.0);",
+                "}",
+            ]).joined(separator: "\n")
             let commentOnly = normalizedVertex([
                 "mat3 inverse(mat3 value) { return value; }",
                 "// inverse(mat3(1.0)) is not an authored call.",
@@ -753,13 +771,19 @@ private struct GenericShaderArtifactHarness {
                     && inactive?.contains("mat3 inverse") == false,
                 "unrelatedDeadHelperRetained":
                     inactive?.contains("retainedHelper") == true,
-                "liveDefinitionRetained": live?.contains("mat3 inverse") == true
-                    && live?.contains("mwxInactiveInverse") == false,
-                "liveSourcePreserved":
+                "liveDefinitionAndCallRenamed":
+                    live?.components(separatedBy: "mwxInactiveInverse").count == 3
+                    && live?.contains("mat3 inverse") == false,
+                "liveSourceRewritten":
                     SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
-                        .rewrite(liveSource) == liveSource,
-                "deadHelperCallRetainsDefinition":
-                    helperCall?.contains("mat3 inverse") == true,
+                        .rewrite(liveSource) != liveSource,
+                "typedHelperCallRenamed":
+                    helperCall?.components(separatedBy: "mwxInactiveInverse").count == 3,
+                "nestedMat3CallRenamed":
+                    nestedCall?.components(separatedBy: "mwxInactiveInverse").count == 3,
+                "mat4BuiltinCallPreservesSource":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(mixedMatrixCall) == mixedMatrixCall,
                 "commentCallDoesNotRetainAuthoredName":
                     commentOnly?.contains("mat3 mwxInactiveInverse") == true,
                 "invalidBodyPreserved":
@@ -3471,7 +3495,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(build_root / "clang-module-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(build_root / "swift-module-cache")
-        subprocess.run(
+        completed = subprocess.run(
             [
                 swiftc,
                 "-parse-as-library",
@@ -3483,10 +3507,11 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             ],
             cwd=REPOSITORY_ROOT,
             env=environment,
-            check=True,
             capture_output=True,
             text=True,
         )
+        if completed.returncode != 0:
+            raise AssertionError(completed.stderr)
 
     @classmethod
     def tearDownClass(cls):
@@ -3862,7 +3887,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "suffixReadRejected": True,
         })
 
-    def test_backend_canonicalizer_namespaces_only_inactive_builtin_overload(self):
+    def test_backend_canonicalizer_namespaces_bounded_builtin_overload(self):
         completed = subprocess.run(
             [str(self.binary), "--canonicalizer-inactive-builtin-overload"],
             cwd=REPOSITORY_ROOT,
@@ -3873,9 +3898,11 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         self.assertEqual(json.loads(completed.stdout), {
             "inactiveDefinitionRenamed": True,
             "unrelatedDeadHelperRetained": True,
-            "liveDefinitionRetained": True,
-            "liveSourcePreserved": True,
-            "deadHelperCallRetainsDefinition": True,
+            "liveDefinitionAndCallRenamed": True,
+            "liveSourceRewritten": True,
+            "typedHelperCallRenamed": True,
+            "nestedMat3CallRenamed": True,
+            "mat4BuiltinCallPreservesSource": True,
             "commentCallDoesNotRetainAuthoredName": True,
             "invalidBodyPreserved": True,
             "nonTargetSignaturePreserved": True,
