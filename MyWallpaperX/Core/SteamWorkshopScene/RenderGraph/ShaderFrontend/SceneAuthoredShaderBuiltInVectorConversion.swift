@@ -505,6 +505,13 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
                 directlyNarrowable: false
             )
         }
+        if let builtIn = scalarFloatBuiltInExpression(
+            sourceRange,
+            tokens: tokens,
+            unit: unit
+        ) {
+            return builtIn
+        }
         guard tokens[range.lowerBound].kind == .identifier,
               let declared = declaredType(
                   tokens[range.lowerBound].text,
@@ -533,6 +540,50 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
             conversions: [],
             compound: false,
             directlyNarrowable: true
+        )
+    }
+
+    /// `step` and `smoothstep` return the scalar floating shape of their
+    /// scalar authored operands. Prove only that narrow built-in surface so a
+    /// surrounding `min`/`max` can select its floating overload. User
+    /// overloads and vector/unknown arguments remain untouched.
+    private static func scalarFloatBuiltInExpression(
+        _ range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Expression? {
+        guard range.count >= 4,
+              tokens[range.lowerBound].kind == .identifier else { return nil }
+        let name = tokens[range.lowerBound].text
+        let expectedCount: Int
+        switch name {
+        case "step": expectedCount = 2
+        case "smoothstep": expectedCount = 3
+        default: return nil
+        }
+        guard !unit.functions.contains(where: { $0.name == name }),
+              tokens[range.lowerBound + 1].text == "(",
+              matchingParenthesis(
+                  tokens: tokens,
+                  opening: range.lowerBound + 1
+              ) == range.upperBound - 1,
+              let ranges = argumentRanges(
+                  opening: range.lowerBound + 1,
+                  closing: range.upperBound - 1,
+                  tokens: tokens
+              ), ranges.count == expectedCount else { return nil }
+        let arguments = ranges.compactMap {
+            componentExpression($0, tokens: tokens, unit: unit)
+        }
+        guard arguments.count == ranges.count,
+              arguments.allSatisfy({ [.float, .int].contains($0.type) }),
+              arguments.contains(where: { $0.type == .float }) else { return nil }
+        return .init(
+            range: range,
+            type: .float,
+            conversions: arguments.flatMap(\.conversions),
+            compound: true,
+            directlyNarrowable: false
         )
     }
 

@@ -65,18 +65,20 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         }
         do {
             let typedVertexSource = rewriteAssignmentVectorConversions(
-                rewriteBuiltInVectorArguments(
+                rewriteFunctionVectorArguments(
                     SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                        vertexSource
+                        vertexSource,
+                        stage: .vertex
                     ),
                     stage: .vertex
                 ),
                 stage: .vertex
             )
             let typedFragmentSource = rewriteAssignmentVectorConversions(
-                rewriteBuiltInVectorArguments(
+                rewriteFunctionVectorArguments(
                     SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                        fragmentSource
+                        fragmentSource,
+                        stage: .fragment
                     ),
                     stage: .fragment
                 ),
@@ -501,13 +503,10 @@ void main() {
         return true
     }
 
-    /// Wallpaper Engine authored GLSL permits the established bounded frontend
-    /// conversion where one `mix`/`lerp` color argument is wider than the
-    /// other. Reuse that typed rule before Vulkan GLSL validation so the two
-    /// compiler paths do not disagree about the same authored expression.
-    /// Unknown expressions, weights, and user-defined built-ins remain
-    /// untouched and therefore fail closed in the helper compiler.
-    private static func rewriteBuiltInVectorArguments(
+    /// Reuse the bounded frontend's source-proven vector argument narrowing
+    /// for built-ins and unambiguous user functions before Vulkan validation.
+    /// Unknown expressions and overloads remain fail-closed.
+    private static func rewriteFunctionVectorArguments(
         _ source: String,
         stage: SceneShaderContract.StageKind
     ) -> String {
@@ -536,7 +535,7 @@ void main() {
         let insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
             let token = unit.tokens[index]
             guard token.kind == .identifier,
-                  let suffix = SceneAuthoredShaderBuiltInVectorConversion.suffix(
+                  let suffix = SceneAuthoredShaderVectorConversion.suffix(
                       forIdentifierAt: index,
                       in: unit.tokens,
                       unit: unit

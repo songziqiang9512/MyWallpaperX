@@ -14,7 +14,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> [Conversion] {
         tokens.indices.flatMap { index -> [Conversion] in
-            guard tokens[index].text == "=",
+            guard ["=", "+=", "-=", "*=", "/="].contains(tokens[index].text),
                   index > 0,
                   tokens[index - 1].kind == .identifier,
                   let end = statementEnd(after: index, in: tokens),

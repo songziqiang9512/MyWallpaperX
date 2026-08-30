@@ -33,6 +33,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarBuiltInLiteralNormalizer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
@@ -152,6 +154,23 @@ private struct ScalarVectorBuiltInHarness {
             "float value = max(1, abs(g_Ratio.x)); gl_FragColor = vec4(value);",
             declarations: ["uniform vec2 g_Ratio;"]
         )
+        let scalarStepMin = canonical(
+            "float value = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let discreteMask = canonical(
+            "int value = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"]
+        )
+        let nonDiscreteMask = canonical(
+            "int value = max(lower, g_Ratio.x); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"]
+        )
+        let userDefinedStepMask = canonical(
+            "int value = max(lower, step(g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"],
+            helpers: ["float step(float edge, float value) { return value; }"]
+        )
         let compound = canonical(
             "gl_FragColor = vec4(max(0 + 0, albedo.rgb), albedo.a);"
         )
@@ -184,16 +203,30 @@ private struct ScalarVectorBuiltInHarness {
                 with: "varying vec2 v_TexCoord;\nuniform vec4 g_Texture0Resolution;"
             )
             .replacingOccurrences(
+                of: "void main() {",
+                with: "vec2 fixtureCoordinates(vec2 value, float amount) { return value * amount; }\nvoid main() {"
+            )
+            .replacingOccurrences(
                 of: "gl_Position = vec4(a_Position, 1.0);",
                 with: "float xScale = max(1, g_Texture0Resolution.x / g_Texture0Resolution.y);\n"
                     + "        gl_Position = vec4(a_Position * xScale, 1.0);"
             )
             .replacingOccurrences(
                 of: "v_TexCoord = a_TexCoord;",
-                with: "v_TexCoord = max(0, a_TexCoord);"
+                with: "vec2 limited = max(0, a_TexCoord);\n"
+                    + "        v_TexCoord = fixtureCoordinates(g_Texture0Resolution, 0.5) + limited * 0.0;"
             )
         let compileFragment = fragment(
-            "gl_FragColor = vec4(max(0, albedo.rgb), albedo.a);"
+            "int mask = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y));\n"
+                + "    float weight = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y));\n"
+                + "    vec2 broadcast = g_Ratio.x * g_Ratio.y;\n"
+                + "    broadcast *= 1.0 / g_Ratio4;\n"
+                + "    gl_FragColor = vec4(max(0, albedo.rgb) + vec3(broadcast, weight) * float(mask), albedo.a);",
+            declarations: [
+                "uniform int lower;",
+                "uniform vec2 g_Ratio;",
+                "uniform vec4 g_Ratio4;",
+            ]
         )
         let firstPair = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
             vertex: compileVertex,
@@ -254,6 +287,18 @@ private struct ScalarVectorBuiltInHarness {
                 "scalarUnknownCallPreserved": scalarUnknownCall.contains(
                     "max(1, abs(g_Ratio.x))"
                 ) && !scalarUnknownCall.contains("max(1.0, abs(g_Ratio.x))"),
+                "scalarStepMin": scalarStepMin.contains(
+                    "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"
+                ),
+                "discreteMask": discreteMask.contains(
+                    "max(lower, int(step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)))"
+                ),
+                "nonDiscreteMaskPreserved": nonDiscreteMask.contains(
+                    "max(lower, g_Ratio.x)"
+                ) && !nonDiscreteMask.contains("int(g_Ratio.x)"),
+                "userDefinedStepMaskPreserved": userDefinedStepMask.contains(
+                    "max(lower, step(g_Ratio.x, g_Ratio.y))"
+                ) && !userDefinedStepMask.contains("int(step("),
                 "compoundPreserved": compound.contains(
                     "max(0 + 0, albedo.rgb)"
                 ) && !compound.contains("vec3(0.0)"),
@@ -279,6 +324,21 @@ private struct ScalarVectorBuiltInHarness {
                 "normalized": normalized != nil,
                 "normalizedScalarFloatMax": normalized?.vertex.contains(
                     "max(1.0, g_Texture0Resolution.x / g_Texture0Resolution.y)"
+                ) == true,
+                "normalizedUserFunctionArgument": normalized?.vertex.contains(
+                    "fixtureCoordinates(g_Texture0Resolution.xy, 0.5)"
+                ) == true,
+                "normalizedDiscreteMask": normalized?.fragment.contains(
+                    "max(lower, int(step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)))"
+                ) == true,
+                "normalizedScalarStepMin": normalized?.fragment.contains(
+                    "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"
+                ) == true,
+                "normalizedScalarVectorBroadcast": normalized?.fragment.contains(
+                    "vec2 broadcast = vec2(g_Ratio.x * g_Ratio.y);"
+                ) == true,
+                "normalizedCompoundVectorNarrowing": normalized?.fragment.contains(
+                    "broadcast *= (1.0 / g_Ratio4).xy;"
                 ) == true,
             ],
             normalizedVertex: normalized?.vertex,

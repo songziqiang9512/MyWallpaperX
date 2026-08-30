@@ -17,7 +17,7 @@ nonisolated enum SceneAuthoredShaderFrontend {
             provenColorTransfer: SceneShaderColorTransfer?,
             premultipliedColorInputSlots: Set<Int>
         ) {
-            cacheSchemaVersion = 2
+            cacheSchemaVersion = 3
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
             self.runtimeLoopBounds = runtimeLoopBounds
