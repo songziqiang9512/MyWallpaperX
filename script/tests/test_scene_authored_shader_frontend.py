@@ -1008,8 +1008,45 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertIsNone(output.get("metalError"))
 
+        component_wise = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform vec2 g_ShadowOffset;
+            uniform vec2 g_ParallaxPosition;
+            uniform vec2 g_ParallaxScale;
+            uniform vec2 g_ShadowScale;
+            void main() {
+                float factor = (
+                    1 + (abs(g_ShadowOffset) +
+                    abs(g_ParallaxPosition * g_ParallaxScale)) * 2
+                ) * max(1, abs(g_ShadowScale));
+                gl_FragColor = vec4(factor, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        compact_component_wise = component_wise["metalSource"].replace(" ", "")
+        self.assertEqual(component_wise["diagnosticCodes"], [])
+        self.assertIn("max(1,abs(mwxUniforms.g_ShadowScale))).x;", compact_component_wise)
+        self.assertIsNone(component_wise.get("metalError"))
+
+        additive = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform vec2 g_PointerPosition;
+            void main() {
+                float value = g_PointerPosition + vec2(1.0);
+                gl_FragColor = vec4(value, 0.0, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertIn(
+            "(mwxUniforms.g_PointerPosition+float2(1.0)).x;",
+            additive["metalSource"].replace(" ", ""),
+        )
+        self.assertIsNone(additive.get("metalError"))
+
         unsupported = [
-            "float value = g_PointerPosition + vec2(1.0);",
+            "float value = g_PointerPosition + vec3(1.0);",
             "float value = vectorValue(g_PointerPosition);",
             "float value = g_Integer * 2;",
         ]

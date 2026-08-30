@@ -264,6 +264,7 @@ private struct ScalarVectorAssignmentOutput: Codable {
     let vectorIndexPreserved: Bool
     let commaDeclarationPreserved: Bool
     let bareVectorArithmeticNarrowed: Bool
+    let componentWiseExpressionNarrowed: Bool
     let numericBoolCompoundNormalized: Bool
     let numericCompoundPreserved: Bool
     let controlFlowPreserved: Bool
@@ -912,6 +913,10 @@ private struct GenericShaderArtifactHarness {
                 "varying vec2 v_TexCoord;",
                 "uniform sampler2D g_Texture0;",
                 "uniform vec2 sampleRange;",
+                "uniform vec2 shadowOffset;",
+                "uniform vec2 parallaxPosition;",
+                "uniform vec2 parallaxScale;",
+                "uniform vec2 shadowScale;",
                 "void main() {",
                 "    vec4 source = texSample2D(g_Texture0, v_TexCoord);",
                 "    float projected = sampleRange.x * 0.25;",
@@ -920,6 +925,7 @@ private struct GenericShaderArtifactHarness {
                 "    float indexed = sampleRange[0] * 0.25;",
                 "    float left = sampleRange.y * 0.05, right = left;",
                 "    float narrowed = sampleRange * 0.5;",
+                "    float componentWise = (1 + (abs(shadowOffset) + abs(parallaxPosition * parallaxScale)) * 2) * max(1, abs(shadowScale));",
                 "    gl_FragColor = source + projected + interpolated + magnitude + indexed + left + right + narrowed;",
                 "}",
             ].joined(separator: "\n")
@@ -959,6 +965,10 @@ private struct GenericShaderArtifactHarness {
                     normalized.contains("float left = sampleRange.y * 0.05, right = left;"),
                 bareVectorArithmeticNarrowed:
                     normalized.contains("float narrowed = (sampleRange * 0.5).x;"),
+                componentWiseExpressionNarrowed:
+                    normalized.contains(
+                        "float componentWise = ((1 + (abs(shadowOffset) + abs(parallaxPosition * parallaxScale)) * 2) * max(1, abs(shadowScale))).x;"
+                    ),
                 numericBoolCompoundNormalized:
                     booleanFirst.contains("value += float(upper - lower < 0.0);")
                     && booleanFirst.contains(
@@ -4054,6 +4064,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "vectorIndexPreserved": True,
             "commaDeclarationPreserved": True,
             "bareVectorArithmeticNarrowed": True,
+            "componentWiseExpressionNarrowed": True,
             "numericBoolCompoundNormalized": True,
             "numericCompoundPreserved": True,
             "controlFlowPreserved": True,

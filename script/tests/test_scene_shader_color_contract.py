@@ -213,6 +213,51 @@ private func metal(
     )?.metalSource ?? ""
 }
 
+private func generatedUnderlayFragment(_ body: String) -> String {
+    """
+    varying vec2 v_TexCoord;
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture1;
+    uniform sampler2D g_Texture2;
+    uniform sampler2D g_Texture3;
+    uniform float g_ScalarWeight;
+    uniform vec3 g_Shadow;
+    void main() {
+        \(body)
+    }
+    """
+}
+
+private func generatedUnderlayProgram(
+    _ body: String
+) -> SceneAuthoredShaderProgram? {
+    let vertex = """
+    attribute vec3 a_Position;
+    attribute vec2 a_TexCoord;
+    varying vec2 v_TexCoord;
+    void main() {
+        v_TexCoord = a_TexCoord;
+        gl_Position = vec4(a_Position, 1.0);
+    }
+    """
+    return SceneAuthoredShaderFrontend.compile(
+        vertexSource: vertex,
+        fragmentSource: generatedUnderlayFragment(body)
+    ).program
+}
+
+private func generatedUnderlayTransfer(_ body: String) -> String {
+    let result = generatedUnderlayProgram(body)?.colorTransfer ?? .unresolved
+    switch result {
+    case .straightAlpha(let slot): return "straight-slot:\(slot)"
+    default: return "other"
+    }
+}
+
+private func generatedUnderlayMetal(_ body: String) -> String {
+    generatedUnderlayProgram(body)?.metalSource ?? ""
+}
+
 private func conditionalGeneratedRGBFact(
     _ body: String,
     helpers: String = ""
@@ -953,6 +998,75 @@ enum Harness {
                 "float weight = mask * g_ScalarWeight * overlay.a; " +
                 "base.rgb = ApplyBlending(0, base.rgb, overlay.rgb, weight); " +
                 "base.a = overlay.a * g_ScalarWeight; gl_FragColor = base;"
+            ),
+            "generatedUnderlayBlend": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shadowAlpha = texSample2D(g_Texture0, " +
+                "v_TexCoord + vec2(0.01, 0.02)).a; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shadowAlpha); " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
+            ),
+            "generatedUnderlayBlendMetal": generatedUnderlayMetal(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shadowAlpha = texSample2D(g_Texture0, " +
+                "v_TexCoord + vec2(0.01, 0.02)).a; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shadowAlpha); " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
+            ),
+            "generatedUnderlayBlendRenamed": generatedUnderlayTransfer(
+                "vec4 authored = texture2D(g_Texture3, v_TexCoord); " +
+                "float shifted = texture2D(g_Texture3, " +
+                "v_TexCoord + vec2(0.03, 0.04)).w; " +
+                "vec4 behind = vec4(g_Shadow, " +
+                "shifted * g_ScalarWeight); " +
+                "gl_FragColor = lerp(behind, authored, authored.w);"
+            ),
+            "generatedUnderlayDifferentSlot": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture1, v_TexCoord).a; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shifted); " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
+            ),
+            "generatedUnderlayWrongWeight": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture0, v_TexCoord).a; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shifted); " +
+                "gl_FragColor = mix(shadow, pix, g_ScalarWeight);"
+            ),
+            "generatedUnderlayExtraSample": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture0, v_TexCoord).a; " +
+                "float extra = texSample2D(g_Texture0, " +
+                "v_TexCoord * 0.5).r; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shifted); " +
+                "gl_FragColor = mix(shadow, pix, pix.a + extra);"
+            ),
+            "generatedUnderlayGeneratedRGBSample": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture0, v_TexCoord).a; " +
+                "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 shadow = vec4(color.rgb, " +
+                "g_ScalarWeight * shifted); " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
+            ),
+            "generatedUnderlayMissingSignal": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture0, v_TexCoord).a; " +
+                "vec4 shadow = vec4(g_Shadow, g_ScalarWeight); " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
+            ),
+            "generatedUnderlayConditional": generatedUnderlayTransfer(
+                "vec4 pix = texSample2D(g_Texture0, v_TexCoord); " +
+                "float shifted = texSample2D(g_Texture0, v_TexCoord).a; " +
+                "vec4 shadow = vec4(g_Shadow, " +
+                "g_ScalarWeight * shifted); " +
+                "if (g_ScalarWeight > 0.0) " +
+                "gl_FragColor = mix(shadow, pix, pix.a);"
             ),
             "overlayAlphaBlendMetal": metal(
                 "vec4 base = texSample2D(g_Texture0, v_TexCoord); " +
@@ -2035,6 +2149,30 @@ class SceneShaderColorContractTests(unittest.TestCase):
         self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
         self.assertNotIn("mwxUnpremultiply(mwxTexture1.sample", source)
         self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_generated_underlay_blend_has_one_straight_color_boundary(self) -> None:
+        self.assertEqual(
+            self.result["generatedUnderlayBlend"], "straight-slot:0"
+        )
+        self.assertEqual(
+            self.result["generatedUnderlayBlendRenamed"], "straight-slot:3"
+        )
+        source = self.result["generatedUnderlayBlendMetal"]
+        self.assertEqual(
+            source.count("mwxUnpremultiply(mwxTexture0.sample"), 2
+        )
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+
+    def test_generated_underlay_blend_rejects_unproven_dataflow(self) -> None:
+        for key in (
+            "generatedUnderlayDifferentSlot",
+            "generatedUnderlayWrongWeight",
+            "generatedUnderlayExtraSample",
+            "generatedUnderlayGeneratedRGBSample",
+            "generatedUnderlayMissingSignal",
+            "generatedUnderlayConditional",
+        ):
+            self.assertEqual(self.result[key], "other", key)
 
     def test_overlay_alpha_blend_stays_closed_without_the_exact_dataflow(self) -> None:
         for key in (

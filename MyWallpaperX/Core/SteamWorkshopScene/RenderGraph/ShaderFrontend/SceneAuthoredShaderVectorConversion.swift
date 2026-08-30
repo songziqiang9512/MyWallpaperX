@@ -45,6 +45,15 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                ) {
                 return [conversion]
             }
+            if targetWidth == 1,
+               let conversion = scalarComponentWiseExpressionConversion(
+                   expression: (index + 1)..<end,
+                   before: index,
+                   tokens: tokens,
+                   unit: unit
+               ) {
+                return [conversion]
+            }
             guard let operands = multiplicativeOperands(
                 tokens[(index + 1)..<end],
                 before: index,
@@ -100,6 +109,89 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 from: sourceWidth,
                 to: targetWidth
               ) else { return nil }
+        return .init(range: expression, suffix: suffix)
+    }
+
+    /// Wallpaper Engine's HLSL-facing authored dialect permits a float local
+    /// to take the first lane of one component-wise vector expression. Keep
+    /// that conversion explicit for Metal/GLSL only when every vector operand
+    /// has the same statically known width and every call is a component-wise
+    /// built-in or a matching vector constructor. Unknown/user functions,
+    /// mixed widths, indexing and control expressions remain unchanged so the
+    /// downstream compiler can reject them.
+    private static func scalarComponentWiseExpressionConversion(
+        expression: Range<Int>,
+        before limit: Int,
+        tokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Conversion? {
+        let builtIns: Set<String> = [
+            "abs", "clamp", "max", "min", "pow", "saturate",
+            "smoothstep", "step",
+        ]
+        let punctuation: Set<String> = [
+            "+", "-", "*", "/", "(", ")", ",",
+        ]
+        var vectorWidths = Set<Int>()
+        var index = expression.lowerBound
+        while index < expression.upperBound {
+            let token = tokens[index]
+            if token.kind == .number || punctuation.contains(token.text) {
+                index += 1
+                continue
+            }
+            guard token.kind == .identifier else { return nil }
+            if index > expression.lowerBound, tokens[index - 1].text == "." {
+                return nil
+            }
+            if index + 1 < expression.upperBound,
+               tokens[index + 1].text == "(" {
+                if let constructor = SceneAuthoredShaderValueType(
+                    authoredName: token.text
+                ) {
+                    guard let width = floatVectorWidth(constructor), width > 1
+                    else { return nil }
+                    vectorWidths.insert(width)
+                } else {
+                    guard builtIns.contains(token.text),
+                          !unit.functions.contains(where: {
+                              $0.name == token.text
+                          }) else { return nil }
+                }
+                index += 1
+                continue
+            }
+            guard let source = declaredType(
+                of: token.text,
+                before: limit,
+                tokens: tokens,
+                unit: unit
+            ) else { return nil }
+            if index + 2 < expression.upperBound,
+               tokens[index + 1].text == ".",
+               tokens[index + 2].kind == .identifier {
+                guard let swizzled = swizzleType(tokens[index + 2].text)
+                else { return nil }
+                if let width = floatVectorWidth(swizzled) {
+                    vectorWidths.insert(width)
+                } else if swizzled != .float {
+                    return nil
+                }
+                index += 3
+                continue
+            }
+            if let width = floatVectorWidth(source) {
+                vectorWidths.insert(width)
+            } else if ![.float, .int, .uint].contains(source) {
+                return nil
+            }
+            index += 1
+        }
+        guard vectorWidths.count == 1,
+              let width = vectorWidths.first,
+              let suffix = narrowingSuffix(from: width, to: 1) else {
+            return nil
+        }
         return .init(range: expression, suffix: suffix)
     }
 

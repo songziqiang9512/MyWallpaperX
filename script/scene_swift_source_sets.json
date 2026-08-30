@@ -107,6 +107,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightWholeColorFilterAnalyzer+Syntax.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOpaqueInputAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderOverlayAlphaBlendAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderGeneratedUnderlayBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
