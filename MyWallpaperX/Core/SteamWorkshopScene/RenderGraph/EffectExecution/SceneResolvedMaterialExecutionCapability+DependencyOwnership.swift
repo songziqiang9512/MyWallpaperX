@@ -56,17 +56,11 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         references: [Reference],
         binding: SceneDependencyRenderPlan.Binding?
     ) -> SceneResolvedMaterialDependencyOwnership? {
-        let effectiveReferences: [Reference]
-        if binding == nil,
-           layer.dependencyLayerIDs.isEmpty,
-           layer.authoredDependencies.isEmpty,
-           let graph {
-            effectiveReferences = references.filter {
-                !isShadowedInputProvenance($0, layer: layer, graph: graph)
-            }
-        } else {
-            effectiveReferences = references
-        }
+        let effectiveReferences = ownerRequiringReferences(
+            references,
+            layer: layer,
+            graph: graph
+        )
         let hasDependencyMetadata = !layer.dependencyLayerIDs.isEmpty
             || !layer.authoredDependencies.isEmpty
             || !effectiveReferences.isEmpty
@@ -126,10 +120,21 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         return .graphInternal(referenceCount: effectiveReferences.count)
     }
 
-    /// A same-layer primary material reference is source provenance when the
+    /// A same-layer named material reference is source provenance when the
     /// exact effect/pass/slot has an explicit `previous -> effect.input`
     /// binding. Template compilation preserves the reference below that graph
     /// override; dependency admission must therefore not invent a second owner.
+    private static func ownerRequiringReferences(
+        _ references: [Reference],
+        layer: SceneRenderDescriptor.Layer,
+        graph: Graph?
+    ) -> [Reference] {
+        guard let graph else { return references }
+        return references.filter {
+            !isShadowedInputProvenance($0, layer: layer, graph: graph)
+        }
+    }
+
     private static func isShadowedInputProvenance(
         _ reference: Reference,
         layer: SceneRenderDescriptor.Layer,
@@ -137,16 +142,19 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
     ) -> Bool {
         guard reference.consumerLayerID == layer.id,
               reference.providerLayerID == layer.id,
-              reference.variant == .primary,
               graph.layerID == layer.id else { return false }
         let effects = graph.effects.filter {
             $0.key.descriptorID == reference.slot.effectID
         }
         guard effects.count == 1, let effect = effects.first,
-              effect.input.kind == .layerSource,
-              effect.input.layerID == layer.id,
-              effect.input.effect == nil,
-              effect.input.name == nil else { return false }
+              SceneResolvedMaterialExactPreviousInputShadow.accepts(
+                  .init(
+                      providerLayerID: reference.providerLayerID,
+                      variant: reference.variant
+                  ),
+                  input: effect.input,
+                  consumer: effect.key
+              ) else { return false }
         let nodes = graph.nodes.filter {
             $0.effect == effect.key
                 && $0.instancePassIndex == reference.slot.passIndex
@@ -173,11 +181,16 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         references: [Reference],
         binding: SceneDependencyRenderPlan.Binding?
     ) -> Set<Graph.EffectKey>? {
+        let effectiveReferences = ownerRequiringReferences(
+            references,
+            layer: layer,
+            graph: graph
+        )
         guard binding == nil,
               layer.authoredDependencies.isEmpty,
-              references.count == 1,
-              Set(references).count == references.count,
-              references.allSatisfy({
+              effectiveReferences.count == 1,
+              Set(effectiveReferences).count == effectiveReferences.count,
+              effectiveReferences.allSatisfy({
                   $0.consumerLayerID == layer.id
                     && $0.providerLayerID != layer.id
                     && $0.variant == .primary
@@ -188,7 +201,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                   of: layer.id
               ) else { return nil }
 
-        let providerIDs = Set(references.map(\.providerLayerID))
+        let providerIDs = Set(effectiveReferences.map(\.providerLayerID))
         guard providerIDs.count == 1,
               layer.dependencyLayerIDs.count == 1,
               Set(layer.dependencyLayerIDs) == providerIDs,
@@ -199,7 +212,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
               }) else { return nil }
 
         var keys = Set<Graph.EffectKey>()
-        for reference in references {
+        for reference in effectiveReferences {
             let descriptorMatches = layer.effects.enumerated().filter {
                 $0.element.id == reference.slot.effectID
                     && $0.element.visible != false

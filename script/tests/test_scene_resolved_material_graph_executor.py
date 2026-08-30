@@ -3015,6 +3015,49 @@ private func capabilities(
     )
 }
 
+private func mixedForwardUnavailableEffectKeys(
+    graph: Graph,
+    secondaryReference: SceneDependencyRenderPlan.Reference
+) -> Set<Graph.EffectKey>? {
+    let providerLayerID = layerID + 1
+    var consumer = SceneRenderDescriptor.Layer(
+        id: layerID,
+        effects: graph.effects.map { effect in
+            .init(
+                id: effect.key.descriptorID,
+                file: effect.definitionPath,
+                visible: true,
+                passes: [.init(passIndex: 0, combos: [:])]
+            )
+        }
+    )
+    consumer.dependencyLayerIDs = [providerLayerID]
+    let provider = SceneRenderDescriptor.Layer(id: providerLayerID, effects: [])
+    let descriptor = SceneRenderDescriptor(
+        layers: [consumer, provider],
+        materialPasses: [],
+        effectDefinitions: []
+    )
+    let forwardReference = SceneDependencyRenderPlan.Reference(
+        consumerLayerID: layerID,
+        providerLayerID: providerLayerID,
+        slot: .init(
+            effectID: chainedSecondEffect.descriptorID,
+            passIndex: 0,
+            slotIndex: 0
+        ),
+        variant: .primary
+    )
+    return SceneResolvedMaterialDependencyOwnershipCompiler
+        .forwardUnavailableEffectKeys(
+            layer: consumer,
+            graph: graph,
+            descriptor: descriptor,
+            references: [forwardReference, secondaryReference],
+            binding: nil
+        )
+}
+
 private func compilerCounts(
     _ capability: Capabilities.LayerCapability
 ) -> (shader: Int, frontend: Int) {
@@ -3467,6 +3510,37 @@ private enum Harness {
 
         let pixelGraph = chainedGraph()
         let pixelChain = orderedLayerGraph(pixelGraph)
+        let exactSecondaryPreviousReference =
+            SceneDependencyRenderPlan.Reference(
+                consumerLayerID: layerID,
+                providerLayerID: layerID,
+                slot: .init(
+                    effectID: chainedThirdEffect.descriptorID,
+                    passIndex: 0,
+                    slotIndex: 0
+                ),
+                variant: .secondary
+            )
+        let nonImmediateSecondaryReference =
+            SceneDependencyRenderPlan.Reference(
+                consumerLayerID: layerID,
+                providerLayerID: layerID,
+                slot: .init(
+                    effectID: chainedFirstEffect.descriptorID,
+                    passIndex: 0,
+                    slotIndex: 0
+                ),
+                variant: .secondary
+            )
+        let mixedForwardUnavailableKeys = mixedForwardUnavailableEffectKeys(
+            graph: pixelGraph,
+            secondaryReference: exactSecondaryPreviousReference
+        )
+        let nonImmediateMixedForwardUnavailableKeys =
+            mixedForwardUnavailableEffectKeys(
+                graph: pixelGraph,
+                secondaryReference: nonImmediateSecondaryReference
+            )
         let pixelCapabilities = capabilities(
             pixelChain,
             catalog: catalog(for: pixelGraph)
@@ -7594,6 +7668,21 @@ private enum Harness {
                     && forwardUnavailableFailure.gpuCompleted
                     && forwardUnavailableFailure.continued
                     && forwardUnavailableFailure.failureCode == "success",
+            "exactSecondaryPreviousInputIsShadowProvenance":
+                SceneResolvedMaterialExactPreviousInputShadow.accepts(
+                    .init(providerLayerID: layerID, variant: .secondary),
+                    input: chainedSecondOutput,
+                    consumer: chainedThirdEffect
+                ),
+            "mixedForwardAndSecondaryKeepsOnlyForwardOwner":
+                mixedForwardUnavailableKeys == [chainedSecondEffect],
+            "nonImmediateSecondaryCannotBeShadowed":
+                nonImmediateMixedForwardUnavailableKeys == nil
+                    && !SceneResolvedMaterialExactPreviousInputShadow.accepts(
+                        .init(providerLayerID: layerID, variant: .secondary),
+                        input: input,
+                        consumer: chainedFirstEffect
+                    ),
             "secondarySelfUnavailableFBOFailurePrepared":
                 secondarySelfUnavailablePrepared,
             "secondarySelfUnavailableFBOFailureEncoded":

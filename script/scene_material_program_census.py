@@ -105,6 +105,10 @@ enum SceneDynamicValueType: Hashable {
 
 struct SceneDynamicTargetDefinition: Hashable {}
 
+// The census only carries this preparation fact through immutable Program
+// state; source-structural analysis is covered by its dedicated compiler gate.
+struct SceneAuthoredShaderSameSlotMappedCoordinateFact: Hashable {}
+
 struct SceneDynamicUserPropertyProducer: Hashable {
     let propertyKey: String
     let target: SceneDynamicTarget

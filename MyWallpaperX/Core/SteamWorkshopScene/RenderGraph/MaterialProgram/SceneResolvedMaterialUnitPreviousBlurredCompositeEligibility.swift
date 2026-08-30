@@ -1,5 +1,34 @@
 import Foundation
 
+/// Proves that a lower-precedence named-layer candidate is only authored
+/// provenance for an exact `previous -> effect.input` graph binding. The
+/// selected graph identity remains the sole runtime owner; this predicate does
+/// not publish or consume either named target variant.
+nonisolated enum SceneResolvedMaterialExactPreviousInputShadow {
+    typealias Graph = SceneAuthoredEffectRenderPlan
+
+    static func accepts(
+        _ reference: SceneNamedTextureReference,
+        input: Graph.TextureIdentity,
+        consumer: Graph.EffectKey
+    ) -> Bool {
+        guard reference.providerLayerID == input.layerID,
+              input.layerID == consumer.layerID,
+              input.name == nil else { return false }
+        switch reference.variant {
+        case .unspecified:
+            return false
+        case .primary:
+            return input.kind == .layerSource && input.effect == nil
+        case .secondary:
+            guard input.kind == .effectOutput,
+                  let producer = input.effect else { return false }
+            return producer.layerID == consumer.layerID
+                && producer.effectIndex + 1 == consumer.effectIndex
+        }
+    }
+}
+
 /// Cross-checks the bounded two-source composite proof against exact graph
 /// identities and immutable unit host data before granting product authority.
 nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
@@ -84,8 +113,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
     }
 
     /// An explicit graph binding is the immutable high-precedence selection.
-    /// The previous-input slot may retain one matching primary named-target
-    /// candidate below it as provenance; internal blurred slots stay graph-only.
+    /// The previous-input slot may retain one exact named-target candidate
+    /// below it as provenance; internal blurred slots stay graph-only.
     static func exactGraphOverride(
         slot: Int,
         identity: Graph.TextureIdentity,
@@ -102,18 +131,17 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
         guard provenance.isEmpty || allowsNamedInputProvenance else {
             return false
         }
-        if !provenance.isEmpty {
-            guard identity.kind == .layerSource,
-                  identity.effect == nil,
-                  identity.name == nil else { return false }
-        }
         guard provenance.count <= 1 else { return false }
         return provenance.allSatisfy {
             guard $0.provenance == .instance,
-                  case let .provider(.namedLayerTarget(reference)) = $0.reference
+                  case let .provider(.namedLayerTarget(reference)) = $0.reference,
+                  let context = template.effectContext
             else { return false }
-            return reference.providerLayerID == identity.layerID
-                && reference.variant == .primary
+            return SceneResolvedMaterialExactPreviousInputShadow.accepts(
+                reference,
+                input: identity,
+                consumer: context.key
+            )
         }
     }
 
