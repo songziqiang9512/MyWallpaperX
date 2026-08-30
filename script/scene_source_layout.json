@@ -86,6 +86,7 @@
         "file_globs": [
           "SceneResolvedMaterialAlphaAttenuationEligibility.swift",
           "SceneResolvedMaterialColorBlendEligibility.swift",
+          "SceneResolvedMaterialCompiledVariant.swift",
           "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
           "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialEffectIngress.swift",
@@ -106,6 +107,7 @@
           "SceneResolvedMaterialProgram+Derivation.swift",
           "SceneResolvedMaterialProgram.swift",
           "SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
+          "SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
           "SceneResolvedMaterialProgramFinalizer.swift",
           "SceneResolvedMaterialProgramIdentity+ExactTexture.swift",
           "SceneResolvedMaterialProgramIdentity.swift",
