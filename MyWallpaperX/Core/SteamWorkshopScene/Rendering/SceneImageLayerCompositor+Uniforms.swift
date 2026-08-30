@@ -17,7 +17,8 @@ extension SceneImageLayerCompositor {
         values: SceneImageLayerUniformValues,
         textureFrame: SceneTextureUVTransform,
         tint: SIMD3<Float>,
-        dependencyBlendMode: Int?
+        dependencyBlendMode: Int?,
+        sourceSampling: SceneTextureSampling = .linearClamp
     ) -> SceneLayerFragmentUniforms {
         return SceneLayerFragmentUniforms(
             time: values.time,
@@ -25,7 +26,7 @@ extension SceneImageLayerCompositor {
             dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
             usesDependencyBlend: dependencyBlendMode == nil ? 0 : 1,
             cursorUV: values.cursorUV,
-            _pad1: .zero,
+            sourceSampling: SIMD2(sourceSampling.imageLayerUniformMode, 0),
             tint: SIMD4(tint.x, tint.y, tint.z, 1),
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1
@@ -36,7 +37,7 @@ extension SceneImageLayerCompositor {
         for request: SceneImageLayerDrawRequest,
         routesOffscreen: Bool
     ) -> SceneLayerFragmentUniforms? {
-        guard let textureFrame = request.resolvedBaseTextureFrame() else {
+        guard let sourceSample = request.resolvedBaseTextureSample() else {
             return nil
         }
         let brightness = request.layer.contentKind == "text"
@@ -47,10 +48,11 @@ extension SceneImageLayerCompositor {
             ? request.uniforms.tint : SIMD3<Float>(repeating: 1)
         return makeFragmentUniforms(
             values: request.uniforms,
-            textureFrame: textureFrame,
+            textureFrame: sourceSample.textureFrame,
             tint: tint * brightness,
             dependencyBlendMode: routesOffscreen
-                ? nil : request.dependencyEffect?.blendMode
+                ? nil : request.dependencyEffect?.blendMode,
+            sourceSampling: sourceSample.sampling
         )
     }
 

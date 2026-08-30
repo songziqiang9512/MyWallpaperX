@@ -14,6 +14,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+IMAGE_LAYER_METAL_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayer.metal"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -35,7 +36,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
+    SCENE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
+    SCENE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift",
 ]
 
@@ -67,6 +70,48 @@ final class SceneSourceUpdateTransaction {
     func commit() { rollbacks.removeAll() }
 }
 
+enum SceneGraphExecutionResetReason { case test }
+
+final class StubResolvedMaterialRuntime {
+    var shouldDeferFrame = false
+    func invalidate(reason: SceneGraphExecutionResetReason) { _ = reason }
+}
+
+struct SceneImageLayerCompositor {
+    var resolvedMaterialRuntime: StubResolvedMaterialRuntime? = nil
+}
+
+struct SceneRenderDescriptor {
+    struct Layer {
+        let contentKind: String
+        let brightness: Double?
+    }
+}
+
+struct SceneDependencyEffectInput {
+    let blendMode: Int
+}
+
+struct SceneImageLayerUniformValues {
+    let time: Float
+    let alpha: Float
+    let cursorUV: SIMD2<Float>
+    let tint: SIMD3<Float>
+}
+
+struct SceneImageLayerDrawRequest {
+    let layer: SceneRenderDescriptor.Layer
+    let texture: MTLTexture
+    let uniforms: SceneImageLayerUniformValues
+    let dependencyEffect: SceneDependencyEffectInput?
+    let offscreenSize: CGSize?
+    let sourceSample: SceneBaseImageTextureSample?
+
+    func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
+        sourceSample
+    }
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -74,6 +119,14 @@ enum Harness {
             print("{\"available\":false}")
             return
         }
+        let shaderSource = try String(
+            contentsOfFile: CommandLine.arguments[1],
+            encoding: .utf8
+        )
+        let imageLayerLibrary = try device.makeLibrary(
+            source: shaderSource,
+            options: nil
+        )
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mwx-texture-candidate-\(UUID().uuidString)",
             isDirectory: true
@@ -106,6 +159,15 @@ enum Harness {
         )
         let croppedColorURL = directory.appendingPathComponent(
             "cropped-color.tex"
+        )
+        let nearestRepeatColorURL = directory.appendingPathComponent(
+            "nearest-repeat-color.tex"
+        )
+        let clampBorderColorURL = directory.appendingPathComponent(
+            "clamp-border-color.tex"
+        )
+        let unknownSamplerColorURL = directory.appendingPathComponent(
+            "unknown-sampler-color.tex"
         )
         let normalizedColorURL = directory.appendingPathComponent(
             "normalized-color.tex"
@@ -191,6 +253,27 @@ enum Harness {
             imageWidth: 4,
             imageHeight: 4
         ).write(to: croppedColorURL)
+        try rawRGBA8Tex(
+            textureWidth: 4,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            flags: 1
+        ).write(to: nearestRepeatColorURL)
+        try rawRGBA8Tex(
+            textureWidth: 4,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            flags: 8
+        ).write(to: clampBorderColorURL)
+        try rawRGBA8Tex(
+            textureWidth: 4,
+            textureHeight: 4,
+            imageWidth: 4,
+            imageHeight: 4,
+            flags: 16
+        ).write(to: unknownSamplerColorURL)
         try embeddedImageTex(
             textureWidth: 8192,
             textureHeight: 4,
@@ -515,6 +598,41 @@ enum Harness {
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
+        let clampBorderBaseLoadRejected: Bool
+        switch SceneBaseImageTextureLoad.load(
+            from: clampBorderColorURL,
+            usesPuppet: false,
+            loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
+            device: device
+        ) {
+        case .failed(.decodeFailed(let message)):
+            clampBorderBaseLoadRejected = message.contains("clamp-border")
+                && message.contains("rawFlags=8")
+        default:
+            clampBorderBaseLoadRejected = false
+        }
+        let unknownSamplerBaseLoadRejected: Bool
+        switch SceneBaseImageTextureLoad.load(
+            from: unknownSamplerColorURL,
+            usesPuppet: false,
+            loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
+            device: device
+        ) {
+        case .failed(.decodeFailed(let message)):
+            unknownSamplerBaseLoadRejected = message.contains("unknown")
+                && message.contains("rawFlags=16")
+        default:
+            unknownSamplerBaseLoadRejected = false
+        }
+        let baseNearestRepeat = try baseLoaded(SceneBaseImageTextureLoad.load(
+            from: nearestRepeatColorURL,
+            usesPuppet: false,
+            loader: loader,
+            spriteTextureLoader: spriteTextureLoader,
+            device: device
+        ))
         let basePaddedSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
             from: url,
             usesPuppet: false,
@@ -613,6 +731,125 @@ enum Harness {
                 spriteTextureLoader: spriteTextureLoader,
                 device: device
             )
+        )
+        guard let baseDirectCandidate = baseDirect.candidate else {
+            throw HarnessError.loadFailed
+        }
+        let mappedNearestCandidate = copy(
+            baseDirectCandidate,
+            mappedSize: CGSize(
+                width: baseDirectCandidate.physicalSize.width / 2,
+                height: baseDirectCandidate.physicalSize.height
+            ),
+            uvTransform: SceneTextureUVTransform(
+                origin: .zero,
+                xAxis: SIMD2(0.5, 0),
+                yAxis: SIMD2(0, 1)
+            ),
+            sampling: SceneTextureSampling(texFlags: 1)
+        )
+        let mappedNearestSample = SceneBaseImageTextureCandidateResolver.sample(
+            candidate: mappedNearestCandidate,
+            sourceTexture: mappedNearestCandidate.texture
+        )
+        let clampBorderSample = SceneBaseImageTextureCandidateResolver.sample(
+            candidate: copy(
+                baseDirectCandidate,
+                sampling: SceneTextureSampling(texFlags: 8)
+            ),
+            sourceTexture: baseDirectCandidate.texture
+        )
+        let unknownFlagsSample = SceneBaseImageTextureCandidateResolver.sample(
+            candidate: copy(
+                baseDirectCandidate,
+                sampling: SceneTextureSampling(texFlags: 16)
+            ),
+            sourceTexture: baseDirectCandidate.texture
+        )
+        guard let mappedNearestSample else { throw HarnessError.loadFailed }
+        let compositor = SceneImageLayerCompositor()
+        let values = SceneImageLayerUniformValues(
+            time: 0,
+            alpha: 1,
+            cursorUV: .zero,
+            tint: SIMD3(repeating: 1)
+        )
+        let sourceUniforms = compositor.sourceFragmentUniforms(
+            for: .init(
+                layer: .init(contentKind: "image", brightness: nil),
+                texture: baseDirect.texture,
+                uniforms: values,
+                dependencyEffect: nil,
+                offscreenSize: nil,
+                sourceSample: mappedNearestSample
+            ),
+            routesOffscreen: true
+        )
+        let sourceFragmentUniformCarriesCandidateAtom =
+            sourceUniforms?.sourceSampling == SIMD2(3, 0)
+                && sourceUniforms?.textureFrame0
+                    == mappedNearestSample.textureFrame.uniform0
+                && sourceUniforms?.textureFrame1
+                    == mappedNearestSample.textureFrame.uniform1
+        let wrappedInterior = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: values,
+                textureFrame: constantTextureFrame(SIMD2(0.25, 0.25)),
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil,
+                sourceSampling: SceneTextureSampling(texFlags: 3)
+            ),
+            library: imageLayerLibrary,
+            device: device
+        )
+        let repeatedOutside = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: values,
+                textureFrame: constantTextureFrame(SIMD2(1.25, 0.25)),
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil,
+                sourceSampling: mappedNearestSample.sampling
+            ),
+            library: imageLayerLibrary,
+            device: device
+        )
+        let clampedOutside = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: values,
+                textureFrame: constantTextureFrame(SIMD2(1.25, 0.25)),
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil,
+                sourceSampling: SceneTextureSampling(texFlags: 3)
+            ),
+            library: imageLayerLibrary,
+            device: device
+        )
+        let nearestBetweenTexels = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: values,
+                textureFrame: constantTextureFrame(SIMD2(0.375, 0.25)),
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil,
+                sourceSampling: SceneTextureSampling(texFlags: 3)
+            ),
+            library: imageLayerLibrary,
+            device: device
+        )
+        let linearBetweenTexels = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: values,
+                textureFrame: constantTextureFrame(SIMD2(0.375, 0.25)),
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil,
+                sourceSampling: SceneTextureSampling(texFlags: 2)
+            ),
+            library: imageLayerLibrary,
+            device: device
         )
         var baseStore = SceneBaseImageTextureStore()
         baseStore.set(
@@ -994,6 +1231,28 @@ enum Harness {
             "mappedTexb2MipRejected": mappedTexb2MipRejected,
             "baseDirectCandidate": baseDirect.candidate != nil,
             "baseCroppedCandidate": baseCropped.candidate != nil,
+            "baseNearestRepeatCandidate":
+                baseNearestRepeat.candidate?.sampling.filter == .nearest
+                    && baseNearestRepeat.candidate?.sampling.addressMode
+                        == .repeatWrap
+                    && baseNearestRepeat.candidate?.sampling.rawFlags == 1,
+            "mappedNearestCandidateSample":
+                mappedNearestSample.textureFrame.xAxis == SIMD2(0.5, 0)
+                    && mappedNearestSample.textureFrame.yAxis == SIMD2(0, 1)
+                    && mappedNearestSample.sampling.imageLayerUniformMode == 3,
+            "clampBorderBaseSampleRejected": clampBorderSample == nil,
+            "clampBorderBaseLoadRejected": clampBorderBaseLoadRejected,
+            "unknownFlagsBaseSampleRejected": unknownFlagsSample == nil,
+            "unknownSamplerBaseLoadRejected": unknownSamplerBaseLoadRejected,
+            "samplerFailureDoesNotPoisonSiblingLoad":
+                baseNearestRepeat.candidate != nil,
+            "imageShaderUsesAuthoredRepeatSampler":
+                repeatedOutside == wrappedInterior
+                    && repeatedOutside != clampedOutside,
+            "imageShaderUsesAuthoredNearestFilter":
+                nearestBetweenTexels != linearBetweenTexels,
+            "sourceFragmentUniformCarriesCandidateAtom":
+                sourceFragmentUniformCarriesCandidateAtom,
             "basePaddedR8Specialized":
                 basePaddedSpecialized.candidate == nil
                     && basePaddedSpecialized.message.contains("specialized authored binding"),
@@ -1303,7 +1562,8 @@ enum Harness {
         textureWidth: UInt32,
         textureHeight: UInt32,
         imageWidth: UInt32,
-        imageHeight: UInt32
+        imageHeight: UInt32,
+        flags: UInt32 = 2
     ) -> Data {
         let payload = Data(
             repeating: 127,
@@ -1314,7 +1574,8 @@ enum Harness {
             textureHeight: textureHeight,
             imageWidth: imageWidth,
             imageHeight: imageHeight,
-            payload: payload
+            payload: payload,
+            flags: flags
         )
     }
 
@@ -1329,11 +1590,12 @@ enum Harness {
         mipMetadataEntryCount: UInt32 = 0,
         mipWidth: UInt32? = nil,
         mipHeight: UInt32? = nil,
-        additionalMips: [(UInt32, UInt32, Data)] = []
+        additionalMips: [(UInt32, UInt32, Data)] = [],
+        flags: UInt32 = 2
     ) -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         append(0, to: &data)
-        append(2, to: &data)
+        append(flags, to: &data)
         append(textureWidth, to: &data)
         append(textureHeight, to: &data)
         append(imageWidth, to: &data)
@@ -1568,6 +1830,61 @@ enum Harness {
         return bytes.map(Int.init)
     }
 
+    static func renderSample(
+        texture: MTLTexture,
+        uniforms: SceneLayerFragmentUniforms,
+        library: MTLLibrary,
+        device: MTLDevice
+    ) throws -> [Int] {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 1,
+            height: 1,
+            mipmapped: false
+        )
+        descriptor.usage = [.renderTarget, .shaderRead]
+        guard let target = device.makeTexture(descriptor: descriptor),
+              let pipeline = SceneImageLayerPipeline(
+                  device: device,
+                  pixelFormat: .rgba8Unorm,
+                  library: library
+              ),
+              let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer() else {
+            throw HarnessError.loadFailed
+        }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = target
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].storeAction = .store
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(
+            descriptor: pass
+        ) else { throw HarnessError.loadFailed }
+        pipeline.bind(encoder: encoder)
+        var mvp = matrix_identity_float4x4
+        mvp.columns.0.x = 2
+        mvp.columns.1.y = 2
+        pipeline.drawLayer(
+            texture: texture,
+            mvp: mvp,
+            uniforms: uniforms,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
+        guard commandBuffer.status == .completed else {
+            throw HarnessError.loadFailed
+        }
+        return try readFirstPixel(texture: target, device: device)
+    }
+
+    static func constantTextureFrame(
+        _ uv: SIMD2<Float>
+    ) -> SceneTextureUVTransform {
+        .init(origin: uv, xAxis: .zero, yAxis: .zero)
+    }
+
     enum HarnessError: Error {
         case loadFailed
         case imageCreationFailed
@@ -1611,7 +1928,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
             )
             self.assertEqual(compilation.returncode, 0, compilation.stderr)
             completed = subprocess.run(
-                [str(binary)],
+                [str(binary), str(IMAGE_LAYER_METAL_SOURCE)],
                 check=True,
                 capture_output=True,
                 text=True,
@@ -1630,6 +1947,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseCrossImageSpritePlayback": True,
                 "baseCroppedCandidate": True,
                 "baseDirectCandidate": True,
+                "baseNearestRepeatCandidate": True,
                 "basePaddedR8Specialized": True,
                 "basePuppetSpecialized": True,
                 "baseRotatedCrossImageSpriteFailsClosed": True,
@@ -1656,6 +1974,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "generationChangedAfterAtomicReplace": True,
                 "generationIsFile": True,
                 "identityIsCanonicalFile": True,
+                "imageShaderUsesAuthoredNearestFilter": True,
+                "imageShaderUsesAuthoredRepeatSampler": True,
                 "inPlaceStableMetadata": True,
                 "inPlaceStatusChangeDetected": True,
                 "invalidMappedRejected": True,
@@ -1665,6 +1985,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "missingSourceKeyUnavailable": True,
                 "mappedEmbeddedColorIdentity": True,
                 "mappedEmbeddedNormalRejected": True,
+                "mappedNearestCandidateSample": True,
                 "freeFormatMismatchTexb3Rejected": True,
                 "lowerMipMismatchTexb3Rejected": True,
                 "malformedTexb3EmbeddedRejected": True,
@@ -1703,12 +2024,18 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "slotBindingWrongFormatRejected": True,
                 "slotBindingWrongPurposeRejected": True,
                 "slotBindingWrongSlotRejected": True,
+                "sourceFragmentUniformCarriesCandidateAtom": True,
                 "textureChangedAfterRewrite": True,
                 "textureChangedAfterAtomicReplace": True,
                 "textureChangedWithRestoredSizeAndMTime": True,
                 "atomicReplaceMetadataPreconditions": True,
+                "clampBorderBaseSampleRejected": True,
+                "clampBorderBaseLoadRejected": True,
                 "translatedRejected": True,
                 "unparsedFallbackRejected": True,
+                "unknownFlagsBaseSampleRejected": True,
+                "unknownSamplerBaseLoadRejected": True,
+                "samplerFailureDoesNotPoisonSiblingLoad": True,
                 "wrongPurposeRejected": True,
                 "wrongOutputRejected": True,
                 "zeroMappedRejected": True,

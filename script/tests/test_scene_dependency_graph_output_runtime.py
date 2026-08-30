@@ -179,7 +179,18 @@ final class SceneGPUCompletionTelemetry {
 }
 
 enum SceneTexturePurpose { case premultipliedColor }
-enum SceneTextureSampling { case linearClamp }
+enum SceneTextureSampling {
+    case linearClamp
+    case nearestRepeat
+    var isResolvedForMaterialProgram: Bool { true }
+    var usesClampBorderFallback: Bool { false }
+    var imageLayerUniformMode: UInt32 {
+        switch self {
+        case .linearClamp: 0
+        case .nearestRepeat: 3
+        }
+    }
+}
 struct SceneTextureContent { let isResolved: Bool }
 
 struct SceneTextureCandidate {
@@ -209,6 +220,7 @@ struct SceneTextureUVTransform {
 struct SceneLayerFragmentUniforms {
     var textureFrame0 = SIMD4<Float>.zero
     var textureFrame1 = SIMD4<Float>.zero
+    var sourceSampling = SIMD2<UInt32>.zero
     var alpha: Float = 1
     var tint = SIMD4<Float>(repeating: 1)
     static func neutral() -> Self { .init() }
@@ -243,6 +255,10 @@ enum SceneCaptureGeometryResolver {
 final class SceneImageLayerPipeline {}
 
 enum SceneOffscreenEffectRenderer {
+    static var lastTextureFrame0 = SIMD4<Float>.zero
+    static var lastTextureFrame1 = SIMD4<Float>.zero
+    static var lastSourceSampling = SIMD2<UInt32>.zero
+
     static func captureSource(
         sourceTexture: MTLTexture,
         target: MTLTexture,
@@ -252,7 +268,9 @@ enum SceneOffscreenEffectRenderer {
     ) -> Bool {
         _ = sourceTexture
         _ = target
-        _ = sourceUniforms
+        lastTextureFrame0 = sourceUniforms.textureFrame0
+        lastTextureFrame1 = sourceUniforms.textureFrame1
+        lastSourceSampling = sourceUniforms.sourceSampling
         _ = pipeline
         _ = commandBuffer
         return true
@@ -418,6 +436,58 @@ enum Harness {
             for: 401,
             textureRegistry: registry
         )
+        let capturedUV = SceneTextureUVTransform(
+            uniform0: SIMD4(0.125, 0.25, 0.5, 0),
+            uniform1: SIMD4(0, 0.75, 0, 0)
+        )
+        let captureProvider = SceneRenderDescriptor.Layer(
+            id: 500,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let captureBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 501,
+            providerLayerID: 500,
+            slot: .init(effectID: "blend", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .imageLayerBlend
+        )
+        let captureRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [captureProvider],
+                bindings: [501: captureBinding],
+                graphOutputProviderLayerIDs: []
+            ),
+            visibleLayerIDs: [500, 501],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        let captureRegistry = SceneFrameTextureRegistry(frameEpoch: 13)
+        let captureCandidate = SceneTextureCandidate(
+            texture: source,
+            purpose: .premultipliedColor,
+            content: .init(isResolved: true),
+            sampling: .nearestRepeat,
+            uvTransform: capturedUV
+        )
+        let capturedNonDefaultSourceAtom = captureRuntime.captureProviderIfRequired(
+            layer: captureProvider,
+            sourceTexture: source,
+            sourceCandidate: captureCandidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            pipeline: .init(),
+            textureRegistry: captureRegistry,
+            mainPass: .init(texture: source, commandBuffer: commandBuffer)
+        ) == true
+            && SceneOffscreenEffectRenderer.lastTextureFrame0
+                == capturedUV.uniform0
+            && SceneOffscreenEffectRenderer.lastTextureFrame1
+                == capturedUV.uniform1
+            && SceneOffscreenEffectRenderer.lastSourceSampling == SIMD2(3, 0)
+            && captureRegistry.readyPublicationCount == 1
         let wrongSize = texture(
             device,
             width: 3,
@@ -478,6 +548,7 @@ enum Harness {
             "directInputUsesDistinctNamedTarget":
                 directInput?.texture === provisionalInput?.texture
                 && directInput?.texture !== output,
+            "capturedNonDefaultSourceAtom": capturedNonDefaultSourceAtom,
             "wrongSizeRejected": wrongSizeRejected,
             "epochAdvanceClearsReservation": epochAdvanceClearsReservation,
         ]
@@ -546,6 +617,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "copiedGraphOutputBytes": True,
                     "readyUsesDistinctNamedTarget": True,
                     "directInputUsesDistinctNamedTarget": True,
+                    "capturedNonDefaultSourceAtom": True,
                     "wrongSizeRejected": True,
                     "epochAdvanceClearsReservation": True,
                 },

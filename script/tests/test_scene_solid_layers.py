@@ -339,7 +339,7 @@ enum Harness {
             dependencyBlendMode: 0,
             usesDependencyBlend: 0,
             cursorUV: .zero,
-            _pad1: .zero,
+            sourceSampling: .zero,
             tint: SIMD4(0.1, 0.2, 0.3, 1),
             textureFrame0: SIMD4(0, 0, 1, 0),
             textureFrame1: SIMD4(0, 1, 0, 0)
@@ -518,7 +518,9 @@ class SceneSolidLayerTests(unittest.TestCase):
         compositor_uniforms = (
             SOURCE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift"
         ).read_text(encoding="utf-8")
-        shader = (SOURCE_ROOT / "Rendering/SceneMetalPipeline.swift").read_text(encoding="utf-8")
+        shader = (SOURCE_ROOT / "Rendering/SceneImageLayer.metal").read_text(
+            encoding="utf-8"
+        )
         self.assertRegex(
             compositor_uniforms,
             re.compile(
@@ -531,7 +533,7 @@ class SceneSolidLayerTests(unittest.TestCase):
             compositor_uniforms,
             re.compile(r"SceneLayerFragmentUniforms\([\s\S]{0,900}\btint\s*:\s*SIMD4\(tint\.x"),
         )
-        self.assertRegex(shader, re.compile(r"\bu\.tint\b"))
+        self.assertRegex(shader, re.compile(r"\buniforms\.tint\b"))
 
     def test_authored_brightness_multiplies_layer_tint_but_not_text(self) -> None:
         # 官方随包 razer_bedroom 的 wave layer 用 brightness 3.0/4.0 过曝发光；未声明的 layer

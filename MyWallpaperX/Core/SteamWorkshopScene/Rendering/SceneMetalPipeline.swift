@@ -22,84 +22,13 @@ struct SceneLayerFragmentUniforms {
     var dependencyBlendMode: UInt32
     var usesDependencyBlend: UInt32
     var cursorUV: SIMD2<Float>   // cursor in layer-local UV space ([0..1])
-    var _pad1: SIMD2<Float>      // pad to 32 bytes
+    /// x: 0 linear-clamp, 1 linear-repeat, 2 nearest-clamp, 3 nearest-repeat.
+    /// y stays zero so the second 16-byte lane remains ABI-stable.
+    var sourceSampling: SIMD2<UInt32>
     var tint: SIMD4<Float>
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
 }
-
-// Embedded MSL. Vertex shader transforms a unit quad by an MVP supplied in
-// buffer(1). Fragment shader only samples the base layer and performs the
-// structural dependency blend used by the graph compositor. Effects execute
-// exclusively through SceneResolvedMaterialGraphExecutor.
-private let imageLayerShaderSource = """
-#include <metal_stdlib>
-using namespace metal;
-
-struct QuadVertex {
-    float2 position;
-    float2 texcoord;
-};
-
-struct QuadVaryings {
-    float4 position [[position]];
-    float2 texcoord;
-};
-
-struct LayerFragmentUniforms {
-    float time;
-    float alpha;
-    uint  dependencyBlendMode;
-    uint  usesDependencyBlend;
-    float2 cursorUV;
-    float2 _pad1;
-    float4 tint;
-    float4 textureFrame0;
-    float4 textureFrame1;
-};
-
-float2 textureFrameUV(float2 uv, constant LayerFragmentUniforms &u) {
-    return u.textureFrame0.xy
-        + uv.x * u.textureFrame0.zw
-        + uv.y * u.textureFrame1.xy;
-}
-
-vertex QuadVaryings sceneImageLayerVert(
-    uint vid [[vertex_id]],
-    constant QuadVertex *verts [[buffer(0)]],
-    constant float4x4 &mvp [[buffer(1)]]
-) {
-    QuadVaryings out;
-    out.position = mvp * float4(verts[vid].position, 0.0, 1.0);
-    out.texcoord = verts[vid].texcoord;
-    return out;
-}
-
-fragment float4 sceneImageLayerFrag(
-    QuadVaryings in [[stage_in]],
-    texture2d<float> tex [[texture(0)]],
-    texture2d<float> dependencyTex [[texture(1)]],
-    constant LayerFragmentUniforms &u [[buffer(0)]]
-) {
-    constexpr sampler s(
-        min_filter::linear,
-        mag_filter::linear,
-        mip_filter::linear,
-        address::clamp_to_edge
-    );
-    float4 color = tex.sample(s, textureFrameUV(clamp(in.texcoord, 0.0, 1.0), u));
-    if (u.usesDependencyBlend != 0u) {
-        float3 target = dependencyTex.sample(s, clamp(in.texcoord, 0.0, 1.0)).rgb;
-        if (u.dependencyBlendMode == 0u) {
-            color.rgb = mix(color.rgb, target, color.a);
-        } else if (u.dependencyBlendMode == 5u) {
-            color.rgb = min(color.rgb, target);
-        }
-    }
-
-    return color * u.tint * u.alpha;
-}
-"""
 
 struct SceneImageLayerPipeline {
     let state: MTLRenderPipelineState
@@ -119,10 +48,10 @@ struct SceneImageLayerPipeline {
     init?(
         device: MTLDevice,
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
-        blendMode: SceneLayerBlendMode = .sourceOver
+        blendMode: SceneLayerBlendMode = .sourceOver,
+        library injectedLibrary: MTLLibrary? = nil
     ) {
-        let options = MTLCompileOptions()
-        guard let library = try? device.makeLibrary(source: imageLayerShaderSource, options: options),
+        guard let library = injectedLibrary ?? device.makeDefaultLibrary(),
               let vertFn = library.makeFunction(name: "sceneImageLayerVert"),
               let fragFn = library.makeFunction(name: "sceneImageLayerFrag") else { return nil }
 

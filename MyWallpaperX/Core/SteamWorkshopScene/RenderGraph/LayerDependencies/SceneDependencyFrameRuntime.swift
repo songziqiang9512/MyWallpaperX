@@ -364,6 +364,10 @@ final class SceneDependencyFrameRuntime {
                 var uniforms = SceneLayerFragmentUniforms.neutral()
                 uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0
                 uniforms.textureFrame1 = sourceCandidate.uvTransform.uniform1
+                uniforms.sourceSampling = SIMD2(
+                    sourceCandidate.sampling.imageLayerUniformMode,
+                    0
+                )
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
                     sourceTexture: sourceTexture,
                     target: target,
@@ -635,10 +639,11 @@ final class SceneDependencyFrameRuntime {
         guard candidate.texture === texture,
               candidate.purpose == .premultipliedColor,
               candidate.content.isResolved,
-              candidate.sampling == .linearClamp,
+              candidate.sampling.isResolvedForMaterialProgram,
+              !candidate.sampling.usesClampBorderFallback,
               candidate.axisAlignedMappedUVScale(
                   expectedPurpose: .premultipliedColor
-              ) == SIMD2(repeating: 1),
+              ) != nil,
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.usage.contains(.shaderRead) else {

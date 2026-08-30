@@ -64,11 +64,13 @@
 
 > 状态：现役 current capability 唯一系统摘要；逐项合同与专题内等级由各专项能力表维护
 >
-> 最近核对：2026-08-29
+> 最近核对：2026-08-30
 >
 > 当前系统能力、主要缺口和明确待办只由本页汇总；唯一执行顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)，精确 App、矩阵、报告与运行身份统一见 [运行证据索引](runtime-evidence-index.md)。路线只拥有 V0-V5 顺序，不复制或改写 current capability；逐批迁移过程只从[统一历史索引](../../history/README.md)追溯，不得覆盖当前结论。
 
 本表把已收集的 Wallpaper Engine 作者语义逐项映射到 MyWallpaperX 当前代码、运行证据和下一道验收门。详细语义仍以同目录专题文档为准；这里回答三个问题：官方是否有这项能力、当前播放器走到哪一级、下一步补什么公共能力。
+
+2026-08-30 在 V4 主线内回补的 V1 static base-image sampler atom，已让 static single-image、non-sprite/non-puppet 的普通图片候选把已验证的 axis-aligned mapped UV 与 TEX `flags 0...7` 的 filter/address 一起穿过 base loader、draw request、effect/source capture、degraded source passthrough、named-provider capture和唯一 image compositor；固定图片 shader 已迁到构建期 `.metal` default library，没有增加 renderer、resource registry、graph 或 output owner。clamp-border 与未知高位 flags 仍以可区分 typed reason 局部拒绝当前 base layer，正常 sibling 不受污染。140 样本只读扫描给出 44 个 ordinary image / 17 个样本的非默认已知采样上界；这只是 authored-corpus observation，不是支持率。当前真实 `3766403294:65` 记录 `linear/repeatWrap` 并完成 graph GPU/publication/compositor/next-frame，`2938612768:319` 记录 `nearest/clampToEdge` 且 112 submitted / 111 completed、0 failed/drawable miss；两份 full-matrix selection 都因现役能力外的陈旧 exact-count 或 graph/dependency 缺口严格 NON-PASS，后者整幅与预览仍明显不一致。当前只到 `S3 representative product-integrated / whole-frame safety`，不证明独立 ROI、nearest/repeat 的官方像素 parity、全部 17 样本、base material authored shader、cropoffset/autosize，也不覆盖 animated/sprite/puppet 专用路径；详见 [E-V1-STATIC-BASE-IMAGE-SAMPLER-ATOM](runtime-evidence-index.md#e-v1-static-base-image-sampler-atom)。
 
 ## 1. 口径
 

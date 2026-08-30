@@ -66,6 +66,19 @@ nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
         return rawFlags & ~UInt32(0b111) == 0
     }
 
+    /// Compact source-sampler selector consumed by the fixed image/source
+    /// capture shader. The value is transported with the same fragment atom as
+    /// the UV transform so a padded/repeating candidate cannot silently fall
+    /// back to the old linear-clamp route.
+    var imageLayerUniformMode: UInt32 {
+        switch (filter, addressMode) {
+        case (.linear, .clampToEdge): 0
+        case (.linear, .repeatWrap): 1
+        case (.nearest, .clampToEdge): 2
+        case (.nearest, .repeatWrap): 3
+        }
+    }
+
     /// Preserve the effective-sampler equality used by direct image
     /// routes. Program admission inspects `rawFlags` separately before use.
     static func == (lhs: SceneTextureSampling, rhs: SceneTextureSampling) -> Bool {

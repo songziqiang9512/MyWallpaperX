@@ -89,13 +89,14 @@ struct SceneLayerSourcePassthroughPlan {
               publication.contentGeneration > 0,
               publication.isComplete,
               publication.candidate.purpose == .premultipliedColor,
-              publication.candidate.content
-                == .color(.resolved(.premultipliedAlpha)),
-              publication.candidate.axisAlignedMappedUVScale(
-                  expectedPurpose: .premultipliedColor
-              ) == SIMD2<Float>(repeating: 1),
-              publication.candidate.uvTransform == .identity,
-              publication.candidate.sampling == .linearClamp,
+              (publication.candidate.content
+                    == .color(.resolved(.premultipliedAlpha))
+                || publication.candidate.content
+                    == .color(.resolved(.opaque))),
+              let sourceSample = SceneBaseImageTextureCandidateResolver.sample(
+                  candidate: publication.candidate,
+                  sourceTexture: publication.texture
+              ),
               let sourceKind = sourceKind(
                   request: request,
                   publication: publication
@@ -123,8 +124,8 @@ struct SceneLayerSourcePassthroughPlan {
                 physicalSize: publication.candidate.physicalSize,
                 mappedSize: publication.candidate.mappedSize,
                 texture: publication.texture,
-                uvTransform: publication.candidate.uvTransform,
-                sampling: publication.candidate.sampling,
+                uvTransform: sourceSample.textureFrame,
+                sampling: sourceSample.sampling,
                 authoredFormat: publication.candidate.authoredFormat
             ),
             modelViewProjection: request.mvp,
@@ -143,10 +144,10 @@ struct SceneLayerSourcePassthroughPlan {
         case (.file, .file):
             guard let requestCandidate = request.baseTextureCandidate,
                   sameAtom(requestCandidate, publication.candidate),
-                  SceneBaseImageTextureCandidateResolver.textureFrame(
+                  SceneBaseImageTextureCandidateResolver.sample(
                       candidate: requestCandidate,
                       sourceTexture: request.texture
-                  ) == .identity else {
+                  ) != nil else {
                 return nil
             }
             return .staticFile

@@ -244,14 +244,18 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
 
-    func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {
+    func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
         guard let baseTextureCandidate else {
-            return textureFrame
+            return .init(textureFrame: textureFrame, sampling: .linearClamp)
         }
         guard layer.contentKind == "image" else { return nil }
-        return SceneBaseImageTextureCandidateResolver.textureFrame(
+        return SceneBaseImageTextureCandidateResolver.sample(
             candidate: baseTextureCandidate,
             sourceTexture: texture
         )
+    }
+
+    func resolvedBaseTextureFrame() -> SceneTextureUVTransform? {
+        resolvedBaseTextureSample()?.textureFrame
     }
 }

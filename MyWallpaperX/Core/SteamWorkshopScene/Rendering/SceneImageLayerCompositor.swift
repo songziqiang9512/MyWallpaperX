@@ -94,7 +94,8 @@ struct SceneImageLayerCompositor {
                 values: request.uniforms,
                 textureFrame: passthroughPlan.source.uvTransform,
                 tint: SIMD3<Float>(repeating: 1),
-                dependencyBlendMode: nil
+                dependencyBlendMode: nil,
+                sourceSampling: passthroughPlan.source.sampling
             )
             let encoded = SceneImageLayerMainPassRenderer.draw(
                 texture: passthroughPlan.source.texture,

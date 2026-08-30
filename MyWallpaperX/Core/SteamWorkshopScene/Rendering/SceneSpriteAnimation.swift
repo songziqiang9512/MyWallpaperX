@@ -192,7 +192,7 @@ extension SceneLayerFragmentUniforms {
             dependencyBlendMode: UInt32(dependencyBlendMode ?? 0),
             usesDependencyBlend: dependencyBlendMode == nil ? 0 : 1,
             cursorUV: .zero,
-            _pad1: .zero,
+            sourceSampling: .zero,
             tint: SIMD4(repeating: 1),
             textureFrame0: frame.uniform0,
             textureFrame1: frame.uniform1

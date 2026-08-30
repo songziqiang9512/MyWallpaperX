@@ -13,6 +13,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+IMAGE_LAYER_METAL_SOURCE = SCENE_ROOT / "Rendering/SceneImageLayer.metal"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneLayerScreenAnchor.swift",
     SCENE_ROOT / "Rendering/SceneTextLayerPivot.swift",
@@ -143,9 +144,21 @@ enum Harness {
     // GPU 门：用真实 image layer pipeline 把 label_coins 的 quad 画进离屏纹理，
     // 直接观察锚定前后覆盖了哪些像素。16:9 是作者宽高比，21:9 会裁掉上下。
     static func coverageTable() throws -> [String: [String: Int]]? {
+        let shaderSource = try String(
+            contentsOfFile: CommandLine.arguments[1],
+            encoding: .utf8
+        )
         guard let device = MTLCreateSystemDefaultDevice(),
+              let library = try? device.makeLibrary(
+                  source: shaderSource,
+                  options: nil
+              ),
               let queue = device.makeCommandQueue(),
-              let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba8Unorm),
+              let pipeline = SceneImageLayerPipeline(
+                  device: device,
+                  pixelFormat: .rgba8Unorm,
+                  library: library
+              ),
               let white = whiteTexture(device: device) else {
             return nil
         }
@@ -272,7 +285,7 @@ enum Harness {
 
     static let uniforms = SceneLayerFragmentUniforms(
         time: 0, alpha: 1, dependencyBlendMode: 0, usesDependencyBlend: 0,
-        cursorUV: .zero, _pad1: .zero, tint: SIMD4(repeating: 1),
+        cursorUV: .zero, sourceSampling: .zero, tint: SIMD4(repeating: 1),
         textureFrame0: SIMD4(0, 0, 1, 0), textureFrame1: SIMD4(0, 1, 0, 0)
     )
 
@@ -310,7 +323,10 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(cls.binary)], check=True, capture_output=True, text=True
+            [str(cls.binary), str(IMAGE_LAYER_METAL_SOURCE)],
+            check=True,
+            capture_output=True,
+            text=True,
         )
         cls.result = json.loads(completed.stdout)
 
