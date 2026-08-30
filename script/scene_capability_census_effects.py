@@ -83,6 +83,80 @@ def _resource_identity(resource: ResolvedResource | None) -> dict[str, Any] | No
     }
 
 
+def _system_texture_identity(value: Any) -> tuple[str, str] | None:
+    if not isinstance(value, dict):
+        return None
+    input_type = value.get("type")
+    name = value.get("name")
+    if not isinstance(input_type, str) or input_type.casefold() != "system":
+        return None
+    if not isinstance(name, str):
+        return None
+    normalized = normalize_path(name)
+    if not normalized:
+        return None
+    role = {
+        "$mediaThumbnail": "current",
+        "$mediaPreviousThumbnail": "previous",
+    }.get(normalized, "named")
+    return normalized, role
+
+
+def _system_texture_records(
+    values: Any,
+    *,
+    sample_id: str,
+    owner_occurrence: str,
+    consumer_scope: str,
+    provenance: str,
+    effective_visibility: str,
+) -> list[dict[str, Any]]:
+    if not isinstance(values, list):
+        return []
+    records = []
+    for slot_index, value in enumerate(values):
+        identity = _system_texture_identity(value)
+        if identity is None:
+            continue
+        system_name, system_role = identity
+        location = {
+            "sample_id": sample_id,
+            "owner_occurrence": owner_occurrence,
+            "slot_index": slot_index,
+            "user_texture_provenance": provenance,
+        }
+        shape = {
+            "consumer_scope": consumer_scope,
+            "provider_kind": "system",
+            "slot_state": "runtime-provided",
+            "system_name": system_name,
+            "system_role": system_role,
+        }
+        records.append({
+            "occurrence_id": occurrence_id("system-texture", location),
+            "family_key": family_key(
+                "texture", f"{consumer_scope}-system-{system_role}", shape
+            ),
+            "revision_key": revision_key(shape, provenance),
+            "domain": "texture",
+            "kind": f"{consumer_scope}-system-{system_role}",
+            "location": location,
+            "effective_visibility": effective_visibility,
+            "slot_index": slot_index,
+            "slot_state": "runtime-provided",
+            "state": f"system-{system_role}",
+            "provenance": provenance,
+            "provider_kind": "system",
+            "consumer_scope": consumer_scope,
+            "system_name": system_name,
+            "system_role": system_role,
+            "reference": system_name,
+            "resource": None,
+            "tex": None,
+        })
+    return records
+
+
 def _texture_record(
     *,
     sample_id: str,
@@ -319,6 +393,24 @@ def census_image_layer(
                     view=view,
                     effective_visibility=layer_visibility,
                 ))
+        textures.extend(_system_texture_records(
+            pass_value.get("usertextures"),
+            sample_id=sample_id,
+            owner_occurrence=pass_id,
+            consumer_scope="base-image",
+            provenance="material-user",
+            effective_visibility=layer_visibility,
+        ))
+        instance = layer.get("instance")
+        if pass_index == 0 and isinstance(instance, dict):
+            textures.extend(_system_texture_records(
+                instance.get("usertextures"),
+                sample_id=sample_id,
+                owner_occurrence=pass_id,
+                consumer_scope="base-image",
+                provenance="instance-user",
+                effective_visibility=layer_visibility,
+            ))
     return [occurrence, *material_occurrences], textures, unclassified
 
 
@@ -531,6 +623,23 @@ def census_effect(
                     reference=reference if isinstance(reference, str) else None,
                     provenance=provenance,
                     view=view,
+                    effective_visibility=visibility,
+                ))
+            textures.extend(_system_texture_records(
+                material_pass.get("usertextures"),
+                sample_id=sample_id,
+                owner_occurrence=material_id,
+                consumer_scope="effect",
+                provenance="material-user",
+                effective_visibility=visibility,
+            ))
+            if material_pass_index == 0:
+                textures.extend(_system_texture_records(
+                    instance_pass.get("usertextures"),
+                    sample_id=sample_id,
+                    owner_occurrence=material_id,
+                    consumer_scope="effect",
+                    provenance="instance-user",
                     effective_visibility=visibility,
                 ))
         for binding_index, binding in enumerate(definition_pass.get("bind") or []):

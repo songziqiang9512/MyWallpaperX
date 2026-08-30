@@ -8,6 +8,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from collections import Counter
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
@@ -94,6 +95,14 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "visible": True,
                 "parent": 6,
                 "origin": "10 20 0",
+                "instance": {
+                    "usertextures": [
+                        {"type": "system", "name": "$mediaThumbnail"},
+                        {"type": "property", "name": "not-system"},
+                        {"type": "system", "name": ""},
+                        42,
+                    ],
+                },
                 "effects": [{
                     "id": 9,
                     "file": "effects/fixture/effect.json",
@@ -108,8 +117,18 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                             }
                         },
                         "textures": [None, "mask"],
+                        "usertextures": [
+                            None,
+                            {"type": "system", "name": "$mediaPreviousThumbnail"},
+                            {"type": "system"},
+                        ],
                     }],
                 }],
+            }, {
+                "id": 10,
+                "name": "Visible Material Reuse",
+                "image": "models/layer.json",
+                "visible": True,
             }, {
                 "id": 8,
                 "particle": "particles/root.json",
@@ -124,6 +143,14 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "shader": "genericimage2", "blending": "translucent",
                 "depthtest": "disabled", "depthwrite": "disabled",
                 "cullmode": "nocull", "textures": ["image"],
+                "usertextures": [
+                    {"type": "system", "name": "$mediaThumbnail"},
+                    {"type": "system", "name": "$mediaPreviousThumbnail"},
+                    {"type": "system", "name": "$customProvider"},
+                    {"type": "property", "name": "not-system"},
+                    {"type": "system", "name": ""},
+                    "plain-string",
+                ],
             }]})),
             ("materials/image.tex", b"not-a-real-tex"),
             ("materials/mask.tex", b"not-a-real-tex"),
@@ -140,6 +167,11 @@ class SceneCapabilityCensusTests(unittest.TestCase):
                 "shader": "effects/fixture", "blending": "translucent",
                 "depthtest": "disabled", "depthwrite": "disabled",
                 "cullmode": "nocull", "textures": [None, "mask"],
+                "usertextures": [
+                    {"type": "SYSTEM", "name": "  $mediaThumbnail  "},
+                    {"type": "property", "name": "not-system"},
+                    {"type": "system", "name": ""},
+                ],
             }]})),
             ("particles/root.json", json_bytes({
                 "maxcount": 10, "starttime": 0,
@@ -218,8 +250,79 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             ]
             self.assertTrue(all("effective_visibility" in item for item in texture_uses))
             image_slots = [item for item in texture_uses if item["kind"] == "image-material-slot"]
-            self.assertEqual({item["effective_visibility"] for item in image_slots}, {"hidden"})
+            self.assertEqual(
+                {item["effective_visibility"] for item in image_slots},
+                {"hidden", "visible"},
+            )
             self.assertTrue(all(profile.get("occurrence_refs") for profile in first["parameter_profiles"]))
+
+    def test_system_usertextures_are_typed_by_scope_role_and_visibility(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
+            samples, stock, matrix, ledger = self.make_fixture(Path(directory))
+            result = census.build_census(samples, stock, matrix, ledger)
+            system_textures = [
+                item for item in result["occurrences"]
+                if item.get("provider_kind") == "system"
+            ]
+
+            self.assertEqual(len(system_textures), 9)
+            self.assertEqual(len({item["occurrence_id"] for item in system_textures}), 9)
+            self.assertEqual(
+                Counter(item["consumer_scope"] for item in system_textures),
+                {"base-image": 7, "effect": 2},
+            )
+            self.assertEqual(
+                Counter(item["system_role"] for item in system_textures),
+                {"current": 4, "previous": 3, "named": 2},
+            )
+            self.assertEqual(
+                Counter(item["system_name"] for item in system_textures),
+                {
+                    "$mediaThumbnail": 4,
+                    "$mediaPreviousThumbnail": 3,
+                    "$customProvider": 2,
+                },
+            )
+            self.assertEqual(
+                Counter(item["provenance"] for item in system_textures),
+                {"material-user": 7, "instance-user": 2},
+            )
+            self.assertEqual(
+                {item["kind"] for item in system_textures},
+                {
+                    "base-image-system-current",
+                    "base-image-system-previous",
+                    "base-image-system-named",
+                    "effect-system-current",
+                    "effect-system-previous",
+                },
+            )
+            self.assertEqual(
+                {item["effective_visibility"] for item in system_textures},
+                {"hidden", "visible"},
+            )
+            self.assertEqual(
+                Counter(item["effective_visibility"] for item in system_textures),
+                {"hidden": 6, "visible": 3},
+            )
+            self.assertEqual(
+                {item["slot_state"] for item in system_textures},
+                {"runtime-provided"},
+            )
+            self.assertNotIn("not-system", {item["system_name"] for item in system_textures})
+            self.assertTrue(result["validation"]["conservation"]["occurrences_balanced"])
+            self.assertTrue(result["validation"]["conservation"]["texture_use_visibility"]["balanced"])
+            self.assertFalse(result["validation"]["failures"])
+            base_current = next(
+                item for item in result["families"]
+                if item["kind"] == "base-image-system-current"
+            )
+            self.assertEqual(base_current["occurrence_count"], 3)
+            self.assertEqual(base_current["visible_occurrence_count"], 1)
+            self.assertEqual(
+                base_current["feature_summary"]["provenance"],
+                ["instance-user", "material-user"],
+            )
 
     def test_generate_verify_and_input_root_write_rejection(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-census-") as directory:
@@ -235,9 +338,18 @@ class SceneCapabilityCensusTests(unittest.TestCase):
             self.assertEqual(census.generate(args), 0)
             stored = json.loads(snapshot.read_text(encoding="utf-8"))
             self.assertNotIn("occurrences", stored)
-            self.assertEqual(stored["validation"]["occurrence_index"]["count"], 43)
-            self.assertEqual(len(stored["validation"]["occurrence_index"]["items"]), 43)
-            self.assertEqual(stored["samples"][0]["occurrence_count"], 43)
+            self.assertEqual(stored["validation"]["occurrence_index"]["count"], 56)
+            self.assertEqual(len(stored["validation"]["occurrence_index"]["items"]), 56)
+            self.assertEqual(stored["samples"][0]["occurrence_count"], 56)
+            system_index = [
+                item for item in stored["validation"]["occurrence_index"]["items"]
+                if "-system-" in item["kind"]
+            ]
+            self.assertEqual(len(system_index), 9)
+            self.assertEqual(
+                {item["effective_visibility"] for item in system_index},
+                {"hidden", "visible"},
+            )
             manifest = stored["snapshot"]["generator"]["source_manifest"]
             self.assertEqual(set(manifest["files"]), set(census.GENERATOR_PATHS))
             self.assertEqual(manifest["sha256"], census.canonical_sha256(manifest["files"]))
