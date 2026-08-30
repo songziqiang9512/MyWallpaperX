@@ -18,8 +18,11 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         _ source: String,
         stage: SceneShaderContract.StageKind
     ) -> String {
-        rewriteZeroLowerBoundBroadcasts(
-            rewriteScalarMixBroadcasts(source, stage: stage),
+        rewriteScalarMinMaxIntegerLiterals(
+            rewriteZeroLowerBoundBroadcasts(
+                rewriteScalarMixBroadcasts(source, stage: stage),
+                stage: stage
+            ),
             stage: stage
         )
     }
@@ -254,6 +257,109 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         return result
     }
 
+    /// Wallpaper Engine's GLSL-like surface accepts an integer literal at a
+    /// floating-point scalar `min`/`max` endpoint. Metal retains distinct
+    /// integer and floating overloads, so the untyped literal makes the call
+    /// ambiguous. Promote only a single decimal integer literal whose peer is
+    /// statically proven to be a scalar float expression. User overloads,
+    /// integer domains, vectors, and unknown expressions remain untouched.
+    private static func rewriteScalarMinMaxIntegerLiterals(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let analysisSource = normalized.components(separatedBy: "\n").map { line in
+            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
+                ? "" : line
+        }.joined(separator: "\n")
+        let lexer = SceneAuthoredShaderLexer.lex(
+            source: analysisSource,
+            stage: stage
+        )
+        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: lexer,
+            stage: stage
+        )
+        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
+            return normalized
+        }
+
+        var lineStarts = [0]
+        var scalarOffset = 0
+        for scalar in normalized.unicodeScalars {
+            scalarOffset += 1
+            if scalar == "\n" { lineStarts.append(scalarOffset) }
+        }
+        func tokenOffset(_ index: Int, afterToken: Bool) -> Int? {
+            guard unit.tokens.indices.contains(index) else { return nil }
+            let token = unit.tokens[index]
+            guard token.line > 0, token.line <= lineStarts.count else {
+                return nil
+            }
+            return lineStarts[token.line - 1] + token.column - 1
+                + (afterToken ? token.text.unicodeScalars.count : 0)
+        }
+        var insertions: [Int] = []
+        for index in unit.tokens.indices {
+            let name = unit.tokens[index].text
+            guard ["min", "max"].contains(name),
+                  !unit.functions.contains(where: { $0.name == name }),
+                  index + 1 < unit.tokens.count,
+                  unit.tokens[index + 1].text == "(",
+                  let closing = matchingParenthesis(
+                      tokens: unit.tokens,
+                      opening: index + 1
+                  ),
+                  let arguments = argumentRanges(
+                      opening: index + 1,
+                      closing: closing,
+                      tokens: unit.tokens
+                  ), arguments.count == 2,
+                  let first = componentExpression(
+                      arguments[0], tokens: unit.tokens, unit: unit
+                  ),
+                  let second = componentExpression(
+                      arguments[1], tokens: unit.tokens, unit: unit
+                  ) else { continue }
+            let literalRange: Range<Int>
+            if first.type == .int, second.type == .float {
+                literalRange = arguments[0]
+            } else if first.type == .float, second.type == .int {
+                literalRange = arguments[1]
+            } else {
+                continue
+            }
+            guard literalRange.count == 1,
+                  unit.tokens[literalRange.lowerBound].kind == .number,
+                  Int(unit.tokens[literalRange.lowerBound].text) != nil,
+                  let end = tokenOffset(
+                      literalRange.lowerBound,
+                      afterToken: true
+                  ) else { continue }
+            insertions.append(end)
+        }
+        guard !insertions.isEmpty else { return normalized }
+
+        var result = normalized
+        for offset in insertions.sorted(by: >) {
+            guard offset <= result.unicodeScalars.count else {
+                return normalized
+            }
+            let scalarIndex = result.unicodeScalars.index(
+                result.unicodeScalars.startIndex,
+                offsetBy: offset
+            )
+            guard let stringIndex = String.Index(
+                scalarIndex,
+                within: result
+            ) else { return normalized }
+            result.insert(contentsOf: ".0", at: stringIndex)
+        }
+        return result
+    }
+
     static func addCompoundMixBoundaries(
         starts: inout [Int: Int],
         ends: inout [Int: [String]],
@@ -333,6 +439,15 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
         guard expressions.count == ranges.count else { return nil }
         if expressions.count == 1 { return firstExpression }
+        if expressions.allSatisfy({ $0.type == .float }) {
+            return .init(
+                range: range,
+                type: .float,
+                conversions: expressions.flatMap(\.conversions),
+                compound: true,
+                directlyNarrowable: false
+            )
+        }
         let widths = expressions.compactMap { floatVectorWidth($0.type) }
         guard expressions.allSatisfy({ $0.type == .float || floatVectorWidth($0.type) != nil }),
               let width = widths.min(),

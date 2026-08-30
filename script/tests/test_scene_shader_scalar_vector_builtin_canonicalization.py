@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared authored max-zero vector compiler canonicalization gate."""
+"""Shared authored scalar/vector built-in compiler canonicalization gate."""
 
 from __future__ import annotations
 
@@ -128,6 +128,30 @@ private struct ScalarVectorBuiltInHarness {
         let otherInteger = canonical(
             "gl_FragColor = vec4(max(1, albedo.rgb), albedo.a);"
         )
+        let scalarFloatFirst = canonical(
+            "float value = max(1, g_Ratio.x / g_Ratio.y); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let scalarFloatSecond = canonical(
+            "float value = max(g_Ratio.x / g_Ratio.y, 1); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let scalarFloatMin = canonical(
+            "float value = min(2, g_Ratio.x / g_Ratio.y); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let scalarInteger = canonical(
+            "int value = max(1, lower); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform int lower;"]
+        )
+        let scalarFloatLiteral = canonical(
+            "float value = max(1.0, g_Ratio.x); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let scalarUnknownCall = canonical(
+            "float value = max(1, abs(g_Ratio.x)); gl_FragColor = vec4(value);",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
         let compound = canonical(
             "gl_FragColor = vec4(max(0 + 0, albedo.rgb), albedo.a);"
         )
@@ -154,10 +178,20 @@ private struct ScalarVectorBuiltInHarness {
             ]
         )
 
-        let compileVertex = vertex.replacingOccurrences(
-            of: "v_TexCoord = a_TexCoord;",
-            with: "v_TexCoord = max(0, a_TexCoord);"
-        )
+        let compileVertex = vertex
+            .replacingOccurrences(
+                of: "varying vec2 v_TexCoord;",
+                with: "varying vec2 v_TexCoord;\nuniform vec4 g_Texture0Resolution;"
+            )
+            .replacingOccurrences(
+                of: "gl_Position = vec4(a_Position, 1.0);",
+                with: "float xScale = max(1, g_Texture0Resolution.x / g_Texture0Resolution.y);\n"
+                    + "        gl_Position = vec4(a_Position * xScale, 1.0);"
+            )
+            .replacingOccurrences(
+                of: "v_TexCoord = a_TexCoord;",
+                with: "v_TexCoord = max(0, a_TexCoord);"
+            )
         let compileFragment = fragment(
             "gl_FragColor = vec4(max(0, albedo.rgb), albedo.a);"
         )
@@ -202,6 +236,24 @@ private struct ScalarVectorBuiltInHarness {
                 "otherIntegerPreserved": otherInteger.contains(
                     "max(1, albedo.rgb)"
                 ),
+                "scalarFloatFirst": scalarFloatFirst.contains(
+                    "max(1.0, g_Ratio.x / g_Ratio.y)"
+                ),
+                "scalarFloatSecond": scalarFloatSecond.contains(
+                    "max(g_Ratio.x / g_Ratio.y, 1.0)"
+                ),
+                "scalarFloatMin": scalarFloatMin.contains(
+                    "min(2.0, g_Ratio.x / g_Ratio.y)"
+                ),
+                "scalarIntegerPreserved": scalarInteger.contains(
+                    "max(1, lower)"
+                ) && !scalarInteger.contains("max(1.0, lower)"),
+                "scalarFloatLiteralPreserved": scalarFloatLiteral.contains(
+                    "max(1.0, g_Ratio.x)"
+                ) && !scalarFloatLiteral.contains("max(1.0.0, g_Ratio.x)"),
+                "scalarUnknownCallPreserved": scalarUnknownCall.contains(
+                    "max(1, abs(g_Ratio.x))"
+                ) && !scalarUnknownCall.contains("max(1.0, abs(g_Ratio.x))"),
                 "compoundPreserved": compound.contains(
                     "max(0 + 0, albedo.rgb)"
                 ) && !compound.contains("vec3(0.0)"),
@@ -225,6 +277,9 @@ private struct ScalarVectorBuiltInHarness {
                 ) && !userDefined.contains("max(vec3(0.0), albedo.rgb)"),
                 "idempotent": firstPair == secondPair,
                 "normalized": normalized != nil,
+                "normalizedScalarFloatMax": normalized?.vertex.contains(
+                    "max(1.0, g_Texture0Resolution.x / g_Texture0Resolution.y)"
+                ) == true,
             ],
             normalizedVertex: normalized?.vertex,
             normalizedFragment: normalized?.fragment
