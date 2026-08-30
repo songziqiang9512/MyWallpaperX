@@ -14,7 +14,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 PROGRAM_SOURCE = SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",

@@ -19,6 +19,9 @@ SWIFT_SOURCES = [
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
+    SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
+    SCENE / "Properties/SceneUserPropertyBindings.swift",
+    VM / "SceneScriptPropertyInput.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE

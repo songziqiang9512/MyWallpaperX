@@ -20,18 +20,21 @@ nonisolated struct ScenePropertyLiveUpdateState {
     @discardableResult
     nonisolated mutating func apply(
         _ value: SceneUserPropertyValue,
-        forPropertyKey propertyKey: String
+        forPropertyKey propertyKey: String,
+        unavailableConsumerTargets: Set<SceneDynamicTarget> = []
     ) -> Bool {
         apply(
             replacements: [propertyKey: value],
-            changedPropertyKeys: [propertyKey]
+            changedPropertyKeys: [propertyKey],
+            unavailableConsumerTargets: unavailableConsumerTargets
         )
     }
 
     @discardableResult
     nonisolated mutating func apply(
         replacements: [String: SceneUserPropertyValue],
-        changedPropertyKeys: Set<String>
+        changedPropertyKeys: Set<String>,
+        unavailableConsumerTargets: Set<SceneDynamicTarget> = []
     ) -> Bool {
         guard !changedPropertyKeys.isEmpty else { return true }
 
@@ -44,7 +47,10 @@ nonisolated struct ScenePropertyLiveUpdateState {
         var expectedTargets: Set<SceneDynamicTarget> = []
         for propertyKey in changedPropertyKeys {
             guard let instructions = instructionsByKey[propertyKey], !instructions.isEmpty,
-                  instructions.allSatisfy({ activeConsumerTargets.contains($0.target) }) else {
+                  instructions.allSatisfy({
+                      activeConsumerTargets.contains($0.target)
+                          && !unavailableConsumerTargets.contains($0.target)
+                  }) else {
                 return false
             }
             expectedTargets.formUnion(instructions.map(\.target))

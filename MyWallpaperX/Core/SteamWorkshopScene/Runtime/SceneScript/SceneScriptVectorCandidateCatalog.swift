@@ -4,6 +4,7 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     let source: String
     let definition: SceneDynamicTargetDefinition
     let properties: [String: SceneScriptPropertyInput]
+    let livePropertyInputTargets: Set<SceneDynamicTarget>
     let hasCurrentAnimation: Bool
 }
 
@@ -176,8 +177,10 @@ nonisolated extension SceneScriptVectorProgram {
         let hasCurrentAnimation = timelineTargets.contains(target)
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"] && binding.properties.isEmpty)
-            || binding.wrapperKeys == ["script", "scriptproperties", "value"]
-            || binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+            || SceneScriptDynamicProviderHostContract.supports(
+                keys: binding.wrapperKeys ?? [],
+                host: .objectVector
+            )
             || (binding.wrapperKeys == ["animation", "script", "value"]
                 && binding.properties.isEmpty && hasCurrentAnimation)
         guard validWrapper else { return nil }
@@ -201,6 +204,11 @@ nonisolated extension SceneScriptVectorProgram {
                 authoredValue: .vector3(authored.x, authored.y, authored.z)
             ),
             properties: properties,
+            livePropertyInputTargets:
+                SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding,
+                    inputs: properties
+                ),
             hasCurrentAnimation: hasCurrentAnimation
         )
     }
@@ -254,6 +262,7 @@ nonisolated extension SceneScriptVectorProgram {
                 authoredValue: .vector3(authored.x, authored.y, authored.z)
             ),
             properties: [:],
+            livePropertyInputTargets: [],
             hasCurrentAnimation: false
         )
     }
@@ -288,7 +297,10 @@ nonisolated extension SceneScriptVectorProgram {
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty)
-            || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+            || SceneScriptDynamicProviderHostContract.supports(
+                keys: binding.wrapperKeys ?? [],
+                host: .objectVisibility
+            )
         guard validWrapper else { return nil }
         var properties: [String: SceneScriptPropertyInput] = [:]
         for entry in binding.properties {
@@ -304,6 +316,11 @@ nonisolated extension SceneScriptVectorProgram {
                 authoredValue: .bool(authored)
             ),
             properties: properties,
+            livePropertyInputTargets:
+                SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding,
+                    inputs: properties
+                ),
             hasCurrentAnimation: false
         )
     }
@@ -406,10 +423,13 @@ nonisolated extension SceneScriptVectorProgram {
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty
                 && descriptorValue.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "value"]
-                && descriptorValue.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
-                && descriptorValue.userValueKind == .null)
+            || (SceneScriptDynamicProviderHostContract
+                .supports(
+                    keys: binding.wrapperKeys ?? [],
+                    host: .passConstant
+                )
+                && (descriptorValue.userValueKind == nil
+                    || descriptorValue.userValueKind == .null))
             || (binding.wrapperKeys == ["script", "user", "value"]
                 && binding.properties.isEmpty
                 && descriptorValue.userValueKind == .null)
@@ -424,6 +444,11 @@ nonisolated extension SceneScriptVectorProgram {
             source: binding.source,
             definition: definition,
             properties: properties,
+            livePropertyInputTargets:
+                SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding,
+                    inputs: properties
+                ),
             hasCurrentAnimation: false
         )
     }

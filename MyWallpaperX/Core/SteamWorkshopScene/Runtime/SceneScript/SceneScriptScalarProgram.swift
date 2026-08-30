@@ -27,6 +27,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let bindings: [SceneScriptScalarOwner]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
+    private let propertyInputsByTarget:
+        [SceneDynamicTarget: [String: SceneScriptPropertyInput]]
+    private let livePropertyInputTargetsByTarget:
+        [SceneDynamicTarget: Set<SceneDynamicTarget>]
+    private let userPropertyKinds: [String: SceneUserPropertyKind]
+    let livePropertyInputTargets: Set<SceneDynamicTarget>
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
@@ -37,19 +43,39 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
     private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
+    private var appliedUserPropertiesByTarget:
+        [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: \.hasAudioRegistration)
     }
 
+    var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
+        livePropertyInputTargetsByTarget.reduce(into: Set<SceneDynamicTarget>()) {
+            if !disabledTargets.contains($1.key) { $0.formUnion($1.value) }
+        }
+    }
+
     private init(
         domain: SceneScriptQuickJSDomain?,
         bindings: [SceneScriptScalarOwner],
-        generation: UInt64
+        generation: UInt64,
+        propertyInputsByTarget:
+            [SceneDynamicTarget: [String: SceneScriptPropertyInput]] = [:],
+        livePropertyInputTargetsByTarget:
+            [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:],
+        livePropertyInputTargets: Set<SceneDynamicTarget> = [],
+        userPropertyDefinitions: [SceneUserPropertyDefinition] = []
     ) {
         self.domain = domain
         self.bindings = bindings
         self.generation = generation
+        self.propertyInputsByTarget = propertyInputsByTarget
+        self.livePropertyInputTargetsByTarget = livePropertyInputTargetsByTarget
+        self.livePropertyInputTargets = livePropertyInputTargets
+        userPropertyKinds = Dictionary(
+            uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
+        )
         definitions = bindings.map {
             .init(
                 target: $0.target,
@@ -63,6 +89,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         domain sharedDomain: SceneScriptQuickJSDomain? = nil,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
+        userPropertyDefinitions: [SceneUserPropertyDefinition] = [],
         timelineTargets: Set<SceneDynamicTarget> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64 = 1,
@@ -80,6 +107,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             domain: domain,
             descriptor: descriptor,
             scriptBindings: scriptBindings,
+            userPropertyDefinitions: userPropertyDefinitions,
             timelineTargets: timelineTargets,
             excludedTargets: excludedTargets,
             rejectedTargets: [],
@@ -92,13 +120,17 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         domain: SceneScriptQuickJSDomain,
         descriptor: SceneRenderDescriptor,
         scriptBindings: [SceneScriptBindingIR],
+        userPropertyDefinitions: [SceneUserPropertyDefinition] = [],
         timelineTargets: Set<SceneDynamicTarget> = [],
         excludedTargets: Set<SceneDynamicTarget> = [],
         rejectedTargets: Set<SceneDynamicTarget>,
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default
     ) -> SceneScriptScalarProgramConstruction {
-        let candidates: [(SceneScriptBindingIR, SceneDynamicTarget, Double, String)] =
+        let candidates: [(
+            SceneScriptBindingIR, SceneDynamicTarget, Double,
+            [String: SceneScriptPropertyInput]
+        )] =
             scriptBindings.compactMap { binding in
                 guard let target = projection(
                           binding,
@@ -107,9 +139,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       ),
                       !excludedTargets.contains(target),
                       let authored = binding.authoredValue?.numberValue,
-                      let propertiesJSON = staticPropertiesJSON(binding.properties),
+                      let properties = SceneScriptPropertyInputCodec.inputs(
+                          binding.properties
+                      ),
                       authored.isFinite else { return nil }
-                return (binding, target, authored, propertiesJSON)
+                return (binding, target, authored, properties)
             }
         let counts = Dictionary(grouping: candidates, by: { $0.1 })
             .mapValues(\.count)
@@ -117,8 +151,13 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             counts[candidate.1] == 1 ? candidate.1 : nil
         }).subtracting(rejectedTargets)
         var owners: [SceneScriptScalarOwner] = []
+        var propertyInputsByTarget:
+            [SceneDynamicTarget: [String: SceneScriptPropertyInput]] = [:]
+        var livePropertyInputTargetsByTarget:
+            [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:]
+        var livePropertyInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
-        for (binding, target, authored, propertiesJSON) in candidates {
+        for (binding, target, authored, properties) in candidates {
             let layerID: Int
             switch target {
             case let .effectConstant(value, _, _, _), let .layer(value, _),
@@ -132,6 +171,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 continue
             }
             do {
+                guard let propertiesJSON =
+                        SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                            properties,
+                            effectiveValues: [:]
+                        ) else {
+                    failures[target] = .invalidArgument(
+                        "SceneScript properties unavailable"
+                    )
+                    break
+                }
                 let owner = try SceneScriptScalarOwner(
                       domain: domain,
                       source: binding.source,
@@ -144,6 +193,15 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                       budget: budget
                 )
                 owners.append(owner)
+                propertyInputsByTarget[target] = properties
+                let inputTargets =
+                    SceneScriptPropertyInputCodec.liveConsumerTargets(
+                        binding: binding, inputs: properties
+                    )
+                livePropertyInputTargetsByTarget[target] = inputTargets
+                livePropertyInputTargets.formUnion(
+                    inputTargets
+                )
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[target] = failure
                 break
@@ -155,7 +213,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         let program = SceneScriptScalarProgram(
             domain: domain,
             bindings: owners,
-            generation: generation
+            generation: generation,
+            propertyInputsByTarget: propertyInputsByTarget,
+            livePropertyInputTargetsByTarget:
+                livePropertyInputTargetsByTarget,
+            livePropertyInputTargets: livePropertyInputTargets,
+            userPropertyDefinitions: userPropertyDefinitions
         )
         return .init(
             program: program,
@@ -185,7 +248,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) -> [SceneDynamicTargetDefinition] {
         let candidates = scriptBindings.compactMap { binding ->
             (target: SceneDynamicTarget, authored: Double)? in
-            guard staticPropertiesJSON(binding.properties) != nil,
+            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
                   let authored = binding.authoredValue?.numberValue,
                   authored.isFinite,
                   let target = projection(
@@ -215,7 +278,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) -> [String] {
         let candidates = scriptBindings.compactMap { binding ->
             (source: String, target: SceneDynamicTarget)? in
-            guard staticPropertiesJSON(binding.properties) != nil,
+            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
                   let target = projection(
                       binding,
                       descriptor: descriptor,
@@ -234,6 +297,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
@@ -255,6 +319,26 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
+            guard let propertyInputs = propertyInputsByTarget[binding.target],
+                  let propertiesJSON =
+                    SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                        propertyInputs,
+                        effectiveValues: effectivePropertyValues
+                    ) else {
+                failures[binding.target] = .invalidArgument(
+                    "SceneScript properties unavailable"
+                )
+                continue
+            }
+            let hasUserPropertyInput = propertyInputs.values.contains {
+                $0.userPropertyKey != nil
+            }
+            let changedUserPropertiesJSON = hasUserPropertyInput
+                ? SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
+                    previous: appliedUserPropertiesByTarget[binding.target],
+                    current: effectivePropertyValues,
+                    kinds: userPropertyKinds
+                ) : nil
             let pendingPlaybackEvent = observedPlaybackEvent.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
                     > consumedMediaPlaybackGenerations[binding.target, default: 0]
@@ -264,6 +348,33 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 binding.handlesMediaThumbnail && event.generation
                     > consumedMediaThumbnailGenerations[binding.target, default: 0]
                     ? event : nil
+            }
+            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
+            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var playbackMutationCount = 0
+            var thumbnailMutationCount = 0
+            if let changedUserPropertiesJSON {
+                switch binding.dispatchUserProperties(
+                    changedPropertiesJSON: changedUserPropertiesJSON,
+                    scriptPropertiesJSON: propertiesJSON,
+                    frame: frame,
+                    userPropertiesJSON: userPropertiesJSON,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(eventMutations):
+                    callbackMaterialMutations.append(
+                        contentsOf: eventMutations.materialFunctions
+                    )
+                    callbackAnimationMutations.append(
+                        contentsOf: eventMutations.animations
+                    )
+                    callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
             }
             if binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
@@ -291,11 +402,6 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     continue
                 }
             }
-            var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
-            var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
-            var callbackLayerMutations: [SceneScriptLayerMutation] = []
-            var playbackMutationCount = 0
-            var thumbnailMutationCount = 0
             if let pendingPlaybackEvent {
                 switch binding.dispatchMediaPlayback(
                     pendingPlaybackEvent,
@@ -345,11 +451,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             switch binding.evaluate(
                 input: value,
                 frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
+                if hasUserPropertyInput {
+                    appliedUserPropertiesByTarget[binding.target] =
+                        effectivePropertyValues
+                }
                 if let pendingPlaybackEvent {
                     consumedMediaPlaybackGenerations[binding.target] =
                         pendingPlaybackEvent.generation
@@ -369,6 +480,14 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
                 animationMutations.append(contentsOf: callbackAnimationMutations)
                 layerMutations.append(contentsOf: callbackLayerMutations)
+                if changedUserPropertiesJSON != nil,
+                   case let .scalar(outputValue) = evaluation.value {
+                    NSLog(
+                        "MWX SceneScript VM: target=%@ callback=propertyInputApplied output=%.9g route=generic-only",
+                        String(describing: binding.target),
+                        outputValue
+                    )
+                }
                 if pendingMediaEvent != nil {
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ mutations=%d route=generic-only",
@@ -435,10 +554,21 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     func teardown(
         frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         userPropertiesJSON: String
     ) -> [SceneScriptOwnerTeardownOutcome] {
-        bindings.map {
-            $0.teardown(frame: frame, userPropertiesJSON: userPropertiesJSON)
+        bindings.map { binding in
+            let propertiesJSON = propertyInputsByTarget[binding.target].flatMap {
+                SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                    $0,
+                    effectiveValues: effectivePropertyValues
+                )
+            }
+            return binding.teardown(
+                frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
+                userPropertiesJSON: userPropertiesJSON
+            )
         }
     }
 
@@ -490,7 +620,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 .key("instanceoverride"), .key("rate"),
             ] {
                 guard binding.targetKey == "rate",
-                      binding.wrapperKeys == ["script", "scriptproperties", "value"],
+                      SceneScriptDynamicProviderHostContract
+                        .supports(
+                            keys: binding.wrapperKeys ?? [],
+                            host: .particleRate
+                        ),
                       layer.contentKind == "particle",
                       let override = layer.particleInstanceOverride,
                       override.hasOnlyGenericRateScript,
@@ -510,7 +644,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             let isPropertyWrapper =
                 (binding.wrapperKeys == ["script", "value"]
                     && binding.properties.isEmpty)
-                || binding.wrapperKeys == ["script", "scriptproperties", "value"]
+                || SceneScriptDynamicProviderHostContract
+                    .supports(
+                        keys: binding.wrapperKeys ?? [],
+                        host: .objectScalar
+                    )
             guard binding.targetKey == "alpha",
                   isTimelineWrapper || isPropertyWrapper,
                   binding.targetPath == [
@@ -550,10 +688,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty
                 && value.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "value"]
-                && value.userValueKind == nil)
-            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
-                && value.userValueKind == .null)
+            || (SceneScriptDynamicProviderHostContract
+                .supports(
+                    keys: binding.wrapperKeys ?? [],
+                    host: .passConstant
+                )
+                && (value.userValueKind == nil || value.userValueKind == .null))
             || (binding.wrapperKeys == ["script", "user", "value"]
                 && binding.properties.isEmpty
                 && value.userValueKind == .null)
@@ -580,26 +720,6 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         ]
     }
 
-    private static func staticPropertiesJSON(
-        _ properties: [String: SceneJSONValue]
-    ) -> String? {
-        if properties.isEmpty { return "" }
-        var object: [String: Any] = [:]
-        for (key, value) in properties {
-            switch value {
-            case let .bool(item): object[key] = item
-            case let .number(item) where item.isFinite: object[key] = item
-            case let .string(item): object[key] = item
-            default: return nil
-            }
-        }
-        guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(
-                  withJSONObject: object,
-                  options: [.sortedKeys]
-              ) else { return nil }
-        return String(decoding: data, as: UTF8.self)
-    }
 }
 
 private nonisolated extension SceneParticleInstanceOverride {

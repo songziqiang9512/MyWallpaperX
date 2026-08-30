@@ -150,7 +150,9 @@ final class SceneDesktopWallpaperHost {
               context.recordID == recordID,
               context.liveState.apply(
                   replacements: replacements,
-                  changedPropertyKeys: changedPropertyKeys
+                  changedPropertyKeys: changedPropertyKeys,
+                  unavailableConsumerTargets:
+                      Self.unavailableLiveScriptPropertyTargets(in: context)
               ) else {
             return false
         }

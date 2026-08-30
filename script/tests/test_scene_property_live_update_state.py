@@ -20,7 +20,9 @@ SERVICE_SOURCE = REPOSITORY_ROOT / (
     "SteamWorkshopSceneService+SceneProperties.swift"
 )
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",
@@ -249,6 +251,230 @@ enum Harness {
             from: beforeMixedVisibility
         )
 
+        let scriptRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "effects": [[
+                    "passes": [[
+                        "constantshadervalues": [
+                            "scripted": [
+                                "script": "export function update(value) { return value; }",
+                                "scriptproperties": [
+                                    "nestedSpeed": [
+                                        "user": "scriptSpeed",
+                                        "value": 50.0,
+                                    ],
+                                ],
+                                "value": -0.2,
+                            ],
+                            "direct": [
+                                "user": "scriptSpeed",
+                                "value": 0.2,
+                            ],
+                        ],
+                    ]],
+                ]],
+            ]],
+        ]
+        let scriptCatalog = SceneUserPropertyCatalog(definitions: [
+            SceneUserPropertyDefinition(
+                key: "scriptSpeed", title: "Speed", kind: .slider,
+                runtimeType: "slider", order: 0, index: nil,
+                minimumValue: 0, maximumValue: 1, stepValue: 0.01,
+                allowsFractionalValues: true, fractionalPrecision: 2,
+                displayCondition: nil, defaultValue: .number(0.2), options: []
+            ),
+        ])
+        let scriptReport = SceneUserPropertyBindingParser().parse(root: scriptRoot)
+        let scriptCompilation = ScenePropertyBindingCompiler().compile(
+            report: scriptReport,
+            catalog: scriptCatalog
+        )
+        let scriptTargets = Set(scriptCompilation.program.instructions.compactMap {
+            instruction -> SceneDynamicTarget? in
+            guard case .scriptInstanceProperty = instruction.target else { return nil }
+            return instruction.target
+        })
+        let directScriptTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "direct"
+        )
+        let scriptProviderClassified = scriptTargets.count == 1
+            && scriptReport.diagnostics.isEmpty
+            && !scriptCompilation.program.rebuildRequiredPropertyKeys
+                .contains("scriptSpeed")
+        var scriptLiveState = ScenePropertyLiveUpdateState(
+            program: scriptCompilation.program,
+            effectiveValues: ["scriptSpeed": .number(0.2)],
+            activeConsumerTargets: scriptTargets.union([directScriptTarget])
+        )
+        let scriptProviderAccepted = scriptLiveState.apply(
+            .number(0.35),
+            forPropertyKey: "scriptSpeed"
+        )
+        let scriptProviderPublishedBoth = scalar(scriptLiveState, directScriptTarget) == 0.35
+            && scriptTargets.allSatisfy { scalar(scriptLiveState, $0) == 0.35 }
+        var missingScriptConsumerState = ScenePropertyLiveUpdateState(
+            program: scriptCompilation.program,
+            effectiveValues: ["scriptSpeed": .number(0.2)],
+            activeConsumerTargets: [directScriptTarget]
+        )
+        let beforeMissingScriptConsumer = missingScriptConsumerState
+        let missingScriptConsumerRejected = !missingScriptConsumerState.apply(
+            .number(0.35),
+            forPropertyKey: "scriptSpeed"
+        )
+        let missingScriptConsumerWasAtomic = unchanged(
+            missingScriptConsumerState,
+            from: beforeMissingScriptConsumer
+        )
+        var disabledScriptConsumerState = ScenePropertyLiveUpdateState(
+            program: scriptCompilation.program,
+            effectiveValues: ["scriptSpeed": .number(0.2)],
+            activeConsumerTargets: scriptTargets.union([directScriptTarget])
+        )
+        let beforeDisabledScriptConsumer = disabledScriptConsumerState
+        let disabledScriptConsumerRejected = !disabledScriptConsumerState.apply(
+            .number(0.35),
+            forPropertyKey: "scriptSpeed",
+            unavailableConsumerTargets: scriptTargets
+        )
+        let disabledScriptConsumerWasAtomic = unchanged(
+            disabledScriptConsumerState,
+            from: beforeDisabledScriptConsumer
+        )
+        let falsePositiveRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "metadata": [
+                    "scriptproperties": [
+                        "nestedSpeed": [
+                            "user": "scriptSpeed",
+                            "value": 50.0,
+                        ],
+                    ],
+                ],
+            ]],
+        ]
+        let falsePositiveReport = SceneUserPropertyBindingParser().parse(
+            root: falsePositiveRoot
+        )
+        let falsePositiveCompilation = ScenePropertyBindingCompiler().compile(
+            report: falsePositiveReport,
+            catalog: scriptCatalog
+        )
+        let ordinaryUnknownStillRebuilds = falsePositiveCompilation.program
+            .rebuildRequiredPropertyKeys.contains("scriptSpeed")
+        let unsupportedScriptPathRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "metadata": [
+                    "custom": [
+                        "script": "export function update(value) { return value; }",
+                        "scriptproperties": [
+                            "nestedSpeed": [
+                                "user": "scriptSpeed",
+                                "value": 50.0,
+                            ],
+                        ],
+                        "value": 0.2,
+                    ],
+                ],
+            ]],
+        ]
+        let unsupportedScriptPathCompilation = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(
+                root: unsupportedScriptPathRoot
+            ),
+            catalog: scriptCatalog
+        )
+        let unsupportedScriptPathRebuilds = unsupportedScriptPathCompilation.program
+            .rebuildRequiredPropertyKeys.contains("scriptSpeed")
+        let malformedProviderRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "effects": [[
+                    "passes": [[
+                        "constantshadervalues": [
+                            "scripted": [
+                                "script": "export function update(value) { return value; }",
+                                "scriptproperties": [
+                                    "nestedSpeed": [
+                                        "extra": true,
+                                        "user": "scriptSpeed",
+                                        "value": 50.0,
+                                    ],
+                                ],
+                                "value": -0.2,
+                            ],
+                        ],
+                    ]],
+                ]],
+            ]],
+        ]
+        let malformedProviderCompilation = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(root: malformedProviderRoot),
+            catalog: scriptCatalog
+        )
+        let malformedProviderRebuilds = malformedProviderCompilation.program
+            .rebuildRequiredPropertyKeys.contains("scriptSpeed")
+        let nullOuterUserRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "effects": [[
+                    "passes": [[
+                        "constantshadervalues": [
+                            "scripted": [
+                                "script": "export function update(value) { return value; }",
+                                "scriptproperties": [
+                                    "nestedSpeed": [
+                                        "user": "scriptSpeed",
+                                        "value": 50.0,
+                                    ],
+                                ],
+                                "user": NSNull(),
+                                "value": -0.2,
+                            ],
+                        ],
+                    ]],
+                ]],
+            ]],
+        ]
+        let nullOuterUserCompilation = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(root: nullOuterUserRoot),
+            catalog: scriptCatalog
+        )
+        let nullOuterUserProviderClassified = nullOuterUserCompilation.program.instructions
+            .contains { instruction in
+                guard instruction.propertyKey == "scriptSpeed" else { return false }
+                if case .scriptInstanceProperty = instruction.target { return true }
+                return false
+            }
+            && !nullOuterUserCompilation.program.rebuildRequiredPropertyKeys
+                .contains("scriptSpeed")
+        let unsupportedColorProviderRoot: [String: Any] = [
+            "objects": [[
+                "id": 10,
+                "color": [
+                    "script": "export function update(value) { return value; }",
+                    "scriptproperties": [
+                        "nestedSpeed": [
+                            "user": "scriptSpeed",
+                            "value": 50.0,
+                        ],
+                    ],
+                    "value": "1 1 1",
+                ],
+            ]],
+        ]
+        let unsupportedColorProviderCompilation = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(
+                root: unsupportedColorProviderRoot
+            ),
+            catalog: scriptCatalog
+        )
+        let unsupportedColorProviderRebuilds = unsupportedColorProviderCompilation.program
+            .rebuildRequiredPropertyKeys.contains("scriptSpeed")
+
         let payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "singleAccepted": singleAccepted,
@@ -287,6 +513,18 @@ enum Harness {
             "xrayVisibilityUpdated": xrayVisibilityUpdated,
             "mixedVisibilityRejected": mixedVisibilityRejected,
             "mixedVisibilityWasAtomic": mixedVisibilityWasAtomic,
+            "scriptProviderClassified": scriptProviderClassified,
+            "scriptProviderAccepted": scriptProviderAccepted,
+            "scriptProviderPublishedBoth": scriptProviderPublishedBoth,
+            "missingScriptConsumerRejected": missingScriptConsumerRejected,
+            "missingScriptConsumerWasAtomic": missingScriptConsumerWasAtomic,
+            "disabledScriptConsumerRejected": disabledScriptConsumerRejected,
+            "disabledScriptConsumerWasAtomic": disabledScriptConsumerWasAtomic,
+            "ordinaryUnknownStillRebuilds": ordinaryUnknownStillRebuilds,
+            "unsupportedScriptPathRebuilds": unsupportedScriptPathRebuilds,
+            "malformedProviderRebuilds": malformedProviderRebuilds,
+            "nullOuterUserProviderClassified": nullOuterUserProviderClassified,
+            "unsupportedColorProviderRebuilds": unsupportedColorProviderRebuilds,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -427,6 +665,22 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
     def test_mixed_visibility_key_rejects_if_any_consumer_is_inactive(self) -> None:
         self.assertTrue(self.result["mixedVisibilityRejected"])
         self.assertTrue(self.result["mixedVisibilityWasAtomic"])
+
+    def test_script_property_provider_is_typed_and_requires_its_vm_consumer(self) -> None:
+        self.assertTrue(self.result["scriptProviderClassified"])
+        self.assertTrue(self.result["scriptProviderAccepted"])
+        self.assertTrue(self.result["scriptProviderPublishedBoth"])
+        self.assertTrue(self.result["missingScriptConsumerRejected"])
+        self.assertTrue(self.result["missingScriptConsumerWasAtomic"])
+        self.assertTrue(self.result["disabledScriptConsumerRejected"])
+        self.assertTrue(self.result["disabledScriptConsumerWasAtomic"])
+
+    def test_scriptproperties_name_without_a_script_wrapper_still_rebuilds(self) -> None:
+        self.assertTrue(self.result["ordinaryUnknownStillRebuilds"])
+        self.assertTrue(self.result["unsupportedScriptPathRebuilds"])
+        self.assertTrue(self.result["malformedProviderRebuilds"])
+        self.assertTrue(self.result["nullOuterUserProviderClassified"])
+        self.assertTrue(self.result["unsupportedColorProviderRebuilds"])
 
     def test_effect_visibility_mapping_is_generic_and_live_rejection_requests_relaunch(
         self,

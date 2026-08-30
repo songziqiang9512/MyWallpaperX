@@ -18,6 +18,7 @@ SOURCES = [
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
+    SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateCatalog.swift",
 ]
 
@@ -105,6 +106,15 @@ nonisolated struct SceneScriptBindingIR: Sendable {
 }
 
 nonisolated struct SceneScriptPropertyInput: Sendable {}
+
+nonisolated enum SceneScriptPropertyInputCodec {
+    static func liveConsumerTargets(
+        binding: SceneScriptBindingIR,
+        inputs: [String: SceneScriptPropertyInput]
+    ) -> Set<SceneDynamicTarget> {
+        []
+    }
+}
 
 nonisolated struct SceneRenderDescriptor: Sendable {
     enum SceneShaderUserValueKind: Sendable { case null }

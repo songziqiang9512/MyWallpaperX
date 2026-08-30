@@ -20,7 +20,15 @@ SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
+    SCENE / "Properties/ScenePropertyBindingProgram.swift",
+    SCENE / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
+    SCENE / "Properties/ScenePropertyBindingProgramValidator.swift",
+    SCENE / "Properties/ScenePropertyLiveUpdateState.swift",
+    SCENE / "Properties/ScenePuppetAnimationPropertyTarget.swift",
     SCENE / "Properties/SceneUserProperty.swift",
+    SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
+    SCENE / "Properties/SceneUserPropertyBindings.swift",
+    VM / "SceneScriptPropertyInput.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
@@ -251,6 +259,15 @@ enum Harness {
                                 scriptSource: passAudioScalarSource,
                                 components: [1],
                                 userValueKind: .string
+                            ),
+                            "dynamicScalar": .init(
+                                scriptSource: dynamicScalarSource,
+                                components: [-0.2]
+                            ),
+                            "dynamicScalarNull": .init(
+                                scriptSource: dynamicScalarSource,
+                                components: [-0.2],
+                                userValueKind: .null
                             ),
                         ]
                     )]
@@ -485,6 +502,222 @@ enum Harness {
             inputs: [passAudioTarget: .scalar(1)], frame: frame,
             audioSpectrum: audioSnapshot
         )
+        let dynamicScalarTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "dynamicScalar"
+        )
+        let dynamicScalarProperties: [String: SceneJSONValue] = [
+            "newSlider": .object([
+                "user": .string("renamedProperty"),
+                "value": .number(50),
+            ]),
+        ]
+        let dynamicScalarProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "dynamicScalar", source: dynamicScalarSource, value: -0.2,
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: dynamicScalarProperties
+            )],
+            generation: 27
+        )
+        let dynamicScalarFirst = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(0.2)]
+        )
+        let dynamicScalarStable = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(0.2)]
+        )
+        let dynamicScalarChanged = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(0.35)]
+        )
+        let dynamicScalarWrongType = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .string("wrong")]
+        )
+        let dynamicScalarRecovered = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(0.4)]
+        )
+        let dynamicScalarFallbackProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "dynamicScalar", source: dynamicScalarSource, value: -0.2,
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: dynamicScalarProperties
+            )],
+            generation: 28
+        )
+        let dynamicScalarFallback = dynamicScalarFallbackProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: [:]
+        )
+        let dynamicScalarLiveTarget = SceneDynamicTarget.scriptInstanceProperty(
+            layerID: 10,
+            path: [
+                SceneScriptPropertyTargetPath.keyComponent("objects"),
+                SceneScriptPropertyTargetPath.indexComponent(0),
+                SceneScriptPropertyTargetPath.keyComponent("effects"),
+                SceneScriptPropertyTargetPath.indexComponent(0),
+                SceneScriptPropertyTargetPath.keyComponent("passes"),
+                SceneScriptPropertyTargetPath.indexComponent(0),
+                SceneScriptPropertyTargetPath.keyComponent("constantshadervalues"),
+                SceneScriptPropertyTargetPath.keyComponent("dynamicScalar"),
+                SceneScriptPropertyTargetPath.keyComponent("scriptproperties"),
+                SceneScriptPropertyTargetPath.keyComponent("newSlider"),
+            ]
+        )
+        let nullOuterUserScalarTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0,
+            name: "dynamicScalarNull"
+        )
+        let nullOuterUserScalarProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "dynamicScalarNull", source: dynamicScalarSource, value: -0.2,
+                wrapperKeys: ["script", "scriptproperties", "user", "value"],
+                properties: dynamicScalarProperties
+            )],
+            generation: 31
+        )
+        let nullOuterUserScalarAdmitted =
+            nullOuterUserScalarProgram.definitions.map(\.target)
+                == [nullOuterUserScalarTarget]
+        let dynamicVectorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [binding(
+                key: "origin", source: originSource, value: "20 2250 0",
+                properties: [
+                    "x": .object([
+                        "user": .string("renamedProperty"),
+                        "value": .number(20),
+                    ]),
+                    "y": .number(2250),
+                ]
+            )],
+            userPropertyDefinitions: [],
+            generation: 30
+        )
+        let dynamicVectorLiveTarget = SceneDynamicTarget.scriptInstanceProperty(
+            layerID: 10,
+            path: [
+                SceneScriptPropertyTargetPath.keyComponent("objects"),
+                SceneScriptPropertyTargetPath.indexComponent(0),
+                SceneScriptPropertyTargetPath.keyComponent("origin"),
+                SceneScriptPropertyTargetPath.keyComponent("scriptproperties"),
+                SceneScriptPropertyTargetPath.keyComponent("x"),
+            ]
+        )
+        let malformedDynamicScalar = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "dynamicScalar", source: dynamicScalarSource, value: -0.2,
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: [
+                    "newSlider": .object([
+                        "extra": .bool(true),
+                        "user": .string("renamedProperty"),
+                        "value": .number(50),
+                    ]),
+                ]
+            )],
+            generation: 29
+        )
+        let failingDynamicScalarInitiallyActive =
+            dynamicScalarProgram.activeLivePropertyInputTargets
+                == [dynamicScalarLiveTarget]
+        let failingDynamicScalarResult = dynamicScalarProgram.evaluate(
+            inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
+            effectivePropertyValues: ["renamedProperty": .number(-1)]
+        )
+        let failingDynamicScalarBecameUnavailable =
+            failingDynamicScalarResult.failures[dynamicScalarTarget] != nil
+                && dynamicScalarProgram.activeLivePropertyInputTargets.isEmpty
+        let scaleLiveTarget = SceneDynamicTarget.scriptInstanceProperty(
+            layerID: 10,
+            path: [
+                SceneScriptPropertyTargetPath.keyComponent("objects"),
+                SceneScriptPropertyTargetPath.indexComponent(0),
+                SceneScriptPropertyTargetPath.keyComponent("scale"),
+                SceneScriptPropertyTargetPath.keyComponent("scriptproperties"),
+                SceneScriptPropertyTargetPath.keyComponent("size"),
+            ]
+        )
+        let failingDynamicVectorInitiallyActive =
+            program.activeLivePropertyInputTargets.contains(scaleLiveTarget)
+        let failingDynamicVectorResult = program.evaluate(
+            inputs: [
+                .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
+                .layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5),
+            ],
+            effectivePropertyValues: [
+                "x1": .number(40), "y1": .number(2100), "size": .number(-1),
+            ],
+            frame: frame
+        )
+        let failingDynamicVectorBecameUnavailable =
+            failingDynamicVectorResult.failures[
+                .layer(layerID: 10, field: .scale)
+            ] != nil
+                && !program.activeLivePropertyInputTargets.contains(scaleLiveTarget)
+                && program.activeLivePropertyInputTargets.contains(
+                    dynamicVectorLiveTarget
+                )
+        let scalarUnavailableTargets = dynamicScalarProgram.livePropertyInputTargets
+            .subtracting(dynamicScalarProgram.activeLivePropertyInputTargets)
+        let directScalarConsumer = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "directScalar"
+        )
+        var disabledScalarLiveState = ScenePropertyLiveUpdateState(
+            program: propertyProgram(bindings: [
+                ("renamedProperty", dynamicScalarLiveTarget),
+                ("renamedProperty", directScalarConsumer),
+            ]),
+            effectiveValues: ["renamedProperty": .number(0.2)],
+            activeConsumerTargets: dynamicScalarProgram.livePropertyInputTargets
+                .union([directScalarConsumer])
+        )
+        let beforeDisabledScalarLiveState = disabledScalarLiveState
+        let disabledScalarLiveUpdateRejected = !disabledScalarLiveState.apply(
+            .number(0.35),
+            forPropertyKey: "renamedProperty",
+            unavailableConsumerTargets: scalarUnavailableTargets
+        )
+        let disabledScalarLiveUpdateWasAtomic = unchanged(
+            disabledScalarLiveState,
+            from: beforeDisabledScalarLiveState
+        )
+        let vectorUnavailableTargets = program.livePropertyInputTargets
+            .subtracting(program.activeLivePropertyInputTargets)
+        var disabledVectorLiveState = ScenePropertyLiveUpdateState(
+            program: propertyProgram(bindings: [
+                ("size", scaleLiveTarget),
+                ("x1", dynamicVectorLiveTarget),
+            ]),
+            effectiveValues: ["size": .number(1.5), "x1": .number(40)],
+            activeConsumerTargets: program.livePropertyInputTargets
+        )
+        let beforeDisabledVectorLiveState = disabledVectorLiveState
+        let disabledVectorLiveUpdateRejected = !disabledVectorLiveState.apply(
+            .number(2),
+            forPropertyKey: "size",
+            unavailableConsumerTargets: vectorUnavailableTargets
+        )
+        let disabledVectorLiveUpdateWasAtomic = unchanged(
+            disabledVectorLiveState,
+            from: beforeDisabledVectorLiveState
+        )
+        let activeVectorSiblingAccepted = disabledVectorLiveState.apply(
+            .number(41),
+            forPropertyKey: "x1",
+            unavailableConsumerTargets: vectorUnavailableTargets
+        ) && scalar(disabledVectorLiveState.userValues[dynamicVectorLiveTarget]) == 41
         let rejectedPassAudioWrapper = SceneScriptScalarProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -900,6 +1133,48 @@ enum Harness {
             "passAudioFailures": passAudioResult.failures.count,
             "passAudioWrongWrapperRejected": rejectedPassAudioWrapper.bindings.isEmpty,
             "passAudioUserProviderRejected": rejectedPassAudioProvider.bindings.isEmpty,
+            "dynamicScalarBindings": dynamicScalarProgram.bindings.count,
+            "dynamicScalarFirst": scalar(
+                dynamicScalarFirst.values[dynamicScalarTarget]
+            ),
+            "dynamicScalarStable": scalar(
+                dynamicScalarStable.values[dynamicScalarTarget]
+            ),
+            "dynamicScalarChanged": scalar(
+                dynamicScalarChanged.values[dynamicScalarTarget]
+            ),
+            "dynamicScalarWrongTypeFailure":
+                dynamicScalarWrongType.failures[dynamicScalarTarget]?.code ?? "",
+            "dynamicScalarWrongTypePublished":
+                dynamicScalarWrongType.values[dynamicScalarTarget] != nil,
+            "dynamicScalarRecovered": scalar(
+                dynamicScalarRecovered.values[dynamicScalarTarget]
+            ),
+            "dynamicScalarFallback": scalar(
+                dynamicScalarFallback.values[dynamicScalarTarget]
+            ),
+            "dynamicScalarMalformedRejected":
+                malformedDynamicScalar.bindings.isEmpty,
+            "dynamicScalarLiveTarget":
+                dynamicScalarProgram.livePropertyInputTargets
+                    == [dynamicScalarLiveTarget],
+            "dynamicVectorLiveTarget":
+                dynamicVectorProgram.livePropertyInputTargets
+                    == [dynamicVectorLiveTarget],
+            "nullOuterUserScalarAdmitted": nullOuterUserScalarAdmitted,
+            "failingDynamicScalarInitiallyActive":
+                failingDynamicScalarInitiallyActive,
+            "failingDynamicScalarBecameUnavailable":
+                failingDynamicScalarBecameUnavailable,
+            "failingDynamicVectorInitiallyActive":
+                failingDynamicVectorInitiallyActive,
+            "failingDynamicVectorBecameUnavailable":
+                failingDynamicVectorBecameUnavailable,
+            "disabledScalarLiveUpdateRejected": disabledScalarLiveUpdateRejected,
+            "disabledScalarLiveUpdateWasAtomic": disabledScalarLiveUpdateWasAtomic,
+            "disabledVectorLiveUpdateRejected": disabledVectorLiveUpdateRejected,
+            "disabledVectorLiveUpdateWasAtomic": disabledVectorLiveUpdateWasAtomic,
+            "activeVectorSiblingAccepted": activeVectorSiblingAccepted,
             "layerOrigin": vector(
                 layerResult.values[.layer(layerID: 10, field: .origin)]
             ),
@@ -1015,6 +1290,32 @@ enum Harness {
     static func scalar(_ value: SceneDynamicValue?) -> Double {
         guard case let .scalar(number)? = value else { return -1 }
         return number
+    }
+
+    static func propertyProgram(
+        bindings: [(String, SceneDynamicTarget)]
+    ) -> ScenePropertyBindingProgram {
+        ScenePropertyBindingProgram(
+            definitions: bindings.map {
+                .init(target: $0.1, valueType: .scalar, authoredValue: .scalar(0))
+            },
+            instructions: bindings.map {
+                .init(
+                    propertyKey: $0.0,
+                    path: .init(components: [.key($0.0)]),
+                    target: $0.1,
+                    valueType: .scalar
+                )
+            }
+        )
+    }
+
+    static func unchanged(
+        _ state: ScenePropertyLiveUpdateState,
+        from before: ScenePropertyLiveUpdateState
+    ) -> Bool {
+        state.effectiveValues == before.effectiveValues
+            && state.userValues == before.userValues
     }
 
     static func string(_ value: SceneDynamicValue?) -> String {
@@ -1211,7 +1512,10 @@ enum Harness {
     export var scriptProperties = createScriptProperties()
       .addSlider({name:'size',label:'Size',value:1.5,min:1,max:3,integer:false})
       .finish();
-    export function update(value) { return scriptProperties.size; }
+    export function update(value) {
+      if (scriptProperties.size < 0) { throw new Error('vector provider failure'); }
+      return scriptProperties.size;
+    }
     """
 
     static let layerSource = """
@@ -1360,6 +1664,18 @@ enum Harness {
             scriptProperties.minvalue
             + audioBuffer.average[scriptProperties.frequency]
         );
+    }
+    """
+
+    static let dynamicScalarSource = """
+    export var scriptProperties = createScriptProperties()
+        .addSlider({name: "newSlider", value: 50})
+        .finish();
+    export function update(value) {
+        if (scriptProperties.newSlider < 0) {
+            throw new Error("scalar provider failure");
+        }
+        return -scriptProperties.newSlider;
     }
     """
 
@@ -1533,6 +1849,30 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["particleAudioDemand"])
         self.assertEqual(value["particleAudioValue"], 3.0)
         self.assertEqual(value["particleAudioFailures"], 0)
+
+    def test_scalar_script_properties_follow_live_typed_user_input(self) -> None:
+        value = self.result()
+        self.assertEqual(value["dynamicScalarBindings"], 1)
+        self.assertAlmostEqual(value["dynamicScalarFirst"], -0.2)
+        self.assertAlmostEqual(value["dynamicScalarStable"], -0.2)
+        self.assertAlmostEqual(value["dynamicScalarChanged"], -0.35)
+        self.assertEqual(value["dynamicScalarWrongTypeFailure"], "invalid-argument")
+        self.assertFalse(value["dynamicScalarWrongTypePublished"])
+        self.assertAlmostEqual(value["dynamicScalarRecovered"], -0.4)
+        self.assertEqual(value["dynamicScalarFallback"], -50)
+        self.assertTrue(value["dynamicScalarMalformedRejected"])
+        self.assertTrue(value["dynamicScalarLiveTarget"])
+        self.assertTrue(value["dynamicVectorLiveTarget"])
+        self.assertTrue(value["nullOuterUserScalarAdmitted"])
+        self.assertTrue(value["failingDynamicScalarInitiallyActive"])
+        self.assertTrue(value["failingDynamicScalarBecameUnavailable"])
+        self.assertTrue(value["failingDynamicVectorInitiallyActive"])
+        self.assertTrue(value["failingDynamicVectorBecameUnavailable"])
+        self.assertTrue(value["disabledScalarLiveUpdateRejected"])
+        self.assertTrue(value["disabledScalarLiveUpdateWasAtomic"])
+        self.assertTrue(value["disabledVectorLiveUpdateRejected"])
+        self.assertTrue(value["disabledVectorLiveUpdateWasAtomic"])
+        self.assertTrue(value["activeVectorSiblingAccepted"])
 
     def test_apply_user_properties_uses_initial_full_then_changed_delta(self) -> None:
         value = self.result()

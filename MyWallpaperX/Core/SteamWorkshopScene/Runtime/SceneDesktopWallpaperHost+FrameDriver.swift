@@ -112,7 +112,9 @@ extension SceneDesktopWallpaperHost {
         let userPropertiesJSON = context.propertyVectorScriptProgram
             .userPropertiesJSON(effectiveValues: context.liveState.effectiveValues)
         let outcomes = context.sceneScriptScalarProgram.teardown(
-            frame: frame, userPropertiesJSON: userPropertiesJSON
+            frame: frame,
+            effectivePropertyValues: context.liveState.effectiveValues,
+            userPropertiesJSON: userPropertiesJSON
         ) + context.sceneScriptStringProgram.teardown(
             frame: frame, userPropertiesJSON: userPropertiesJSON
         ) + context.sceneScriptCursorProgram.teardown(
@@ -544,6 +546,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptResult = launchContext.sceneScriptScalarProgram.evaluate(
                 inputs: sceneScriptInputs,
                 frame: sceneScriptFrame,
+                effectivePropertyValues: launchContext.liveState.effectiveValues,
                 userPropertiesJSON: userPropertiesJSON,
                 mediaThumbnailEvent: sceneScriptMediaThumbnailEvent,
                 mediaPlaybackEvent: sceneScriptMediaPlaybackEvent,

@@ -744,15 +744,13 @@ extension SceneDesktopWallpaperHost {
             ),
             mediaThumbnailBindings: mediaThumbnailBindings,
             soundPlaybackProgram: soundPlaybackProgram,
-            liveState: ScenePropertyLiveUpdateState(
-                program: runtimeInput.propertyBindingProgram,
-                effectiveValues: runtimeInput.effectivePropertyValues,
-                activeConsumerTargets: Self.activeLiveConsumerTargets(
-                    in: runtimeInput.renderDescriptor,
-                    resolvedMaterialExecutionCapabilities:
-                        resolvedMaterialExecutionCapabilities,
-                    soundPlaybackProgram: soundPlaybackProgram
-                )
+            liveState: Self.makeLivePropertyState(
+                runtimeInput: runtimeInput,
+                resolvedMaterialExecutionCapabilities:
+                    resolvedMaterialExecutionCapabilities,
+                soundPlaybackProgram: soundPlaybackProgram,
+                propertyVectorScriptProgram: propertyVectorScriptProgram,
+                sceneScriptScalarProgram: sceneScriptScalarProgram
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,

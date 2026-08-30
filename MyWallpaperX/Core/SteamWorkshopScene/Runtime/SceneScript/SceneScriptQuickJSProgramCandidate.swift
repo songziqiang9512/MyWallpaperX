@@ -372,6 +372,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 domain: domain,
                 descriptor: authoredDescriptor,
                 scriptBindings: scriptBindings,
+                userPropertyDefinitions: userPropertyDefinitions,
                 timelineTargets: timelineTargets,
                 excludedTargets: scalarExcludedTargets,
                 rejectedTargets: rejectedScalarTargets,

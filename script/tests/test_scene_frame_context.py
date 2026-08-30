@@ -787,15 +787,19 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_launch_callers_forward_raw_root_and_host_owns_runtime_input(self) -> None:
         host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", host)
         self.assertIn("let effectAdmissionCatalog: SceneEffectAdmissionCatalog", host)
         self.assertIn("shaderContracts: runtimeInput.shaderContracts", host)
         self.assertIn(
-            "program: runtimeInput.propertyBindingProgram", host
+            "program: runtimeInput.propertyBindingProgram", live_consumers
         )
-        self.assertIn("effectiveValues: runtimeInput.effectivePropertyValues", host)
+        self.assertIn(
+            "effectiveValues: runtimeInput.effectivePropertyValues", live_consumers
+        )
+        self.assertIn("liveState: Self.makeLivePropertyState(", host)
         self.assertIn("rootURL: request.rootURL", coordinator)
         self.assertIn("rootURL: rootURL", debug_runner)
         self.assertNotIn("interpretationFileURL", coordinator)

@@ -12,8 +12,10 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyDefinitionParser.swift",
+    SOURCE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Properties/SceneUserPropertyResolver.swift",
     SOURCE_ROOT / "Format/ScenePkgReader.swift",
@@ -261,6 +263,7 @@ enum Harness {
         case .particle: "particle"
         case .soundVolume: "soundVolume"
         case .shaderValue: "shaderValue"
+        case .scriptProperty: "scriptProperty"
         case .unsupported: "unsupported"
         }
     }
@@ -327,12 +330,13 @@ class SceneUserPropertyTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-user-properties"
-        subprocess.run(
+        compilation = subprocess.run(
             [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
-            check=True,
             capture_output=True,
             text=True,
         )
+        if compilation.returncode != 0:
+            raise RuntimeError(compilation.stderr)
 
     @classmethod
     def tearDownClass(cls) -> None:

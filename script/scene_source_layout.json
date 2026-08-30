@@ -191,6 +191,7 @@
           "SceneScriptMediaEventBridge.swift",
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
+          "SceneScriptPropertyInput.swift",
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorProgram.swift",

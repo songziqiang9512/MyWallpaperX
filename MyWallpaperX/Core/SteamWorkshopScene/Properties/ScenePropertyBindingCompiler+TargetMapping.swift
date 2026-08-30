@@ -12,6 +12,18 @@ extension ScenePropertyBindingCompiler {
         guard case let .shaderValue(
             layerID, effectIndex, passIndex, name, _
         ) = binding.target else {
+            if case let .scriptProperty(layerID, path) = binding.target {
+                guard layerID >= 0, !path.isEmpty,
+                      let shape = scriptPropertyShape(
+                          fallback: binding.fallbackValue,
+                          propertyKind: propertyKind
+                      ) else { return nil }
+                return (
+                    .scriptInstanceProperty(layerID: layerID, path: path),
+                    shape.valueType,
+                    shape.propertyKind
+                )
+            }
             return map(binding.target)
         }
         guard layerID >= 0, effectIndex >= 0, passIndex >= 0,
@@ -85,8 +97,28 @@ extension ScenePropertyBindingCompiler {
                 .bool,
                 .bool
             )
+        case .scriptProperty:
+            nil
         default:
             nil
+        }
+    }
+
+    private nonisolated static func scriptPropertyShape(
+        fallback: SceneUserPropertyValue?,
+        propertyKind: SceneUserPropertyKind?
+    ) -> (
+        valueType: SceneDynamicValueType,
+        propertyKind: SceneUserPropertyKind
+    )? {
+        switch (propertyKind, fallback) {
+        case (.slider, .number): (.scalar, .slider)
+        case (.bool, .bool): (.bool, .bool)
+        case (.textInput, .string): (.string, .textInput)
+        case (.text, .string): (.string, .text)
+        case (.combo, .string): (.string, .combo)
+        case (.sceneTexture, .string): (.string, .sceneTexture)
+        default: nil
         }
     }
 

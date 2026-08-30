@@ -50,6 +50,7 @@ SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneUserProperty.swift",
+    SCENE_ROOT / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE_ROOT / "Properties/SceneUserPropertyBindings.swift",
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Properties/ScenePuppetAnimationPropertyTarget.swift",

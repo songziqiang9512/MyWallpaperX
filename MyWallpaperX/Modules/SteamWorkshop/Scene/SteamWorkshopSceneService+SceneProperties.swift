@@ -265,6 +265,8 @@ extension SteamWorkshopService {
                 effectPath: effectPath,
                 in: renderDescriptor
             )
+        case let .scriptProperty(layerID, _):
+            return renderDescriptor.layers.contains { $0.id == layerID }
         case .unsupported:
             return false
         }

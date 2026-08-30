@@ -45,6 +45,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
         name: String,
         effectPath: String?
     )
+    case scriptProperty(layerID: Int, path: [String])
     case unsupported(reason: String)
 
     nonisolated var acceptsConditionalBoolean: Bool {
@@ -54,7 +55,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
         case .layerAlpha, .layerColor, .text, .particle, .soundVolume,
-             .shaderValue, .unsupported:
+             .shaderValue, .scriptProperty, .unsupported:
             return false
         }
     }
@@ -103,6 +104,41 @@ nonisolated struct SceneUserPropertyBindingReport {
 
     nonisolated var unsupportedBindings: [SceneUserPropertyBinding] {
         bindings.filter(\.target.isUnsupported)
+    }
+}
+
+/// Shared structural contract for a SceneScript property that delegates its
+/// value to the existing user-property snapshot. It intentionally accepts only
+/// the exact authored provider wrapper; runtime codecs may add primitive static
+/// inputs separately, but must use this contract for dynamic providers.
+nonisolated struct SceneScriptUserPropertyInputDefinition: Equatable, Sendable {
+    let userPropertyKey: String
+    let fallback: SceneJSONValue
+}
+
+nonisolated enum SceneScriptUserPropertyInputContract {
+    static func dynamicInput(
+        _ value: SceneJSONValue
+    ) -> SceneScriptUserPropertyInputDefinition? {
+        guard case let .object(wrapper) = value,
+              wrapper.keys.sorted() == ["user", "value"],
+              case let .string(key)? = wrapper["user"],
+              validName(key),
+              let fallback = wrapper["value"],
+              isPrimitive(fallback) else { return nil }
+        return .init(userPropertyKey: key, fallback: fallback)
+    }
+
+    static func validName(_ value: String) -> Bool {
+        !value.isEmpty && value != "__proto__" && value.utf8.count <= 256
+    }
+
+    private static func isPrimitive(_ value: SceneJSONValue) -> Bool {
+        switch value {
+        case let .number(number): number.isFinite
+        case .bool, .string: true
+        default: false
+        }
     }
 }
 
@@ -257,6 +293,30 @@ nonisolated struct SceneUserPropertyBindingParser {
             default: break
             }
         }
+        if components.count >= 5,
+           Self.key(components[components.count - 2]) == "scriptproperties",
+           let propertyName = Self.key(components[components.count - 1]),
+           SceneScriptUserPropertyInputContract.validName(propertyName),
+           let wrapper = Self.value(
+               at: Array(components.dropLast(2)),
+               root: root
+           ) as? [String: Any],
+           let host = Self.sceneScriptHostKind(Array(components.dropLast(2))),
+           SceneScriptDynamicProviderHostContract.supports(
+               wrapper,
+               host: host
+           ),
+           let source = wrapper["script"] as? String,
+           !source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let properties = wrapper["scriptproperties"] as? [String: Any],
+           let rawInput = properties[propertyName],
+           let input = SceneJSONValue(jsonObject: rawInput),
+           SceneScriptUserPropertyInputContract.dynamicInput(input) != nil {
+            return .scriptProperty(
+                layerID: layerID,
+                path: SceneScriptPropertyTargetPath.encoded(components)
+            )
+        }
         return .unsupported(reason: "当前核心层未分类该绑定目标")
     }
 
@@ -387,5 +447,77 @@ nonisolated struct SceneUserPropertyBindingParser {
             return nil
         }
         return value
+    }
+
+    private nonisolated static func value(
+        at components: [SceneUserPropertyPathComponent],
+        root: [String: Any]
+    ) -> Any? {
+        components.reduce(root as Any?) { value, component in
+            switch component {
+            case let .key(key):
+                return (value as? [String: Any])?[key]
+            case let .index(index):
+                guard let values = value as? [Any], values.indices.contains(index) else {
+                    return nil
+                }
+                return values[index]
+            }
+        }
+    }
+
+    private nonisolated static func sceneScriptHostKind(
+        _ components: [SceneUserPropertyPathComponent]
+    ) -> SceneScriptDynamicProviderHostContract.HostKind? {
+        if components.count == 3,
+           key(components[0]) == "objects", index(components[1]) != nil,
+           let field = key(components[2]) {
+            switch field {
+            case "alpha": return .objectScalar
+            case "angles", "origin", "scale": return .objectVector
+            case "visible": return .objectVisibility
+            default: return nil
+            }
+        }
+        if components.count == 4,
+           key(components[0]) == "objects", index(components[1]) != nil,
+           key(components[2]) == "instanceoverride",
+           key(components[3]) == "rate" {
+            return .particleRate
+        }
+        guard components.count == 8
+            && key(components[0]) == "objects"
+            && index(components[1]) != nil
+            && key(components[2]) == "effects"
+            && index(components[3]) != nil
+            && key(components[4]) == "passes"
+            && index(components[5]) != nil
+            && key(components[6]) == "constantshadervalues"
+            && key(components[7]) != nil else { return nil }
+        return .passConstant
+    }
+}
+
+/// Collision-free identity shared by property parsing and admitted SceneScript
+/// owners. The encoded path is metadata only; current values stay in the one
+/// surface-scoped property snapshot.
+nonisolated enum SceneScriptPropertyTargetPath {
+    static func encoded(
+        _ components: [SceneUserPropertyPathComponent]
+    ) -> [String] {
+        components.map { component in
+            switch component {
+            case let .key(key): keyComponent(key)
+            case let .index(index): indexComponent(index)
+            }
+        }
+    }
+
+    static func keyComponent(_ key: String) -> String {
+        "k:\(key.utf8.count):\(key)"
+    }
+
+    static func indexComponent(_ index: Int) -> String {
+        "i:\(index)"
     }
 }

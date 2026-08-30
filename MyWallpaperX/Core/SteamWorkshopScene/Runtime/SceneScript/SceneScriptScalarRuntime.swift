@@ -177,7 +177,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     let hasAudioRegistration: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
-    private let scriptPropertiesJSON: String
+    private let initialScriptPropertiesJSON: String
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
@@ -206,7 +206,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         self.domain = domain
         self.target = target
         self.authoredValue = authoredValue
-        self.scriptPropertiesJSON = scriptPropertiesJSON
+        initialScriptPropertiesJSON = scriptPropertiesJSON
         self.generation = generation
         self.budget = budget
         try domain.checkConstructionBoundary()
@@ -281,6 +281,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     func evaluate(
         input: Double,
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String? = nil,
         userPropertiesJSON: String = "{}",
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
@@ -303,7 +304,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         var output = 0.0
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = scriptPropertiesJSON.withCString { scriptProperties in
+        let resolvedScriptPropertiesJSON =
+            scriptPropertiesJSON ?? initialScriptPropertiesJSON
+        let result = resolvedScriptPropertiesJSON.withCString { scriptProperties in
             userPropertiesJSON.withCString { userProperties in
                 mwx_scene_quickjs_owner_update_scalar_with_properties(
                     handle,
@@ -311,7 +314,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                     input,
                     &frameInput,
                     scriptProperties,
-                    scriptPropertiesJSON.utf8.count,
+                    resolvedScriptPropertiesJSON.utf8.count,
                     userProperties,
                     userPropertiesJSON.utf8.count,
                     &output,
@@ -418,6 +421,34 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         )
     }
 
+    func dispatchUserProperties(
+        changedPropertiesJSON: String,
+        scriptPropertiesJSON: String,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        let layerID: Int
+        switch target {
+        case let .effectConstant(value, _, _, _), let .layer(value, _),
+             let .text(value, .pointSize), let .particle(value, _):
+            layerID = value
+        default:
+            return .failure(.invalidArgument("SceneScript owner identity unavailable"))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchUserProperties(
+            owner: handle,
+            target: target,
+            layerID: layerID,
+            ownerGeneration: generation,
+            changedPropertiesJSON: changedPropertiesJSON,
+            scriptPropertiesJSON: scriptPropertiesJSON,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
+        )
+    }
+
     static func supports(_ target: SceneDynamicTarget) -> Bool {
         guard case let .text(_, field) = target else { return true }
         return field == .pointSize
@@ -433,6 +464,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
 
     func teardown(
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String? = nil,
         userPropertiesJSON: String
     ) -> SceneScriptOwnerTeardownOutcome {
         domain.resetBudget(budget.interruptBudget)
@@ -440,7 +472,8 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             owner: handle,
             generation: generation,
             frame: frame,
-            scriptPropertiesJSON: scriptPropertiesJSON,
+            scriptPropertiesJSON:
+                scriptPropertiesJSON ?? initialScriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
         )
     }
