@@ -360,6 +360,36 @@ extension SceneMetalRenderer {
                     providerLayer,
                     imageTextures.layerSourceRenderSize(for: providerLayer.id)
                 )
+                var dependencyFailureReason: String?
+                func reserveDependencyInput(
+                    _ source: SceneBaseMaterialTextureSource?
+                ) -> SceneDependencyEffectInput? {
+                    dependencyRuntime.reserveEffectInput(
+                        for: binding,
+                        providerLayer: providerLayer,
+                        providerTexture: source?.texture,
+                        providerCandidate: source?.candidate,
+                        layerMVP: providerMVP,
+                        viewportSize: frameContext.screenSize,
+                        frameEpoch: textureRegistry.frameEpoch,
+                        failureReason: &dependencyFailureReason
+                    )
+                }
+                if binding.kind == .resolvedMaterial {
+                    // A composition provider captures the readable main target.
+                    // Its reservation extent comes from typed utility geometry,
+                    // so requiring an unrelated base texture would suppress a
+                    // provider that can publish later in this same frame.
+                    guard let reservedInput = reserveDependencyInput(nil) else {
+                        return invalid(
+                            "layer-\(layerID)-dependency-input-invalid"
+                                + (dependencyFailureReason.map { "-\($0)" } ?? "")
+                        )
+                    }
+                    dependencyEffect = reservedInput
+                    dependencyUnavailability = nil
+                    break
+                }
                 let providerSelection = baseMaterialTextureSelection(
                     for: providerLayer,
                     imageTextures: imageTextures,
@@ -374,7 +404,6 @@ extension SceneMetalRenderer {
                     case .missing:
                         dependencyEffect = nil
                         dependencyUnavailability = .providerSourceUnavailable
-                        break
                     case let .rejected(reasonCode):
                         return invalid(
                             "layer-\(layerID)-dependency-provider-source-"
@@ -387,16 +416,8 @@ extension SceneMetalRenderer {
                     }
                     break
                 }
-                var dependencyFailureReason: String?
-                guard let reservedInput = dependencyRuntime.reserveEffectInput(
-                    for: binding,
-                    providerLayer: providerLayer,
-                    providerTexture: providerSource.texture,
-                    providerCandidate: providerSource.candidate,
-                    layerMVP: providerMVP,
-                    viewportSize: frameContext.screenSize,
-                    frameEpoch: textureRegistry.frameEpoch,
-                    failureReason: &dependencyFailureReason
+                guard let reservedInput = reserveDependencyInput(
+                    providerSource
                 ) else {
                     return invalid(
                         "layer-\(layerID)-dependency-input-invalid"

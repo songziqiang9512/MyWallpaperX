@@ -4584,6 +4584,26 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("func recordClaimedFailure(reasonCode: String)", bridge)
         self.assertNotIn("recordClaimedFailure()", bridge)
 
+    def test_resolved_material_composition_provider_reserves_from_geometry(self) -> None:
+        compact = "".join(FRAME_PREFLIGHT.read_text(encoding="utf-8").split())
+        resolved_start = compact.index("ifbinding.kind==.resolvedMaterial{")
+        exact_source_start = compact.index(
+            "letproviderSelection=baseMaterialTextureSelection(",
+            resolved_start,
+        )
+        resolved_route = compact[resolved_start:exact_source_start]
+
+        self.assertIn("reserveDependencyInput(nil)", resolved_route)
+        self.assertNotIn("baseMaterialTextureSelection", resolved_route)
+        self.assertIn(
+            "guardletproviderSource=providerSelection.sourceelse{",
+            compact[exact_source_start:],
+        )
+        self.assertIn(
+            "reserveDependencyInput(providerSource)",
+            compact[exact_source_start:],
+        )
+
     def test_execution_evidence_is_installed_after_resources_before_frames(self) -> None:
         view = METAL_VIEW.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")

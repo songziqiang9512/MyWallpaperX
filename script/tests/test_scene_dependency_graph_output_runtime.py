@@ -371,6 +371,45 @@ enum Harness {
             frameEpoch: 13,
             failureReason: &reservationFailure
         )
+        let compositionProvider = SceneRenderDescriptor.Layer(
+            id: 450,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let compositionBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 451,
+            providerLayerID: 450,
+            slot: .init(effectID: "clipping", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let compositionRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [compositionProvider],
+                bindings: [451: compositionBinding],
+                graphOutputProviderLayerIDs: []
+            ),
+            visibleLayerIDs: [450, 451],
+            executableUtilityConsumerLayerIDs: [451],
+            device: device
+        )
+        var compositionReservationFailure: String?
+        let compositionInput = compositionRuntime.reserveEffectInput(
+            for: compositionBinding,
+            providerLayer: compositionProvider,
+            providerTexture: nil,
+            providerCandidate: nil,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 3, height: 4),
+            frameEpoch: 13,
+            failureReason: &compositionReservationFailure
+        )
+        let resolvedMaterialReservesFromGeometryWithoutBaseSource =
+            compositionInput?.texture.width == 3
+                && compositionInput?.texture.height == 4
+                && compositionReservationFailure == nil
         let output = texture(device, label: "provider-graph-output")
         let expectedOutputBytes: [UInt8] = [
             5, 17, 29, 255,
@@ -464,6 +503,19 @@ enum Harness {
             executableUtilityConsumerLayerIDs: [],
             device: device
         )
+        var missingImageSourceFailure: String?
+        let imageProviderStillRequiresExactSource = captureRuntime
+            .reserveEffectInput(
+                for: captureBinding,
+                providerLayer: captureProvider,
+                providerTexture: nil,
+                providerCandidate: nil,
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 2, height: 2),
+                frameEpoch: 13,
+                failureReason: &missingImageSourceFailure
+            ) == nil
+            && missingImageSourceFailure == "image-provider-invalid"
         let captureRegistry = SceneFrameTextureRegistry(frameEpoch: 13)
         let captureCandidate = SceneTextureCandidate(
             texture: source,
@@ -529,6 +581,10 @@ enum Harness {
         let result: [String: Any] = [
             "metalAvailable": true,
             "reserved": provisionalInput != nil && reservationFailure == nil,
+            "resolvedMaterialReservesFromGeometryWithoutBaseSource":
+                resolvedMaterialReservesFromGeometryWithoutBaseSource,
+            "imageProviderStillRequiresExactSource":
+                imageProviderStillRequiresExactSource,
             "graphCaptureRequired": runtime.requiresGraphOutputCapture(
                 for: 400
             ),
@@ -605,6 +661,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                 {
                     "metalAvailable": True,
                     "reserved": True,
+                    "resolvedMaterialReservesFromGeometryWithoutBaseSource": True,
+                    "imageProviderStillRequiresExactSource": True,
                     "graphCaptureRequired": True,
                     "unavailableBeforePublication": True,
                     "installed": True,
