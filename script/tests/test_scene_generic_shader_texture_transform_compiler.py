@@ -94,6 +94,27 @@ private let cases: [String: Sources] = [
         void main() { gl_FragColor = vec4(0.25, 0.5, 0.75, 1.0); }
         """
     ),
+    "inactive-builtin-overload": .init(
+        vertex: """
+        mat3 inverse(mat3 value) {
+            return value;
+        }
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        void main() {
+            v_TexCoord = a_TexCoord;
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """,
+        fragment: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        """
+    ),
     "both-stages": .init(
         vertex: """
         attribute vec3 a_Position;
@@ -118,20 +139,71 @@ private let cases: [String: Sources] = [
     ),
 ]
 
+private let rejectedCases: [String: Sources] = [
+    "inactive-invalid-body": .init(
+        vertex: """
+        mat3 inverse(mat3 value) {
+            return undefinedHelper(value);
+        }
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        void main() {
+            v_TexCoord = a_TexCoord;
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """,
+        fragment: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        """
+    ),
+    "active-overload": .init(
+        vertex: """
+        mat3 inverse(mat3 value) {
+            return value;
+        }
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        void main() {
+            mat3 live = inverse(mat3(1.0));
+            v_TexCoord = a_TexCoord;
+            gl_Position = vec4(live[0][0] * a_Position, 1.0);
+        }
+        """,
+        fragment: """
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        """
+    ),
+]
+
 private func write(_ value: String, to url: URL) throws {
     try Data(value.utf8).write(to: url, options: .atomic)
 }
 
 private func normalize(root: URL) throws {
-    for name in cases.keys.sorted() {
-        let authored = cases[name]!
+    for (name, authored) in cases.merging(rejectedCases, uniquingKeysWith: {
+        current, _ in current
+    }).sorted(by: { $0.key < $1.key }) {
+        let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+            vertex: authored.vertex,
+            fragment: authored.fragment
+        )
         guard case let .success(pair) = SceneGenericShaderSourceNormalizer.normalize(
-            vertexSource: authored.vertex,
-            fragmentSource: authored.fragment,
+            vertexSource: canonical.vertex,
+            fragmentSource: canonical.fragment,
             maximumStageSourceBytes: 100_000
         ) else { throw NSError(domain: "normalize", code: 1) }
-        try write(authored.vertex, to: root.appendingPathComponent("\(name).authored.vert"))
-        try write(authored.fragment, to: root.appendingPathComponent("\(name).authored.frag"))
+        try write(canonical.vertex, to: root.appendingPathComponent("\(name).authored.vert"))
+        try write(canonical.fragment, to: root.appendingPathComponent("\(name).authored.frag"))
         try write(pair.vertex, to: root.appendingPathComponent("\(name).vert"))
         try write(pair.fragment, to: root.appendingPathComponent("\(name).frag"))
     }
@@ -230,7 +302,13 @@ private enum Main {
 
 
 class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
-    CASES = ("fragment-only", "vertex-only", "helper", "both-stages")
+    CASES = (
+        "fragment-only",
+        "vertex-only",
+        "helper",
+        "inactive-builtin-overload",
+        "both-stages",
+    )
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -269,6 +347,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
+        cls._assert_rejected_overload_cases(root)
         cls._compile_real_stages(root)
         cls.worker_artifacts = cls._build_worker_artifacts(root)
         decoded = subprocess.run(
@@ -391,6 +470,22 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
                     capture_output=True,
                     text=True,
                 )
+
+    @classmethod
+    def _assert_rejected_overload_cases(cls, root: Path) -> None:
+        for name in ("inactive-invalid-body", "active-overload"):
+            completed = subprocess.run(
+                [
+                    str(GLSLANG), "-V", "--auto-map-bindings",
+                    "--auto-map-locations", "-l",
+                    str(root / f"{name}.vert"), str(root / f"{name}.frag"),
+                ],
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+            if completed.returncode == 0:
+                raise RuntimeError(f"unsafe overload case accepted: {name}")
 
     @classmethod
     def _preflight_final_metal(cls, root: Path) -> None:

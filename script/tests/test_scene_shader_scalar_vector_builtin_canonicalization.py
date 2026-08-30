@@ -35,6 +35,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",

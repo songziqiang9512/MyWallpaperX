@@ -192,6 +192,7 @@
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",

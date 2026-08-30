@@ -659,6 +659,140 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--canonicalizer-inactive-builtin-overload" {
+            let vertexPrefix = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+            ]
+            let main = [
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "}",
+            ]
+            let fragment = "void main() { gl_FragColor = vec4(1.0); }"
+            func normalizedVertex(_ helpers: [String], mainBody: [String] = main) -> String? {
+                let source = (helpers + vertexPrefix + mainBody).joined(separator: "\n")
+                let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                    vertex: source,
+                    fragment: fragment
+                )
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: canonical.vertex,
+                    fragmentSource: canonical.fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return pair.vertex
+                case .failure: return nil
+                }
+            }
+            let inactive = normalizedVertex([
+                "mat3 inverse(mat3 value) { return value; }",
+                "float retainedHelper(float value) { return value; }",
+            ])
+            let liveMain = [
+                    "void main() {",
+                    "    mat3 live = inverse(mat3(1.0));",
+                    "    gl_Position = vec4(live[0][0] * a_Position, 1.0);",
+                    "}",
+                ]
+            let live = normalizedVertex(
+                ["mat3 inverse(mat3 value) { return value; }"],
+                mainBody: liveMain
+            )
+            let liveSource = ([
+                "mat3 inverse(mat3 value) { return value; }",
+            ] + vertexPrefix + liveMain).joined(separator: "\n")
+            let helperCall = normalizedVertex([
+                "mat3 inverse(mat3 value) { return value; }",
+                "mat3 retainedCaller(mat3 value) { return inverse(value); }",
+            ])
+            let commentOnly = normalizedVertex([
+                "mat3 inverse(mat3 value) { return value; }",
+                "// inverse(mat3(1.0)) is not an authored call.",
+            ])
+            let inactiveInvalidBody = [
+                "mat3 inverse(mat3 value) {",
+                "    return undefinedHelper(value);",
+                "}",
+            ].joined(separator: "\n")
+            let directSource = ([
+                "mat3 inverse(mat3 value) {",
+                "    return value;",
+                "}",
+            ] + vertexPrefix + main).joined(separator: "\n")
+            let directlyCanonical =
+                SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                    .rewrite(directSource)
+            let invalidBodyCanonical =
+                SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                    .rewrite(inactiveInvalidBody)
+            let nonTarget = "float inverse(float value) { return value; }"
+            let nonExactParameter =
+                "mat3 inverse(mat3 value[]) { return value[0]; }"
+            let replacementCollision =
+                "float mwxInactiveInverse = 0.0;\n" + directSource
+            let directiveSource = "#define CALL inverse\n" + directSource
+            let prototypeSource = "mat3 inverse(mat3 value);\n" + directSource
+            let canonicalKey = SceneResolvedMaterialGenericShaderRequest.key(
+                vertexSource: directlyCanonical,
+                fragmentSource: fragment,
+                outputSemantics: .color,
+                expectedColorTransfer: nil,
+                premultipliedColorInputSlots: []
+            )
+            let authoredKey = SceneResolvedMaterialGenericShaderRequest.key(
+                vertexSource: directSource,
+                fragmentSource: fragment,
+                outputSemantics: .color,
+                expectedColorTransfer: nil,
+                premultipliedColorInputSlots: []
+            )
+            let output: [String: Bool] = [
+                "inactiveDefinitionRenamed":
+                    inactive?.contains("mat3 mwxInactiveInverse") == true
+                    && inactive?.contains("mat3 inverse") == false,
+                "unrelatedDeadHelperRetained":
+                    inactive?.contains("retainedHelper") == true,
+                "liveDefinitionRetained": live?.contains("mat3 inverse") == true
+                    && live?.contains("mwxInactiveInverse") == false,
+                "liveSourcePreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(liveSource) == liveSource,
+                "deadHelperCallRetainsDefinition":
+                    helperCall?.contains("mat3 inverse") == true,
+                "commentCallDoesNotRetainAuthoredName":
+                    commentOnly?.contains("mat3 mwxInactiveInverse") == true,
+                "invalidBodyPreserved":
+                    invalidBodyCanonical.contains("undefinedHelper(value)"),
+                "nonTargetSignaturePreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(nonTarget) == nonTarget,
+                "nonExactParameterPreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(nonExactParameter) == nonExactParameter,
+                "replacementCollisionPreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(replacementCollision) == replacementCollision,
+                "directivePreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(directiveSource) == directiveSource,
+                "prototypePreserved":
+                    SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                        .rewrite(prototypeSource) == prototypeSource,
+                "lineCountPreserved": directlyCanonical.split(
+                    separator: "\n",
+                    omittingEmptySubsequences: false
+                ).count == directSource.split(
+                    separator: "\n",
+                    omittingEmptySubsequences: false
+                ).count,
+                "requestIdentityChanged": canonicalKey != authoredKey,
+            ]
+            FileHandle.standardOutput.write(
+                try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
+            )
+            return
+        }
         if CommandLine.arguments[1] == "--normalizer-varying-link" {
             let vertex = [
                 "attribute vec3 a_Position;",
@@ -3726,6 +3860,31 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "textureCoordinateGenericSlot3": True,
             "unknownCallRejectedByBoth": True,
             "suffixReadRejected": True,
+        })
+
+    def test_backend_canonicalizer_namespaces_only_inactive_builtin_overload(self):
+        completed = subprocess.run(
+            [str(self.binary), "--canonicalizer-inactive-builtin-overload"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "inactiveDefinitionRenamed": True,
+            "unrelatedDeadHelperRetained": True,
+            "liveDefinitionRetained": True,
+            "liveSourcePreserved": True,
+            "deadHelperCallRetainsDefinition": True,
+            "commentCallDoesNotRetainAuthoredName": True,
+            "invalidBodyPreserved": True,
+            "nonTargetSignaturePreserved": True,
+            "nonExactParameterPreserved": True,
+            "replacementCollisionPreserved": True,
+            "directivePreserved": True,
+            "prototypePreserved": True,
+            "lineCountPreserved": True,
+            "requestIdentityChanged": True,
         })
 
     def test_swift_normalizer_localizes_only_main_scoped_mutable_varying(self):

@@ -43,6 +43,12 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
                     stage: .fragment
                 )
         )
+        result = Pair(
+            vertex: SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                .rewrite(result.vertex),
+            fragment: SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
+                .rewrite(result.fragment)
+        )
         let arrays = linkedVaryingArrays(
             vertex: result.vertex,
             fragment: result.fragment
