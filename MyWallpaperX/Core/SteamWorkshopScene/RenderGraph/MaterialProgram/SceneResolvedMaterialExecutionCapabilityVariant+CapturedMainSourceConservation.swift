@@ -309,7 +309,7 @@ extension SceneResolvedMaterialVariantCache {
             return colorSlot
         case .interpolatedColor,
              .independentAlphaSignal, .independentAlphaSignalPreserving,
-             .premultipliedAlpha, .opaque, .unresolved:
+             .generatedStraightAlpha, .premultipliedAlpha, .opaque, .unresolved:
             return nil
         }
     }

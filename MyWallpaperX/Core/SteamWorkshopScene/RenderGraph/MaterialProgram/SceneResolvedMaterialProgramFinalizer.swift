@@ -287,7 +287,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         transfer: SceneShaderColorTransfer,
         slots: [Program.TextureSlot?]
     ) -> [String] {
-        ["transfer-\(colorTransferToken(transfer))"]
+        [
+            "transfer-\(SceneResolvedMaterialProgramIdentity.colorTransferToken(transfer))"
+        ]
             + slots.compactMap { slot in
                 guard let slot else { return nil }
                 let publication = slot.resource.publication
@@ -299,27 +301,6 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     + "cg-\(publication.contentGeneration)-"
                     + "rg-\(slot.resource.resourceGeneration)"
             }
-    }
-
-    private static func colorTransferToken(_ transfer: SceneShaderColorTransfer) -> String {
-        switch transfer {
-        case let .passthrough(slot): "passthrough-\(slot)"
-        case let .interpolatedColor(slots):
-            "interpolated-\(slots.map(String.init).joined(separator: "_"))"
-        case let .straightAlphaPreserving(slot): "straight-preserving-\(slot)"
-        case let .straightAlpha(slot): "straight-\(slot)"
-        case let .straightAlphaUNorm(slot): "straight-unorm-\(slot)"
-        case let .opaqueFromStraightColor(slot):
-            "opaque-from-straight-color-\(slot)"
-        case let .independentAlphaSignal(slot): "alpha-signal-\(slot)"
-        case let .independentAlphaSignalPreserving(slot):
-            "alpha-signal-preserving-\(slot)"
-        case let .independentAlphaSignalCompositing(signal, color):
-            "alpha-signal-composite-\(signal)-\(color)"
-        case .premultipliedAlpha: "premultiplied"
-        case .opaque: "opaque"
-        case .unresolved: "unresolved"
-        }
     }
 
     private static func referenceToken(_ reference: Template.TextureReference) -> String {

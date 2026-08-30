@@ -106,7 +106,16 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     in: fragmentStage.msl
                 )
             )
-            let uniformLayout = stagedUniforms.layout
+            let resolutionTextureSlots = resolutionTextureDependencySlots(
+                layout: stagedUniforms.layout,
+                authoredSources: stages.map(\.authoredSource)
+            )
+            guard let uniformLayout = addingTextureTransformFields(
+                to: stagedUniforms.layout,
+                activeSlots: resolutionTextureSlots
+            ) else {
+                throw Failure.uniformStageMismatch
+            }
             var outputChannelUse = SceneAuthoredShaderFragmentOutputAnalyzer.analyze(
                 source: fragmentStage.source
             )
@@ -182,7 +191,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             }
             let bindings = try textureBindings(
                 reflections: [vertexReflection, fragmentReflection],
-                metalSource: metalSource
+                metalSource: metalSource,
+                resolutionTextureSlots: resolutionTextureSlots
             )
             guard validTextureTransformLayout(
                 uniformLayout,
@@ -295,7 +305,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
 
     private static func textureBindings(
         reflections: [Reflection],
-        metalSource: String
+        metalSource: String,
+        resolutionTextureSlots: Set<Int>
     ) throws -> [SceneGenericShaderProgramArtifact.Program.TextureBinding] {
         var names: [Int: String] = [:]
         for reflection in reflections {
@@ -308,8 +319,18 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 names[texture.binding] = texture.name
             }
         }
+        for slot in resolutionTextureSlots {
+            names[slot] = "g_Texture\(slot)"
+        }
         return try names.sorted(by: { $0.key < $1.key }).map { slot, name in
-            let use = try channelUse(of: name, in: metalSource)
+            let sampled = regexMatches(
+                #"\b"# + escaped(name) + #"\.sample\s*\("#,
+                metalSource
+            )
+            guard sampled || resolutionTextureSlots.contains(slot) else {
+                throw Failure.textureUnused
+            }
+            let use = sampled ? try channelUse(of: name, in: metalSource) : "unproven"
             return .init(name: name, slot: slot, channelUse: use)
         }
     }
@@ -442,6 +463,13 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
 
     static func containsWord(_ word: String, in source: String) -> Bool {
         countWord(word, in: source) > 0
+    }
+
+    static func artifactTransfer(
+        kind: String,
+        slot: Int? = nil
+    ) -> SceneGenericShaderProgramArtifact.Program.ColorTransfer {
+        .init(kind: kind, slot: slot, slots: nil)
     }
 
     static func regexMatches(_ pattern: String, _ source: String) -> Bool {

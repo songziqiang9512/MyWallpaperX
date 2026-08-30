@@ -286,6 +286,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: slot)
         }
+        if SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyze(fragment) != nil {
+            return .generatedStraightAlpha
+        }
         if SceneAuthoredShaderPremultipliedOutputAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,

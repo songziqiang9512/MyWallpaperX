@@ -62,6 +62,8 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedStraightRGBALowering.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",

@@ -140,6 +140,62 @@ extension SceneGenericShaderArtifactBuilder {
             )
     }
 
+    nonisolated static func resolutionTextureDependencySlots(
+        layout: ReflectedLayout,
+        authoredSources: [String]
+    ) -> Set<Int> {
+        let source = authoredSources.joined(separator: "\n")
+        return Set(layout.fields.compactMap { field -> Int? in
+            let name = field.authoredName
+            guard field.type == "float4", field.arrayCount == nil,
+                  name.hasPrefix("g_Texture"), name.hasSuffix("Resolution")
+            else { return nil }
+            let start = name.index(name.startIndex, offsetBy: "g_Texture".count)
+            let end = name.index(name.endIndex, offsetBy: -"Resolution".count)
+            guard start < end, let slot = Int(name[start ..< end]),
+                  (0 ..< 8).contains(slot) else { return nil }
+            let sampler = "g_Texture\(slot)"
+            let pattern = #"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?sampler2D\s+"#
+                + NSRegularExpression.escapedPattern(for: sampler) + #"\b"#
+            return source.range(of: pattern, options: .regularExpression) == nil
+                ? nil : slot
+        })
+    }
+
+    nonisolated static func addingTextureTransformFields(
+        to layout: ReflectedLayout,
+        activeSlots: Set<Int>
+    ) -> ReflectedLayout? {
+        var fields = layout.fields
+        let byName = Dictionary(grouping: fields, by: \.name)
+        for slot in activeSlots.sorted() {
+            for component in [
+                SceneMaterialTextureTransformABI.Component.originAndXAxis,
+                .yAxis,
+            ] {
+                let name = SceneMaterialTextureTransformABI.fieldName(
+                    slot: slot,
+                    component: component
+                )
+                if let existing = byName[name] {
+                    guard existing.count == 1,
+                          existing[0].authoredName == name,
+                          existing[0].stage == nil,
+                          existing[0].type == "float4",
+                          existing[0].arrayCount == nil else { return nil }
+                    continue
+                }
+                fields.append(.init(
+                    name: name,
+                    authoredName: name,
+                    type: "float4",
+                    offset: 0
+                ))
+            }
+        }
+        return alignedLayout(fields)
+    }
+
     nonisolated private static func alignedLayout(
         _ fields: [SceneGenericShaderProgramArtifact.Program.UniformLayout.Field]
     ) -> ReflectedLayout {

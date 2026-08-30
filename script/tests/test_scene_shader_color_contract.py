@@ -139,6 +139,7 @@ private func transfer(
     case .independentAlphaSignalCompositing(let signal, let color):
         return "signal-composite:\(signal):\(color)"
     case .premultipliedAlpha: return "premultiplied-alpha"
+    case .generatedStraightAlpha: return "generated-straight-alpha"
     }
 }
 

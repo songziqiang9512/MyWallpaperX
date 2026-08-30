@@ -175,7 +175,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         let result: String
         switch colorTransfer {
         case .straightAlphaPreserving, .straightAlpha,
-             .independentAlphaSignalCompositing:
+             .independentAlphaSignalCompositing, .generatedStraightAlpha:
             result = "mwxPremultiply(mwxFragColor)"
         case .straightAlphaUNorm:
             result = "mwxSaturateAndPremultiply(mwxFragColor)"
@@ -202,7 +202,7 @@ nonisolated enum SceneAuthoredShaderMetalSource {
         case .straightAlphaPreserving, .straightAlpha, .straightAlphaUNorm,
              .opaqueFromStraightColor,
              .independentAlphaSignal,
-             .independentAlphaSignalCompositing:
+             .independentAlphaSignalCompositing, .generatedStraightAlpha:
             break
         default:
             if !requiresInputColorBoundary { return "" }

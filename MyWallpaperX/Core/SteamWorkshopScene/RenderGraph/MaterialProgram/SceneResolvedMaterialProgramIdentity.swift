@@ -28,6 +28,7 @@ extension SceneResolvedMaterialProgram {
             case independentAlphaSignal(Int)
             case independentAlphaSignalPreserving(Int)
             case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+            case generatedStraightAlpha
             case premultipliedAlpha
             case opaque
             case unresolved
@@ -195,6 +196,28 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         )
     }
 
+    static func colorTransferToken(_ transfer: SceneShaderColorTransfer) -> String {
+        switch transfer {
+        case let .passthrough(slot): "passthrough-\(slot)"
+        case let .interpolatedColor(slots):
+            "interpolated-\(slots.map(String.init).joined(separator: "_"))"
+        case let .straightAlphaPreserving(slot): "straight-preserving-\(slot)"
+        case let .straightAlpha(slot): "straight-\(slot)"
+        case let .straightAlphaUNorm(slot): "straight-unorm-\(slot)"
+        case let .opaqueFromStraightColor(slot):
+            "opaque-from-straight-color-\(slot)"
+        case let .independentAlphaSignal(slot): "alpha-signal-\(slot)"
+        case let .independentAlphaSignalPreserving(slot):
+            "alpha-signal-preserving-\(slot)"
+        case let .independentAlphaSignalCompositing(signal, color):
+            "alpha-signal-composite-\(signal)-\(color)"
+        case .generatedStraightAlpha: "generated-straight-alpha"
+        case .premultipliedAlpha: "premultiplied"
+        case .opaque: "opaque"
+        case .unresolved: "unresolved"
+        }
+    }
+
     static func shader(
         _ frontend: SceneAuthoredShaderProgram,
         schemaVersion: Int
@@ -219,6 +242,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
                 signalSlot: signalSlot,
                 colorSlot: colorSlot
             )
+        case .generatedStraightAlpha: transfer = .generatedStraightAlpha
         case .premultipliedAlpha: transfer = .premultipliedAlpha
         case .opaque: transfer = .opaque
         case .unresolved: transfer = .unresolved

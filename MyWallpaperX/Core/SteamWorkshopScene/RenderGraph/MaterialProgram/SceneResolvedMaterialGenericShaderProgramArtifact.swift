@@ -188,6 +188,8 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             colorTransfer = .opaque
         case ("premultiplied", nil, nil):
             colorTransfer = .premultipliedAlpha
+        case ("generated-straight-alpha", nil, nil):
+            colorTransfer = .generatedStraightAlpha
         case let ("straight-alpha", slot?, nil):
             guard bindings.contains(where: { $0.slot == slot }) else { return nil }
             colorTransfer = .straightAlpha(textureSlot: slot)

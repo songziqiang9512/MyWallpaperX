@@ -72,6 +72,11 @@ extension SceneGenericShaderArtifactBuilder {
             )
         case .opaque:
             return (source, artifactTransfer(kind: "opaque"))
+        case .generatedStraightAlpha:
+            guard let prepared = SceneGenericShaderGeneratedStraightRGBALowering
+                .prepare(source, authoredSource: authoredSource)
+            else { throw Failure.colorTransfer }
+            return prepared
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
@@ -340,13 +345,6 @@ extension SceneGenericShaderArtifactBuilder {
         throw Failure.colorTransfer
     }
 
-    static func artifactTransfer(
-        kind: String,
-        slot: Int? = nil
-    ) -> SceneGenericShaderProgramArtifact.Program.ColorTransfer {
-        .init(kind: kind, slot: slot, slots: nil)
-    }
-
     static func colorTransfer(
         _ transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer,
         isBoundBy bindings: [
@@ -374,6 +372,7 @@ extension SceneGenericShaderArtifactBuilder {
                 && slots[0] != slots[1]
                 && slots.allSatisfy(boundSlots.contains)
         case ("opaque", nil, nil), ("premultiplied", nil, nil),
+             ("generated-straight-alpha", nil, nil),
              ("red-green-unorm-data", nil, nil),
              ("preserved-rgba-data", nil, nil):
             return true

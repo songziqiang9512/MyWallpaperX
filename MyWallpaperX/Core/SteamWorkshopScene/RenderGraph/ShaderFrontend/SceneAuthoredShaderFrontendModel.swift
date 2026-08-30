@@ -286,6 +286,10 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     case independentAlphaSignal(textureSlot: Int)
     case independentAlphaSignalPreserving(textureSlot: Int)
     case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+    /// Authored source generates straight RGBA without sampling a color
+    /// carrier. Both shader backends premultiply the terminal value exactly
+    /// once before the shared compositor boundary.
+    case generatedStraightAlpha
     case premultipliedAlpha
     case opaque
     case unresolved

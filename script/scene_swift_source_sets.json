@@ -116,6 +116,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCarrierAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
       ]
@@ -207,6 +208,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedStraightRGBALowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaWholeOutputUnionLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderTypedDataRGBFilterLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderRGBBlendScalarAlphaLowering.swift",
