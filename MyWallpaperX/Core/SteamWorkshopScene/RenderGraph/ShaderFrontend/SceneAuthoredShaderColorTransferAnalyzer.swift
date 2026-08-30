@@ -257,6 +257,11 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlphaPreserving(textureSlot: slot)
         }
+        if let fact = SceneAuthoredShaderStraightColorOverlayAnalyzer.analyze(
+            fragment
+        ) {
+            return .straightAlpha(textureSlot: fact.sourceSlot)
+        }
         if let slot = SceneAuthoredShaderUniformRGBMixAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,
