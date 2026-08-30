@@ -1,11 +1,12 @@
 import Metal
 
-/// One frame-local base source selected from an authored material slot. The
-/// source remains a system-provider atom; it is not republished as layerSource.
+/// One frame-local base source selected from an authored material slot. A
+/// provider resource remains its own atom; it is not republished as layerSource.
 struct SceneBaseMaterialTextureSource {
     let texture: MTLTexture
     let candidate: SceneTextureCandidate?
     let usesSystemProvider: Bool
+    let usesUserPropertyProvider: Bool
     let usesAuthoredLayerColor: Bool
     let rejectedProviderReason: String?
 }
@@ -37,10 +38,10 @@ enum SceneBaseMaterialTextureSelection {
 
 enum SceneBaseMaterialTextureResolver {
     static func resolve(
-        binding: SceneMediaThumbnailBindingProgram.BaseMaterialBinding,
+        binding: SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding,
         registry: SceneFrameTextureRegistry
     ) -> SceneBaseMaterialTextureResolution {
-        let identity = SceneFrameTextureIdentity.system(binding.providerIdentity)
+        let identity = binding.provider.frameIdentity
         let prefix = binding.provider.diagnosticPrefix
         guard let status = registry.lookup(identity) else {
             return .rejected(reasonCode: "\(prefix)-registry-missing")
@@ -51,7 +52,7 @@ enum SceneBaseMaterialTextureResolver {
             let candidate = publication.candidate
             guard publication.requestIdentity == identity,
                   publication.isComplete,
-                  candidate.identity == .provider(binding.provider.textureIdentity),
+                  binding.provider.accepts(candidate),
                   SceneBaseImageTextureCandidateResolver.sample(
                     candidate: candidate,
                     sourceTexture: candidate.texture
@@ -63,8 +64,12 @@ enum SceneBaseMaterialTextureResolver {
             return .ready(candidate)
         case .incomplete:
             return .rejected(reasonCode: "\(prefix)-publication-incomplete")
-        case .absent, .pending, .unavailable:
+        case .absent, .pending:
             return .authoredFallback
+        case .unavailable:
+            return binding.provider.isSystemProvider
+                ? .authoredFallback
+                : .rejected(reasonCode: "\(prefix)-unavailable")
         }
     }
 }
@@ -79,7 +84,7 @@ extension SceneMetalRenderer {
         let fallbackCandidate = fallbackTexture.flatMap {
             imageTextures.candidate(for: layer.id, matching: $0)
         }
-        guard let binding = mediaThumbnailBindings
+        guard let binding = baseMaterialProviderBindings
             .baseMaterialBindings[layer.id] else {
             guard let fallbackTexture else { return .missing }
             return .source(
@@ -87,6 +92,7 @@ extension SceneMetalRenderer {
                     texture: fallbackTexture,
                     candidate: fallbackCandidate,
                     usesSystemProvider: false,
+                    usesUserPropertyProvider: false,
                     usesAuthoredLayerColor: true,
                     rejectedProviderReason: nil
                 )
@@ -100,8 +106,12 @@ extension SceneMetalRenderer {
             return .source(SceneBaseMaterialTextureSource(
                 texture: candidate.texture,
                 candidate: candidate,
-                usesSystemProvider: true,
-                usesAuthoredLayerColor: readyProviderUsesAuthoredLayerColor,
+                usesSystemProvider: binding.provider.isSystemProvider,
+                usesUserPropertyProvider:
+                    binding.provider.userPropertyIdentity != nil,
+                usesAuthoredLayerColor:
+                    binding.provider.isSystemProvider
+                        ? readyProviderUsesAuthoredLayerColor : true,
                 rejectedProviderReason: nil
             ))
         case .authoredFallback:
@@ -110,6 +120,7 @@ extension SceneMetalRenderer {
                 texture: fallbackTexture,
                 candidate: fallbackCandidate,
                 usesSystemProvider: false,
+                usesUserPropertyProvider: false,
                 usesAuthoredLayerColor: true,
                 rejectedProviderReason: nil
             ))
@@ -123,6 +134,7 @@ extension SceneMetalRenderer {
                 texture: fallbackTexture,
                 candidate: fallbackCandidate,
                 usesSystemProvider: false,
+                usesUserPropertyProvider: false,
                 usesAuthoredLayerColor: true,
                 rejectedProviderReason: reasonCode
             ))

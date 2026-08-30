@@ -2,12 +2,12 @@ import Metal
 
 /// Per-surface owner for the current decoded media provider.
 final class SceneMediaThumbnailCoordinator {
-    let program: SceneMediaThumbnailBindingProgram
+    let program: SceneBaseMaterialProviderBindingProgram
 
     private let textureStore: SceneMediaThumbnailTextureStore
 
     init(
-        program: SceneMediaThumbnailBindingProgram,
+        program: SceneBaseMaterialProviderBindingProgram,
         device: MTLDevice
     ) {
         self.program = program

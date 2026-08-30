@@ -38,27 +38,57 @@ import ImageIO
 import Metal
 import UniformTypeIdentifiers
 
-struct SceneMediaThumbnailBindingProgram {
+struct SceneBaseMaterialProviderBindingProgram {
     struct BaseMaterialBinding: Hashable {
         enum Source: Hashable { case layerInstance, materialPass }
         enum Provider: Hashable {
             case current, previous
+            case userProperty(SceneUserPropertyTextureIdentity)
             var authoredName: String {
                 switch self {
-                case .current: SceneMediaThumbnailBindingProgram.currentIdentity
-                case .previous: SceneMediaThumbnailBindingProgram.previousIdentity
-                }
-            }
-            var textureIdentity: SceneTextureProviderIdentity {
-                switch self {
-                case .current: .mediaThumbnailCurrent
-                case .previous: .mediaThumbnailPrevious
+                case .current: SceneBaseMaterialProviderBindingProgram.currentIdentity
+                case .previous: SceneBaseMaterialProviderBindingProgram.previousIdentity
+                case let .userProperty(identity): identity.propertyKey
                 }
             }
             var diagnosticPrefix: String {
                 switch self {
                 case .current: "base-material-current"
                 case .previous: "base-material-previous"
+                case .userProperty: "base-material-user-property"
+                }
+            }
+            var frameIdentity: SceneFrameTextureIdentity {
+                switch self {
+                case .current, .previous:
+                    .system(.init(
+                        name: authoredName,
+                        purpose: .premultipliedColor
+                    ))
+                case let .userProperty(identity):
+                    .materialUserProperty(identity)
+                }
+            }
+            var isSystemProvider: Bool {
+                switch self {
+                case .current, .previous: true
+                case .userProperty: false
+                }
+            }
+            var userPropertyIdentity: SceneUserPropertyTextureIdentity? {
+                guard case let .userProperty(identity) = self else { return nil }
+                return identity
+            }
+            func accepts(_ candidate: SceneTextureCandidate) -> Bool {
+                switch self {
+                case .current:
+                    return candidate.identity == .provider(.mediaThumbnailCurrent)
+                case .previous:
+                    return candidate.identity == .provider(.mediaThumbnailPrevious)
+                case let .userProperty(identity):
+                    guard candidate.purpose == identity.purpose else { return false }
+                    if case .file = candidate.identity { return true }
+                    return false
                 }
             }
         }
@@ -76,10 +106,6 @@ struct SceneMediaThumbnailBindingProgram {
             self.source = source
             self.slotIndex = slotIndex
             self.provider = provider
-        }
-        var providerIdentity: SceneSystemProviderTextureIdentity {
-            .init(name: provider.authoredName,
-                  purpose: .premultipliedColor)
         }
     }
     static let currentIdentity = "$mediaThumbnail"
@@ -112,7 +138,7 @@ struct SceneBaseImageTextureSnapshot {
 }
 
 struct SceneMetalRenderer {
-    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let textureRegistry: SceneFrameTextureRegistry
 }
 
@@ -226,26 +252,26 @@ let initialPending = store.snapshot()
 decodingQueue.resume()
 let third = waitFor(store, generation: 3)
 let colorSystemIdentity = SceneSystemProviderTextureIdentity(
-    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
     purpose: .premultipliedColor
 )
 let preservedSystemIdentity = SceneSystemProviderTextureIdentity(
-    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
     purpose: .preservedChannels
 )
 let previousColorSystemIdentity = SceneSystemProviderTextureIdentity(
-    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
     purpose: .premultipliedColor
 )
 let previousPreservedSystemIdentity = SceneSystemProviderTextureIdentity(
-    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
     purpose: .preservedChannels
 )
 let allTransitionSystemIdentities: Set<SceneSystemProviderTextureIdentity> = [
     colorSystemIdentity, preservedSystemIdentity,
     previousColorSystemIdentity, previousPreservedSystemIdentity,
 ]
-let baseBinding = SceneMediaThumbnailBindingProgram.BaseMaterialBinding(
+let baseBinding = SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding(
     layerID: 3588, source: .layerInstance, slotIndex: 0
 )
 let readyRegistry = SceneFrameTextureRegistry()
@@ -275,14 +301,134 @@ fallbackTexture.replace(
     region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
     withBytes: [UInt8(10), 20, 30, 255], bytesPerRow: 4
 )
+let propertyTexture = device.makeTexture(descriptor: fallbackDescriptor)!
+propertyTexture.replace(
+    region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+    withBytes: [UInt8(201), 32, 155, 255], bytesPerRow: 4
+)
+let propertyIdentity = SceneUserPropertyTextureIdentity(
+    propertyKey: "customCover", purpose: .premultipliedColor
+)!
+let propertyRequest = SceneFrameTextureIdentity.materialUserProperty(
+    propertyIdentity
+)
+let propertyCandidate = SceneTextureCandidate(
+    texture: propertyTexture,
+    identity: .file(path: "/fixture/custom-cover.png"),
+    generation: .file(
+        byteCount: 4,
+        modifiedAtBits: 1,
+        revision: .init(
+            fileSystemID: 1, fileID: 2,
+            statusChangedAtSeconds: 3, statusChangedAtNanoseconds: 4
+        )
+    ),
+    purpose: .premultipliedColor,
+    content: .color(.resolved(.premultipliedAlpha)),
+    physicalSize: CGSize(width: 1, height: 1),
+    mappedSize: CGSize(width: 1, height: 1),
+    uvTransform: .identity,
+    sampling: .linearClamp
+)
+let propertyPublication = SceneTextureProviderPublication(
+    requestIdentity: propertyRequest,
+    candidate: propertyCandidate,
+    contentGeneration: 1
+)
+let propertyBinding = SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding(
+    layerID: 900, source: .materialPass, slotIndex: 0,
+    provider: .userProperty(propertyIdentity)
+)
+let propertyProgram = SceneBaseMaterialProviderBindingProgram(
+    baseMaterialBindings: [900: propertyBinding]
+)
+let propertyBaseSnapshot = SceneBaseImageTextureSnapshot(
+    textures: [900: fallbackTexture], candidates: [:]
+)
+let propertyReadyRegistry = SceneFrameTextureRegistry()
+_ = propertyReadyRegistry.beginFrame(
+    frameIndex: 1,
+    layerSources: [:],
+    userPropertyStates: [propertyIdentity: .ready(propertyPublication)]
+)
+let propertyReadyRenderer = SceneMetalRenderer(
+    baseMaterialProviderBindings: propertyProgram,
+    textureRegistry: propertyReadyRegistry
+)
+let propertyReadySource = propertyReadyRenderer.baseMaterialTextureSource(
+    for: .init(id: 900, contentKind: "image"),
+    imageTextures: propertyBaseSnapshot
+)
+let propertyAbsentRegistry = SceneFrameTextureRegistry()
+_ = propertyAbsentRegistry.beginFrame(
+    frameIndex: 1, layerSources: [:],
+    userPropertyStates: [propertyIdentity: .absent]
+)
+let propertyAbsentSource = SceneMetalRenderer(
+    baseMaterialProviderBindings: propertyProgram,
+    textureRegistry: propertyAbsentRegistry
+).baseMaterialTextureSource(
+    for: .init(id: 900, contentKind: "image"),
+    imageTextures: propertyBaseSnapshot
+)
+let propertyUnavailableRegistry = SceneFrameTextureRegistry()
+_ = propertyUnavailableRegistry.beginFrame(
+    frameIndex: 1, layerSources: [:],
+    userPropertyStates: [propertyIdentity: .unavailable]
+)
+let propertyUnavailableSource = SceneMetalRenderer(
+    baseMaterialProviderBindings: propertyProgram,
+    textureRegistry: propertyUnavailableRegistry
+).baseMaterialTextureSource(
+    for: .init(id: 900, contentKind: "image"),
+    imageTextures: propertyBaseSnapshot
+)
+let propertyIncompleteRegistry = SceneFrameTextureRegistry()
+_ = propertyIncompleteRegistry.beginFrame(frameIndex: 1, layerSources: [:])
+propertyIncompleteRegistry.set(.ready(propertyTexture), for: propertyRequest)
+let propertyIncompleteSource = SceneMetalRenderer(
+    baseMaterialProviderBindings: propertyProgram,
+    textureRegistry: propertyIncompleteRegistry
+).baseMaterialTextureSource(
+    for: .init(id: 900, contentKind: "image"),
+    imageTextures: propertyBaseSnapshot
+)
+let propertyWrongCandidate = SceneTextureCandidate(
+    texture: propertyTexture,
+    identity: .provider(.mediaThumbnailCurrent),
+    generation: .provider(contentGeneration: 1),
+    purpose: .premultipliedColor,
+    content: .color(.resolved(.premultipliedAlpha)),
+    physicalSize: CGSize(width: 1, height: 1),
+    mappedSize: CGSize(width: 1, height: 1),
+    uvTransform: .identity,
+    sampling: .linearClamp
+)
+let propertyWrongPublication = SceneTextureProviderPublication(
+    requestIdentity: propertyRequest,
+    candidate: propertyWrongCandidate,
+    contentGeneration: 1
+)
+let propertyWrongRegistry = SceneFrameTextureRegistry()
+_ = propertyWrongRegistry.beginFrame(
+    frameIndex: 1, layerSources: [:],
+    userPropertyStates: [propertyIdentity: .ready(propertyWrongPublication)]
+)
+let propertyWrongSource = SceneMetalRenderer(
+    baseMaterialProviderBindings: propertyProgram,
+    textureRegistry: propertyWrongRegistry
+).baseMaterialTextureSource(
+    for: .init(id: 900, contentKind: "image"),
+    imageTextures: propertyBaseSnapshot
+)
 let baseSnapshot = SceneBaseImageTextureSnapshot(
     textures: [3588: fallbackTexture], candidates: [:]
 )
-let bindingProgram = SceneMediaThumbnailBindingProgram(
+let bindingProgram = SceneBaseMaterialProviderBindingProgram(
     baseMaterialBindings: [3588: baseBinding]
 )
 let readyRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: bindingProgram,
+    baseMaterialProviderBindings: bindingProgram,
     textureRegistry: readyRegistry
 )
 let readyBaseSource = readyRenderer.baseMaterialTextureSource(
@@ -307,7 +453,7 @@ let readyImageBaseSource = readyRenderer.baseMaterialTextureSource(
 let missingRegistry = SceneFrameTextureRegistry()
 _ = missingRegistry.beginFrame(frameIndex: 1, layerSources: [:])
 let missingRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: bindingProgram,
+    baseMaterialProviderBindings: bindingProgram,
     textureRegistry: missingRegistry
 )
 let missingBaseSource = missingRenderer.baseMaterialTextureSource(
@@ -322,7 +468,7 @@ let unavailableRegistry = SceneFrameTextureRegistry()
 _ = unavailableRegistry.beginFrame(frameIndex: 1, layerSources: [:])
 unavailableRegistry.set(.unavailable, for: .system(colorSystemIdentity))
 let unavailableRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: bindingProgram,
+    baseMaterialProviderBindings: bindingProgram,
     textureRegistry: unavailableRegistry
 )
 let unavailableBaseSource = unavailableRenderer.baseMaterialTextureSource(
@@ -336,7 +482,7 @@ _ = incompleteRegistry.beginFrame(
     systemTextures: [colorSystemIdentity: third.current!.texture]
 )
 let incompleteRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: bindingProgram,
+    baseMaterialProviderBindings: bindingProgram,
     textureRegistry: incompleteRegistry
 )
 let incompleteBaseSource = incompleteRenderer.baseMaterialTextureSource(
@@ -358,7 +504,7 @@ store.update(from: inbox.latest())
 let retainedDuringPending = store.snapshot()
 decodingQueue.resume()
 let fourth = waitFor(store, generation: 4)
-let previousBaseBinding = SceneMediaThumbnailBindingProgram.BaseMaterialBinding(
+let previousBaseBinding = SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding(
     layerID: 702, source: .materialPass, slotIndex: 0, provider: .previous
 )
 let previousReadyRegistry = SceneFrameTextureRegistry()
@@ -380,11 +526,11 @@ case let .ready(candidate):
 case .authoredFallback, .rejected:
     previousReadyExact = false
 }
-let previousBindingProgram = SceneMediaThumbnailBindingProgram(
+let previousBindingProgram = SceneBaseMaterialProviderBindingProgram(
     baseMaterialBindings: [702: previousBaseBinding]
 )
 let previousReadyRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: previousBindingProgram,
+    baseMaterialProviderBindings: previousBindingProgram,
     textureRegistry: previousReadyRegistry
 )
 let previousBaseSnapshot = SceneBaseImageTextureSnapshot(
@@ -401,7 +547,7 @@ previousUnavailableRegistry.set(
     for: .system(previousColorSystemIdentity)
 )
 let previousUnavailableRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: previousBindingProgram,
+    baseMaterialProviderBindings: previousBindingProgram,
     textureRegistry: previousUnavailableRegistry
 )
 let previousUnavailableSource = previousUnavailableRenderer
@@ -421,7 +567,7 @@ _ = previousWrongIdentityRegistry.beginFrame(
     ]
 )
 let previousWrongIdentityRenderer = SceneMetalRenderer(
-    mediaThumbnailBindings: previousBindingProgram,
+    baseMaterialProviderBindings: previousBindingProgram,
     textureRegistry: previousWrongIdentityRegistry
 )
 let previousWrongIdentitySource = previousWrongIdentityRenderer
@@ -669,6 +815,31 @@ let result: [String: Any] = [
         && incompleteBaseSource?.usesAuthoredLayerColor == true
         && incompleteBaseSource?.rejectedProviderReason
             == "base-material-current-publication-incomplete",
+    "baseMaterialUserPropertyReadyExact":
+        propertyReadySource?.texture === propertyTexture
+        && propertyReadySource?.candidate?.identity
+            == .file(path: "/fixture/custom-cover.png")
+        && propertyReadySource?.usesSystemProvider == false
+        && propertyReadySource?.usesUserPropertyProvider == true
+        && propertyReadySource?.usesAuthoredLayerColor == true
+        && propertyReadySource?.rejectedProviderReason == nil,
+    "baseMaterialUserPropertyAbsentKeepsAuthoredFallback":
+        propertyAbsentSource?.texture === fallbackTexture
+        && propertyAbsentSource?.usesUserPropertyProvider == false
+        && propertyAbsentSource?.rejectedProviderReason == nil,
+    "baseMaterialUserPropertyUnavailableRejectsOnlyReplacement":
+        propertyUnavailableSource?.texture === fallbackTexture
+        && propertyUnavailableSource?.usesUserPropertyProvider == false
+        && propertyUnavailableSource?.rejectedProviderReason
+            == "base-material-user-property-unavailable",
+    "baseMaterialUserPropertyIncompleteRejectsOnlyReplacement":
+        propertyIncompleteSource?.texture === fallbackTexture
+        && propertyIncompleteSource?.rejectedProviderReason
+            == "base-material-user-property-publication-incomplete",
+    "baseMaterialUserPropertyCannotConsumeSystemProvider":
+        propertyWrongSource?.texture === fallbackTexture
+        && propertyWrongSource?.rejectedProviderReason
+            == "base-material-user-property-publication-invalid",
     "systemAndLayerRequestsAreDistinctAtoms":
         layerPublication?.requestIdentity == layerRequest
         && layerPublication?.requestIdentity != third.current?.requestIdentity
@@ -938,8 +1109,9 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('operation: "base-material-system-provider"', renderer)
         self.assertIn(
-            'operation: "base-material-system-provider-rejected"', renderer
+            'operation: "base-material-provider-rejected"', renderer
         )
+        self.assertIn('operation: "base-material-user-property-provider"', renderer)
         self.assertIn("} else if baseSource?.usesSystemProvider == true {", renderer)
         self.assertIn("usesAuthoredLayerColor:", renderer)
         self.assertIn("let color = usesAuthoredLayerColor", dependency)
@@ -1027,6 +1199,23 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         )
         self.assertTrue(result["baseMaterialUnavailableKeepsAuthoredFallback"])
         self.assertTrue(result["baseMaterialIncompleteRejectsOnlyProvider"])
+        self.assertTrue(result["baseMaterialUserPropertyReadyExact"])
+        self.assertTrue(
+            result["baseMaterialUserPropertyAbsentKeepsAuthoredFallback"]
+        )
+        self.assertTrue(
+            result[
+                "baseMaterialUserPropertyUnavailableRejectsOnlyReplacement"
+            ]
+        )
+        self.assertTrue(
+            result[
+                "baseMaterialUserPropertyIncompleteRejectsOnlyReplacement"
+            ]
+        )
+        self.assertTrue(
+            result["baseMaterialUserPropertyCannotConsumeSystemProvider"]
+        )
         self.assertTrue(result["systemAndLayerRequestsAreDistinctAtoms"])
         self.assertTrue(result["currentPublicationPremultiplied"])
         self.assertTrue(result["preservedPublicationData"])

@@ -15,7 +15,7 @@ struct SceneMetalRenderer {
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
-    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
@@ -24,7 +24,7 @@ struct SceneMetalRenderer {
     init?(
         renderDescriptor: SceneRenderDescriptor,
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,
-        mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
+        baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
@@ -35,7 +35,7 @@ struct SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
-        self.mediaThumbnailBindings = mediaThumbnailBindings
+        self.baseMaterialProviderBindings = baseMaterialProviderBindings
         self.pipelineRepository = pipelineRepository
         self.imageCompositor = SceneImageLayerCompositor(
             pipelineRepository: pipelineRepository,
@@ -190,7 +190,7 @@ struct SceneMetalRenderer {
                 effectExecutionTrace.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
-                    operation: "base-material-system-provider-rejected",
+                    operation: "base-material-provider-rejected",
                     outcome: .failed(reasonCode: reasonCode)
                 )
             } else if baseSource?.usesSystemProvider == true {
@@ -198,6 +198,13 @@ struct SceneMetalRenderer {
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-system-provider",
+                    outcome: .encoded
+                )
+            } else if baseSource?.usesUserPropertyProvider == true {
+                effectExecutionTrace.recordRouteOperation(
+                    layerID: layer.id,
+                    origin: Self.effectExecutionOrigin(for: layer.contentKind),
+                    operation: "base-material-user-property-provider",
                     outcome: .encoded
                 )
             }

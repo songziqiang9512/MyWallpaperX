@@ -22,7 +22,7 @@ extension SceneMetalRenderer {
             systemTextures: mediaThumbnail.systemTextures,
             explicitSystemTextures: mediaThumbnail.publications
         )
-        for identity in mediaThumbnailBindings.systemProviderDemands.sorted(by: {
+        for identity in baseMaterialProviderBindings.systemProviderDemands.sorted(by: {
             $0.reportToken < $1.reportToken
         }) where mediaThumbnail.publications[identity] == nil
             && mediaThumbnail.systemTextures[identity] == nil {

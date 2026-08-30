@@ -5,7 +5,7 @@ enum SceneFrameLayerTextureAssembly {
         base: SceneBaseImageTextureStore,
         dynamicText: SceneDynamicTextTextureStore.Snapshot?,
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot? = nil,
-        mediaBindings: SceneMediaThumbnailBindingProgram = .empty,
+        mediaBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         videoSources: [Int: SceneVideoTextureSource],
         timing: SceneFrameTiming
     ) -> SceneBaseImageTextureSnapshot {

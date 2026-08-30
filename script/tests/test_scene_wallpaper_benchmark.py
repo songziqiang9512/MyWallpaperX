@@ -2215,6 +2215,43 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             benchmark.live_property_update_failures(requested, None),
         )
 
+    def test_user_texture_overrides_stay_inside_isolated_sample(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-user-texture-") as directory:
+            runtime_sample = Path(directory)
+            (runtime_sample / "custom.png").write_bytes(b"fixture")
+            command = ["MyWallpaperX"]
+            failures: list[str] = []
+            benchmark.append_texture_override_argument(
+                command,
+                {"customCover": "custom.png"},
+                runtime_sample,
+                failures,
+            )
+            self.assertEqual(failures, [])
+            self.assertEqual(command[:2], [
+                "MyWallpaperX",
+                "--mwx-debug-scene-textures-json",
+            ])
+            self.assertEqual(
+                json.loads(command[2]),
+                {"customCover": "custom.png"},
+            )
+            for invalid in (
+                {"customCover": "../custom.png"},
+                {"customCover": "missing.png"},
+                {"customCover": "custom.tex"},
+                {"\n": "custom.png"},
+                ["custom.png"],
+            ):
+                invalid_failures: list[str] = []
+                benchmark.append_texture_override_argument(
+                    [], invalid, runtime_sample, invalid_failures
+                )
+                self.assertEqual(
+                    invalid_failures,
+                    ["invalid isolated user texture overrides"],
+                )
+
     def test_dynamic_values_fault_argument_is_explicit_and_frame_bounded(self) -> None:
         command = ["MyWallpaperX"]
         benchmark.append_dynamic_values_fault_argument(command, 42)

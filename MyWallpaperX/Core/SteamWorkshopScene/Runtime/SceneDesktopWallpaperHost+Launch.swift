@@ -79,7 +79,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
-    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
     let userPropertyTextureURLs: [String: URL]
@@ -610,11 +610,13 @@ extension SceneDesktopWallpaperHost {
                 SceneScriptLayerMutationBridge.layerID(for: $0.target)
             }
         )
-        let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
-            descriptor: runtimeInput.renderDescriptor,
-            materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
-            scriptBindings: model.sceneDocument.scriptBindings
-        )
+        let baseMaterialProviderBindings =
+            SceneBaseMaterialProviderBindingCompiler.compile(
+                descriptor: runtimeInput.renderDescriptor,
+                materialInstancesByLayerID:
+                    model.sceneDocument.materialInstancesByLayerID,
+                scriptBindings: model.sceneDocument.scriptBindings
+            )
         let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
             document: model.sceneDocument,
             resourceView: model.diagnostics.resourceView
@@ -651,7 +653,7 @@ extension SceneDesktopWallpaperHost {
                 descriptor: runtimeInput.renderDescriptor,
                 authoredMutationLayerIDs: sceneScriptOwnerLayerIDs
             ),
-            mediaThumbnailBindings: mediaThumbnailBindings,
+            baseMaterialProviderBindings: baseMaterialProviderBindings,
             soundPlaybackProgram: soundPlaybackProgram,
             liveState: Self.makeLivePropertyState(
                 runtimeInput: runtimeInput,

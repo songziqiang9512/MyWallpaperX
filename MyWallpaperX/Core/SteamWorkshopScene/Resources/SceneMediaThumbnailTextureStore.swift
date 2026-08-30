@@ -156,28 +156,28 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             )
         }
         let current = publication(
-            SceneMediaThumbnailBindingProgram.currentIdentity,
+            SceneBaseMaterialProviderBindingProgram.currentIdentity,
             .mediaThumbnailCurrent,
             currentTextures,
             .premultipliedColor,
             .color(.resolved(.premultipliedAlpha))
         )
         let preservedCurrent = publication(
-            SceneMediaThumbnailBindingProgram.currentIdentity,
+            SceneBaseMaterialProviderBindingProgram.currentIdentity,
             .mediaThumbnailCurrent,
             currentTextures,
             .preservedChannels,
             .data
         )
         let previous = publication(
-            SceneMediaThumbnailBindingProgram.previousIdentity,
+            SceneBaseMaterialProviderBindingProgram.previousIdentity,
             .mediaThumbnailPrevious,
             previousTextures,
             .premultipliedColor,
             .color(.resolved(.premultipliedAlpha))
         )
         let preservedPrevious = publication(
-            SceneMediaThumbnailBindingProgram.previousIdentity,
+            SceneBaseMaterialProviderBindingProgram.previousIdentity,
             .mediaThumbnailPrevious,
             previousTextures,
             .preservedChannels,
@@ -203,21 +203,21 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         } else {
             var identities: Set<SceneSystemProviderTextureIdentity> = [
                 .init(
-                    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
                     purpose: .premultipliedColor
                 ),
                 .init(
-                    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
                     purpose: .preservedChannels
                 ),
             ]
             if pendingRequest?.willRotatePrevious == true {
                 identities.insert(.init(
-                    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+                    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
                     purpose: .premultipliedColor
                 ))
                 identities.insert(.init(
-                    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+                    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
                     purpose: .preservedChannels
                 ))
             }

@@ -5877,6 +5877,42 @@ def append_property_arguments(
             ])
 
 
+def append_texture_override_argument(
+    command: list[str],
+    overrides: Any,
+    runtime_sample: Path,
+    failures: list[str],
+) -> None:
+    if overrides is None:
+        return
+    if not isinstance(overrides, dict) or not 1 <= len(overrides) <= 64:
+        failures.append("invalid isolated user texture overrides")
+        return
+    root = runtime_sample.resolve()
+    normalized: dict[str, str] = {}
+    for key, raw_path in overrides.items():
+        path = Path(raw_path) if isinstance(raw_path, str) else Path()
+        target = (runtime_sample / path).resolve()
+        if (
+            not isinstance(key, str)
+            or not key.strip()
+            or any(ord(character) < 32 or ord(character) == 127 for character in key)
+            or not isinstance(raw_path, str)
+            or path.is_absolute()
+            or ".." in path.parts
+            or path.suffix.lower() not in {".png", ".jpg", ".jpeg"}
+            or not target.is_relative_to(root)
+            or not target.is_file()
+        ):
+            failures.append("invalid isolated user texture overrides")
+            return
+        normalized[key] = str(path)
+    command.extend([
+        "--mwx-debug-scene-textures-json",
+        json.dumps(normalized, ensure_ascii=False, separators=(",", ":")),
+    ])
+
+
 def append_dynamic_values_fault_argument(
     command: list[str],
     frame_index: int | None,
@@ -6310,6 +6346,10 @@ def run_sample(
     property_overrides = sample.get("property_overrides")
     live_property_overrides = sample.get("live_property_overrides")
     append_property_arguments(command, property_overrides, live_property_overrides)
+    texture_overrides = sample.get("texture_overrides")
+    append_texture_override_argument(
+        command, texture_overrides, runtime_sample, failures
+    )
     append_media_properties_arguments(
         command,
         sample.get("media_title"),
@@ -7113,6 +7153,9 @@ def run_sample(
         "property_overrides": property_overrides if isinstance(property_overrides, dict) else {},
         "live_property_overrides": (
             live_property_overrides if isinstance(live_property_overrides, dict) else {}
+        ),
+        "texture_overrides": (
+            texture_overrides if isinstance(texture_overrides, dict) else {}
         ),
         "passed": not failures,
         "failures": failures,

@@ -208,7 +208,7 @@
         "test_scene_frame_texture_registry",
         "test_scene_layer_source_publication",
         "test_scene_media_thumbnail_provider",
-        "test_scene_media_thumbnail_binding",
+        "test_scene_base_material_provider_binding",
         "test_scene_wallpaper_benchmark",
         "test_scene_visible_graph_output_render_plan"
       ]

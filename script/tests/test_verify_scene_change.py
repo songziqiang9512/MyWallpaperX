@@ -217,7 +217,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             "test_scene_texture_candidate",
             "test_scene_frame_texture_registry",
             "test_scene_media_thumbnail_provider",
-            "test_scene_media_thumbnail_binding",
+            "test_scene_base_material_provider_binding",
             "test_scene_wallpaper_benchmark",
         ):
             with self.subTest(module=module):

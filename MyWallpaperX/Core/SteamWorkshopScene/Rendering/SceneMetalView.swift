@@ -25,7 +25,7 @@ class SceneMetalView: NSView {
 #endif
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
-        mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
+        baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository, resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
@@ -33,18 +33,20 @@ class SceneMetalView: NSView {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
             effectAdmissionCatalog: effectAdmissionCatalog,
-            mediaThumbnailBindings: mediaThumbnailBindings,
+            baseMaterialProviderBindings: baseMaterialProviderBindings,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
         self.renderer = renderer
         self.mediaThumbnailCoordinator = .init(
-            program: mediaThumbnailBindings, device: renderer.device
+            program: baseMaterialProviderBindings, device: renderer.device
         )
         self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
         self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
             urlsByPropertyKey: userPropertyTextureURLs,
-            requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(including: renderDescriptor.texturePropertyKeys),
+            requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(
+                including: renderDescriptor.texturePropertyKeys
+            ).union(baseMaterialProviderBindings.userPropertyDemands),
             device: renderer.device
         )
         let layer = CAMetalLayer()

@@ -363,7 +363,8 @@ final class SceneDesktopWallpaperHost {
             guard let metalView = SceneMetalView(
                 renderDescriptor: launchContext.runtimeInput.renderDescriptor,
                 effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
-                mediaThumbnailBindings: launchContext.mediaThumbnailBindings,
+                baseMaterialProviderBindings:
+                    launchContext.baseMaterialProviderBindings,
                 pipelineRepository: launchContext.pipelineRepository,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
