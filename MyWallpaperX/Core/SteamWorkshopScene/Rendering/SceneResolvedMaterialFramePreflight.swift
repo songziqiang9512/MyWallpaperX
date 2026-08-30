@@ -20,6 +20,13 @@ extension SceneMetalRenderer {
         mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer
     ) -> [Int: SceneResolvedMaterialFrameTargetPlan]? {
+        // Publish this frame's typed resources before target sizing or source
+        // admission. Otherwise preflight reads a stale/empty registry while
+        // preparation later encodes the current provider into that target.
+        beginTextureFrame(
+            imageTextures, userPropertyTextures, userPropertyStates,
+            mediaThumbnail, frameContext
+        )
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             offscreenTexturePool: offscreenTexturePool,
@@ -30,10 +37,6 @@ extension SceneMetalRenderer {
             commandBuffer: commandBuffer
         ) {
         case let .ready(plans, localFallbacks):
-            beginTextureFrame(
-                imageTextures, userPropertyTextures, userPropertyStates,
-                mediaThumbnail, frameContext
-            )
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
                 localFallbacks
             ) else {
@@ -87,12 +90,10 @@ extension SceneMetalRenderer {
             }
             return plans
         case .deferred:
+            _ = imageCompositor.deferResolvedMaterialFrame()
+            _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
             return nil
         case .rejected(let reasonCode):
-            beginTextureFrame(
-                imageTextures, userPropertyTextures, userPropertyStates,
-                mediaThumbnail, frameContext
-            )
             imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
             return nil
@@ -157,13 +158,28 @@ extension SceneMetalRenderer {
             let desiredSize: CGSize
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                guard let texture = imageTextures[layer.id] else {
+                let selection = baseMaterialTextureSelection(
+                    for: layer,
+                    imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor:
+                        baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer,
+                            dynamicValues: frameContext.dynamicValues
+                        )
+                )
+                let selectedSource: SceneBaseMaterialTextureSource
+                switch selection {
+                case let .source(value):
+                    selectedSource = value
+                case .missing:
                     return .deferred
+                case let .rejected(reasonCode):
+                    return .rejected(reasonCode: reasonCode)
                 }
                 if layer.contentKind != "solid" {
                     desiredSize = CGSize(
-                        width: texture.width,
-                        height: texture.height
+                        width: selectedSource.texture.width,
+                        height: selectedSource.texture.height
                     )
                     break
                 }
@@ -339,17 +355,28 @@ extension SceneMetalRenderer {
                     providerLayer,
                     imageTextures.layerSourceRenderSize(for: providerLayer.id)
                 )
+                let providerSelection = baseMaterialTextureSelection(
+                    for: providerLayer,
+                    imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor:
+                        baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: providerLayer,
+                            dynamicValues: frameContext.dynamicValues
+                        )
+                )
+                guard let providerSource = providerSelection.source else {
+                    return invalid(
+                        "layer-\(layerID)-dependency-provider-source-"
+                            + (providerSelection.rejectedProviderReason
+                                ?? "missing")
+                    )
+                }
                 var dependencyFailureReason: String?
                 guard let reservedInput = dependencyRuntime.reserveEffectInput(
                     for: binding,
                     providerLayer: providerLayer,
-                    providerTexture: imageTextures[binding.providerLayerID],
-                    providerCandidate: imageTextures[binding.providerLayerID].flatMap {
-                        imageTextures.candidate(
-                            for: binding.providerLayerID,
-                            matching: $0
-                        )
-                    },
+                    providerTexture: providerSource.texture,
+                    providerCandidate: providerSource.candidate,
                     layerMVP: providerMVP,
                     viewportSize: frameContext.screenSize,
                     frameEpoch: textureRegistry.frameEpoch,
@@ -365,20 +392,36 @@ extension SceneMetalRenderer {
             let sourceMVP: simd_float4x4
             let outputMVP: simd_float4x4
             let sourceTexture: MTLTexture?
+            let sourceCandidate: SceneTextureCandidate?
+            let sourceUsesAuthoredLayerColor: Bool
             let textureFrame: SceneTextureUVTransform
             let capturesMainTarget: Bool
             var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                guard let texture = imageTextures[layerID] else {
-                    return invalid("layer-\(layerID)-source-texture-missing")
+                let sourceSelection = baseMaterialTextureSelection(
+                    for: layer,
+                    imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor:
+                        baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer,
+                            dynamicValues: frameContext.dynamicValues
+                        )
+                )
+                guard let source = sourceSelection.source else {
+                    return invalid(
+                        "layer-\(layerID)-source-texture-"
+                            + (sourceSelection.rejectedProviderReason ?? "missing")
+                    )
                 }
                 sourceMVP = imageMVP(
                     layer,
                     imageTextures.layerSourceRenderSize(for: layerID)
                 )
                 outputMVP = sourceMVP
-                sourceTexture = texture
+                sourceTexture = source.texture
+                sourceCandidate = source.candidate
+                sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
                 textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
                 capturesMainTarget = false
             case .capturedMainTargetTexture:
@@ -400,6 +443,8 @@ extension SceneMetalRenderer {
                 }
                 outputMVP = geometry.outputMVP
                 sourceTexture = mainTarget
+                sourceCandidate = nil
+                sourceUsesAuthoredLayerColor = false
                 textureFrame = geometry.sourceUV
                 capturesMainTarget = true
             case .transparentDirectDraw:
@@ -416,6 +461,8 @@ extension SceneMetalRenderer {
                 sourceMVP = cameraFrame.orthographicViewProjection * directDrawModel
                 outputMVP = sourceMVP
                 sourceTexture = nil
+                sourceCandidate = nil
+                sourceUsesAuthoredLayerColor = false
                 textureFrame = .identity
                 capturesMainTarget = false
             }
@@ -438,8 +485,7 @@ extension SceneMetalRenderer {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
-                    baseTextureCandidate: capturesMainTarget ? nil
-                        : imageTextures.candidate(for: layerID, matching: texture),
+                    baseTextureCandidate: sourceCandidate,
                     masks: .empty,
                     textureFrame: textureFrame,
                     mvp: outputMVP,
@@ -459,7 +505,8 @@ extension SceneMetalRenderer {
                         primaryButtonIsDown:
                             frameContext.pointer.isPrimaryButtonDown,
                         frameTime: Float(frameContext.frameTime),
-                        tint: capturesMainTarget ? SIMD3(repeating: 1)
+                        tint: capturesMainTarget || !sourceUsesAuthoredLayerColor
+                            ? SIMD3(repeating: 1)
                             : SceneDynamicLayerValues.color(
                             layerID: layerID,
                             authoredValue: layer.colorRGB,

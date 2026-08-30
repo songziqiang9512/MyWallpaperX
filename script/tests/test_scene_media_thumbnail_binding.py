@@ -19,9 +19,29 @@ HARNESS = r'''
 import Foundation
 
 struct SceneEffectTextureInput: Equatable {
-    enum Kind { case system, property }
+    enum Kind { case path, system, property, unknown }
     let kind: Kind
     let value: String
+}
+
+enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
+struct SceneSystemProviderTextureIdentity: Hashable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+}
+struct SceneVFSAssetPath {
+    let value: String
+    init?(_ rawValue: String) {
+        let normalized = rawValue.replacingOccurrences(of: "\\", with: "/")
+            .lowercased()
+        guard !normalized.isEmpty else { return nil }
+        value = normalized
+    }
+}
+enum SceneStockTextureSemanticRegistry {
+    static func isNeutralColorCarrier(_ path: SceneVFSAssetPath) -> Bool {
+        path.value == "util/white"
+    }
 }
 
 struct SceneDocument {
@@ -29,9 +49,27 @@ struct SceneDocument {
         let userBinding: String?
         let components: [Double]?
     }
+    struct SceneLayerMaterialInstance {
+        let id: Int?
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+        let hasUserTextureOverride: Bool
+        let combos: [String: Int]
+        let unknownKeys: [String]
+        let isMalformed: Bool
+    }
 }
 
 struct SceneRenderDescriptor {
+    struct ModelMaterialLink {
+        let modelPath: String
+        let materialPath: String?
+    }
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+    }
     struct EffectDescriptor {
         struct PassDescriptor {
             let textureSlots: [String?]
@@ -46,10 +84,13 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         let contentKind: String
+        let imagePath: String?
         var effects: [EffectDescriptor]
         var isImageRenderable: Bool { contentKind == "image" || contentKind == "solid" }
     }
     var layers: [Layer]
+    let modelMaterialLinks: [ModelMaterialLink]
+    let materialPasses: [MaterialPassDescriptor]
 }
 
 enum SceneJSONValue: Equatable { case bool(Bool) }
@@ -150,21 +191,169 @@ let unsupportedCombinedEvidence = SceneScriptSourceEvidenceIR(
     targetKey: "visible",
     wrapperKeys: ["script", "user", "value", "unknown"]
 )
+let current = SceneEffectTextureInput(kind: .system, value: "$mediaThumbnail")
+let previous = SceneEffectTextureInput(kind: .system, value: "$mediaPreviousThumbnail")
+let futureCurrent = SceneEffectTextureInput(kind: .unknown, value: "$mediaThumbnail")
+let currentInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: 7,
+    textureSlots: ["util/white"],
+    userTextureInputs: [current],
+    hasUserTextureOverride: true,
+    combos: ["version": 2],
+    unknownKeys: [],
+    isMalformed: false
+)
+let previousInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["util/white"], userTextureInputs: [previous],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [], isMalformed: false
+)
+let badSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["base", "mask"],
+    userTextureInputs: [nil, current], hasUserTextureOverride: true,
+    combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let emptyOverrideInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["fallback"], userTextureInputs: [],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
+let nonNeutralSolidInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["util/black"], userTextureInputs: [current],
+    hasUserTextureOverride: true, combos: [:], unknownKeys: [],
+    isMalformed: false
+)
 let descriptor = SceneRenderDescriptor(layers: [
-    .init(id: 10, contentKind: "image", effects: [effect()]),
     .init(
-        id: 20,
-        contentKind: "solid",
+        id: 10, contentKind: "image", imagePath: "models/cover.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 20, contentKind: "solid", imagePath: "models/solid.json",
         effects: [effect(path: "effects/workshop/fixture/blend/effect.json", visible: true)]
     ),
-    .init(id: 30, contentKind: "solid", effects: [effect(visible: true)]),
-    .init(id: 40, contentKind: "image", effects: [effect(identity: "$unclaimedMediaTexture")]),
-    .init(id: 50, contentKind: "image", effects: [effect(multiply: 0.5)]),
-    .init(id: 60, contentKind: "image", effects: [effect(path: "effects/color/effect.json")]),
-    .init(id: 70, contentKind: "text", effects: [effect()]),
+    .init(
+        id: 30, contentKind: "solid", imagePath: "models/previous.json",
+        effects: [effect(visible: true)]
+    ),
+    .init(
+        id: 40, contentKind: "image", imagePath: "models/bad-slot.json",
+        effects: [effect(identity: "$unclaimedMediaTexture")]
+    ),
+    .init(
+        id: 50, contentKind: "image", imagePath: "models/multi.json",
+        effects: [effect(multiply: 0.5)]
+    ),
+    .init(
+        id: 60, contentKind: "image", imagePath: "models/plain.json",
+        effects: [effect(path: "effects/color/effect.json")]
+    ),
+    .init(
+        id: 70, contentKind: "text", imagePath: nil,
+        effects: [effect()]
+    ),
+    .init(
+        id: 80, contentKind: "image", imagePath: "models/mismatch.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 90, contentKind: "image", imagePath: "models/future.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 100, contentKind: "solid", imagePath: "models/non-neutral.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 110, contentKind: "solid", imagePath: "models/stock-absent.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 120, contentKind: "solid", imagePath: "models/solid-multi.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 130, contentKind: "solid", imagePath: "models/solid-nil.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 140, contentKind: "solid", imagePath: "models/solid-mismatch.json",
+        effects: [effect()]
+    ),
+], modelMaterialLinks: [
+    .init(modelPath: "models/cover.json", materialPath: "materials/cover.json"),
+    .init(modelPath: "models/solid.json", materialPath: "materials/solid.json"),
+    .init(modelPath: "models/bad-slot.json", materialPath: "materials/bad-slot.json"),
+    .init(modelPath: "models/multi.json", materialPath: "materials/multi.json"),
+    .init(modelPath: "models/plain.json", materialPath: "materials/plain.json"),
+    .init(modelPath: "models/future.json", materialPath: "materials/future.json"),
+    .init(modelPath: "models/solid-multi.json", materialPath: "materials/solid-multi.json"),
+    .init(modelPath: "models/solid-nil.json", materialPath: "materials/solid-nil.json"),
+    .init(
+        modelPath: "models/solid-mismatch.json",
+        materialPath: "materials/solid-mismatch.json"
+    ),
+], materialPasses: [
+    .init(
+        materialPath: "materials/cover.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/solid.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/bad-slot.json", textureSlots: ["base", "mask"],
+        userTextureInputs: [nil, nil]
+    ),
+    .init(
+        materialPath: "materials/multi.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/multi.json", textureSlots: ["other"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/plain.json", textureSlots: ["fallback"],
+        userTextureInputs: [current]
+    ),
+    .init(
+        materialPath: "materials/future.json", textureSlots: ["fallback"],
+        userTextureInputs: [futureCurrent]
+    ),
+    .init(
+        materialPath: "materials/solid-multi.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-multi.json", textureSlots: ["util/white"],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-nil.json", textureSlots: [nil],
+        userTextureInputs: [nil]
+    ),
+    .init(
+        materialPath: "materials/solid-mismatch.json", textureSlots: ["util/black"],
+        userTextureInputs: [nil]
+    ),
 ])
 let program = SceneMediaThumbnailBindingCompiler.compile(
     descriptor: descriptor,
+    materialInstancesByLayerID: [
+        20: currentInstance,
+        30: previousInstance,
+        40: badSlotInstance,
+        60: emptyOverrideInstance,
+        70: currentInstance,
+        80: currentInstance,
+        100: nonNeutralSolidInstance,
+        110: currentInstance,
+        120: currentInstance,
+        130: currentInstance,
+        140: currentInstance,
+    ],
     scriptBindings: [directBinding, timedBinding, unsupportedBinding]
 )
 let projected = SceneInitialMediaEffectVisibilityProjection.apply(
@@ -174,6 +363,10 @@ let projected = SceneInitialMediaEffectVisibilityProjection.apply(
 )
 let result: [String: Any] = [
     "accepted": program.currentLayerIDs.sorted(),
+    "rejected": Dictionary(uniqueKeysWithValues: program.rejectedBaseMaterialReasons.map {
+        (String($0.key), $0.value)
+    }),
+    "demands": program.systemProviderDemands.map { "\($0.name)" }.sorted(),
     "hasConsumers": program.hasConsumers,
     "report": program.reportLines(),
     "projected": Dictionary(uniqueKeysWithValues: projected.layers.map {
@@ -200,13 +393,29 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
                 cwd=ROOT,
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
-        self.assertEqual(result["accepted"], [])
-        self.assertFalse(result["hasConsumers"])
+        self.assertEqual(result["accepted"], [10, 20, 110])
+        self.assertTrue(result["hasConsumers"])
+        self.assertEqual(result["demands"], ["$mediaThumbnail"])
+        self.assertEqual(
+            result["rejected"],
+            {
+                "40": "base-material-current-slot-shape-unsupported",
+                "50": "base-material-current-multi-pass-unsupported",
+                "80": "base-material-instance-fallback-mismatch",
+                "90": "base-material-current-slot-shape-unsupported",
+                "100": "base-material-instance-fallback-mismatch",
+                "120": "base-material-instance-fallback-mismatch",
+                "130": "base-material-instance-fallback-mismatch",
+                "140": "base-material-instance-fallback-mismatch",
+            },
+        )
         self.assertEqual(
             result["report"],
             [
-                "mediaThumbnailCurrentBindingCount: 0",
-                "mediaThumbnailCurrentBindingLayerIDs: ",
+                "mediaThumbnailCurrentBindingCount: 3",
+                "mediaThumbnailCurrentBindingLayerIDs: 10,20,110",
+                "mediaThumbnailCurrentBaseMaterialBindingCount: 3",
+                "mediaThumbnailCurrentBaseMaterialRejectedCount: 8",
             ],
         )
         self.assertFalse(result["projected"]["20"])
@@ -228,10 +437,8 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
         )
         for retired_identifier in (
             "SceneMediaThumbnailTransition",
-            "$mediaPreviousThumbnail",
             "previousTransitionsByLayerID",
             "mediaThumbnailPreviousTransition",
-            "mediaThumbnailPrevious",
         ):
             self.assertNotIn(retired_identifier, product_source)
 

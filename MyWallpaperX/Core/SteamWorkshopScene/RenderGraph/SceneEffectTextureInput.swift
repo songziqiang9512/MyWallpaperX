@@ -25,6 +25,9 @@ nonisolated struct SceneEffectTextureInput: Codable, Hashable {
         let type = (dictionary["type"] as? String)?.localizedLowercase
         let name = (dictionary["name"] as? String).map(normalized) ?? ""
         if type == "system", !name.isEmpty {
+            guard Set(dictionary.keys) == Set(["type", "name"]) else {
+                return SceneEffectTextureInput(kind: .unknown, value: name)
+            }
             return SceneEffectTextureInput(kind: .system, value: name)
         }
         if let user = dictionary["user"] as? String {

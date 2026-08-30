@@ -1,6 +1,68 @@
 import Foundation
 
 extension SceneDocument {
+    /// Loss-preserving layer-level material instance authored on
+    /// `objects[].instance`. Admission happens later: Format keeps slot order,
+    /// unknown user-texture values and malformed collection shape so an
+    /// unsupported override cannot silently fall back to a different material.
+    struct SceneLayerMaterialInstance: Codable, Equatable {
+        let id: Int?
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+        let hasUserTextureOverride: Bool
+        let rawValue: SceneJSONValue?
+        let combos: [String: Int]
+        let unknownKeys: [String]
+        let isMalformed: Bool
+
+        nonisolated static func parse(
+            _ raw: Any?,
+            authoredRaw: Any? = nil
+        ) -> Self? {
+            guard let raw else { return nil }
+            let authoredValue = authoredRaw ?? raw
+            guard let root = raw as? [String: Any] else {
+                return Self(
+                    id: nil,
+                    textureSlots: [],
+                    userTextureInputs: [],
+                    hasUserTextureOverride: false,
+                    rawValue: SceneJSONValue(jsonObject: authoredValue),
+                    combos: [:],
+                    unknownKeys: [],
+                    isMalformed: true
+                )
+            }
+            let textureValues = root["textures"] as? [Any]
+            let userTextureValues = root["usertextures"] as? [Any]
+            let comboValues = root["combos"] as? [String: Int]
+            let knownKeys = Set(["id", "textures", "usertextures", "combos"])
+            return Self(
+                id: root["id"] as? Int,
+                textureSlots: (textureValues ?? []).map { value in
+                    guard let value = value as? String else { return nil }
+                    let normalized = value.replacingOccurrences(of: "\\", with: "/")
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                    return normalized.isEmpty ? nil : normalized
+                },
+                userTextureInputs: (userTextureValues ?? []).map(
+                    SceneEffectTextureInput.parse
+                ),
+                hasUserTextureOverride: root.keys.contains("usertextures"),
+                // The parsed fields are the effective runtime projection, while
+                // rawValue remains the exact authored instance before user
+                // property resolution recursively replaces wrapper values.
+                rawValue: SceneJSONValue(jsonObject: authoredValue),
+                combos: comboValues ?? [:],
+                unknownKeys: root.keys.filter { !knownKeys.contains($0) }.sorted(),
+                isMalformed: (root.keys.contains("textures") && textureValues == nil)
+                    || (root.keys.contains("usertextures") && userTextureValues == nil)
+                    || (root.keys.contains("combos") && comboValues == nil)
+                    || (root.keys.contains("id") && root["id"] as? Int == nil)
+            )
+        }
+    }
+
     /// Loss-preserving authored Sound layer input. Product admission stays in
     /// `SceneSoundPlaybackProgram`; parsing does not silently erase unsupported
     /// multi-source, spatial, or delayed-playback forms.
@@ -194,6 +256,7 @@ extension SceneDocument {
         let sound: SceneSoundLayerDefinition?
         var spotLight: SceneSpotLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
+        let materialInstance: SceneLayerMaterialInstance?
         let utilityLayer: SceneUtilityLayer?
         let shape: String?
         let dependencyLayerIDs: [Int]

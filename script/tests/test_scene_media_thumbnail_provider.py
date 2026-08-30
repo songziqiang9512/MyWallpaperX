@@ -13,6 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
 SOURCES = [
     SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
     SCENE / "Format/SceneJSONValue.swift",
@@ -24,6 +25,8 @@ SOURCES = [
     SCENE / "Resources/SceneTextureSlotBinding.swift",
     SCENE / "Resources/SceneTextureProviderPublication.swift",
     SCENE / "Resources/SceneFrameTextureRegistry.swift",
+    SCENE / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
+    SCENE / "Rendering/SceneBaseMaterialTextureResolver.swift",
     SCENE / "Resources/SceneImageTextureUploader.swift",
     SCENE / "Resources/SceneMediaThumbnailTextureStore.swift",
 ]
@@ -36,8 +39,48 @@ import Metal
 import UniformTypeIdentifiers
 
 struct SceneMediaThumbnailBindingProgram {
+    struct BaseMaterialBinding: Hashable {
+        enum Source: Hashable { case layerInstance, materialPass }
+        let layerID: Int
+        let source: Source
+        let slotIndex: Int
+        var providerIdentity: SceneSystemProviderTextureIdentity {
+            .init(name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                  purpose: .premultipliedColor)
+        }
+    }
     static let currentIdentity = "$mediaThumbnail"
     static let previousIdentity = "$mediaPreviousThumbnail"
+    let currentBaseMaterialBindings: [Int: BaseMaterialBinding]
+}
+
+struct SceneRenderDescriptor {
+    struct Layer {
+        let id: Int
+        let contentKind: String
+        var isImageRenderable: Bool {
+            contentKind == "image" || contentKind == "solid"
+        }
+    }
+}
+
+struct SceneBaseImageTextureSnapshot {
+    let textures: [Int: MTLTexture]
+    let candidates: [Int: SceneTextureCandidate]
+
+    subscript(layerID: Int) -> MTLTexture? { textures[layerID] }
+
+    func candidate(for layerID: Int, matching texture: MTLTexture) -> SceneTextureCandidate? {
+        guard let candidate = candidates[layerID], candidate.texture === texture else {
+            return nil
+        }
+        return candidate
+    }
+}
+
+struct SceneMetalRenderer {
+    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
+    let textureRegistry: SceneFrameTextureRegistry
 }
 
 enum SceneTextureLoadOutcome {
@@ -138,7 +181,7 @@ let store = SceneMediaThumbnailTextureStore(
 )
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
-let c = png(red: 231, green: 17, blue: 149, alpha: 0)
+let c = png(red: 231, green: 17, blue: 149, alpha: 0, width: 2, height: 3)
 
 _ = inbox.publish(a)
 store.update(from: inbox.latest())
@@ -169,6 +212,104 @@ let allTransitionSystemIdentities: Set<SceneSystemProviderTextureIdentity> = [
     colorSystemIdentity, preservedSystemIdentity,
     previousColorSystemIdentity, previousPreservedSystemIdentity,
 ]
+let baseBinding = SceneMediaThumbnailBindingProgram.BaseMaterialBinding(
+    layerID: 3588, source: .layerInstance, slotIndex: 0
+)
+let readyRegistry = SceneFrameTextureRegistry()
+_ = readyRegistry.beginFrame(
+    frameIndex: 1,
+    layerSources: [:],
+    systemTextures: third.systemTextures,
+    explicitSystemTextures: third.publications
+)
+let readyResolution = SceneBaseMaterialTextureResolver.resolve(
+    binding: baseBinding,
+    registry: readyRegistry
+)
+let readyProviderExact: Bool
+switch readyResolution {
+case let .ready(candidate):
+    readyProviderExact = candidate.texture === third.current?.texture
+case .authoredFallback, .rejected:
+    readyProviderExact = false
+}
+let fallbackDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+    pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false
+)
+fallbackDescriptor.usage = [.shaderRead]
+let fallbackTexture = device.makeTexture(descriptor: fallbackDescriptor)!
+fallbackTexture.replace(
+    region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+    withBytes: [UInt8(10), 20, 30, 255], bytesPerRow: 4
+)
+let baseSnapshot = SceneBaseImageTextureSnapshot(
+    textures: [3588: fallbackTexture], candidates: [:]
+)
+let bindingProgram = SceneMediaThumbnailBindingProgram(
+    currentBaseMaterialBindings: [3588: baseBinding]
+)
+let readyRenderer = SceneMetalRenderer(
+    mediaThumbnailBindings: bindingProgram,
+    textureRegistry: readyRegistry
+)
+let readyBaseSource = readyRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: baseSnapshot
+)
+let readyTintedBaseSource = readyRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: baseSnapshot,
+    readyProviderUsesAuthoredLayerColor: true
+)
+let emptyBaseSnapshot = SceneBaseImageTextureSnapshot(textures: [:], candidates: [:])
+let readyWithoutFallback = readyRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "image"),
+    imageTextures: emptyBaseSnapshot
+)
+let readyImageBaseSource = readyRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "image"),
+    imageTextures: baseSnapshot,
+    readyProviderUsesAuthoredLayerColor: true
+)
+let missingRegistry = SceneFrameTextureRegistry()
+_ = missingRegistry.beginFrame(frameIndex: 1, layerSources: [:])
+let missingRenderer = SceneMetalRenderer(
+    mediaThumbnailBindings: bindingProgram,
+    textureRegistry: missingRegistry
+)
+let missingBaseSource = missingRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: baseSnapshot
+)
+let missingWithoutFallback = missingRenderer.baseMaterialTextureSelection(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: emptyBaseSnapshot
+)
+let unavailableRegistry = SceneFrameTextureRegistry()
+_ = unavailableRegistry.beginFrame(frameIndex: 1, layerSources: [:])
+unavailableRegistry.set(.unavailable, for: .system(colorSystemIdentity))
+let unavailableRenderer = SceneMetalRenderer(
+    mediaThumbnailBindings: bindingProgram,
+    textureRegistry: unavailableRegistry
+)
+let unavailableBaseSource = unavailableRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: baseSnapshot
+)
+let incompleteRegistry = SceneFrameTextureRegistry()
+_ = incompleteRegistry.beginFrame(
+    frameIndex: 1,
+    layerSources: [:],
+    systemTextures: [colorSystemIdentity: third.current!.texture]
+)
+let incompleteRenderer = SceneMetalRenderer(
+    mediaThumbnailBindings: bindingProgram,
+    textureRegistry: incompleteRegistry
+)
+let incompleteBaseSource = incompleteRenderer.baseMaterialTextureSource(
+    for: .init(id: 3588, contentKind: "solid"),
+    imageTextures: baseSnapshot
+)
 let layerRequest = SceneFrameTextureIdentity.layerSource(77)
 let layerPublication = third.current?.publication(for: layerRequest)
 let rapidDecodeCount = decodeCounter.value
@@ -367,6 +508,44 @@ let result: [String: Any] = [
         && third.publications[preservedSystemIdentity]?.requestIdentity
             == .system(preservedSystemIdentity)
         && third.current?.texture !== third.preservedCurrent?.texture,
+    "baseMaterialReadyProviderExact": readyProviderExact
+        && readyBaseSource?.texture === third.current?.texture
+        && readyBaseSource?.candidate?.identity
+            == .provider(.mediaThumbnailCurrent)
+        && readyBaseSource?.usesSystemProvider == true
+        && readyBaseSource?.usesAuthoredLayerColor == false
+        && readyBaseSource?.rejectedProviderReason == nil,
+    "baseMaterialReadyImageProviderOwnsExtent":
+        readyImageBaseSource?.texture.width == 2
+        && readyImageBaseSource?.texture.height == 3
+        && readyWithoutFallback?.texture === third.current?.texture,
+    "baseMaterialReadyPreservesDynamicTint":
+        readyTintedBaseSource?.texture === third.current?.texture
+        && readyTintedBaseSource?.usesSystemProvider == true
+        && readyTintedBaseSource?.usesAuthoredLayerColor == true
+        && readyTintedBaseSource?.rejectedProviderReason == nil,
+    "baseMaterialMissingRegistryRejectsOnlyProvider":
+        missingBaseSource?.texture === fallbackTexture
+        && missingBaseSource?.usesSystemProvider == false
+        && missingBaseSource?.usesAuthoredLayerColor == true
+        && missingBaseSource?.rejectedProviderReason
+            == "base-material-current-registry-missing",
+    "baseMaterialMissingRegistryWithoutFallbackKeepsReason":
+        missingWithoutFallback.rejectedProviderReason
+            == "base-material-current-registry-missing"
+        && missingWithoutFallback.source == nil,
+    "baseMaterialUnavailableKeepsAuthoredFallback":
+        unavailableBaseSource?.texture === fallbackTexture
+        && unavailableBaseSource?.candidate == nil
+        && unavailableBaseSource?.usesSystemProvider == false
+        && unavailableBaseSource?.usesAuthoredLayerColor == true
+        && unavailableBaseSource?.rejectedProviderReason == nil,
+    "baseMaterialIncompleteRejectsOnlyProvider":
+        incompleteBaseSource?.texture === fallbackTexture
+        && incompleteBaseSource?.usesSystemProvider == false
+        && incompleteBaseSource?.usesAuthoredLayerColor == true
+        && incompleteBaseSource?.rejectedProviderReason
+            == "base-material-current-publication-incomplete",
     "systemAndLayerRequestsAreDistinctAtoms":
         layerPublication?.requestIdentity == layerRequest
         && layerPublication?.requestIdentity != third.current?.requestIdentity
@@ -590,6 +769,64 @@ print(String(decoding: data, as: UTF8.self))
 
 
 class SceneMediaThumbnailProviderTests(unittest.TestCase):
+    def test_base_material_route_reports_ready_and_rejected_provider(self) -> None:
+        renderer = RENDERER.read_text(encoding="utf-8")
+        dependency = (
+            SCENE / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn('operation: "base-material-system-provider"', renderer)
+        self.assertIn(
+            'operation: "base-material-system-provider-rejected"', renderer
+        )
+        self.assertIn("} else if baseSource?.usesSystemProvider == true {", renderer)
+        self.assertIn("usesAuthoredLayerColor:", renderer)
+        self.assertIn("let color = usesAuthoredLayerColor", dependency)
+        selection = renderer.index("let baseSelection: SceneBaseMaterialTextureSelection")
+        rejection = renderer.index(
+            "if let reasonCode = baseSelection.rejectedProviderReason", selection
+        )
+        graph_provider = renderer.index(
+            "executeDependencyGraphProviderIfRequired", rejection
+        )
+        dependency_capture = renderer.index(
+            "dependencyRuntime.requiresCapture", graph_provider
+        )
+        visibility_gate = renderer.index(
+            "guard frameVisibleLayerIDs.contains(layer.id)", dependency_capture
+        )
+        self.assertLess(selection, rejection)
+        self.assertLess(rejection, graph_provider)
+        self.assertLess(graph_provider, dependency_capture)
+        self.assertLess(dependency_capture, visibility_gate)
+
+        preflight = (
+            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        begin = preflight.index("beginTextureFrame(")
+        target_preflight = preflight.index(
+            "switch preflightResolvedMaterialFrameTargets(", begin
+        )
+        self.assertLess(begin, target_preflight)
+        self.assertIn('if layer.contentKind != "solid" {', preflight)
+        self.assertIn("width: selectedSource.texture.width", preflight)
+        self.assertIn("height: selectedSource.texture.height", preflight)
+        deferred = preflight.index("case .deferred:", target_preflight)
+        defer_frame = preflight.index(
+            "imageCompositor.deferResolvedMaterialFrame()", deferred
+        )
+        deferred_end = preflight.index(
+            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)",
+            defer_frame,
+        )
+        rejected = preflight.index("case .rejected(let reasonCode):", deferred_end)
+        rejected_end = preflight.index(
+            "imageCompositor.endResolvedMaterialFrame(on: commandBuffer)", rejected
+        )
+        self.assertLess(deferred, defer_frame)
+        self.assertLess(defer_frame, deferred_end)
+        self.assertLess(deferred_end, rejected)
+        self.assertLess(rejected, rejected_end)
+
     def test_current_provider_stale_rejection_last_ready_and_clear(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
@@ -619,6 +856,15 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["currentRequestExact"])
         self.assertTrue(result["preservedRequestExact"])
         self.assertTrue(result["purposeQualifiedSystemAtoms"])
+        self.assertTrue(result["baseMaterialReadyProviderExact"])
+        self.assertTrue(result["baseMaterialReadyImageProviderOwnsExtent"])
+        self.assertTrue(result["baseMaterialReadyPreservesDynamicTint"])
+        self.assertTrue(result["baseMaterialMissingRegistryRejectsOnlyProvider"])
+        self.assertTrue(
+            result["baseMaterialMissingRegistryWithoutFallbackKeepsReason"]
+        )
+        self.assertTrue(result["baseMaterialUnavailableKeepsAuthoredFallback"])
+        self.assertTrue(result["baseMaterialIncompleteRejectsOnlyProvider"])
         self.assertTrue(result["systemAndLayerRequestsAreDistinctAtoms"])
         self.assertTrue(result["currentPublicationPremultiplied"])
         self.assertTrue(result["preservedPublicationData"])

@@ -40,6 +40,14 @@ struct SceneDocument {
     let userPropertyResolution: SceneUserPropertyResolution
 }
 
+extension SceneDocument {
+    var materialInstancesByLayerID: [Int: SceneLayerMaterialInstance] {
+        Dictionary(uniqueKeysWithValues: objects.compactMap { object in
+            object.materialInstance.map { (object.id, $0) }
+        })
+    }
+}
+
 struct SceneDocumentLoader {
     enum LoadError: LocalizedError {
         case missingSceneJSON
@@ -172,6 +180,10 @@ struct SceneDocumentLoader {
             spotLight: SceneSpotLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]
+            ),
+            materialInstance: SceneDocument.SceneLayerMaterialInstance.parse(
+                root["instance"],
+                authoredRaw: authoredRoot["instance"]
             ),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
             shape: stringValue(root["shape"])?.lowercased(),

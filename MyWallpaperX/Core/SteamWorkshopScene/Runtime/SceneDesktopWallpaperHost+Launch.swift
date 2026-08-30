@@ -703,6 +703,7 @@ extension SceneDesktopWallpaperHost {
         )
         let mediaThumbnailBindings = SceneMediaThumbnailBindingCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
+            materialInstancesByLayerID: model.sceneDocument.materialInstancesByLayerID,
             scriptBindings: model.sceneDocument.scriptBindings
         )
         let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(

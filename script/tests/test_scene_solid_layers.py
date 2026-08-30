@@ -66,6 +66,21 @@ SCENE_FIXTURE = {
             "image": "models/util/solidlayer.json",
             "size": "320 200",
             "alpha": {"user": "opacity", "value": 0.25},
+            "instance": {
+                "id": 31,
+                "textures": ["util\\white", None],
+                "usertextures": [
+                    {"type": "system", "name": "$mediaThumbnail"},
+                    42,
+                    {
+                        "type": "system",
+                        "name": "$mediaThumbnail",
+                        "future": True,
+                    },
+                ],
+                "combos": {"version": 2},
+                "futurekey": {"preserve": True},
+            },
         },
         {
             "id": 40,
@@ -347,6 +362,25 @@ enum Harness {
 
         let objects = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        let splitMaterialInstance = SceneDocument.SceneLayerMaterialInstance.parse(
+            [
+                "textures": ["resolved/cover"],
+                "usertextures": [["user": "cover", "value": "resolved/cover"]],
+            ],
+            authoredRaw: [
+                "textures": ["authored/cover"],
+                "usertextures": [["user": "cover", "value": "authored/cover"]],
+            ]
+        )
+        let authoredRawTexture: String?
+        if case let .object(root)? = splitMaterialInstance?.rawValue,
+           case let .array(textures)? = root["textures"],
+           let first = textures.first,
+           case let .string(value) = first {
+            authoredRawTexture = value
+        } else {
+            authoredRawTexture = nil
+        }
         let result: [String: Any] = [
             "documentColors": [10, 20, 30].map { objects[$0]?.colorRGB ?? [] },
             "contentKinds": [10, 20, 30, 40].map { layers[$0]?.contentKind ?? "" },
@@ -358,6 +392,30 @@ enum Harness {
                 layers[$0]?.imageAlignment ?? "nil"
             },
             "brightnessContentKinds": [40, 80].map { layers[$0]?.contentKind ?? "" },
+            "materialInstance": [
+                "id": objects[30]?.materialInstance?.id ?? -1,
+                "textureSlots": objects[30]?.materialInstance?.textureSlots.map {
+                    $0 ?? "nil"
+                } ?? [],
+                "userTextureKinds": objects[30]?.materialInstance?.userTextureInputs.map {
+                    $0?.kind.rawValue ?? "nil"
+                } ?? [],
+                "hasUserTextureOverride": objects[30]?.materialInstance?
+                    .hasUserTextureOverride ?? false,
+                "hasRawValue": objects[30]?.materialInstance?.rawValue != nil,
+                "combos": objects[30]?.materialInstance?.combos ?? [:],
+                "unknownKeys": objects[30]?.materialInstance?.unknownKeys ?? [],
+                "isMalformed": objects[30]?.materialInstance?.isMalformed ?? true,
+            ] as [String: Any],
+            "splitMaterialInstance": [
+                "effectiveTexture": splitMaterialInstance?.textureSlots.compactMap {
+                    $0
+                }.first ?? "",
+                "authoredRawTexture": authoredRawTexture ?? "",
+                "effectiveProperty": splitMaterialInstance?.userTextureInputs.compactMap {
+                    $0
+                }.first?.value ?? "",
+            ],
             "userTextureInputKinds": layers[40]?.effects.first?.passes.first?.userTextureInputs.map {
                 $0?.kind.rawValue ?? "nil"
             } ?? [],
@@ -502,6 +560,33 @@ class SceneSolidLayerTests(unittest.TestCase):
             ["nil", "system", "property"],
         )
 
+    def test_layer_material_instance_preserves_slots_unknown_input_and_keys(self) -> None:
+        self.assertEqual(
+            self.result["materialInstance"],
+            {
+                "id": 31,
+                "textureSlots": ["util/white", "nil"],
+                "userTextureKinds": ["system", "unknown", "unknown"],
+                "hasUserTextureOverride": True,
+                "hasRawValue": True,
+                "combos": {"version": 2},
+                "unknownKeys": ["futurekey"],
+                "isMalformed": False,
+            },
+        )
+
+    def test_layer_material_instance_keeps_authored_raw_separate_from_effective_projection(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["splitMaterialInstance"],
+            {
+                "effectiveTexture": "resolved/cover",
+                "authoredRawTexture": "authored/cover",
+                "effectiveProperty": "cover",
+            },
+        )
+
     def test_numeric_shader_wrapper_preserves_components(self) -> None:
         self.assertEqual(self.result["wrappedShaderComponents"], [0.75])
 
@@ -524,11 +609,15 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertRegex(
             compositor_uniforms,
             re.compile(
-                r'usesAuthoredColor[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*"image"'
+                r"usesAuthoredColor[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*\"image\""
                 r'[\s\S]{0,120}request\.layer\.contentKind\s*==\s*"solid"'
                 r"[\s\S]{0,160}request\.uniforms\.tint"
             ),
         )
+        renderer = (SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tint: baseSource.usesAuthoredLayerColor", renderer)
         self.assertRegex(
             compositor_uniforms,
             re.compile(r"SceneLayerFragmentUniforms\([\s\S]{0,900}\btint\s*:\s*SIMD4\(tint\.x"),

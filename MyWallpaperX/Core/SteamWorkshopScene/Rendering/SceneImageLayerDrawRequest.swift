@@ -248,7 +248,10 @@ struct SceneImageLayerDrawRequest {
         guard let baseTextureCandidate else {
             return .init(textureFrame: textureFrame, sampling: .linearClamp)
         }
-        guard layer.contentKind == "image" else { return nil }
+        guard layer.contentKind == "image"
+            || (layer.contentKind == "solid"
+                && baseTextureCandidate.identity
+                    == .provider(.mediaThumbnailCurrent)) else { return nil }
         return SceneBaseImageTextureCandidateResolver.sample(
             candidate: baseTextureCandidate,
             sourceTexture: texture

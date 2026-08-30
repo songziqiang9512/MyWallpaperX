@@ -15,6 +15,7 @@ struct SceneMetalRenderer {
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
+    let mediaThumbnailBindings: SceneMediaThumbnailBindingProgram
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
@@ -23,6 +24,7 @@ struct SceneMetalRenderer {
     init?(
         renderDescriptor: SceneRenderDescriptor,
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,
+        mediaThumbnailBindings: SceneMediaThumbnailBindingProgram = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge? = nil
     ) {
@@ -33,6 +35,7 @@ struct SceneMetalRenderer {
         self.device = device
         self.commandQueue = commandQueue
         self.renderDescriptor = renderDescriptor
+        self.mediaThumbnailBindings = mediaThumbnailBindings
         self.pipelineRepository = pipelineRepository
         self.imageCompositor = SceneImageLayerCompositor(
             pipelineRepository: pipelineRepository,
@@ -167,6 +170,37 @@ struct SceneMetalRenderer {
                     resolvedMaterialFrameTargetPlans:
                         resolvedMaterialFrameTargetPlans) }
             }
+            let baseSelection: SceneBaseMaterialTextureSelection
+            switch layer.contentKind {
+            case "image", "solid", "text":
+                baseSelection = baseMaterialTextureSelection(
+                    for: layer,
+                    imageTextures: imageTextures,
+                    readyProviderUsesAuthoredLayerColor:
+                        baseMaterialReadyProviderUsesAuthoredLayerColor(
+                            for: layer,
+                            dynamicValues: frameContext.dynamicValues
+                        )
+                )
+            default:
+                baseSelection = .missing
+            }
+            let baseSource = baseSelection.source
+            if let reasonCode = baseSelection.rejectedProviderReason {
+                effectExecutionTrace.recordRouteOperation(
+                    layerID: layer.id,
+                    origin: Self.effectExecutionOrigin(for: layer.contentKind),
+                    operation: "base-material-system-provider-rejected",
+                    outcome: .failed(reasonCode: reasonCode)
+                )
+            } else if baseSource?.usesSystemProvider == true {
+                effectExecutionTrace.recordRouteOperation(
+                    layerID: layer.id,
+                    origin: Self.effectExecutionOrigin(for: layer.contentKind),
+                    operation: "base-material-system-provider",
+                    outcome: .encoded
+                )
+            }
             if let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
                 layer: layer,
                 framePlan: resolvedMaterialFrameTargetPlans[layer.id],
@@ -194,10 +228,10 @@ struct SceneMetalRenderer {
                 )
                 _ = dependencyRuntime.captureProviderIfRequired(
                     layer: layer,
-                    sourceTexture: imageTextures[layer.id],
-                    sourceCandidate: imageTextures[layer.id].flatMap {
-                        imageTextures.candidate(for: layer.id, matching: $0)
-                    },
+                    sourceTexture: baseSource?.texture,
+                    sourceCandidate: baseSource?.candidate,
+                    usesAuthoredLayerColor:
+                        baseSource?.usesAuthoredLayerColor ?? true,
                     layerMVP: cameraFrame.orthographicViewProjection * providerModel,
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,
@@ -208,7 +242,8 @@ struct SceneMetalRenderer {
             guard frameVisibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {
             case "image", "solid", "text":
-                guard let imagePipeline, let texture = imageTextures[layer.id] else { continue }
+                guard let imagePipeline, let baseSource else { continue }
+                let texture = baseSource.texture
                 let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
                 let requiresDependencyEffect = resolvedFramePlan?
                     .consumesExternalPrimaryDependency
@@ -265,10 +300,7 @@ struct SceneMetalRenderer {
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
-                    baseTextureCandidate: imageTextures.candidate(
-                        for: layer.id,
-                        matching: texture
-                    ),
+                    baseTextureCandidate: baseSource.candidate,
                     masks: .empty,
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,
@@ -282,10 +314,13 @@ struct SceneMetalRenderer {
                             && previousCursorUV != nil,
                         primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                         frameTime: Float(frameContext.frameTime),
-                        tint: SceneDynamicLayerValues.color(
-                            layerID: layer.id, authoredValue: layer.colorRGB,
-                            snapshot: frameContext.dynamicValues
-                        )
+                        tint: baseSource.usesAuthoredLayerColor
+                            ? SceneDynamicLayerValues.color(
+                                layerID: layer.id,
+                                authoredValue: layer.colorRGB,
+                                snapshot: frameContext.dynamicValues
+                            )
+                            : SIMD3(repeating: 1)
                     ),
                     offscreenTexturePool: offscreenTexturePool,
                     resolvedMaterialFrameTargetPlan:
@@ -534,5 +569,15 @@ struct SceneMetalRenderer {
             executionTrace: executionTrace,
             executionOrigin: .image
         ) && published
+    }
+
+    func baseMaterialReadyProviderUsesAuthoredLayerColor(
+        for layer: SceneRenderDescriptor.Layer,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> Bool {
+        guard layer.contentKind == "solid" else { return true }
+        return dynamicValues[
+            .layer(layerID: layer.id, field: .color)
+        ] != nil
     }
 }

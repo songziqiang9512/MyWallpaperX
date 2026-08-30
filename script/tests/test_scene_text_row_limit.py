@@ -31,6 +31,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/SceneEffectDefinition.swift",
     SOURCE_ROOT / "RenderGraph/SceneEffectTextureInput.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
+    SOURCE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SOURCE_ROOT / "Rendering/SceneLayerVisibility.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor.swift",
     SOURCE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift",

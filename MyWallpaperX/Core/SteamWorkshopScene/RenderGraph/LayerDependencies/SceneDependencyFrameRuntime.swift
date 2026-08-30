@@ -265,6 +265,7 @@ final class SceneDependencyFrameRuntime {
         layer: SceneRenderDescriptor.Layer,
         sourceTexture: MTLTexture?,
         sourceCandidate: SceneTextureCandidate?,
+        usesAuthoredLayerColor: Bool = true,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
@@ -422,7 +423,9 @@ final class SceneDependencyFrameRuntime {
             }
             var uniforms = SceneLayerFragmentUniforms.neutral()
             uniforms.alpha = max(0, Float(layer.alpha ?? 1))
-            let color = SIMD3(layer.colorRGB ?? [], fill: 1)
+            let color = usesAuthoredLayerColor
+                ? SIMD3(layer.colorRGB ?? [], fill: 1)
+                : SIMD3(repeating: 1)
             uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
             uniforms.textureFrame0 = SceneTextureUVTransform.identity.uniform0
             uniforms.textureFrame1 = SceneTextureUVTransform.identity.uniform1

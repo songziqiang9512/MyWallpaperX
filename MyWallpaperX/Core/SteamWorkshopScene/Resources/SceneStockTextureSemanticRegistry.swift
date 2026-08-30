@@ -1,6 +1,10 @@
 /// Closed semantic facts for stock texture identities published by the shader
 /// contract. This registry never infers purpose from filenames or file formats.
 nonisolated enum SceneStockTextureSemanticRegistry {
+    static func isNeutralColorCarrier(_ path: SceneVFSAssetPath) -> Bool {
+        path.value == "util/white"
+    }
+
     static func purpose(
         for path: SceneVFSAssetPath
     ) -> SceneTextureLoadPurpose? {

@@ -33,6 +33,7 @@ class SceneMetalView: NSView {
         guard let renderer = SceneMetalRenderer(
             renderDescriptor: renderDescriptor,
             effectAdmissionCatalog: effectAdmissionCatalog,
+            mediaThumbnailBindings: mediaThumbnailBindings,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
