@@ -27,7 +27,15 @@ VISUAL_PASSTHROUGH_SOURCE = (
 )
 sys.path.insert(0, str(REPOSITORY_ROOT / "script"))
 
-from scene_swift_source_sets import scene_swift_sources  # noqa: E402
+from scene_swift_source_sets import (  # noqa: E402
+    scene_swift_sources,
+    scene_swift_sources_by_basename,
+)
+
+
+MATERIAL_PROGRAM_SOURCES = scene_swift_sources_by_basename(
+    "resolved_material_program_all"
+)
 
 
 FINALIZER_SOURCE = next(
@@ -43,22 +51,18 @@ VARIANT_CACHE_SOURCE = next(
 RUNTIME_CATALOG_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
 )
-TEMPLATE_COMPILER_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
-)
-SHADER_SCHEMA_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift"
-)
-SHADER_REACHABILITY_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
-)
-VARIANT_COMPILATION_SOURCE = (
-    SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
-)
+TEMPLATE_COMPILER_SOURCE = MATERIAL_PROGRAM_SOURCES[
+    "SceneResolvedMaterialTemplateCompiler.swift"
+]
+SHADER_SCHEMA_SOURCE = MATERIAL_PROGRAM_SOURCES[
+    "SceneResolvedMaterialShaderSchema.swift"
+]
+SHADER_REACHABILITY_SOURCE = MATERIAL_PROGRAM_SOURCES[
+    "SceneResolvedMaterialShaderSchema+Reachability.swift"
+]
+VARIANT_COMPILATION_SOURCE = MATERIAL_PROGRAM_SOURCES[
+    "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+]
 
 
 SWIFT_SOURCES = [
@@ -2997,6 +3001,134 @@ private func admittedEffectIngressTokens(
     ]
 }
 
+private func sameSlotMappedCoordinateTokens(
+    _ device: MTLDevice
+) -> [String: Bool] {
+    let maskPath = SceneVFSAssetPath(
+        "textures/same-slot-mapped-mask.tex"
+    )!
+    let maskIdentity = SceneFrameTextureIdentity.asset(.init(
+        path: maskPath,
+        purpose: .mask
+    ))
+    let mappedTransform = SceneTextureUVTransform(
+        origin: .zero,
+        xAxis: SIMD2(0.5, 0),
+        yAxis: SIMD2(0, 1)
+    )
+    let translatedTransform = SceneTextureUVTransform(
+        origin: SIMD2(0.5, 0),
+        xAxis: SIMD2(0.5, 0),
+        yAxis: SIMD2(0, 1)
+    )
+    func maskStatus(
+        _ transform: SceneTextureUVTransform
+    ) -> SceneFrameTextureLookupStatus {
+        readyStatus(
+            device,
+            identity: maskIdentity,
+            purpose: .mask,
+            content: .data,
+            physicalSize: CGSize(width: 4, height: 4),
+            mappedSize: CGSize(width: 2, height: 4),
+            uvTransform: transform
+        )
+    }
+    let mappedShader = contract(
+        revision: "same-slot-mapped-coordinate",
+        secondSamplerMetadata:
+            #"{"mode":"opacitymask","combo":"MASK"}"#,
+        maskedAlpha: true,
+        optionalMask: true,
+        deadMaskCoordinates: true,
+        semanticProbes: false,
+        fragmentSourceOverride: nil
+    )
+    let mapped = finalize(
+        shader: mappedShader,
+        device: device,
+        secondReference: .asset(maskPath),
+        additionalEntries: [maskIdentity: maskStatus(mappedTransform)],
+        uniformDeclarations: [staticDeclaration("alpha", components: [1])]
+    )
+    let unproven = finalize(
+        shader: contract(
+            revision: "same-slot-unproven-coordinate",
+            uniformMetadata: nil,
+            semanticProbes: false
+        ),
+        device: device,
+        additionalEntries: [
+            .graph(graphTexture()): readyStatus(
+                device,
+                identity: .graph(graphTexture()),
+                purpose: .premultipliedColor,
+                content: .color(.resolved(.premultipliedAlpha)),
+                physicalSize: CGSize(width: 4, height: 4),
+                mappedSize: CGSize(width: 2, height: 4),
+                uvTransform: mappedTransform
+            ),
+        ],
+        snapshotKind: .missing
+    )
+    let translated = finalize(
+        shader: mappedShader,
+        device: device,
+        secondReference: .asset(maskPath),
+        additionalEntries: [maskIdentity: maskStatus(translatedTransform)],
+        uniformDeclarations: [staticDeclaration("alpha", components: [1])]
+    )
+
+    func values(
+        _ program: Program,
+        _ fieldName: String
+    ) -> [Float]? {
+        guard let field = program.frontendProgram.uniformLayout.fields.first(
+            where: { $0.name == fieldName }
+        ), field.type == .float4 else { return nil }
+        return (0 ..< 4).map { component in
+            program.uniformBytes.withUnsafeBytes {
+                $0.loadUnaligned(
+                    fromByteOffset: field.offset + component * 4,
+                    as: Float.self
+                )
+            }
+        }
+    }
+
+    guard case let .success(mappedProgram) = mapped,
+          case let .success(unprovenProgram) = unproven,
+          case let .success(translatedProgram) = translated else {
+        return [
+            "mapped-\(failureToken(mapped))": false,
+            "unproven-\(failureToken(unproven))": false,
+            "translated-\(failureToken(translated))": false,
+        ]
+    }
+    let fact = mappedProgram.sameSlotMappedCoordinateFacts.first
+    return [
+        "programs": true,
+        "typedSourceOwner": mappedProgram.sameSlotMappedCoordinateFacts.count == 1
+            && fact?.textureSlot == 1
+            && fact?.sourceAttributeName == "a_TexCoord"
+            && fact?.varyingName == "v_TexCoord",
+        "sourceOwnerUsesIdentityTransform":
+            values(mappedProgram, "mwxTexture1Transform0") == [0, 0, 1, 0]
+            && values(mappedProgram, "mwxTexture1Transform1") == [0, 1, 0, 0],
+        "resolutionPreservesPhysicalAndMapped":
+            values(mappedProgram, "g_Texture1Resolution") == [4, 4, 2, 4],
+        "unprovenSourceRetainsHostMapping":
+            unprovenProgram.sameSlotMappedCoordinateFacts.isEmpty
+            && values(unprovenProgram, "mwxTexture0Transform0") == [0, 0, 0.5, 0]
+            && values(unprovenProgram, "mwxTexture0Transform1") == [0, 1, 0, 0],
+        "translatedCandidateRetainsHostMapping":
+            translatedProgram.sameSlotMappedCoordinateFacts.isEmpty
+            && values(translatedProgram, "mwxTexture1Transform0")
+                == [0.5, 0, 0.5, 0]
+            && values(translatedProgram, "mwxTexture1Transform1") == [0, 1, 0, 0],
+    ]
+}
+
 @main
 private enum Harness {
     static func float(_ data: Data, at offset: Int) -> Float {
@@ -5042,8 +5174,10 @@ private enum Harness {
         let neutralTextureResolutionFailures =
             neutralTextureResolutionFinalizerFailures(device)
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
+        let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
         let result: [String: Any] = [
             "metalAvailable": true,
+            "sameSlotMappedCoordinate": sameSlotMappedCoordinate,
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
             "exactCrossStageUniformCases": exactCrossStageUniformCases,
@@ -5435,6 +5569,20 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result,
         )
 
+    def test_same_slot_authored_mapping_owns_only_axis_aligned_mapped_coordinate(
+        self,
+    ) -> None:
+        self.assertEqual(
+            [
+                name
+                for name, passed in self.result[
+                    "sameSlotMappedCoordinate"
+                ].items()
+                if not passed
+            ],
+            [],
+            self.result["sameSlotMappedCoordinate"],
+        )
     def test_neutral_missing_texture_resolution_is_structural_and_fail_closed(
         self,
     ) -> None:

@@ -62,6 +62,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend+DiscreteMask.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderNeutralTextureResolutionAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGraphInputColorBlendAnalyzer.swift",
@@ -265,6 +266,7 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchSelection.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTextureResolver+LaunchColor.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer+ColorInputs.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialProgramFinalizer.swift"
       ]
     },
@@ -281,6 +283,7 @@
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
+        "RenderGraph/MaterialProgram/SceneResolvedMaterialCompiledVariant.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",

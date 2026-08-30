@@ -5,6 +5,7 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
         routeDecision: RouteDecision?,
         backend: SceneAuthoredShaderProgram.Backend,
         graphInputDiagnostics: [String],
+        sameSlotMappedCoordinateDiagnostics: [String],
         layerID: Int,
         effectIndex: Int,
         descriptorID: String,
@@ -16,6 +17,8 @@ extension SceneResolvedMaterialGenericShaderArtifactCache {
             routeDecision: routeDecision,
             backend: backend,
             graphInputDiagnostics: graphInputDiagnostics,
+            sameSlotMappedCoordinateDiagnostics:
+                sameSlotMappedCoordinateDiagnostics,
             layerID: layerID,
             effectIndex: effectIndex,
             descriptorID: descriptorID,

@@ -94,6 +94,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             routeDecision: RouteDecision,
             backend: SceneAuthoredShaderProgram.Backend,
             graphInputDiagnostics: [String],
+            sameSlotMappedCoordinateDiagnostics: [String],
             layerID: Int,
             effectIndex: Int,
             descriptorID: String,
@@ -101,15 +102,19 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             preparedKey: String
         ) {
             let graphInputs = graphInputDiagnostics.joined(separator: ",")
+            let coordinateOwners = sameSlotMappedCoordinateDiagnostics.joined(
+                separator: ","
+            )
             let identity = [
                 String(layerID), String(effectIndex), descriptorID,
                 String(nodeIndex), backend.rawValue, preparedKey, graphInputs,
+                coordinateOwners,
             ].joined(separator: "|")
             guard lock.withLock({ executedIdentities.insert(identity).inserted }) else {
                 return
             }
             NSLog(
-                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@",
+                "MWX generic shader execution state=%@ profile=%@ layer=%d effect=%d descriptor=%@ node=%d backend=%@ prepared=%@ graphInputs=%@ coordinateOwners=%@",
                 routeDecision.state,
                 routeDecision.profile,
                 layerID,
@@ -118,7 +123,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 nodeIndex,
                 backend.rawValue,
                 preparedKey,
-                graphInputs.isEmpty ? "-" : graphInputs
+                graphInputs.isEmpty ? "-" : graphInputs,
+                coordinateOwners.isEmpty ? "-" : coordinateOwners
             )
         }
 

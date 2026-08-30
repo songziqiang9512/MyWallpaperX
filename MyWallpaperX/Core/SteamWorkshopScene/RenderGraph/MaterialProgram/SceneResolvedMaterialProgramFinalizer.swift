@@ -203,11 +203,18 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 }
             }
             let uniformInputs = input.uniformInputs(textureSlots: texture.slots)
+            let sameSlotMappedCoordinateFacts =
+                appliedSameSlotMappedCoordinateFacts(
+                    variant: selection.variant,
+                    slots: texture.slots
+                )
             let uniforms = try resolvedUniforms(
                 input,
                 uniformInputs: uniformInputs,
                 variant: selection.variant,
-                slots: texture.slots
+                slots: texture.slots,
+                sameSlotMappedCoordinateFacts:
+                    sameSlotMappedCoordinateFacts
             )
             guard let graphRole = effectiveGraphRole(
                 input.template.graphRole,
@@ -222,7 +229,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 renderState: input.template.renderState,
                 graphRole: graphRole,
                 outputStorage: outputStorage,
-                runtimeLoopBounds: selection.variant.runtimeLoopBounds
+                runtimeLoopBounds: selection.variant.runtimeLoopBounds,
+                sameSlotMappedCoordinateFacts:
+                    sameSlotMappedCoordinateFacts
             ), frontend: selection.variant.frontendProgram,
                 routeDecision: selection.variant.routeDecision,
                 conditionalGeneratedRGBInputContract:
@@ -357,7 +366,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         _ input: SceneResolvedMaterialFinalizationInput,
         uniformInputs: SceneAuthoredShaderUniformInputs,
         variant: SceneResolvedMaterialCompiledVariant,
-        slots: [Program.TextureSlot?]
+        slots: [Program.TextureSlot?],
+        sameSlotMappedCoordinateFacts:
+            Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
     ) throws -> [Program.ResolvedUniform] {
         try variant.frontendProgram.uniformLayout.fields.map { field in
             let schema = variant.activeUniforms[field.name]
@@ -380,7 +391,9 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                           host,
                           type: field.type,
                           inputs: uniformInputs,
-                          slots: slots
+                          slots: slots,
+                          sameSlotMappedCoordinateFacts:
+                              sameSlotMappedCoordinateFacts
                 ) else {
                     throw failure(
                         .uniform,
