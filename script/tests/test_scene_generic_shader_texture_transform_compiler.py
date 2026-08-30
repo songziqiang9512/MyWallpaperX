@@ -162,6 +162,68 @@ private let cases: [String: Sources] = [
         }
         """
     ),
+    "neutral-missing-resolution": .init(
+        vertex: """
+        uniform mat4 g_ModelViewProjectionMatrix;
+        uniform vec4 g_Texture1Resolution;
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec4 v_TexCoord;
+        void main() {
+            gl_Position = mul(
+                vec4(a_Position, 1.0), g_ModelViewProjectionMatrix
+            );
+            v_TexCoord.xy = a_TexCoord;
+            v_TexCoord.zw = vec2(
+                v_TexCoord.x * g_Texture1Resolution.z
+                    / g_Texture1Resolution.x,
+                v_TexCoord.y * g_Texture1Resolution.w
+                    / g_Texture1Resolution.y
+            );
+        }
+        """,
+        fragment: """
+        varying vec4 v_TexCoord;
+        uniform sampler2D g_Texture1;
+        uniform sampler2D g_Texture2;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture2, v_TexCoord.zw);
+        }
+        """
+    ),
+    "active-resolution-sampler": .init(
+        vertex: """
+        uniform mat4 g_ModelViewProjectionMatrix;
+        uniform vec4 g_Texture1Resolution;
+        uniform sampler2D g_Texture1;
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec4 v_TexCoord;
+        void main() {
+            float displacement = texSample2D(
+                g_Texture1, a_TexCoord
+            ).r * 0.001;
+            gl_Position = mul(
+                vec4(a_Position.xy, displacement, 1.0),
+                g_ModelViewProjectionMatrix
+            );
+            v_TexCoord.xy = a_TexCoord;
+            v_TexCoord.zw = vec2(
+                v_TexCoord.x * g_Texture1Resolution.z
+                    / g_Texture1Resolution.x,
+                v_TexCoord.y * g_Texture1Resolution.w
+                    / g_Texture1Resolution.y
+            );
+        }
+        """,
+        fragment: """
+        varying vec4 v_TexCoord;
+        uniform sampler2D g_Texture2;
+        void main() {
+            gl_FragColor = texSample2D(g_Texture2, v_TexCoord.zw);
+        }
+        """
+    ),
 ]
 
 private let rejectedCases: [String: Sources] = [
@@ -264,19 +326,30 @@ private func build(root: URL) throws -> [String: String] {
             maximumArtifactBytes: 1_000_000
         ) {
         case let .success(artifact):
+            let expectedSlots: [Int]
+            switch name {
+            case "neutral-missing-resolution": expectedSlots = [2]
+            case "active-resolution-sampler": expectedSlots = [1, 2]
+            default: expectedSlots = [0]
+            }
             let fields = artifact.program.uniformLayout.fields
             let transformFields = fields.filter {
                 SceneMaterialTextureTransformABI.component(
                     forFieldName: $0.authoredName
                 ) != nil
             }
-            let valid = artifact.program.textureBindings.map(\.slot) == [0]
-                && transformFields.count == 2
+            let valid = artifact.program.textureBindings.map(\.slot) == expectedSlots
+                && transformFields.count == expectedSlots.count * 2
                 && transformFields.allSatisfy {
                     $0.stage == nil && $0.type == "float4"
                 }
-                && artifact.program.metalSource.contains("mwxTexture0Transform0")
-                && artifact.program.metalSource.contains("mwxTexture0Transform1")
+                && expectedSlots.allSatisfy { slot in
+                    artifact.program.metalSource.contains(
+                        "mwxTexture\(slot)Transform0"
+                    ) && artifact.program.metalSource.contains(
+                        "mwxTexture\(slot)Transform1"
+                    )
+                }
             results[name] = valid ? "accepted" : "invalid-abi"
             try write(
                 artifact.program.metalSource,
@@ -335,7 +408,17 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
         "inactive-builtin-overload",
         "active-builtin-overload",
         "both-stages",
+        "neutral-missing-resolution",
+        "active-resolution-sampler",
     )
+
+    @staticmethod
+    def _expected_slots(name: str) -> tuple[int, ...]:
+        if name == "neutral-missing-resolution":
+            return (2,)
+        if name == "active-resolution-sampler":
+            return (1, 2)
+        return (0,)
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -428,13 +511,19 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
         results = {}
         for name in cls.CASES:
             artifact = build_program_artifact(**cls._worker_arguments(root, name))
+            expected_slots = cls._expected_slots(name)
             fields = artifact["program"]["uniformLayout"]["fields"]
             transforms = [
                 field for field in fields
                 if field["authoredName"].startswith("mwxTexture")
             ]
             if (
-                len(transforms) != 2
+                [
+                    binding["slot"]
+                    for binding in artifact["program"]["textureBindings"]
+                ]
+                != list(expected_slots)
+                or len(transforms) != len(expected_slots) * 2
                 or any(field.get("stage") is not None for field in transforms)
                 or any(field["type"] != "float4" for field in transforms)
             ):

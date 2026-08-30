@@ -142,7 +142,8 @@ extension SceneGenericShaderArtifactBuilder {
 
     nonisolated static func resolutionTextureDependencySlots(
         layout: ReflectedLayout,
-        authoredSources: [String]
+        authoredSources: [String],
+        neutralMissingResolutionSlots: Set<Int> = []
     ) -> Set<Int> {
         let source = authoredSources.joined(separator: "\n")
         return Set(layout.fields.compactMap { field -> Int? in
@@ -153,7 +154,8 @@ extension SceneGenericShaderArtifactBuilder {
             let start = name.index(name.startIndex, offsetBy: "g_Texture".count)
             let end = name.index(name.endIndex, offsetBy: -"Resolution".count)
             guard start < end, let slot = Int(name[start ..< end]),
-                  (0 ..< 8).contains(slot) else { return nil }
+                  (0 ..< 8).contains(slot),
+                  !neutralMissingResolutionSlots.contains(slot) else { return nil }
             let sampler = "g_Texture\(slot)"
             let pattern = #"\buniform\s+(?:(?:lowp|mediump|highp)\s+)?sampler2D\s+"#
                 + NSRegularExpression.escapedPattern(for: sampler) + #"\b"#

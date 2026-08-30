@@ -106,9 +106,21 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                     in: fragmentStage.msl
                 )
             )
+            let reflectedTextureNames = try reflectedTextureNames(
+                reflections: [vertexReflection, fragmentReflection]
+            )
+            let neutralTextureResolution =
+                SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+                    vertexSource: vertexStage.authoredSource,
+                    fragmentSource: fragmentStage.authoredSource,
+                    activeSamplerSlots: Set(reflectedTextureNames.keys)
+                )
             let resolutionTextureSlots = resolutionTextureDependencySlots(
                 layout: stagedUniforms.layout,
-                authoredSources: stages.map(\.authoredSource)
+                authoredSources: stages.map(\.authoredSource),
+                neutralMissingResolutionSlots: Set(
+                    neutralTextureResolution.map { [$0.resolutionSlot] } ?? []
+                )
             )
             guard let uniformLayout = addingTextureTransformFields(
                 to: stagedUniforms.layout,
@@ -190,7 +202,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 throw Failure.metalSize
             }
             let bindings = try textureBindings(
-                reflections: [vertexReflection, fragmentReflection],
+                reflectedTextureNames: reflectedTextureNames,
                 metalSource: metalSource,
                 resolutionTextureSlots: resolutionTextureSlots
             )
@@ -304,21 +316,11 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
     }
 
     private static func textureBindings(
-        reflections: [Reflection],
+        reflectedTextureNames: [Int: String],
         metalSource: String,
         resolutionTextureSlots: Set<Int>
     ) throws -> [SceneGenericShaderProgramArtifact.Program.TextureBinding] {
-        var names: [Int: String] = [:]
-        for reflection in reflections {
-            for texture in reflection.textures ?? [] {
-                guard (0 ..< 8).contains(texture.binding),
-                      texture.name == "g_Texture\(texture.binding)",
-                      names[texture.binding].map({ $0 == texture.name }) ?? true else {
-                    throw Failure.texture
-                }
-                names[texture.binding] = texture.name
-            }
-        }
+        var names = reflectedTextureNames
         for slot in resolutionTextureSlots {
             names[slot] = "g_Texture\(slot)"
         }
@@ -333,6 +335,23 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             let use = sampled ? try channelUse(of: name, in: metalSource) : "unproven"
             return .init(name: name, slot: slot, channelUse: use)
         }
+    }
+
+    private static func reflectedTextureNames(
+        reflections: [Reflection]
+    ) throws -> [Int: String] {
+        var names: [Int: String] = [:]
+        for reflection in reflections {
+            for texture in reflection.textures ?? [] {
+                guard (0 ..< 8).contains(texture.binding),
+                      texture.name == "g_Texture\(texture.binding)",
+                      names[texture.binding].map({ $0 == texture.name }) ?? true else {
+                    throw Failure.texture
+                }
+                names[texture.binding] = texture.name
+            }
+        }
+        return names
     }
 
     private static func channelUse(of name: String, in source: String) throws -> String {
