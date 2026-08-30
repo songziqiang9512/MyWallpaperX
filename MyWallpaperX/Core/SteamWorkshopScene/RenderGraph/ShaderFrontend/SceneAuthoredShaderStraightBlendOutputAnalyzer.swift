@@ -8,6 +8,11 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
+    struct AlphaPreservingGeneratedRGBFact: Equatable, Sendable {
+        let sourceSlot: Int
+        let scalarSampleCallCounts: [Int: Int]
+    }
+
     private enum BlendHelper {
         case normal
         case additive
@@ -114,10 +119,34 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
     /// Auxiliary texture reads are limited to scalar channels, so only the
     /// sampled color slot needs an unpremultiply boundary.
     static func analyzeAlphaPreservingGeneratedRGB(
+        fragmentSource source: String
+    ) -> AlphaPreservingGeneratedRGBFact? {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: source,
+                stage: .fragment
+            ),
+            stage: .fragment
+        )
+        guard syntax.diagnostics.isEmpty,
+              let fragment = syntax.unit,
+              let main = fragment.functions.first(where: { $0.name == "main" })
+        else { return nil }
+        let outputUses = fragment.tokens.indices.filter {
+            fragment.tokens[$0].text == "gl_FragColor"
+        }
+        return analyzeAlphaPreservingGeneratedRGB(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
+    static func analyzeAlphaPreservingGeneratedRGB(
         outputUses: [Int],
         fragment: Unit,
         main: Unit.Function
-    ) -> Int? {
+    ) -> AlphaPreservingGeneratedRGBFact? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -151,9 +180,9 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 .assignmentExpression(
                     after: alphaDefinition, in: tokens, body: main.bodyRange
                 ), member(alphaExpression, name: sample, component: "a"),
-              blendHelper(fragment) == .normal,
+              [.normal, .additive].contains(blendHelper(fragment)),
               helperFunctionsDoNotSampleTextures(fragment, excluding: main),
-              let slot = uniqueSampleSlotAllowingScalarAuxiliaries(
+              let sampling = uniqueSampleSlotAllowingScalarAuxiliaries(
                 sample, before: output, tokens: tokens, body: main.bodyRange
               ) else {
             return nil
@@ -177,7 +206,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
               ) else {
             return nil
         }
-        return slot
+        return sampling
     }
 
     static func hasNormalBlendHelper(_ fragment: Unit) -> Bool {
@@ -257,7 +286,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         before boundary: Int,
         tokens: [Token],
         body: Range<Int>
-    ) -> Int? {
+    ) -> AlphaPreservingGeneratedRGBFact? {
         guard let definition = uniqueDefinition(
             name, types: ["vec4", "float4"], before: boundary,
             tokens: tokens, body: body
@@ -267,25 +296,38 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 .directTextureSampleSlot(expression) else {
             return nil
         }
+        let sampleIndices = body.filter {
+            ["texSample2D", "texture2D"].contains(tokens[$0].text)
+        }
+        guard !sampleIndices.isEmpty,
+              sampleIndices.allSatisfy({ $0 < boundary }) else { return nil }
         var colorSamples: [Int] = []
-        for index in body where index < boundary
-            && ["texSample2D", "texture2D"].contains(tokens[index].text) {
+        var scalarSampleCallCounts: [Int: Int] = [:]
+        for index in sampleIndices {
             guard index + 1 < boundary, tokens[index + 1].text == "(",
                   let closing = matchingClose(
                     opening: index + 1, before: boundary, tokens: tokens
-                  ) else { return nil }
+                  ), let sampledSlot = SceneAuthoredShaderColorTransferAnalyzer
+                    .directTextureSampleSlot(tokens[index...closing]) else {
+                return nil
+            }
             let scalarRead = closing + 2 < boundary
                 && tokens[closing + 1].text == "."
                 && ["r", "g", "b", "a", "x", "y", "z", "w"]
                     .contains(tokens[closing + 2].text)
-            if scalarRead { continue }
-            guard let sampledSlot = SceneAuthoredShaderColorTransferAnalyzer
-                .directTextureSampleSlot(tokens[index...closing]) else {
-                return nil
+            if scalarRead {
+                scalarSampleCallCounts[sampledSlot, default: 0] += 1
+            } else {
+                colorSamples.append(sampledSlot)
             }
-            colorSamples.append(sampledSlot)
         }
-        return colorSamples == [slot] ? slot : nil
+        guard colorSamples == [slot],
+              scalarSampleCallCounts[slot] == nil,
+              sampleIndices.count <= 16 else { return nil }
+        return .init(
+            sourceSlot: slot,
+            scalarSampleCallCounts: scalarSampleCallCounts
+        )
     }
 
     private static func helperFunctionsDoNotSampleTextures(

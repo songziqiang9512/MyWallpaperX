@@ -288,7 +288,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
                 fragment: fragment,
                 main: main
             ) {
-            return .straightAlphaPreserving(textureSlot: slot)
+            return .straightAlphaPreserving(textureSlot: slot.sourceSlot)
         }
         if let fact = SceneAuthoredShaderGeneratedUnderlayBlendAnalyzer.analyze(
             fragment

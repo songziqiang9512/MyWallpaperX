@@ -127,101 +127,11 @@ extension SceneGenericShaderArtifactBuilder {
             guard let lowered else { throw Failure.colorTransfer }
             return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))
         case let .straightAlphaPreserving(textureSlot: expectedSlot):
-            let preserving: (
-                msl: String,
-                transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
-            )?
-            if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
-                .analyze(fragmentSource: authoredSource) {
-                guard fact.blurredSlot == expectedSlot,
-                      let lowered =
-                        SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
-                            source,
-                            expectedBlurredSlot: expectedSlot,
-                            expectedPreviousSlot: fact.previousSlot,
-                            expectedMaskSlot: fact.maskSlot
-                        ) else { throw Failure.colorTransfer }
-                preserving = (
-                    msl: lowered,
-                    transfer: artifactTransfer(
-                        kind: "straight-alpha-preserving",
-                        slot: expectedSlot
-                    )
-                )
-            } else if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
-                .analyzeAny(fragmentSource: authoredSource) {
-                guard fact.sourceSlot == expectedSlot,
-                      let lowered = SceneGenericShaderStraightAlphaPreservingLowering
-                        .lowerPreservedAlphaRGBFilter(
-                            source,
-                            sourceSlot: fact.sourceSlot,
-                            fullColorSampleCallCounts:
-                                fact.fullColorSampleCallCounts,
-                            rgbColorSampleCallCounts:
-                                fact.rgbColorSampleCallCounts,
-                            dataSampleCallCounts: fact.dataSampleCallCounts
-                        ) else { throw Failure.colorTransfer }
-                preserving = (
-                    msl: lowered,
-                    transfer: artifactTransfer(
-                        kind: "straight-alpha-preserving",
-                        slot: expectedSlot
-                    )
-                )
-            } else if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer
-                .analyze(fragmentSource: authoredSource) {
-                guard fact.sourceSlot == expectedSlot,
-                      let lowered = SceneGenericShaderTypedDataRGBFilterLowering
-                        .lower(source, fact: fact) else {
-                    throw Failure.colorTransfer
-                }
-                preserving = (
-                    msl: lowered,
-                    transfer: artifactTransfer(
-                        kind: "straight-alpha-preserving",
-                        slot: expectedSlot
-                    )
-                )
-            } else if let fact =
-                SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
-                    .analyze(fragmentSource: authoredSource) {
-                guard fact.sourceSlot == expectedSlot,
-                      let lowered =
-                        SceneGenericShaderSameAlphaReconstructedRGBFilterLowering
-                            .lower(source, fact: fact) else {
-                    throw Failure.colorTransfer
-                }
-                preserving = (
-                    msl: lowered,
-                    transfer: artifactTransfer(
-                        kind: "straight-alpha-preserving",
-                        slot: expectedSlot
-                    )
-                )
-            } else if let fact = SceneAuthoredShaderConditionalGeneratedRGBAnalyzer
-                .analyze(fragmentSource: authoredSource) {
-                guard fact.alphaCarrierSlot == expectedSlot,
-                      let lowered = SceneGenericShaderConditionalGeneratedRGBLowering
-                        .lower(source, fact: fact) else {
-                    throw Failure.colorTransfer
-                }
-                preserving = (
-                    msl: lowered,
-                    transfer: artifactTransfer(
-                        kind: "straight-alpha-preserving",
-                        slot: expectedSlot
-                    )
-                )
-            } else {
-                preserving = straightAlphaPreserving(
-                    source,
-                    expectedSlot: expectedSlot
-                )
-            }
-            guard let preserving else {
-                throw Failure.colorTransfer
-            }
-            return preserving
+            return try prepareStraightAlphaPreservingColorTransfer(
+                msl: source,
+                authoredSource: authoredSource,
+                expectedSlot: expectedSlot
+            )
         case let .independentAlphaSignalPreserving(textureSlot: slot):
             return (
                 source,

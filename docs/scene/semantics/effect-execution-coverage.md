@@ -2,11 +2,13 @@
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-28
+> 最近核对：2026-08-31
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 
 本文把 45 个官方用户 Effect 逐项映射到 MyWallpaperX 当前执行级别和公共依赖。作者语义、输入槽和 pass/RT 结构见 [Effects 语义全集](effects-reference.md)，Graph/Shader 原子能力见 [Render Graph 与 Shader 覆盖表](render-graph-shader-coverage.md)，依赖 ID 见 [公共能力依赖图](capability-dependency-map.md)。
+
+现役 Workshop Gradient Color 更正：共享 straight-alpha-preserving source/compiler 合同现在允许一个 full-color scene source 与独立 scalar-channel mask共同生成 RGB，同时原样守恒 scene alpha；只有 source/aux 槽互斥、sample count/projection 双侧一致、无 helper/额外 full-color sample且 terminal alpha 精确守恒时才准入。真实 `2938612768` 三个 consumer 与未见 `2974757317` 一个 consumer 复用既有 `generic-only / genericCompilerArtifact` owner、MaterialProgram、GraphExecutor 与唯一 compositor；没有新增 Gradient planner/profile/pipeline/renderer/loader。两份正式 selection 因无关旧缺口保持 NON-PASS，当前只有执行链与整构图安全证据，没有 Gradient 独立 ROI、眼部发光或官方视觉 parity。见 [E-V4-GENERATED-RGB-PRESERVED-ALPHA](runtime-evidence-index.md#e-v4-generated-rgb-preserved-alpha)。
 
 现役 Water Ripple 编译边界更正：预处理后未调用的 exact `mat3 inverse(mat3)` 不再因与 glslang 内建重载的 precision qualifier 冲突而拒绝整个 effect。共享 canonicalizer 只改定义名并保留完整函数体；prototype、任一调用、其他签名、directive 或结构错误均不改写。真实 `3780391264:17#effect#1145` 继续复用既有 `source-proven-graph-input-stage-uniform-passthrough / generic-only` owner，以 `genericCompilerArtifact` 完成 CPU、frame0/next-frame GPU、publication 与唯一 compositor，定向 selection 严格 **1/1 PASS**。这修复的是公共 shader preparation，不是 Water Ripple 专用产品实现；只证明一个 exact stock consumer，不证明其余 variant、完整样本、20 个 authored 样本或官方 parity。见 [E-V4-INACTIVE-BUILTIN-OVERLOAD-CANONICALIZATION](runtime-evidence-index.md#e-v4-inactive-builtin-overload-canonicalization)。
 
