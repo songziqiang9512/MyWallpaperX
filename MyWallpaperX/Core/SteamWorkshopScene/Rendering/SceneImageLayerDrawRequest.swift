@@ -76,9 +76,12 @@ struct SceneImageLayerMasks {
               let pass = effect.passes.first,
               pass.passIndex == 0,
               pass.userTextureInputs.isEmpty,
-              (1 ... 2).contains(pass.textureSlots.count),
-              pass.textureSlots[0] == nil,
-              pass.textureSlots.count == 1 || pass.textureSlots[1] != nil,
+              pass.textureSlots.isEmpty || (
+                  (1 ... 2).contains(pass.textureSlots.count)
+                      && pass.textureSlots[0] == nil
+                      && (pass.textureSlots.count == 1
+                          || pass.textureSlots[1] != nil)
+              ),
               pass.texturePaths.map(Self.normalized)
                 == pass.textureSlots.compactMap({ $0 }).map(Self.normalized),
               normalizedLocalDisplacementCombos(pass.combos) != nil else {

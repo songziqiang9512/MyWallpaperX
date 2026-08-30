@@ -85,11 +85,12 @@ struct SceneImageLayerCompositor {
         let hasUnclaimedVisibleEffects = request.layer.effects.contains {
             $0.visible != false
         } && resolvedMaterialClaim == nil
-        if let passthroughPlan = SceneLayerSourcePassthroughPlan.make(
+        let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(
             request: request,
             publication: explicitLayerSourcePublication,
             route: resolvedMaterialRoute
-        ) {
+        )
+        if case let .success(passthroughPlan) = passthroughResolution {
             let uniforms = makeFragmentUniforms(
                 values: request.uniforms,
                 textureFrame: passthroughPlan.source.uvTransform,
@@ -118,11 +119,18 @@ struct SceneImageLayerCompositor {
             return encoded ? .layerSourcePassthrough : .failed
         }
         guard !hasUnclaimedVisibleEffects else {
+            let reasonCode: String
+            switch passthroughResolution {
+            case .success:
+                reasonCode = "unclaimed-visible-effects"
+            case let .failure(reason):
+                reasonCode = "unclaimed-visible-effects-\(reason.rawValue)"
+            }
             executionTrace?.recordRouteOperation(
                 layerID: request.layer.id,
                 origin: executionOrigin,
                 operation: "unclaimed-effect-product-authority",
-                outcome: .failed(reasonCode: "unclaimed-visible-effects")
+                outcome: .failed(reasonCode: reasonCode)
             )
             return .failed
         }

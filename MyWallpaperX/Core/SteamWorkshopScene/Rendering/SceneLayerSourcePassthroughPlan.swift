@@ -5,6 +5,34 @@ import simd
 /// has no runtime owner. The plan proves only that the exact layer source can
 /// enter the final layer composite; it does not claim or publish effect output.
 struct SceneLayerSourcePassthroughPlan {
+    enum RejectionReason: String, Error {
+        case routeUnavailable = "route-unavailable"
+        case publicationUnavailable = "publication-unavailable"
+        case imageSourceRequired = "image-source-required"
+        case displayAuthorityUnavailable = "display-authority-unavailable"
+        case visibleEffectUnavailable = "visible-effect-unavailable"
+        case frameTargetPresent = "frame-target-present"
+        case sourceCopyRequired = "source-copy-required"
+        case finalAlphaPresent = "final-alpha-present"
+        case dependencyPresent = "dependency-present"
+        case sourceCoverageUnproven = "source-coverage-unproven"
+        case layerBlendNonneutral = "layer-blend-nonneutral"
+        case layerStyleNonneutral = "layer-style-nonneutral"
+        case textureFrameNonidentity = "texture-frame-nonidentity"
+        case publicationRequestMismatch = "publication-request-mismatch"
+        case publicationTextureMismatch = "publication-texture-mismatch"
+        case publicationGenerationInvalid = "publication-generation-invalid"
+        case publicationIncomplete = "publication-incomplete"
+        case publicationPurposeInvalid = "publication-purpose-invalid"
+        case publicationContentInvalid = "publication-content-invalid"
+        case publicationSampleInvalid = "publication-sample-invalid"
+        case staticSourceAtomInvalid = "static-source-atom-invalid"
+        case currentMediaAtomInvalid = "current-media-atom-invalid"
+        case sourceIdentityUnsupported = "source-identity-unsupported"
+        case staticSourceGraphRolePresent = "static-source-graph-role-present"
+        case projectedGeometryInvalid = "projected-geometry-invalid"
+    }
+
     enum SourceKind: Equatable {
         case staticFile
         case currentMedia
@@ -55,66 +83,97 @@ struct SceneLayerSourcePassthroughPlan {
         self.projectedGeometry = projectedGeometry
     }
 
-    static func make(
+    static func resolve(
         request: SceneImageLayerDrawRequest,
         publication: SceneTextureProviderPublication?,
         route: SceneResolvedMaterialClaimRoute
-    ) -> Self? {
-        guard route.allowsLayerSourcePassthrough,
-              let publication,
-              request.layer.contentKind == "image",
-              SceneLayerVisibility.hasCurrentSourceDisplayAuthority(
-                  for: request.layer,
-                  snapshot: request.dynamicValues
-              ),
-              request.layer.effects.contains(where: { $0.visible != false }),
-              request.resolvedMaterialFrameTargetPlan == nil,
-              !request.requiresSourceCopy,
-              request.finalCompositeAlpha == nil,
-              request.dependencyEffect == nil,
-              !request.requiresDependencyEffect,
-              !request.masks.blocksLayerSourcePassthrough(
-                  forVisibleEffects: request.layer.effects
-              ),
-              (request.layer.colorBlendMode ?? 0) == 0,
-              neutral(request.uniforms.alpha),
+    ) -> Result<Self, RejectionReason> {
+        guard route.allowsLayerSourcePassthrough else {
+            return .failure(.routeUnavailable)
+        }
+        guard let publication else { return .failure(.publicationUnavailable) }
+        guard request.layer.contentKind == "image" else {
+            return .failure(.imageSourceRequired)
+        }
+        guard SceneLayerVisibility.hasCurrentSourceDisplayAuthority(
+            for: request.layer,
+            snapshot: request.dynamicValues
+        ) else { return .failure(.displayAuthorityUnavailable) }
+        guard request.layer.effects.contains(where: { $0.visible != false }) else {
+            return .failure(.visibleEffectUnavailable)
+        }
+        guard request.resolvedMaterialFrameTargetPlan == nil else {
+            return .failure(.frameTargetPresent)
+        }
+        guard !request.requiresSourceCopy else { return .failure(.sourceCopyRequired) }
+        guard request.finalCompositeAlpha == nil else {
+            return .failure(.finalAlphaPresent)
+        }
+        guard request.dependencyEffect == nil,
+              !request.requiresDependencyEffect else {
+            return .failure(.dependencyPresent)
+        }
+        guard !request.masks.blocksLayerSourcePassthrough(
+            forVisibleEffects: request.layer.effects
+        ) else { return .failure(.sourceCoverageUnproven) }
+        guard (request.layer.colorBlendMode ?? 0) == 0 else {
+            return .failure(.layerBlendNonneutral)
+        }
+        guard neutral(request.uniforms.alpha),
               neutral(request.uniforms.tint.x),
               neutral(request.uniforms.tint.y),
               neutral(request.uniforms.tint.z),
               neutralColor(request.layer.colorRGB),
-              neutral(Float(request.layer.brightness ?? 1)),
-              request.textureFrame == .identity,
-              publication.requestIdentity == .layerSource(request.layer.id),
-              publication.texture === request.texture,
-              publication.contentGeneration > 0,
-              publication.isComplete,
-              publication.candidate.purpose == .premultipliedColor,
-              (publication.candidate.content
-                    == .color(.resolved(.premultipliedAlpha))
-                || publication.candidate.content
-                    == .color(.resolved(.opaque))),
-              let sourceSample = SceneBaseImageTextureCandidateResolver.sample(
-                  candidate: publication.candidate,
-                  sourceTexture: publication.texture
-              ),
-              let sourceKind = sourceKind(
-                  request: request,
-                  publication: publication
-              ),
-              // The media provider is already an explicit degraded display authority.
-              // Authored cross-layer roles only block static-file source fallback here.
-              sourceKind == .currentMedia
-                || !request.blocksStaticLayerSourcePassthrough,
-              let geometry = projectedGeometry(for: request.mvp) else {
-            return nil
+              neutral(Float(request.layer.brightness ?? 1)) else {
+            return .failure(.layerStyleNonneutral)
         }
-        return Self(
+        guard request.textureFrame == .identity else {
+            return .failure(.textureFrameNonidentity)
+        }
+        guard publication.requestIdentity == .layerSource(request.layer.id) else {
+            return .failure(.publicationRequestMismatch)
+        }
+        guard publication.texture === request.texture else {
+            return .failure(.publicationTextureMismatch)
+        }
+        guard publication.contentGeneration > 0 else {
+            return .failure(.publicationGenerationInvalid)
+        }
+        guard publication.isComplete else { return .failure(.publicationIncomplete) }
+        guard publication.candidate.purpose == .premultipliedColor else {
+            return .failure(.publicationPurposeInvalid)
+        }
+        guard publication.candidate.content
+                == .color(.resolved(.premultipliedAlpha))
+                || publication.candidate.content
+                == .color(.resolved(.opaque)) else {
+            return .failure(.publicationContentInvalid)
+        }
+        guard let sourceSample = SceneBaseImageTextureCandidateResolver.sample(
+            candidate: publication.candidate,
+            sourceTexture: publication.texture
+        ) else { return .failure(.publicationSampleInvalid) }
+        let resolvedSourceKind: SourceKind
+        switch Self.sourceKind(request: request, publication: publication) {
+        case let .success(value): resolvedSourceKind = value
+        case let .failure(reason): return .failure(reason)
+        }
+        // The media provider is already an explicit degraded display authority.
+        // Authored cross-layer roles only block static-file source fallback here.
+        guard resolvedSourceKind == .currentMedia
+            || !request.blocksStaticLayerSourcePassthrough else {
+            return .failure(.staticSourceGraphRolePresent)
+        }
+        guard let geometry = projectedGeometry(for: request.mvp) else {
+            return .failure(.projectedGeometryInvalid)
+        }
+        return .success(Self(
             layerID: request.layer.id,
             visibleEffectIDs: request.layer.effects.compactMap {
                 $0.visible != false ? $0.id : nil
             },
             source: SourceAtom(
-                kind: sourceKind,
+                kind: resolvedSourceKind,
                 requestIdentity: publication.requestIdentity,
                 resourceIdentity: publication.candidate.identity,
                 resourceGeneration: publication.candidate.generation,
@@ -130,13 +189,13 @@ struct SceneLayerSourcePassthroughPlan {
             ),
             modelViewProjection: request.mvp,
             projectedGeometry: geometry
-        )
+        ))
     }
 
     private static func sourceKind(
         request: SceneImageLayerDrawRequest,
         publication: SceneTextureProviderPublication
-    ) -> SourceKind? {
+    ) -> Result<SourceKind, RejectionReason> {
         switch (
             publication.candidate.identity,
             publication.candidate.generation
@@ -148,9 +207,9 @@ struct SceneLayerSourcePassthroughPlan {
                       candidate: requestCandidate,
                       sourceTexture: request.texture
                   ) != nil else {
-                return nil
+                return .failure(.staticSourceAtomInvalid)
             }
-            return .staticFile
+            return .success(.staticFile)
         case let (
             .provider(.mediaThumbnailCurrent),
             .provider(contentGeneration)
@@ -162,11 +221,11 @@ struct SceneLayerSourcePassthroughPlan {
                   publication.candidate.sampling.rawFlags == nil,
                   publication.candidate.authoredFormat == nil,
                   validCurrentMediaTexture(publication.texture) else {
-                return nil
+                return .failure(.currentMediaAtomInvalid)
             }
-            return .currentMedia
+            return .success(.currentMedia)
         case (.builtIn, _), (.provider, _), (.file, _):
-            return nil
+            return .failure(.sourceIdentityUnsupported)
         }
     }
 

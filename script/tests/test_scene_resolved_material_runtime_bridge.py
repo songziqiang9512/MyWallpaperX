@@ -4430,17 +4430,20 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "request.layer.displayScriptOwnership?.isEmpty", passthrough_plan
         )
         self.assertNotIn("request.layer.visible != false", passthrough_plan)
+        self.assertIn(
+            "let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(",
+            compositor,
+        )
+        self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
+        self.assertIn("unclaimed-visible-effects-\\(reason.rawValue)", compositor)
         fallback_start = compositor.index(
-            "if let passthroughPlan = SceneLayerSourcePassthroughPlan.make("
+            "if case let .success(passthroughPlan) = passthroughResolution"
         )
         fallback_end = compositor.index(
             "guard !hasUnclaimedVisibleEffects else", fallback_start
         )
         source_passthrough = compositor[fallback_start:fallback_end]
-        self.assertIn(
-            "route: resolvedMaterialRoute",
-            source_passthrough,
-        )
+        self.assertIn("route: resolvedMaterialRoute", compositor)
         self.assertIn(
             "return encoded ? .layerSourcePassthrough : .failed",
             source_passthrough,

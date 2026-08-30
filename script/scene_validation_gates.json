@@ -184,6 +184,7 @@
       "modules": [
         "test_scene_background_material_provider",
         "test_scene_dynamic_layer_visibility",
+        "test_scene_layer_source_passthrough_coverage",
         "test_scene_resolved_material_runtime_bridge",
         "test_scene_source_update_transaction",
         "test_scene_visible_graph_output_render_plan"
@@ -201,6 +202,7 @@
       ],
       "modules": [
         "test_scene_resolved_material_runtime_bridge",
+        "test_scene_layer_source_passthrough_coverage",
         "test_scene_source_update_transaction",
         "test_scene_texture_candidate",
         "test_scene_frame_texture_registry",
