@@ -75,6 +75,11 @@ nonisolated enum SceneDynamicSource: Hashable {
     case sceneScript
 }
 
+nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+}
+
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
@@ -83,7 +88,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
     case materialUserProperty(SceneUserPropertyTextureIdentity)
-    case system(String)
+    case system(SceneSystemProviderTextureIdentity)
 }
 '''
 
@@ -295,7 +300,10 @@ private func textureSlot(
     case let .provider(request):
         switch request {
         case let .system(name):
-            registryIdentity = .system(name)
+            registryIdentity = .system(.init(
+                name: name,
+                purpose: expectedPurpose
+            ))
         case let .namedLayerTarget(reference):
             registryIdentity = .namedLayerTarget(reference)
         case let .sceneBackground(consumerLayerID):
@@ -605,7 +613,10 @@ private enum Harness {
             prepared: firstPrepared,
             textureSlots: slots(textureSlot(
                 device: device,
-                registryIdentityOverride: .system("wrong-provider")
+                registryIdentityOverride: .system(.init(
+                    name: "wrong-provider",
+                    purpose: .premultipliedColor
+                ))
             ))
         ) == nil
         let mismatchedExactGraphIdentity = assemble(

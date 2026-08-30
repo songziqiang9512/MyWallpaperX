@@ -1463,6 +1463,17 @@ private func failureToken(
     }
 }
 
+private func visualFallbackToken(
+    _ result: Result<Program, SceneResolvedMaterialFailure>
+) -> String {
+    switch result {
+    case .success:
+        return "success"
+    case let .failure(failure):
+        return failure.effectLocalVisualFallback?.rawValue ?? "none"
+    }
+}
+
 private func unreachableGraphCandidateToken(_ device: MTLDevice) -> String {
     let inactive = framebufferTexture()
     return failureToken(finalize(
@@ -4265,6 +4276,13 @@ private enum Harness {
                     ),
             ]
         )
+        let systemMaskIdentity = SceneSystemProviderTextureIdentity(
+            name: "fixture-mask-provider",
+            purpose: .mask
+        )
+        let systemMaskRequest = SceneFrameTextureIdentity.system(
+            systemMaskIdentity
+        )
         let providerProgram = finalize(
             shader: contract(
                 revision: "provider-reference",
@@ -4273,14 +4291,23 @@ private enum Harness {
             device: device,
             secondReference: .provider(.system("fixture-mask-provider")),
             additionalEntries: [
-                .system("fixture-mask-provider"):
+                systemMaskRequest:
                     readyStatus(
                         device,
-                        identity: .system("fixture-mask-provider"),
+                        identity: systemMaskRequest,
                         purpose: .mask,
                         content: .data
                     ),
             ]
+        )
+        let providerPending = finalize(
+            shader: contract(
+                revision: "provider-pending",
+                secondSamplerMetadata: maskMetadata
+            ),
+            device: device,
+            secondReference: .provider(.system("fixture-mask-provider")),
+            additionalEntries: [systemMaskRequest: .pending]
         )
         let fallbackAssetPath = SceneVFSAssetPath("textures/fallback-mask.tex")!
         let fallbackProperty = Template.UserPropertyRequest(key: "optionalMask")
@@ -4751,6 +4778,9 @@ private enum Harness {
             ),
             "providerPendingDoesNotUseEarlierCandidate": failureToken(
                 providerPendingDoesNotFallback
+            ),
+            "systemProviderPendingVisualFallback": visualFallbackToken(
+                providerPending
             ),
             "providerUnavailableDoesNotUseShaderDefault": failureToken(
                 shaderDefaultAfterUnavailableProvider
@@ -5435,6 +5465,9 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             ),
             "providerPendingDoesNotUseEarlierCandidate": (
                 "texture/resourceSnapshotUnresolved"
+            ),
+            "systemProviderPendingVisualFallback": (
+                "material-finalizer-system-provider-pending"
             ),
             "providerUnavailableDoesNotUseShaderDefault": (
                 "texture/resourceSnapshotUnresolved"

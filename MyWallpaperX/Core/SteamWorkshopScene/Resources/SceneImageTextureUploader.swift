@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import ImageIO
 import Metal
 
 nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
@@ -30,6 +31,103 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 enum SceneImageTextureUploader {
+    enum EncodedPreservedChannelsError: Error, Equatable {
+        case emptySource
+        case imageSourceUnavailable
+        case metadataUnavailable
+        case dimensionsOutOfRange(width: Int, height: Int, maximum: Int)
+        case nonIdentityOrientation(Int)
+        case decodeUnavailable
+        case decodedDimensionsMismatch(
+            expectedWidth: Int,
+            expectedHeight: Int,
+            actualWidth: Int,
+            actualHeight: Int
+        )
+        case unsupportedPixelLayout
+        case premultipliedPixelLayout
+        case textureAllocationFailed(width: Int, height: Int)
+    }
+
+    static let encodedPreservedChannelsMaximumDimension = 256
+
+    /// Decodes a bounded encoded source directly into a channel-preserving
+    /// texture. This path never consumes an existing color texture because a
+    /// premultiplied texture cannot recover source RGB at zero/fractional alpha.
+    static func uploadEncodedPreservedChannels(
+        _ encodedSource: Data,
+        device: MTLDevice
+    ) -> Result<MTLTexture, EncodedPreservedChannelsError> {
+        guard !encodedSource.isEmpty else { return .failure(.emptySource) }
+        guard let imageSource = CGImageSourceCreateWithData(
+            encodedSource as CFData,
+            nil
+        ) else {
+            return .failure(.imageSourceUnavailable)
+        }
+        guard let properties = CGImageSourceCopyPropertiesAtIndex(
+            imageSource,
+            0,
+            nil
+        ) as? [CFString: Any],
+        let width = exactPositiveInteger(properties[kCGImagePropertyPixelWidth]),
+        let height = exactPositiveInteger(properties[kCGImagePropertyPixelHeight]) else {
+            return .failure(.metadataUnavailable)
+        }
+        let maximum = encodedPreservedChannelsMaximumDimension
+        guard width <= maximum, height <= maximum else {
+            return .failure(.dimensionsOutOfRange(
+                width: width,
+                height: height,
+                maximum: maximum
+            ))
+        }
+        let orientation: Int
+        if let rawOrientation = properties[kCGImagePropertyOrientation] {
+            guard let value = exactPositiveInteger(rawOrientation) else {
+                return .failure(.metadataUnavailable)
+            }
+            orientation = value
+        } else {
+            orientation = 1
+        }
+        guard orientation == 1 else {
+            return .failure(.nonIdentityOrientation(orientation))
+        }
+        guard let image = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+            return .failure(.decodeUnavailable)
+        }
+        guard image.width == width, image.height == height else {
+            return .failure(.decodedDimensionsMismatch(
+                expectedWidth: width,
+                expectedHeight: height,
+                actualWidth: image.width,
+                actualHeight: image.height
+            ))
+        }
+        guard let source = sourceRGBA(image) else {
+            return .failure(.unsupportedPixelLayout)
+        }
+        guard image.alphaInfo == .last || image.alphaInfo == .first else {
+            if source.premultiplied {
+                return .failure(.premultipliedPixelLayout)
+            }
+            return .failure(.unsupportedPixelLayout)
+        }
+        guard !source.premultiplied else {
+            return .failure(.premultipliedPixelLayout)
+        }
+        guard let texture = makeTexture(
+            rgba: source.data,
+            width: width,
+            height: height,
+            device: device
+        ) else {
+            return .failure(.textureAllocationFailed(width: width, height: height))
+        }
+        return .success(texture)
+    }
+
     static func upload(
         image: CGImage,
         purpose: SceneTextureLoadPurpose,
@@ -55,6 +153,46 @@ enum SceneImageTextureUploader {
             return .decodeFailed("CGImage RGBA rasterization failed (\(width)×\(height))")
         }
 
+        guard let texture = makeTexture(
+            rgba: rgba,
+            width: width,
+            height: height,
+            device: device
+        ) else {
+            return .textureAllocationFailed(width: width, height: height)
+        }
+        return .loaded(texture)
+    }
+
+    private static func exactPositiveInteger(_ value: Any?) -> Int? {
+        guard let number = value as? NSNumber else { return nil }
+        let signed = number.int64Value
+        guard signed > 0,
+              number.compare(NSNumber(value: signed)) == .orderedSame else {
+            return nil
+        }
+        return Int(signed)
+    }
+
+    private static func makeTexture(
+        rgba: Data,
+        width: Int,
+        height: Int,
+        device: MTLDevice
+    ) -> MTLTexture? {
+        let (pixelCount, pixelCountOverflow) = width.multipliedReportingOverflow(
+            by: height
+        )
+        let (byteCount, byteCountOverflow) = pixelCount.multipliedReportingOverflow(
+            by: 4
+        )
+        guard width > 0,
+              height > 0,
+              !pixelCountOverflow,
+              !byteCountOverflow,
+              rgba.count == byteCount else {
+            return nil
+        }
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba8Unorm,
             width: width,
@@ -64,7 +202,7 @@ enum SceneImageTextureUploader {
         descriptor.usage = .shaderRead
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else {
-            return .textureAllocationFailed(width: width, height: height)
+            return nil
         }
         rgba.withUnsafeBytes { bytes in
             texture.replace(
@@ -74,7 +212,7 @@ enum SceneImageTextureUploader {
                 bytesPerRow: width * 4
             )
         }
-        return .loaded(texture)
+        return texture
     }
 
     static func rgbaData(

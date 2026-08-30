@@ -58,10 +58,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let code: Code
     }
 
-    struct SystemProviderDemand: Hashable {
-        let name: String
-        let purpose: SceneTextureLoadPurpose
-    }
+    typealias SystemProviderDemand = SceneSystemProviderTextureIdentity
 
     /// Resource-demand reachability is a shader/template property, not a
     /// material-node identity property. Authored graphs commonly instantiate

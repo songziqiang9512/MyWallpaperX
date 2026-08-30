@@ -197,6 +197,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         catalog.userPropertyDemands
     }
 
+    var systemProviderDemands: Set<SceneSystemProviderTextureIdentity> {
+        catalog.systemProviderDemands
+    }
+
     var shouldDeferFrame: Bool { submissions.shouldDeferFrame }
 
     var runtimeDispositionSubjects: [ExactEffectSubject] {
@@ -224,19 +228,29 @@ final class SceneResolvedMaterialRuntimeBridge {
 
     func systemProviderBlocks(
         for snapshot: SceneMediaThumbnailTextureStore.Snapshot
-    ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
-        let names = Set(catalog.systemProviderDemands.map(\.name))
-        var blocks: [String: SceneFrameTextureRegistry.ProviderStatus] = [:]
-        for name in names.sorted() {
-            // Only an explicitly missing provider is a visual availability
-            // failure. Any partial or malformed atom must enter the registry
-            // unchanged so MaterialProgram can hard-reject request identity,
-            // generation, lifecycle and publication integrity independently.
+    ) -> [
+        SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
+    ] {
+        var blocks: [
+            SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
+        ] = [:]
+        for identity in catalog.systemProviderDemands.sorted(by: {
+            $0.reportToken < $1.reportToken
+        }) {
+            // Only an exactly missing provider is a visual availability
+            // state. Initial async preparation remains pending; a completed
+            // generation without the demanded purpose is unavailable. Any
+            // partial or malformed atom must enter the registry unchanged so
+            // MaterialProgram can hard-reject request identity, generation,
+            // lifecycle and publication integrity independently.
             // Per-consumer purpose checking also lets one compatible demand
             // continue when another demand for the same provider is invalid.
-            if snapshot.publications[name] == nil,
-               snapshot.systemTextures[name] == nil {
-                blocks[name] = .unavailable
+            if snapshot.publications[identity] == nil,
+               snapshot.systemTextures[identity] == nil {
+                blocks[identity] = snapshot.pendingGeneration != nil
+                    && snapshot.pendingIdentities.contains(identity)
+                    ? .pending
+                    : .unavailable
             }
         }
         return blocks

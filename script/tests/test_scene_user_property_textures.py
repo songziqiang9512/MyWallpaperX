@@ -191,6 +191,35 @@ enum Harness {
         ) else {
             throw HarnessError.textureRead
         }
+        let encodedPreserved: MTLTexture
+        switch SceneImageTextureUploader.uploadEncodedPreservedChannels(
+            try Data(contentsOf: pngURL),
+            device: device
+        ) {
+        case let .success(texture): encodedPreserved = texture
+        case .failure: throw HarnessError.textureRead
+        }
+        let encodedOversizeRejected: Bool
+        if case .failure(.dimensionsOutOfRange(257, 1, 256)) =
+            SceneImageTextureUploader.uploadEncodedPreservedChannels(
+                try encodedImage(width: 257), device: device
+            ) { encodedOversizeRejected = true } else { encodedOversizeRejected = false }
+        let encodedOrientationRejected: Bool
+        if case .failure(.nonIdentityOrientation(6)) =
+            SceneImageTextureUploader.uploadEncodedPreservedChannels(
+                try encodedImage(orientation: 6), device: device
+            ) { encodedOrientationRejected = true } else { encodedOrientationRejected = false }
+        let encodedPremultipliedRejected: Bool
+        if case .failure(.premultipliedPixelLayout) =
+            SceneImageTextureUploader.uploadEncodedPreservedChannels(
+                try encodedImage(alphaInfo: .premultipliedLast, type: "public.tiff"),
+                device: device
+            ) { encodedPremultipliedRejected = true } else { encodedPremultipliedRejected = false }
+        let encodedUnsupportedRejected: Bool
+        if case .failure(.unsupportedPixelLayout) =
+            SceneImageTextureUploader.uploadEncodedPreservedChannels(
+                try Data(contentsOf: jpegURL), device: device
+            ) { encodedUnsupportedRejected = true } else { encodedUnsupportedRejected = false }
         let firstCached = sharedLoader.load(from: pngURL, device: device)
         let secondCached = sharedLoader.load(from: pngURL, device: device)
         let firstPreserved = sharedLoader.load(
@@ -337,6 +366,11 @@ enum Harness {
             "premultipliedAlbedoRejected": premultipliedAlbedoRejected,
             "explicitBigPixels": [UInt8](explicitBigData),
             "explicitLittlePixels": [UInt8](explicitLittleData),
+            "encodedPreservedPixels": try pixels(encodedPreserved),
+            "encodedOversizeRejected": encodedOversizeRejected,
+            "encodedOrientationRejected": encodedOrientationRejected,
+            "encodedPremultipliedRejected": encodedPremultipliedRejected,
+            "encodedUnsupportedRejected": encodedUnsupportedRejected,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -396,6 +430,36 @@ enum Harness {
         }
         CGImageDestinationAddImage(destination, image, nil)
         guard CGImageDestinationFinalize(destination) else { throw HarnessError.imageWrite }
+    }
+
+    private static func encodedImage(
+        width: Int = 1,
+        orientation: Int? = nil,
+        alphaInfo: CGImageAlphaInfo = .last,
+        type: String = "public.png"
+    ) throws -> Data {
+        let pixels = Data(repeating: 32, count: width * 4)
+        guard let provider = CGDataProvider(data: pixels as CFData),
+              let image = CGImage(
+                  width: width, height: 1, bitsPerComponent: 8,
+                  bitsPerPixel: 32, bytesPerRow: width * 4,
+                  space: CGColorSpaceCreateDeviceRGB(),
+                  bitmapInfo: CGBitmapInfo(rawValue: alphaInfo.rawValue),
+                  provider: provider, decode: nil, shouldInterpolate: false,
+                  intent: .defaultIntent
+              ) else { throw HarnessError.imageWrite }
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output, type as CFString, 1, nil
+        ) else { throw HarnessError.imageWrite }
+        let properties = orientation.map {
+            [kCGImagePropertyOrientation: $0] as CFDictionary
+        }
+        CGImageDestinationAddImage(destination, image, properties)
+        guard CGImageDestinationFinalize(destination) else {
+            throw HarnessError.imageWrite
+        }
+        return output as Data
     }
 
     private static func makePremultipliedImage() throws -> CGImage {
@@ -652,6 +716,16 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         expected = [231, 17, 149, 0]
         self.assertEqual(self.result["explicitBigPixels"], expected)
         self.assertEqual(self.result["explicitLittlePixels"], expected)
+
+    def test_encoded_preserved_channels_decode_is_bounded_and_typed(self) -> None:
+        self.assertEqual(
+            self.result["encodedPreservedPixels"],
+            self.result["preservedPixels"],
+        )
+        self.assertTrue(self.result["encodedOversizeRejected"])
+        self.assertTrue(self.result["encodedOrientationRejected"])
+        self.assertTrue(self.result["encodedPremultipliedRejected"])
+        self.assertTrue(self.result["encodedUnsupportedRejected"])
 
     def test_corrupt_and_unsupported_files_fail_closed(self) -> None:
         report = "\n".join(self.result["reportLines"])

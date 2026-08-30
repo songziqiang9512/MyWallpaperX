@@ -501,9 +501,17 @@ enum SceneTextureCandidateIdentity: Hashable {
     case file(String)
     case builtIn(String)
 }
+struct SceneSystemProviderTextureIdentity: Hashable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+
+    var reportToken: String {
+        "system:\(name.utf8.count)#\(name):\(purpose)"
+    }
+}
 enum SceneFrameTextureIdentity: Hashable {
     case graph(SceneAuthoredEffectRenderPlan.TextureIdentity)
-    case system(String)
+    case system(SceneSystemProviderTextureIdentity)
     case sceneBackground(Int)
 
     var reportToken: String {
@@ -513,7 +521,7 @@ enum SceneFrameTextureIdentity: Hashable {
                 "\($0.layerID):\($0.effectIndex):\($0.descriptorID)"
             } ?? "none"
             return "graph:\(identity.kind):\(identity.layerID):\(effect):\(identity.name ?? "none")"
-        case let .system(name): return "system:\(name)"
+        case let .system(identity): return identity.reportToken
         case let .sceneBackground(layerID): return "scene-background:\(layerID)"
         }
     }
@@ -932,20 +940,36 @@ struct SceneUserPropertyTextureIdentity: Hashable {
         self.purpose = purpose
     }
 }
-enum SceneFrameTextureRegistry { enum ProviderStatus { case unavailable } }
+enum SceneFrameTextureRegistry {
+    enum ProviderStatus { case pending, unavailable }
+}
 enum SceneMediaThumbnailTextureStore {
     struct Snapshot {
-        let publications: [String: SceneTextureProviderPublication]
-        let systemTextures: [String: MTLTexture]
+        let publications: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ]
+        let systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture]
+        let pendingGeneration: UInt64?
+        let pendingIdentities: Set<SceneSystemProviderTextureIdentity>
+
+        init(
+            publications: [
+                SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+            ],
+            systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture],
+            pendingGeneration: UInt64? = nil,
+            pendingIdentities: Set<SceneSystemProviderTextureIdentity> = []
+        ) {
+            self.publications = publications
+            self.systemTextures = systemTextures
+            self.pendingGeneration = pendingGeneration
+            self.pendingIdentities = pendingIdentities
+        }
     }
 }
 struct SceneResolvedMaterialRuntimeCatalog {
-    struct SystemProviderDemand: Hashable {
-        let name: String
-        let purpose: SceneTextureLoadPurpose
-    }
     let userPropertyDemands: Set<SceneUserPropertyTextureIdentity>
-    let systemProviderDemands: Set<SystemProviderDemand>
+    let systemProviderDemands: Set<SceneSystemProviderTextureIdentity>
 }
 struct SceneMaterialAssetTextureCatalog {
     final class FrameProvider {
@@ -3341,14 +3365,31 @@ enum Harness {
 
         do {
             let name = "$mediaThumbnail"
+            let colorIdentity = SceneSystemProviderTextureIdentity(
+                name: name,
+                purpose: .premultipliedColor
+            )
+            let preservedIdentity = SceneSystemProviderTextureIdentity(
+                name: name,
+                purpose: .preservedChannels
+            )
             let texture = makeTexture(device, "system-provider")
             let otherTexture = makeTexture(device, "other-system-provider")
             let publication = SceneTextureProviderPublication(
-                requestIdentity: .system(name),
+                requestIdentity: .system(colorIdentity),
                 candidate: .init(
                     texture: texture,
                     identity: .file("system-provider"),
                     purpose: .premultipliedColor
+                ),
+                contentGeneration: 1
+            )
+            let preservedPublication = SceneTextureProviderPublication(
+                requestIdentity: .system(preservedIdentity),
+                candidate: .init(
+                    texture: otherTexture,
+                    identity: .file("system-provider-preserved"),
+                    purpose: .preservedChannels
                 ),
                 contentGeneration: 1
             )
@@ -3368,56 +3409,94 @@ enum Harness {
                 publications: [:],
                 systemTextures: [:]
             ))
-            let exact = bridge.systemProviderBlocks(for: .init(
-                publications: [name: publication],
-                systemTextures: [name: texture]
+            let initialPending = bridge.systemProviderBlocks(for: .init(
+                publications: [:],
+                systemTextures: [:],
+                pendingGeneration: 1,
+                pendingIdentities: [colorIdentity, preservedIdentity]
+            ))
+            let unrelatedPending = bridge.systemProviderBlocks(for: .init(
+                publications: [:],
+                systemTextures: [:],
+                pendingGeneration: 1,
+                pendingIdentities: [.init(
+                    name: "$other",
+                    purpose: .preservedChannels
+                )]
+            ))
+            let fullyReady = bridge.systemProviderBlocks(for: .init(
+                publications: [
+                    colorIdentity: publication,
+                    preservedIdentity: preservedPublication,
+                ],
+                systemTextures: [
+                    colorIdentity: texture,
+                    preservedIdentity: otherTexture,
+                ]
+            ))
+            let onlyColorReady = bridge.systemProviderBlocks(for: .init(
+                publications: [colorIdentity: publication],
+                systemTextures: [colorIdentity: texture]
             ))
             let publicationOnly = bridge.systemProviderBlocks(for: .init(
-                publications: [name: publication],
+                publications: [colorIdentity: publication],
                 systemTextures: [:]
             ))
             let textureOnly = bridge.systemProviderBlocks(for: .init(
                 publications: [:],
-                systemTextures: [name: texture]
+                systemTextures: [colorIdentity: texture]
             ))
             let mismatchedTexture = bridge.systemProviderBlocks(for: .init(
-                publications: [name: publication],
-                systemTextures: [name: otherTexture]
+                publications: [colorIdentity: publication],
+                systemTextures: [colorIdentity: otherTexture]
             ))
             let wrongRequest = SceneTextureProviderPublication(
-                requestIdentity: .system("$other"),
+                requestIdentity: .system(.init(
+                    name: "$other",
+                    purpose: .premultipliedColor
+                )),
                 candidate: publication.candidate,
                 contentGeneration: 1
             )
             let wrongIdentity = bridge.systemProviderBlocks(for: .init(
-                publications: [name: wrongRequest],
-                systemTextures: [name: texture]
+                publications: [colorIdentity: wrongRequest],
+                systemTextures: [colorIdentity: texture]
             ))
             let incomplete = SceneTextureProviderPublication(
-                requestIdentity: .system(name),
+                requestIdentity: .system(colorIdentity),
                 candidate: publication.candidate,
                 contentGeneration: 0
             )
             let incompleteAtom = bridge.systemProviderBlocks(for: .init(
-                publications: [name: incomplete],
-                systemTextures: [name: texture]
+                publications: [colorIdentity: incomplete],
+                systemTextures: [colorIdentity: texture]
             ))
             let missingIsUnavailable: Bool
-            if case .unavailable? = missing[name] {
+            if case .unavailable? = missing[colorIdentity],
+               case .unavailable? = missing[preservedIdentity] {
                 missingIsUnavailable = true
-            } else {
-                missingIsUnavailable = false
-            }
+            } else { missingIsUnavailable = false }
+            let initialIsPurposeQualifiedPending: Bool
+            if case .pending? = initialPending[colorIdentity],
+               case .pending? = initialPending[preservedIdentity],
+               case .unavailable? = unrelatedPending[colorIdentity],
+               case .unavailable? = unrelatedPending[preservedIdentity] {
+                initialIsPurposeQualifiedPending = true
+            } else { initialIsPurposeQualifiedPending = false }
             results["systemProviderOnlyMissingAtomSoftBlocks"] =
-                missingIsUnavailable && missing.count == 1
-                    && exact.isEmpty
+                missingIsUnavailable && missing.count == 2
+                    && fullyReady.isEmpty
+            results["systemProviderInitialPreparationIsPurposeQualifiedPending"] =
+                initialIsPurposeQualifiedPending
             results["systemProviderMalformedAtomsAreNotCollapsedToUnavailable"] =
-                publicationOnly.isEmpty
-                    && textureOnly.isEmpty
-                    && mismatchedTexture.isEmpty
-                    && wrongIdentity.isEmpty
-                    && incompleteAtom.isEmpty
-            results["systemProviderPurposesRemainPerConsumer"] = exact.isEmpty
+                publicationOnly[colorIdentity] == nil
+                    && textureOnly[colorIdentity] == nil
+                    && mismatchedTexture[colorIdentity] == nil
+                    && wrongIdentity[colorIdentity] == nil
+                    && incompleteAtom[colorIdentity] == nil
+            results["systemProviderPurposesRemainPerConsumer"] =
+                Set(onlyColorReady.keys) == [preservedIdentity]
+                    && Set(missing.keys) == [colorIdentity, preservedIdentity]
         }
 
         do {
@@ -4817,6 +4896,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "claimUsesCentralCapabilityAdmission",
                 "claimCarriesGraphIdentityOnly",
                 "systemProviderOnlyMissingAtomSoftBlocks",
+                "systemProviderInitialPreparationIsPurposeQualifiedPending",
                 "systemProviderMalformedAtomsAreNotCollapsedToUnavailable",
                 "systemProviderPurposesRemainPerConsumer",
                 "uninstalledDispositionEvidenceIsNotInvoked",

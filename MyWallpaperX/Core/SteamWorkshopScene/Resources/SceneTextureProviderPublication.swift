@@ -32,8 +32,14 @@ nonisolated struct SceneTextureProviderPublication {
             return identity.purpose == candidate.purpose
         case let .materialUserProperty(identity):
             return identity.purpose == candidate.purpose
+        case .system:
+            // System identity is purpose-qualified for exact lookup, while a
+            // ready candidate-purpose mismatch remains an effect-local visual
+            // failure diagnosed by MaterialProgram. Do not collapse it into
+            // an incomplete publication integrity failure here.
+            return true
         case .layerSource, .namedLayerTarget, .sceneBackground, .graph,
-             .userProperty, .system:
+             .userProperty:
             return true
         }
     }

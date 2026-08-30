@@ -71,7 +71,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         case let .provider(request):
             switch request {
             case let .system(name):
-                return .system(name)
+                return .system(.init(name: name, purpose: purpose))
             case let .namedLayerTarget(reference):
                 return .namedLayerTarget(reference)
             case let .sceneBackground(consumerLayerID):

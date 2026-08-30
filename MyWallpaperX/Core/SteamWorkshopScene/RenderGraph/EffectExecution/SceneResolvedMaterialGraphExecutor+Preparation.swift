@@ -230,7 +230,8 @@ extension SceneResolvedMaterialGraphExecutor {
                                 .provesEffectLocalOptionalColorBlendTextureFailure(
                                     slot: slot
                                 )
-                        case .systemProviderUnavailable,
+                        case .systemProviderPending,
+                             .systemProviderUnavailable,
                              .systemProviderPurposeMismatch,
                              .systemProviderSamplingUnresolved:
                             proven = material.variants

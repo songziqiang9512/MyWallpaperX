@@ -22,9 +22,9 @@ extension SceneMetalRenderer {
             systemTextures: mediaThumbnail.systemTextures,
             explicitSystemTextures: mediaThumbnail.publications
         )
-        for (name, status) in imageCompositor
+        for (identity, status) in imageCompositor
             .resolvedMaterialSystemProviderBlocks(mediaThumbnail) {
-            textureRegistry.set(status, for: .system(name))
+            textureRegistry.set(status, for: .system(identity))
         }
         imageCompositor.beginResolvedMaterialFrame(
             textureSnapshot: textureRegistry.snapshot(),

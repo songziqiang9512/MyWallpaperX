@@ -548,7 +548,9 @@ extension SceneImageLayerCompositor {
 
     func resolvedMaterialSystemProviderBlocks(
         _ snapshot: SceneMediaThumbnailTextureStore.Snapshot
-    ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
+    ) -> [
+        SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
+    ] {
         resolvedMaterialRuntime?.systemProviderBlocks(for: snapshot) ?? [:]
     }
 

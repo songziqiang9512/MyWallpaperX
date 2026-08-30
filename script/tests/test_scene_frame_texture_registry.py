@@ -39,8 +39,10 @@ extension SceneFrameTextureRegistry {
         userPropertyStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ] = [:],
-        systemTextures: [String: MTLTexture] = [:],
-        explicitSystemTextures: [String: SceneTextureProviderPublication] = [:]
+        systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:],
+        explicitSystemTextures: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ] = [:]
     ) -> UInt64 {
         beginFrame(
             frameIndex: frameEpoch + 1,
@@ -156,13 +158,17 @@ enum Harness {
             optionalPropertyIdentity
         )
         let persistentProperty = SceneFrameTextureIdentity.userProperty("persistent-cover")
-        let system = SceneFrameTextureIdentity.system("$mediaThumbnail")
+        let systemProviderIdentity = SceneSystemProviderTextureIdentity(
+            name: "$mediaThumbnail",
+            purpose: .premultipliedColor
+        )
+        let system = SceneFrameTextureIdentity.system(systemProviderIdentity)
         let fallback = SceneFrameTextureIdentity.layerSource(7)
         let dynamic = SceneFrameTextureIdentity.layerSource(8)
         let firstEpoch = registry.beginFrame(
             layerSources: [7: fallbackTexture],
             userPropertyTextures: ["persistent-cover": propertyTexture],
-            systemTextures: ["$mediaThumbnail": systemTexture]
+            systemTextures: [systemProviderIdentity: systemTexture]
         )
         let firstFallback = bareResolution(registry, fallback)!
         let firstProperty = bareResolution(registry, persistentProperty)!
@@ -275,7 +281,7 @@ enum Harness {
         let secondEpoch = registry.beginFrame(
             layerSources: [7: fallbackTexture],
             userPropertyTextures: ["persistent-cover": propertyTexture],
-            systemTextures: ["$mediaThumbnail": systemTexture]
+            systemTextures: [systemProviderIdentity: systemTexture]
         )
         let secondFallback = bareResolution(registry, fallback)!
         let secondProperty = bareResolution(registry, persistentProperty)!
@@ -287,7 +293,7 @@ enum Harness {
         registry.beginFrame(
             layerSources: [7: replacementFallbackTexture],
             userPropertyTextures: ["persistent-cover": replacementPropertyTexture],
-            systemTextures: ["$mediaThumbnail": replacementSystemTexture]
+            systemTextures: [systemProviderIdentity: replacementSystemTexture]
         )
         let replacedFallback = bareResolution(registry, fallback)!
         let replacedProperty = bareResolution(registry, persistentProperty)!
@@ -301,7 +307,7 @@ enum Harness {
         registry.beginFrame(
             layerSources: [7: fallbackTexture],
             userPropertyTextures: ["persistent-cover": propertyTexture],
-            systemTextures: ["$mediaThumbnail": systemTexture]
+            systemTextures: [systemProviderIdentity: systemTexture]
         )
         let restoredFallback = bareResolution(registry, fallback)!
         let restoredProperty = bareResolution(registry, persistentProperty)!
@@ -402,9 +408,9 @@ enum Harness {
 
         registry.beginFrame(
             layerSources: [:],
-            systemTextures: ["$mediaThumbnail": systemTexture],
+            systemTextures: [systemProviderIdentity: systemTexture],
             explicitSystemTextures: [
-                "$mediaThumbnail": publication(
+                systemProviderIdentity: publication(
                     systemTexture,
                     generation: 20,
                     requestIdentity: system,
@@ -415,9 +421,9 @@ enum Harness {
         let firstExplicitSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
-            systemTextures: ["$mediaThumbnail": systemTexture],
+            systemTextures: [systemProviderIdentity: systemTexture],
             explicitSystemTextures: [
-                "$mediaThumbnail": publication(
+                systemProviderIdentity: publication(
                     systemTexture,
                     generation: 21,
                     requestIdentity: system,
@@ -428,9 +434,9 @@ enum Harness {
         let secondExplicitSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
-            systemTextures: ["$mediaThumbnail": replacementSystemTexture],
+            systemTextures: [systemProviderIdentity: replacementSystemTexture],
             explicitSystemTextures: [
-                "$mediaThumbnail": publication(
+                systemProviderIdentity: publication(
                     replacementSystemTexture,
                     generation: 21,
                     requestIdentity: system,
@@ -441,9 +447,9 @@ enum Harness {
         let replacedSameGenerationSystem = typedResolution(registry, system)!
         registry.beginFrame(
             layerSources: [:],
-            systemTextures: ["$mediaThumbnail": replacementSystemTexture],
+            systemTextures: [systemProviderIdentity: replacementSystemTexture],
             explicitSystemTextures: [
-                "$mediaThumbnail": publication(
+                systemProviderIdentity: publication(
                     replacementSystemTexture,
                     generation: 19,
                     requestIdentity: system,
@@ -452,6 +458,59 @@ enum Harness {
             ]
         )
         let lowerProducerGenerationSystem = typedResolution(registry, system)!
+
+        let preservedSystemProviderIdentity = SceneSystemProviderTextureIdentity(
+            name: "$mediaThumbnail",
+            purpose: .preservedChannels
+        )
+        let preservedSystem = SceneFrameTextureIdentity.system(
+            preservedSystemProviderIdentity
+        )
+        registry.beginFrame(
+            layerSources: [:],
+            systemTextures: [
+                systemProviderIdentity: systemTexture,
+                preservedSystemProviderIdentity: replacementSystemTexture,
+            ],
+            explicitSystemTextures: [
+                systemProviderIdentity: publication(
+                    systemTexture,
+                    generation: 22,
+                    requestIdentity: system,
+                    identity: .provider(.mediaThumbnailCurrent)
+                ),
+                preservedSystemProviderIdentity: publication(
+                    replacementSystemTexture,
+                    generation: 22,
+                    requestIdentity: preservedSystem,
+                    identity: .provider(.mediaThumbnailCurrent),
+                    purpose: .preservedChannels,
+                    content: .data
+                ),
+            ]
+        )
+        let exactColorSystem = registry.resource(for: system)
+        let exactPreservedSystem = registry.resource(for: preservedSystem)
+        let systemPurposesDoNotAlias =
+            exactColorSystem?.publication.texture === systemTexture
+            && exactColorSystem?.publication.candidate.purpose
+                == .premultipliedColor
+            && exactPreservedSystem?.publication.texture
+                === replacementSystemTexture
+            && exactPreservedSystem?.publication.candidate.purpose
+                == .preservedChannels
+            && system.reportToken != preservedSystem.reportToken
+
+        let purposeMismatchedSystemPublication = publication(
+            systemTexture,
+            generation: 23,
+            requestIdentity: preservedSystem,
+            identity: .provider(.mediaThumbnailCurrent)
+        )
+        registry.set(purposeMismatchedSystemPublication, for: preservedSystem)
+        let systemPurposeMismatchRemainsTypedReady =
+            registry.resource(for: preservedSystem)?.publication.candidate.purpose
+                == .premultipliedColor
 
         let bareLayerSource = SceneFrameTextureIdentity.layerSource(9)
         registry.beginFrame(layerSources: [9: dynamicTexture])
@@ -731,16 +790,20 @@ enum Harness {
         registry.set(providerGenerationMismatch, for: providerMismatchIdentity)
         let providerGenerationMismatchIncomplete =
             registry.resource(for: providerMismatchIdentity) == nil
+        let volumeSystemIdentity = SceneSystemProviderTextureIdentity(
+            name: "fixture-lut",
+            purpose: .lookupTable
+        )
+        let volumeIdentity = SceneFrameTextureIdentity.system(volumeSystemIdentity)
         let volumePurposeOn2D = publication(
             dynamicTexture,
             generation: 43,
-            requestIdentity: .system("fixture-lut"),
+            requestIdentity: volumeIdentity,
             identity: .builtIn(name: "fixture-lut"),
             candidateGeneration: .immutable(revision: 43),
             purpose: .lookupTable,
             content: .data
         )
-        let volumeIdentity = SceneFrameTextureIdentity.system("fixture-lut")
         registry.set(volumePurposeOn2D, for: volumeIdentity)
         let volumePurposeOn2DIncomplete = registry.resource(for: volumeIdentity) == nil
 
@@ -817,7 +880,10 @@ enum Harness {
         )?.publication.requestIdentity == assetRegistryIdentity
         let assetAbsentIsExplicit: Bool
         if case .absent = stateSnapshot.lookup(.asset(samePathColor)) {
-            assetAbsentIsExplicit = stateSnapshot.lookup(.system("missing")) == nil
+            assetAbsentIsExplicit = stateSnapshot.lookup(.system(.init(
+                name: "missing",
+                purpose: .premultipliedColor
+            ))) == nil
         } else {
             assetAbsentIsExplicit = false
         }
@@ -1014,6 +1080,9 @@ enum Harness {
                 lowerProducerGenerationSystem.generation
                     == replacedSameGenerationSystem.generation
                     && lowerProducerGenerationSystem.texture === systemTexture,
+            "systemPurposesDoNotAlias": systemPurposesDoNotAlias,
+            "systemPurposeMismatchRemainsTypedReady":
+                systemPurposeMismatchRemainsTypedReady,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1115,6 +1184,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "videoLifecycleGenerationIsAtomic",
         ):
             self.assertTrue(self.result[key], key)
+
+    def test_system_provider_lookup_is_purpose_qualified(self) -> None:
+        self.assertTrue(self.result["systemPurposesDoNotAlias"])
+        self.assertTrue(self.result["systemPurposeMismatchRemainsTypedReady"])
 
     def test_bare_generation_changes_when_typed_metadata_is_removed(self) -> None:
         for key in (

@@ -171,6 +171,7 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
             "material-finalizer-optional-texture-purpose-mismatch",
             "material-finalizer-optional-texture-content-mismatch",
             "material-finalizer-optional-texture-sampling-unresolved",
+            "material-finalizer-system-provider-pending",
             "material-finalizer-system-provider-unavailable",
             "material-finalizer-system-provider-purpose-mismatch",
             "material-finalizer-system-provider-sampling-unresolved",

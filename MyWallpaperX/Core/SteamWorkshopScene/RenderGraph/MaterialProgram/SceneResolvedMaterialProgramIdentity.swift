@@ -273,7 +273,7 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
         case let (.userProperty(request), .materialUserProperty(property)):
             return property.propertyKey == request.key && property.purpose == purpose
         case let (.provider(.system(expected)), .system(actual)):
-            return actual == expected
+            return actual.name == expected && actual.purpose == purpose
         case let (
             .provider(.namedLayerTarget(expected)),
             .namedLayerTarget(actual)

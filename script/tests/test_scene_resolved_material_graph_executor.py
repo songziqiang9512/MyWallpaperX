@@ -531,6 +531,10 @@ private let colorBlendMaskIdentity = SceneAssetTextureIdentity(
     purpose: .mask
 )
 private let systemProviderName = "$mediaThumbnail"
+private let systemProviderIdentity = SceneSystemProviderTextureIdentity(
+    name: systemProviderName,
+    purpose: .preservedChannels
+)
 private let systemProviderFallbackPath = SceneVFSAssetPath(
     "textures/unseen-system-provider-fallback.tex"
 )!
@@ -1973,6 +1977,7 @@ private enum SystemProviderFixtureStatus: Equatable {
     case ready
     case missing
     case absent
+    case pending
     case unavailable
     case wrongPurpose
     case samplingUnresolved
@@ -2015,12 +2020,16 @@ private func systemProviderStatus(
 ) -> SceneFrameTextureLookupStatus {
     if kind == .missing { fatalError("missing has no registry status") }
     if kind == .absent { return .absent }
+    if kind == .pending { return .pending }
     if kind == .unavailable { return .unavailable }
 
     let requestIdentity: SceneFrameTextureIdentity =
         kind == .requestIdentityMismatch
-        ? .system("$otherSystemProvider")
-        : .system(systemProviderName)
+        ? .system(.init(
+            name: "$otherSystemProvider",
+            purpose: .preservedChannels
+        ))
+        : .system(systemProviderIdentity)
     let purpose: SceneTextureLoadPurpose = kind == .wrongPurpose
         ? .noise : .preservedChannels
     let candidateGeneration = kind == .generationMismatch
@@ -4187,7 +4196,7 @@ private enum Harness {
                     ),
             ]
             if kind != .missing {
-                entries[.system(systemProviderName)] = systemProviderStatus(
+                entries[.system(systemProviderIdentity)] = systemProviderStatus(
                     kind,
                     device: device,
                     generation: generation
@@ -4203,6 +4212,14 @@ private enum Harness {
             generation: 80,
             reason: "material-finalizer-system-provider-unavailable",
             textureEntries: systemProviderEntries(.unavailable, generation: 80)
+        )
+        let systemProviderPendingFailure = executeVisualFailurePassthrough(
+            claim: systemProviderClaim,
+            capability: systemProviderCapability,
+            capabilities: systemProviderCapabilities,
+            generation: 83,
+            reason: "material-finalizer-system-provider-pending",
+            textureEntries: systemProviderEntries(.pending, generation: 83)
         )
         let systemProviderWrongPurposeFailure = executeVisualFailurePassthrough(
             claim: systemProviderClaim,
@@ -7451,6 +7468,11 @@ private enum Harness {
                 systemProviderUnavailableFailure.gpuCompleted,
             "systemProviderUnavailablePreservesPreviousAndContinuesSuffix":
                 systemProviderUnavailableFailure.continued,
+            "systemProviderPendingIsEffectLocal":
+                systemProviderPendingFailure.prepared
+                    && systemProviderPendingFailure.encoded
+                    && systemProviderPendingFailure.gpuCompleted
+                    && systemProviderPendingFailure.continued,
             "systemProviderWrongPurposeIsEffectLocal":
                 systemProviderWrongPurposeFailure.prepared
                     && systemProviderWrongPurposeFailure.encoded

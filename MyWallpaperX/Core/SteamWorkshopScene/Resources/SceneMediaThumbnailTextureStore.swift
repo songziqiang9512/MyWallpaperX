@@ -28,13 +28,21 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
 
     struct Snapshot {
         let generation: UInt64
+        let pendingGeneration: UInt64?
+        let pendingIdentities: Set<SceneSystemProviderTextureIdentity>
         let current: SceneTextureProviderPublication?
-        let systemTextures: [String: MTLTexture]
-        let publications: [String: SceneTextureProviderPublication]
+        let preservedCurrent: SceneTextureProviderPublication?
+        let systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture]
+        let publications: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ]
 
         static let empty = Snapshot(
             generation: 0,
+            pendingGeneration: nil,
+            pendingIdentities: [],
             current: nil,
+            preservedCurrent: nil,
             systemTextures: [:],
             publications: [:]
         )
@@ -46,7 +54,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private let lock = NSLock()
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
-    private var currentTexture: MTLTexture?
+    private var currentTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
     private var reportedPendingGeneration: UInt64?
     private var pendingRequest: DecodeRequest?
 
@@ -54,7 +62,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         device: MTLDevice,
         decodingQueue: DispatchQueue? = nil,
         imageDecoder: @escaping (Data) -> CGImage? =
-            SceneMediaThumbnailTextureStore.decodeImage
+            SceneMediaThumbnailTextureStore.decodeColorImage
     ) {
         self.device = device
         self.imageDecoder = imageDecoder
@@ -93,39 +101,75 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 "MWX media thumbnail store: phase=pending-last-ready"
                     + " requestedGeneration=\(requestedGeneration)"
                     + " readyGeneration=\(readyGeneration)"
-                    + " hasCurrent=\(currentTexture != nil)"
+                    + " hasColor=\(currentTextures[.premultipliedColor] != nil)"
+                    + " hasPreserved=\(currentTextures[.preservedChannels] != nil)"
             )
         }
 #endif
-        var textures: [String: MTLTexture] = [:]
-        var publications: [String: SceneTextureProviderPublication] = [:]
-        let current = currentTexture.map {
-            let size = CGSize(width: $0.width, height: $0.height)
+        let publication: (
+            SceneTextureLoadPurpose,
+            SceneTextureContent
+        ) -> SceneTextureProviderPublication? = { purpose, content in
+            guard let texture = self.currentTextures[purpose] else { return nil }
+            let identity = SceneSystemProviderTextureIdentity(
+                name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                purpose: purpose
+            )
+            let size = CGSize(width: texture.width, height: texture.height)
             return SceneTextureProviderPublication(
-                requestIdentity: .system(
-                    SceneMediaThumbnailBindingProgram.currentIdentity
-                ),
+                requestIdentity: .system(identity),
                 candidate: SceneTextureCandidate(
-                    texture: $0,
+                    texture: texture,
                     identity: .provider(.mediaThumbnailCurrent),
-                    generation: .provider(contentGeneration: readyGeneration),
-                    purpose: .premultipliedColor,
-                    content: .color(.resolved(.premultipliedAlpha)),
+                    generation: .provider(contentGeneration: self.readyGeneration),
+                    purpose: purpose,
+                    content: content,
                     physicalSize: size,
                     mappedSize: size,
                     uvTransform: .identity,
                     sampling: .linearClamp
                 ),
-                contentGeneration: readyGeneration
+                contentGeneration: self.readyGeneration
             )
         }
-        if let current {
-            textures[SceneMediaThumbnailBindingProgram.currentIdentity] = current.texture
-            publications[SceneMediaThumbnailBindingProgram.currentIdentity] = current
+        let current = publication(
+            .premultipliedColor,
+            .color(.resolved(.premultipliedAlpha))
+        )
+        let preservedCurrent = publication(.preservedChannels, .data)
+        let readyPublications = [current, preservedCurrent].compactMap { $0 }
+        var textures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:]
+        var publications: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ] = [:]
+        for publication in readyPublications {
+            guard case let .system(identity) = publication.requestIdentity else {
+                continue
+            }
+            textures[identity] = publication.texture
+            publications[identity] = publication
+        }
+        let pendingIdentities: Set<SceneSystemProviderTextureIdentity>
+        if pendingRequest == nil {
+            pendingIdentities = []
+        } else {
+            pendingIdentities = [
+                .init(
+                    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                    purpose: .premultipliedColor
+                ),
+                .init(
+                    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                    purpose: .preservedChannels
+                ),
+            ]
         }
         return Snapshot(
             generation: readyGeneration,
+            pendingGeneration: pendingRequest?.input.generation,
+            pendingIdentities: pendingIdentities,
             current: current,
+            preservedCurrent: preservedCurrent,
             systemTextures: textures,
             publications: publications
         )
@@ -136,13 +180,32 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         let input = request.input
         let currentImage = input.current.flatMap(imageDecoder)
         guard shouldContinue(request) else { return }
-        let current = currentImage.flatMap(makeTexture)
+        let preservedTexture: MTLTexture?
+        if let encodedSource = input.current,
+           case let .success(texture) =
+               SceneImageTextureUploader.uploadEncodedPreservedChannels(
+                   encodedSource,
+                   device: device
+               ) {
+            preservedTexture = texture
+        } else {
+            preservedTexture = nil
+        }
+        guard shouldContinue(request) else { return }
+        var decodedTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
+        if let currentImage,
+           let texture = makeColorTexture(currentImage) {
+            decodedTextures[.premultipliedColor] = texture
+        }
+        if let preservedTexture {
+            decodedTextures[.preservedChannels] = preservedTexture
+        }
         guard !request.isCancelled else { return }
         lock.lock()
         defer { lock.unlock() }
         guard pendingRequest === request,
               requestedGeneration == input.generation else { return }
-        currentTexture = current
+        currentTextures = decodedTextures
         readyGeneration = input.generation
         reportedPendingGeneration = nil
         pendingRequest = nil
@@ -150,7 +213,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         print(
             "MWX media thumbnail store: phase=ready"
                 + " generation=\(input.generation)"
-                + " hasCurrent=\(current != nil)"
+                + " hasColor=\(decodedTextures[.premultipliedColor] != nil)"
+                + " hasPreserved=\(decodedTextures[.preservedChannels] != nil)"
         )
 #endif
     }
@@ -163,7 +227,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             && requestedGeneration == request.input.generation
     }
 
-    private func makeTexture(_ image: CGImage) -> MTLTexture? {
+    private func makeColorTexture(_ image: CGImage) -> MTLTexture? {
         guard case let .loaded(texture) = SceneImageTextureUploader.upload(
             image: image,
             purpose: .premultipliedColor,
@@ -173,7 +237,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         return texture
     }
 
-    nonisolated private static func decodeImage(_ data: Data) -> CGImage? {
+    nonisolated private static func decodeColorImage(_ data: Data) -> CGImage? {
         guard data.count <= SceneMediaThumbnailInbox.maximumEncodedByteCount,
               let source = CGImageSourceCreateWithData(data as CFData, nil) else {
             return nil

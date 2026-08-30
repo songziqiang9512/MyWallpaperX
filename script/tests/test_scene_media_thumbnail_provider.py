@@ -45,12 +45,23 @@ enum SceneTextureLoadOutcome {
     case textureAllocationFailed(width: Int, height: Int)
 }
 
-func png(red: UInt8, green: UInt8, blue: UInt8) -> Data {
-    let bytes = [red, green, blue, 255]
+func png(
+    red: UInt8,
+    green: UInt8,
+    blue: UInt8,
+    alpha: UInt8 = 255,
+    width: Int = 1,
+    height: Int = 1
+) -> Data {
+    var bytes: [UInt8] = []
+    bytes.reserveCapacity(width * height * 4)
+    for _ in 0 ..< width * height {
+        bytes.append(contentsOf: [red, green, blue, alpha])
+    }
     let provider = CGDataProvider(data: Data(bytes) as CFData)!
     let image = CGImage(
-        width: 1, height: 1, bitsPerComponent: 8, bitsPerPixel: 32,
-        bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(),
+        width: width, height: height, bitsPerComponent: 8, bitsPerPixel: 32,
+        bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.last.rawValue),
         provider: provider, decode: nil, shouldInterpolate: false,
         intent: .defaultIntent
@@ -126,7 +137,7 @@ let store = SceneMediaThumbnailTextureStore(
 )
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
-let c = png(red: 0, green: 0, blue: 255)
+let c = png(red: 231, green: 17, blue: 149, alpha: 0)
 
 _ = inbox.publish(a)
 store.update(from: inbox.latest())
@@ -134,8 +145,17 @@ _ = inbox.publish(b)
 store.update(from: inbox.latest())
 _ = inbox.publish(c)
 store.update(from: inbox.latest())
+let initialPending = store.snapshot()
 decodingQueue.resume()
 let third = waitFor(store, generation: 3)
+let colorSystemIdentity = SceneSystemProviderTextureIdentity(
+    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+    purpose: .premultipliedColor
+)
+let preservedSystemIdentity = SceneSystemProviderTextureIdentity(
+    name: SceneMediaThumbnailBindingProgram.currentIdentity,
+    purpose: .preservedChannels
+)
 let layerRequest = SceneFrameTextureIdentity.layerSource(77)
 let layerPublication = third.current?.publication(for: layerRequest)
 let rapidDecodeCount = decodeCounter.value
@@ -162,6 +182,24 @@ let failed = waitFor(store, generation: 5)
 inbox.clear()
 store.update(from: inbox.latest())
 let cleared = waitFor(store, generation: 6)
+
+let oversizedSourceInbox = SceneMediaThumbnailInbox()
+let oversizedSourceQueue = DispatchQueue(label: "fixture.media-thumbnail-oversized")
+let oversizedSourceStore = SceneMediaThumbnailTextureStore(
+    device: device,
+    decodingQueue: oversizedSourceQueue
+)
+_ = oversizedSourceInbox.publish(a)
+oversizedSourceStore.update(from: oversizedSourceInbox.latest())
+let beforeOversizedSource = waitFor(oversizedSourceStore, generation: 1)
+oversizedSourceQueue.suspend()
+_ = oversizedSourceInbox.publish(
+    png(red: 12, green: 34, blue: 56, width: 257)
+)
+oversizedSourceStore.update(from: oversizedSourceInbox.latest())
+let pendingOversizedSource = oversizedSourceStore.snapshot()
+oversizedSourceQueue.resume()
+let oversizedSource = waitFor(oversizedSourceStore, generation: 2)
 
 let eventInbox = SceneMediaThumbnailInbox()
 let primaryColor = SIMD3(0.125, 0.5, 1.0)
@@ -278,11 +316,33 @@ let duplicateEmptyPropertiesAccepted = eventInbox.publishMediaProperties(
 let afterDuplicateEmptyProperties = eventInbox.latest()
 
 let result: [String: Any] = [
+    "initialPendingGeneration": initialPending.pendingGeneration.map(Int.init) ?? -1,
+    "initialPendingExact":
+        initialPending.generation == 0
+        && initialPending.current == nil
+        && initialPending.preservedCurrent == nil
+        && initialPending.pendingIdentities
+            == [colorSystemIdentity, preservedSystemIdentity],
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
+    "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
     "currentPublicationComplete": third.current?.isComplete == true,
+    "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
     "currentRequestExact": third.current?.requestIdentity
-        == .system(SceneMediaThumbnailBindingProgram.currentIdentity),
+        == .system(colorSystemIdentity),
+    "preservedRequestExact": third.preservedCurrent?.requestIdentity
+        == .system(preservedSystemIdentity),
+    "purposeQualifiedSystemAtoms":
+        third.systemTextures.count == 2
+        && third.publications.count == 2
+        && third.systemTextures[colorSystemIdentity] === third.current?.texture
+        && third.systemTextures[preservedSystemIdentity]
+            === third.preservedCurrent?.texture
+        && third.publications[colorSystemIdentity]?.requestIdentity
+            == .system(colorSystemIdentity)
+        && third.publications[preservedSystemIdentity]?.requestIdentity
+            == .system(preservedSystemIdentity)
+        && third.current?.texture !== third.preservedCurrent?.texture,
     "systemAndLayerRequestsAreDistinctAtoms":
         layerPublication?.requestIdentity == layerRequest
         && layerPublication?.requestIdentity != third.current?.requestIdentity
@@ -296,19 +356,54 @@ let result: [String: Any] = [
             == .provider(.mediaThumbnailCurrent)
         && third.current?.candidate.generation
             == .provider(contentGeneration: third.generation),
+    "preservedPublicationData":
+        third.preservedCurrent?.candidate.purpose == .preservedChannels
+        && third.preservedCurrent?.candidate.content == .data
+        && third.preservedCurrent?.candidate.identity
+            == .provider(.mediaThumbnailCurrent)
+        && third.preservedCurrent?.candidate.generation
+            == .provider(contentGeneration: third.generation),
     "rapidDecodeCount": rapidDecodeCount,
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
     "oversizedRejected": oversizedRejected,
     "pendingGeneration": retainedDuringPending.generation,
+    "pendingRequestGeneration":
+        retainedDuringPending.pendingGeneration.map(Int.init) ?? -1,
+    "pendingIdentitiesExact": retainedDuringPending.pendingIdentities
+        == [colorSystemIdentity, preservedSystemIdentity],
     "pendingCurrentPixel": pixel(retainedDuringPending.current?.texture),
+    "pendingPreservedPixel": pixel(retainedDuringPending.preservedCurrent?.texture),
     "fourthCurrentPixel": pixel(fourth.current?.texture),
+    "fourthPreservedPixel": pixel(fourth.preservedCurrent?.texture),
     "failurePendingGeneration": retainedDuringDecodeFailure.generation,
     "failurePendingCurrentPixel": pixel(retainedDuringDecodeFailure.current?.texture),
+    "failurePendingPreservedPixel": pixel(
+        retainedDuringDecodeFailure.preservedCurrent?.texture
+    ),
     "failedGeneration": failed.generation,
     "failedCurrent": failed.current == nil,
+    "failedPreserved": failed.preservedCurrent == nil,
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
+    "clearedPreserved": cleared.preservedCurrent == nil,
+    "oversizedSourceColorReady": oversizedSource.current != nil,
+    "oversizedSourceRetainsBothWhilePending":
+        beforeOversizedSource.current != nil
+        && beforeOversizedSource.preservedCurrent != nil
+        && pendingOversizedSource.generation == 1
+        && pendingOversizedSource.current?.texture
+            === beforeOversizedSource.current?.texture
+        && pendingOversizedSource.preservedCurrent?.texture
+            === beforeOversizedSource.preservedCurrent?.texture,
+    "oversizedSourcePreservedUnavailable":
+        oversizedSource.generation == 2
+        && oversizedSource.pendingGeneration == nil
+        && oversizedSource.pendingIdentities.isEmpty
+        && oversizedSource.preservedCurrent == nil
+        && oversizedSource.systemTextures[colorSystemIdentity] != nil
+        && oversizedSource.systemTextures[preservedSystemIdentity] == nil
+        && oversizedSource.publications[preservedSystemIdentity] == nil,
     "eventInitialEmpty": eventInitial == .empty,
     "propertiesAccepted": propertiesAccepted,
     "propertiesGeneration": afterProperties.propertiesGeneration,
@@ -433,24 +528,41 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(result["generation"], 3)
-        self.assertEqual(result["currentPixel"], [0, 0, 255, 255])
+        self.assertEqual(result["initialPendingGeneration"], 3)
+        self.assertTrue(result["initialPendingExact"])
+        self.assertEqual(result["currentPixel"], [0, 0, 0, 0])
+        self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0])
         self.assertTrue(result["currentPublicationComplete"])
+        self.assertTrue(result["preservedPublicationComplete"])
         self.assertTrue(result["currentRequestExact"])
+        self.assertTrue(result["preservedRequestExact"])
+        self.assertTrue(result["purposeQualifiedSystemAtoms"])
         self.assertTrue(result["systemAndLayerRequestsAreDistinctAtoms"])
         self.assertTrue(result["currentPublicationPremultiplied"])
+        self.assertTrue(result["preservedPublicationData"])
         self.assertEqual(result["rapidDecodeCount"], 1)
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])
         self.assertTrue(result["oversizedRejected"])
         self.assertEqual(result["pendingGeneration"], 3)
-        self.assertEqual(result["pendingCurrentPixel"], [0, 0, 255, 255])
+        self.assertEqual(result["pendingRequestGeneration"], 4)
+        self.assertTrue(result["pendingIdentitiesExact"])
+        self.assertEqual(result["pendingCurrentPixel"], [0, 0, 0, 0])
+        self.assertEqual(result["pendingPreservedPixel"], [231, 17, 149, 0])
         self.assertEqual(result["fourthCurrentPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["fourthPreservedPixel"], [255, 0, 0, 255])
         self.assertEqual(result["failurePendingGeneration"], 4)
         self.assertEqual(result["failurePendingCurrentPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["failurePendingPreservedPixel"], [255, 0, 0, 255])
         self.assertEqual(result["failedGeneration"], 5)
         self.assertTrue(result["failedCurrent"])
+        self.assertTrue(result["failedPreserved"])
         self.assertEqual(result["clearedGeneration"], 6)
         self.assertTrue(result["clearedCurrent"])
+        self.assertTrue(result["clearedPreserved"])
+        self.assertTrue(result["oversizedSourceColorReady"])
+        self.assertTrue(result["oversizedSourceRetainsBothWhilePending"])
+        self.assertTrue(result["oversizedSourcePreservedUnavailable"])
         self.assertTrue(result["eventInitialEmpty"])
         self.assertTrue(result["propertiesAccepted"])
         self.assertEqual(result["propertiesGeneration"], 1)

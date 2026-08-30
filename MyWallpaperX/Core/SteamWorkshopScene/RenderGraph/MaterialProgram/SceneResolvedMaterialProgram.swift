@@ -22,6 +22,8 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
             "material-finalizer-optional-texture-sampling-unresolved"
         case systemProviderUnavailable =
             "material-finalizer-system-provider-unavailable"
+        case systemProviderPending =
+            "material-finalizer-system-provider-pending"
         case systemProviderPurposeMismatch =
             "material-finalizer-system-provider-purpose-mismatch"
         case systemProviderSamplingUnresolved =

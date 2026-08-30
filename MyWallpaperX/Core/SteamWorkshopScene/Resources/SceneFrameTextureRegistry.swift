@@ -1,5 +1,17 @@
 import Metal
 
+/// Exact frame lookup identity for one system-owned texture representation.
+/// Purpose is part of the identity because one provider source may publish
+/// independent color and data representations for different consumers.
+nonisolated struct SceneSystemProviderTextureIdentity: Hashable, Sendable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+
+    var reportToken: String {
+        "system:\(name.utf8.count)#\(name):\(purpose.reportToken)"
+    }
+}
+
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
@@ -8,7 +20,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
     case materialUserProperty(SceneUserPropertyTextureIdentity)
-    case system(String)
+    case system(SceneSystemProviderTextureIdentity)
 
     var reportToken: String {
         switch self {
@@ -30,8 +42,8 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
             return "property:\(key)"
         case let .materialUserProperty(identity):
             return identity.reportToken
-        case let .system(name):
-            return "system:\(name)"
+        case let .system(identity):
+            return identity.reportToken
         }
     }
 }
@@ -113,8 +125,10 @@ final class SceneFrameTextureRegistry {
         userPropertyStates: [
             SceneUserPropertyTextureIdentity: SceneTextureProviderState
         ] = [:],
-        systemTextures: [String: MTLTexture] = [:],
-        explicitSystemTextures: [String: SceneTextureProviderPublication] = [:]
+        systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:],
+        explicitSystemTextures: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ] = [:]
     ) -> UInt64 {
         frameEpoch &+= 1
         self.frameIndex = frameIndex
@@ -159,10 +173,12 @@ final class SceneFrameTextureRegistry {
             guard let state = userPropertyStates[identity] else { continue }
             publish(state, for: .materialUserProperty(identity))
         }
-        for name in systemTextures.keys.sorted() {
-            guard let texture = systemTextures[name] else { continue }
-            let identity = SceneFrameTextureIdentity.system(name)
-            if let publication = explicitSystemTextures[name] {
+        for systemIdentity in systemTextures.keys.sorted(by: {
+            $0.reportToken < $1.reportToken
+        }) {
+            guard let texture = systemTextures[systemIdentity] else { continue }
+            let identity = SceneFrameTextureIdentity.system(systemIdentity)
+            if let publication = explicitSystemTextures[systemIdentity] {
                 guard publication.texture === texture else { continue }
                 publishExplicit(publication, for: identity)
             } else {

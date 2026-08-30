@@ -71,6 +71,11 @@ nonisolated enum SceneDynamicSource: Hashable {
     case sceneScript
 }
 
+nonisolated struct SceneSystemProviderTextureIdentity: Hashable {
+    let name: String
+    let purpose: SceneTextureLoadPurpose
+}
+
 nonisolated enum SceneFrameTextureIdentity: Hashable {
     case layerSource(Int)
     case namedLayerTarget(SceneNamedTextureReference)
@@ -79,7 +84,7 @@ nonisolated enum SceneFrameTextureIdentity: Hashable {
     case asset(SceneAssetTextureIdentity)
     case userProperty(String)
     case materialUserProperty(SceneUserPropertyTextureIdentity)
-    case system(String)
+    case system(SceneSystemProviderTextureIdentity)
 }
 '''
 
