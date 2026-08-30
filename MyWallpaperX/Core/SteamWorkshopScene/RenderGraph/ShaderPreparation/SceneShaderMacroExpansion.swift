@@ -97,12 +97,14 @@ nonisolated enum SceneShaderLexicalExpander {
         objectMacros: [String: SceneShaderMacroValue],
         functionMacros: [String: SceneShaderFunctionMacro],
         limits: SceneShaderPreprocessor.Limits,
+        resolved: @escaping (String) -> Void,
         unresolved: @escaping (String) throws -> Void
     ) throws -> String {
         var state = State(
             objectMacros: objectMacros,
             functionMacros: functionMacros,
             limits: limits,
+            resolved: resolved,
             unresolved: unresolved
         )
         var result = ""
@@ -122,6 +124,7 @@ private extension SceneShaderLexicalExpander {
         let objectMacros: [String: SceneShaderMacroValue]
         let functionMacros: [String: SceneShaderFunctionMacro]
         let limits: SceneShaderPreprocessor.Limits
+        let resolved: (String) -> Void
         let unresolved: (String) throws -> Void
         var consumedTokens = 0
         var consumedBytes = 0
@@ -151,6 +154,7 @@ private extension SceneShaderLexicalExpander {
                 }
                 let name = String(code[start ..< index])
                 if let macro = objectMacros[name] {
+                    resolved(name)
                     try rejectRecursion(name, active: active)
                     result += try expandCode(
                         macro.replacement,

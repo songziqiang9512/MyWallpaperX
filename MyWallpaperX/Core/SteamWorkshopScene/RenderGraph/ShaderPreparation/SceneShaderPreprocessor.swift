@@ -40,6 +40,7 @@ extension SceneShaderPreprocessor {
         var sourceMap: [SceneShaderSourceMapEntry] = []
         var annotations: [SceneShaderActiveAnnotation] = []
         var declarations: [SceneShaderActiveDeclaration] = []
+        var compatibilityMacroDependencies: Set<String> = []
         var dependencies: [String: String] = [:]
         var moduleDependencies: [SceneShaderModuleDependency] = []
         var requireDirectiveOrdinal = 0
@@ -174,6 +175,8 @@ extension SceneShaderPreprocessor {
                 moduleDependencies
             )
             let source = outputLines.joined(separator: "\n")
+            let sortedCompatibilityMacroDependencies =
+                compatibilityMacroDependencies.sorted()
             let payload = PreparedDigestPayload(
                 frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
                 sourceDialect: environment.sourceDialect,
@@ -184,6 +187,8 @@ extension SceneShaderPreprocessor {
                 sourceMap: sourceMap,
                 activeAnnotations: annotations,
                 activeDeclarations: declarations,
+                compatibilityMacroDependencies:
+                    sortedCompatibilityMacroDependencies,
                 dependencySHA256: dependencyHash,
                 moduleDependencies: moduleDependencies,
                 moduleDependencySHA256: moduleDependencyHash,
@@ -193,12 +198,15 @@ extension SceneShaderPreprocessor {
                 frontendSchemaVersion: SceneShaderVariantEnvironment.frontendSchemaVersion,
                 sourceDialect: environment.sourceDialect,
                 backend: environment.backend,
+                compatibilityTarget: environment.compatibilityTarget,
                 stage: environment.stage,
                 rootRelativePath: rootRelativePath,
                 source: source,
                 sourceMap: sourceMap,
                 activeAnnotations: annotations,
                 activeDeclarations: declarations,
+                compatibilityMacroDependencies:
+                    sortedCompatibilityMacroDependencies,
                 dependencies: sortedDependencies,
                 dependencySHA256: dependencyHash,
                 moduleDependencies: moduleDependencies,
@@ -254,12 +262,19 @@ extension SceneShaderPreprocessor {
 
         mutating func expand(_ line: SceneShaderLexicalLine, path: String, line lineNumber: Int) throws -> String {
             let definitions = selectedDefinitions
+            let target = environment.compatibilityTarget
+            var resolvedCompatibilityMacros: Set<String> = []
             do {
-                return try SceneShaderLexicalExpander.expand(
+                let result = try SceneShaderLexicalExpander.expand(
                     line,
                     objectMacros: macros,
                     functionMacros: functionMacros,
-                    limits: limits
+                    limits: limits,
+                    resolved: { name in
+                        if target.languageMacroDefinition(for: name) != nil {
+                            resolvedCompatibilityMacros.insert(name)
+                        }
+                    }
                 ) { name in
                     if definitions[name] == nil,
                        let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
@@ -271,6 +286,10 @@ extension SceneShaderPreprocessor {
                         )])
                     }
                 }
+                compatibilityMacroDependencies.formUnion(
+                    resolvedCompatibilityMacros
+                )
+                return result
             } catch let error as SceneShaderMacroExpansionError {
                 let code: DiagnosticCode = error.kind == .budgetExceeded
                     ? .budgetExceeded : .functionLikeMacro
@@ -293,9 +312,18 @@ extension SceneShaderPreprocessor {
             })
         }
 
-        func evaluate(_ expression: String, path: String, line: Int) throws -> Bool {
+        mutating func evaluate(
+            _ expression: String,
+            path: String,
+            line: Int
+        ) throws -> Bool {
             do {
                 let tokens = try ExpressionLexer.tokenize(expression, limit: limits.maximumExpressionTokens)
+                for case let .identifier(name) in tokens
+                    where environment.compatibilityTarget
+                        .languageMacroDefinition(for: name) != nil {
+                    compatibilityMacroDependencies.insert(name)
+                }
                 for case let .identifier(name) in tokens
                     where name != "defined" && macros[name] == nil
                         && functionMacros[name] == nil

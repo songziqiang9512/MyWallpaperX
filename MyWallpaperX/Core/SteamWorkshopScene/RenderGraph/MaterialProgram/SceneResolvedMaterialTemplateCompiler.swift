@@ -16,7 +16,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
         unitPreviousBlurredCompositeGenericOwnerEligible: Bool = false,
-        provenSceneScriptValueTargets: Set<SceneDynamicTarget> = []
+        provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
     ) -> Result<Template, Failure> {
         do {
             let context = try graphContext(material, graph: graph)
@@ -51,6 +52,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                         key: context.effect.key,
                         input: context.effect.input
                     ),
+                    compatibilityTarget: compatibilityTarget,
                     shaderContract: shaderContract,
                     diagnosticProvenance: .init(
                         nodeIndex: material.nodeIndex,

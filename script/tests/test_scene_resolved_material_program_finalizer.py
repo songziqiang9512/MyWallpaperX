@@ -40,6 +40,25 @@ VARIANT_CACHE_SOURCE = next(
     for source in scene_swift_sources("resolved_material_frame_finalization")
     if source.name == "SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
+RUNTIME_CATALOG_SOURCE = (
+    SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
+)
+TEMPLATE_COMPILER_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
+)
+SHADER_SCHEMA_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift"
+)
+SHADER_REACHABILITY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+Reachability.swift"
+)
+VARIANT_COMPILATION_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+)
 
 
 SWIFT_SOURCES = [
@@ -793,7 +812,8 @@ private func template(
     uniformDeclarations: [Template.UniformDeclaration] = [],
     renderState: SceneMaterialRenderState = state(),
     textureSlotsOverride: [Template.TextureSlot?]? = nil,
-    effectContext: Template.EffectContext? = nil
+    effectContext: Template.EffectContext? = nil,
+    compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     if includePrimaryCandidate {
@@ -828,6 +848,7 @@ private func template(
                 ? [.init(slot: slot, texture: primaryGraphTextureRole)] : [])
         ),
         effectContext: effectContext,
+        compatibilityTarget: compatibilityTarget,
         shaderContract: shader,
         diagnosticProvenance: .init(
             nodeIndex: 0,
@@ -838,6 +859,104 @@ private func template(
             uniformSources: []
         )
     )!
+}
+
+private func compatibilityTargetTextureCandidateTokens() -> [String: Any] {
+    let shader = contract(
+        revision: "compatibility-target-texture-candidate",
+        vertexSourceOverride: """
+        #if HLSL
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec2 v_TexCoord;
+        void main() {
+            v_TexCoord = a_TexCoord;
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        #elif GLSL
+        attribute vec3 a_Position;
+        void main() { gl_Position = vec4(a_Position.xy, 0.0, 1.0); }
+        #endif
+        """,
+        fragmentSourceOverride: """
+        #if HLSL
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+        void main() {
+            gl_FragColor = texSample2D(g_Texture0, v_TexCoord);
+        }
+        #elif GLSL
+        varying vec2 v_TexCoord;
+        uniform sampler2D g_Texture7; // {"material":"mobile"}
+        void main() {
+            gl_FragColor = texSample2D(g_Texture7, v_TexCoord);
+        }
+        #endif
+        """
+    )
+    let unprofiled = template(shader)
+    let unprofiledReachabilityRejected: Bool
+    do {
+        _ = try SceneResolvedMaterialShaderSchema.reachableSamplers(
+            unprofiled,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        unprofiledReachabilityRejected = false
+    } catch {
+        unprofiledReachabilityRejected = true
+    }
+
+    let target = SceneShaderCompatibilityTarget.windowsDX11ShaderModel4
+    let profiled = template(shader, compatibilityTarget: target)
+    guard let bootstrap = try? SceneResolvedMaterialShaderSchema
+            .bootstrapSamplers(profiled),
+          let reachable = try? SceneResolvedMaterialShaderSchema
+            .reachableSamplers(
+                profiled,
+                implicitFramebufferIdentity: graphTexture()
+            ),
+          case let .success(cache) = SceneResolvedMaterialVariantCache
+            .launchValidated(template: profiled, maximumVariantCount: 8),
+          case .success = cache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: graphTexture()
+          ) else {
+        return ["setup": "failed"]
+    }
+    let snapshot = cache.launchEnvelopeCapabilitySnapshot()
+    let dependencies = Set(snapshot.variants.flatMap {
+        $0.preparedShader.all.flatMap(\.compatibilityMacroDependencies)
+    })
+    let targets = Set(snapshot.variants.flatMap {
+        $0.preparedShader.all.map(\.compatibilityTarget)
+    })
+
+    let branchInsensitive = template(
+        contract(revision: "branch-insensitive-water-wave-sibling"),
+        compatibilityTarget: target
+    )
+    guard case let .success(branchInsensitiveCache) =
+            SceneResolvedMaterialVariantCache.launchValidated(
+                template: branchInsensitive,
+                maximumVariantCount: 8
+            ),
+          case .success = branchInsensitiveCache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: graphTexture()
+          ) else {
+        return ["setup": "branch-insensitive-failed"]
+    }
+    let branchInsensitiveDependencies = branchInsensitiveCache
+        .launchEnvelopeCapabilitySnapshot().variants.flatMap {
+            $0.preparedShader.all.flatMap(\.compatibilityMacroDependencies)
+        }
+    return [
+        "unprofiledReachabilityRejected": unprofiledReachabilityRejected,
+        "bootstrapSlots": bootstrap.keys.sorted(),
+        "reachableSlots": reachable.keys.sorted(),
+        "programVariantCount": snapshot.variants.count,
+        "targets": targets.map(\.rawValue).sorted(),
+        "dependencies": dependencies.sorted(),
+        "branchInsensitiveDependencies": branchInsensitiveDependencies,
+    ]
 }
 
 private func texture(
@@ -5215,6 +5334,8 @@ private enum Harness {
                 "missingSourceGraph": missingSourceGraphDiagnostic(),
                 "selfGatedReadiness": selfGatedReadinessSeedTokens(),
             ],
+            "compatibilityTargetTextureCandidate":
+                compatibilityTargetTextureCandidateTokens(),
             "neutralTextureResolution": neutralTextureResolution,
             "neutralTextureResolutionUnseen": neutralTextureResolutionUnseen,
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
@@ -5735,6 +5856,45 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             variant_text,
         )
         self.assertNotIn("reachable-sampler-schema", variant_text)
+
+    def test_one_material_program_target_drives_resource_and_program_preparation(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["compatibilityTargetTextureCandidate"],
+            {
+                "unprofiledReachabilityRejected": True,
+                "bootstrapSlots": [0],
+                "reachableSlots": [0],
+                "programVariantCount": 1,
+                "targets": ["windows-dx11-sm4"],
+                "dependencies": ["HLSL"],
+                "branchInsensitiveDependencies": [],
+            },
+            self.result,
+        )
+
+        runtime_catalog = RUNTIME_CATALOG_SOURCE.read_text(encoding="utf-8")
+        template_compiler = TEMPLATE_COMPILER_SOURCE.read_text(encoding="utf-8")
+        schema = SHADER_SCHEMA_SOURCE.read_text(encoding="utf-8")
+        reachability = SHADER_REACHABILITY_SOURCE.read_text(encoding="utf-8")
+        variant_compilation = VARIANT_COMPILATION_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        target_token = "compatibilityTarget: .windowsDX11ShaderModel4"
+        self.assertEqual(runtime_catalog.count(target_token), 1)
+        self.assertNotIn(target_token, schema)
+        self.assertNotIn(target_token, reachability)
+        self.assertNotIn(target_token, variant_compilation)
+        self.assertIn(
+            "compatibilityTarget: compatibilityTarget",
+            template_compiler,
+        )
+        for consumer in (schema, reachability, variant_compilation):
+            self.assertIn(
+                "compatibilityTarget: template.compatibilityTarget",
+                consumer,
+            )
 
     def test_finalizer_and_variant_selection_invariants_remain_typed(self) -> None:
         expected = {

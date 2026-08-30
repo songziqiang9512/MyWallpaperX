@@ -186,10 +186,44 @@ extension SceneShaderPreprocessor {
         let sourceMap: [SceneShaderSourceMapEntry]
         let activeAnnotations: [SceneShaderActiveAnnotation]
         let activeDeclarations: [SceneShaderActiveDeclaration]
+        let compatibilityMacroDependencies: [String]
         let dependencySHA256: String
         let moduleDependencies: [SceneShaderModuleDependency]
         let moduleDependencySHA256: String
         let variantSHA256: String
+
+        init(
+            frontendSchemaVersion: Int,
+            sourceDialect: SceneShaderSourceDialect,
+            backend: SceneShaderBackendIdentity,
+            stage: SceneShaderContract.StageKind,
+            rootRelativePath: String,
+            source: String,
+            sourceMap: [SceneShaderSourceMapEntry],
+            activeAnnotations: [SceneShaderActiveAnnotation],
+            activeDeclarations: [SceneShaderActiveDeclaration],
+            compatibilityMacroDependencies: [String] = [],
+            dependencySHA256: String,
+            moduleDependencies: [SceneShaderModuleDependency],
+            moduleDependencySHA256: String,
+            variantSHA256: String
+        ) {
+            self.frontendSchemaVersion = frontendSchemaVersion
+            self.sourceDialect = sourceDialect
+            self.backend = backend
+            self.stage = stage
+            self.rootRelativePath = rootRelativePath
+            self.source = source
+            self.sourceMap = sourceMap
+            self.activeAnnotations = activeAnnotations
+            self.activeDeclarations = activeDeclarations
+            self.compatibilityMacroDependencies =
+                compatibilityMacroDependencies
+            self.dependencySHA256 = dependencySHA256
+            self.moduleDependencies = moduleDependencies
+            self.moduleDependencySHA256 = moduleDependencySHA256
+            self.variantSHA256 = variantSHA256
+        }
     }
 
     nonisolated enum DiagnosticCode: String, Codable, Equatable, Sendable {

@@ -83,6 +83,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
         let combos: [Template.Combo]
         let inheritedInactiveCombos: [String]
         let uniformDeclarations: [Template.UniformDeclaration]
+        let compatibilityTarget: SceneShaderCompatibilityTarget
         let hasImplicitFramebuffer: Bool
 
         init(
@@ -109,6 +110,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
             combos = template.combos
             inheritedInactiveCombos = template.inheritedInactiveCombos
             uniformDeclarations = template.uniformDeclarations
+            compatibilityTarget = template.compatibilityTarget
             hasImplicitFramebuffer = implicitFramebufferIdentity != nil
         }
     }
@@ -287,7 +289,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                         propertyDefinitions: propertyDefinitions,
                         timelineDefinitions: timelineDefinitions
                     ),
-                provenSceneScriptValueTargets: provenSceneScriptValueTargets
+                provenSceneScriptValueTargets: provenSceneScriptValueTargets,
+                compatibilityTarget: .windowsDX11ShaderModel4
             ) {
             case let .failure(failure):
                 outcome = .init(

@@ -54,6 +54,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         let frontendSchemaVersion: Int
         let contractCanonicalSHA256: String
         let sourceGraphSHA256: String
+        let compatibilityTarget: SceneShaderCompatibilityTarget
         let combos: [Combo]
         let inactiveComboProviders: [String]
         let textureReadiness: [Readiness]
@@ -62,6 +63,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         init(
             contract: SceneShaderContract,
             graph: SceneShaderSourceGraph,
+            compatibilityTarget: SceneShaderCompatibilityTarget,
             combos: [String: Int],
             inactiveComboProviders: Set<String>,
             textureReadiness: [Int: Bool],
@@ -75,6 +77,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             // including actual include source, so reuse cannot hide a changed
             // include behind a stale dependency marker.
             sourceGraphSHA256 = SceneShaderStableDigest.hash(graph)
+            self.compatibilityTarget = compatibilityTarget
             self.combos = combos.map {
                 Combo(name: $0.key, value: $0.value)
             }.sorted { $0.name < $1.name }
@@ -255,6 +258,8 @@ nonisolated enum SceneAuthoredShaderPreparation {
         ) -> Bool {
             guard program.vertex.frontendSchemaVersion == key.frontendSchemaVersion,
                   program.fragment.frontendSchemaVersion == key.frontendSchemaVersion,
+                  program.vertex.compatibilityTarget == key.compatibilityTarget,
+                  program.fragment.compatibilityTarget == key.compatibilityTarget,
                   program.vertex.stage == .vertex,
                   program.fragment.stage == .fragment else { return false }
             let identity = PreparedProgramIdentity(
@@ -311,8 +316,12 @@ nonisolated enum SceneAuthoredShaderPreparation {
         let activeSchemaSources: [SceneShaderVariantSchemaSource]
     }
 
+    /// Language compatibility is opt-in at the ownership boundary. A global
+    /// product default would rewrite authored branches before the caller has
+    /// proved that its selected Program route is actually executable.
     nonisolated static func prepareShaderStages(
         contract: SceneShaderContract,
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         combos: [String: Int],
         inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
@@ -339,6 +348,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         let cacheKey = PreparationCacheKey(
             contract: contract,
             graph: graph,
+            compatibilityTarget: compatibilityTarget,
             combos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -354,6 +364,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             let result = prepareShaderStagesUncached(
                 contract: contract,
                 graph: graph,
+                compatibilityTarget: compatibilityTarget,
                 combos: combos,
                 inactiveComboProviders: inactiveComboProviders,
                 textureReadiness: textureReadiness,
@@ -373,6 +384,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
     private static func prepareShaderStagesUncached(
         contract: SceneShaderContract,
         graph: SceneShaderSourceGraph,
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         combos: [String: Int],
         inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
@@ -389,6 +401,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             contract: contract,
             graph: graph,
             initialSources: schemaSources,
+            compatibilityTarget: compatibilityTarget,
             combos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -414,6 +427,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 contract: contract,
                 graph: graph,
                 initialSources: probeSeed,
+                compatibilityTarget: compatibilityTarget,
                 combos: combos,
                 inactiveComboProviders: inactiveComboProviders,
                 textureReadiness: textureReadiness,
@@ -429,6 +443,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         contract: SceneShaderContract,
         graph: SceneShaderSourceGraph,
         initialSources: [SceneShaderVariantSchemaSource],
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         combos: [String: Int],
         inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
@@ -442,6 +457,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
                 contract: contract,
                 graph: graph,
                 schemaSources: schemaSources,
+                compatibilityTarget: compatibilityTarget,
                 combos: combos,
                 inactiveComboProviders: inactiveComboProviders,
                 textureReadiness: textureReadiness,
@@ -481,6 +497,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         contract: SceneShaderContract,
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         combos: [String: Int],
         inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
@@ -491,6 +508,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             contract: contract,
             graph: graph,
             schemaSources: schemaSources,
+            compatibilityTarget: compatibilityTarget,
             combos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -501,6 +519,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             contract: contract,
             graph: graph,
             schemaSources: schemaSources,
+            compatibilityTarget: compatibilityTarget,
             combos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -564,6 +583,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         switch SceneShaderVariantResolver.resolve(
             stage: .fragment,
             schemaSources: sources,
+            compatibilityTarget: prepared.fragment.compatibilityTarget,
             explicitCombos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -666,6 +686,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         contract: SceneShaderContract,
         graph: SceneShaderSourceGraph,
         schemaSources: [SceneShaderVariantSchemaSource],
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         combos: [String: Int],
         inactiveComboProviders: Set<String>,
         textureReadiness: [Int: Bool],
@@ -680,6 +701,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
         let variantResult = SceneShaderVariantResolver.resolve(
             stage: kind,
             schemaSources: schemaSources,
+            compatibilityTarget: compatibilityTarget,
             explicitCombos: combos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,

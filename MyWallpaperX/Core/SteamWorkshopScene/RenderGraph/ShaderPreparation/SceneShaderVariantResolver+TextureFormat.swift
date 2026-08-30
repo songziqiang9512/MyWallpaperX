@@ -6,6 +6,7 @@ nonisolated extension SceneShaderVariantResolver {
         explicit: [String: Int64],
         textureFormats: [Int: SceneShaderTextureFormat],
         schemaProviders: Set<String>,
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         requirementDefinitions: [String: SceneShaderMacroDefinition],
         definitions: inout [String: SceneShaderMacroDefinition],
         provenance: inout [String: SceneShaderComboProvenance],
@@ -15,7 +16,8 @@ nonisolated extension SceneShaderVariantResolver {
             $0.textureFormatSlot != nil && requirementsSatisfied(
                 $0,
                 definitions: requirementDefinitions,
-                schemaProviders: schemaProviders
+                schemaProviders: schemaProviders,
+                compatibilityTarget: compatibilityTarget
             )
         }
         let groupedSchemas = Dictionary(grouping: active, by: \.combo)
@@ -64,11 +66,16 @@ nonisolated extension SceneShaderVariantResolver {
 
     static func validateHostRequirements(
         _ schemas: [Schema],
-        providerNames: Set<String>
+        providerNames: Set<String>,
+        compatibilityTarget: SceneShaderCompatibilityTarget
     ) throws {
         for name in Set(schemas.filter(\.hasRuntimeRequirements)
             .flatMap { $0.requirements.keys }).sorted() {
             guard let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) else {
+                continue
+            }
+            if requirement == .backendLanguage,
+               compatibilityTarget.languageMacroDefinition(for: name) != nil {
                 continue
             }
             if requirement == .textureFormat,

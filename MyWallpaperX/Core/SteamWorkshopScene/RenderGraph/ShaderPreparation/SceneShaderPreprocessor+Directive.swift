@@ -148,6 +148,11 @@ extension SceneShaderPreprocessor.State {
         case let .ifdef(name, inverted):
             let parent = currentActive
             if parent,
+               environment.compatibilityTarget
+                   .languageMacroDefinition(for: name) != nil {
+                compatibilityMacroDependencies.insert(name)
+            }
+            if parent,
                macros[name] == nil, functionMacros[name] == nil,
                selectedDefinitions[name] == nil,
                let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name),

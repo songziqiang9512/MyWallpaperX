@@ -37,6 +37,7 @@ extension SceneResolvedMaterialShaderSchema {
             let prepared: SceneShaderPreparedProgram
             switch SceneAuthoredShaderPreparation.prepareShaderStages(
                 contract: template.shaderContract,
+                compatibilityTarget: template.compatibilityTarget,
                 combos: template.comboValues,
                 inactiveComboProviders: Set(template.inheritedInactiveCombos),
                 textureReadiness: readiness,

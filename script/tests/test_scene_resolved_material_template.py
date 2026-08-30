@@ -41,6 +41,11 @@ nonisolated enum SceneDynamicTarget: Hashable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
 }
 
+nonisolated enum SceneShaderCompatibilityTarget: String, Hashable {
+    case unprofiledMetal = "unprofiled-metal"
+    case windowsDX11ShaderModel4 = "windows-dx11-sm4"
+}
+
 enum SceneShaderUserValueKind {
     case null
     case number

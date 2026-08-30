@@ -26,12 +26,17 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
     let frontendSchemaVersion: Int
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
+    let compatibilityTarget: SceneShaderCompatibilityTarget
     let stage: SceneShaderContract.StageKind
     let rootRelativePath: String
     let source: String
     let sourceMap: [SceneShaderSourceMapEntry]
     let activeAnnotations: [SceneShaderActiveAnnotation]
     let activeDeclarations: [SceneShaderActiveDeclaration]
+    /// Host-owned author-language macros that were actually evaluated or
+    /// expanded while preparing this source. Merely carrying an explicit
+    /// target is not evidence that the target changed authored source.
+    let compatibilityMacroDependencies: [String]
     let dependencies: [SceneShaderSourceDependency]
     let dependencySHA256: String
     let moduleDependencies: [SceneShaderModuleDependency]
@@ -43,12 +48,14 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
         frontendSchemaVersion: Int,
         sourceDialect: SceneShaderSourceDialect,
         backend: SceneShaderBackendIdentity,
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         stage: SceneShaderContract.StageKind,
         rootRelativePath: String,
         source: String,
         sourceMap: [SceneShaderSourceMapEntry],
         activeAnnotations: [SceneShaderActiveAnnotation],
         activeDeclarations: [SceneShaderActiveDeclaration],
+        compatibilityMacroDependencies: [String] = [],
         dependencies: [SceneShaderSourceDependency],
         dependencySHA256: String,
         moduleDependencies: [SceneShaderModuleDependency] = [],
@@ -59,12 +66,14 @@ nonisolated struct SceneShaderPreparedSource: Codable, Equatable, Sendable {
         self.frontendSchemaVersion = frontendSchemaVersion
         self.sourceDialect = sourceDialect
         self.backend = backend
+        self.compatibilityTarget = compatibilityTarget
         self.stage = stage
         self.rootRelativePath = rootRelativePath
         self.source = source
         self.sourceMap = sourceMap
         self.activeAnnotations = activeAnnotations
         self.activeDeclarations = activeDeclarations
+        self.compatibilityMacroDependencies = compatibilityMacroDependencies
         self.dependencies = dependencies
         self.dependencySHA256 = dependencySHA256
         self.moduleDependencies = moduleDependencies
@@ -117,6 +126,40 @@ nonisolated enum SceneShaderStableDigest {
 
 nonisolated enum SceneShaderBackendIdentity: String, Codable, Equatable, Sendable {
     case mwxMetal = "mwx-metal"
+}
+
+/// Selects authored compatibility macros from an explicit host profile. This
+/// identity describes the author-facing contract, not the internal compiler or
+/// the Metal backend used after preparation.
+nonisolated enum SceneShaderCompatibilityTarget: String, Codable, Equatable,
+    Hashable, Sendable {
+    /// No author-facing language profile has been selected. Language macros
+    /// remain unresolved and fail closed when authored source consults them.
+    case unprofiledMetal = "unprofiled-metal"
+    /// The product's current Windows DirectX 11 / Shader Model 4 authoring
+    /// profile, translated later by the shared Metal backend.
+    case windowsDX11ShaderModel4 = "windows-dx11-sm4"
+
+    var languageMacroBindings: [SceneShaderMacroBinding] {
+        switch self {
+        case .unprofiledMetal:
+            []
+        case .windowsDX11ShaderModel4:
+            [
+                .init(name: "GLSL", definition: .undefined),
+                .init(name: "HLSL", definition: .defined(.bare)),
+                .init(name: "HLSL_GS40", definition: .undefined),
+                .init(name: "HLSL_SM30", definition: .undefined),
+                .init(name: "HLSL_SM40", definition: .defined(.bare)),
+            ]
+        }
+    }
+
+    func languageMacroDefinition(
+        for identifier: String
+    ) -> SceneShaderMacroDefinition? {
+        languageMacroBindings.first { $0.name == identifier }?.definition
+    }
 }
 
 /// Describes the authored input grammar without claiming that it is GLSL,
@@ -209,10 +252,11 @@ nonisolated struct SceneShaderVariantFailure: Error, Codable, Equatable, Sendabl
 }
 
 nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
-    static let frontendSchemaVersion = 29
+    static let frontendSchemaVersion = 31
 
     let sourceDialect: SceneShaderSourceDialect
     let backend: SceneShaderBackendIdentity
+    let compatibilityTarget: SceneShaderCompatibilityTarget
     let stage: SceneShaderContract.StageKind
     let environmentDefines: [SceneShaderMacroBinding]
     let comboResolutions: [SceneShaderComboResolution]
@@ -222,11 +266,12 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         comboResolutions.map(\.binding)
     }
 
-    /// The Metal path currently has no evidence-backed authored environment
-    /// macro. Non-empty input therefore fails closed instead of pretending that
-    /// Metal is HLSL/GLSL or inventing version/platform/format values.
+    /// Author-controlled environment input remains unsupported. The host may
+    /// select one explicit compatibility target, but material/source data cannot
+    /// overwrite that target or invent version/platform/format values.
     init(
         stage: SceneShaderContract.StageKind,
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         environmentDefines: [SceneShaderMacroBinding] = [],
         combos: [SceneShaderMacroBinding] = []
     ) throws {
@@ -235,7 +280,7 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
             throw SceneShaderVariantFailure(
                 code: .unsupportedEnvironmentDefine,
                 identifier: unsupported.name,
-                message: "The Metal shader backend has no verified authored environment defines."
+                message: "Authored shader environment defines cannot override host facts."
             )
         }
         let normalizedCombos = try Self.normalized(combos)
@@ -248,6 +293,7 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         }
         try self.init(
             stage: stage,
+            compatibilityTarget: compatibilityTarget,
             comboResolutions: normalizedCombos.map {
                 SceneShaderComboResolution(
                     binding: $0,
@@ -261,6 +307,7 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
 
     init(
         stage: SceneShaderContract.StageKind,
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         comboResolutions: [SceneShaderComboResolution]
     ) throws {
         let normalizedResolutions = try Self.normalized(comboResolutions)
@@ -277,15 +324,17 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         }
         sourceDialect = .wallpaperEngineGLSLLike
         backend = .mwxMetal
+        self.compatibilityTarget = compatibilityTarget
         self.stage = stage
-        environmentDefines = []
+        environmentDefines = compatibilityTarget.languageMacroBindings
         self.comboResolutions = normalizedResolutions
         variantSHA256 = SceneShaderStableDigest.hash(VariantDigestPayload(
             frontendSchemaVersion: Self.frontendSchemaVersion,
             sourceDialect: .wallpaperEngineGLSLLike,
             backend: .mwxMetal,
+            compatibilityTarget: compatibilityTarget,
             stage: stage,
-            environmentDefines: [],
+            environmentDefines: compatibilityTarget.languageMacroBindings,
             combos: bindings
         ))
     }
@@ -300,13 +349,9 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
     }
 
     func selectedMacroDefinitions() -> [String: SceneShaderMacroDefinition] {
-        var result = Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
+        Dictionary(uniqueKeysWithValues: (environmentDefines + combos).map {
             ($0.name, $0.definition)
         })
-        for name in ["HLSL", "HLSL_SM30", "HLSL_SM40", "HLSL_GS40"] {
-            result[name] = .undefined
-        }
-        return result
     }
 
     private static func normalized(
@@ -393,6 +438,7 @@ nonisolated struct SceneShaderVariantEnvironment: Codable, Equatable, Sendable {
         let frontendSchemaVersion: Int
         let sourceDialect: SceneShaderSourceDialect
         let backend: SceneShaderBackendIdentity
+        let compatibilityTarget: SceneShaderCompatibilityTarget
         let stage: SceneShaderContract.StageKind
         let environmentDefines: [SceneShaderMacroBinding]
         let combos: [SceneShaderMacroBinding]

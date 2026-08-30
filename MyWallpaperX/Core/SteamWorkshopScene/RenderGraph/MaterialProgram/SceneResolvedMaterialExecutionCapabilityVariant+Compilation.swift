@@ -87,6 +87,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         let prepared: SceneShaderPreparedProgram
         switch SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: template.shaderContract,
+            compatibilityTarget: template.compatibilityTarget,
             combos: template.comboValues,
             inactiveComboProviders: Set(template.inheritedInactiveCombos),
             textureReadiness: readiness,
@@ -102,6 +103,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             )
         case .notApplicable:
             throw failure(.identityInvariant, phase: .invariant)
+        }
+        let compatibilityTargetAdmissionPending = prepared.all.allSatisfy {
+            $0.compatibilityTarget == .windowsDX11ShaderModel4
+        } && prepared.all.contains {
+            !$0.compatibilityMacroDependencies.isEmpty
         }
         let compilerSources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
             vertex: prepared.vertex.source,
@@ -396,6 +402,16 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             boundedOutput = nil
             artifactFailure = ["generic-artifact-accepted", requestKey]
         case let .ownerDeferred(code, requestKey, decision):
+            if compatibilityTargetAdmissionPending {
+                throw failure(
+                    .shaderFrontendFailed,
+                    phase: .frontend,
+                    details: [
+                        "compatibility-target-unadmitted",
+                        "generic-artifact", code, requestKey, decision.profile,
+                    ]
+                )
+            }
             throw failure(
                 .genericProductOwnerDeferred,
                 phase: .frontend,
@@ -412,10 +428,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 throw failure(
                     .shaderFrontendFailed,
                     phase: .frontend,
-                    genericOwnerFailure: .productOwnerRevoked,
+                    genericOwnerFailure: compatibilityTargetAdmissionPending
+                        ? nil : .productOwnerRevoked,
                     details: [
                         "generic-artifact", code, requestKey,
                         "bounded-frontend-owner-revoked",
+                        compatibilityTargetAdmissionPending
+                            ? "compatibility-target-unadmitted"
+                            : "compatibility-target-not-applicable",
                     ]
                 )
             }
@@ -439,7 +459,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                     .shaderFrontendFailed,
                     phase: .frontend,
                     genericOwnerFailure:
-                        genericOwnerFailure(routeDecision),
+                        compatibilityTargetAdmissionPending
+                            ? nil : genericOwnerFailure(routeDecision),
                     details: SceneResolvedMaterialExecutionCapabilityDiagnostics
                         .frontendFailure(template: template, output: output)
                         + ["generic-artifact", code, requestKey]
@@ -466,7 +487,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         } else {
             sourceProvenOpaqueColorSlots = []
         }
-        let genericOwnerFailure = genericOwnerFailure(routeDecision)
+        // Compatibility-target branch selection is only a Program candidate.
+        // The route decision becomes product ownership when every admission
+        // check below succeeds and the compiled Variant is returned.
+        let genericOwnerFailure = compatibilityTargetAdmissionPending
+            ? nil : genericOwnerFailure(routeDecision)
         guard
               SceneResolvedMaterialProgramDerivation.validPreparedStages(prepared),
               SceneResolvedMaterialProgramDerivation.uniqueAndValid(

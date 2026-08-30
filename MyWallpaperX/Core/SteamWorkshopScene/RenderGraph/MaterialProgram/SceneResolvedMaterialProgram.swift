@@ -293,6 +293,10 @@ nonisolated struct SceneResolvedMaterialTemplate {
     /// facts. GraphTextureRole alone deliberately cannot distinguish another
     /// layer, a named target, or a non-contiguous effect output.
     let effectContext: EffectContext?
+    /// Host-selected author-language compatibility for this one immutable
+    /// Program candidate. Resource reachability and final compilation must
+    /// consume this exact value rather than choosing a target independently.
+    let compatibilityTarget: SceneShaderCompatibilityTarget
     let shaderContract: SceneShaderContract
     let diagnosticProvenance: DiagnosticProvenance
 
@@ -309,6 +313,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         graphRole: GraphRole,
         unitPreviousBlurredCompositeGenericOwnerEligible: Bool = false,
         effectContext: EffectContext? = nil,
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
     ) -> Self? {
@@ -335,6 +340,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
             unitPreviousBlurredCompositeGenericOwnerEligible:
                 unitPreviousBlurredCompositeGenericOwnerEligible,
             effectContext: effectContext,
+            compatibilityTarget: compatibilityTarget,
             shaderContract: shaderContract,
             diagnosticProvenance: diagnosticProvenance
         )
@@ -347,6 +353,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         graphRole: GraphRole,
         unitPreviousBlurredCompositeGenericOwnerEligible: Bool,
         effectContext: EffectContext?,
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         shaderContract: SceneShaderContract,
         diagnosticProvenance: DiagnosticProvenance
     ) {
@@ -359,6 +366,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
         self.unitPreviousBlurredCompositeGenericOwnerEligible =
             unitPreviousBlurredCompositeGenericOwnerEligible
         self.effectContext = effectContext
+        self.compatibilityTarget = compatibilityTarget
         self.shaderContract = shaderContract
         self.diagnosticProvenance = diagnosticProvenance
     }

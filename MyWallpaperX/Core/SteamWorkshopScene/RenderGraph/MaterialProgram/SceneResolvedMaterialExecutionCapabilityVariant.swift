@@ -431,6 +431,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                     == template.diagnosticProvenance.contractCanonicalSHA256,
                   input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
                   input.template.uniformDeclarations == template.uniformDeclarations,
+                  input.template.compatibilityTarget
+                    == template.compatibilityTarget,
                   input.template.effectContext == template.effectContext else {
                 throw Self.failure(
                     .variantSelectionTemplateIdentityInvariant,

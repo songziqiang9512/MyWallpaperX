@@ -164,6 +164,7 @@ private func preparedSource(stockRoot: URL, looseRoot: URL) throws -> String {
     ]
     let environment = try SceneShaderVariantEnvironment(
         stage: .fragment,
+        compatibilityTarget: .windowsDX11ShaderModel4,
         combos: values.map {
             .init(name: $0.key, definition: .defined(.integer($0.value)))
         }
@@ -203,6 +204,7 @@ private func preparedCompositeSource(stockRoot: URL) throws -> String {
     ]
     let environment = try SceneShaderVariantEnvironment(
         stage: .fragment,
+        compatibilityTarget: .windowsDX11ShaderModel4,
         combos: values.map {
             .init(name: $0.key, definition: .defined(.integer($0.value)))
         }

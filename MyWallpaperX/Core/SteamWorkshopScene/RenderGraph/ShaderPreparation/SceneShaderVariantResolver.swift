@@ -30,6 +30,7 @@ nonisolated enum SceneShaderVariantResolver {
     static func resolve(
         stage: SceneShaderContract.StageKind,
         stages: [SceneShaderContract.Stage],
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         explicitCombos: [String: Int],
         inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
@@ -38,6 +39,7 @@ nonisolated enum SceneShaderVariantResolver {
         resolve(
             stage: stage,
             schemaSources: stages.map(SceneShaderVariantSchemaSource.init),
+            compatibilityTarget: compatibilityTarget,
             explicitCombos: explicitCombos,
             inactiveComboProviders: inactiveComboProviders,
             textureReadiness: textureReadiness,
@@ -48,6 +50,7 @@ nonisolated enum SceneShaderVariantResolver {
     static func resolve(
         stage: SceneShaderContract.StageKind,
         schemaSources: [SceneShaderVariantSchemaSource],
+        compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
         explicitCombos: [String: Int],
         inactiveComboProviders: Set<String> = [],
         textureReadiness: [Int: Bool] = [:],
@@ -104,7 +107,8 @@ nonisolated enum SceneShaderVariantResolver {
             )
             try validateHostRequirements(
                 schemas,
-                providerNames: providerNames
+                providerNames: providerNames,
+                compatibilityTarget: compatibilityTarget
             )
             try resolveAuthoredCombos(
                 schemas.filter(\.isAuthoredComboMarker),
@@ -129,6 +133,7 @@ nonisolated enum SceneShaderVariantResolver {
                     explicit: explicit,
                     textureReadiness: textureReadiness,
                     schemaProviders: providerNames,
+                    compatibilityTarget: compatibilityTarget,
                     requirementDefinitions: state.definitions,
                     definitions: &next.definitions,
                     provenance: &next.provenance,
@@ -139,6 +144,7 @@ nonisolated enum SceneShaderVariantResolver {
                     explicit: explicit,
                     textureFormats: textureFormats,
                     schemaProviders: providerNames,
+                    compatibilityTarget: compatibilityTarget,
                     requirementDefinitions: state.definitions,
                     definitions: &next.definitions,
                     provenance: &next.provenance,
@@ -175,7 +181,8 @@ nonisolated enum SceneShaderVariantResolver {
                     $0.combo == combo && requirementsSatisfied(
                         $0,
                         definitions: state.definitions,
-                        schemaProviders: providerNames
+                        schemaProviders: providerNames,
+                        compatibilityTarget: compatibilityTarget
                     )
                 }
                 if !hasActiveSchema {
@@ -198,6 +205,7 @@ nonisolated enum SceneShaderVariantResolver {
             }
             return .success(try SceneShaderVariantEnvironment(
                 stage: stage,
+                compatibilityTarget: compatibilityTarget,
                 comboResolutions: resolutions
             ))
         } catch let failure as Failure {
@@ -257,6 +265,7 @@ nonisolated enum SceneShaderVariantResolver {
         explicit: [String: Int64],
         textureReadiness: [Int: Bool],
         schemaProviders: Set<String>,
+        compatibilityTarget: SceneShaderCompatibilityTarget,
         requirementDefinitions: [String: SceneShaderMacroDefinition],
         definitions: inout [String: SceneShaderMacroDefinition],
         provenance: inout [String: SceneShaderComboProvenance],
@@ -266,7 +275,8 @@ nonisolated enum SceneShaderVariantResolver {
             $0.samplerSlot != nil && requirementsSatisfied(
                 $0,
                 definitions: requirementDefinitions,
-                schemaProviders: schemaProviders
+                schemaProviders: schemaProviders,
+                compatibilityTarget: compatibilityTarget
             )
         }
         let groupedSchemas = Dictionary(grouping: active, by: \.combo)
@@ -359,13 +369,19 @@ nonisolated enum SceneShaderVariantResolver {
     static func requirementsSatisfied(
         _ schema: Schema,
         definitions: [String: SceneShaderMacroDefinition],
-        schemaProviders: Set<String>
+        schemaProviders: Set<String>,
+        compatibilityTarget: SceneShaderCompatibilityTarget
     ) -> Bool {
         guard schema.hasRuntimeRequirements,
               !schema.requirements.isEmpty else { return true }
         let matches = schema.requirements.map { name, expected in
             if let requirement = SceneShaderVariantEnvironment.unresolvedRequirement(for: name) {
-                if requirement == .backendLanguage || requirement == .platform {
+                if requirement == .backendLanguage {
+                    guard let definition = compatibilityTarget
+                        .languageMacroDefinition(for: name) else { return false }
+                    return value(definition) == expected
+                }
+                if requirement == .platform {
                     return false
                 }
                 guard schemaProviders.contains(name),

@@ -23,7 +23,9 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderContract.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
-    *scene_swift_sources("shader_preprocessing_and_variant_implementation"),
+    # Includes the canonical shader_preprocessing_and_variant_implementation
+    # family plus the prepared-program cache assembly exercised below.
+    *scene_swift_sources("authored_shader_preparation_implementation"),
 ]
 
 HARNESS = r'''
@@ -113,9 +115,14 @@ private func graph(
 }
 
 private func environment(
-    _ combos: [SceneShaderMacroBinding] = []
+    _ combos: [SceneShaderMacroBinding] = [],
+    compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
 ) throws -> SceneShaderVariantEnvironment {
-    try SceneShaderVariantEnvironment(stage: .fragment, combos: combos)
+    try SceneShaderVariantEnvironment(
+        stage: .fragment,
+        compatibilityTarget: compatibilityTarget,
+        combos: combos
+    )
 }
 
 private func preprocess(
@@ -165,8 +172,98 @@ private func makeStage(_ source: String) -> SceneShaderContract.Stage {
     )
 }
 
+private func makeProgramStage(
+    _ kind: SceneShaderContract.StageKind,
+    path: String,
+    source: String
+) -> SceneShaderContract.Stage {
+    let parsed = SceneShaderContractSourceParser().parse(
+        source,
+        stageRelativePath: path
+    )
+    return .init(
+        kind: kind,
+        relativePath: path,
+        source: source,
+        rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)),
+        includes: parsed.includes,
+        annotations: parsed.annotations,
+        declarations: parsed.declarations
+    )
+}
+
+private func makeContract(
+    identity: String,
+    vertexSource: String,
+    fragmentSource: String
+) -> SceneShaderContract {
+    let stages = [
+        makeProgramStage(
+            .vertex,
+            path: "shaders/\(identity).vert",
+            source: vertexSource
+        ),
+        makeProgramStage(
+            .fragment,
+            path: "shaders/\(identity).frag",
+            source: fragmentSource
+        ),
+    ]
+    let nodes = stages.map { stage in
+        SceneShaderSourceGraph.Node(
+            virtualPath: stage.relativePath,
+            provenance: .loose,
+            source: stage.source,
+            rawSHA256: stage.rawSHA256,
+            byteCount: stage.source.utf8.count
+        )
+    }
+    let graph = SceneShaderSourceGraph(
+        roots: stages.map {
+            .init(label: $0.kind.rawValue, virtualPath: $0.relativePath)
+        },
+        nodes: nodes,
+        edges: [],
+        diagnostics: [],
+        dependencySHA256: SceneShaderStableDigest.hash(nodes)
+    )
+    return .init(
+        identity: identity,
+        sourceKind: .authoredSource,
+        stages: stages,
+        diagnostics: [],
+        canonicalSHA256: SceneShaderStableDigest.hash(stages),
+        sourceGraph: graph
+    )
+}
+
+private func acceptedProgram(
+    _ result: SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram>
+) throws -> SceneShaderPreparedProgram {
+    switch result {
+    case let .accepted(program): return program
+    case let .rejected(failure):
+        throw HarnessFailure(description: "Expected prepared program, got \(failure).")
+    case .notApplicable:
+        throw HarnessFailure(description: "Expected prepared program, got not-applicable.")
+    }
+}
+
+private func rejectedPreparation(
+    _ result: SceneAuthoredShaderPreparationResult<SceneShaderPreparedProgram>
+) throws -> SceneAuthoredShaderPreparationFailure {
+    switch result {
+    case let .rejected(failure): return failure
+    case .accepted:
+        throw HarnessFailure(description: "Expected shader preparation rejection.")
+    case .notApplicable:
+        throw HarnessFailure(description: "Expected rejection, got not-applicable.")
+    }
+}
+
 private func variant(
     _ stage: SceneShaderContract.Stage,
+    compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal,
     explicit: [String: Int] = [:],
     inactive: Set<String> = [],
     readiness: [Int: Bool] = [:],
@@ -175,6 +272,7 @@ private func variant(
     SceneShaderVariantResolver.resolve(
         stage: .fragment,
         stages: [stage],
+        compatibilityTarget: compatibilityTarget,
         explicitCombos: explicit,
         inactiveComboProviders: inactive,
         textureReadiness: readiness,
@@ -221,6 +319,10 @@ private func runIdentityAndEnvironmentFixtures() throws -> [String] {
         "Authored source dialect was not explicit."
     )
     try expect(plain.backend == .mwxMetal, "Backend identity is not mwx-metal.")
+    try expect(
+        plain.compatibilityTarget == .unprofiledMetal,
+        "Default low-level environment silently selected a language target."
+    )
     try expect(plain.environmentDefines.isEmpty, "Metal injected an unverified macro.")
 
     do {
@@ -313,18 +415,11 @@ private func runEnvironmentRequirementFixtures() throws -> [String] {
         environment: plain,
         code: .unresolvedEnvironmentDefine
     )
-    switch preprocess(
+    try expectFailure(
         "#ifdef HLSL_SM30\nBAD\n#else\nNON_HLSL\n#endif",
-        environment: plain
-    ) {
-    case let .success(prepared):
-        try expect(
-            prepared.source == "NON_HLSL",
-            "The GLSL-like frontend selected an HLSL backend branch."
-        )
-    case let .failure(failure):
-        throw HarnessFailure(description: "Known non-HLSL branch failed: \(failure).")
-    }
+        environment: plain,
+        code: .unresolvedEnvironmentDefine
+    )
     try expectFailure(
         "#ifdef PLATFORM_ANDROID\nACTIVE\n#endif",
         environment: plain,
@@ -432,6 +527,211 @@ private func runEnvironmentRequirementFixtures() throws -> [String] {
         throw HarnessFailure(description: "Inactive branch failed: \(failure).")
     }
     return ["unknown_environment", "typed_values", "inactive_condition"]
+}
+
+private func runCompatibilityTargetFixtures() throws -> [String] {
+    let windowsTarget = SceneShaderCompatibilityTarget.windowsDX11ShaderModel4
+    let windowsEnvironment = try environment(
+        compatibilityTarget: windowsTarget
+    )
+    let targetDefinitions = Dictionary(uniqueKeysWithValues:
+        windowsEnvironment.environmentDefines.map {
+            ($0.name, $0.definition)
+        }
+    )
+    try expect(
+        windowsEnvironment.compatibilityTarget == windowsTarget
+            && targetDefinitions == [
+                "GLSL": .undefined,
+                "HLSL": .defined(.bare),
+                "HLSL_GS40": .undefined,
+                "HLSL_SM30": .undefined,
+                "HLSL_SM40": .defined(.bare),
+            ],
+        "Windows DX11/SM4 did not publish the exact host language macro family."
+    )
+
+    let toneLike = makeContract(
+        identity: "tone-like",
+        vertexSource: "TONE_VERTEX",
+        fragmentSource: """
+        #ifdef GLSL
+        TONE_GLSL
+        #elif defined(HLSL)
+        TONE_HLSL
+        #else
+        TONE_UNPROFILED
+        #endif
+        """
+    )
+    let implicitTargetFailure = try rejectedPreparation(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: toneLike,
+            combos: [:]
+        )
+    )
+    try expect(
+        implicitTargetFailure.code == .shaderVariantInvalid,
+        "Preparation manufactured a generic claim from an implicit language target."
+    )
+    let toneDefault = try acceptedProgram(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: toneLike,
+            compatibilityTarget: windowsTarget,
+            combos: [:]
+        )
+    )
+    try expect(
+        toneDefault.fragment.source == "TONE_HLSL"
+            && !toneDefault.fragment.source.contains("TONE_GLSL")
+            && toneDefault.fragment.compatibilityTarget == windowsTarget,
+        "The product default did not choose HLSL over GLSL for Tone-like source."
+    )
+    try expect(
+        toneDefault.vertex.compatibilityMacroDependencies.isEmpty
+            && toneDefault.fragment.compatibilityMacroDependencies
+                == ["GLSL", "HLSL"],
+        "Tone-like target selection did not retain exact macro provenance."
+    )
+    switch preprocess(
+        "DIRECT_TARGET = HLSL",
+        environment: windowsEnvironment
+    ) {
+    case let .success(prepared):
+        try expect(
+            prepared.source == "DIRECT_TARGET = 1"
+                && prepared.compatibilityMacroDependencies == ["HLSL"],
+            "Direct target macro expansion did not retain exact provenance."
+        )
+    case let .failure(failure):
+        throw HarnessFailure(
+            description: "Direct target macro expansion failed: \(failure)."
+        )
+    }
+
+    let unprofiledFailure = try rejectedPreparation(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: toneLike,
+            compatibilityTarget: .unprofiledMetal,
+            combos: [:]
+        )
+    )
+    try expect(
+        unprofiledFailure.code == .shaderVariantInvalid,
+        "Unprofiled Metal accepted an authored language macro."
+    )
+
+    let comboOverride = try rejectedPreparation(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: toneLike,
+            compatibilityTarget: windowsTarget,
+            combos: ["HLSL": 0]
+        )
+    )
+    try expect(
+        comboOverride.code == .shaderVariantInvalid,
+        "An authored combo overrode the host compatibility target."
+    )
+    let sourceOverride = makeContract(
+        identity: "language-source-override",
+        vertexSource: "OVERRIDE_VERTEX",
+        fragmentSource: "#define HLSL\nOVERRIDE_FRAGMENT"
+    )
+    let sourceOverrideFailure = try rejectedPreparation(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: sourceOverride,
+            compatibilityTarget: windowsTarget,
+            combos: [:]
+        )
+    )
+    try expect(
+        sourceOverrideFailure.code == .shaderVariantInvalid,
+        "Authored source redefined a host compatibility macro."
+    )
+
+    let identityContract = makeContract(
+        identity: "target-identity",
+        vertexSource: "IDENTITY_VERTEX",
+        fragmentSource: "IDENTITY_FRAGMENT"
+    )
+    let unprofiledIdentity = try acceptedProgram(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: identityContract,
+            compatibilityTarget: .unprofiledMetal,
+            combos: [:]
+        )
+    )
+    let windowsIdentity = try acceptedProgram(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: identityContract,
+            compatibilityTarget: windowsTarget,
+            combos: [:]
+        )
+    )
+    try expect(
+        unprofiledIdentity.fragment.variantSHA256
+            != windowsIdentity.fragment.variantSHA256
+            && unprofiledIdentity.fragment.preparedSHA256
+                != windowsIdentity.fragment.preparedSHA256
+            && unprofiledIdentity.cacheKey != windowsIdentity.cacheKey,
+        "Compatibility target switching did not change variant, prepared, and cache identity."
+    )
+    try expect(
+        windowsIdentity.all.allSatisfy {
+            $0.compatibilityMacroDependencies.isEmpty
+        },
+        "A branch-insensitive Program acquired target-selection provenance."
+    )
+
+    let oscilloscopeLike = makeContract(
+        identity: "oscilloscope-like",
+        vertexSource: """
+        #ifdef GLSL
+        OSC_GLSL_VERTEX_OUTPUT
+        #elif defined(HLSL)
+        OSC_HLSL_VERTEX_OUTPUT
+        #elif defined(PLATFORM_ANDROID)
+        OSC_MOBILE_VERTEX_OUTPUT
+        #endif
+        """,
+        fragmentSource: """
+        #ifdef GLSL
+        OSC_GLSL_FRAGMENT_INPUT
+        #elif defined(HLSL_SM40)
+        OSC_HLSL_FRAGMENT_INPUT
+        #elif defined(PLATFORM_ANDROID)
+        OSC_MOBILE_FRAGMENT_INPUT
+        #endif
+        """
+    )
+    let oscilloscope = try acceptedProgram(
+        SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: oscilloscopeLike,
+            compatibilityTarget: windowsTarget,
+            combos: [:]
+        )
+    )
+    try expect(
+        oscilloscope.vertex.source == "OSC_HLSL_VERTEX_OUTPUT"
+            && oscilloscope.fragment.source == "OSC_HLSL_FRAGMENT_INPUT"
+            && !oscilloscope.vertex.source.contains("GLSL")
+            && !oscilloscope.vertex.source.contains("MOBILE")
+            && !oscilloscope.fragment.source.contains("GLSL")
+            && !oscilloscope.fragment.source.contains("MOBILE"),
+        "Cross-stage target selection chose a GLSL/mobile or hybrid branch pair."
+    )
+    return [
+        "windows_hlsl_target",
+        "unprofiled_language_fail_closed",
+        "author_target_override_rejected",
+        "target_variant_prepared_cache_identity",
+        "implicit_target_claim_fail_closed",
+        "tone_like_default",
+        "target_selection_provenance",
+        "direct_target_expansion_provenance",
+        "branch_insensitive_target_not_pending",
+        "oscilloscope_like_cross_stage",
+    ]
 }
 
 private func runReadinessFixtures() throws -> [String] {
@@ -1168,6 +1468,7 @@ private struct SceneShaderVariantEnvironmentHarness {
         do {
             let checks = try runIdentityAndEnvironmentFixtures()
                 + runEnvironmentRequirementFixtures()
+                + runCompatibilityTargetFixtures()
                 + runReadinessFixtures()
                 + runExactIntegerFixtures()
                 + runRequirementProviderFixtures()
@@ -1189,6 +1490,49 @@ private struct SceneShaderVariantEnvironmentHarness {
 
 
 class SceneShaderVariantEnvironmentTests(unittest.TestCase):
+    def test_product_target_opt_in_is_carried_by_one_program_candidate(self):
+        material_program_root = (
+            SCENE_ROOT / "RenderGraph/MaterialProgram"
+        )
+        target_token = "compatibilityTarget: .windowsDX11ShaderModel4"
+        target_owners = []
+        for source_path in material_program_root.glob("*.swift"):
+            if target_token in source_path.read_text(encoding="utf-8"):
+                target_owners.append(source_path.name)
+        self.assertEqual(
+            target_owners,
+            [],
+        )
+        runtime_catalog_source = (
+            SCENE_ROOT / "RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(runtime_catalog_source.count(target_token), 1)
+        owner_source = (
+            material_program_root
+            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "compatibilityTarget: template.compatibilityTarget",
+            owner_source,
+        )
+        self.assertIn(
+            "let compatibilityTargetAdmissionPending = prepared.all.allSatisfy",
+            owner_source,
+        )
+        self.assertIn(
+            "!$0.compatibilityMacroDependencies.isEmpty",
+            owner_source,
+        )
+        self.assertIn(
+            "compatibilityTargetAdmissionPending\n"
+            "                        ? nil : .productOwnerRevoked",
+            owner_source,
+        )
+        self.assertIn(
+            "The route decision becomes product ownership when every admission",
+            owner_source,
+        )
+
     def test_variant_environment_readiness_and_include_diagnostics(self):
         swiftc = shutil.which("swiftc")
         if swiftc is None:
@@ -1240,6 +1584,16 @@ class SceneShaderVariantEnvironmentTests(unittest.TestCase):
                 "unknown_environment",
                 "typed_values",
                 "inactive_condition",
+                "windows_hlsl_target",
+                "unprofiled_language_fail_closed",
+                "author_target_override_rejected",
+                "target_variant_prepared_cache_identity",
+                "implicit_target_claim_fail_closed",
+                "tone_like_default",
+                "target_selection_provenance",
+                "direct_target_expansion_provenance",
+                "branch_insensitive_target_not_pending",
+                "oscilloscope_like_cross_stage",
                 "readiness_provenance",
                 "deterministic_readiness_failure",
                 "explicit_conflicts",
