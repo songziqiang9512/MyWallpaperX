@@ -731,16 +731,22 @@ def resolved_graph_visual_failure_log(
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
-    def test_media_thumbnail_metrics_keep_current_layer_identities(self) -> None:
+    def test_media_thumbnail_metrics_keep_current_and_previous_layer_identities(
+        self,
+    ) -> None:
         metrics = benchmark.media_thumbnail_runtime_metrics(
             "\n".join([
                 "mediaThumbnailCurrentBindingCount: 3",
                 "mediaThumbnailCurrentBindingLayerIDs: 10,20,30",
+                "mediaThumbnailPreviousBindingCount: 1",
+                "mediaThumbnailPreviousBindingLayerIDs: 702",
             ])
         )
         self.assertEqual(metrics, {
             "current_binding_count": 3,
             "current_binding_layer_ids": [10, 20, 30],
+            "previous_binding_count": 1,
+            "previous_binding_layer_ids": [702],
         })
 
     def test_scene_script_scalar_metrics_keep_typed_targets_and_values(self) -> None:

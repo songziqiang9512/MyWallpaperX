@@ -10,12 +10,50 @@ nonisolated struct SceneMediaThumbnailBindingProgram {
             case materialPass = "material-pass"
         }
 
+        enum Provider: String, Hashable {
+            case current
+            case previous
+
+            var authoredName: String {
+                switch self {
+                case .current:
+                    SceneMediaThumbnailBindingProgram.currentIdentity
+                case .previous:
+                    SceneMediaThumbnailBindingProgram.previousIdentity
+                }
+            }
+
+            var textureIdentity: SceneTextureProviderIdentity {
+                switch self {
+                case .current: .mediaThumbnailCurrent
+                case .previous: .mediaThumbnailPrevious
+                }
+            }
+
+            var diagnosticPrefix: String {
+                "base-material-\(rawValue)"
+            }
+        }
+
         let layerID: Int
         let source: Source
         let slotIndex: Int
+        let provider: Provider
+
+        init(
+            layerID: Int,
+            source: Source,
+            slotIndex: Int,
+            provider: Provider = .current
+        ) {
+            self.layerID = layerID
+            self.source = source
+            self.slotIndex = slotIndex
+            self.provider = provider
+        }
 
         var providerIdentity: SceneSystemProviderTextureIdentity {
-            .init(name: SceneMediaThumbnailBindingProgram.currentIdentity,
+            .init(name: provider.authoredName,
                   purpose: .premultipliedColor)
         }
     }
@@ -23,43 +61,67 @@ nonisolated struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
     static let previousIdentity = "$mediaPreviousThumbnail"
 
-    let currentBaseMaterialBindings: [Int: BaseMaterialBinding]
+    let baseMaterialBindings: [Int: BaseMaterialBinding]
     let rejectedBaseMaterialReasons: [Int: String]
 
     nonisolated init(
-        currentBaseMaterialBindings: [Int: BaseMaterialBinding],
+        baseMaterialBindings: [Int: BaseMaterialBinding],
         rejectedBaseMaterialReasons: [Int: String] = [:]
     ) {
-        self.currentBaseMaterialBindings = currentBaseMaterialBindings
+        self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
     }
 
     static let empty = SceneMediaThumbnailBindingProgram(
-        currentBaseMaterialBindings: [:]
+        baseMaterialBindings: [:]
     )
 
     var currentLayerIDs: Set<Int> {
-        Set(currentBaseMaterialBindings.keys)
+        layerIDs(for: .current)
+    }
+
+    var previousLayerIDs: Set<Int> {
+        layerIDs(for: .previous)
     }
 
     var hasConsumers: Bool {
-        !currentBaseMaterialBindings.isEmpty
+        !baseMaterialBindings.isEmpty
     }
 
     var systemProviderDemands: Set<SceneSystemProviderTextureIdentity> {
-        Set(currentBaseMaterialBindings.values.map(\.providerIdentity))
+        Set(baseMaterialBindings.values.map(\.providerIdentity))
     }
 
     func reportLines() -> [String] {
-        [
+        let previousRejectedCount = rejectedBaseMaterialReasons.values.filter {
+            $0.hasPrefix("base-material-previous-")
+        }.count
+        let currentRejectedCount = rejectedBaseMaterialReasons.count
+            - previousRejectedCount
+        return [
             "mediaThumbnailCurrentBindingCount: \(currentLayerIDs.count)",
             "mediaThumbnailCurrentBindingLayerIDs: "
                 + currentLayerIDs.sorted().map(String.init).joined(separator: ","),
             "mediaThumbnailCurrentBaseMaterialBindingCount: "
-                + "\(currentBaseMaterialBindings.count)",
+                + "\(currentLayerIDs.count)",
+            "mediaThumbnailPreviousBindingCount: \(previousLayerIDs.count)",
+            "mediaThumbnailPreviousBindingLayerIDs: "
+                + previousLayerIDs.sorted().map(String.init).joined(separator: ","),
+            "mediaThumbnailPreviousBaseMaterialBindingCount: "
+                + "\(previousLayerIDs.count)",
             "mediaThumbnailCurrentBaseMaterialRejectedCount: "
+                + "\(currentRejectedCount)",
+            "mediaThumbnailPreviousBaseMaterialRejectedCount: "
+                + "\(previousRejectedCount)",
+            "mediaThumbnailBaseMaterialRejectedCount: "
                 + "\(rejectedBaseMaterialReasons.count)",
         ]
+    }
+
+    private func layerIDs(for provider: BaseMaterialBinding.Provider) -> Set<Int> {
+        Set(baseMaterialBindings.compactMap { layerID, binding in
+            binding.provider == provider ? layerID : nil
+        })
     }
 }
 
@@ -104,7 +166,7 @@ enum SceneMediaThumbnailBindingCompiler {
                     rejected[layer.id] = "base-material-instance-shape-invalid"
                     continue
                 }
-                guard containsClaimedCurrent(instance.userTextureInputs) else {
+                guard containsClaimedProvider(instance.userTextureInputs) else {
                     continue
                 }
                 guard instance.textureSlots.indices.contains(0),
@@ -123,16 +185,24 @@ enum SceneMediaThumbnailBindingCompiler {
                     instance.userTextureInputs
                 )
             } else {
-                let currentPasses = materialPasses.filter {
-                    containsClaimedCurrent($0.userTextureInputs)
+                let claimedPasses = materialPasses.filter {
+                    containsClaimedProvider($0.userTextureInputs)
                 }
-                guard currentPasses.count <= 1 else {
-                    rejected[layer.id] = "base-material-current-multi-pass-unsupported"
+                guard claimedPasses.count <= 1 else {
+                    let providers = Set(claimedPasses.flatMap {
+                        claimedProviders($0.userTextureInputs)
+                    })
+                    rejected[layer.id] = providers.count == 1
+                        ? "\(providers.first!.diagnosticPrefix)-multi-pass-unsupported"
+                        : "base-material-system-provider-multi-pass-unsupported"
                     continue
                 }
-                guard let pass = currentPasses.first else { continue }
+                guard let pass = claimedPasses.first else { continue }
                 guard materialPasses.count == 1 else {
-                    rejected[layer.id] = "base-material-current-multi-pass-unsupported"
+                    let provider = claimedProviders(pass.userTextureInputs).first
+                    rejected[layer.id] = provider.map {
+                        "\($0.diagnosticPrefix)-multi-pass-unsupported"
+                    } ?? "base-material-system-provider-multi-pass-unsupported"
                     continue
                 }
                 candidate = (
@@ -143,7 +213,12 @@ enum SceneMediaThumbnailBindingCompiler {
             }
 
             guard let candidate,
-                  containsClaimedCurrent(candidate.userTextureInputs) else {
+                  containsClaimedProvider(candidate.userTextureInputs) else {
+                continue
+            }
+            let providers = Set(claimedProviders(candidate.userTextureInputs))
+            guard providers.count == 1, let provider = providers.first else {
+                rejected[layer.id] = "base-material-system-provider-identity-conflict"
                 continue
             }
             let occupied = candidate.userTextureInputs.indices.filter {
@@ -152,29 +227,44 @@ enum SceneMediaThumbnailBindingCompiler {
             guard occupied == [0],
                   candidate.userTextureInputs[0]?.kind == .system,
                   candidate.userTextureInputs[0]?.value ==
-                    SceneMediaThumbnailBindingProgram.currentIdentity,
+                    provider.authoredName,
                   candidate.textureSlots.indices.contains(0),
                   candidate.textureSlots[0] != nil else {
-                rejected[layer.id] = "base-material-current-slot-shape-unsupported"
+                rejected[layer.id] =
+                    "\(provider.diagnosticPrefix)-slot-shape-unsupported"
                 continue
             }
             accepted[layer.id] = .init(
                 layerID: layer.id,
                 source: candidate.source,
-                slotIndex: 0
+                slotIndex: 0,
+                provider: provider
             )
         }
         return .init(
-            currentBaseMaterialBindings: accepted,
+            baseMaterialBindings: accepted,
             rejectedBaseMaterialReasons: rejected
         )
     }
 
-    private nonisolated static func containsClaimedCurrent(
+    private nonisolated static func containsClaimedProvider(
         _ inputs: [SceneEffectTextureInput?]
     ) -> Bool {
-        inputs.contains {
-            $0?.value == SceneMediaThumbnailBindingProgram.currentIdentity
+        !claimedProviders(inputs).isEmpty
+    }
+
+    private nonisolated static func claimedProviders(
+        _ inputs: [SceneEffectTextureInput?]
+    ) -> [SceneMediaThumbnailBindingProgram.BaseMaterialBinding.Provider] {
+        inputs.compactMap { input in
+            switch input?.value {
+            case SceneMediaThumbnailBindingProgram.currentIdentity:
+                .current
+            case SceneMediaThumbnailBindingProgram.previousIdentity:
+                .previous
+            default:
+                nil
+            }
         }
     }
 

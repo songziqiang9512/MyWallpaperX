@@ -41,8 +41,9 @@ enum SceneBaseMaterialTextureResolver {
         registry: SceneFrameTextureRegistry
     ) -> SceneBaseMaterialTextureResolution {
         let identity = SceneFrameTextureIdentity.system(binding.providerIdentity)
+        let prefix = binding.provider.diagnosticPrefix
         guard let status = registry.lookup(identity) else {
-            return .rejected(reasonCode: "base-material-current-registry-missing")
+            return .rejected(reasonCode: "\(prefix)-registry-missing")
         }
         switch status {
         case let .ready(resource):
@@ -50,18 +51,18 @@ enum SceneBaseMaterialTextureResolver {
             let candidate = publication.candidate
             guard publication.requestIdentity == identity,
                   publication.isComplete,
-                  candidate.identity == .provider(.mediaThumbnailCurrent),
+                  candidate.identity == .provider(binding.provider.textureIdentity),
                   SceneBaseImageTextureCandidateResolver.sample(
                     candidate: candidate,
                     sourceTexture: candidate.texture
                   ) != nil else {
                 return .rejected(
-                    reasonCode: "base-material-current-publication-invalid"
+                    reasonCode: "\(prefix)-publication-invalid"
                 )
             }
             return .ready(candidate)
         case .incomplete:
-            return .rejected(reasonCode: "base-material-current-publication-incomplete")
+            return .rejected(reasonCode: "\(prefix)-publication-incomplete")
         case .absent, .pending, .unavailable:
             return .authoredFallback
         }
@@ -79,7 +80,7 @@ extension SceneMetalRenderer {
             imageTextures.candidate(for: layer.id, matching: $0)
         }
         guard let binding = mediaThumbnailBindings
-            .currentBaseMaterialBindings[layer.id] else {
+            .baseMaterialBindings[layer.id] else {
             guard let fallbackTexture else { return .missing }
             return .source(
                 SceneBaseMaterialTextureSource(

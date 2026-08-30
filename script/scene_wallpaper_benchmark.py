@@ -205,6 +205,14 @@ MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE = re.compile(
     r"^mediaThumbnailCurrentBindingLayerIDs: (?P<ids>[\d,]*)$",
     re.MULTILINE,
 )
+MEDIA_THUMBNAIL_PREVIOUS_BINDING_COUNT_RE = re.compile(
+    r"^mediaThumbnailPreviousBindingCount: (?P<count>\d+)$",
+    re.MULTILINE,
+)
+MEDIA_THUMBNAIL_PREVIOUS_BINDING_LAYER_IDS_RE = re.compile(
+    r"^mediaThumbnailPreviousBindingLayerIDs: (?P<ids>[\d,]*)$",
+    re.MULTILINE,
+)
 MEDIA_THUMBNAIL_PENDING_RE = re.compile(
     r"media thumbnail store: phase=pending-last-ready "
     r"requestedGeneration=(?P<requested>\d+) "
@@ -1810,6 +1818,12 @@ def typed_user_property_bool_activation_publications(
 def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
     count_match = MEDIA_THUMBNAIL_CURRENT_BINDING_COUNT_RE.search(preview_text)
     layer_ids_match = MEDIA_THUMBNAIL_CURRENT_BINDING_LAYER_IDS_RE.search(preview_text)
+    previous_count_match = MEDIA_THUMBNAIL_PREVIOUS_BINDING_COUNT_RE.search(
+        preview_text
+    )
+    previous_layer_ids_match = (
+        MEDIA_THUMBNAIL_PREVIOUS_BINDING_LAYER_IDS_RE.search(preview_text)
+    )
     layer_ids = []
     if layer_ids_match:
         layer_ids = [
@@ -1817,11 +1831,23 @@ def media_thumbnail_runtime_metrics(preview_text: str) -> dict[str, Any]:
             for value in layer_ids_match.group("ids").split(",")
             if value
         ]
+    previous_layer_ids = []
+    if previous_layer_ids_match:
+        previous_layer_ids = [
+            int(value)
+            for value in previous_layer_ids_match.group("ids").split(",")
+            if value
+        ]
     return {
         "current_binding_count": (
             int(count_match.group("count")) if count_match else None
         ),
         "current_binding_layer_ids": layer_ids,
+        "previous_binding_count": (
+            int(previous_count_match.group("count"))
+            if previous_count_match else None
+        ),
+        "previous_binding_layer_ids": previous_layer_ids,
     }
 
 
@@ -6980,6 +7006,27 @@ def run_sample(
             != required_media_thumbnail_layer_ids
         ):
             failures.append("media thumbnail current binding layer IDs mismatch")
+    expected_previous_media_thumbnail_count = sample.get(
+        "expected_media_thumbnail_previous_binding_count"
+    )
+    if expected_previous_media_thumbnail_count is not None:
+        if media_thumbnail_runtime["previous_binding_count"] != int(
+            expected_previous_media_thumbnail_count
+        ):
+            failures.append("media thumbnail previous binding count mismatch")
+    required_previous_media_thumbnail_layer_ids = sorted(
+        int(layer_id)
+        for layer_id in sample.get(
+            "required_media_thumbnail_previous_binding_layer_ids",
+            [],
+        )
+    )
+    if required_previous_media_thumbnail_layer_ids:
+        if (
+            media_thumbnail_runtime["previous_binding_layer_ids"]
+            != required_previous_media_thumbnail_layer_ids
+        ):
+            failures.append("media thumbnail previous binding layer IDs mismatch")
     expected_media_store_values = (
         (
             "required_media_thumbnail_pending_last_ready",
@@ -7182,6 +7229,12 @@ def run_sample(
             ),
             "media_thumbnail_current_binding_layer_ids": (
                 media_thumbnail_runtime["current_binding_layer_ids"]
+            ),
+            "media_thumbnail_previous_binding_count": (
+                media_thumbnail_runtime["previous_binding_count"]
+            ),
+            "media_thumbnail_previous_binding_layer_ids": (
+                media_thumbnail_runtime["previous_binding_layer_ids"]
             ),
             "media_thumbnail_pending_last_ready": (
                 media_thumbnail_store["pending_last_ready"]

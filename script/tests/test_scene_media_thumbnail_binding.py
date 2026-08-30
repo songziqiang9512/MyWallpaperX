@@ -25,6 +25,10 @@ struct SceneEffectTextureInput: Equatable {
 }
 
 enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
+enum SceneTextureProviderIdentity: Hashable {
+    case mediaThumbnailCurrent
+    case mediaThumbnailPrevious
+}
 struct SceneSystemProviderTextureIdentity: Hashable {
     let name: String
     let purpose: SceneTextureLoadPurpose
@@ -213,6 +217,11 @@ let badSlotInstance = SceneDocument.SceneLayerMaterialInstance(
     combos: [:], unknownKeys: [],
     isMalformed: false
 )
+let badPreviousSlotInstance = SceneDocument.SceneLayerMaterialInstance(
+    id: nil, textureSlots: ["base", "mask"],
+    userTextureInputs: [nil, previous], hasUserTextureOverride: true,
+    combos: [:], unknownKeys: [], isMalformed: false
+)
 let emptyOverrideInstance = SceneDocument.SceneLayerMaterialInstance(
     id: nil, textureSlots: ["fallback"], userTextureInputs: [],
     hasUserTextureOverride: true, combos: [:], unknownKeys: [],
@@ -280,6 +289,14 @@ let descriptor = SceneRenderDescriptor(layers: [
         id: 140, contentKind: "solid", imagePath: "models/solid-mismatch.json",
         effects: [effect()]
     ),
+    .init(
+        id: 150, contentKind: "image", imagePath: "models/previous-bad-slot.json",
+        effects: [effect()]
+    ),
+    .init(
+        id: 160, contentKind: "image", imagePath: "models/previous-multi.json",
+        effects: [effect()]
+    ),
 ], modelMaterialLinks: [
     .init(modelPath: "models/cover.json", materialPath: "materials/cover.json"),
     .init(modelPath: "models/solid.json", materialPath: "materials/solid.json"),
@@ -292,6 +309,14 @@ let descriptor = SceneRenderDescriptor(layers: [
     .init(
         modelPath: "models/solid-mismatch.json",
         materialPath: "materials/solid-mismatch.json"
+    ),
+    .init(
+        modelPath: "models/previous-bad-slot.json",
+        materialPath: "materials/previous-bad-slot.json"
+    ),
+    .init(
+        modelPath: "models/previous-multi.json",
+        materialPath: "materials/previous-multi.json"
     ),
 ], materialPasses: [
     .init(
@@ -338,6 +363,18 @@ let descriptor = SceneRenderDescriptor(layers: [
         materialPath: "materials/solid-mismatch.json", textureSlots: ["util/black"],
         userTextureInputs: [nil]
     ),
+    .init(
+        materialPath: "materials/previous-bad-slot.json", textureSlots: ["base", "mask"],
+        userTextureInputs: [nil, nil]
+    ),
+    .init(
+        materialPath: "materials/previous-multi.json", textureSlots: ["fallback"],
+        userTextureInputs: [previous]
+    ),
+    .init(
+        materialPath: "materials/previous-multi.json", textureSlots: ["other"],
+        userTextureInputs: [nil]
+    ),
 ])
 let program = SceneMediaThumbnailBindingCompiler.compile(
     descriptor: descriptor,
@@ -353,6 +390,7 @@ let program = SceneMediaThumbnailBindingCompiler.compile(
         120: currentInstance,
         130: currentInstance,
         140: currentInstance,
+        150: badPreviousSlotInstance,
     ],
     scriptBindings: [directBinding, timedBinding, unsupportedBinding]
 )
@@ -363,6 +401,10 @@ let projected = SceneInitialMediaEffectVisibilityProjection.apply(
 )
 let result: [String: Any] = [
     "accepted": program.currentLayerIDs.sorted(),
+    "previousAccepted": program.previousLayerIDs.sorted(),
+    "providers": Dictionary(uniqueKeysWithValues: program.baseMaterialBindings.map {
+        (String($0.key), $0.value.provider.rawValue)
+    }),
     "rejected": Dictionary(uniqueKeysWithValues: program.rejectedBaseMaterialReasons.map {
         (String($0.key), $0.value)
     }),
@@ -379,7 +421,7 @@ print(String(decoding: data, as: UTF8.self))
 
 
 class SceneMediaThumbnailBindingTests(unittest.TestCase):
-    def test_current_binding_compiler_is_shared_and_fail_closed(self) -> None:
+    def test_current_and_previous_binding_compiler_is_shared_and_fail_closed(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")
         with tempfile.TemporaryDirectory(prefix="mwx-media-binding-") as directory:
@@ -394,8 +436,16 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(result["accepted"], [10, 20, 110])
+        self.assertEqual(result["previousAccepted"], [30])
+        self.assertEqual(
+            result["providers"],
+            {"10": "current", "20": "current", "30": "previous", "110": "current"},
+        )
         self.assertTrue(result["hasConsumers"])
-        self.assertEqual(result["demands"], ["$mediaThumbnail"])
+        self.assertEqual(
+            result["demands"],
+            ["$mediaPreviousThumbnail", "$mediaThumbnail"],
+        )
         self.assertEqual(
             result["rejected"],
             {
@@ -407,6 +457,8 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
                 "120": "base-material-instance-fallback-mismatch",
                 "130": "base-material-instance-fallback-mismatch",
                 "140": "base-material-instance-fallback-mismatch",
+                "150": "base-material-previous-slot-shape-unsupported",
+                "160": "base-material-previous-multi-pass-unsupported",
             },
         )
         self.assertEqual(
@@ -415,7 +467,12 @@ class SceneMediaThumbnailBindingTests(unittest.TestCase):
                 "mediaThumbnailCurrentBindingCount: 3",
                 "mediaThumbnailCurrentBindingLayerIDs: 10,20,110",
                 "mediaThumbnailCurrentBaseMaterialBindingCount: 3",
+                "mediaThumbnailPreviousBindingCount: 1",
+                "mediaThumbnailPreviousBindingLayerIDs: 30",
+                "mediaThumbnailPreviousBaseMaterialBindingCount: 1",
                 "mediaThumbnailCurrentBaseMaterialRejectedCount: 8",
+                "mediaThumbnailPreviousBaseMaterialRejectedCount: 2",
+                "mediaThumbnailBaseMaterialRejectedCount: 10",
             ],
         )
         self.assertFalse(result["projected"]["20"])
