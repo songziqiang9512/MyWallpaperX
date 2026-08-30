@@ -242,11 +242,17 @@ class SceneMetalView: NSView {
         }
     }
 
+    func prepareMediaThumbnail(
+        from input: SceneMediaThumbnailInbox.Snapshot
+    ) -> SceneMediaThumbnailTextureStore.Snapshot {
+        mediaThumbnailCoordinator.update(from: input)
+    }
+
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
-        mediaInput: SceneMediaThumbnailInbox.Snapshot,
+        mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) {
@@ -271,10 +277,9 @@ class SceneMetalView: NSView {
             dynamicLayers: layerTopology.dynamicLayers
         )
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
-        let mediaThumbnailSnapshot = mediaThumbnailCoordinator.update(from: mediaInput)
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicText: dynamicTextSnapshot,
-            mediaThumbnail: mediaThumbnailSnapshot, mediaBindings: mediaThumbnailCoordinator.program,
+            mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
             videoSources: videoTextureSources, timing: timing
         )
 #if DEBUG
@@ -293,7 +298,7 @@ class SceneMetalView: NSView {
             layerTopology: layerTopology,
             userPropertyTextures: userPropertyTextureLoad.textures,
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,
-            mediaThumbnail: mediaThumbnailSnapshot,
+            mediaThumbnail: mediaThumbnail,
             spriteAnimations: spriteAnimations,
             imagePipeline: imagePipeline,
             particleBatches: particleBatches,

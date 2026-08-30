@@ -358,8 +358,8 @@
       {
         "id": "legacy-script-source-profile-selector",
         "role": "retirement",
-        "description": "Retired fixed script compilers, verified-profile dispatch, and previous-media identity must not return anywhere in product Swift.",
-        "pattern": "(?:compileVerifiedProfile\\(|SceneTextureAnimationScriptCompiler|SceneMediaThumbnailTransitionCompiler|SceneScriptAudioBarsCompiler|\\$mediaPreviousThumbnail)",
+        "description": "Retired fixed script compilers and verified-profile dispatch must not return anywhere in product Swift; public typed provider identities are not product owners.",
+        "pattern": "(?:compileVerifiedProfile\\(|SceneTextureAnimationScriptCompiler|SceneMediaThumbnailTransitionCompiler|SceneScriptAudioBarsCompiler)",
         "baseline_occurrences": 0,
         "completion_phase": "r4",
         "completion_target_occurrences": 0,

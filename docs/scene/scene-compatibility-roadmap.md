@@ -139,6 +139,8 @@ V4 是横切 producer/provider 轨，不是另建一套输入平台。V1–V3 �
 
 同日 current system-provider effect slice 已把 `$mediaThumbnail` 的 exact `(name,purpose)`、pending generation 与独立 premultiplied/preserved publication 尝试接入既有 MaterialProgram、GraphExecutor 与唯一 compositor；两种representation都成功派生时同代原子发布，单一purpose派生失败则只令该exact demand unavailable。真实正门证明pending→普通Program→同Program next-frame，unavailable负门保持exact previous-current。它只闭合effect-current纵向消费者，不把140 corpus中的previous、base-image/root ingress、live platform producer或眼部视觉债务改写成已完成；这些剩余分族及下一安全cohort继续只从运行输入专项表和当前代码选择。V4完成门仍未成立。
 
+同日后继 previous system-provider effect slice 恢复公共 `$mediaPreviousThumbnail` lifecycle identity，而没有恢复B20前的fixed source/profile/renderer：共享store只在不同的新current成功decode后旋转，新current与真实上一成功previous的color/preserved representations同代原子发布；首次current没有伪previous，pending保留完整last-ready，invalid/clear对外unavailable，stale/cancel不旋转。Host先让全部surface store到达该输入generation的terminal snapshot，再派发`mediaThumbnailChanged`，随后脚本与同一prepared snapshot进入本帧。代表内容已完成unavailable→pending previous-current→ordinary Program→same Program next-frame，但album-cover对象仍黑：solid base material尚未消费current `$mediaThumbnail`，后继rounded-mask另有library compilation失败，整selection严格NON-PASS；精确身份与报告只查运行证据索引。因此下一共享cohort优先闭合base-image/solid current ingress，再决定是否在同一可见结果内修mask；V4完成门仍未成立。
+
 V4 完成门：以[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)为当前事实，每个纳入范围的 input/provider 都至少有一个真实 consumer，证明 typed producer → 正确 frame-commit channel → consumer → next-frame/event、generation/cancel/last-ready/teardown 与局部失败；consumer 内重复采样、私有值副本、私有 provider/graph owner 已撤销。尚无平台 producer 或产品策略的输入必须在专项表明确保持 unsupported，不能用另一个输入族的通过替代。V4 收口后才逐项进入 V5。
 
 ### V5：独立高级 epic

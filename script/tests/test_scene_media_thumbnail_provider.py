@@ -37,6 +37,7 @@ import UniformTypeIdentifiers
 
 struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
+    static let previousIdentity = "$mediaPreviousThumbnail"
 }
 
 enum SceneTextureLoadOutcome {
@@ -156,6 +157,18 @@ let preservedSystemIdentity = SceneSystemProviderTextureIdentity(
     name: SceneMediaThumbnailBindingProgram.currentIdentity,
     purpose: .preservedChannels
 )
+let previousColorSystemIdentity = SceneSystemProviderTextureIdentity(
+    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+    purpose: .premultipliedColor
+)
+let previousPreservedSystemIdentity = SceneSystemProviderTextureIdentity(
+    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+    purpose: .preservedChannels
+)
+let allTransitionSystemIdentities: Set<SceneSystemProviderTextureIdentity> = [
+    colorSystemIdentity, preservedSystemIdentity,
+    previousColorSystemIdentity, previousPreservedSystemIdentity,
+]
 let layerRequest = SceneFrameTextureIdentity.layerSource(77)
 let layerPublication = third.current?.publication(for: layerRequest)
 let rapidDecodeCount = decodeCounter.value
@@ -179,9 +192,16 @@ let retainedDuringDecodeFailure = store.snapshot()
 decodingQueue.resume()
 let failed = waitFor(store, generation: 5)
 
+decodingQueue.suspend()
+_ = inbox.publish(b)
+store.update(from: inbox.latest())
+let retainedDuringRecovery = store.snapshot()
+decodingQueue.resume()
+let recovered = waitFor(store, generation: 6)
+
 inbox.clear()
 store.update(from: inbox.latest())
-let cleared = waitFor(store, generation: 6)
+let cleared = waitFor(store, generation: 7)
 
 let oversizedSourceInbox = SceneMediaThumbnailInbox()
 let oversizedSourceQueue = DispatchQueue(label: "fixture.media-thumbnail-oversized")
@@ -321,6 +341,8 @@ let result: [String: Any] = [
         initialPending.generation == 0
         && initialPending.current == nil
         && initialPending.preservedCurrent == nil
+        && initialPending.previous == nil
+        && initialPending.preservedPrevious == nil
         && initialPending.pendingIdentities
             == [colorSystemIdentity, preservedSystemIdentity],
     "generation": third.generation,
@@ -328,6 +350,8 @@ let result: [String: Any] = [
     "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
     "currentPublicationComplete": third.current?.isComplete == true,
     "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
+    "initialPreviousUnavailable":
+        third.previous == nil && third.preservedPrevious == nil,
     "currentRequestExact": third.current?.requestIdentity
         == .system(colorSystemIdentity),
     "preservedRequestExact": third.preservedCurrent?.requestIdentity
@@ -371,22 +395,65 @@ let result: [String: Any] = [
     "pendingRequestGeneration":
         retainedDuringPending.pendingGeneration.map(Int.init) ?? -1,
     "pendingIdentitiesExact": retainedDuringPending.pendingIdentities
-        == [colorSystemIdentity, preservedSystemIdentity],
+        == allTransitionSystemIdentities,
     "pendingCurrentPixel": pixel(retainedDuringPending.current?.texture),
     "pendingPreservedPixel": pixel(retainedDuringPending.preservedCurrent?.texture),
+    "pendingPreviousUnavailable":
+        retainedDuringPending.previous == nil
+        && retainedDuringPending.preservedPrevious == nil,
     "fourthCurrentPixel": pixel(fourth.current?.texture),
     "fourthPreservedPixel": pixel(fourth.preservedCurrent?.texture),
+    "fourthPreviousPixel": pixel(fourth.previous?.texture),
+    "fourthPreservedPreviousPixel": pixel(fourth.preservedPrevious?.texture),
+    "fourthPreviousExact":
+        fourth.previous?.requestIdentity == .system(previousColorSystemIdentity)
+        && fourth.preservedPrevious?.requestIdentity
+            == .system(previousPreservedSystemIdentity)
+        && fourth.previous?.candidate.identity
+            == .provider(.mediaThumbnailPrevious)
+        && fourth.preservedPrevious?.candidate.identity
+            == .provider(.mediaThumbnailPrevious)
+        && fourth.previous?.candidate.generation
+            == .provider(contentGeneration: fourth.generation)
+        && fourth.preservedPrevious?.candidate.generation
+            == .provider(contentGeneration: fourth.generation),
     "failurePendingGeneration": retainedDuringDecodeFailure.generation,
     "failurePendingCurrentPixel": pixel(retainedDuringDecodeFailure.current?.texture),
     "failurePendingPreservedPixel": pixel(
         retainedDuringDecodeFailure.preservedCurrent?.texture
     ),
+    "failurePendingPreviousPixel": pixel(
+        retainedDuringDecodeFailure.previous?.texture
+    ),
+    "failurePendingPreservedPreviousPixel": pixel(
+        retainedDuringDecodeFailure.preservedPrevious?.texture
+    ),
     "failedGeneration": failed.generation,
     "failedCurrent": failed.current == nil,
     "failedPreserved": failed.preservedCurrent == nil,
+    "failedPrevious": failed.previous == nil,
+    "failedPreservedPrevious": failed.preservedPrevious == nil,
+    "recoveryPendingGeneration":
+        retainedDuringRecovery.pendingGeneration.map(Int.init) ?? -1,
+    "recoveryPendingExact":
+        retainedDuringRecovery.generation == 5
+        && retainedDuringRecovery.current == nil
+        && retainedDuringRecovery.preservedCurrent == nil
+        && retainedDuringRecovery.previous == nil
+        && retainedDuringRecovery.preservedPrevious == nil
+        && retainedDuringRecovery.pendingIdentities
+            == allTransitionSystemIdentities,
+    "recoveredCurrentPixel": pixel(recovered.current?.texture),
+    "recoveredPreservedPixel": pixel(recovered.preservedCurrent?.texture),
+    "recoveredPreviousPixel": pixel(recovered.previous?.texture),
+    "recoveredPreservedPreviousPixel": pixel(
+        recovered.preservedPrevious?.texture
+    ),
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
     "clearedPreserved": cleared.preservedCurrent == nil,
+    "clearedPrevious": cleared.previous == nil,
+    "clearedPreservedPrevious": cleared.preservedPrevious == nil,
     "oversizedSourceColorReady": oversizedSource.current != nil,
     "oversizedSourceRetainsBothWhilePending":
         beforeOversizedSource.current != nil
@@ -404,6 +471,20 @@ let result: [String: Any] = [
         && oversizedSource.systemTextures[colorSystemIdentity] != nil
         && oversizedSource.systemTextures[preservedSystemIdentity] == nil
         && oversizedSource.publications[preservedSystemIdentity] == nil,
+    "oversizedSourceRotatesPreviousAtomically":
+        oversizedSource.previous != nil
+        && oversizedSource.preservedPrevious != nil
+        && pixel(oversizedSource.previous?.texture) == [255, 0, 0, 255]
+        && pixel(oversizedSource.preservedPrevious?.texture)
+            == [255, 0, 0, 255]
+        && oversizedSource.publications[previousColorSystemIdentity]?
+            .candidate.identity == .provider(.mediaThumbnailPrevious)
+        && oversizedSource.publications[previousPreservedSystemIdentity]?
+            .candidate.identity == .provider(.mediaThumbnailPrevious)
+        && oversizedSource.previous?.contentGeneration
+            == oversizedSource.generation
+        && oversizedSource.preservedPrevious?.contentGeneration
+            == oversizedSource.generation,
     "eventInitialEmpty": eventInitial == .empty,
     "propertiesAccepted": propertiesAccepted,
     "propertiesGeneration": afterProperties.propertiesGeneration,
@@ -534,6 +615,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0])
         self.assertTrue(result["currentPublicationComplete"])
         self.assertTrue(result["preservedPublicationComplete"])
+        self.assertTrue(result["initialPreviousUnavailable"])
         self.assertTrue(result["currentRequestExact"])
         self.assertTrue(result["preservedRequestExact"])
         self.assertTrue(result["purposeQualifiedSystemAtoms"])
@@ -549,20 +631,43 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["pendingIdentitiesExact"])
         self.assertEqual(result["pendingCurrentPixel"], [0, 0, 0, 0])
         self.assertEqual(result["pendingPreservedPixel"], [231, 17, 149, 0])
+        self.assertTrue(result["pendingPreviousUnavailable"])
         self.assertEqual(result["fourthCurrentPixel"], [255, 0, 0, 255])
         self.assertEqual(result["fourthPreservedPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["fourthPreviousPixel"], [0, 0, 0, 0])
+        self.assertEqual(
+            result["fourthPreservedPreviousPixel"], [231, 17, 149, 0]
+        )
+        self.assertTrue(result["fourthPreviousExact"])
         self.assertEqual(result["failurePendingGeneration"], 4)
         self.assertEqual(result["failurePendingCurrentPixel"], [255, 0, 0, 255])
         self.assertEqual(result["failurePendingPreservedPixel"], [255, 0, 0, 255])
+        self.assertEqual(result["failurePendingPreviousPixel"], [0, 0, 0, 0])
+        self.assertEqual(
+            result["failurePendingPreservedPreviousPixel"], [231, 17, 149, 0]
+        )
         self.assertEqual(result["failedGeneration"], 5)
         self.assertTrue(result["failedCurrent"])
         self.assertTrue(result["failedPreserved"])
-        self.assertEqual(result["clearedGeneration"], 6)
+        self.assertTrue(result["failedPrevious"])
+        self.assertTrue(result["failedPreservedPrevious"])
+        self.assertEqual(result["recoveryPendingGeneration"], 6)
+        self.assertTrue(result["recoveryPendingExact"])
+        self.assertEqual(result["recoveredCurrentPixel"], [0, 255, 0, 255])
+        self.assertEqual(result["recoveredPreservedPixel"], [0, 255, 0, 255])
+        self.assertEqual(result["recoveredPreviousPixel"], [255, 0, 0, 255])
+        self.assertEqual(
+            result["recoveredPreservedPreviousPixel"], [255, 0, 0, 255]
+        )
+        self.assertEqual(result["clearedGeneration"], 7)
         self.assertTrue(result["clearedCurrent"])
         self.assertTrue(result["clearedPreserved"])
+        self.assertTrue(result["clearedPrevious"])
+        self.assertTrue(result["clearedPreservedPrevious"])
         self.assertTrue(result["oversizedSourceColorReady"])
         self.assertTrue(result["oversizedSourceRetainsBothWhilePending"])
         self.assertTrue(result["oversizedSourcePreservedUnavailable"])
+        self.assertTrue(result["oversizedSourceRotatesPreviousAtomically"])
         self.assertTrue(result["eventInitialEmpty"])
         self.assertTrue(result["propertiesAccepted"])
         self.assertEqual(result["propertiesGeneration"], 1)

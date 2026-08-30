@@ -108,10 +108,10 @@ enum SceneImageTextureUploader {
         guard let source = sourceRGBA(image) else {
             return .failure(.unsupportedPixelLayout)
         }
-        guard image.alphaInfo == .last || image.alphaInfo == .first else {
-            if source.premultiplied {
-                return .failure(.premultipliedPixelLayout)
-            }
+        guard image.alphaInfo == .last || image.alphaInfo == .first
+                || image.alphaInfo == .noneSkipLast
+                || image.alphaInfo == .noneSkipFirst else {
+            if source.premultiplied { return .failure(.premultipliedPixelLayout) }
             return .failure(.unsupportedPixelLayout)
         }
         guard !source.premultiplied else {

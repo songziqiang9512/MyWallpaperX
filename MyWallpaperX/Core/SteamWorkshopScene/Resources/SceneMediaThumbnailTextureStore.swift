@@ -5,12 +5,17 @@ import Metal
 final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private final class DecodeRequest: @unchecked Sendable {
         let input: SceneMediaThumbnailInbox.Snapshot
+        let willRotatePrevious: Bool
 
         private let lock = NSLock()
         private var cancelled = false
 
-        init(input: SceneMediaThumbnailInbox.Snapshot) {
+        init(
+            input: SceneMediaThumbnailInbox.Snapshot,
+            willRotatePrevious: Bool
+        ) {
             self.input = input
+            self.willRotatePrevious = willRotatePrevious
         }
 
         func cancel() {
@@ -32,6 +37,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         let pendingIdentities: Set<SceneSystemProviderTextureIdentity>
         let current: SceneTextureProviderPublication?
         let preservedCurrent: SceneTextureProviderPublication?
+        let previous: SceneTextureProviderPublication?
+        let preservedPrevious: SceneTextureProviderPublication?
         let systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture]
         let publications: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
@@ -43,6 +50,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             pendingIdentities: [],
             current: nil,
             preservedCurrent: nil,
+            previous: nil,
+            preservedPrevious: nil,
             systemTextures: [:],
             publications: [:]
         )
@@ -55,6 +64,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var requestedGeneration: UInt64 = 0
     private var readyGeneration: UInt64 = 0
     private var currentTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
+    private var previousTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
+    private var lastSuccessfulTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
+    private var lastSuccessfulEncodedCurrent: Data?
     private var reportedPendingGeneration: UInt64?
     private var pendingRequest: DecodeRequest?
 
@@ -80,7 +92,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         }
         requestedGeneration = input.generation
         pendingRequest?.cancel()
-        let request = DecodeRequest(input: input)
+        let request = DecodeRequest(
+            input: input,
+            willRotatePrevious: input.current != nil
+                && input.current != lastSuccessfulEncodedCurrent
+                && !lastSuccessfulTextures.isEmpty
+        )
         pendingRequest = request
         lock.unlock()
 
@@ -103,16 +120,22 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                     + " readyGeneration=\(readyGeneration)"
                     + " hasColor=\(currentTextures[.premultipliedColor] != nil)"
                     + " hasPreserved=\(currentTextures[.preservedChannels] != nil)"
+                    + " hasPreviousColor=\(previousTextures[.premultipliedColor] != nil)"
+                    + " hasPreviousPreserved=\(previousTextures[.preservedChannels] != nil)"
             )
         }
 #endif
         let publication: (
+            String,
+            SceneTextureProviderIdentity,
+            [SceneTextureLoadPurpose: MTLTexture],
             SceneTextureLoadPurpose,
             SceneTextureContent
-        ) -> SceneTextureProviderPublication? = { purpose, content in
-            guard let texture = self.currentTextures[purpose] else { return nil }
+        ) -> SceneTextureProviderPublication? = {
+            name, providerIdentity, textures, purpose, content in
+            guard let texture = textures[purpose] else { return nil }
             let identity = SceneSystemProviderTextureIdentity(
-                name: SceneMediaThumbnailBindingProgram.currentIdentity,
+                name: name,
                 purpose: purpose
             )
             let size = CGSize(width: texture.width, height: texture.height)
@@ -120,7 +143,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 requestIdentity: .system(identity),
                 candidate: SceneTextureCandidate(
                     texture: texture,
-                    identity: .provider(.mediaThumbnailCurrent),
+                    identity: .provider(providerIdentity),
                     generation: .provider(contentGeneration: self.readyGeneration),
                     purpose: purpose,
                     content: content,
@@ -133,11 +156,36 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             )
         }
         let current = publication(
+            SceneMediaThumbnailBindingProgram.currentIdentity,
+            .mediaThumbnailCurrent,
+            currentTextures,
             .premultipliedColor,
             .color(.resolved(.premultipliedAlpha))
         )
-        let preservedCurrent = publication(.preservedChannels, .data)
-        let readyPublications = [current, preservedCurrent].compactMap { $0 }
+        let preservedCurrent = publication(
+            SceneMediaThumbnailBindingProgram.currentIdentity,
+            .mediaThumbnailCurrent,
+            currentTextures,
+            .preservedChannels,
+            .data
+        )
+        let previous = publication(
+            SceneMediaThumbnailBindingProgram.previousIdentity,
+            .mediaThumbnailPrevious,
+            previousTextures,
+            .premultipliedColor,
+            .color(.resolved(.premultipliedAlpha))
+        )
+        let preservedPrevious = publication(
+            SceneMediaThumbnailBindingProgram.previousIdentity,
+            .mediaThumbnailPrevious,
+            previousTextures,
+            .preservedChannels,
+            .data
+        )
+        let readyPublications = [
+            current, preservedCurrent, previous, preservedPrevious,
+        ].compactMap { $0 }
         var textures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:]
         var publications: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
@@ -153,7 +201,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         if pendingRequest == nil {
             pendingIdentities = []
         } else {
-            pendingIdentities = [
+            var identities: Set<SceneSystemProviderTextureIdentity> = [
                 .init(
                     name: SceneMediaThumbnailBindingProgram.currentIdentity,
                     purpose: .premultipliedColor
@@ -163,6 +211,17 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                     purpose: .preservedChannels
                 ),
             ]
+            if pendingRequest?.willRotatePrevious == true {
+                identities.insert(.init(
+                    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+                    purpose: .premultipliedColor
+                ))
+                identities.insert(.init(
+                    name: SceneMediaThumbnailBindingProgram.previousIdentity,
+                    purpose: .preservedChannels
+                ))
+            }
+            pendingIdentities = identities
         }
         return Snapshot(
             generation: readyGeneration,
@@ -170,6 +229,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             pendingIdentities: pendingIdentities,
             current: current,
             preservedCurrent: preservedCurrent,
+            previous: previous,
+            preservedPrevious: preservedPrevious,
             systemTextures: textures,
             publications: publications
         )
@@ -205,7 +266,26 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         defer { lock.unlock() }
         guard pendingRequest === request,
               requestedGeneration == input.generation else { return }
-        currentTextures = decodedTextures
+        if input.current == nil {
+            currentTextures.removeAll(keepingCapacity: true)
+            previousTextures.removeAll(keepingCapacity: true)
+            lastSuccessfulTextures.removeAll(keepingCapacity: true)
+            lastSuccessfulEncodedCurrent = nil
+        } else if !decodedTextures.isEmpty {
+            if request.willRotatePrevious {
+                previousTextures = lastSuccessfulTextures
+            }
+            currentTextures = decodedTextures
+            lastSuccessfulTextures = decodedTextures
+            lastSuccessfulEncodedCurrent = input.current
+        } else {
+            // A malformed replacement must restore the authored fallback,
+            // not expose either stale side of a transition. Keep only the
+            // private last-successful atom so a later valid cover can still
+            // identify the actual previous cover.
+            currentTextures.removeAll(keepingCapacity: true)
+            previousTextures.removeAll(keepingCapacity: true)
+        }
         readyGeneration = input.generation
         reportedPendingGeneration = nil
         pendingRequest = nil
@@ -215,6 +295,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 + " generation=\(input.generation)"
                 + " hasColor=\(decodedTextures[.premultipliedColor] != nil)"
                 + " hasPreserved=\(decodedTextures[.preservedChannels] != nil)"
+                + " hasPreviousColor=\(previousTextures[.premultipliedColor] != nil)"
+                + " hasPreviousPreserved=\(previousTextures[.preservedChannels] != nil)"
         )
 #endif
     }

@@ -512,6 +512,40 @@ enum Harness {
             registry.resource(for: preservedSystem)?.publication.candidate.purpose
                 == .premultipliedColor
 
+        let previousSystemProviderIdentity = SceneSystemProviderTextureIdentity(
+            name: "$mediaPreviousThumbnail",
+            purpose: .preservedChannels
+        )
+        let previousSystem = SceneFrameTextureIdentity.system(
+            previousSystemProviderIdentity
+        )
+        registry.set(publication(
+            replacementSystemTexture,
+            generation: 24,
+            requestIdentity: previousSystem,
+            identity: .provider(.mediaThumbnailCurrent),
+            purpose: .preservedChannels,
+            content: .data
+        ), for: previousSystem)
+        let currentCandidateCannotSatisfyPreviousRequest: Bool
+        if case .incomplete = registry.lookup(previousSystem) {
+            currentCandidateCannotSatisfyPreviousRequest =
+                registry.resource(for: previousSystem) == nil
+        } else {
+            currentCandidateCannotSatisfyPreviousRequest = false
+        }
+        registry.set(publication(
+            replacementSystemTexture,
+            generation: 25,
+            requestIdentity: previousSystem,
+            identity: .provider(.mediaThumbnailPrevious),
+            purpose: .preservedChannels,
+            content: .data
+        ), for: previousSystem)
+        let exactPreviousCandidateIsReady =
+            registry.resource(for: previousSystem)?.publication.candidate.identity
+                == .provider(.mediaThumbnailPrevious)
+
         let bareLayerSource = SceneFrameTextureIdentity.layerSource(9)
         registry.beginFrame(layerSources: [9: dynamicTexture])
         let bareLayerSourceIsIncomplete: Bool
@@ -1083,6 +1117,9 @@ enum Harness {
             "systemPurposesDoNotAlias": systemPurposesDoNotAlias,
             "systemPurposeMismatchRemainsTypedReady":
                 systemPurposeMismatchRemainsTypedReady,
+            "currentCandidateCannotSatisfyPreviousRequest":
+                currentCandidateCannotSatisfyPreviousRequest,
+            "exactPreviousCandidateIsReady": exactPreviousCandidateIsReady,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1188,6 +1225,8 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
     def test_system_provider_lookup_is_purpose_qualified(self) -> None:
         self.assertTrue(self.result["systemPurposesDoNotAlias"])
         self.assertTrue(self.result["systemPurposeMismatchRemainsTypedReady"])
+        self.assertTrue(self.result["currentCandidateCannotSatisfyPreviousRequest"])
+        self.assertTrue(self.result["exactPreviousCandidateIsReady"])
 
     def test_bare_generation_changes_when_typed_metadata_is_removed(self) -> None:
         for key in (

@@ -279,8 +279,22 @@ extension SceneDesktopWallpaperHost {
             sceneTime: timing.sceneTime
         )
         let mediaInput = SceneMediaThumbnailInbox.shared.latest()
-        let sceneScriptMediaThumbnailEvent =
-            SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)
+        let mediaThumbnailSnapshots = Dictionary(uniqueKeysWithValues:
+            surfaces.map { displayID, surface in
+                (
+                    displayID,
+                    surface.metalView.prepareMediaThumbnail(from: mediaInput)
+                )
+            }
+        )
+        let mediaThumbnailGenerationIsTerminal =
+            !mediaThumbnailSnapshots.isEmpty
+            && mediaThumbnailSnapshots.values.allSatisfy {
+                $0.generation == mediaInput.generation
+                    && $0.pendingGeneration == nil
+            }
+        let sceneScriptMediaThumbnailEvent = mediaThumbnailGenerationIsTerminal
+            ? SceneScriptMediaThumbnailEventInput(snapshot: mediaInput) : nil
         let sceneScriptMediaPlaybackEvent =
             SceneScriptMediaPlaybackEventInput(snapshot: mediaInput)
         let sceneScriptMediaPropertiesEvent =
@@ -577,7 +591,9 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         }
-        for surface in surfaces.values {
+        for (displayID, surface) in surfaces {
+            guard let mediaThumbnailSnapshot =
+                mediaThumbnailSnapshots[displayID] else { continue }
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
@@ -631,7 +647,7 @@ extension SceneDesktopWallpaperHost {
                     + sceneScriptVectorResult.materialFunctionMutations
                     + sceneScriptStringResult.materialFunctionMutations
                     + sceneScriptResult.materialFunctionMutations,
-                mediaInput: mediaInput,
+                mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil

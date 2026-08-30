@@ -513,7 +513,9 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("let advancedTiming = sceneClock.advance", frame_driver)
         self.assertIn("let timing = advancedTiming", frame_driver)
         render_position = frame_driver.index("private func renderFrame()")
-        broadcast_position = frame_driver.index("for surface in surfaces.values", render_position)
+        broadcast_position = frame_driver.index(
+            "for (displayID, surface) in surfaces", render_position
+        )
         media_input_position = frame_driver.index(
             "let mediaInput = SceneMediaThumbnailInbox.shared.latest()", render_position
         )
@@ -548,7 +550,7 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn(
             "mediaPropertiesEvent: sceneScriptMediaPropertiesEvent", frame_driver
         )
-        self.assertIn("mediaInput: mediaInput", frame_driver)
+        self.assertIn("mediaThumbnail: mediaThumbnailSnapshot", frame_driver)
         self.assertIn("frameTime: timing.simulationFrameTime", frame_driver)
         self.assertNotIn("mediaPlaybackPlaceholderFade", frame_driver)
         self.assertNotIn("SceneMediaPlaybackPlaceholderFadeRuntime", host)

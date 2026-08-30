@@ -215,11 +215,13 @@ enum Harness {
                 try encodedImage(alphaInfo: .premultipliedLast, type: "public.tiff"),
                 device: device
             ) { encodedPremultipliedRejected = true } else { encodedPremultipliedRejected = false }
-        let encodedUnsupportedRejected: Bool
-        if case .failure(.unsupportedPixelLayout) =
-            SceneImageTextureUploader.uploadEncodedPreservedChannels(
-                try Data(contentsOf: jpegURL), device: device
-            ) { encodedUnsupportedRejected = true } else { encodedUnsupportedRejected = false }
+        let encodedOpaque: MTLTexture
+        switch SceneImageTextureUploader.uploadEncodedPreservedChannels(
+            try Data(contentsOf: jpegURL), device: device
+        ) {
+        case let .success(texture): encodedOpaque = texture
+        case .failure: throw HarnessError.textureRead
+        }
         let firstCached = sharedLoader.load(from: pngURL, device: device)
         let secondCached = sharedLoader.load(from: pngURL, device: device)
         let firstPreserved = sharedLoader.load(
@@ -370,7 +372,7 @@ enum Harness {
             "encodedOversizeRejected": encodedOversizeRejected,
             "encodedOrientationRejected": encodedOrientationRejected,
             "encodedPremultipliedRejected": encodedPremultipliedRejected,
-            "encodedUnsupportedRejected": encodedUnsupportedRejected,
+            "encodedOpaquePixels": try pixels(encodedOpaque),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -725,7 +727,7 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         self.assertTrue(self.result["encodedOversizeRejected"])
         self.assertTrue(self.result["encodedOrientationRejected"])
         self.assertTrue(self.result["encodedPremultipliedRejected"])
-        self.assertTrue(self.result["encodedUnsupportedRejected"])
+        self.assertEqual(set(self.result["encodedOpaquePixels"][3::4]), {255})
 
     def test_corrupt_and_unsupported_files_fail_closed(self) -> None:
         report = "\n".join(self.result["reportLines"])

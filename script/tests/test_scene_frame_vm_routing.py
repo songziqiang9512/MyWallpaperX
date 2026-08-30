@@ -155,6 +155,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         coordinator = MEDIA_COORDINATOR_SOURCE.read_text(encoding="utf-8")
         host_render = swift_body(frame_driver, "private func renderFrame()")
+        view_prepare = swift_body(view, "func prepareMediaThumbnail(")
         view_render = swift_body(view, "func renderFrame(")
         coordinator_update = swift_body(coordinator, "func update(")
 
@@ -167,35 +168,54 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             1,
         )
         snapshot_position = host_render.index(snapshot_declaration)
+        preparation_position = host_render.index(
+            "surface.metalView.prepareMediaThumbnail(from: mediaInput)"
+        )
         event_position = host_render.index(
             "SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)"
         )
         vector_vm_position = host_render.index(
             "launchContext.propertyVectorScriptProgram.evaluate("
         )
-        surface_loop_position = host_render.index("for surface in surfaces.values")
+        surface_loop_position = host_render.index(
+            "for (displayID, surface) in surfaces"
+        )
         surface_render_position = host_render.index(
             "surface.metalView.renderFrame(",
             surface_loop_position,
         )
-        self.assertLess(snapshot_position, event_position)
+        self.assertLess(snapshot_position, preparation_position)
+        self.assertLess(preparation_position, event_position)
         self.assertLess(event_position, vector_vm_position)
         self.assertLess(vector_vm_position, surface_loop_position)
         self.assertNotIn("mediaColorTransitionRuntime", host_render)
 
         surface_loop = host_render[surface_loop_position:]
         self.assertNotIn("SceneMediaThumbnailInbox.shared.latest()", surface_loop)
-        self.assertEqual(surface_loop.count("mediaInput: mediaInput"), 1)
+        self.assertEqual(
+            host_render.count(
+                "surface.metalView.prepareMediaThumbnail(from: mediaInput)"
+            ),
+            1,
+        )
+        self.assertIn("$0.generation == mediaInput.generation", host_render)
+        self.assertIn("$0.pendingGeneration == nil", host_render)
+        self.assertEqual(
+            surface_loop.count("mediaThumbnail: mediaThumbnailSnapshot"), 1
+        )
         self.assertGreater(
-            host_render.index("mediaInput: mediaInput", surface_render_position),
+            host_render.index(
+                "mediaThumbnail: mediaThumbnailSnapshot", surface_render_position
+            ),
             surface_render_position,
         )
 
-        self.assertIn("mediaInput: SceneMediaThumbnailInbox.Snapshot", view)
+        self.assertIn("mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot", view)
         self.assertEqual(
-            view_render.count("mediaThumbnailCoordinator.update(from: mediaInput)"),
+            view_prepare.count("mediaThumbnailCoordinator.update(from: input)"),
             1,
         )
+        self.assertNotIn("mediaThumbnailCoordinator.update", view_render)
         self.assertNotIn("SceneMediaThumbnailInbox.shared", view)
         self.assertIn(
             "from input: SceneMediaThumbnailInbox.Snapshot",

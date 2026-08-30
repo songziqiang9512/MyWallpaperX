@@ -76,6 +76,7 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case dynamicText(layerID: Int)
     case graph(allocationGeneration: UInt64, physicalToken: String)
     case mediaThumbnailCurrent
+    case mediaThumbnailPrevious
     case namedLayerTarget(
         providerLayerID: Int,
         variant: String,
@@ -93,6 +94,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
                 + "physical:\(physicalToken.utf8.count)#\(physicalToken)"
         case .mediaThumbnailCurrent:
             return "media-thumbnail:current"
+        case .mediaThumbnailPrevious:
+            return "media-thumbnail:previous"
         case let .namedLayerTarget(providerLayerID, variant, frameEpoch):
             return "named-layer-target:\(providerLayerID):"
                 + "\(variant):epoch:\(frameEpoch)"

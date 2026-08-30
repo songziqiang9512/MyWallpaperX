@@ -5,6 +5,7 @@ import Foundation
 /// allowed to replace the owning layer source.
 nonisolated struct SceneMediaThumbnailBindingProgram {
     static let currentIdentity = "$mediaThumbnail"
+    static let previousIdentity = "$mediaPreviousThumbnail"
 
     let currentLayerIDs: Set<Int>
 

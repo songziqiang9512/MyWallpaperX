@@ -12,7 +12,8 @@ nonisolated struct SceneTextureProviderPublication {
     var texture: MTLTexture { candidate.texture }
 
     var isComplete: Bool {
-        guard requestPurposeMatchesCandidate,
+        guard requestIdentityMatchesCandidateLifecycle,
+              requestPurposeMatchesCandidate,
               SceneTextureSlotBinding(slotIndex: 0, candidate: candidate) != nil else {
             return false
         }
@@ -23,6 +24,29 @@ nonisolated struct SceneTextureProviderPublication {
             return generation == contentGeneration
         default:
             return false
+        }
+    }
+
+    private var requestIdentityMatchesCandidateLifecycle: Bool {
+        guard case let .system(request) = requestIdentity else { return true }
+        let expectedProvider: SceneTextureProviderIdentity?
+        switch request.name {
+        case "$mediaThumbnail":
+            expectedProvider = .mediaThumbnailCurrent
+        case "$mediaPreviousThumbnail":
+            expectedProvider = .mediaThumbnailPrevious
+        default:
+            expectedProvider = nil
+        }
+        if let expectedProvider {
+            return candidate.identity == .provider(expectedProvider)
+        }
+        switch candidate.identity {
+        case .provider(.mediaThumbnailCurrent),
+             .provider(.mediaThumbnailPrevious):
+            return false
+        case .file, .builtIn, .provider:
+            return true
         }
     }
 
