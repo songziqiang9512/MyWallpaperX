@@ -217,14 +217,32 @@ extension SceneResolvedMaterialGraphExecutor {
                         materialOrdinal: ordinal,
                         failure: failure
                     )
+                    let visualFallbackReasonCode: String? = {
+                        guard let fallback = failure.effectLocalVisualFallback,
+                              let slot = failure.slot else { return nil }
+                        let proven: Bool
+                        switch fallback {
+                        case .optionalTextureUnavailable,
+                             .optionalTexturePurposeMismatch,
+                             .optionalTextureContentMismatch,
+                             .optionalTextureSamplingUnresolved:
+                            proven = material.variants
+                                .provesEffectLocalOptionalColorBlendTextureFailure(
+                                    slot: slot
+                                )
+                        case .systemProviderUnavailable,
+                             .systemProviderPurposeMismatch,
+                             .systemProviderSamplingUnresolved:
+                            proven = material.variants
+                                .provesEffectLocalSystemProviderTextureFailure(
+                                    slot: slot
+                                )
+                        }
+                        return proven ? fallback.rawValue : nil
+                    }()
                     let reasonCode: String
-                    if let fallback = failure.effectLocalVisualFallback,
-                       let slot = failure.slot,
-                       material.variants
-                        .provesEffectLocalOptionalColorBlendTextureFailure(
-                            slot: slot
-                        ) {
-                        reasonCode = fallback.rawValue
+                    if let visualFallbackReasonCode {
+                        reasonCode = visualFallbackReasonCode
                     } else {
                         guard failure.phase == .uniform else {
                             return rejection

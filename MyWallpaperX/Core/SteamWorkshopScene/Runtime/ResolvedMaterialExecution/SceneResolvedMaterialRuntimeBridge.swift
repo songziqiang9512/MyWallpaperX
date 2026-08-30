@@ -225,19 +225,18 @@ final class SceneResolvedMaterialRuntimeBridge {
     func systemProviderBlocks(
         for snapshot: SceneMediaThumbnailTextureStore.Snapshot
     ) -> [String: SceneFrameTextureRegistry.ProviderStatus] {
-        let grouped = Dictionary(grouping: catalog.systemProviderDemands, by: \.name)
+        let names = Set(catalog.systemProviderDemands.map(\.name))
         var blocks: [String: SceneFrameTextureRegistry.ProviderStatus] = [:]
-        for name in grouped.keys.sorted() {
-            guard let demands = grouped[name], demands.count == 1,
-                  let demand = demands.first,
-                  let publication = snapshot.publications[name],
-                  let texture = snapshot.systemTextures[name],
-                  publication.requestIdentity == .system(name),
-                  publication.texture === texture,
-                  publication.candidate.purpose == demand.purpose,
-                  publication.isComplete else {
+        for name in names.sorted() {
+            // Only an explicitly missing provider is a visual availability
+            // failure. Any partial or malformed atom must enter the registry
+            // unchanged so MaterialProgram can hard-reject request identity,
+            // generation, lifecycle and publication integrity independently.
+            // Per-consumer purpose checking also lets one compatible demand
+            // continue when another demand for the same provider is invalid.
+            if snapshot.publications[name] == nil,
+               snapshot.systemTextures[name] == nil {
                 blocks[name] = .unavailable
-                continue
             }
         }
         return blocks

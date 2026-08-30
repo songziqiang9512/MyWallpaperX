@@ -530,6 +530,14 @@ private let colorBlendMaskIdentity = SceneAssetTextureIdentity(
     path: colorBlendMaskPath,
     purpose: .mask
 )
+private let systemProviderName = "$mediaThumbnail"
+private let systemProviderFallbackPath = SceneVFSAssetPath(
+    "textures/unseen-system-provider-fallback.tex"
+)!
+private let systemProviderFallbackIdentity = SceneAssetTextureIdentity(
+    path: systemProviderFallbackPath,
+    purpose: .preservedChannels
+)
 
 private let vertexSource = """
 attribute vec3 a_Position;
@@ -583,6 +591,7 @@ private func fragmentSource(
     scalarConsumer: String? = nil,
     repeatProbe: Bool = false,
     crossLayerMix: Bool = false,
+    systemProviderMix: Bool = false,
     colorBlend: Bool = false
 ) -> String {
     if colorBlend {
@@ -623,8 +632,10 @@ private func fragmentSource(
         : samplerSchemaInvalid
             ? #"uniform sampler2D g_Texture0; // {"mode":"mystery"}"#
             : "uniform sampler2D g_Texture0;"
-    let samplers = crossLayerMix
-        ? primarySampler + "\nuniform sampler2D g_Texture1;"
+    let samplers = crossLayerMix || systemProviderMix
+        ? primarySampler + (systemProviderMix
+            ? "\nuniform sampler2D g_Texture1; // {\"mode\":\"rgbmask\"}"
+            : "\nuniform sampler2D g_Texture1;")
         : primarySampler
     let varying = frontendInvalid
         ? "varying vec3 v_TexCoord;"
@@ -642,7 +653,11 @@ private func fragmentSource(
                         : ""
     let sampleCoordinate = repeatProbe
         ? "v_TexCoord + vec2(1.0)" : "v_TexCoord"
-    let expression = if crossLayerMix {
+    let expression = if systemProviderMix {
+        "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
+            + " float auxiliary = texSample2D(g_Texture1, v_TexCoord).r;"
+            + " color.rgb *= auxiliary; gl_FragColor = color;"
+    } else if crossLayerMix {
         "gl_FragColor = mix("
             + "texSample2D(g_Texture0, v_TexCoord), "
             + "texSample2D(g_Texture1, v_TexCoord), 0.5);"
@@ -1070,6 +1085,7 @@ private func shaderContract(
     scalarConsumer: String? = nil,
     repeatProbe: Bool = false,
     crossLayerMix: Bool = false,
+    systemProviderMix: Bool = false,
     colorBlend: Bool = false
 ) -> SceneShaderContract {
     func stage(
@@ -1141,6 +1157,7 @@ private func shaderContract(
         scalarConsumer: scalarConsumer,
         repeatProbe: repeatProbe,
         crossLayerMix: crossLayerMix,
+        systemProviderMix: systemProviderMix,
         colorBlend: colorBlend
     ))
     let stages = [
@@ -1291,6 +1308,9 @@ private func template(
     repeatProbe: Bool = false,
     pixelTransform explicitPixelTransform: Int? = nil,
     namedProvider: SceneNamedTextureReference? = nil,
+    systemProvider: String? = nil,
+    systemProviderHighest: Bool = true,
+    systemProviderLowerReference: Template.TextureReference? = nil,
     colorBlendMaskPath: SceneVFSAssetPath? = nil
 ) -> Template {
     guard let target = node.target,
@@ -1326,6 +1346,7 @@ private func template(
         scalarConsumer: scalarConsumer,
         repeatProbe: repeatProbe,
         crossLayerMix: namedProvider != nil,
+        systemProviderMix: systemProvider != nil,
         colorBlend: colorBlendMaskPath != nil
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
@@ -1342,6 +1363,22 @@ private func template(
                 provenance: .instance
             ),
         ])
+    }
+    if let systemProvider {
+        let lower = Template.TextureCandidate(
+                reference: systemProviderLowerReference
+                    ?? .asset(systemProviderFallbackPath),
+                provenance: .material
+            )
+        let provider = Template.TextureCandidate(
+                reference: .provider(.system(systemProvider)),
+                provenance: .instance
+            )
+        slots[1] = .init(
+            index: 1,
+            candidates: systemProviderHighest
+                ? [lower, provider] : [provider, lower]
+        )
     }
     if let colorBlendMaskPath {
         slots[1] = .init(index: 1, candidates: [
@@ -1479,6 +1516,10 @@ private func catalog(
     repeatProbeNodes: Set<Int> = [],
     pixelTransformsByNode: [Int: Int] = [:],
     namedProvidersByNode: [Int: SceneNamedTextureReference] = [:],
+    systemProvidersByNode: [Int: String] = [:],
+    systemProviderBelowAssetNodes: Set<Int> = [],
+    systemProviderLowerReferencesByNode:
+        [Int: Template.TextureReference] = [:],
     colorBlendNodes: Set<Int> = []
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
@@ -1525,6 +1566,11 @@ private func catalog(
                 repeatProbe: repeatProbeNodes.contains(node.nodeIndex),
                 pixelTransform: pixelTransformsByNode[node.nodeIndex],
                 namedProvider: namedProvidersByNode[node.nodeIndex],
+                systemProvider: systemProvidersByNode[node.nodeIndex],
+                systemProviderHighest:
+                    !systemProviderBelowAssetNodes.contains(node.nodeIndex),
+                systemProviderLowerReference:
+                    systemProviderLowerReferencesByNode[node.nodeIndex],
                 colorBlendMaskPath: colorBlendNodes.contains(node.nodeIndex)
                     ? colorBlendMaskPath : nil
             )
@@ -1921,6 +1967,125 @@ private func colorBlendMaskStatus(
     case .pending, .unavailable:
         fatalError("handled before publication construction")
     }
+}
+
+private enum SystemProviderFixtureStatus: Equatable {
+    case ready
+    case missing
+    case absent
+    case unavailable
+    case wrongPurpose
+    case samplingUnresolved
+    case incompleteContent
+    case generationMismatch
+    case requestIdentityMismatch
+}
+
+private func systemProviderTexture(
+    _ device: MTLDevice,
+    value: UInt8
+) -> MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .r8Unorm,
+        width: 2,
+        height: 2,
+        mipmapped: true
+    )
+    descriptor.storageMode = .shared
+    descriptor.usage = .shaderRead
+    let texture = device.makeTexture(descriptor: descriptor)!
+    for level in 0 ..< texture.mipmapLevelCount {
+        let width = max(1, texture.width >> level)
+        let height = max(1, texture.height >> level)
+        let bytes = Array(repeating: value, count: width * height)
+        texture.replace(
+            region: MTLRegionMake2D(0, 0, width, height),
+            mipmapLevel: level,
+            withBytes: bytes,
+            bytesPerRow: width
+        )
+    }
+    return texture
+}
+
+private func systemProviderStatus(
+    _ kind: SystemProviderFixtureStatus,
+    device: MTLDevice,
+    generation: UInt64
+) -> SceneFrameTextureLookupStatus {
+    if kind == .missing { fatalError("missing has no registry status") }
+    if kind == .absent { return .absent }
+    if kind == .unavailable { return .unavailable }
+
+    let requestIdentity: SceneFrameTextureIdentity =
+        kind == .requestIdentityMismatch
+        ? .system("$otherSystemProvider")
+        : .system(systemProviderName)
+    let purpose: SceneTextureLoadPurpose = kind == .wrongPurpose
+        ? .noise : .preservedChannels
+    let candidateGeneration = kind == .generationMismatch
+        ? generation + 1 : generation
+    let texture = systemProviderTexture(device, value: 0)
+    let size = CGSize(width: texture.width, height: texture.height)
+    let publication = SceneTextureProviderPublication(
+        requestIdentity: requestIdentity,
+        candidate: .init(
+            texture: texture,
+            identity: .provider(.mediaThumbnailCurrent),
+            generation: .provider(contentGeneration: candidateGeneration),
+            purpose: purpose,
+            content: kind == .incompleteContent
+                ? .color(.unresolved) : .data,
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: kind == .samplingUnresolved
+                ? .init(texFlags: 8) : .linearClamp,
+            authoredFormat: .r8
+        ),
+        contentGeneration: generation
+    )
+    let resource = SceneFrameTextureResource(
+        publication: publication,
+        resourceGeneration: generation
+    )
+    return kind == .generationMismatch || kind == .incompleteContent
+        ? .incomplete(.publication(
+            publication,
+            resourceGeneration: generation
+        ))
+        : .ready(resource)
+}
+
+private func systemProviderFallbackStatus(
+    device: MTLDevice,
+    generation: UInt64
+) -> SceneFrameTextureLookupStatus {
+    let texture = systemProviderTexture(device, value: 255)
+    let size = CGSize(width: texture.width, height: texture.height)
+    let publication = SceneTextureProviderPublication(
+        requestIdentity: .asset(systemProviderFallbackIdentity),
+        candidate: .init(
+            texture: texture,
+            identity: .provider(.video(
+                layerID: layerID,
+                lifecycleEpoch: generation
+            )),
+            generation: .provider(contentGeneration: generation),
+            purpose: .preservedChannels,
+            content: .data,
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: .linearClamp,
+            authoredFormat: .r8
+        ),
+        contentGeneration: generation
+    )
+    return .ready(.init(
+        publication: publication,
+        resourceGeneration: generation
+    ))
 }
 
 private func clear(
@@ -3685,6 +3850,88 @@ private enum Harness {
         } ?? []
         let colorBlendOptionalMaskProof = colorBlendMaterial?.variants
             .provesEffectLocalOptionalColorBlendTextureFailure(slot: 1) == true
+        let systemProviderCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                systemProvidersByNode: [1: systemProviderName]
+            ),
+            assetStates: [systemProviderFallbackIdentity: .ready(.data)],
+            assetFormatFacts: [
+                systemProviderFallbackIdentity.reportToken:
+                    SceneShaderTextureFormat.r8.macroValue,
+            ]
+        )
+        let systemProviderClaim = systemProviderCapabilities.claim(pixelChain)
+        let systemProviderCapability = systemProviderClaim.flatMap {
+            systemProviderCapabilities.resolve($0.token, for: pixelChain)
+        }
+        let systemProviderMaterial = systemProviderCapability?.material(
+            effect: chainedSecondEffect,
+            nodeIndex: 1
+        )
+        let systemProviderSnapshot = systemProviderMaterial?.variants
+            .launchEnvelopeCapabilitySnapshot()
+        let systemProviderCandidateCount = systemProviderSnapshot?.template
+            .textureSlots[1]?.candidates.count
+        let systemProviderLaunchEnvelopeProof = systemProviderMaterial?.variants
+            .provesEffectLocalSystemProviderTextureFailure(slot: 1) == true
+        let systemProviderBelowAssetCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                systemProvidersByNode: [1: systemProviderName],
+                systemProviderBelowAssetNodes: [1]
+            ),
+            assetStates: [systemProviderFallbackIdentity: .ready(.data)],
+            assetFormatFacts: [
+                systemProviderFallbackIdentity.reportToken:
+                    SceneShaderTextureFormat.r8.macroValue,
+            ]
+        )
+        let systemProviderBelowAssetProof =
+            systemProviderBelowAssetCapabilities.claim(pixelChain).flatMap {
+                systemProviderBelowAssetCapabilities.resolve(
+                    $0.token,
+                    for: pixelChain
+                )
+            }?.material(
+                effect: chainedSecondEffect,
+                nodeIndex: 1
+            )?.variants.provesEffectLocalSystemProviderTextureFailure(slot: 1)
+                == true
+        let systemProviderLowerGraphCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(
+                for: pixelGraph,
+                systemProvidersByNode: [1: systemProviderName],
+                systemProviderLowerReferencesByNode: [
+                    1: .graph(chainedFirstOutput),
+                ]
+            )
+        )
+        let systemProviderLowerGraphProofGranted =
+            systemProviderLowerGraphCapabilities.claim(pixelChain).flatMap {
+                systemProviderLowerGraphCapabilities.resolve(
+                    $0.token,
+                    for: pixelChain
+                )
+            }?.material(
+                effect: chainedSecondEffect,
+                nodeIndex: 1
+            )?.variants.provesEffectLocalSystemProviderTextureFailure(slot: 1)
+                == true
+        let namedLayerTargetCannotUseSystemProviderProof =
+            crossLayerCapability?.material(
+                effect: effect,
+                nodeIndex: 0
+            )?.variants.provesEffectLocalSystemProviderTextureFailure(slot: 1)
+                == false
+        let graphInputCannotUseSystemProviderProof = pixelCapability?.material(
+            effect: chainedSecondEffect,
+            nodeIndex: 1
+        )?.variants.provesEffectLocalSystemProviderTextureFailure(slot: 0)
+            == false
         var dynamicUniformValidFramePrepares = false
         if let claim = dynamicPixelClaim,
            let capability = dynamicPixelCapability,
@@ -3924,6 +4171,224 @@ private enum Harness {
             generation: 16,
             reason: "material-finalizer-optional-texture-sampling-unresolved",
             textureEntries: colorBlendEntries(.samplingUnresolved, generation: 16)
+        )
+
+        func systemProviderEntries(
+            _ kind: SystemProviderFixtureStatus,
+            generation: UInt64
+        ) -> [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus] {
+            var entries: [
+                SceneFrameTextureIdentity: SceneFrameTextureLookupStatus
+            ] = [
+                .asset(systemProviderFallbackIdentity):
+                    systemProviderFallbackStatus(
+                        device: device,
+                        generation: generation
+                    ),
+            ]
+            if kind != .missing {
+                entries[.system(systemProviderName)] = systemProviderStatus(
+                    kind,
+                    device: device,
+                    generation: generation
+                )
+            }
+            return entries
+        }
+
+        let systemProviderUnavailableFailure = executeVisualFailurePassthrough(
+            claim: systemProviderClaim,
+            capability: systemProviderCapability,
+            capabilities: systemProviderCapabilities,
+            generation: 80,
+            reason: "material-finalizer-system-provider-unavailable",
+            textureEntries: systemProviderEntries(.unavailable, generation: 80)
+        )
+        let systemProviderWrongPurposeFailure = executeVisualFailurePassthrough(
+            claim: systemProviderClaim,
+            capability: systemProviderCapability,
+            capabilities: systemProviderCapabilities,
+            generation: 81,
+            reason: "material-finalizer-system-provider-purpose-mismatch",
+            textureEntries: systemProviderEntries(.wrongPurpose, generation: 81)
+        )
+        let systemProviderSamplingFailure = executeVisualFailurePassthrough(
+            claim: systemProviderClaim,
+            capability: systemProviderCapability,
+            capabilities: systemProviderCapabilities,
+            generation: 82,
+            reason: "material-finalizer-system-provider-sampling-unresolved",
+            textureEntries: systemProviderEntries(
+                .samplingUnresolved,
+                generation: 82
+            )
+        )
+
+        func systemProviderIntegrityFailureRemainsHard(
+            _ kind: SystemProviderFixtureStatus,
+            generation: UInt64
+        ) -> Bool {
+            guard let claim = systemProviderClaim,
+                  let capability = systemProviderCapability,
+                  let leases = makeChainedLeases(
+                    capability,
+                    device: device,
+                    generation: generation
+                  ), let executor = Executor(
+                    device: device,
+                    capabilities: systemProviderCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return false
+            }
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(
+                    generation,
+                    textureEntries: systemProviderEntries(
+                        kind,
+                        generation: generation
+                    )
+                ),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                frameInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            guard case let .failure(.materialFinalizerRejected(
+                stageIndex,
+                effect,
+                nodeIndex,
+                materialOrdinal,
+                failure
+            )) = preparation else { return false }
+            return stageIndex == 1
+                && effect == chainedSecondEffect
+                && nodeIndex == 1
+                && materialOrdinal == 0
+                && failure.phase == .texture
+                && failure.slot == 1
+                && failure.effectLocalVisualFallback == nil
+                && command.status == .notEnqueued
+        }
+        let systemProviderRequestIdentityMismatchRemainsHard =
+            systemProviderIntegrityFailureRemainsHard(
+                .requestIdentityMismatch,
+                generation: 83
+            )
+        let systemProviderGenerationMismatchRemainsHard =
+            systemProviderIntegrityFailureRemainsHard(
+                .generationMismatch,
+                generation: 84
+            )
+        let systemProviderMissingRemainsHard =
+            systemProviderIntegrityFailureRemainsHard(
+                .missing,
+                generation: 85
+            )
+        let systemProviderIncompleteContentRemainsHard =
+            systemProviderIntegrityFailureRemainsHard(
+                .incompleteContent,
+                generation: 86
+            )
+
+        func executeSystemProviderSelection(
+            _ kind: SystemProviderFixtureStatus,
+            generation: UInt64
+        ) -> (
+            prepared: Bool,
+            encoded: Bool,
+            gpuCompleted: Bool,
+            failureCode: String,
+            stagePixels: [[UInt8]],
+            finalPixel: [UInt8]
+        ) {
+            guard let claim = systemProviderClaim,
+                  let capability = systemProviderCapability,
+                  let leases = makeChainedLeases(
+                    capability,
+                    device: device,
+                    generation: generation
+                  ), let executor = Executor(
+                    device: device,
+                    capabilities: systemProviderCapabilities
+                  ), let command = queue.makeCommandBuffer() else {
+                return (false, false, false, "setup", [], [])
+            }
+            let preparation = executor.prepare(
+                token: claim.token,
+                leases: leases,
+                historyRehydrateCopiesByEffect: [:],
+                frame: frame(
+                    generation,
+                    textureEntries: systemProviderEntries(
+                        kind,
+                        generation: generation
+                    )
+                ),
+                sourceTexture: source,
+                sourceUniforms: .neutral(),
+                sourcePipeline: sourcePipeline,
+                frameInputs: .init(),
+                commandBuffer: command,
+                previousStates: [:],
+                previousGraphResources: [:],
+                effectGeneration: generation,
+                resetGeneration: generation
+            )
+            let code = failureCode(preparation)
+            guard case let .success(prepared) = preparation,
+                  prepared.stages.count == 3,
+                  prepared.stages[1].effectLocalFailureReasonCode == nil,
+                  prepared.stages[1].programCacheKeys.allSatisfy({
+                      !$0.hasPrefix("visual-failure-passthrough:")
+                  }) else {
+                return (false, false, false, code, [], [])
+            }
+            var stageReadbacks: [Readback] = []
+            let encoded = executor.encode(
+                prepared,
+                commandBuffer: command,
+                stageBoundaryObserver: { _, transition, buffer in
+                    guard let readback = appendReadback(
+                        transition.effectOutputResource.publication.texture,
+                        commandBuffer: buffer
+                    ) else { return false }
+                    stageReadbacks.append(readback)
+                    return true
+                }
+            )
+            guard encoded,
+                  let finalReadback = appendReadback(
+                    prepared.finalTexture,
+                    commandBuffer: command
+                  ) else {
+                return (true, encoded, false, code, [], [])
+            }
+            command.commit()
+            command.waitUntilCompleted()
+            return (
+                true,
+                encoded,
+                command.status == .completed && command.error == nil,
+                code,
+                stageReadbacks.map(\.firstPixel),
+                finalReadback.firstPixel
+            )
+        }
+        let systemProviderReadyExecution = executeSystemProviderSelection(
+            .ready,
+            generation: 87
+        )
+        let systemProviderAbsentExecution = executeSystemProviderSelection(
+            .absent,
+            generation: 88
         )
 
         func executeColorBlendReady(
@@ -6964,6 +7429,89 @@ private enum Harness {
                 colorBlendGenerationMismatchRemainsHard,
             "colorBlendMaskRequestIdentityMismatchRemainsHard":
                 colorBlendRequestIdentityMismatchRemainsHard,
+            "systemProviderLaunchEnvelopeProved":
+                systemProviderLaunchEnvelopeProof
+                    && systemProviderSnapshot?.hasCachedReachability == true
+                    && systemProviderSnapshot?.allEntriesReady == true
+                    && systemProviderSnapshot?.variants.isEmpty == false
+                    && systemProviderCandidateCount == 2,
+            "systemProviderMustBeHighestPrecedenceCandidate":
+                !systemProviderBelowAssetProof,
+            "systemProviderLowerGraphCandidateCannotUseProof":
+                !systemProviderLowerGraphProofGranted,
+            "namedLayerTargetCannotUseSystemProviderProof":
+                namedLayerTargetCannotUseSystemProviderProof,
+            "graphInputCannotUseSystemProviderProof":
+                graphInputCannotUseSystemProviderProof,
+            "systemProviderUnavailablePassthroughPrepared":
+                systemProviderUnavailableFailure.prepared,
+            "systemProviderUnavailablePassthroughEncoded":
+                systemProviderUnavailableFailure.encoded,
+            "systemProviderUnavailableGPUCompleted":
+                systemProviderUnavailableFailure.gpuCompleted,
+            "systemProviderUnavailablePreservesPreviousAndContinuesSuffix":
+                systemProviderUnavailableFailure.continued,
+            "systemProviderWrongPurposeIsEffectLocal":
+                systemProviderWrongPurposeFailure.prepared
+                    && systemProviderWrongPurposeFailure.encoded
+                    && systemProviderWrongPurposeFailure.gpuCompleted
+                    && systemProviderWrongPurposeFailure.continued,
+            "systemProviderSamplingUnresolvedIsEffectLocal":
+                systemProviderSamplingFailure.prepared
+                    && systemProviderSamplingFailure.encoded
+                    && systemProviderSamplingFailure.gpuCompleted
+                    && systemProviderSamplingFailure.continued,
+            "systemProviderRequestIdentityMismatchRemainsHard":
+                systemProviderRequestIdentityMismatchRemainsHard,
+            "systemProviderGenerationMismatchRemainsHard":
+                systemProviderGenerationMismatchRemainsHard,
+            "systemProviderMissingRegistryEntryRemainsHard":
+                systemProviderMissingRemainsHard,
+            "systemProviderIncompleteContentRemainsHard":
+                systemProviderIncompleteContentRemainsHard,
+            "systemProviderReadyExactExecutesProgramAndGPU":
+                systemProviderReadyExecution.prepared
+                    && systemProviderReadyExecution.encoded
+                    && systemProviderReadyExecution.gpuCompleted,
+            "systemProviderReadyExactChangesMiddleStagePixels":
+                systemProviderReadyExecution.stagePixels.count == 3
+                    && matches(
+                        systemProviderReadyExecution.stagePixels[0],
+                        [255, 0, 0, 255]
+                    )
+                    && matches(
+                        systemProviderReadyExecution.stagePixels[1],
+                        [0, 0, 0, 255]
+                    )
+                    && matches(
+                        systemProviderReadyExecution.stagePixels[2],
+                        [0, 0, 0, 255]
+                    )
+                    && matches(
+                        systemProviderReadyExecution.finalPixel,
+                        [0, 0, 0, 255]
+                    ),
+            "systemProviderAbsentUsesLowerAssetWithoutFallback":
+                systemProviderAbsentExecution.prepared
+                    && systemProviderAbsentExecution.encoded
+                    && systemProviderAbsentExecution.gpuCompleted
+                    && systemProviderAbsentExecution.stagePixels.count == 3
+                    && matches(
+                        systemProviderAbsentExecution.stagePixels[0],
+                        [255, 0, 0, 255]
+                    )
+                    && matches(
+                        systemProviderAbsentExecution.stagePixels[1],
+                        [255, 0, 0, 255]
+                    )
+                    && matches(
+                        systemProviderAbsentExecution.stagePixels[2],
+                        [0, 255, 0, 255]
+                    )
+                    && matches(
+                        systemProviderAbsentExecution.finalPixel,
+                        [0, 255, 0, 255]
+                    ),
             "dynamicUniformMultiNodeUsesWholeEffectPassthrough":
                 dynamicUniformMultiNodeUsesWholeEffectPassthrough,
             "staticUniformMultiNodeUsesWholeEffectPassthrough":
@@ -7187,6 +7735,8 @@ private enum Harness {
                     ? "swap-target-descriptor-incompatible" : "unexpected-admission",
                 "firstFailedVariant": launchEnvelopeFailureCode(firstFailedVariant),
                 "secondFailedVariant": launchEnvelopeFailureCode(secondFailedVariant),
+                "systemProviderReady": systemProviderReadyExecution.failureCode,
+                "systemProviderAbsent": systemProviderAbsentExecution.failureCode,
             ],
             "composeDiagnostics": [
                 "genericFailure": failureCode(genericComposePreparation),
@@ -7234,6 +7784,12 @@ private enum Harness {
             "colorBlendPendingPreparation": colorBlendPendingFailure.failureCode,
             "colorBlendWrongPurposePreparation":
                 colorBlendWrongPurposeFailure.failureCode,
+            "systemProviderSelectionDiagnostics": [
+                "readyStagePixels": systemProviderReadyExecution.stagePixels,
+                "readyFinalPixel": systemProviderReadyExecution.finalPixel,
+                "absentStagePixels": systemProviderAbsentExecution.stagePixels,
+                "absentFinalPixel": systemProviderAbsentExecution.finalPixel,
+            ],
             "pixelChainFailure": pixelChainFailure,
             "dormantGraphInputFailure": dormantGraphInputFailure,
             "visualFailureObservedPixels": visualFailureObservedPixels,

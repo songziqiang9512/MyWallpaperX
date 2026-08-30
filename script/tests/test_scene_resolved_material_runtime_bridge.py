@@ -482,7 +482,10 @@ struct SceneGraphExecutionState {
     }
 }
 
-enum SceneTextureLoadPurpose: Hashable { case premultipliedColor }
+enum SceneTextureLoadPurpose: Hashable {
+    case premultipliedColor
+    case preservedChannels
+}
 enum SceneTextureProviderIdentity: Hashable {
     case graph(allocationGeneration: UInt64, physicalToken: String)
     case sceneBackground(consumerLayerID: Int, frameEpoch: UInt64)
@@ -3337,6 +3340,87 @@ enum Harness {
         }
 
         do {
+            let name = "$mediaThumbnail"
+            let texture = makeTexture(device, "system-provider")
+            let otherTexture = makeTexture(device, "other-system-provider")
+            let publication = SceneTextureProviderPublication(
+                requestIdentity: .system(name),
+                candidate: .init(
+                    texture: texture,
+                    identity: .file("system-provider"),
+                    purpose: .premultipliedColor
+                ),
+                contentGeneration: 1
+            )
+            let bridge = SceneResolvedMaterialRuntimeBridge(
+                catalog: .init(
+                    userPropertyDemands: [],
+                    systemProviderDemands: [
+                        .init(name: name, purpose: .premultipliedColor),
+                        .init(name: name, purpose: .preservedChannels),
+                    ]
+                ),
+                capabilities: makeCapabilities(layerIDs: []),
+                assets: .init(states: [:]),
+                device: device
+            )
+            let missing = bridge.systemProviderBlocks(for: .init(
+                publications: [:],
+                systemTextures: [:]
+            ))
+            let exact = bridge.systemProviderBlocks(for: .init(
+                publications: [name: publication],
+                systemTextures: [name: texture]
+            ))
+            let publicationOnly = bridge.systemProviderBlocks(for: .init(
+                publications: [name: publication],
+                systemTextures: [:]
+            ))
+            let textureOnly = bridge.systemProviderBlocks(for: .init(
+                publications: [:],
+                systemTextures: [name: texture]
+            ))
+            let mismatchedTexture = bridge.systemProviderBlocks(for: .init(
+                publications: [name: publication],
+                systemTextures: [name: otherTexture]
+            ))
+            let wrongRequest = SceneTextureProviderPublication(
+                requestIdentity: .system("$other"),
+                candidate: publication.candidate,
+                contentGeneration: 1
+            )
+            let wrongIdentity = bridge.systemProviderBlocks(for: .init(
+                publications: [name: wrongRequest],
+                systemTextures: [name: texture]
+            ))
+            let incomplete = SceneTextureProviderPublication(
+                requestIdentity: .system(name),
+                candidate: publication.candidate,
+                contentGeneration: 0
+            )
+            let incompleteAtom = bridge.systemProviderBlocks(for: .init(
+                publications: [name: incomplete],
+                systemTextures: [name: texture]
+            ))
+            let missingIsUnavailable: Bool
+            if case .unavailable? = missing[name] {
+                missingIsUnavailable = true
+            } else {
+                missingIsUnavailable = false
+            }
+            results["systemProviderOnlyMissingAtomSoftBlocks"] =
+                missingIsUnavailable && missing.count == 1
+                    && exact.isEmpty
+            results["systemProviderMalformedAtomsAreNotCollapsedToUnavailable"] =
+                publicationOnly.isEmpty
+                    && textureOnly.isEmpty
+                    && mismatchedTexture.isEmpty
+                    && wrongIdentity.isEmpty
+                    && incompleteAtom.isEmpty
+            results["systemProviderPurposesRemainPerConsumer"] = exact.isEmpty
+        }
+
+        do {
             let bridge = SceneResolvedMaterialRuntimeBridge(
                 catalog: .init(
                     userPropertyDemands: [],
@@ -4732,6 +4816,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "productionObservationBuilderFailure",
                 "claimUsesCentralCapabilityAdmission",
                 "claimCarriesGraphIdentityOnly",
+                "systemProviderOnlyMissingAtomSoftBlocks",
+                "systemProviderMalformedAtomsAreNotCollapsedToUnavailable",
+                "systemProviderPurposesRemainPerConsumer",
                 "uninstalledDispositionEvidenceIsNotInvoked",
                 "bridgeProjectsOnlyInstalledDispositionEvidence",
                 "executionEvidenceOverridesFallbackFamily",

@@ -20,6 +20,12 @@ nonisolated struct SceneResolvedMaterialFailure: Error, Equatable {
             "material-finalizer-optional-texture-content-mismatch"
         case optionalTextureSamplingUnresolved =
             "material-finalizer-optional-texture-sampling-unresolved"
+        case systemProviderUnavailable =
+            "material-finalizer-system-provider-unavailable"
+        case systemProviderPurposeMismatch =
+            "material-finalizer-system-provider-purpose-mismatch"
+        case systemProviderSamplingUnresolved =
+            "material-finalizer-system-provider-sampling-unresolved"
     }
 
     enum Phase: String, Equatable {

@@ -1919,10 +1919,129 @@ def utility_capture_execution_metrics(log_text: str) -> dict[str, Any]:
     return capture_execution_metrics(log_text, UTILITY_CAPTURE_EXECUTION_RE)
 
 
+EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY = (
+    "expected_resolved_material_graph_effect_local_passthroughs"
+)
+EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX = "effect-local-passthrough-"
+
+
+def effect_local_passthrough_expectation(
+    sample: dict[str, Any],
+) -> tuple[bool, bool, set[tuple[int, int, str, str]]]:
+    if EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY not in sample:
+        return False, True, set()
+    raw = sample[EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY]
+    if not isinstance(raw, list):
+        return True, False, set()
+    entries: list[tuple[int, int, str, str]] = []
+    for value in raw:
+        if not isinstance(value, dict) or set(value) != {
+            "layer_id", "effect_index", "descriptor_id", "reason",
+        }:
+            return True, False, set()
+        layer_id = value["layer_id"]
+        effect_index = value["effect_index"]
+        descriptor_id = value["descriptor_id"]
+        reason = value["reason"]
+        if (
+            not isinstance(layer_id, int)
+            or isinstance(layer_id, bool)
+            or layer_id < 0
+            or not isinstance(effect_index, int)
+            or isinstance(effect_index, bool)
+            or effect_index < 0
+            or not isinstance(descriptor_id, str)
+            or not descriptor_id
+            or not isinstance(reason, str)
+            or re.fullmatch(r"[A-Za-z0-9._-]+", reason) is None
+        ):
+            return True, False, set()
+        entries.append((layer_id, effect_index, descriptor_id, reason))
+    if entries != sorted(entries) or len(entries) != len(set(entries)):
+        return True, False, set()
+    return True, True, set(entries)
+
+
+def effect_local_passthrough_cpu_keys(
+    effect_execution: dict[str, Any] | None,
+) -> set[tuple[int, int, str, str]]:
+    if not isinstance(effect_execution, dict):
+        return set()
+    result: set[tuple[int, int, str, str]] = set()
+    for invocation in effect_execution.get("cpu_invocations", []):
+        reason = invocation.get("reason")
+        if (
+            invocation.get("subject") != "effect"
+            or invocation.get("outcome") != "failed"
+            or invocation.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND
+            or invocation.get("join_valid") is not True
+            or not isinstance(invocation.get("layer_id"), int)
+            or isinstance(invocation.get("layer_id"), bool)
+            or not isinstance(invocation.get("effect_index"), int)
+            or isinstance(invocation.get("effect_index"), bool)
+            or not isinstance(invocation.get("descriptor_id"), str)
+            or not isinstance(reason, str)
+            or not reason.startswith(EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX)
+        ):
+            continue
+        result.add((
+            invocation["layer_id"],
+            invocation["effect_index"],
+            invocation["descriptor_id"],
+            reason.removeprefix(EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX),
+        ))
+    return result
+
+
+def effect_local_passthrough_graph_keys(
+    graph_observations: dict[str, Any],
+    field: str = "visual_failure_passthroughs",
+) -> set[tuple[int, int, str, str]]:
+    result: set[tuple[int, int, str, str]] = set()
+    for value in graph_observations.get(field, []):
+        if (
+            isinstance(value, dict)
+            and isinstance(value.get("layer_id"), int)
+            and not isinstance(value.get("layer_id"), bool)
+            and isinstance(value.get("effect_index"), int)
+            and not isinstance(value.get("effect_index"), bool)
+            and isinstance(value.get("descriptor_id"), str)
+            and isinstance(value.get("reason"), str)
+        ):
+            result.add((
+                value["layer_id"], value["effect_index"],
+                value["descriptor_id"], value["reason"],
+            ))
+    return result
+
+
+def graph_effect_subject_keys(
+    graph_observations: dict[str, Any],
+    field: str,
+) -> set[tuple[int, int, str]]:
+    result: set[tuple[int, int, str]] = set()
+    for value in graph_observations.get(field, []):
+        if (
+            isinstance(value, dict)
+            and isinstance(value.get("layer_id"), int)
+            and not isinstance(value.get("layer_id"), bool)
+            and isinstance(value.get("effect_index"), int)
+            and not isinstance(value.get("effect_index"), bool)
+            and isinstance(value.get("descriptor_id"), str)
+        ):
+            result.add((
+                value["layer_id"],
+                value["effect_index"],
+                value["descriptor_id"],
+            ))
+    return result
+
+
 def resolved_material_graph_exact_backend_metrics(
     accepted_layer_ids: list[int],
     effect_execution: dict[str, Any],
     static_disposition: dict[str, Any] | None,
+    graph_observations: dict[str, Any],
 ) -> dict[str, Any]:
     accepted_layers = set(accepted_layer_ids)
     disposition_is_valid, _, eligible_exact = (
@@ -1967,6 +2086,83 @@ def resolved_material_graph_exact_backend_metrics(
     successful_by_layer: dict[int, set[tuple[int, str]]] = {
         layer_id: set() for layer_id in accepted_layers
     }
+    cpu_effect_local_passthroughs = effect_local_passthrough_cpu_keys(
+        effect_execution
+    )
+    graph_effect_local_passthroughs = effect_local_passthrough_graph_keys(
+        graph_observations
+    )
+    next_frame_effect_local_passthroughs = effect_local_passthrough_graph_keys(
+        graph_observations,
+        field="visual_failure_passthrough_next_frame_subjects",
+    )
+    effect_local_passthroughs = cpu_effect_local_passthroughs.intersection(
+        graph_effect_local_passthroughs,
+        next_frame_effect_local_passthroughs,
+    )
+    unjoined_cpu_effect_local_passthroughs = (
+        cpu_effect_local_passthroughs.difference(
+            graph_effect_local_passthroughs
+        )
+    )
+    unjoined_graph_effect_local_passthroughs = (
+        graph_effect_local_passthroughs.difference(
+            cpu_effect_local_passthroughs
+        )
+    )
+    missing_next_frame_effect_local_passthroughs = (
+        graph_effect_local_passthroughs.difference(
+            next_frame_effect_local_passthroughs
+        )
+    )
+    effect_local_passthrough_identities = {
+        value[:3] for value in effect_local_passthroughs
+    }
+    effect_local_passthrough_layer_ids = {
+        value[0] for value in effect_local_passthroughs
+    }
+    unproven_effect_local_passthroughs = {
+        value for value in effect_local_passthroughs
+        if value[:3] not in eligible_exact_identities
+        or value[0] not in accepted_layers
+    }
+    program_required_layer_ids = sorted(
+        layer_id for layer_id, subjects in required_by_layer.items()
+        if any(
+            (layer_id, effect_index, descriptor_id)
+                not in effect_local_passthrough_identities
+            for effect_index, descriptor_id in subjects
+        )
+    )
+    program_required_subjects = {
+        (layer_id, effect_index, descriptor_id)
+        for layer_id, subjects in required_by_layer.items()
+        for effect_index, descriptor_id in subjects
+        if (layer_id, effect_index, descriptor_id)
+            not in effect_local_passthrough_identities
+    }
+    mixed_program_required_subjects = {
+        value for value in program_required_subjects
+        if value[0] in effect_local_passthrough_layer_ids
+    }
+    graph_program_effect_subjects = graph_effect_subject_keys(
+        graph_observations,
+        "program_effect_subjects",
+    )
+    graph_program_next_frame_effect_subjects = graph_effect_subject_keys(
+        graph_observations,
+        "program_next_frame_effect_subjects",
+    )
+    mixed_program_missing_terminal_subjects = (
+        mixed_program_required_subjects.difference(
+            graph_program_effect_subjects
+        )
+    )
+    mixed_program_missing_next_frame_subjects = (
+        mixed_program_required_subjects.difference(
+            graph_program_next_frame_effect_subjects
+        )
+    )
     wrong_backend_layer_ids: set[int] = set()
     failed_layer_ids: set[int] = set()
     malformed_layer_ids: set[int] = set()
@@ -1989,8 +2185,6 @@ def resolved_material_graph_exact_backend_metrics(
                 continue
             if invocation.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND:
                 wrong_backend_layer_ids.add(layer_id)
-            if invocation.get("outcome") != "encoded-output":
-                failed_layer_ids.add(layer_id)
             if (
                 invocation.get("join_valid") is not True
                 or not isinstance(effect_index, int)
@@ -2004,6 +2198,25 @@ def resolved_material_graph_exact_backend_metrics(
                 and invocation.get("outcome") == "encoded-output"
             ):
                 successful_by_layer[layer_id].add((effect_index, descriptor_id))
+            elif (
+                invocation.get("backend") == RESOLVED_MATERIAL_GRAPH_BACKEND
+                and invocation.get("outcome") == "failed"
+                and isinstance(invocation.get("reason"), str)
+                and (
+                    layer_id,
+                    effect_index,
+                    descriptor_id,
+                    invocation["reason"].removeprefix(
+                        EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX
+                    ),
+                ) in effect_local_passthroughs
+                and invocation["reason"].startswith(
+                    EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX
+                )
+            ):
+                successful_by_layer[layer_id].add((effect_index, descriptor_id))
+            elif invocation.get("outcome") != "encoded-output":
+                failed_layer_ids.add(layer_id)
 
     complete_layer_ids = sorted(
         layer_id for layer_id in accepted_layers
@@ -2032,6 +2245,16 @@ def resolved_material_graph_exact_backend_metrics(
             layer_id for layer_id, subjects in required_by_layer.items()
             if subjects
         ),
+        "program_required_layer_ids": program_required_layer_ids,
+        "mixed_program_required_subjects": sorted(
+            mixed_program_required_subjects
+        ),
+        "mixed_program_missing_terminal_subjects": sorted(
+            mixed_program_missing_terminal_subjects
+        ),
+        "mixed_program_missing_next_frame_subjects": sorted(
+            mixed_program_missing_next_frame_subjects
+        ),
         "no_demand_layer_ids": sorted(
             layer_id for layer_id, subjects in required_by_layer.items()
             if not subjects
@@ -2043,6 +2266,32 @@ def resolved_material_graph_exact_backend_metrics(
         "malformed_layer_ids": sorted(malformed_layer_ids),
         "unexpected_layer_ids": unexpected_layer_ids,
         "resolved_backend_layer_ids": sorted(resolved_backend_layer_ids),
+        "effect_local_passthroughs": [
+            {
+                "layer_id": layer_id,
+                "effect_index": effect_index,
+                "descriptor_id": descriptor_id,
+                "reason": reason,
+            }
+            for layer_id, effect_index, descriptor_id, reason in sorted(
+                effect_local_passthroughs
+            )
+        ],
+        "effect_local_passthrough_layer_ids": sorted({
+            value[0] for value in effect_local_passthroughs
+        }),
+        "unjoined_cpu_effect_local_passthroughs": sorted(
+            unjoined_cpu_effect_local_passthroughs
+        ),
+        "unjoined_graph_effect_local_passthroughs": sorted(
+            unjoined_graph_effect_local_passthroughs
+        ),
+        "missing_next_frame_effect_local_passthroughs": sorted(
+            missing_next_frame_effect_local_passthroughs
+        ),
+        "unproven_effect_local_passthroughs": sorted(
+            unproven_effect_local_passthroughs
+        ),
     }
 
 
@@ -2482,7 +2731,27 @@ def resolved_material_graph_execution_metrics(
         accepted_layer_ids,
         effect_execution,
         static_disposition,
+        graph_observations,
     )
+    if (
+        exact_backend["unjoined_cpu_effect_local_passthroughs"]
+        or exact_backend["unjoined_graph_effect_local_passthroughs"]
+        or exact_backend["missing_next_frame_effect_local_passthroughs"]
+    ):
+        capability_failures.append(
+            "resolved material graph effect-local passthrough exact join failed"
+        )
+    if exact_backend["unproven_effect_local_passthroughs"]:
+        capability_failures.append(
+            "resolved material graph effect-local passthrough identity unproven"
+        )
+    if (
+        exact_backend["mixed_program_missing_terminal_subjects"]
+        or exact_backend["mixed_program_missing_next_frame_subjects"]
+    ):
+        capability_failures.append(
+            "resolved material graph mixed Program exact subject join failed"
+        )
     passthrough = resolved_material_graph_passthrough_metrics(
         accepted_layer_ids,
         graph_observations,
@@ -2643,27 +2912,38 @@ def resolved_material_graph_execution_metrics(
     validation_failures = list(dict.fromkeys(validation_failures))
     exact_required_layer_ids = set(exact_backend["required_layer_ids"])
     passthrough_required_layer_ids = set(passthrough["required_layer_ids"])
-    program_only_layer_ids = exact_required_layer_ids.difference(
-        passthrough_required_layer_ids
+    effect_local_passthrough_layer_ids = set(
+        exact_backend["effect_local_passthrough_layer_ids"]
     )
-    execution_observed_layer_ids = exact_required_layer_ids.intersection(
+    program_required_layer_ids = set(
+        exact_backend["program_required_layer_ids"]
+    )
+    pure_program_layer_ids = program_required_layer_ids.difference(
+        effect_local_passthrough_layer_ids,
+        passthrough_required_layer_ids,
+    )
+    effect_local_only_layer_ids = effect_local_passthrough_layer_ids.difference(
+        program_required_layer_ids
+    )
+    execution_observed_layer_ids = program_required_layer_ids.intersection(
         program_observed_layer_ids
     ).union(
+        effect_local_only_layer_ids.intersection(observed_layer_ids),
         accepted_layer_set.difference(exact_required_layer_ids).intersection(
             observed_layer_ids
         )
     )
-    output_evidence_layer_ids = program_only_layer_ids.intersection(
+    output_evidence_layer_ids = pure_program_layer_ids.intersection(
         program_output_consumed_layer_set
     ).union(
-        accepted_layer_set.difference(program_only_layer_ids).intersection(
+        accepted_layer_set.difference(pure_program_layer_ids).intersection(
             output_consumed_layer_set
         )
     )
-    next_frame_evidence_layer_ids = program_only_layer_ids.intersection(
+    next_frame_evidence_layer_ids = program_required_layer_ids.intersection(
         program_next_frame_layer_ids
     ).union(
-        accepted_layer_set.difference(program_only_layer_ids).intersection(
+        accepted_layer_set.difference(program_required_layer_ids).intersection(
             next_frame_layer_ids
         )
     )
@@ -2677,7 +2957,7 @@ def resolved_material_graph_execution_metrics(
     )
     minimum_transactions_satisfied = (
         graph_observations["program_successful_transaction_count"] >= 2
-        if exact_required_layer_ids
+        if program_required_layer_ids
         else graph_observations["successful_transaction_count"] >= 2
     )
     execution_succeeded = bool(
@@ -2905,6 +3185,53 @@ def resolved_material_graph_execution_failures(
         "resolved material graph Program transaction count below two",
     }
     failures = list(metrics["validation_failures"])
+    (
+        expects_effect_local_passthrough,
+        effect_local_passthrough_expectation_valid,
+        expected_effect_local_passthroughs,
+    ) = effect_local_passthrough_expectation(sample)
+    actual_effect_local_passthroughs = effect_local_passthrough_graph_keys(
+        metrics["graph_observations"]
+    )
+    joined_effect_local_passthroughs = {
+        (
+            value["layer_id"], value["effect_index"],
+            value["descriptor_id"], value["reason"],
+        )
+        for value in metrics["exact_backend"].get(
+            "effect_local_passthroughs", []
+        )
+    }
+    if actual_effect_local_passthroughs \
+            != joined_effect_local_passthroughs:
+        failures.append(
+            "resolved material graph effect-local passthrough exact join failed"
+        )
+    if (
+        expects_effect_local_passthrough
+        and not effect_local_passthrough_expectation_valid
+    ):
+        failures.append(
+            "resolved material graph effect-local passthrough expectation invalid"
+        )
+    elif expects_effect_local_passthrough:
+        if actual_effect_local_passthroughs \
+                != expected_effect_local_passthroughs:
+            failures.append(
+                "resolved material graph effect-local passthrough evidence mismatch"
+            )
+    elif actual_effect_local_passthroughs:
+        failures.append(
+            "resolved material graph unexpected effect-local passthrough"
+        )
+    if {
+        value[0] for value in actual_effect_local_passthroughs
+    }.intersection(
+        value["layer_id"] for value in metrics["executor"]["local_fallbacks"]
+    ):
+        failures.append(
+            "resolved material graph fallback scopes conflict"
+        )
     expected_activation_reason_codes = sample.get(
         "required_activation_passthrough_reason_codes"
     )
@@ -3012,6 +3339,7 @@ def resolved_material_graph_execution_failures(
         not require_evidence
         and not expects_evidence
         and not expects_activation_evidence
+        and not expects_effect_local_passthrough
     ):
         return list(dict.fromkeys(failures))
 
@@ -3169,9 +3497,16 @@ def resolved_material_graph_execution_failures(
         failures.append("resolved material graph executor reported failures")
     if not graph_observations["has_evidence"]:
         failures.append("resolved material graph terminal evidence missing")
-    elif (
-        (require_evidence or expects_evidence)
-        and metrics["exact_backend"].get("required_layer_ids")
+    program_required_layer_ids = set(
+        metrics["exact_backend"].get("program_required_layer_ids", [])
+    )
+    if (
+        (
+            require_evidence
+            or expects_evidence
+            or expects_effect_local_passthrough
+        )
+        and program_required_layer_ids
         and graph_observations["program_successful_transaction_count"] < 2
     ):
         failures.append(
@@ -3180,6 +3515,7 @@ def resolved_material_graph_execution_failures(
     elif (
         (
             expects_activation_evidence
+            or expects_effect_local_passthrough
             or (
                 (require_evidence or expects_evidence)
                 and not metrics["exact_backend"].get("required_layer_ids")
@@ -4737,7 +5073,13 @@ def effect_execution_failures(
         for expectation in EFFECT_EXECUTION_EXPECTATIONS
     }
     present_expectations = expectation_keys.intersection(sample)
-    expects_evidence = bool(present_expectations)
+    (
+        expects_effect_local_passthrough,
+        effect_local_passthrough_expectation_valid,
+        expected_effect_local_passthroughs,
+    ) = effect_local_passthrough_expectation(sample)
+    expects_evidence = bool(present_expectations) \
+        or expects_effect_local_passthrough
     if not metrics["has_evidence"]:
         failures = []
         if static_disposition_failure:
@@ -4748,6 +5090,22 @@ def effect_execution_failures(
             failures.append("effect execution evidence missing")
         return failures
     failures = list(metrics["validation_failures"])
+    actual_effect_local_passthroughs = effect_local_passthrough_cpu_keys(metrics)
+    if (
+        expects_effect_local_passthrough
+        and not effect_local_passthrough_expectation_valid
+    ):
+        failures.append(
+            "effect execution effect-local passthrough expectation invalid"
+        )
+    elif (
+        expects_effect_local_passthrough
+        and actual_effect_local_passthroughs
+            != expected_effect_local_passthroughs
+    ):
+        failures.append(
+            "effect execution effect-local passthrough expectation mismatch"
+        )
     expected_local_fallbacks = sample.get(
         "expected_effect_execution_local_fallbacks"
     )
@@ -4827,7 +5185,21 @@ def effect_execution_failures(
                 continue
         if metrics[expectation.metric_key] != expected:
             failures.append(expectation.failure_message)
-    if metrics["failed_exact_effects"]:
+    failed_exact_invocations = [
+        invocation for invocation in metrics["cpu_invocations"]
+        if invocation.get("subject") == "effect"
+        and invocation.get("outcome") == "failed"
+    ]
+    expected_failures_are_exact_passthroughs = (
+        expects_effect_local_passthrough
+        and effect_local_passthrough_expectation_valid
+        and actual_effect_local_passthroughs
+            == expected_effect_local_passthroughs
+        and len(failed_exact_invocations)
+            == len(expected_effect_local_passthroughs)
+    )
+    if metrics["failed_exact_effects"] \
+            and not expected_failures_are_exact_passthroughs:
         failures.append("effect execution CPU invocation failed")
     if metrics.get("degraded_route_operations", []) and expected_local_fallbacks is None:
         failures.append("effect execution degraded layer source passthrough")

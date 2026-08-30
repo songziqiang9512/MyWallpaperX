@@ -246,13 +246,30 @@ def resolved_material_graph_observation_metrics(
             else bool(re.fullmatch(r"[0-9a-f]{64}", target_descriptors_sha256))
         )
         program_identity = unquote(fields.get("program", ""))
-        activation_passthrough = (
-            program_identity.startswith("activation-passthrough:")
-            and counts["rejected_nodes"] == counts["authored_nodes"]
+        rejected_passthrough_shape = (
+            counts["rejected_nodes"] == counts["authored_nodes"]
+            and counts["authored_nodes"] > 0
             and counts["material_nodes"] == 0
             and counts["copy_nodes"] == 0
             and counts["swap_nodes"] == 0
             and counts["compose_nodes"] == 0
+        )
+        activation_passthrough = rejected_passthrough_shape and (
+            program_identity.startswith("activation-passthrough:")
+        )
+        visual_failure_reason = program_identity.removeprefix(
+            "visual-failure-passthrough:"
+        )
+        visual_failure_passthrough = (
+            rejected_passthrough_shape
+            and program_identity.startswith("visual-failure-passthrough:")
+            and effect_index is not None
+            and descriptor_id is not None
+            and re.fullmatch(r"[A-Za-z0-9._-]+", visual_failure_reason)
+                is not None
+        )
+        successful_rejected_passthrough = (
+            activation_passthrough or visual_failure_passthrough
         )
         terminal_failures = [
             message for valid, message in (
@@ -273,13 +290,14 @@ def resolved_material_graph_observation_metrics(
                     "resolved material graph effect identity invalid",
                 ),
                 (
-                    counts["rejected_nodes"] == 0 or activation_passthrough,
+                    counts["rejected_nodes"] == 0
+                    or successful_rejected_passthrough,
                     "resolved material graph observation rejected nodes are nonzero",
                 ),
                 (
                     counts["authored_nodes"] == counts["material_nodes"]
                     + counts["copy_nodes"] + counts["swap_nodes"]
-                    or activation_passthrough,
+                    or successful_rejected_passthrough,
                     "resolved material graph observation node conservation failed",
                 ),
                 (
@@ -354,6 +372,7 @@ def resolved_material_graph_observation_metrics(
             "transaction": fields["transaction"],
             "program_identity": program_identity,
             "activation_passthrough": activation_passthrough,
+            "visual_failure_passthrough": visual_failure_passthrough,
             **counts,
             "final_output": outputs[0],
             "final_physical": outputs[1],
@@ -391,10 +410,94 @@ def resolved_material_graph_observation_metrics(
     program_terminal_successes = [
         observation for observation in terminal_successes
         if not observation["activation_passthrough"]
+        and not observation["visual_failure_passthrough"]
     ]
     activation_terminal_successes = [
         observation for observation in terminal_successes
         if observation["activation_passthrough"]
+    ]
+    visual_failure_terminal_successes = [
+        observation for observation in terminal_successes
+        if observation["visual_failure_passthrough"]
+    ]
+    visual_failure_passthroughs = [
+        {
+            "layer_id": layer_id,
+            "effect_index": effect_index,
+            "descriptor_id": descriptor_id,
+            "reason": reason,
+        }
+        for layer_id, effect_index, descriptor_id, reason in sorted({
+            (
+                observation["layer_id"],
+                observation["effect_index"],
+                observation["descriptor_id"],
+                observation["program_identity"].removeprefix(
+                    "visual-failure-passthrough:"
+                ),
+            )
+            for observation in visual_failure_terminal_successes
+        }, key=lambda value: (
+            value[0],
+            -1 if value[1] is None else value[1],
+            "" if value[2] is None else value[2],
+            value[3],
+        ))
+    ]
+    visual_failure_passthrough_next_frame_subjects = [
+        {
+            "layer_id": layer_id,
+            "effect_index": effect_index,
+            "descriptor_id": descriptor_id,
+            "reason": reason,
+        }
+        for layer_id, effect_index, descriptor_id, reason in sorted({
+            (
+                observation["layer_id"],
+                observation["effect_index"],
+                observation["descriptor_id"],
+                observation["program_identity"].removeprefix(
+                    "visual-failure-passthrough:"
+                ),
+            )
+            for observation in visual_failure_terminal_successes
+            if "next-frame" in observation["trigger"]
+        })
+    ]
+    program_effect_subjects = [
+        {
+            "layer_id": layer_id,
+            "effect_index": effect_index,
+            "descriptor_id": descriptor_id,
+        }
+        for layer_id, effect_index, descriptor_id in sorted({
+            (
+                observation["layer_id"],
+                observation["effect_index"],
+                observation["descriptor_id"],
+            )
+            for observation in program_terminal_successes
+            if observation["effect_index"] is not None
+            and observation["descriptor_id"] is not None
+        })
+    ]
+    program_next_frame_effect_subjects = [
+        {
+            "layer_id": layer_id,
+            "effect_index": effect_index,
+            "descriptor_id": descriptor_id,
+        }
+        for layer_id, effect_index, descriptor_id in sorted({
+            (
+                observation["layer_id"],
+                observation["effect_index"],
+                observation["descriptor_id"],
+            )
+            for observation in program_terminal_successes
+            if observation["effect_index"] is not None
+            and observation["descriptor_id"] is not None
+            and "next-frame" in observation["trigger"]
+        })
     ]
     successful_transactions = sorted({
         observation["transaction"]
@@ -586,6 +689,17 @@ def resolved_material_graph_observation_metrics(
             )
             for observation in activation_terminal_successes
         }),
+        "visual_failure_passthrough_count": len(
+            visual_failure_terminal_successes
+        ),
+        "visual_failure_passthroughs": visual_failure_passthroughs,
+        "visual_failure_passthrough_next_frame_subjects": (
+            visual_failure_passthrough_next_frame_subjects
+        ),
+        "program_effect_subjects": program_effect_subjects,
+        "program_next_frame_effect_subjects": (
+            program_next_frame_effect_subjects
+        ),
         "terminal_compositor_consume_observed": any(
             observation["compositor_consumed"] for observation in terminal_successes
         ),

@@ -328,8 +328,9 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                 )
             case .absent, .pending, .unavailable:
                 code = .resourceSnapshotUnresolved
-                fallback = optionalVisualFallback(
-                    .optionalTextureUnavailable,
+                fallback = typedVisualFallback(
+                    optional: .optionalTextureUnavailable,
+                    system: .systemProviderUnavailable,
                     reference: reference,
                     purpose: purpose
                 )
@@ -352,8 +353,9 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             throw failure(
                 .textureMetadataIncomplete,
                 slot: slot,
-                effectLocalVisualFallback: optionalVisualFallback(
-                    .optionalTexturePurposeMismatch,
+                effectLocalVisualFallback: typedVisualFallback(
+                    optional: .optionalTexturePurposeMismatch,
+                    system: .systemProviderPurposeMismatch,
                     reference: reference,
                     purpose: purpose
                 )
@@ -363,8 +365,9 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             throw failure(
                 .textureMetadataIncomplete,
                 slot: slot,
-                effectLocalVisualFallback: optionalVisualFallback(
-                    .optionalTextureSamplingUnresolved,
+                effectLocalVisualFallback: typedVisualFallback(
+                    optional: .optionalTextureSamplingUnresolved,
+                    system: .systemProviderSamplingUnresolved,
                     reference: reference,
                     purpose: purpose
                 )
@@ -422,6 +425,18 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         optionalVisualReference(reference, purpose: purpose) ? fallback : nil
     }
 
+    private static func typedVisualFallback(
+        optional: Failure.EffectLocalVisualFallback,
+        system: Failure.EffectLocalVisualFallback,
+        reference: Template.TextureReference,
+        purpose: SceneTextureLoadPurpose
+    ) -> Failure.EffectLocalVisualFallback? {
+        if optionalVisualReference(reference, purpose: purpose) {
+            return optional
+        }
+        return systemProviderVisualReference(reference) ? system : nil
+    }
+
     private static func optionalVisualReference(
         _ reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
@@ -433,6 +448,13 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         case .provider, .graph:
             return false
         }
+    }
+
+    private static func systemProviderVisualReference(
+        _ reference: Template.TextureReference
+    ) -> Bool {
+        guard case .provider(.system) = reference else { return false }
+        return true
     }
 
     private static func failure(

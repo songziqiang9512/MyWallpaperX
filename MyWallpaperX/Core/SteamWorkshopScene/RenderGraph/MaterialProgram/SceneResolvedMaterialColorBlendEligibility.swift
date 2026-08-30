@@ -224,4 +224,65 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             $0.activeSamplers[slot] == nil
         }
     }
+
+    /// System textures are frame providers rather than material assets. A
+    /// typed provider availability failure may skip only the current effect
+    /// when the complete launch envelope proves that the failing slot selects
+    /// the exact highest-precedence system request. GraphExecutor separately
+    /// proves the previous-current pair topology before granting passthrough.
+    func provesEffectLocalSystemProviderTextureFailure(slot: Int) -> Bool {
+        guard (0 ..< 8).contains(slot) else { return false }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.hasCachedReachability,
+              snapshot.inputIdentity != nil,
+              snapshot.allEntriesReady,
+              !snapshot.variants.isEmpty,
+              let reachableSamplers = snapshot.reachableSamplers?[slot],
+              !reachableSamplers.isEmpty,
+              let declaration = snapshot.template.textureSlots[slot],
+              declaration.index == slot,
+              let selected = declaration.candidates.last,
+              case .provider(.system) = selected.reference,
+              declaration.candidates.dropLast().allSatisfy({ candidate in
+                  if case .asset = candidate.reference { return true }
+                  return false
+              }),
+              !snapshot.template.graphRole.bindings.contains(where: {
+                  $0.slot == slot
+              }) else {
+            return false
+        }
+        let selectedOrdinal = declaration.candidates.index(
+            before: declaration.candidates.endIndex
+        )
+        let purposes = reachableSamplers.compactMap {
+            SceneResolvedMaterialTextureSlotPurpose.fact(
+                in: declaration,
+                candidateOrdinal: selectedOrdinal,
+                sampler: $0
+            )?.purpose
+        }
+        guard purposes.count == reachableSamplers.count,
+              Set(purposes).count == 1,
+              snapshot.variants.allSatisfy({ variant in
+                  let sampler = variant.activeSamplers[slot]
+                  let bindings = variant.frontendProgram.textureBindings.filter {
+                      $0.slot == slot
+                  }
+                  if let sampler {
+                      return SceneResolvedMaterialTextureSlotPurpose.fact(
+                          in: declaration,
+                          candidateOrdinal: selectedOrdinal,
+                          sampler: sampler
+                      )?.reference == selected.reference
+                          && bindings.count == 1
+                  }
+                  return bindings.isEmpty
+              }) else {
+            return false
+        }
+        return snapshot.variants.contains {
+            $0.activeSamplers[slot] != nil
+        }
+    }
 }

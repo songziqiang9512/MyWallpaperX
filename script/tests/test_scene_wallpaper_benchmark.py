@@ -397,6 +397,184 @@ def resolved_graph_passthrough_evidence(
     return disposition, execution
 
 
+def resolved_graph_effect_local_failure_evidence(
+    layer_id: int = 68,
+    *,
+    reason: str = "material-finalizer-system-provider-purpose-mismatch",
+    event_descriptor_id: str | None = None,
+    backend: str = benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+    include_extra_failed_program: bool = False,
+    include_successful_program: bool = False,
+    fallback_effect_index: int = 0,
+) -> tuple[dict[str, object], dict[str, object], dict[str, object]]:
+    descriptor_id = f"{layer_id}#effect#{fallback_effect_index}"
+    records = [{
+        "layer_id": layer_id,
+        "effect_index": fallback_effect_index,
+        "descriptor_id": descriptor_id,
+        "definition_path": f"effects/{layer_id}/fallback/effect.json",
+        "family": "visual-failure-passthrough",
+        "kind": "fallback",
+    }]
+    events = [effect_cpu_event(
+        frame=90,
+        origin="resolved-material-graph",
+        subject="effect",
+        layer=layer_id,
+        effect=fallback_effect_index,
+        descriptor=(
+            event_descriptor_id or descriptor_id.replace("#", "%23")
+        ),
+        family="visual-failure-passthrough",
+        backend=backend,
+        outcome="failed",
+        reason=f"effect-local-passthrough-{reason}",
+    )]
+    if include_extra_failed_program or include_successful_program:
+        program_effect_index = 0 if fallback_effect_index == 1 else 1
+        records.append({
+            "layer_id": layer_id,
+            "effect_index": program_effect_index,
+            "descriptor_id": f"{layer_id}#effect#{program_effect_index}",
+            "definition_path": f"effects/{layer_id}/program/effect.json",
+            "family": "generic-fragment",
+            "kind": "program",
+        })
+        events.append(effect_cpu_event(
+            frame=90,
+            origin="resolved-material-graph",
+            subject="effect",
+            layer=layer_id,
+            effect=program_effect_index,
+            descriptor=f"{layer_id}%23effect%23{program_effect_index}",
+            family="generic-fragment",
+            backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+            outcome=(
+                "failed" if include_extra_failed_program
+                else "encoded-output"
+            ),
+            reason=(
+                "fixture-failure" if include_extra_failed_program else "-"
+            ),
+        ))
+    disposition = static_effect_disposition(
+        records=records,
+        groups=[{"layer_id": layer_id, "kind": "resolved"}],
+    )
+    execution = benchmark.effect_execution_metrics(
+        effect_execution_log(90, events, []),
+        disposition,
+    )
+    expectation = {
+        "layer_id": layer_id,
+        "effect_index": fallback_effect_index,
+        "descriptor_id": descriptor_id,
+        "reason": reason,
+    }
+    return disposition, execution, expectation
+
+
+def resolved_graph_visual_failure_log(
+    layer_id: int = 68,
+    *,
+    reason: str = "material-finalizer-system-provider-purpose-mismatch",
+    local_fallback_reason: str | None = None,
+    fallback_effect_index: int = 0,
+    include_program: bool = False,
+    include_program_next_frame: bool = True,
+    include_visual_next_frame: bool = True,
+) -> str:
+    program = f"visual-failure-passthrough:{reason}"
+    local_fallback_count = 1 if local_fallback_reason is not None else 0
+    encoded_count = (
+        1
+        + int(include_visual_next_frame)
+        + int(include_program)
+        + int(include_program and include_program_next_frame)
+    )
+    lines = [
+        "resolved material runtime audit: "
+        f"schema=scene-graph-executor-v1 claimed={encoded_count} "
+        f"encoded={encoded_count} failures=0 deferred=0 pending=0 "
+        f"gpuEncoded={encoded_count} "
+        f"localFallbacks={local_fallback_count}",
+    ]
+    if local_fallback_reason is not None:
+        lines.append(
+            "layer-local-fallback count=1 entries="
+            f"{layer_id}:{local_fallback_reason}"
+        )
+    program_effect_index = 0 if fallback_effect_index == 1 else 1
+    if include_program:
+        lines.append(graph_execution_observation(
+            frame=10,
+            layer=layer_id,
+            effect=program_effect_index,
+            descriptor_id=f"{layer_id}%23effect%23{program_effect_index}",
+            transaction="tx-program-10",
+            trigger="first-frame+gpu-completed",
+            authored=1,
+            material=1,
+            copy=0,
+            swap=0,
+            compose=0,
+            program="a" * 64,
+        ))
+        if include_program_next_frame:
+            lines.append(graph_execution_observation(
+                frame=11,
+                layer=layer_id,
+                effect=program_effect_index,
+                descriptor_id=(
+                    f"{layer_id}%23effect%23{program_effect_index}"
+                ),
+                transaction="tx-program-11",
+                trigger="next-frame+gpu-completed",
+                authored=1,
+                material=1,
+                copy=0,
+                swap=0,
+                compose=0,
+                consumed=not include_visual_next_frame,
+                program="a" * 64,
+            ))
+    lines.append(
+        graph_execution_observation(
+            frame=10,
+            layer=layer_id,
+            effect=fallback_effect_index,
+            descriptor_id=f"{layer_id}%23effect%23{fallback_effect_index}",
+            transaction="tx-visual-failure-10",
+            trigger="first-frame+gpu-completed",
+            authored=1,
+            material=0,
+            copy=0,
+            swap=0,
+            compose=0,
+            rejected=1,
+            program=program,
+        )
+    )
+    if include_visual_next_frame:
+        lines.append(graph_execution_observation(
+            frame=11,
+            layer=layer_id,
+            effect=fallback_effect_index,
+            descriptor_id=f"{layer_id}%23effect%23{fallback_effect_index}",
+            transaction="tx-visual-failure-11",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            authored=1,
+            material=0,
+            copy=0,
+            swap=0,
+            compose=0,
+            rejected=1,
+            consumed=True,
+            program=program,
+        ))
+    return "\n".join(lines)
+
+
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
     def test_media_thumbnail_metrics_keep_current_layer_identities(self) -> None:
         metrics = benchmark.media_thumbnail_runtime_metrics(
@@ -3096,6 +3274,91 @@ utility layer 763: skippedHidden kind=composition
             invalid_admission["validation_failures"],
         )
 
+    def test_effect_local_visual_failure_expectation_is_exact(self) -> None:
+        _, execution, expectation = (
+            resolved_graph_effect_local_failure_evidence()
+        )
+        sample = {
+            benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [expectation],
+        }
+
+        self.assertEqual(execution["validation_failures"], [])
+        self.assertEqual(
+            benchmark.effect_execution_failures(
+                execution,
+                sample=sample,
+            ),
+            [],
+        )
+        self.assertIn(
+            "effect execution CPU invocation failed",
+            benchmark.effect_execution_failures(execution),
+        )
+
+        wrong_reason = {
+            **expectation,
+            "reason": "material-finalizer-system-provider-unavailable",
+        }
+        self.assertIn(
+            "effect execution effect-local passthrough expectation mismatch",
+            benchmark.effect_execution_failures(
+                execution,
+                sample={
+                    benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [
+                        wrong_reason
+                    ],
+                },
+            ),
+        )
+
+        _, wrong_descriptor_execution, _ = (
+            resolved_graph_effect_local_failure_evidence(
+                event_descriptor_id="68%23effect%239",
+            )
+        )
+        self.assertIn(
+            "effect execution effect-local passthrough expectation mismatch",
+            benchmark.effect_execution_failures(
+                wrong_descriptor_execution,
+                sample=sample,
+            ),
+        )
+        self.assertIn(
+            "effect execution exact identity missing from disposition",
+            wrong_descriptor_execution["validation_failures"],
+        )
+
+        _, wrong_backend_execution, _ = (
+            resolved_graph_effect_local_failure_evidence(
+                backend="fixture-backend",
+            )
+        )
+        self.assertIn(
+            "effect execution effect-local passthrough expectation mismatch",
+            benchmark.effect_execution_failures(
+                wrong_backend_execution,
+                sample=sample,
+            ),
+        )
+
+        _, extra_failure_execution, _ = (
+            resolved_graph_effect_local_failure_evidence(
+                include_extra_failed_program=True,
+            )
+        )
+        extra_failure_failures = benchmark.effect_execution_failures(
+            extra_failure_execution,
+            sample=sample,
+        )
+        self.assertNotIn(
+            "effect execution effect-local passthrough expectation mismatch",
+            extra_failure_failures,
+        )
+        self.assertIn(
+            "effect execution CPU invocation failed",
+            extra_failure_failures,
+        )
+
     def test_startup_inactive_passthrough_has_no_exact_cpu_demand(self) -> None:
         preview = "\n".join([
             "authoredEffectGraphStageCount: 1",
@@ -5057,6 +5320,295 @@ utility layer 763: skippedHidden kind=composition
             "resolved material graph observation GPU failure reported",
         ):
             self.assertIn(failure, bad_axis["validation_failures"])
+
+    def test_resolved_graph_visual_failure_passthrough_is_terminal_not_program(
+        self,
+    ) -> None:
+        reason = "material-finalizer-system-provider-purpose-mismatch"
+        terminal_line = graph_execution_observation(
+            frame=13,
+            transaction="tx-visual-failure",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            effect=0,
+            descriptor_id="68%23effect%230",
+            authored=1,
+            material=0,
+            copy=0,
+            swap=0,
+            compose=0,
+            rejected=1,
+            consumed=True,
+            program=f"visual-failure-passthrough:{reason}",
+        )
+        terminal = benchmark.resolved_material_graph_observation_metrics(
+            terminal_line
+        )
+
+        self.assertEqual(terminal["validation_failures"], [])
+        self.assertEqual(terminal["terminal_success_count"], 1)
+        self.assertEqual(terminal["visual_failure_passthrough_count"], 1)
+        self.assertEqual(terminal["program_terminal_success_count"], 0)
+        self.assertEqual(terminal["program_successful_transaction_count"], 0)
+        self.assertEqual(
+            terminal["visual_failure_passthroughs"],
+            [{
+                "layer_id": 68,
+                "effect_index": 0,
+                "descriptor_id": "68#effect#0",
+                "reason": reason,
+            }],
+        )
+        self.assertTrue(terminal["terminal_compositor_consume_observed"])
+
+        invalid_lines = (
+            terminal_line.replace(
+                "authoredNodes=1 materialNodes=0",
+                "authoredNodes=2 materialNodes=1",
+            ),
+            terminal_line.replace(
+                f"program=visual-failure-passthrough:{reason}",
+                "program=ordinary-program",
+            ),
+            terminal_line.replace(
+                "effect=0 descriptor=68%23effect%230 ",
+                "",
+            ),
+            terminal_line.replace(
+                f"visual-failure-passthrough:{reason}",
+                "visual-failure-passthrough:",
+            ),
+        )
+        for invalid_line in invalid_lines:
+            invalid = benchmark.resolved_material_graph_observation_metrics(
+                invalid_line
+            )
+            self.assertEqual(invalid["terminal_success_count"], 0)
+            self.assertIn(
+                "resolved material graph observation rejected nodes are nonzero",
+                invalid["validation_failures"],
+            )
+
+    def test_resolved_graph_effect_local_visual_failure_joins_exact_gate(
+        self,
+    ) -> None:
+        preview_text = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=68 status=accepted "
+            "dependency=none dependencyReferences=0",
+        ])
+        disposition, effect_execution, expectation = (
+            resolved_graph_effect_local_failure_evidence()
+        )
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            resolved_graph_visual_failure_log(),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        sample = {
+            "expected_resolved_material_graph_succeeded_layer_ids": [68],
+            benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [expectation],
+        }
+
+        self.assertTrue(metrics["execution_succeeded"])
+        self.assertEqual(metrics["succeeded_layer_ids"], [68])
+        self.assertEqual(metrics["validation_failures"], [])
+        self.assertEqual(
+            metrics["exact_backend"]["effect_local_passthroughs"],
+            [expectation],
+        )
+        self.assertEqual(
+            metrics["graph_observations"][
+                "program_successful_transaction_count"
+            ],
+            0,
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample=sample,
+            ),
+            [],
+        )
+
+        self.assertIn(
+            "resolved material graph unexpected effect-local passthrough",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample={
+                    "expected_resolved_material_graph_succeeded_layer_ids": [68]
+                },
+            ),
+        )
+        self.assertIn(
+            "resolved material graph effect-local passthrough evidence mismatch",
+            benchmark.resolved_material_graph_execution_failures(
+                metrics,
+                require_evidence=True,
+                sample={
+                    "expected_resolved_material_graph_succeeded_layer_ids": [68],
+                    benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [{
+                        **expectation,
+                        "reason": "material-finalizer-system-provider-unavailable",
+                    }],
+                },
+            ),
+        )
+
+        conflicting = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            resolved_graph_visual_failure_log(
+                local_fallback_reason=(
+                    "frame-target-plan-unsupported-target-descriptor"
+                ),
+            ),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertIn(
+            "resolved material graph fallback scopes conflict",
+            benchmark.resolved_material_graph_execution_failures(
+                conflicting,
+                require_evidence=True,
+                sample=sample,
+            ),
+        )
+
+    def test_resolved_graph_effect_local_failure_keeps_mixed_program_gate(
+        self,
+    ) -> None:
+        preview_text = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=68 status=accepted "
+            "dependency=none dependencyReferences=0",
+        ])
+        disposition, effect_execution, expectation = (
+            resolved_graph_effect_local_failure_evidence(
+                include_successful_program=True,
+                fallback_effect_index=1,
+            )
+        )
+        sample = {
+            "expected_resolved_material_graph_succeeded_layer_ids": [68],
+            benchmark.EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY: [expectation],
+        }
+        complete = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            resolved_graph_visual_failure_log(
+                fallback_effect_index=1,
+                include_program=True,
+            ),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+
+        self.assertTrue(complete["execution_succeeded"])
+        self.assertEqual(
+            complete["exact_backend"]["program_required_layer_ids"],
+            [68],
+        )
+        self.assertEqual(
+            complete["exact_backend"]["mixed_program_required_subjects"],
+            [(68, 0, "68#effect#0")],
+        )
+        self.assertEqual(
+            complete["graph_observations"][
+                "program_successful_transaction_count"
+            ],
+            2,
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                complete,
+                require_evidence=True,
+                sample=sample,
+            ),
+            [],
+        )
+
+        missing_program_next_frame = (
+            benchmark.resolved_material_graph_execution_metrics(
+                preview_text,
+                resolved_graph_visual_failure_log(
+                    fallback_effect_index=1,
+                    include_program=True,
+                    include_program_next_frame=False,
+                ),
+                effect_execution=effect_execution,
+                static_disposition=disposition,
+            )
+        )
+        self.assertFalse(missing_program_next_frame["execution_succeeded"])
+        self.assertIn(
+            "resolved material graph Program transaction count below two",
+            benchmark.resolved_material_graph_execution_failures(
+                missing_program_next_frame,
+                require_evidence=True,
+                sample=sample,
+            ),
+        )
+
+        missing_fallback_next_frame = (
+            benchmark.resolved_material_graph_execution_metrics(
+                preview_text,
+                resolved_graph_visual_failure_log(
+                    fallback_effect_index=1,
+                    include_program=True,
+                    include_visual_next_frame=False,
+                ),
+                effect_execution=effect_execution,
+                static_disposition=disposition,
+            )
+        )
+        self.assertFalse(missing_fallback_next_frame["execution_succeeded"])
+        self.assertIn(
+            "resolved material graph effect-local passthrough exact join failed",
+            missing_fallback_next_frame["validation_failures"],
+        )
+
+        wrong_program_subject = (
+            benchmark.resolved_material_graph_execution_metrics(
+                preview_text,
+                resolved_graph_visual_failure_log(
+                    fallback_effect_index=1,
+                    include_program=True,
+                ).replace(
+                    "effect=0 descriptor=68%23effect%230 ",
+                    "effect=2 descriptor=68%23effect%232 ",
+                ),
+                effect_execution=effect_execution,
+                static_disposition=disposition,
+            )
+        )
+        self.assertFalse(wrong_program_subject["execution_succeeded"])
+        self.assertIn(
+            "resolved material graph mixed Program exact subject join failed",
+            wrong_program_subject["validation_failures"],
+        )
+
+        unjoined = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            resolved_graph_visual_failure_log(
+                reason="material-finalizer-system-provider-unavailable",
+                fallback_effect_index=1,
+                include_program=True,
+            ),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertFalse(unjoined["execution_succeeded"])
+        self.assertIn(
+            "resolved material graph effect-local passthrough exact join failed",
+            unjoined["validation_failures"],
+        )
 
     def test_resolved_graph_startup_passthrough_joins_terminal_evidence(
         self,
