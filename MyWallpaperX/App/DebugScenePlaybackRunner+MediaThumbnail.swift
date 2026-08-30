@@ -84,18 +84,39 @@ extension DebugScenePlaybackRunner {
         }
         guard SceneMediaThumbnailInbox.shared.publishMediaProperties(
             title: title,
-            artist: artist
+            artist: artist,
+            subTitle: argumentValue(
+                after: "--mwx-debug-scene-media-sub-title"
+            ) ?? "",
+            albumTitle: argumentValue(
+                after: "--mwx-debug-scene-media-album-title"
+            ) ?? "",
+            albumArtist: argumentValue(
+                after: "--mwx-debug-scene-media-album-artist"
+            ) ?? "",
+            genres: argumentValue(
+                after: "--mwx-debug-scene-media-genres"
+            ) ?? "",
+            contentType: argumentValue(
+                after: "--mwx-debug-scene-media-content-type"
+            ) ?? ""
         ) else {
             NSLog(
                 "MWX DEBUG SCENE: phase=media-properties-rejected reason=invalid"
             )
             return
         }
+        let snapshot = SceneMediaThumbnailInbox.shared.latest()
         NSLog(
-            "MWX DEBUG SCENE: phase=media-properties-published generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d",
-            SceneMediaThumbnailInbox.shared.latest().propertiesGeneration,
-            title.utf8.count,
-            artist.utf8.count
+            "MWX DEBUG SCENE: phase=media-properties-published generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d subTitleUTF8Bytes=%d albumTitleUTF8Bytes=%d albumArtistUTF8Bytes=%d genresUTF8Bytes=%d contentTypeUTF8Bytes=%d",
+            snapshot.propertiesGeneration,
+            snapshot.properties?.title.utf8.count ?? 0,
+            snapshot.properties?.artist.utf8.count ?? 0,
+            snapshot.properties?.subTitle.utf8.count ?? 0,
+            snapshot.properties?.albumTitle.utf8.count ?? 0,
+            snapshot.properties?.albumArtist.utf8.count ?? 0,
+            snapshot.properties?.genres.utf8.count ?? 0,
+            snapshot.properties?.contentType.utf8.count ?? 0
         )
     }
 

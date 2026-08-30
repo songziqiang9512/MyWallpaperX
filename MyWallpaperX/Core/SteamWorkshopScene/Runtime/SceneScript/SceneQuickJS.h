@@ -115,6 +115,16 @@ typedef struct MWXSceneQuickJSMediaPropertiesEvent {
     size_t title_length;
     const char *artist;
     size_t artist_length;
+    const char *sub_title;
+    size_t sub_title_length;
+    const char *album_title;
+    size_t album_title_length;
+    const char *album_artist;
+    size_t album_artist_length;
+    const char *genres;
+    size_t genres_length;
+    const char *content_type;
+    size_t content_type_length;
 } MWXSceneQuickJSMediaPropertiesEvent;
 
 typedef enum MWXSceneQuickJSCursorEventKind {

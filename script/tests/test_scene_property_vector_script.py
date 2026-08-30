@@ -61,8 +61,7 @@ struct SceneFrameTiming {
 final class SceneMediaThumbnailInbox {
     struct Snapshot {
         struct Properties {
-            let title: String
-            let artist: String
+            let title, artist, subTitle, albumTitle, albumArtist, genres, contentType: String
         }
         let current: Data?
         let primaryColor: SIMD3<Double>?
@@ -1086,9 +1085,9 @@ enum Harness {
             generation: 17
         )
         let stringEvent = SceneScriptMediaPropertiesEventInput(
-            title: "春日歌",
-            artist: "Artist",
-            generation: 1
+            title: "春日歌", artist: "Artist", subTitle: "Live",
+            albumTitle: "Album", albumArtist: "Album Artist",
+            genres: "Rock,Pop", contentType: "music", generation: 1
         )
         let stringResult = stringProgram.evaluate(
             inputs: [stringTarget: .string("Placeholder")],
@@ -1247,7 +1246,8 @@ enum Harness {
             "stringValue": string(stringResult.values[stringTarget]),
             "stringFailures": stringResult.failures.count,
             "stringGenerationDeduplicated":
-                string(duplicateStringResult.values[stringTarget]) == "春日歌 / Artist",
+                string(duplicateStringResult.values[stringTarget]) ==
+                    "春日歌 / Artist / Live / Album / Album Artist / Rock,Pop / music",
             "audioScaleBindings": audioScaleProgram.bindings.count,
             "audioScaleDemand": audioScaleProgram.hasAudioConsumers,
             "audioScaleValue": vector(audioScaleResult.values[
@@ -1610,7 +1610,7 @@ enum Harness {
     let mediaData = "";
     export function update(value) { return mediaData || value; }
     export function mediaPropertiesChanged(event) {
-        mediaData = event.title + " / " + event.artist;
+        mediaData = [event.title, event.artist, event.subTitle, event.albumTitle, event.albumArtist, event.genres, event.contentType].join(" / ");
     }
     """
 
@@ -1832,7 +1832,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
     def test_media_properties_event_updates_generic_string_owner(self) -> None:
         value = self.result()
         self.assertEqual(value["stringBindings"], 1)
-        self.assertEqual(value["stringValue"], "春日歌 / Artist")
+        self.assertEqual(value["stringValue"], "春日歌 / Artist / Live / Album / Album Artist / Rock,Pop / music")
         self.assertEqual(value["stringFailures"], 0)
         self.assertTrue(value["stringGenerationDeduplicated"])
 

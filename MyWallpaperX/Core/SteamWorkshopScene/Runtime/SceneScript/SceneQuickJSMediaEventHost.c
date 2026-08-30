@@ -225,6 +225,56 @@ static JSValue properties_argument(JSContext *context, const void *payload) {
             "artist",
             JS_NewStringLen(context, event->artist, event->artist_length),
             JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "subTitle",
+            JS_NewStringLen(
+                context,
+                event->sub_title != NULL ? event->sub_title : "",
+                event->sub_title_length
+            ),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "albumTitle",
+            JS_NewStringLen(
+                context,
+                event->album_title != NULL ? event->album_title : "",
+                event->album_title_length
+            ),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "albumArtist",
+            JS_NewStringLen(
+                context,
+                event->album_artist != NULL ? event->album_artist : "",
+                event->album_artist_length
+            ),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "genres",
+            JS_NewStringLen(
+                context,
+                event->genres != NULL ? event->genres : "",
+                event->genres_length
+            ),
+            JS_PROP_ENUMERABLE
+        ) < 0 || JS_DefinePropertyValueStr(
+            context,
+            argument,
+            "contentType",
+            JS_NewStringLen(
+                context,
+                event->content_type != NULL ? event->content_type : "",
+                event->content_type_length
+            ),
+            JS_PROP_ENUMERABLE
         ) < 0) {
         JS_FreeValue(context, argument);
         return JS_EXCEPTION;
@@ -473,8 +523,31 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_media_properties(
 ) {
     if (event == NULL || event->title == NULL || event->artist == NULL ||
         event->title_length > 65536 || event->artist_length > 65536 ||
+        event->sub_title_length > 65536 || event->album_title_length > 65536 ||
+        event->album_artist_length > 65536 || event->genres_length > 65536 ||
+        event->content_type_length > 65536 ||
+        (event->sub_title == NULL && event->sub_title_length != 0) ||
+        (event->album_title == NULL && event->album_title_length != 0) ||
+        (event->album_artist == NULL && event->album_artist_length != 0) ||
+        (event->genres == NULL && event->genres_length != 0) ||
+        (event->content_type == NULL && event->content_type_length != 0) ||
         memchr(event->title, '\0', event->title_length) != NULL ||
-        memchr(event->artist, '\0', event->artist_length) != NULL) {
+        memchr(event->artist, '\0', event->artist_length) != NULL ||
+        (event->sub_title != NULL && memchr(
+            event->sub_title, '\0', event->sub_title_length
+        ) != NULL) ||
+        (event->album_title != NULL && memchr(
+            event->album_title, '\0', event->album_title_length
+        ) != NULL) ||
+        (event->album_artist != NULL && memchr(
+            event->album_artist, '\0', event->album_artist_length
+        ) != NULL) ||
+        (event->genres != NULL && memchr(
+            event->genres, '\0', event->genres_length
+        ) != NULL) ||
+        (event->content_type != NULL && memchr(
+            event->content_type, '\0', event->content_type_length
+        ) != NULL)) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid media properties event"
         );

@@ -13,7 +13,6 @@ import shutil
 import stat
 import subprocess
 import sys
-import unicodedata
 from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import unquote
@@ -48,11 +47,16 @@ from scene_wallpaper_graph_output_metrics import (
     visible_graph_output_publication_execution_metrics,
 )
 from scene_wallpaper_media_event import (
+    append_media_properties_arguments,
     append_media_thumbnail_argument,
     media_color_transition_metrics,
     media_event_expectation_failures,
     media_owner_output_metrics,
     scene_script_vector_media_startup_metrics,
+)
+from scene_wallpaper_media_properties import (
+    media_properties_callback_metrics,
+    media_properties_expectation_failures,
 )
 
 
@@ -5890,43 +5894,6 @@ def append_resize_sequence_argument(
         ])
 
 
-def append_media_properties_arguments(
-    command: list[str],
-    title: Any,
-    artist: Any,
-    failures: list[str],
-) -> None:
-    if title is None and artist is None:
-        return
-    if title is None or artist is None:
-        failures.append("media properties require title and artist together")
-        return
-
-    values = (title, artist)
-    if not all(isinstance(value, str) for value in values):
-        failures.append("invalid media properties")
-        return
-    try:
-        encoded = [value.encode("utf-8", errors="strict") for value in values]
-    except UnicodeEncodeError:
-        failures.append("invalid media properties")
-        return
-    if any(len(value) > 4 * 1_024 for value in encoded) or any(
-        unicodedata.category(character) == "Cc"
-        for value in values
-        for character in value
-    ):
-        failures.append("invalid media properties")
-        return
-
-    command.extend([
-        "--mwx-debug-scene-media-title",
-        title,
-        "--mwx-debug-scene-media-artist",
-        artist,
-    ])
-
-
 def append_media_thumbnail_sequence_argument(
     command: list[str],
     sequence: Any,
@@ -6343,6 +6310,11 @@ def run_sample(
         sample.get("media_title"),
         sample.get("media_artist"),
         failures,
+        sub_title=sample.get("media_sub_title"),
+        album_title=sample.get("media_album_title"),
+        album_artist=sample.get("media_album_artist"),
+        genres=sample.get("media_genres"),
+        content_type=sample.get("media_content_type"),
     )
     append_media_thumbnail_argument(
         command,
@@ -6461,6 +6433,10 @@ def run_sample(
             media_owner_outputs,
         )
     )
+    media_properties_callbacks = media_properties_callback_metrics(log_text)
+    failures.extend(media_properties_expectation_failures(
+        sample, media_properties_callbacks
+    ))
     user_property_scalar_uniform_publications = (
         typed_user_property_scalar_uniform_publications(log_text)
     )
@@ -7221,6 +7197,7 @@ def run_sample(
             ),
             "media_color_completions": media_color_completions,
             "media_owner_outputs": media_owner_outputs,
+            "media_properties_callbacks": media_properties_callbacks,
             "scene_script_vector_media_startup": (
                 scene_script_vector_media_startup
             ),

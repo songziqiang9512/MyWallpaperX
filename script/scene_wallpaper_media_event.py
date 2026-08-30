@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +72,71 @@ MEDIA_COLOR_FIELDS = (
     "text_color",
     "high_contrast_color",
 )
+
+MEDIA_PROPERTY_ARGUMENTS = (
+    ("sub_title", "--mwx-debug-scene-media-sub-title"),
+    ("album_title", "--mwx-debug-scene-media-album-title"),
+    ("album_artist", "--mwx-debug-scene-media-album-artist"),
+    ("genres", "--mwx-debug-scene-media-genres"),
+    ("content_type", "--mwx-debug-scene-media-content-type"),
+)
+
+
+def append_media_properties_arguments(
+    command: list[str],
+    title: Any,
+    artist: Any,
+    failures: list[str],
+    *,
+    sub_title: Any = None,
+    album_title: Any = None,
+    album_artist: Any = None,
+    genres: Any = None,
+    content_type: Any = None,
+) -> None:
+    optional = {
+        "sub_title": sub_title,
+        "album_title": album_title,
+        "album_artist": album_artist,
+        "genres": genres,
+        "content_type": content_type,
+    }
+    if title is None and artist is None and all(
+        value is None for value in optional.values()
+    ):
+        return
+    if title is None or artist is None:
+        failures.append("media properties require title and artist together")
+        return
+
+    supplied = [title, artist, *(value for value in optional.values()
+                                  if value is not None)]
+    if not all(isinstance(value, str) for value in supplied):
+        failures.append("invalid media properties")
+        return
+    try:
+        encoded = [value.encode("utf-8", errors="strict") for value in supplied]
+    except UnicodeEncodeError:
+        failures.append("invalid media properties")
+        return
+    if any(len(value) > 4 * 1_024 for value in encoded) or any(
+        unicodedata.category(character) == "Cc"
+        for value in supplied
+        for character in value
+    ):
+        failures.append("invalid media properties")
+        return
+
+    command.extend([
+        "--mwx-debug-scene-media-title",
+        title,
+        "--mwx-debug-scene-media-artist",
+        artist,
+    ])
+    for key, flag in MEDIA_PROPERTY_ARGUMENTS:
+        value = optional[key]
+        if value is not None:
+            command.extend([flag, value])
 MEDIA_COLOR_EXPECTATION_COMMON_REQUIRED_FIELDS = frozenset({
     "layer_id",
     "generation",

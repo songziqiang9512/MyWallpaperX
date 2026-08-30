@@ -147,6 +147,8 @@ V4 是横切 producer/provider 轨，不是另建一套输入平台。V1–V3 �
 
 同日后继把唯一真实base previous结构纳入同一binding program与resolver。binding保存`.current/.previous` typed identity，ready candidate仍须满足exact request name、purpose、lifecycle与complete publication；pending/absent/unavailable继续作者placeholder，current不能冒充previous，multi-pass、多user slot和mixed identity关闭。原样`2902406982:702`因作者opacity脚本在无playback event时输出0，只取得binding与整构图安全；保留其真实model/material/usertexture的受控派生门以A→B输入证明B ready后显示previous=A而非current=B，预登记ROI与连续12帧闭合。该项只到`S4 controlled real-derived slice-visible`，不证明完整Blend/Timeline transition、live producer、原样完整样本或官方parity；V4段位不变。
 
+同日 `MediaPropertiesEvent` 的七个公开 String 字段已按同一 properties generation 进入现役 Inbox、Swift/C ABI、QuickJS 与 String/Text owner；缺省optional字段由项目策略在新generation原子置空，不沿用上一曲值。该批只闭合String/Text consumer；scalar/vector consumer因跨类型事件顺序与失败半径不同，留给后继统一有序媒体事件批次。live platform producer、真实切歌/clear、multi-surface与官方对照仍缺，V4完成门不变。
+
 V4 完成门：以[运行输入与属性覆盖表](semantics/runtime-input-property-coverage.md)为当前事实，每个纳入范围的 input/provider 都至少有一个真实 consumer，证明 typed producer → 正确 frame-commit channel → consumer → next-frame/event、generation/cancel/last-ready/teardown 与局部失败；consumer 内重复采样、私有值副本、私有 provider/graph owner 已撤销。尚无平台 producer 或产品策略的输入必须在专项表明确保持 unsupported，不能用另一个输入族的通过替代。V4 收口后才逐项进入 V5。
 
 ### V5：独立高级 epic

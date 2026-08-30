@@ -475,13 +475,13 @@ let highContrastColor = SIMD3(1.0, 1.0, 1.0)
 let replacementColor = SIMD3(0.05, 0.15, 0.25)
 let eventInitial = eventInbox.latest()
 let propertiesAccepted = eventInbox.publishMediaProperties(
-    title: "Fixture Song",
-    artist: "Fixture Artist"
+    title: "Fixture Song", artist: "Fixture Artist", subTitle: "Fixture Live",
+    albumTitle: "Fixture Album", albumArtist: "Fixture Album Artist", genres: "Rock,Pop", contentType: "music"
 )
 let afterProperties = eventInbox.latest()
 let duplicatePropertiesAccepted = eventInbox.publishMediaProperties(
-    title: "Fixture Song",
-    artist: "Fixture Artist"
+    title: "Fixture Song", artist: "Fixture Artist", subTitle: "Fixture Live",
+    albumTitle: "Fixture Album", albumArtist: "Fixture Album Artist", genres: "Rock,Pop", contentType: "music"
 )
 let afterDuplicateProperties = eventInbox.latest()
 let titleChangeAccepted = eventInbox.publishMediaProperties(
@@ -495,12 +495,12 @@ let artistChangeAccepted = eventInbox.publishMediaProperties(
 )
 let afterArtistChange = eventInbox.latest()
 let controlPropertyRejected = !eventInbox.publishMediaProperties(
-    title: "Line\nBreak",
-    artist: "Replacement Artist"
+    title: "Replacement Song", artist: "Replacement Artist",
+    albumArtist: "Line\nBreak"
 )
 let oversizedPropertyRejected = !eventInbox.publishMediaProperties(
-    title: String(repeating: "界", count: 1_366),
-    artist: "Replacement Artist"
+    title: "Replacement Song", artist: "Replacement Artist",
+    subTitle: String(repeating: "界", count: 1_366)
 )
 let afterInvalidProperties = eventInbox.latest()
 let imageColorAccepted = eventInbox.publish(
@@ -793,16 +793,16 @@ let result: [String: Any] = [
     "propertiesPreserveOtherGenerations":
         afterProperties.generation == 0
         && afterProperties.playbackGeneration == 0,
-    "propertiesExact":
-        afterProperties.properties?.title == "Fixture Song"
-        && afterProperties.properties?.artist == "Fixture Artist",
+    "propertiesExact": afterProperties.properties == .init(
+        title: "Fixture Song", artist: "Fixture Artist", subTitle: "Fixture Live", albumTitle: "Fixture Album",
+        albumArtist: "Fixture Album Artist", genres: "Rock,Pop", contentType: "music"),
     "duplicatePropertiesAccepted": duplicatePropertiesAccepted,
     "duplicatePropertiesStable": afterDuplicateProperties == afterProperties,
     "titleChangeAccepted": titleChangeAccepted,
     "titleChangeAtomic":
         afterTitleChange.propertiesGeneration == 2
-        && afterTitleChange.properties?.title == "Replacement Song"
-        && afterTitleChange.properties?.artist == "Fixture Artist",
+        && afterTitleChange.properties == .init(title: "Replacement Song", artist: "Fixture Artist", subTitle: "", albumTitle: "",
+            albumArtist: "", genres: "", contentType: ""),
     "artistChangeAccepted": artistChangeAccepted,
     "artistChangeAtomic":
         afterArtistChange.propertiesGeneration == 3

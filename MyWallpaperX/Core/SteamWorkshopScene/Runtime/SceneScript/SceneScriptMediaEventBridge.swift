@@ -128,11 +128,30 @@ nonisolated struct SceneScriptMediaPlaybackEventInput: Equatable, Sendable {
 nonisolated struct SceneScriptMediaPropertiesEventInput: Equatable, Sendable {
     let title: String
     let artist: String
+    let subTitle: String
+    let albumTitle: String
+    let albumArtist: String
+    let genres: String
+    let contentType: String
     let generation: UInt64
 
-    init(title: String, artist: String, generation: UInt64) {
+    init(
+        title: String,
+        artist: String,
+        subTitle: String = "",
+        albumTitle: String = "",
+        albumArtist: String = "",
+        genres: String = "",
+        contentType: String = "",
+        generation: UInt64
+    ) {
         self.title = title
         self.artist = artist
+        self.subTitle = subTitle
+        self.albumTitle = albumTitle
+        self.albumArtist = albumArtist
+        self.genres = genres
+        self.contentType = contentType
         self.generation = generation
     }
 
@@ -141,6 +160,11 @@ nonisolated struct SceneScriptMediaPropertiesEventInput: Equatable, Sendable {
               let properties = snapshot.properties else { return nil }
         title = properties.title
         artist = properties.artist
+        subTitle = properties.subTitle
+        albumTitle = properties.albumTitle
+        albumArtist = properties.albumArtist
+        genres = properties.genres
+        contentType = properties.contentType
         generation = snapshot.propertiesGeneration
     }
 }
@@ -451,33 +475,57 @@ nonisolated enum SceneScriptMediaEventBridge {
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String
     ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
-        guard event.title.utf8.count <= 65_536,
-              event.artist.utf8.count <= 65_536,
-              !event.title.contains("\0"),
-              !event.artist.contains("\0") else {
+        let values = [
+            event.title, event.artist, event.subTitle, event.albumTitle,
+            event.albumArtist, event.genres, event.contentType,
+        ]
+        guard values.allSatisfy({
+            $0.utf8.count <= 65_536 && !$0.contains("\0")
+        }) else {
             return .failure(.invalidArgument("invalid media properties payload"))
         }
         var rawFrame = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let raw = event.title.withCString { title in
             event.artist.withCString { artist in
-                var rawEvent = MWXSceneQuickJSMediaPropertiesEvent(
-                    title: title,
-                    title_length: event.title.utf8.count,
-                    artist: artist,
-                    artist_length: event.artist.utf8.count
-                )
-                return userPropertiesJSON.withCString { userProperties in
-                    mwx_scene_quickjs_owner_dispatch_media_properties(
-                        owner,
-                        ownerGeneration,
-                        &rawEvent,
-                        &rawFrame,
-                        userProperties,
-                        userPropertiesJSON.utf8.count,
-                        &diagnostic,
-                        diagnostic.count
-                    )
+                event.subTitle.withCString { subTitle in
+                    event.albumTitle.withCString { albumTitle in
+                        event.albumArtist.withCString { albumArtist in
+                            event.genres.withCString { genres in
+                                event.contentType.withCString { contentType in
+                                    var rawEvent = MWXSceneQuickJSMediaPropertiesEvent(
+                                        title: title,
+                                        title_length: event.title.utf8.count,
+                                        artist: artist,
+                                        artist_length: event.artist.utf8.count,
+                                        sub_title: subTitle,
+                                        sub_title_length: event.subTitle.utf8.count,
+                                        album_title: albumTitle,
+                                        album_title_length: event.albumTitle.utf8.count,
+                                        album_artist: albumArtist,
+                                        album_artist_length: event.albumArtist.utf8.count,
+                                        genres: genres,
+                                        genres_length: event.genres.utf8.count,
+                                        content_type: contentType,
+                                        content_type_length: event.contentType.utf8.count
+                                    )
+                                    return userPropertiesJSON.withCString {
+                                        userProperties in
+                                        mwx_scene_quickjs_owner_dispatch_media_properties(
+                                            owner,
+                                            ownerGeneration,
+                                            &rawEvent,
+                                            &rawFrame,
+                                            userProperties,
+                                            userPropertiesJSON.utf8.count,
+                                            &diagnostic,
+                                            diagnostic.count
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

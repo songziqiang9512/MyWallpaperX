@@ -318,11 +318,18 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 materialFunctions.append(contentsOf: ownerMaterialFunctions)
                 animations.append(contentsOf: ownerAnimations)
                 layerMutations.append(contentsOf: ownerLayerMutations)
-                if let properties {
+                if let properties,
+                   case let .string(output) = evaluation.value {
                     NSLog(
-                        "MWX SceneScript VM: target=%@ event=mediaPropertiesChanged generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d route=generic-only",
+                        "MWX SceneScript VM: target=%@ event=mediaPropertiesChanged generation=%llu titleUTF8Bytes=%d artistUTF8Bytes=%d subTitleUTF8Bytes=%d albumTitleUTF8Bytes=%d albumArtistUTF8Bytes=%d genresUTF8Bytes=%d contentTypeUTF8Bytes=%d outputUTF8Bytes=%d route=generic-only",
                         String(describing: binding.target), properties.generation,
-                        properties.title.utf8.count, properties.artist.utf8.count
+                        properties.title.utf8.count, properties.artist.utf8.count,
+                        properties.subTitle.utf8.count,
+                        properties.albumTitle.utf8.count,
+                        properties.albumArtist.utf8.count,
+                        properties.genres.utf8.count,
+                        properties.contentType.utf8.count,
+                        output.utf8.count
                     )
                 }
                 if reportedTargets.insert(binding.target).inserted,

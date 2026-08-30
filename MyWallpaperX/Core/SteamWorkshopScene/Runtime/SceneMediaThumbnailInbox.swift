@@ -9,6 +9,11 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
         struct Properties: Equatable, Sendable {
             let title: String
             let artist: String
+            let subTitle: String
+            let albumTitle: String
+            let albumArtist: String
+            let genres: String
+            let contentType: String
         }
 
         let current: Data?
@@ -143,12 +148,30 @@ final class SceneMediaThumbnailInbox: @unchecked Sendable {
     }
 
     @discardableResult
-    func publishMediaProperties(title: String, artist: String) -> Bool {
-        guard Self.isValidMediaProperty(title),
-              Self.isValidMediaProperty(artist) else {
+    func publishMediaProperties(
+        title: String,
+        artist: String,
+        subTitle: String = "",
+        albumTitle: String = "",
+        albumArtist: String = "",
+        genres: String = "",
+        contentType: String = ""
+    ) -> Bool {
+        let values = [
+            title, artist, subTitle, albumTitle, albumArtist, genres, contentType,
+        ]
+        guard values.allSatisfy(Self.isValidMediaProperty) else {
             return false
         }
-        let properties = Snapshot.Properties(title: title, artist: artist)
+        let properties = Snapshot.Properties(
+            title: title,
+            artist: artist,
+            subTitle: subTitle,
+            albumTitle: albumTitle,
+            albumArtist: albumArtist,
+            genres: genres,
+            contentType: contentType
+        )
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
         guard snapshot.properties != properties else { return true }
