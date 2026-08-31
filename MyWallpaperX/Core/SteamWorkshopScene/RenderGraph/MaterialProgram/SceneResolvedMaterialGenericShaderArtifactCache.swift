@@ -242,6 +242,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 )
         let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
             .blendSourceSlots(fragmentSource: fragmentSource)
+        let associatedOverBlendFact =
+            SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze(
+                fragmentSource: fragmentSource
+            )
         let normalizedSampleSumSourceSlot =
             SceneAuthoredShaderNormalizedSampleSumAnalyzer.sourceSlot(
                 fragmentSource: fragmentSource
@@ -288,6 +292,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorBlendSourceSlot: colorBlendSourceSlot,
             overlayAlphaBlendSourceSlot: blendSourceSlots.overlayAlpha?.source,
             overlayAlphaBlendAuxiliarySlot: blendSourceSlots.overlayAlpha?.overlay,
+            associatedOverBlendSourceSlot: associatedOverBlendFact?.sourceSlot,
+            associatedOverBlendOverlaySlot: associatedOverBlendFact?.overlaySlot,
             conditionalStraightUnionSourceSlot: conditionalStraightUnionSourceSlot,
             singleSamplerAlphaMutationSourceSlot:
                 singleSamplerAlphaMutationSourceSlot,

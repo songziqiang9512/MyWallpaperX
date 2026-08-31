@@ -178,7 +178,13 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     transfer: texture.frontend.colorTransfer,
                     textureSlots: texture.slots,
                     conditionalGeneratedRGBInputContract:
-                        selection.variant.conditionalGeneratedRGBInputContract
+                        selection.variant.conditionalGeneratedRGBInputContract,
+                    associatedOverOverlaySlot:
+                        SceneResolvedMaterialProgramDerivation
+                            .associatedOverOverlaySlot(
+                                fragmentSource:
+                                    selection.variant.preparedShader.fragment.source
+                            )
                 ) else {
                     throw failure(
                         .color,

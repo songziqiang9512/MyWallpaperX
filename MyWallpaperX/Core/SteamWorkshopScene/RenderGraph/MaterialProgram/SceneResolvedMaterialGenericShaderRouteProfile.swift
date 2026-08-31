@@ -94,6 +94,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "provider-backed-graph-input-spatial-weighted-color-blend"
     case sourceProvenGraphInputOverlayAlphaBlend =
         "source-proven-graph-input-overlay-alpha-blend"
+    case sourceProvenGraphInputAssociatedOverBlend =
+        "source-proven-graph-input-associated-over-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
         "source-proven-graph-input-conditional-straight-union"
     case sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha =
@@ -130,6 +132,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         colorBlendSourceSlot: Int?,
         overlayAlphaBlendSourceSlot: Int? = nil,
         overlayAlphaBlendAuxiliarySlot: Int? = nil,
+        associatedOverBlendSourceSlot: Int? = nil,
+        associatedOverBlendOverlaySlot: Int? = nil,
         conditionalStraightUnionSourceSlot: Int?,
         singleSamplerAlphaMutationSourceSlot: Int?,
         sameSlotChannelReconstructionSourceSlot: Int?,
@@ -467,6 +471,17 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputOverlayAlphaBlend
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  associatedOverBlendSourceSlot == sourceSlot,
+                  let overlaySlot = associatedOverBlendOverlaySlot,
+                  overlaySlot != sourceSlot,
+                  activeTextureSlots == Set([sourceSlot, overlaySlot]),
+                  typedStaticDataAuxiliarySlots == Set([overlaySlot]),
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputAssociatedOverBlend
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
                   singleSamplerAlphaMutationSourceSlot == sourceSlot,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,
@@ -627,6 +642,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary,
              .sourceProvenGraphInputStageUniformPassthrough:
             .genericOnly
+        case .sourceProvenGraphInputAssociatedOverBlend:
+            .preferGeneric
         case .sourceProvenUnitPreviousBlurredCompositeUnowned:
             .observeOnly
         }
@@ -686,6 +703,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
             || self == .sourceProvenGraphInputOverlayAlphaBlend
+            || self == .sourceProvenGraphInputAssociatedOverBlend
             || self
                 == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB
     }

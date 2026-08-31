@@ -237,6 +237,39 @@ void main() {
 }
 """
 
+private let associatedOverBlendFragment = """
+varying vec2 v_TexCoord;
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform float g_ScalarWeight;
+vec4 Composite(vec4 base, vec4 overlay, float weight) {
+    float outputAlpha = base.a * (1.0 - weight) + overlay.a * weight;
+    vec4 input = base;
+    base.rgb = base.rgb * base.a * (1.0 - weight)
+        + overlay.rgb * overlay.a * weight;
+    vec3 source = mix(
+        overlay.rgb,
+        input.rgb,
+        step(0.01, input.a) * (1.0 - overlay.a * weight)
+    );
+    vec3 destination = mix(
+        input.rgb,
+        overlay.rgb,
+        step(0.01, overlay.a * (1.0 - input.a * (1.0 - weight)))
+    );
+    base.rgb += mix(source, destination, weight) * (1.0 - outputAlpha);
+    base.a = outputAlpha;
+    return base;
+}
+void main() {
+    vec4 base = texSample2D(g_Texture0, v_TexCoord);
+    vec4 overlay = texSample2D(g_Texture1, v_TexCoord);
+    float weight = g_ScalarWeight;
+    base = Composite(base, overlay, weight);
+    gl_FragColor = base;
+}
+"""
+
 private let conditionalShadowFragment = """
 varying vec2 v_TexCoord;
 uniform sampler2D g_Texture0;
@@ -1473,7 +1506,7 @@ private enum Harness {
             sampling: .directImageFallback,
             marker: 42
         )
-        let overlayColorRejected = program(
+        let overlayPremultipliedColorRejected = program(
             device: device,
             marker: 43,
             outputSlot: 0,
@@ -1494,6 +1527,25 @@ private enum Harness {
         let overlayBoundaryPixelsMatch = closePixels(
             overlayResult.pixels,
             [28, 4, 0, 32]
+        )
+        let associatedOverProgram = program(
+            device: device,
+            marker: 44,
+            outputSlot: 0,
+            slot0Texture: overlayBase,
+            fragmentSource: associatedOverBlendFragment,
+            additionalSlots: [overlayDataSlot],
+            uniformValues: ["g_ScalarWeight": bytes(Float(0.5))]
+        )
+        let associatedOverResult = render(
+            associatedOverProgram,
+            encoder: encoder,
+            queue: queue,
+            target: target(device: device, width: 1, height: 1)
+        )
+        let associatedOverPixelsMatch = closePixels(
+            associatedOverResult.pixels,
+            [50, 46, 0, 96]
         )
 
         // One row exercises opaque passthrough, offset shadow, and empty-offset
@@ -2388,6 +2440,10 @@ private enum Harness {
             "overlayBoundaryEncoded": overlayResult.encoded,
             "overlayBoundaryGPUCompleted": overlayResult.completed,
             "overlayBoundaryPixelsMatch": overlayBoundaryPixelsMatch,
+            "associatedOverPrepared": associatedOverResult.prepared,
+            "associatedOverEncoded": associatedOverResult.encoded,
+            "associatedOverGPUCompleted": associatedOverResult.completed,
+            "associatedOverPixelsMatch": associatedOverPixelsMatch,
             "conditionalShadowPrepared": conditionalShadowResult.prepared,
             "conditionalShadowEncoded": conditionalShadowResult.encoded,
             "conditionalShadowGPUCompleted": conditionalShadowResult.completed,
@@ -2400,7 +2456,8 @@ private enum Harness {
             "wholeFilterBlackMaskEncoded": wholeFilterBlackMaskResult.encoded,
             "wholeFilterBlackMaskGPUCompleted": wholeFilterBlackMaskResult.completed,
             "wholeFilterBlackMaskIdentity": wholeFilterBlackMaskIdentity,
-            "overlayColorRejectedUpstream": overlayColorRejected,
+            "overlayPremultipliedColorRejectedUpstream":
+                overlayPremultipliedColorRejected,
             "boundedFlow2DPrepared": flow2DAtTime.prepared
                 && flow2DAtOtherTime.prepared,
             "boundedFlow2DEncoded": flow2DAtTime.encoded

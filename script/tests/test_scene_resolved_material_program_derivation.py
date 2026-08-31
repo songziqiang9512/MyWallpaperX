@@ -1016,6 +1016,26 @@ private enum Harness {
                 transfer: .interpolatedColor(textureSlots: [1, 0]),
                 textureSlots: slots(firstSlot, secondPremultipliedSlot)
             ) == nil
+        let namedOverlay = textureSlot(
+            device: device,
+            slot: 1,
+            marker: 21,
+            content: .color(.resolved(.premultipliedAlpha)),
+            reference: .provider(.namedLayerTarget(
+                SceneNamedTextureReference(providerLayerID: 1321, variant: .primary)
+            ))
+        )
+        let associatedOverNamedOverlayRejected =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .straightAlpha(textureSlot: 0),
+                textureSlots: slots(firstSlot, namedOverlay),
+                associatedOverOverlaySlot: 1
+            ) == nil
+        let associatedOverColorOverlayWithoutFactRejected =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .straightAlpha(textureSlot: 0),
+                textureSlots: slots(firstSlot, namedOverlay)
+            ) == nil
 
         let results: [String: Bool] = [
             "metalAvailable": true,
@@ -1139,6 +1159,10 @@ private enum Harness {
                 && interpolatedProjection?.fragmentOutput == .premultipliedAlpha,
             "interpolatedMismatchRejected": interpolatedMismatchRejected,
             "interpolatedUnsortedRejected": interpolatedUnsortedRejected,
+            "associatedOverNamedOverlayRejected":
+                associatedOverNamedOverlayRejected,
+            "associatedOverColorOverlayWithoutFactRejected":
+                associatedOverColorOverlayWithoutFactRejected,
             "metalKeyDerived": baseline.metalCompileStateKey(
                 attachmentPixelFormat: .bgra8Unorm,
                 sampleCount: 1,

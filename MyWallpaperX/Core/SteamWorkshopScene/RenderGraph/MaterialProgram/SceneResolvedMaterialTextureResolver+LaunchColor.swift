@@ -184,7 +184,13 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     transfer: variant.frontendProgram.colorTransfer,
                     textureFacts: $0,
                     conditionalGeneratedRGBInputContract:
-                        variant.conditionalGeneratedRGBInputContract
+                        variant.conditionalGeneratedRGBInputContract,
+                    associatedOverOverlaySlot:
+                        SceneResolvedMaterialProgramDerivation
+                            .associatedOverOverlaySlot(
+                                fragmentSource:
+                                    variant.preparedShader.fragment.source
+                            )
                 ) != nil
             }) else {
                 return failure(

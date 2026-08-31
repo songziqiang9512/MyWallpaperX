@@ -35,17 +35,30 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         let dataSlots: Set<Int>
     }
 
+    static func associatedOverOverlaySlot(fragmentSource: String) -> Int? {
+        if let overlay = SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze(
+            fragmentSource: fragmentSource
+        )?.overlaySlot {
+            return overlay
+        }
+        return SceneAuthoredShaderColorTransferAnalyzer.blendSourceSlots(
+            fragmentSource: fragmentSource
+        ).overlayAlpha?.overlay
+    }
+
     static func hasResolvedColorContract(
         transfer: SceneShaderColorTransfer,
         textureSlots: [Program.TextureSlot?],
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract? = nil
+            ConditionalGeneratedRGBInputContract? = nil,
+        associatedOverOverlaySlot: Int? = nil
     ) -> Bool {
         resolveColor(
             transfer: transfer,
             textureSlots: textureSlots,
             conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract
+                conditionalGeneratedRGBInputContract,
+            associatedOverOverlaySlot: associatedOverOverlaySlot
         ) != nil
     }
 
@@ -215,13 +228,15 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         transfer: SceneShaderColorTransfer,
         textureSlots: [Program.TextureSlot?],
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract? = nil
+            ConditionalGeneratedRGBInputContract? = nil,
+        associatedOverOverlaySlot: Int? = nil
     ) -> ColorProjection? {
         resolveColor(
             transfer: transfer,
             textureFacts: textureSlots.map(colorTextureFact),
             conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract
+                conditionalGeneratedRGBInputContract,
+            associatedOverOverlaySlot: associatedOverOverlaySlot
         )
     }
 
@@ -229,7 +244,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         transfer: SceneShaderColorTransfer,
         textureFacts: [ColorTextureFact?],
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract? = nil
+            ConditionalGeneratedRGBInputContract? = nil,
+        associatedOverOverlaySlot: Int? = nil
     ) -> ColorProjection? {
         guard textureFacts.count == 8 else { return nil }
         if let contract = conditionalGeneratedRGBInputContract {
@@ -361,7 +377,11 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   case let .color(.resolved(representation)) =
                     fact.content,
                   representation == .opaque || representation == .premultipliedAlpha,
-                  auxiliarySlotsAreData(textureFacts, excluding: [slot]) else {
+                  associatedOverAuxiliarySlotsAreAllowed(
+                      textureFacts,
+                      sourceSlot: slot,
+                      overlaySlot: associatedOverOverlaySlot
+                  ) else {
                 return nil
             }
             fragmentOutput = .premultipliedAlpha
@@ -472,6 +492,33 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             case .color:
                 return false
             }
+        }
+    }
+
+    /// Associated-over and overlay-alpha lowering unpremultiply only the graph
+    /// input. Until overlay representation participates in compiler/cache ABI,
+    /// the overlay must be typed data; resolved colors would be multiplied by
+    /// alpha a second time by the authored blend math.
+    private static func associatedOverAuxiliarySlotsAreAllowed(
+        _ textureFacts: [ColorTextureFact?],
+        sourceSlot: Int,
+        overlaySlot: Int?
+    ) -> Bool {
+        guard let overlaySlot, overlaySlot != sourceSlot,
+              textureFacts.indices.contains(overlaySlot),
+              let overlay = textureFacts[overlaySlot]
+        else {
+            return auxiliarySlotsAreData(textureFacts, excluding: [sourceSlot])
+        }
+        switch overlay.content {
+        case .data:
+            return auxiliarySlotsAreData(
+                textureFacts,
+                excluding: [sourceSlot, overlaySlot]
+            )
+        case .color, .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+             .redGreenFloat16:
+            return false
         }
     }
 }

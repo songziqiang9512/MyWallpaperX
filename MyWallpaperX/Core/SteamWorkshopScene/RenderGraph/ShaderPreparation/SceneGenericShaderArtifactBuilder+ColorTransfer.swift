@@ -80,6 +80,32 @@ extension SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
+            if let fact = SceneAuthoredShaderAssociatedOverBlendAnalyzer
+                .analyze(fragmentSource: authoredSource),
+                fact.sourceSlot == expectedSlot
+            {
+                guard let lowered = SceneGenericShaderAssociatedOverBlendLowering
+                    .lower(source, fact: fact) else { throw Failure.colorTransfer }
+                return (
+                    lowered,
+                    artifactTransfer(kind: "straight-alpha", slot: expectedSlot)
+                )
+            }
+            if let overlay = SceneAuthoredShaderColorTransferAnalyzer
+                .blendSourceSlots(fragmentSource: authoredSource).overlayAlpha,
+                overlay.source == expectedSlot
+            {
+                guard let lowered = SceneGenericShaderAssociatedOverBlendLowering
+                    .lower(
+                        source,
+                        sourceSlot: overlay.source,
+                        overlaySlot: overlay.overlay
+                    ) else { throw Failure.colorTransfer }
+                return (
+                    lowered,
+                    artifactTransfer(kind: "straight-alpha", slot: expectedSlot)
+                )
+            }
             let rgbBlendScalarAlphaLowering: String? =
                 SceneAuthoredShaderColorTransferAnalyzer
                     .rgbBlendScalarAlphaFact(fragmentSource: authoredSource)
