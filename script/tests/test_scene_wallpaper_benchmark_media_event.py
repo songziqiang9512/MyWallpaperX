@@ -22,6 +22,9 @@ MEDIA_TARGET = (
 LAYER_COLOR_TARGET = (
     "layer(layerID: 419, field: MyWallpaperX.SceneDynamicLayerField.color)"
 )
+TEXT_COLOR_TARGET = (
+    "text(layerID: 501, field: MyWallpaperX.SceneDynamicTextField.color)"
+)
 MEDIA_COMPLETION_LINE = (
     "MWX SceneScript VM: target=effectConstant(layerID: 1089, "
     "effectIndex: 0, passIndex: 0, name: \"color\") "
@@ -52,6 +55,15 @@ LAYER_COLOR_COMPLETION_LINE = (
     "primary=0.1,0.2,0.3 secondary=0.2,0.3,0.4 "
     "tertiary=0.3,0.4,0.5 text=0.4,0.5,0.6 "
     "highContrast=0.5,0.6,0.7 output=vector3(1.0, 1.0, 1.0) "
+    "mutations=0 route=generic-only fallback=none"
+)
+TEXT_COLOR_COMPLETION_LINE = (
+    "MWX SceneScript VM: target=text(layerID: 501, "
+    "field: MyWallpaperX.SceneDynamicTextField.color) "
+    "event=mediaThumbnailChanged generation=2 hasThumbnail=true "
+    "primary=0.1,0.2,0.3 secondary=0.2,0.3,0.4 "
+    "tertiary=0.3,0.4,0.5 text=0.4,0.5,0.6 "
+    "highContrast=0.5,0.6,0.7 output=vector3(0.4, 0.5, 0.6) "
     "mutations=0 route=generic-only fallback=none"
 )
 MEDIA_TIMELINE_LINE = (
@@ -245,6 +257,49 @@ class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
             [],
         )
 
+    def test_text_color_media_callback_is_typed_and_not_a_layer_callback(self) -> None:
+        completions = benchmark.media_color_transition_metrics(
+            TEXT_COLOR_COMPLETION_LINE
+        )
+        self.assertEqual(len(completions), 1)
+        self.assertEqual(completions[0]["target_kind"], "text")
+        self.assertEqual(completions[0]["layer_id"], 501)
+        self.assertEqual(completions[0]["field"], "color")
+        expectation = {
+            "target_kind": "text",
+            "layer_id": 501,
+            "field": "color",
+            "generation": 2,
+            "has_thumbnail": True,
+            "primary_color": [0.1, 0.2, 0.3],
+            "secondary_color": [0.2, 0.3, 0.4],
+            "tertiary_color": [0.3, 0.4, 0.5],
+            "text_color": [0.4, 0.5, 0.6],
+            "high_contrast_color": [0.5, 0.6, 0.7],
+            "route": "generic-only",
+        }
+        startup = benchmark.scene_script_vector_media_startup_metrics(
+            vector_media_startup_line(targets=[TEXT_COLOR_TARGET])
+        )
+        self.assertEqual(
+            benchmark.media_event_expectation_failures(
+                {"expected_media_color_callbacks": [expectation]},
+                completions,
+                startup,
+            ),
+            [],
+        )
+        self.assertEqual(
+            benchmark.media_event_expectation_failures(
+                {"expected_media_color_callbacks": [
+                    {**expectation, "target_kind": "layer"},
+                ]},
+                completions,
+                startup,
+            ),
+            ["media color callbacks mismatch"],
+        )
+
     def test_startup_route_is_structured_for_the_report(self) -> None:
         metrics = benchmark.scene_script_vector_media_startup_metrics(
             vector_media_startup_line()
@@ -369,6 +424,22 @@ class SceneWallpaperBenchmarkMediaEventTests(unittest.TestCase):
                 {**layer_output, "layer_id": 408},
             ], startup),
             [],
+        )
+
+        text_output = {
+            **layer_output,
+            "layer_id": 501,
+            "target_kind": "text",
+        }
+        text_startup = benchmark.scene_script_vector_media_startup_metrics(
+            vector_media_startup_line(targets=[
+                "text(layerID: 501, field: "
+                "MyWallpaperX.SceneDynamicTextField.color)"
+            ])
+        )
+        self.assertEqual(
+            benchmark.media_owner_output_metrics([text_output], text_startup),
+            [text_output],
         )
 
     def test_callback_expectations_reject_each_contract_mismatch(self) -> None:

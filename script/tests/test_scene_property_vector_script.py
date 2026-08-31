@@ -344,6 +344,18 @@ enum Harness {
                 colorRGB: [0.2, 0.3, 0.4],
                 scaleHasScript: false, alpha: 1, effects: []
             ),
+            .init(
+                id: 501, layerIndex: 5, name: "Effectful text color",
+                visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                colorRGB: [0, 0, 0],
+                scaleHasScript: false, alpha: 1,
+                effects: [.init(name: "renamed blur")],
+                contentKind: "text", text: "renamed text",
+                textStyle: .init(
+                    fontPath: nil, colorRGB: [0, 0, 0], pointSize: 32
+                )
+            ),
         ])
         let domain = try SceneScriptQuickJSDomain()
         let program = SceneScriptVectorProgram.compile(
@@ -925,6 +937,28 @@ enum Harness {
             ],
             effectivePropertyValues: [:], frame: frame
         )
+        let textColorTarget = SceneDynamicTarget.text(
+            layerID: 501, field: .color
+        )
+        let textColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(
+                source: scriptPropertyColorSource,
+                value: "0 0 0", objectIndex: 5, objectID: 501,
+                properties: [
+                    "dynamicTitle": .bool(false),
+                    "titleColor": .string("0.25 0.5 0.75"),
+                ]
+            )],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [501],
+            generation: 106
+        )
+        let textColorResult = textColorProgram.evaluate(
+            inputs: [textColorTarget: .vector3(0, 0, 0)],
+            effectivePropertyValues: [:], frame: frame
+        )
         let bad = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -1308,6 +1342,9 @@ enum Harness {
             ),
             "layerColorFailurePeerFailures":
                 colorFailurePeerResult.failures.count,
+            "textColorBindings": textColorProgram.bindings.count,
+            "textColorValue": vector(textColorResult.values[textColorTarget]),
+            "textColorFailures": textColorResult.failures.count,
             "badReturn": badResult.failures.values.first?.code ?? "",
             "badPublished": !badResult.values.isEmpty,
             "duplicateRejected": duplicate.bindings.isEmpty,
@@ -1502,19 +1539,26 @@ enum Harness {
 
     static func colorBinding(
         source: String,
-        value: String = "0.2 0.3 0.4"
+        value: String = "0.2 0.3 0.4",
+        objectIndex: Int = 4,
+        objectID: Int = 500,
+        properties: [String: SceneJSONValue] = [:]
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
             owner: .init(
-                kind: .object, objectIndex: 4, objectID: 500,
+                kind: .object, objectIndex: objectIndex, objectID: objectID,
                 effectIndex: nil, effectID: nil, passIndex: nil, passID: nil
             ),
-            targetPath: [.key("objects"), .index(4), .key("color")],
-            properties: [:],
+            targetPath: [
+                .key("objects"), .index(objectIndex), .key("color"),
+            ],
+            properties: properties,
             authoredValue: .string(value),
             valueType: .string,
-            wrapperKeys: ["script", "value"]
+            wrapperKeys: properties.isEmpty
+                ? ["script", "value"]
+                : ["script", "scriptproperties", "value"]
         )
     }
 
@@ -1647,6 +1691,14 @@ enum Harness {
       color.z = event.primaryColor.z;
     }
     export function update(value) { return color.copy(); }
+    """
+
+    static let scriptPropertyColorSource = """
+    export var scriptProperties = createScriptProperties();
+    export function update(value) {
+      if (scriptProperties.dynamicTitle) { return value; }
+      return new Vec3(scriptProperties.titleColor);
+    }
     """
 
     static let thisLayerColorSource = """
@@ -1929,6 +1981,12 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["layerColorFallbackSource"], "authored")
         self.assertEqual(value["layerColorFailurePeer"], [10, 20, 30])
         self.assertEqual(value["layerColorFailurePeerFailures"], 1)
+
+    def test_effectful_text_color_uses_static_script_properties_and_vec3_vm(self) -> None:
+        value = self.result()
+        self.assertEqual(value["textColorBindings"], 1)
+        self.assertEqual(value["textColorValue"], [0.25, 0.5, 0.75])
+        self.assertEqual(value["textColorFailures"], 0)
 
     def test_generic_pass_vec3_executes_wecolor_into_typed_publication(self) -> None:
         value = self.result()

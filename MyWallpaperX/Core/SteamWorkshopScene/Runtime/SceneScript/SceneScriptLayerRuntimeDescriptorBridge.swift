@@ -27,8 +27,11 @@ nonisolated extension SceneScriptQuickJSDomain {
             )
             let text = layer.text ?? ""
             let font = layer.textStyle?.fontPath ?? ""
-            let color = layerVector3(
-                layerID: layer.id, field: .color,
+            let colorTarget: SceneDynamicTarget = layer.contentKind == "text"
+                ? .text(layerID: layer.id, field: .color)
+                : .layer(layerID: layer.id, field: .color)
+            let color = vector3(
+                target: colorTarget,
                 authored: layer.textStyle?.colorRGB ?? layer.colorRGB,
                 fallback: [1, 1, 1], snapshot: snapshot
             )
@@ -92,7 +95,21 @@ nonisolated extension SceneScriptQuickJSDomain {
         fallback: [Double],
         snapshot: SceneDynamicSnapshot
     ) -> [Double] {
-        if let resolved = snapshot[.layer(layerID: layerID, field: field)],
+        vector3(
+            target: .layer(layerID: layerID, field: field),
+            authored: authored,
+            fallback: fallback,
+            snapshot: snapshot
+        )
+    }
+
+    private func vector3(
+        target: SceneDynamicTarget,
+        authored: [Float]?,
+        fallback: [Double],
+        snapshot: SceneDynamicSnapshot
+    ) -> [Double] {
+        if let resolved = snapshot[target],
            case let .vector3(x, y, z) = resolved.value,
            x.isFinite, y.isFinite, z.isFinite {
             return [x, y, z]

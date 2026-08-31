@@ -161,10 +161,13 @@ struct SceneRuntimeModelBuilder {
                 return layerID
             }
         )
-        let directImageColorConsumerLayerIDs: Set<Int> = Set(
+        let sceneScriptColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
-                guard layer.contentKind == "image",
-                      layer.supportsDirectLayerColorConsumer,
+                let hasConsumer = layer.supportsDirectLayerColorConsumer
+                    || (layer.contentKind == "text"
+                        && layer.text != nil
+                        && layer.textStyle != nil)
+                guard hasConsumer,
                       visibleLayerIDs.contains(layer.id)
                         || typedVisibilityOwnerLayerIDs.contains(layer.id)
                 else { return nil }
@@ -175,7 +178,7 @@ struct SceneRuntimeModelBuilder {
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
-            admittedLayerColorConsumerIDs: directImageColorConsumerLayerIDs,
+            admittedLayerColorConsumerIDs: sceneScriptColorConsumerLayerIDs,
             shaderContracts: assetCatalog.shaderContracts
         )
         let runtimeInput = SceneRuntimeInput(

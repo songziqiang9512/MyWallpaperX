@@ -474,7 +474,7 @@ nonisolated struct SceneUserPropertyBindingParser {
            let field = key(components[2]) {
             switch field {
             case "alpha": return .objectScalar
-            case "angles", "origin", "scale": return .objectVector
+            case "angles", "origin", "scale", "color": return .objectVector
             case "visible": return .objectVisibility
             default: return nil
             }

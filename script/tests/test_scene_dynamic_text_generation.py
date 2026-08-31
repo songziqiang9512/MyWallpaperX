@@ -16,6 +16,10 @@ STORE_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Text/SceneDynamicTextTextureStore.swift"
 )
+DRAW_REQUEST_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerDrawRequest.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -152,6 +156,15 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         ):
             self.assertIn(token, source)
         self.assertNotIn("let renderSizes:", source)
+
+    def test_dynamic_text_candidate_is_an_exact_same_layer_graph_source(self) -> None:
+        source = DRAW_REQUEST_SOURCE.read_text(encoding="utf-8")
+        for token in (
+            'case let ("text", .provider(.dynamicText(candidateLayerID)))',
+            "acceptsCandidate = candidateLayerID == layer.id",
+            "SceneBaseImageTextureCandidateResolver.sample(",
+        ):
+            self.assertIn(token, source)
 
 
 if __name__ == "__main__":

@@ -136,7 +136,7 @@ SCENE_SCRIPT_SCALAR_BINDING_COUNT_RE = re.compile(
     re.MULTILINE,
 )
 SCENE_SCRIPT_VEC3_COMPLETION_RE = re.compile(
-    r"MWX SceneScript VM: target=layer\(layerID: (?P<layer>\d+), "
+    r"MWX SceneScript VM: target=(?P<target_kind>layer|text)\(layerID: (?P<layer>\d+), "
     r"field: [^)]*\.(?P<field>origin|scale|angles|color)\) callback=completed "
     r"type=vector3 input=(?P<input>vector3\([^)]*\)) "
     r"output=(?P<output>vector3\([^)]*\)).* route=(?P<route>\S+)"
@@ -1661,6 +1661,7 @@ def scene_script_scalar_runtime_metrics(
     vec3_completions = [
         {
             "layer_id": int(match.group("layer")),
+            "target_kind": match.group("target_kind"),
             "field": match.group("field"),
             "input": match.group("input"),
             "output": match.group("output"),
@@ -1668,7 +1669,9 @@ def scene_script_scalar_runtime_metrics(
         }
         for match in SCENE_SCRIPT_VEC3_COMPLETION_RE.finditer(log_text)
     ]
-    vec3_completions.sort(key=lambda value: (value["layer_id"], value["field"]))
+    vec3_completions.sort(key=lambda value: (
+        value["layer_id"], value["target_kind"], value["field"],
+    ))
     effect_vector_completions = [
         {
             "layer_id": int(match.group("layer")),

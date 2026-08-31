@@ -43,8 +43,13 @@ nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color
 }
 
+nonisolated enum SceneDynamicTextField: Hashable, Sendable {
+    case color
+}
+
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
+    case text(layerID: Int, field: SceneDynamicTextField)
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
 }
 
@@ -111,10 +116,12 @@ nonisolated enum SceneScriptPropertyInputCodec {
     static func propertyInput(
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
-        guard case let .number(number) = value, number.isFinite else {
-            return nil
+        switch value {
+        case .bool, .string:
+            return .init()
+        case let .number(number):
+            return number.isFinite ? .init() : nil
         }
-        return .init()
     }
 
     static func vector2(_ value: String) -> SIMD2<Double>? {
@@ -175,6 +182,8 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
 nonisolated struct SceneRenderDescriptor: Sendable {
     enum SceneShaderUserValueKind: Sendable { case null }
 
+    struct TextStyle: Sendable {}
+
     struct ShaderValue: Sendable {
         let scriptSource: String?
         let components: [Double]?
@@ -213,6 +222,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
         var utilityLayer: Int? = nil
+        var text: String? = nil
+        var textStyle: TextStyle? = nil
 
         var supportsDirectLayerColorConsumer: Bool {
             contentKind == "solid"
@@ -228,7 +239,9 @@ nonisolated enum SceneScriptVectorProgram {}
 func binding(
     key: String,
     value: String,
-    pathKey: String? = nil
+    pathKey: String? = nil,
+    properties: [String: SceneJSONValue] = [:],
+    wrapperKeys: [String]? = nil
 ) -> SceneScriptBindingIR {
     .init(
         source: "export function update(value) { return value; }",
@@ -244,10 +257,12 @@ func binding(
         targetPath: [
             .key("objects"), .index(0), .key(pathKey ?? key),
         ],
-        properties: [:],
+        properties: properties,
         authoredValue: .string(value),
         valueType: .string,
-        wrapperKeys: ["script", "value"]
+        wrapperKeys: wrapperKeys ?? (properties.isEmpty
+            ? ["script", "value"]
+            : ["script", "scriptproperties", "value"])
     )
 }
 
@@ -320,6 +335,21 @@ enum Harness {
             scriptBindings: [binding(key: "color", value: "0.25 0.5 0.75")],
             admittedLayerColorConsumerIDs: [101]
         )
+        var textColorDescriptor = effectColorDescriptor
+        textColorDescriptor.layers[0].contentKind = "text"
+        textColorDescriptor.layers[0].text = "renamed text"
+        textColorDescriptor.layers[0].textStyle = .init()
+        let textColor = SceneScriptVectorProgram.project(
+            descriptor: textColorDescriptor,
+            scriptBindings: [binding(
+                key: "color", value: "0.25 0.5 0.75",
+                properties: [
+                    "dynamic": .bool(false),
+                    "tint": .string("0.1 0.2 0.3"),
+                ]
+            )],
+            admittedLayerColorConsumerIDs: [101]
+        )
         let duplicateColor = SceneScriptVectorProgram.project(
             descriptor: colorDescriptor,
             scriptBindings: [
@@ -355,6 +385,11 @@ enum Harness {
             "mismatchedColorRejected": mismatchedColor.candidates.isEmpty,
             "hiddenColorRejected": hiddenColor.candidates.isEmpty,
             "effectColorRejected": effectColor.candidates.isEmpty,
+            "effectfulTextColorDefinition": textColor.definitions.contains {
+                $0.target == .text(layerID: 101, field: .color)
+                    && $0.valueType == .vector3
+                    && $0.authoredValue == .vector3(0.25, 0.5, 0.75)
+            } && textColor.candidates.first?.properties.count == 2,
             "duplicateColorRejected": duplicateColor.uniqueCandidates.isEmpty
                 && duplicateColor.duplicateTargets == [
                     .layer(layerID: 101, field: .color),
@@ -416,6 +451,9 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
         self.assertTrue(self.result["hiddenColorRejected"])
         self.assertTrue(self.result["effectColorRejected"])
         self.assertTrue(self.result["duplicateColorRejected"])
+
+    def test_effectful_text_color_uses_the_dynamic_text_consumer(self) -> None:
+        self.assertTrue(self.result["effectfulTextColorDefinition"])
 
 
 if __name__ == "__main__":

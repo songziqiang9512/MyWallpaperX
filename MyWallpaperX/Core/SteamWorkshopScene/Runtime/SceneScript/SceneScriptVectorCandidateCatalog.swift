@@ -330,9 +330,9 @@ nonisolated extension SceneScriptVectorProgram {
     }
 
     /// Object color scripts only become VM owners after launch planning has
-    /// identified a visible, effectless image consumer in the one image
-    /// compositor. Hidden and effect-bearing layers keep their authored value
-    /// without evaluating an owner that has no valid output route.
+    /// identified an existing typed consumer. Images consume the value in the
+    /// one compositor; text consumes it while rerasterizing its canonical
+    /// provider publication before any authored effect suffix executes.
     private static func layerColorProjection(
         _ binding: SceneScriptBindingIR,
         authoredOrdinal: Int,
@@ -343,8 +343,6 @@ nonisolated extension SceneScriptVectorProgram {
         guard binding.owner.kind == .object,
               binding.targetKey == "color",
               binding.valueType == .string,
-              binding.wrapperKeys == ["script", "value"],
-              binding.properties.isEmpty,
               let sourceValue = binding.authoredValue?.stringValue,
               let authored = vector3(sourceValue),
               let objectIndex = binding.owner.objectIndex,
@@ -352,11 +350,28 @@ nonisolated extension SceneScriptVectorProgram {
               admittedLayerColorConsumerIDs.contains(layerID),
               descriptor.layers.indices.contains(objectIndex) else { return nil }
         let layer = descriptor.layers[objectIndex]
+        let validWrapper =
+            (binding.wrapperKeys == ["script", "value"]
+                && binding.properties.isEmpty)
+            || SceneScriptDynamicProviderHostContract.supports(
+                keys: binding.wrapperKeys ?? [],
+                host: .objectVector
+            )
+        guard validWrapper else { return nil }
+        let target: SceneDynamicTarget
+        switch layer.contentKind {
+        case "image":
+            guard layer.effects.isEmpty else { return nil }
+            target = .layer(layerID: layerID, field: .color)
+        case "text":
+            guard layer.text != nil, layer.textStyle != nil else { return nil }
+            target = .text(layerID: layerID, field: .color)
+        default:
+            return nil
+        }
         guard layer.id == layerID,
               layer.layerIndex == objectIndex,
-              layer.contentKind == "image",
               layer.visible != false,
-              layer.effects.isEmpty,
               layer.dependencyLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
               !namedTextureDependencyLayerIDs.contains(layerID),
@@ -371,16 +386,26 @@ nonisolated extension SceneScriptVectorProgram {
               Float(authored.z).bitPattern == descriptorValue[2].bitPattern else {
             return nil
         }
+        var properties: [String: SceneScriptPropertyInput] = [:]
+        for entry in binding.properties {
+            guard validName(entry.key),
+                  let input = propertyInput(entry.value) else { return nil }
+            properties[entry.key] = input
+        }
         return .init(
             authoredOrdinal: authoredOrdinal,
             source: binding.source,
             definition: .init(
-                target: .layer(layerID: layerID, field: .color),
+                target: target,
                 valueType: .vector3,
                 authoredValue: .vector3(authored.x, authored.y, authored.z)
             ),
-            properties: [:],
-            livePropertyInputTargets: [],
+            properties: properties,
+            livePropertyInputTargets:
+                SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding,
+                    inputs: properties
+                ),
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
             dynamicMaterialModelPath: nil

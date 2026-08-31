@@ -105,8 +105,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
 
     var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
         bindings.compactMap { binding in
-            guard case let .layer(layerID, _) = binding.definition.target,
-                  let authoredOrder = descriptor.layers.firstIndex(where: {
+            let layerID: Int
+            switch binding.definition.target {
+            case let .layer(value, _), let .text(value, _):
+                layerID = value
+            default:
+                return nil
+            }
+            guard let authoredOrder = descriptor.layers.firstIndex(where: {
                       $0.id == layerID
                   }) else { return nil }
             return .init(

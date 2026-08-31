@@ -35,7 +35,7 @@ SCENE_SCRIPT_MEDIA_THUMBNAIL_COLOR_RE = re.compile(
 )
 SCENE_SCRIPT_MEDIA_THUMBNAIL_LAYER_COLOR_RE = re.compile(
     r"MWX SceneScript VM: "
-    r"target=layer\(layerID: (?P<layer>\d+), "
+    r"target=(?P<target_kind>layer|text)\(layerID: (?P<layer>\d+), "
     r"field: [^)]*\.(?P<field>color)\) "
     r"event=mediaThumbnailChanged "
     r"generation=(?P<generation>\d+) "
@@ -322,7 +322,7 @@ def media_color_transition_metrics(log_text: str) -> list[dict[str, Any]]:
         completion = _media_color_completion(match)
         if completion is not None:
             completion.update({
-                "target_kind": "layer",
+                "target_kind": match.group("target_kind"),
                 "layer_id": int(match.group("layer")),
                 "field": match.group("field"),
             })
@@ -474,12 +474,15 @@ def _media_target_owns_output(
     if target == effect_identity:
         return True
     match = re.fullmatch(
-        r"layer\(layerID: (?P<layer>\d+), field: (?:[^)]*\.)?(?P<field>[^.)]+)\)",
+        r"(?P<target_kind>layer|text)\(layerID: (?P<layer>\d+), "
+        r"field: (?:[^)]*\.)?(?P<field>[^.)]+)\)",
         target,
     )
     return (
         match is not None
         and int(match.group("layer")) == completion.get("layer_id")
+        and match.group("target_kind")
+            == completion.get("target_kind", "layer")
         and match.group("field") == completion.get("field")
     )
 
@@ -555,15 +558,15 @@ def _normalized_callback_expectations(
             or not fields.issubset(allowed_fields)
         ):
             return None
-        is_layer = callback.get("target_kind") == "layer"
+        is_layer_field = callback.get("target_kind") in {"layer", "text"}
         required_identity = (
             MEDIA_COLOR_EXPECTATION_LAYER_IDENTITY_FIELDS
-            if is_layer else MEDIA_COLOR_EXPECTATION_EFFECT_IDENTITY_FIELDS
+            if is_layer_field else MEDIA_COLOR_EXPECTATION_EFFECT_IDENTITY_FIELDS
         )
         if not required_identity.issubset(fields):
             return None
         identity_values = [callback["layer_id"]]
-        if not is_layer:
+        if not is_layer_field:
             identity_values.extend([
                 callback["effect_index"],
                 callback["pass_index"],
@@ -585,7 +588,7 @@ def _normalized_callback_expectations(
             or not callback["route"]
         ):
             return None
-        if is_layer:
+        if is_layer_field:
             if callback.get("field") != "color":
                 return None
         elif (

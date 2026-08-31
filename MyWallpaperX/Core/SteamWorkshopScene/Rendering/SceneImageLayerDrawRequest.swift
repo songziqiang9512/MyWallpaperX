@@ -251,10 +251,18 @@ struct SceneImageLayerDrawRequest {
         guard let baseTextureCandidate else {
             return .init(textureFrame: textureFrame, sampling: .linearClamp)
         }
-        guard layer.contentKind == "image"
-            || (layer.contentKind == "solid"
-                && baseTextureCandidate.identity
-                    == .provider(.mediaThumbnailCurrent)) else { return nil }
+        let acceptsCandidate: Bool
+        switch (layer.contentKind, baseTextureCandidate.identity) {
+        case ("image", _):
+            acceptsCandidate = true
+        case let ("text", .provider(.dynamicText(candidateLayerID))):
+            acceptsCandidate = candidateLayerID == layer.id
+        case ("solid", .provider(.mediaThumbnailCurrent)):
+            acceptsCandidate = true
+        default:
+            acceptsCandidate = false
+        }
+        guard acceptsCandidate else { return nil }
         return SceneBaseImageTextureCandidateResolver.sample(
             candidate: baseTextureCandidate,
             sourceTexture: texture

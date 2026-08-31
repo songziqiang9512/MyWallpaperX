@@ -801,9 +801,30 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
         self.assertEqual(metrics["vec3_binding_count"], 3)
         self.assertEqual(metrics["vec3_completions"], [{
             "layer_id": 235,
+            "target_kind": "layer",
             "field": "angles",
             "input": "vector3(-81,41,0)",
             "output": "vector3(-81,-43,0)",
+            "route": "generic-only",
+        }])
+
+    def test_scene_script_typed_metrics_keep_text_color_completions(self) -> None:
+        metrics = benchmark.scene_script_scalar_runtime_metrics(
+            "scene script VM: schema=quickjs-ng-typed-v2 bindings=0 "
+            "vec3Bindings=1 targets=0 route=generic-only "
+            "fallback=previous-current",
+            "MWX SceneScript VM: target=text(layerID: 501, field: "
+            "MyWallpaperX.SceneDynamicTextField.color) callback=completed "
+            "type=vector3 input=vector3(0,0,0) "
+            "output=vector3(0.2,0.4,0.8) audio=false "
+            "audioGeneration=0 route=generic-only",
+        )
+        self.assertEqual(metrics["vec3_completions"], [{
+            "layer_id": 501,
+            "target_kind": "text",
+            "field": "color",
+            "input": "vector3(0,0,0)",
+            "output": "vector3(0.2,0.4,0.8)",
             "route": "generic-only",
         }])
 
