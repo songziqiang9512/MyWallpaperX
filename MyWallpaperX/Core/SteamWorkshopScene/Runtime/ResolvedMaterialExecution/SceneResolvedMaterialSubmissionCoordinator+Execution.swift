@@ -126,7 +126,16 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             let reason = commandBuffer.status == .notEnqueued
                 ? "prepared-frame-consumption-rejected"
                 : "transaction-armed-after-submit"
+            let detail = preparedFrameConsumptionRejectionDetailLocked(
+                claim: claim,
+                dependencyEffect: dependencyEffect,
+                sceneBackgroundTexture: sceneBackgroundTexture,
+                commandBuffer: commandBuffer
+            )
             emission = claimedFailureLocked(reason: reason)
+            emission.diagnostics.append(
+                "\(reason) layer=\(claim.layerID) detail=\(detail)"
+            )
             lock.unlock()
             emit(emission)
             return .failed(reasonCode: reason)
@@ -180,6 +189,56 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         )
         lock.unlock()
         return result
+    }
+
+    private func preparedFrameConsumptionRejectionDetailLocked(
+        claim: Bridge.ClaimedExecution,
+        dependencyEffect: SceneDependencyEffectInput?,
+        sceneBackgroundTexture: MTLTexture?,
+        commandBuffer: MTLCommandBuffer
+    ) -> String {
+        guard terminalFailureReason == nil else { return "runtime-terminal" }
+        guard frameIsActive else { return "frame-inactive" }
+        guard framePreparationComplete else { return "frame-not-prepared" }
+        guard !frameRequiresDrop else { return "frame-drop-required" }
+        guard frameFailure == nil else { return "frame-failure-recorded" }
+        guard executor != nil else { return "executor-unavailable" }
+        guard let frame else { return "frame-snapshot-unavailable" }
+        guard let identity = preparedLedgerByLayerID[claim.layerID]
+        else { return "prepared-ledger-missing" }
+        guard let index = activeTransactions.firstIndex(of: identity)
+        else { return "prepared-order-missing" }
+        guard let ledger = activeByID[identity]
+        else { return "prepared-ledger-unavailable" }
+        guard ledger.layerID == claim.layerID else { return "layer-mismatch" }
+        guard ledger.capabilityToken == claim.token
+        else { return "capability-token-mismatch" }
+        guard ledger.claimConsumed else { return "claim-not-consumed" }
+        guard ledger.phase == .allocationCommitted
+        else { return "ledger-phase-\(ledger.phase.rawValue)" }
+        guard ledger.commandBuffer === commandBuffer
+        else { return "command-buffer-mismatch" }
+        guard commandBuffer.status == .notEnqueued
+        else { return "command-buffer-status-\(commandBuffer.status.rawValue)" }
+        guard dependenciesMatch(
+            prepared: ledger.preparedDependencyEffect,
+            preparedUnavailability: ledger.preparedDependencyUnavailability,
+            ready: dependencyEffect,
+            ownership: claim.dependencyOwnership
+        ) else { return "dependency-input-mismatch" }
+        guard sceneBackgroundTextureMatches(
+            prepared: ledger.prepared.sceneBackgroundResource,
+            ready: sceneBackgroundTexture,
+            requirement: claim.sceneBackgroundRequirement,
+            frameEpoch: frame.textureRegistrySnapshot.frameEpoch
+        ) else { return "scene-background-mismatch" }
+        guard activeTransactions[..<index].allSatisfy({
+            activeByID[$0]?.phase == .outputConsumed
+        }) else { return "predecessor-output-not-consumed" }
+        guard activeTransactions[activeTransactions.index(after: index)...]
+            .allSatisfy({ activeByID[$0]?.phase == .allocationCommitted })
+        else { return "successor-phase-mismatch" }
+        return "unknown"
     }
 
     func dependencyReservationMatches(

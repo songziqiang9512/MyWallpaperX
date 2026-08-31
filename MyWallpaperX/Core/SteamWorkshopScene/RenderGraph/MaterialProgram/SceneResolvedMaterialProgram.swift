@@ -578,13 +578,15 @@ nonisolated struct SceneResolvedMaterialProgram {
         routeDecision: SceneGenericShaderRouteDecision,
         conditionalGeneratedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
-                .ConditionalGeneratedRGBInputContract?
+                .ConditionalGeneratedRGBInputContract?,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
             input,
             frontend: frontend,
             conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract
+                conditionalGeneratedRGBInputContract,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         ) else { return nil }
         return Self(
             input: input,

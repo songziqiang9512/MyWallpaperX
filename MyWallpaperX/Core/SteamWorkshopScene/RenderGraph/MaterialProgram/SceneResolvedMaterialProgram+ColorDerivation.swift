@@ -51,14 +51,16 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         textureSlots: [Program.TextureSlot?],
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
-        associatedOverOverlaySlot: Int? = nil
+        associatedOverOverlaySlot: Int? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Bool {
         resolveColor(
             transfer: transfer,
             textureSlots: textureSlots,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
-            associatedOverOverlaySlot: associatedOverOverlaySlot
+            associatedOverOverlaySlot: associatedOverOverlaySlot,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         ) != nil
     }
 
@@ -229,14 +231,16 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         textureSlots: [Program.TextureSlot?],
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
-        associatedOverOverlaySlot: Int? = nil
+        associatedOverOverlaySlot: Int? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> ColorProjection? {
         resolveColor(
             transfer: transfer,
             textureFacts: textureSlots.map(colorTextureFact),
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
-            associatedOverOverlaySlot: associatedOverOverlaySlot
+            associatedOverOverlaySlot: associatedOverOverlaySlot,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
     }
 
@@ -245,7 +249,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         textureFacts: [ColorTextureFact?],
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
-        associatedOverOverlaySlot: Int? = nil
+        associatedOverOverlaySlot: Int? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> ColorProjection? {
         guard textureFacts.count == 8 else { return nil }
         if let contract = conditionalGeneratedRGBInputContract {
@@ -380,7 +385,9 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   associatedOverAuxiliarySlotsAreAllowed(
                       textureFacts,
                       sourceSlot: slot,
-                      overlaySlot: associatedOverOverlaySlot
+                      overlaySlot: associatedOverOverlaySlot,
+                      premultipliedColorInputSlots:
+                        premultipliedColorInputSlots
                   ) else {
                 return nil
             }
@@ -495,27 +502,39 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         }
     }
 
-    /// Associated-over and overlay-alpha lowering unpremultiply only the graph
-    /// input. Until overlay representation participates in compiler/cache ABI,
-    /// the overlay must be typed data; resolved colors would be multiplied by
-    /// alpha a second time by the authored blend math.
+    /// Associated-over and overlay-alpha authored math consumes straight RGBA.
+    /// Typed data remains unchanged; a resolved premultiplied color overlay is
+    /// legal only when the exact compiled Program records that slot in its
+    /// input-representation ABI and unpremultiplies it before authored math.
     private static func associatedOverAuxiliarySlotsAreAllowed(
         _ textureFacts: [ColorTextureFact?],
         sourceSlot: Int,
-        overlaySlot: Int?
+        overlaySlot: Int?,
+        premultipliedColorInputSlots: Set<Int>
     ) -> Bool {
         guard let overlaySlot, overlaySlot != sourceSlot,
               textureFacts.indices.contains(overlaySlot),
               let overlay = textureFacts[overlaySlot]
         else {
-            return auxiliarySlotsAreData(textureFacts, excluding: [sourceSlot])
+            return premultipliedColorInputSlots.isEmpty
+                && auxiliarySlotsAreData(
+                    textureFacts,
+                    excluding: [sourceSlot]
+                )
         }
         switch overlay.content {
         case .data:
-            return auxiliarySlotsAreData(
+            return premultipliedColorInputSlots.isEmpty
+                && auxiliarySlotsAreData(
                 textureFacts,
                 excluding: [sourceSlot, overlaySlot]
             )
+        case .color(.resolved(.premultipliedAlpha)):
+            return premultipliedColorInputSlots == Set([overlaySlot])
+                && auxiliarySlotsAreData(
+                    textureFacts,
+                    excluding: [sourceSlot, overlaySlot]
+                )
         case .color, .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
              .redGreenFloat16:
             return false

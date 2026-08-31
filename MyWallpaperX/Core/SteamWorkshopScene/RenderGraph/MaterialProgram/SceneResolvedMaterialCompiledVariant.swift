@@ -18,6 +18,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     ]
     let preservedAlphaRGBColorSlots: Set<Int>
     let sourceProvenOpaqueColorSlots: Set<Int>
+    /// Exact color inputs converted from the shared premultiplied publication
+    /// contract into authored straight-RGBA math by this compiled Program.
+    let premultipliedColorInputSlots: Set<Int>
     let conditionalGeneratedRGBInputContract:
         SceneResolvedMaterialProgramDerivation
             .ConditionalGeneratedRGBInputContract?
@@ -43,6 +46,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         ],
         preservedAlphaRGBColorSlots: Set<Int>,
         sourceProvenOpaqueColorSlots: Set<Int>,
+        premultipliedColorInputSlots: Set<Int> = [],
         conditionalGeneratedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
                 .ConditionalGeneratedRGBInputContract?,
@@ -65,6 +69,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.graphInputSourceSlotFacts = graphInputSourceSlotFacts
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots
+        self.premultipliedColorInputSlots = premultipliedColorInputSlots
         self.conditionalGeneratedRGBInputContract =
             conditionalGeneratedRGBInputContract
         self.sameAlphaReconstructedRGBInputContract =

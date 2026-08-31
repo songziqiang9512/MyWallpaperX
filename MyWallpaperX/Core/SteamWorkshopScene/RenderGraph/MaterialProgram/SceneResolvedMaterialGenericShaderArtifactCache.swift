@@ -208,6 +208,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         activeTextureSlots: Set<Int> = [],
         activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
+        premultipliedColorAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
@@ -332,6 +333,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            premultipliedColorAuxiliarySlots:
+                premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendSourceSlot,
             spatialWeightedColorBlendActiveSlots:
@@ -391,11 +394,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     || profile
                         == .sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary
         )
-        let premultipliedColorInputSlots = Set(
-            profile == .providerBackedGraphInputSpatialWeightedColorBlend
-                ? spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
-                : []
-        )
+        let premultipliedColorInputSlots: Set<Int> = switch profile {
+        case .providerBackedGraphInputSpatialWeightedColorBlend:
+            spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+        case .sourceProvenGraphInputOverlayAlphaBlend,
+             .sourceProvenGraphInputAssociatedOverBlend:
+            premultipliedColorAuxiliarySlots
+        default:
+            []
+        }
         let key = SceneResolvedMaterialGenericShaderRequest.key(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,

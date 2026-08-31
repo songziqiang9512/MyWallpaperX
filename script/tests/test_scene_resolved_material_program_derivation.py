@@ -1025,16 +1025,24 @@ private enum Harness {
                 SceneNamedTextureReference(providerLayerID: 1321, variant: .primary)
             ))
         )
-        let associatedOverNamedOverlayRejected =
+        let associatedOverNamedOverlayProjection =
             SceneResolvedMaterialProgramDerivation.resolveColor(
                 transfer: .straightAlpha(textureSlot: 0),
                 textureSlots: slots(firstSlot, namedOverlay),
-                associatedOverOverlaySlot: 1
-            ) == nil
+                associatedOverOverlaySlot: 1,
+                premultipliedColorInputSlots: [1]
+            )
         let associatedOverColorOverlayWithoutFactRejected =
             SceneResolvedMaterialProgramDerivation.resolveColor(
                 transfer: .straightAlpha(textureSlot: 0),
                 textureSlots: slots(firstSlot, namedOverlay)
+            ) == nil
+        let associatedOverColorOverlayWrongSlotRejected =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .straightAlpha(textureSlot: 0),
+                textureSlots: slots(firstSlot, namedOverlay),
+                associatedOverOverlaySlot: 1,
+                premultipliedColorInputSlots: [2]
             ) == nil
 
         let results: [String: Bool] = [
@@ -1159,10 +1167,15 @@ private enum Harness {
                 && interpolatedProjection?.fragmentOutput == .premultipliedAlpha,
             "interpolatedMismatchRejected": interpolatedMismatchRejected,
             "interpolatedUnsortedRejected": interpolatedUnsortedRejected,
-            "associatedOverNamedOverlayRejected":
-                associatedOverNamedOverlayRejected,
+            "associatedOverNamedOverlayAccepted":
+                associatedOverNamedOverlayProjection?.framebufferInput
+                    == .premultipliedAlpha
+                && associatedOverNamedOverlayProjection?.fragmentOutput
+                    == .premultipliedAlpha,
             "associatedOverColorOverlayWithoutFactRejected":
                 associatedOverColorOverlayWithoutFactRejected,
+            "associatedOverColorOverlayWrongSlotRejected":
+                associatedOverColorOverlayWrongSlotRejected,
             "metalKeyDerived": baseline.metalCompileStateKey(
                 attachmentPixelFormat: .bgra8Unorm,
                 sampleCount: 1,

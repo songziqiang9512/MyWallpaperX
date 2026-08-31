@@ -106,7 +106,15 @@ nonisolated struct SceneDependencyRenderPlan {
         for binding in bindingsByConsumerLayerID.values
         where available.contains(binding.providerLayerID)
             && available.contains(binding.consumerLayerID)
-            && binding.providerLayerID != binding.consumerLayerID {
+            && binding.providerLayerID != binding.consumerLayerID
+            && requiredGraphOutputProviderLayerIDs.contains(
+                binding.providerLayerID
+            ) {
+            // Only an effectful provider owns an earlier graph transaction.
+            // A static forward provider is captured by the renderer prepass;
+            // moving its consumer in this ledger would diverge from authored
+            // compositor consumption order and make safe predecessors appear
+            // unconsumed.
             if successors[binding.providerLayerID, default: []]
                 .insert(binding.consumerLayerID).inserted {
                 indegree[binding.consumerLayerID, default: 0] += 1

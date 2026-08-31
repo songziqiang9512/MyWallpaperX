@@ -73,12 +73,15 @@ private struct Output: Codable {
     let graphOverlayRouteProfile: String
     let routeState: String
     let namedProviderOverlayRouteProfile: String
+    let namedProviderOverlayPremultipliedRouteProfile: String
     let extraProviderRejected: Bool
     let providerRejected: Bool
+    let wrongPremultipliedSlotRejected: Bool
     let missingGraphInputRejected: Bool
     let overlayAlpha957Accepted: Bool
     let overlayAlphaNamedProviderRouteProfile: String
     let overlayAlpha957NamedProviderRouteProfile: String
+    let overlayAlphaNamedProviderLoweringUnpremultipliesOverlay: Bool
     let overlayAlphaTypedStaticRouteProfile: String
     let overlayAlphaLoweringAccepted: Bool
     let overlayAlphaLoweringLeavesOverlayData: Bool
@@ -224,12 +227,20 @@ private func overlayAlpha(
     ).overlayAlpha
 }
 
-private func lowered(_ msl: String, authored: String) -> String? {
+private func lowered(
+    _ msl: String,
+    authored: String,
+    premultipliedColorInputSlots: Set<Int> = []
+) -> String? {
     guard let prepared = try? SceneGenericShaderArtifactBuilder
         .prepareColorTransfer(msl: msl, authoredSource: authored) else {
         return nil
     }
-    return prepared.msl
+    guard !premultipliedColorInputSlots.isEmpty else { return prepared.msl }
+    return SceneGenericShaderArtifactBuilder.lowerPremultipliedColorInputs(
+        prepared.msl,
+        slots: premultipliedColorInputSlots
+    )
 }
 
 private func profile(
@@ -238,6 +249,7 @@ private func profile(
     graphInputs: Set<Int>,
     graphTargets: Set<Int> = [],
     typedStatic: Set<Int> = [],
+    premultipliedColor: Set<Int> = [],
     provider: Bool = false
 ) -> SceneGenericShaderCapabilityProfile {
     SceneGenericShaderCapabilityProfile(
@@ -259,6 +271,7 @@ private func profile(
         preservedAlphaRGBFilterTextureSlots: [],
         activeTextureSlots: active,
         typedStaticDataAuxiliarySlots: typedStatic,
+        premultipliedColorAuxiliarySlots: premultipliedColor,
         unitCompositeBlurredSlot: nil,
         unitCompositePreviousSlot: nil,
         hasExternalProviderTexture: provider,
@@ -532,6 +545,13 @@ private enum Harness {
                 graphInputs: [0],
                 provider: true
             ).rawValue,
+            namedProviderOverlayPremultipliedRouteProfile: profile(
+                authored: authored,
+                active: [0, 1],
+                graphInputs: [0],
+                premultipliedColor: [1],
+                provider: true
+            ).rawValue,
             extraProviderRejected: profile(
                 authored: authored,
                 active: [0, 1],
@@ -542,6 +562,13 @@ private enum Harness {
                 authored: authored,
                 active: [0, 1],
                 graphInputs: [0],
+                provider: true
+            ).rawValue != expected.rawValue,
+            wrongPremultipliedSlotRejected: profile(
+                authored: authored,
+                active: [0, 1],
+                graphInputs: [0],
+                premultipliedColor: [2],
                 provider: true
             ).rawValue != expected.rawValue,
             missingGraphInputRejected: profile(
@@ -557,14 +584,35 @@ private enum Harness {
                 authored: overlayAlphaAuthored,
                 active: [0, 1],
                 graphInputs: [0],
+                premultipliedColor: [1],
                 provider: true
             ).rawValue,
             overlayAlpha957NamedProviderRouteProfile: profile(
                 authored: writeAlphaApplyBlendingAuthored,
                 active: [0, 1],
                 graphInputs: [0],
+                premultipliedColor: [1],
                 provider: true
             ).rawValue,
+            overlayAlphaNamedProviderLoweringUnpremultipliesOverlay: lowered(
+                compilerMSL.replacingOccurrences(
+                    of: "float4 albedo = g_Texture0.sample(sourceSampler, uv);",
+                    with: "float4 carrier = g_Texture0.sample(sourceSampler, uv);"
+                ).replacingOccurrences(
+                    of: "albedo = Composite(albedo, blendColors, blendAlpha);",
+                    with: """
+                    carrier.xyz = mix(carrier.xyz, blendColors.xyz, blendAlpha);
+                        carrier.w = blendColors.w * g_AlphaMultiply;
+                    """
+                ).replacingOccurrences(
+                    of: "out.mwxFragColor = albedo;",
+                    with: "out.mwxFragColor = carrier;"
+                ),
+                authored: overlayAlphaAuthored,
+                premultipliedColorInputSlots: [1]
+            )?.contains(
+                "mwxGenericUnpremultiply(g_Texture1.sample"
+            ) == true,
             overlayAlphaTypedStaticRouteProfile: profile(
                 authored: overlayAlphaAuthored,
                 active: [0, 1],
@@ -698,15 +746,22 @@ class SceneAssociatedOverBlendTests(unittest.TestCase):
             self.result["namedProviderOverlayRouteProfile"],
             "source-proven-graph-input-associated-over-blend",
         )
+        self.assertEqual(
+            self.result["namedProviderOverlayPremultipliedRouteProfile"],
+            "source-proven-graph-input-associated-over-blend",
+        )
         self.assertEqual(self.result["routeState"], "prefer-generic")
         self.assertTrue(self.result["overlayAlpha957Accepted"])
-        self.assertNotEqual(
+        self.assertEqual(
             self.result["overlayAlphaNamedProviderRouteProfile"],
             "source-proven-graph-input-overlay-alpha-blend",
         )
-        self.assertNotEqual(
+        self.assertEqual(
             self.result["overlayAlpha957NamedProviderRouteProfile"],
             "source-proven-graph-input-overlay-alpha-blend",
+        )
+        self.assertTrue(
+            self.result["overlayAlphaNamedProviderLoweringUnpremultipliesOverlay"]
         )
         self.assertEqual(
             self.result["overlayAlphaTypedStaticRouteProfile"],
@@ -747,6 +802,7 @@ class SceneAssociatedOverBlendTests(unittest.TestCase):
             "compilerZeroProductInitializerRejected",
             "compilerWrongCarrierRejected",
             "providerRejected",
+            "wrongPremultipliedSlotRejected",
             "extraProviderRejected",
             "missingGraphInputRejected",
         ):

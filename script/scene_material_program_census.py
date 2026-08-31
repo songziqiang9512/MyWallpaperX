@@ -224,7 +224,8 @@ enum SceneResolvedMaterialProgramDerivation {
         _ input: SceneResolvedMaterialProgram.AssemblyInput,
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract? = nil
+            ConditionalGeneratedRGBInputContract? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil
     }

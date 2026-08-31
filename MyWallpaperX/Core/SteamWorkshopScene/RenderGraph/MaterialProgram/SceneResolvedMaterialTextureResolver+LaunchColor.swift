@@ -190,7 +190,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             .associatedOverOverlaySlot(
                                 fragmentSource:
                                     variant.preparedShader.fragment.source
-                            )
+                            ),
+                    premultipliedColorInputSlots:
+                        variant.premultipliedColorInputSlots
                 ) != nil
             }) else {
                 return failure(

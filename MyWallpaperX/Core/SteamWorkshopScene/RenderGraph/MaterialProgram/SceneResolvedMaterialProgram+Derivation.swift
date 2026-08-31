@@ -20,7 +20,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         _ input: Program.AssemblyInput,
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract?
+            ConditionalGeneratedRGBInputContract?,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
               uniqueAndValid(frontend.uniformLayout) else { return nil }
@@ -28,7 +29,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             input,
             frontend: frontend,
             conditionalGeneratedRGBInputContract:
-                conditionalGeneratedRGBInputContract
+                conditionalGeneratedRGBInputContract,
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
     }
 
@@ -36,7 +38,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         _ input: Program.AssemblyInput,
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
-            ConditionalGeneratedRGBInputContract?
+            ConditionalGeneratedRGBInputContract?,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
               acceptsGraphRole(
@@ -72,7 +75,9 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                     conditionalGeneratedRGBInputContract,
                   associatedOverOverlaySlot: associatedOverOverlaySlot(
                       fragmentSource: input.preparedShader.fragment.source
-                  )
+                  ),
+                  premultipliedColorInputSlots:
+                    premultipliedColorInputSlots
               ) else {
             return nil
         }
@@ -123,7 +128,8 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         textureSlots: [Program.TextureSlot?],
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract?,
-        associatedOverOverlaySlot: Int? = nil
+        associatedOverOverlaySlot: Int? = nil,
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> OutputProjection? {
         switch outputStorage {
         case .color:
@@ -132,7 +138,9 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                 textureSlots: textureSlots,
                 conditionalGeneratedRGBInputContract:
                     conditionalGeneratedRGBInputContract,
-                associatedOverOverlaySlot: associatedOverOverlaySlot
+                associatedOverOverlaySlot: associatedOverOverlaySlot,
+                premultipliedColorInputSlots:
+                    premultipliedColorInputSlots
             ) else { return nil }
             let identity = Program.ColorContractIdentity(
                 framebufferInput: SceneResolvedMaterialProgramIdentity.color(

@@ -138,6 +138,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             in: template,
             activeTextureSlots: Set(sourceActiveSamplers.keys)
         )
+        let premultipliedColorAuxiliarySlots =
+            activeExternalProviderTextureSlots
+                == activeTerminalNamedLayerProviderTextureSlots
+                ? activeTerminalNamedLayerProviderTextureSlots
+                : []
         let spatialWeightedColorBlendExternalColorSlot: Int?
         if let fact = spatialWeightedColorBlendFact,
            activeExternalProviderTextureSlots == [fact.straightColorSlot],
@@ -293,6 +298,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            premultipliedColorAuxiliarySlots:
+                premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
                 spatialWeightedColorBlendFact?.sourceSlot,
             spatialWeightedColorBlendActiveSlots:
@@ -320,6 +327,20 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             outputSemantics: outputSemantics,
             runtimeLoopBounds: runtimeLoopBounds
         )
+        let premultipliedInputSlotsForProfile: (String) -> Set<Int> = { profile in
+            switch profile {
+            case SceneGenericShaderCapabilityProfile
+                .providerBackedGraphInputSpatialWeightedColorBlend.rawValue:
+                spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
+            case SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
+                 SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputAssociatedOverBlend.rawValue:
+                premultipliedColorAuxiliarySlots
+            default:
+                []
+            }
+        }
         let frontend: SceneAuthoredShaderProgram
         let routeDecision:
             SceneGenericShaderRouteDecision
@@ -376,12 +397,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 runtimeLoopBounds: runtimeLoopBounds,
                 provenColorTransfer: sourceColorTransfer,
                 premultipliedColorInputSlots:
-                    decision.profile == SceneGenericShaderCapabilityProfile
-                        .providerBackedGraphInputSpatialWeightedColorBlend.rawValue
-                        ? spatialWeightedColorBlendExternalColorSlot.map {
-                            Set([$0])
-                        } ?? []
-                        : []
+                    premultipliedInputSlotsForProfile(decision.profile)
             )
             guard output.diagnostics.isEmpty,
                   let bounded = output.program else {
@@ -525,6 +541,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             graphInputSourceSlotFacts: graphInputFacts,
             preservedAlphaRGBColorSlots: preservedAlphaRGBColorSlots,
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
+            premultipliedColorInputSlots:
+                premultipliedInputSlotsForProfile(routeDecision.profile),
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             sameAlphaReconstructedRGBInputContract:

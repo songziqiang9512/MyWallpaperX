@@ -154,6 +154,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         activeTextureSlots: Set<Int> = [],
         activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
+        premultipliedColorAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
@@ -464,8 +465,13 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   overlayAlphaBlendSourceSlot == sourceSlot,
                   let overlaySlot = overlayAlphaBlendAuxiliarySlot,
                   overlaySlot != sourceSlot,
-                  typedStaticDataAuxiliarySlots == Set([overlaySlot]),
-                  !hasExternalProviderTexture,
+                  activeTextureSlots == Set([sourceSlot, overlaySlot]),
+                  ((typedStaticDataAuxiliarySlots == Set([overlaySlot])
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && !hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && premultipliedColorAuxiliarySlots == Set([overlaySlot])
+                      && hasExternalProviderTexture)),
                   !producesScalarRedOutput,
                   graphTextureSlots.isEmpty,
                   graphInputTextureSlots == Set([sourceSlot]) {
@@ -475,8 +481,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   let overlaySlot = associatedOverBlendOverlaySlot,
                   overlaySlot != sourceSlot,
                   activeTextureSlots == Set([sourceSlot, overlaySlot]),
-                  typedStaticDataAuxiliarySlots == Set([overlaySlot]),
-                  !hasExternalProviderTexture,
+                  ((typedStaticDataAuxiliarySlots == Set([overlaySlot])
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && !hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && premultipliedColorAuxiliarySlots == Set([overlaySlot])
+                      && hasExternalProviderTexture)),
                   !producesScalarRedOutput,
                   graphTextureSlots.isEmpty,
                   graphInputTextureSlots == Set([sourceSlot]) {

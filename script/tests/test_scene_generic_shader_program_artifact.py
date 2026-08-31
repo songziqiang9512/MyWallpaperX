@@ -213,6 +213,17 @@ private struct ConditionalStraightBuilderOutput: Codable {
     let helperConflictRejected: Bool
 }
 
+private struct CompilerSpilledOverlayBuilderOutput: Codable {
+    let positiveKind: String?
+    let sourceSampleUnpremultiplied: Bool
+    let providerSampleUnpremultiplied: Bool
+    let outputPremultiplied: Bool
+    let swappedInputRejected: Bool
+    let wrongComponentRejected: Bool
+    let zeroWeightRejected: Bool
+    let hiddenSampleRejected: Bool
+}
+
 private struct PositionInputOutput: Codable {
     let directUsesClipSpace: Bool
     let directAvoidsTargetPixels: Bool
@@ -2507,6 +2518,117 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--builder-compiler-spilled-overlay" {
+            let reflection = Data(#"{"types":{"_1":{"members":[{"name":"g_Multiply","type":"float","offset":0},{"name":"g_AlphaMultiply","type":"float","offset":4},{"name":"mwxTexture0Transform0","type":"vec4","offset":16},{"name":"mwxTexture0Transform1","type":"vec4","offset":32},{"name":"mwxTexture1Transform0","type":"vec4","offset":48},{"name":"mwxTexture1Transform1","type":"vec4","offset":64}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture1","binding":1}]}"#.utf8)
+            let vertexMSL = "struct MWXUniforms { float g_Multiply; float g_AlphaMultiply; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };"
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "uniform sampler2D g_Texture1;",
+                "uniform float g_Multiply;",
+                "uniform float g_AlphaMultiply;",
+                "varying vec4 v_TexCoord;",
+                "vec3 ApplyBlending(const int mode, in vec3 base, in vec3 blend, in float opacity) {",
+                "    return mix(base, blend, opacity);",
+                "}",
+                "void main() {",
+                "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord.xy);",
+                "    vec4 blendColors = texSample2D(g_Texture1, v_TexCoord.zw);",
+                "    float blendAlpha = g_Multiply * blendColors.a;",
+                "    albedo.rgb = ApplyBlending(0, albedo.rgb, blendColors.rgb, blendAlpha);",
+                "    albedo.a = blendColors.a * g_AlphaMultiply;",
+                "    gl_FragColor = albedo;",
+                "}",
+            ].joined(separator: "\n")
+            let fragmentMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float g_Multiply; float g_AlphaMultiply; float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; float4 mwxTexture1Transform0; float4 mwxTexture1Transform1; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f(constant MWXUniforms& uniforms, texture2d<float> g_Texture0, texture2d<float> g_Texture1) {",
+                "    Output out;",
+                "    float4 albedo = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 blendColors = g_Texture1.sample(blendSampler, blendUV);",
+                "    float blendAlpha = uniforms.g_Multiply * blendColors.w;",
+                "    float3 param_3 = albedo.xyz;",
+                "    float3 param_4 = blendColors.xyz;",
+                "    float param_5 = blendAlpha;",
+                "    float3 _141 = ApplyBlending(0, param_3, param_4, param_5);",
+                "    albedo.x = _141.x;",
+                "    albedo.y = _141.y;",
+                "    albedo.z = _141.z;",
+                "    albedo.w = blendColors.w * uniforms.g_AlphaMultiply;",
+                "    out.mwxFragColor = albedo;",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            func build(_ msl: String) -> Result<
+                SceneGenericShaderProgramArtifact,
+                SceneGenericShaderArtifactBuilder.Failure
+            > {
+                SceneGenericShaderArtifactBuilder.build(
+                    requestKey: String(repeating: "f", count: 64),
+                    backendID: "glslang-spirv-cross-msl-v2",
+                    premultipliedColorInputSlots: [1],
+                    stages: [
+                        .init(
+                            name: "vertex", source: "void main() {}",
+                            authoredSource: "void main() {}",
+                            msl: vertexMSL, reflection: reflection
+                        ),
+                        .init(
+                            name: "fragment", source: authored,
+                            authoredSource: authored,
+                            msl: msl, reflection: reflection
+                        ),
+                    ],
+                    maximumArtifactBytes: 1_024_000
+                )
+            }
+            let positive: SceneGenericShaderProgramArtifact?
+            switch build(fragmentMSL) {
+            case let .success(artifact): positive = artifact
+            case .failure: positive = nil
+            }
+            let metal = positive?.program.metalSource ?? ""
+            let output = CompilerSpilledOverlayBuilderOutput(
+                positiveKind: positive?.program.colorTransfer.kind,
+                sourceSampleUnpremultiplied: metal.contains(
+                    "mwxGenericUnpremultiply(g_Texture0.sample(sourceSampler, uv))"
+                ),
+                providerSampleUnpremultiplied: metal.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample(blendSampler, blendUV))"
+                ),
+                outputPremultiplied: metal.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(albedo);"
+                ),
+                swappedInputRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "ApplyBlending(0, param_3, param_4, param_5)",
+                        with: "ApplyBlending(0, param_4, param_3, param_5)"
+                    )
+                )),
+                wrongComponentRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "albedo.z = _141.z;",
+                        with: "albedo.z = _141.y;"
+                    )
+                )),
+                zeroWeightRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "float blendAlpha = uniforms.g_Multiply * blendColors.w;",
+                        with: "float blendAlpha = 0.0;"
+                    )
+                )),
+                hiddenSampleRejected: failedColorTransfer(build(
+                    fragmentMSL.replacingOccurrences(
+                        of: "    return out;",
+                        with: "    float4 hidden = g_Texture1.sample(blendSampler, uv);\n    return out;"
+                    )
+                ))
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--builder-conditional-straight" {
             let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16}]}},"ubos":[{"type":"_1","block_size":32,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0}]}"#.utf8)
             let vertexMSL = "struct MWXUniforms { float4 mwxTexture0Transform0; float4 mwxTexture0Transform1; };"
@@ -2694,6 +2816,11 @@ private struct GenericShaderArtifactHarness {
             typedStaticDataAuxiliarySlots: Set(
                 (ProcessInfo.processInfo.environment[
                     "MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS"
+                ] ?? "").split(separator: ",").compactMap { Int($0) }
+            ),
+            premultipliedColorAuxiliarySlots: Set(
+                (ProcessInfo.processInfo.environment[
+                    "MWX_TEST_PREMULTIPLIED_COLOR_AUXILIARY_SLOTS"
                 ] ?? "").split(separator: ",").compactMap { Int($0) }
             ),
             spatialWeightedColorBlendSourceSlot:
@@ -3534,6 +3661,7 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
         active_slots: tuple[int, ...] = (),
         active_opacity_mask_slots: tuple[int, ...] = (),
         typed_static_data_auxiliary_slots: tuple[int, ...] = (),
+        premultiplied_color_auxiliary_slots: tuple[int, ...] = (),
         spatial_weighted_source_slot: int | None = None,
         spatial_weighted_active_slots: tuple[int, ...] = (),
         spatial_weighted_typed_auxiliary_slots: tuple[int, ...] = (),
@@ -3619,6 +3747,14 @@ class SceneGenericShaderProgramArtifactTests(unittest.TestCase):
             )
         else:
             environment.pop("MWX_TEST_TYPED_STATIC_DATA_AUXILIARY_SLOTS", None)
+        if premultiplied_color_auxiliary_slots:
+            environment[
+                "MWX_TEST_PREMULTIPLIED_COLOR_AUXILIARY_SLOTS"
+            ] = ",".join(map(str, premultiplied_color_auxiliary_slots))
+        else:
+            environment.pop(
+                "MWX_TEST_PREMULTIPLIED_COLOR_AUXILIARY_SLOTS", None
+            )
         if spatial_weighted_source_slot is not None:
             environment["MWX_TEST_SPATIAL_WEIGHTED_SOURCE_SLOT"] = str(
                 spatial_weighted_source_slot
@@ -4208,6 +4344,25 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "wrongAlphaWriteRejected": True,
             "outputReadRejected": True,
             "helperConflictRejected": True,
+        })
+
+    def test_product_builder_lowers_compiler_spilled_provider_overlay(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-compiler-spilled-overlay"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "positiveKind": "straight-alpha",
+            "sourceSampleUnpremultiplied": True,
+            "providerSampleUnpremultiplied": True,
+            "outputPremultiplied": True,
+            "swappedInputRejected": True,
+            "wrongComponentRejected": True,
+            "zeroWeightRejected": True,
+            "hiddenSampleRejected": True,
         })
 
     def test_product_normalizer_reuses_typed_mix_vector_narrowing(self):
@@ -6402,6 +6557,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         profile = "source-proven-graph-input-overlay-alpha-blend"
         facts = {
             "graph_input_slots": (0,),
+            "active_slots": (0, 1),
             "typed_static_data_auxiliary_slots": (1,),
         }
         with tempfile.TemporaryDirectory(
@@ -6470,6 +6626,71 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 rollback_log,
             )
 
+            provider_facts = {
+                "has_external_provider": True,
+                "graph_input_slots": (0,),
+                "active_slots": (0, 1),
+                "premultiplied_color_auxiliary_slots": (1,),
+            }
+            provider_observed, requests, _, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **provider_facts,
+            )
+            self.assertEqual(provider_observed["routeProfile"], profile)
+            self.assertNotEqual(
+                provider_observed["requestKey"], observed["requestKey"]
+            )
+            request = json.loads(
+                (
+                    requests / f"{provider_observed['requestKey']}.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(request["premultipliedColorInputSlots"], [1])
+            provider_artifact = self.artifact(
+                provider_observed["requestKey"],
+                color_transfer="straight-alpha",
+                auxiliary_channel_use="unproven",
+                premultiplied_color_input_slots=(1,),
+            )
+            provider_artifact_path = (
+                cache / f"{provider_observed['requestKey']}.json"
+            )
+            provider_artifact_path.write_text(
+                json.dumps(provider_artifact), encoding="utf-8"
+            )
+            provider_accepted, _, _, provider_log = self.run_harness(
+                root,
+                route=None,
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **provider_facts,
+            )
+            self.assertEqual(provider_accepted["status"], "accepted")
+            self.assertEqual(
+                provider_accepted["backend"], "genericCompilerArtifact"
+            )
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                provider_log,
+            )
+
+            provider_artifact["program"]["premultipliedColorInputSlots"] = []
+            provider_artifact_path.write_text(
+                json.dumps(provider_artifact), encoding="utf-8"
+            )
+            mismatched, _, _, mismatch_log = self.run_harness(
+                root,
+                route=None,
+                fragment=OVERLAY_ALPHA_BLEND_FRAGMENT,
+                **provider_facts,
+            )
+            self.assertEqual(mismatched["code"], "artifact-contract-rejected")
+            self.assertIn(
+                f"profile={profile} outcome=shared-backend-fallback ",
+                mismatch_log,
+            )
+
     def test_overlay_alpha_blend_profile_stays_structurally_narrow(self):
         profile = "source-proven-graph-input-overlay-alpha-blend"
         cases = [
@@ -6480,6 +6701,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 ),
                 {
                     "graph_input_slots": (0,),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (1,),
                 },
             ),
@@ -6490,6 +6712,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 ),
                 {
                     "graph_input_slots": (0,),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (1,),
                 },
             ),
@@ -6497,6 +6720,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 OVERLAY_ALPHA_BLEND_FRAGMENT,
                 {
                     "graph_input_slots": (0, 1),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (1,),
                 },
             ),
@@ -6504,6 +6728,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 OVERLAY_ALPHA_BLEND_FRAGMENT,
                 {
                     "graph_input_slots": (0,),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (1,),
                     "has_external_provider": True,
                 },
@@ -6513,6 +6738,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 OVERLAY_ALPHA_BLEND_FRAGMENT,
                 {
                     "graph_input_slots": (0,),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (2,),
                 },
             ),
@@ -6520,6 +6746,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
                 OVERLAY_ALPHA_BLEND_FRAGMENT,
                 {
                     "graph_input_slots": (0,),
+                    "active_slots": (0, 1),
                     "typed_static_data_auxiliary_slots": (1, 2),
                 },
             ),

@@ -408,10 +408,17 @@ enum Harness {
         let brokenNestedImageBlend = nestedImageBlendPlan(
             middleDependencyMismatch: true
         )
-        let forwardPreparation = forwardEffectfulPreparationPlan()
+        let forwardPreparation = forwardPreparationPlan()
         let forwardPreparationOrder = forwardPreparation.plan
             .resolvedMaterialPreparationOrder(
                 authoredLayerIDs: forwardPreparation.authoredLayerIDs
+            )
+        let forwardStaticPreparation = forwardPreparationPlan(
+            providerEffectful: false
+        )
+        let forwardStaticPreparationOrder = forwardStaticPreparation.plan
+            .resolvedMaterialPreparationOrder(
+                authoredLayerIDs: forwardStaticPreparation.authoredLayerIDs
             )
         let result: [String: Any] = [
             "parsedVariants": parsed,
@@ -593,6 +600,10 @@ enum Harness {
                         authoredLayerIDs:
                             forwardPreparation.authoredLayerIDs + [900]
                     ) == nil,
+            ],
+            "forwardStaticPreparationOrder": [
+                "authored": forwardStaticPreparation.authoredLayerIDs,
+                "prepared": forwardStaticPreparationOrder ?? [],
             ],
             "transformedImageBlendBinding": [
                 "provider": transformedImageBlend?.providerLayerID ?? -1,
@@ -1265,7 +1276,9 @@ enum Harness {
         )
     }
 
-    static func forwardEffectfulPreparationPlan() -> (
+    static func forwardPreparationPlan(
+        providerEffectful: Bool = true
+    ) -> (
         plan: SceneDependencyRenderPlan,
         authoredLayerIDs: [Int]
     ) {
@@ -1278,12 +1291,12 @@ enum Harness {
             dependencyLayerIDs: [],
             childLayerIDs: [],
             visible: false,
-            effects: [.init(
+            effects: providerEffectful ? [.init(
                 id: "provider-effect",
                 file: "effects/tint/effect.json",
                 visible: true,
                 passes: []
-            )]
+            )] : []
         )
         let reference = "_rt_imageLayerComposite_\(providerID)_a"
         let consumer = SceneRenderDescriptor.Layer(
@@ -1722,6 +1735,13 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "authored": [800, 301, 850, 300, 900],
                 "prepared": [300, 800, 301, 850, 900],
                 "duplicateRejected": True,
+            },
+        )
+        self.assertEqual(
+            self.result["forwardStaticPreparationOrder"],
+            {
+                "authored": [800, 301, 850, 300, 900],
+                "prepared": [800, 301, 850, 300, 900],
             },
         )
         self.assertEqual(

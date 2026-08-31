@@ -36,7 +36,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             source,
             sourceSlot: sourceSlot,
             overlaySlot: overlaySlot,
-            blendFunctions: ["mix", "lerp"],
+            blendFunctions: ["ApplyBlending", "mix", "lerp"],
             blendWeight: nil,
             blendWeightUniform: nil,
             requiresOverlayAlphaWrite: true
@@ -110,7 +110,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             max(sourceRange.upperBound, overlayRange.upperBound)
                 ..< outputRange.lowerBound
         ])
-        guard hasBlendUpdate(
+        guard (hasBlendUpdate(
                   sourceCarrier: sourceCarrier,
                   overlayCarrier: overlayCarrier,
                   blendFunctions: blendFunctions,
@@ -118,7 +118,12 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
                   blendWeightUniform: blendWeightUniform,
                   requiresOverlayAlphaWrite: requiresOverlayAlphaWrite,
                   in: operationBody
-              ),
+              ) || (requiresOverlayAlphaWrite && hasCompilerSpilledBlendUpdate(
+                  sourceCarrier: sourceCarrier,
+                  overlayCarrier: overlayCarrier,
+                  blendFunctions: blendFunctions,
+                  in: operationBody
+              ))),
               matches(#"\b(?:discard|discard_fragment)\b"#, in: source).isEmpty
         else { return nil }
 
@@ -137,6 +142,78 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         )
         return SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed)
+    }
+
+    /// SPIRV-Cross preserves some authored float3 helper calls by spilling the
+    /// two RGB inputs and scalar weight, then writing the returned vector back
+    /// one component at a time. Accept only that exact, straight-line shape.
+    private static func hasCompilerSpilledBlendUpdate(
+        sourceCarrier: String,
+        overlayCarrier: String,
+        blendFunctions: Set<String>,
+        in source: String
+    ) -> Bool {
+        let sourceName = escaped(sourceCarrier)
+        let overlayName = escaped(overlayCarrier)
+        let functions = blendFunctions.sorted().map(escaped).joined(separator: "|")
+        let pattern = #"(?m)^[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
+            + sourceName + #"\.(?:rgb|xyz)\s*;[ \t]*\n"#
+            + #"[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*"#
+            + overlayName + #"\.(?:rgb|xyz)\s*;[ \t]*\n"#
+            + #"[ \t]*float\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*\n"#
+            + #"[ \t]*float3\s+([A-Za-z_]\w*)\s*=\s*("#
+            + functions + #")\s*\(\s*0\s*,\s*\1\s*,\s*\2\s*,\s*\3\s*\)\s*;[ \t]*\n"#
+            + #"[ \t]*"# + sourceName + #"\.x\s*=\s*\5\.x\s*;[ \t]*\n"#
+            + #"[ \t]*"# + sourceName + #"\.y\s*=\s*\5\.y\s*;[ \t]*\n"#
+            + #"[ \t]*"# + sourceName + #"\.z\s*=\s*\5\.z\s*;[ \t]*$"#
+        let updates = matches(pattern, in: source)
+        guard updates.count == 1, let update = updates.first,
+              let sourceAlias = capture(update, 1, in: source),
+              let overlayAlias = capture(update, 2, in: source),
+              let weightAlias = capture(update, 3, in: source),
+              let weight = capture(update, 4, in: source),
+              let result = capture(update, 5, in: source),
+              Set([sourceAlias, overlayAlias, weightAlias, weight, result]).count == 5,
+              wordUseCount(sourceAlias, in: source) == 2,
+              wordUseCount(overlayAlias, in: source) == 2,
+              wordUseCount(weightAlias, in: source) == 2,
+              wordUseCount(result, in: source) == 4,
+              assignmentCount(to: weight, in: source) == 1,
+              weightInitializerIsSafe(
+                  initializerForScalar(weight, in: source) ?? "",
+                  expectedUniform: nil
+              ),
+              componentAssignmentCount(to: sourceCarrier, in: source) == 4
+        else { return false }
+        return true
+    }
+
+    private static func wordUseCount(_ word: String, in source: String) -> Int {
+        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
+    }
+
+    private static func initializerForScalar(
+        _ name: String,
+        in source: String
+    ) -> String? {
+        let definitions = matches(
+            #"(?m)^[ \t]*(?:const[ \t]+)?(?:float|half)[ \t]+"#
+                + escaped(name) + #"\s*=\s*([^;\n]+);[ \t]*$"#,
+            in: source
+        )
+        guard definitions.count == 1 else { return nil }
+        return capture(definitions[0], 1, in: source)
+    }
+
+    private static func componentAssignmentCount(
+        to name: String,
+        in source: String
+    ) -> Int {
+        matches(
+            #"(?m)^[ \t]*"# + escaped(name)
+                + #"\.(?:x|y|z|w|r|g|b|a)\s*=\s*[^;\n]+;[ \t]*$"#,
+            in: source
+        ).count
     }
 
     private static func containsWord(_ word: String, in source: String) -> Bool {
