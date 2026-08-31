@@ -41,6 +41,14 @@ SPOT_LIGHT_RUNTIME = (
     / "Rendering"
     / "SceneSpotLightRuntime.swift"
 )
+PREPARED_DEVICE_RESOURCES = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Runtime"
+    / "ScenePreparedDeviceResources.swift"
+)
 
 
 def function_body(source: str, signature: str) -> str:
@@ -66,6 +74,9 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.debug_runner = DEBUG_RUNNER.read_text(encoding="utf-8")
         cls.inspection = INSPECTION.read_text(encoding="utf-8")
         cls.spot_light_runtime = SPOT_LIGHT_RUNTIME.read_text(encoding="utf-8")
+        cls.prepared_device_resources = PREPARED_DEVICE_RESOURCES.read_text(
+            encoding="utf-8"
+        )
 
     def test_product_request_uses_background_preparation_entrypoint(self) -> None:
         observer = function_body(
@@ -138,6 +149,26 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             ),
             2,
         )
+
+    def test_first_surface_runtime_warmup_overlaps_program_compilation(self) -> None:
+        prepare = function_body(self.launch, "private static func prepareLaunch(")
+        make_runtime = function_body(
+            self.launch, "func makeResolvedMaterialRuntime()"
+        )
+        self.assertIn("ScenePreparedFirstSurfaceRuntimeTask(", prepare)
+        self.assertIn("firstSurfaceRuntimePreparation.start()", prepare)
+        self.assertIn("firstSurfaceRuntimePreparation.value()", prepare)
+        self.assertLess(
+            prepare.index("firstSurfaceRuntimePreparation.start()"),
+            prepare.index("SceneScriptQuickJSProgramCandidate.compile("),
+        )
+        self.assertIn("preparedFirstSurfaceRuntime.take() ?? .init(", make_runtime)
+        self.assertIn(
+            "final class ScenePreparedFirstSurfaceRuntime",
+            self.prepared_device_resources,
+        )
+        self.assertIn("private let lock = NSLock()", self.prepared_device_resources)
+        self.assertIn("runtime = nil", self.prepared_device_resources)
 
     def test_optional_spot_light_pipeline_is_not_built_without_authored_plans(self) -> None:
         self.assertIn(

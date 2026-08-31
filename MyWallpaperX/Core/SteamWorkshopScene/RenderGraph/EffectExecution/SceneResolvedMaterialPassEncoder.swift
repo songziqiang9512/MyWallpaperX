@@ -410,8 +410,34 @@ final class SceneResolvedMaterialPassEncoder {
             }
         }
         compilationAttempts += 1
+        switch compileUncachedPipeline(
+            frontend: frontend,
+            renderState: renderState,
+            pixelFormat: pixelFormat,
+            sampleCount: sampleCount,
+            writeMask: writeMask
+        ) {
+        case let .success(pipeline):
+            entries[key] = .ready(pipeline, origin: origin)
+            return .success((pipeline, resetGeneration, origin))
+        case let .failure(failure):
+            return cacheFailure(failure, for: key, origin: origin)
+        }
+    }
+
+    /// Creates one immutable pipeline without touching cache or generation
+    /// state. Ordinary frame preparation calls this under `lock`; launch
+    /// warmup may call it concurrently for already-deduplicated keys before
+    /// the owning graph executor is published.
+    func compileUncachedPipeline(
+        frontend: SceneAuthoredShaderProgram,
+        renderState: SceneMaterialRenderState,
+        pixelFormat: MTLPixelFormat,
+        sampleCount: Int,
+        writeMask: MTLColorWriteMask
+    ) -> Result<MTLRenderPipelineState, PreparationFailure> {
         guard renderState.supportsResolvedMaterialFullscreenOverwrite else {
-            return cacheFailure(.renderStateRejected, for: key, origin: origin)
+            return .failure(.renderStateRejected)
         }
         let library: MTLLibrary
         do {
@@ -424,17 +450,17 @@ final class SceneResolvedMaterialPassEncoder {
                 diagnostic: String(describing: error)
             )
             NSLog("MWX resolved material Metal library rejection: %@", String(describing: error))
-            return cacheFailure(failure, for: key, origin: origin)
+            return .failure(failure)
         }
         guard let vertex = library.makeFunction(
             name: frontend.vertexFunctionName
         ) else {
-            return cacheFailure(.vertexFunctionRejected, for: key, origin: origin)
+            return .failure(.vertexFunctionRejected)
         }
         guard let fragment = library.makeFunction(
             name: frontend.fragmentFunctionName
         ) else {
-            return cacheFailure(.fragmentFunctionRejected, for: key, origin: origin)
+            return .failure(.fragmentFunctionRejected)
         }
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Scene resolved material pass"
@@ -445,15 +471,15 @@ final class SceneResolvedMaterialPassEncoder {
         descriptor.colorAttachments[0].isBlendingEnabled = false
         descriptor.colorAttachments[0].writeMask = writeMask
         do {
-            let pipeline = try device.makeRenderPipelineState(descriptor: descriptor)
-            entries[key] = .ready(pipeline, origin: origin)
-            return .success((pipeline, resetGeneration, origin))
+            return .success(try device.makeRenderPipelineState(
+                descriptor: descriptor
+            ))
         } catch {
             let failure = PreparationFailure.pipelineCompilationRejected(
                 diagnostic: String(describing: error)
             )
             NSLog("MWX resolved material Metal pipeline rejection: %@", String(describing: error))
-            return cacheFailure(failure, for: key, origin: origin)
+            return .failure(failure)
         }
     }
 

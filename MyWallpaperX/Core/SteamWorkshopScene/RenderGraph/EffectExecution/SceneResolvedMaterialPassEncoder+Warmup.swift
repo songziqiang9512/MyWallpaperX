@@ -82,40 +82,81 @@ extension SceneResolvedMaterialPassEncoder {
     func warmup(_ plans: [WarmupPlan]) -> WarmupReport {
         let attemptsBefore = pipelineCompilationAttemptCount
         var visited = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
-        var ready = 0
-        var failures: [WarmupReport.Failure] = []
-        for plan in plans.sorted(by: {
+        let uniquePlans = plans.sorted(by: {
             if $0.identity != $1.identity { return $0.identity < $1.identity }
             return $0.preparedKey < $1.preparedKey
-        }) where visited.insert(plan.key).inserted {
-            switch pipeline(
-                for: plan.key,
-                frontend: plan.frontend,
-                renderState: plan.renderState,
-                pixelFormat: plan.pixelFormat,
-                sampleCount: plan.sampleCount,
-                writeMask: plan.writeMask,
-                origin: .launchWarmup
-            ) {
-            case .success:
-                ready += 1
-            case let .failure(failure):
-                failures.append(.init(
-                    identity: plan.identity,
-                    preparedKey: plan.preparedKey,
-                    reasonCode: failure.code
-                ))
+        }).filter { visited.insert($0.key).inserted }
+        let outcomesLock = NSLock()
+        var failuresByIndex: [Int: PreparationFailure] = [:]
+        let workerCount = min(uniquePlans.count, 4)
+        if workerCount > 0 {
+            DispatchQueue.concurrentPerform(iterations: workerCount) { worker in
+                for index in stride(
+                    from: worker,
+                    to: uniquePlans.count,
+                    by: workerCount
+                ) {
+                    let plan = uniquePlans[index]
+                    if let failure = warmupPipeline(plan) {
+                        outcomesLock.lock()
+                        failuresByIndex[index] = failure
+                        outcomesLock.unlock()
+                    }
+                }
             }
+        }
+        let failures = failuresByIndex.keys.sorted().map { index in
+            let plan = uniquePlans[index]
+            return WarmupReport.Failure(
+                identity: plan.identity,
+                preparedKey: plan.preparedKey,
+                reasonCode: failuresByIndex[index]!.code
+            )
         }
         return .init(
             plannedPlanCount: plans.count,
             uniqueKeyCount: visited.count,
-            readyKeyCount: ready,
+            readyKeyCount: uniquePlans.count - failures.count,
             failedKeyCount: failures.count,
             compilationAttemptCount:
                 pipelineCompilationAttemptCount - attemptsBefore,
             failures: failures
         )
+    }
+
+    /// Warmup runs only from `SceneResolvedMaterialGraphExecutor.init`, before
+    /// the encoder can escape to a frame. Unique compile keys therefore may be
+    /// compiled concurrently, then published under the ordinary cache lock.
+    private func warmupPipeline(_ plan: WarmupPlan) -> PreparationFailure? {
+        lock.lock()
+        if let existing = entries[plan.key] {
+            lock.unlock()
+            switch existing {
+            case .ready: return nil
+            case let .failed(failure, _): return failure
+            }
+        }
+        compilationAttempts += 1
+        lock.unlock()
+
+        let result = compileUncachedPipeline(
+            frontend: plan.frontend,
+            renderState: plan.renderState,
+            pixelFormat: plan.pixelFormat,
+            sampleCount: plan.sampleCount,
+            writeMask: plan.writeMask
+        )
+        lock.lock()
+        defer { lock.unlock() }
+        switch result {
+        case let .success(pipeline):
+            entries[plan.key] = .ready(pipeline, origin: .launchWarmup)
+            return nil
+        case let .failure(failure):
+            entries[plan.key] = .failed(failure, origin: .launchWarmup)
+            failedPipelines += 1
+            return failure
+        }
     }
 
     func recordLaunchWarmupConsumption(

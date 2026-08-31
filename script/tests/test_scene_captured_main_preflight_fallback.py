@@ -49,10 +49,8 @@ def load_bridge_fixture_module():
 def augmented_harness(source: str) -> str:
     replacements = {
         (
-            '        case unavailable = "fixture-preflight-unavailable"\n'
             "        var isColorContractVisualRejection: Bool { false }"
         ): (
-            '        case unavailable = "fixture-preflight-unavailable"\n'
             "        case colorContractVisual =\n"
             '            "fixture-finalizer-color-colorContractUnproven"\n'
             "        var isColorContractVisualRejection: Bool {\n"

@@ -207,3 +207,104 @@ final class ScenePreparedDeviceResourcesTask {
         try externalCancellationCheck()
     }
 }
+
+/// Prepares exactly one surface-scoped resolved-material runtime while the
+/// launch worker continues compiling SceneScript Programs. The prepared
+/// runtime is consumed by the first surface only; later displays still receive
+/// independent graph/history/epoch owners.
+final class ScenePreparedFirstSurfaceRuntime {
+    private let lock = NSLock()
+    private var runtime: SceneResolvedMaterialRuntimeBridge?
+
+    init(_ runtime: SceneResolvedMaterialRuntimeBridge) {
+        self.runtime = runtime
+    }
+
+    func take() -> SceneResolvedMaterialRuntimeBridge? {
+        lock.lock()
+        defer { lock.unlock() }
+        let value = runtime
+        runtime = nil
+        return value
+    }
+}
+
+/// Bounded launch worker for the first surface's independent graph runtime and
+/// immutable Metal pipeline warmup. Joining it before context publication
+/// preserves cancellation and prevents detached runtime owners.
+final class ScenePreparedFirstSurfaceRuntimeTask {
+    private static let queue = DispatchQueue(
+        label: "com.mywallpaperx.scene-first-surface-runtime-preparation",
+        qos: .userInitiated
+    )
+
+    private let condition = NSCondition()
+    private let catalog: SceneResolvedMaterialRuntimeCatalog
+    private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+    private let assets: SceneMaterialAssetTextureCatalog
+    private let device: MTLDevice
+    private let externalCancellationCheck: () throws -> Void
+    private var result: Result<SceneResolvedMaterialRuntimeBridge, Error>?
+    private var cancellationRequested = false
+
+    init(
+        catalog: SceneResolvedMaterialRuntimeCatalog,
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        assets: SceneMaterialAssetTextureCatalog,
+        device: MTLDevice,
+        cancellationCheck: @escaping () throws -> Void
+    ) {
+        self.catalog = catalog
+        self.capabilities = capabilities
+        self.assets = assets
+        self.device = device
+        externalCancellationCheck = cancellationCheck
+    }
+
+    func start() {
+        Self.queue.async { [self] in
+            let prepared = Result {
+                try checkCancellation()
+                let runtime = SceneResolvedMaterialRuntimeBridge(
+                    catalog: catalog,
+                    capabilities: capabilities,
+                    assets: assets,
+                    device: device
+                )
+                try checkCancellation()
+                return runtime
+            }
+            condition.lock()
+            result = prepared
+            condition.broadcast()
+            condition.unlock()
+        }
+    }
+
+    func value() throws -> SceneResolvedMaterialRuntimeBridge {
+        condition.lock()
+        while result == nil {
+            condition.wait()
+        }
+        let result = result!
+        condition.unlock()
+        return try result.get()
+    }
+
+    func cancel() {
+        condition.lock()
+        cancellationRequested = true
+        condition.broadcast()
+        condition.unlock()
+    }
+
+    private func checkCancellation() throws {
+        condition.lock()
+        let cancelled = cancellationRequested
+        condition.unlock()
+        if cancelled {
+            throw CancellationError()
+        }
+        try externalCancellationCheck()
+    }
+}

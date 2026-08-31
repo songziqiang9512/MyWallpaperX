@@ -63,6 +63,7 @@ struct SceneDesktopWallpaperLaunchContext {
         SceneResolvedMaterialExecutionCapabilityCatalog
     let materialAssetCatalog: SceneMaterialAssetTextureCatalog
     let preparedDeviceResources: ScenePreparedDeviceResources
+    let preparedFirstSurfaceRuntime: ScenePreparedFirstSurfaceRuntime
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
@@ -88,7 +89,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let recordID: String?
 
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
-        .init(
+        preparedFirstSurfaceRuntime.take() ?? .init(
             catalog: resolvedMaterialCatalog,
             capabilities: resolvedMaterialExecutionCapabilities,
             assets: materialAssetCatalog,
@@ -504,6 +505,19 @@ extension SceneDesktopWallpaperHost {
                 .intersection(propertyVectorPassCandidateTargets)
         let resolvedMaterialExecutionCapabilities =
             provisionalMaterialExecutionCapabilities
+        let firstSurfaceRuntimePreparation =
+            ScenePreparedFirstSurfaceRuntimeTask(
+                catalog: resolvedMaterialCatalog,
+                capabilities: resolvedMaterialExecutionCapabilities,
+                assets: materialAssetCatalog,
+                device: device,
+                cancellationCheck: { try cancellation?.check() }
+            )
+        firstSurfaceRuntimePreparation.start()
+        defer {
+            firstSurfaceRuntimePreparation.cancel()
+            _ = try? firstSurfaceRuntimePreparation.value()
+        }
         try cancellation?.check()
         let compileSceneScriptPrograms: (
             Set<SceneDynamicTarget>, Set<SceneDynamicTarget>
@@ -634,6 +648,9 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
+        let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(
+            try firstSurfaceRuntimePreparation.value()
+        )
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
@@ -643,6 +660,7 @@ extension SceneDesktopWallpaperHost {
                 resolvedMaterialExecutionCapabilities,
             materialAssetCatalog: materialAssetCatalog,
             preparedDeviceResources: preparedDeviceResources,
+            preparedFirstSurfaceRuntime: preparedFirstSurfaceRuntime,
             timelineProgram: timelineProgram,
             timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
                 program: timelineProgram
