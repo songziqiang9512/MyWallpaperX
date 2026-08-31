@@ -6,14 +6,18 @@ import json
 import re
 import unittest
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[2]
 AGENT_RULES = ROOT / "AGENTS.md"
 GITIGNORE = ROOT / ".gitignore"
+DOCS_README = ROOT / "docs/README.md"
 ROADMAP = ROOT / "docs/scene/scene-compatibility-roadmap.md"
 RUNTIME_ARCHITECTURE = ROOT / "docs/scene/runtime-architecture.md"
 SCENE_README = ROOT / "docs/scene/README.md"
+WEB_README = ROOT / "docs/web/README.md"
+SCENE_EVIDENCE = ROOT / "docs/scene/evidence"
 SOURCE_INDEX = ROOT / "docs/scene/semantics/source-index.md"
 COVERAGE_LEDGER = ROOT / "docs/scene/semantics/coverage-ledger.md"
 RUNTIME_EVIDENCE = ROOT / "docs/scene/semantics/runtime-evidence-index.md"
@@ -27,6 +31,14 @@ RESEARCH_WORKFLOW = (
 FAST_SUITE = ROOT / "script/scene_fast_suite.json"
 MIRAGE_REFERENCE = (
     ROOT / "docs/scene/semantics/miragewallpaper-rendering-reference.md"
+)
+MAINTAINER_SKILL = ROOT / ".agents/skills/mywallpaperx-maintainer/SKILL.md"
+SKILL_GOVERNANCE = (
+    ROOT
+    / ".agents/skills/mywallpaperx-maintainer/references/skill-governance.md"
+)
+VIDEO_SKILL = (
+    ROOT / ".agents/skills/mywallpaperx-maintainer/references/video-engine.md"
 )
 
 SOURCE_CLASSES = {
@@ -47,15 +59,7 @@ RESEARCH_ONLY_DOCUMENTS = (
     ROOT / "docs/scene/semantics/shader-prelude-and-backend-abstraction.md",
 )
 
-EXPECTED_CASES = {
-    "v0-ordinary-one-pass": "V0",
-    "v0-ordinary-optional-texture-combo": "V0",
-    "v1-ordered-multipass-fbo": "V1",
-    "v1-copy-swap-history": "V1",
-    "v1-cross-layer-named-provider": "V1",
-    "v2-scenescript-property-event": "V2",
-    "v3-particle-component-stream": "V3",
-}
+ALLOWED_FAST_SUITE_LANES = {"V0", "V1", "V2", "V3"}
 REQUIRED_EVIDENCE = {
     "actual-route-identity",
     "execution-completion",
@@ -90,7 +94,6 @@ class SceneGovernanceContractTests(unittest.TestCase):
 
     def test_fast_suite_manifest_is_complete_but_honest_about_readiness(self) -> None:
         self.assertEqual(self.manifest.get("schemaVersion"), 1)
-        self.assertEqual(self.manifest.get("status"), "selection-required")
         self.assertEqual(
             set(self.manifest.get("allowedSelectionStates", [])),
             {"selection-required", "approved", "retired"},
@@ -100,14 +103,20 @@ class SceneGovernanceContractTests(unittest.TestCase):
 
         cases = self.manifest.get("cases")
         self.assertIsInstance(cases, list)
+        self.assertTrue(cases)
         indexed = {case.get("id"): case for case in cases}
-        self.assertEqual(set(indexed), set(EXPECTED_CASES))
+        self.assertNotIn(None, indexed)
         self.assertEqual(len(indexed), len(cases), "Fast Suite case IDs must be unique")
+        states = {case.get("selectionState") for case in cases}
+        self.assertIn(self.manifest.get("status"), self.manifest["allowedSelectionStates"])
+        if "selection-required" in states:
+            self.assertEqual(self.manifest.get("status"), "selection-required")
 
-        for case_id, lane in EXPECTED_CASES.items():
+        for case_id, case in indexed.items():
             with self.subTest(case=case_id):
-                case = indexed[case_id]
-                self.assertEqual(case.get("lane"), lane)
+                self.assertIsInstance(case_id, str)
+                self.assertTrue(case_id)
+                self.assertIn(case.get("lane"), ALLOWED_FAST_SUITE_LANES)
                 state = case.get("selectionState")
                 self.assertIn(state, self.manifest["allowedSelectionStates"])
                 for field in (
@@ -127,10 +136,23 @@ class SceneGovernanceContractTests(unittest.TestCase):
                     self.assertIsNone(case.get("fixtureIdentity"))
                     self.assertIsNone(case.get("contentDigest"))
 
+    def test_repository_skill_does_not_claim_standing_write_authority(self) -> None:
+        combined = "\n".join(
+            (
+                MAINTAINER_SKILL.read_text(encoding="utf-8"),
+                SKILL_GOVERNANCE.read_text(encoding="utf-8"),
+            )
+        )
+        self.assertNotIn("standing maintenance request", combined)
+        self.assertNotIn("用户已授权在开发中持续", combined)
+        self.assertIn("当前用户请求", combined)
+        self.assertIn("no earlier maintenance request", combined)
+        self.assertNotIn("playbackIntent", VIDEO_SKILL.read_text(encoding="utf-8"))
+
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
         self.assertIn("## 4. AI 主动纠偏合同", roadmap)
-        self.assertIn("## 8. 当前 V4 选择协议", roadmap)
+        self.assertIn("## 8. 当前阶段选择协议", roadmap)
         self.assertIn("当前代码、旧测试、旧类型层级和历史 matrix", roadmap)
         self.assertIn("readiness 的唯一事实入口", roadmap)
         self.assertIn("任何 `selection-required` 成员都不能执行或计为", roadmap)
@@ -154,6 +176,43 @@ class SceneGovernanceContractTests(unittest.TestCase):
             r"(?<![0-9-])\d{9,10}(?![0-9-])",
             "active roadmap must not retain sample or fixture identities",
         )
+        self.assertNotRegex(
+            roadmap,
+            r"(?<![0-9a-f])[0-9a-f]{40,64}(?![0-9a-f])",
+            "active roadmap must not retain build or artifact hashes",
+        )
+        self.assertNotRegex(
+            roadmap,
+            r"\b\d+\s*个\s*(?:generic-only|prefer-generic|observe-only)",
+            "active roadmap must not retain moving route census values",
+        )
+        for local_artifact_reference in (
+            ".codex/",
+            "/private/tmp/",
+            "report.json",
+            "manifest.json",
+        ):
+            with self.subTest(localArtifactReference=local_artifact_reference):
+                self.assertNotIn(local_artifact_reference, roadmap)
+
+    def test_navigation_documents_do_not_copy_moving_state(self) -> None:
+        for path in (DOCS_README, SCENE_README, WEB_README):
+            with self.subTest(document=path.relative_to(ROOT).as_posix()):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotRegex(text, r"当前(?:主线|阶段|段位)\s*[:：]?\s*V\d")
+                self.assertNotRegex(text, r"(?<![0-9-])\d{9,10}(?![0-9-])")
+                self.assertNotRegex(
+                    text,
+                    r"(?<![0-9a-f])[0-9a-f]{40,64}(?![0-9a-f])",
+                )
+                self.assertNotRegex(
+                    text,
+                    r"\b\d+\s*个\s*(?:generic-only|prefer-generic|observe-only)",
+                )
+                self.assertNotIn(".codex/", text)
+                self.assertNotIn("/private/tmp/", text)
+                self.assertNotIn("report.json", text)
+                self.assertNotIn("manifest.json", text)
 
     def test_rules_require_active_drift_correction_and_typed_migration_routes(self) -> None:
         combined = "\n".join(
@@ -212,15 +271,38 @@ class SceneGovernanceContractTests(unittest.TestCase):
         self.assertIn("仓库忽略的本机证据缓存", evidence)
         self.assertNotIn("](../evidence/", evidence)
 
+        evidence_root = SCENE_EVIDENCE.resolve()
+        for path in (ROOT / "docs").rglob("*.md"):
+            if "history" in path.parts or evidence_root in path.resolve().parents:
+                continue
+            text = path.read_text(encoding="utf-8")
+            for match in re.finditer(r"\]\(([^)]+)\)", text):
+                raw_target = match.group(1).strip()
+                if raw_target.startswith("<") and raw_target.endswith(">"):
+                    raw_target = raw_target[1:-1]
+                else:
+                    raw_target = raw_target.split(maxsplit=1)[0]
+                parsed = urlsplit(raw_target)
+                if parsed.scheme or parsed.netloc or not parsed.path:
+                    continue
+                target = (path.parent / unquote(parsed.path)).resolve()
+                with self.subTest(
+                    document=path.relative_to(ROOT).as_posix(),
+                    target=raw_target,
+                ):
+                    self.assertNotEqual(target, evidence_root)
+                    self.assertNotIn(evidence_root, target.parents)
+
     def test_named_source_taxonomy_is_single_and_complete(self) -> None:
         rules = AGENT_RULES.read_text(encoding="utf-8")
         source_index = SOURCE_INDEX.read_text(encoding="utf-8")
         self.assertIn("named source taxonomy 的唯一分类入口", source_index)
+        self.assertIn("类别清单只由该索引维护", rules)
         self.assertNotIn("必须区分五种来源", rules)
         for source_class in SOURCE_CLASSES:
             with self.subTest(sourceClass=source_class):
                 self.assertIn(f"`{source_class}`", source_index)
-                self.assertIn(f"`{source_class}`", rules)
+                self.assertNotIn(f"`{source_class}`", rules)
 
         for path in (ROOT / "docs/scene").rglob("*.md"):
             if "history" in path.parts:
@@ -275,6 +357,12 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertRegex(text, r"implementation agent|fresh context|实现代理")
                 for pattern in forbidden_product_directives:
                     self.assertNotRegex(text, pattern)
+
+        scene_script_forensics = RESEARCH_ONLY_DOCUMENTS[4].read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("以下当前状态只作导航", scene_script_forensics)
+        self.assertNotRegex(scene_script_forensics, r"MyWallpaperX[^。\n]*仍为 `L0`")
 
     def test_static_research_isolation_tracks_raw_detail_and_responsibility_overlap(
         self,

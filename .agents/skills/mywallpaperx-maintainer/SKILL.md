@@ -61,7 +61,7 @@ For cross-runtime work, load only the affected module references and trace the c
 - system-still/static-image apply, per-display publication, and dynamic-runtime teardown ownership;
 - the output owner that actually publishes each desktop surface.
 
-Current type names such as `WallpaperManager`, `MainWindowCoordinator`, `WallpaperRuntimeSwitch`, `WallpaperEngine`, and `SceneDesktopWallpaperHost` are discovery hints, not a permanent target diagram. If a unified coordinator becomes the target, establish it first in the canonical architecture and migrate ownership explicitly.
+Discover current switch and output owners from live call sites, notifications, construction, apply, teardown, and publication paths; do not preserve a moving type-name list in this Skill. If a unified coordinator becomes the target, establish it first in the canonical architecture and migrate ownership explicitly.
 
 Do not broadly load `docs/history/`, `.codex` reports, real Workshop content, or `Reference Project/`. Read history only for a named historical question. Read clean-room reference material only under the active research workflow and context-separation rules.
 
@@ -94,7 +94,7 @@ Add module-specific identity, route, source, or evidence fields only when the lo
 
 When current evidence conflicts with this Skill, classify the conflict as `skill-error`, `implementation-deviation`, `contract-change`, or `ambiguous`; see [Skill governance](references/skill-governance.md).
 
-The user's standing maintenance request authorizes the smallest correction to a proven Skill error during a write-authorized implementation task only when that error directly affects the current objective; product-code write permission without both conditions is insufficient. Add the affected Skill paths to the owned scope, confirm no conflicting lane owns them, and replace or delete the wrong guidance. In read-only work, for future-only relevance, or on ownership conflict, report a correction candidate instead. Do not append layers of exceptions, and keep an independently scoped Skill correction in a separate commit.
+A Skill correction requires write authority from the current user request or `AGENTS.md`; no earlier maintenance request supplies standing authorization. Within an authorized implementation task, correct a proven Skill error only when it directly affects the current objective, add the exact Skill paths to owned scope, and confirm no conflicting lane owns them. Product-code write permission alone does not authorize Skill edits. In read-only work, for future-only relevance, or on ownership conflict, report a correction candidate instead. Do not append layers of exceptions, and keep an independently scoped Skill correction in a separate commit.
 
 Scale Skill validation to the correction: mechanical fixes need deterministic validation; owner or domain-method changes need a targeted fresh-context test; cross-cutting authority/trigger changes need all affected domains. The Skill remains subordinate to current code evidence and canonical target contracts.
 

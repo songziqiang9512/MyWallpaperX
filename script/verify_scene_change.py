@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -23,7 +24,17 @@ SCENE_PRODUCT_PATTERNS = (
     "MyWallpaperX/Modules/SteamWorkshop/Scene/**",
     "MyWallpaperX/Core/Playback/*Scene*",
 )
-PRODUCT_PREFIXES = ("MyWallpaperX/", "MyWallpaperX.xcodeproj/")
+PRODUCT_PREFIXES = (
+    "MyWallpaperX/",
+    "MyWallpaperX.xcodeproj/",
+    "MyWallpaperXHelp/",
+    "WallpaperDaemonSources/",
+)
+ROOT_GOVERNANCE_FILES = {"AGENTS.md", "README.md", ".gitignore"}
+RELEASE_WORKFLOW_FILES = {
+    ".github/workflows/build.yml",
+    ".github/workflows/ci.yml",
+}
 
 
 @dataclass
@@ -90,6 +101,24 @@ def mapped_tests(
     keywords: set[str] = set()
     groups: set[str] = set()
     for path in paths:
+        if path in ROOT_GOVERNANCE_FILES:
+            groups.add("repository-governance")
+            modules.update(
+                {
+                    "test_document_role_index",
+                    "test_scene_governance_contract",
+                    "test_scene_semantics_coverage",
+                }
+            )
+        if path in RELEASE_WORKFLOW_FILES:
+            groups.add("release-workflow-governance")
+            modules.add("test_document_role_index")
+        if path in {"script/build_and_run.sh", "script/run_checkpoint_build.sh"}:
+            groups.add("build-entrypoint-governance")
+            modules.add("test_verify_scene_change")
+        if path.startswith(".agents/skills/mywallpaperx-maintainer/"):
+            groups.add("repository-skill-governance")
+            modules.add("test_scene_governance_contract")
         if path.startswith("script/tests/test_") and path.endswith(".py"):
             # Deleted tests still appear in a diff, but cannot be passed to the
             # executable test runner as module names.
@@ -137,7 +166,13 @@ def runtime_command(
     selected_samples: bool,
     output_subdirectory: str,
 ) -> tuple[str, ...] | None:
-    if not args.sample_root or not args.output_dir:
+    if (
+        not args.app
+        or not args.app.is_file()
+        or not os.access(args.app, os.X_OK)
+        or not args.sample_root
+        or not args.output_dir
+    ):
         return None
     command = [
         sys.executable,
@@ -167,7 +202,30 @@ def build_plan(
     scene_product_change = any(is_scene_product_path(path) for path in paths)
     swift_change = any(path.endswith(".swift") for path in paths)
     product_change = any(path.startswith(PRODUCT_PREFIXES) for path in paths)
+    deleted_test = any(
+        path.startswith("script/tests/test_")
+        and path.endswith(".py")
+        and not (ROOT / path).is_file()
+        for path in paths
+    )
     build_required = phase_index >= 1 and product_change
+    unmapped_paths: list[str] = []
+    for path in paths:
+        path_modules, path_keywords, path_groups = mapped_tests([path], registry)
+        deleted_path = (
+            path.startswith("script/tests/test_")
+            and path.endswith(".py")
+            and not (ROOT / path).is_file()
+        )
+        product_build_path = phase_index >= 1 and path.startswith(PRODUCT_PREFIXES)
+        if not (
+            path_modules
+            or path_keywords
+            or path_groups
+            or deleted_path
+            or product_build_path
+        ):
+            unmapped_paths.append(path)
     gates: list[Gate] = []
 
     focused = focused_test_command(modules, keywords)
@@ -178,7 +236,14 @@ def build_plan(
             "changed paths map to focused executable test groups",
             False,
         ))
-    if args.phase == "milestone" and scene_product_change:
+    if deleted_test:
+        gates.append(Gate(
+            "repository-all-tests",
+            (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "all"),
+            "a deleted test requires the complete executable repository suite",
+            False,
+        ))
+    elif args.phase == "milestone" and scene_product_change:
         gates.append(Gate(
             "scene-all-tests",
             (sys.executable, "-B", "script/run_scene_tests.py", "--scope", "scene"),
@@ -187,45 +252,28 @@ def build_plan(
         ))
 
     if build_required:
-        if args.ci:
-            if swift_change:
-                gates.append(Gate(
-                    "code-health",
-                    (
-                        sys.executable,
-                        "script/check_code_health.py",
-                        "--check",
-                        "--base-ref",
-                        args.base,
-                    ),
-                    "CI xcodebuild does not include the Swift ratchet",
-                    False,
-                ))
+        if swift_change:
             gates.append(Gate(
-                "build-verify",
+                "code-health",
                 (
-                    "xcodebuild",
-                    "-project",
-                    "MyWallpaperX.xcodeproj",
-                    "-scheme",
-                    "MyWallpaperX",
-                    "-configuration",
-                    "Debug",
-                    "-derivedDataPath",
-                    ".codex/DerivedData",
-                    "CODE_SIGNING_ALLOWED=NO",
-                    "build",
+                    sys.executable,
+                    "script/check_code_health.py",
+                    "--check",
+                    "--base-ref",
+                    args.base,
                 ),
-                "product or project files changed",
-                True,
+                "the pure build gate does not include the Swift ratchet",
+                False,
             ))
-        else:
-            gates.append(Gate(
-                "build-verify",
-                ("script/build_and_run.sh", "verify"),
-                "product or project files changed; the wrapper also satisfies code health",
-                True,
-            ))
+        gates.append(Gate(
+            "build-verify",
+            ("/bin/bash", "script/run_checkpoint_build.sh"),
+            (
+                "product or project files changed; checkpoint builds use an isolated, "
+                "serialized, self-cleaning DerivedData and do not launch the App"
+            ),
+            True,
+        ))
     elif swift_change:
         gates.append(Gate(
             "code-health",
@@ -259,6 +307,12 @@ def build_plan(
             unresolved = None
             if not args.sample_id:
                 unresolved = f"{args.phase} requires at least one --sample-id"
+            elif not args.app:
+                unresolved = (
+                    f"{args.phase} requires --app for a frozen staged executable"
+                )
+            elif not args.app.is_file() or not os.access(args.app, os.X_OK):
+                unresolved = f"{args.phase} --app must be an existing executable"
             elif command is None:
                 unresolved = f"{args.phase} requires --sample-root and --output-dir"
             gates.append(Gate(
@@ -290,13 +344,31 @@ def build_plan(
             selected_samples=False,
             output_subdirectory=args.matrix_tier,
         )
-        unresolved = None if command else "matrix gate requires --sample-root and --output-dir"
+        if not args.app:
+            unresolved = "matrix gate requires --app for a frozen staged executable"
+        elif not args.app.is_file() or not os.access(args.app, os.X_OK):
+            unresolved = "matrix gate --app must be an existing executable"
+        elif not command:
+            unresolved = "matrix gate requires --sample-root and --output-dir"
+        else:
+            unresolved = None
         gates.append(Gate(
             "fixed13" if args.matrix_tier == "fixed" else "full45",
             command,
             args.reason,
             True,
             unresolved,
+        ))
+    if unmapped_paths:
+        gates.append(Gate(
+            "unmapped-change",
+            None,
+            "every changed path requires an executable gate or explicit registry exemption",
+            False,
+            (
+                "add a path-group mapping or a reviewed no-gate classification for: "
+                + ", ".join(unmapped_paths)
+            ),
         ))
     return gates, groups
 
@@ -384,7 +456,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--app",
         type=Path,
-        default=Path(".codex/DerivedData/Build/Products/Debug/MyWallpaperX.app/Contents/MacOS/MyWallpaperX"),
+        help="frozen staged MyWallpaperX executable for integration or milestone runtime evidence",
     )
     parser.add_argument("--matrix-tier", choices=("fixed", "full"))
     parser.add_argument("--skip-runtime", action="store_true")

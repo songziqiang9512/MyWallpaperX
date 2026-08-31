@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report project .codex entries not required by the current development line."""
+"""Report protected .codex paths and unprotected entries that require review."""
 
 from __future__ import annotations
 
@@ -18,9 +18,9 @@ FIXTURE_CONFIG = REPOSITORY_ROOT / "script/scene_real_test_fixture.json"
 ALWAYS_KEEP = (
     CODEX_ROOT / "config.toml",
     CODEX_ROOT / "environments",
-    CODEX_ROOT / "DerivedData",
     CODEX_ROOT / "scene_real_test_fixture.local.json",
 )
+CONDITIONAL_REVIEW = (CODEX_ROOT / "DerivedData",)
 REFERENCE_SCAN_PATHS = ("docs", "README.md", "AGENTS.md")
 CODEX_REFERENCE_PATTERN = re.compile(r"\.codex/[A-Za-z0-9._/-]+")
 
@@ -138,11 +138,11 @@ def inventory() -> dict[str, object]:
     )
     documented = [path for path in all_documented if path.exists()]
     missing_documented = [path for path in all_documented if not path.exists()]
-    protected = list(dict.fromkeys([*runtime_protected, *documented]))
+    protected = list(dict.fromkeys(runtime_protected))
     kept, candidates = partition_entries(CODEX_ROOT, protected)
 
     runtime_set = {path.resolve() for path in runtime_protected}
-    documented_set = {path.resolve() for path in documented}
+    conditional_review_set = {path.resolve() for path in CONDITIONAL_REVIEW}
 
     def describe(path: Path) -> dict[str, object]:
         item: dict[str, object] = {
@@ -154,32 +154,60 @@ def inventory() -> dict[str, object]:
         protections: list[str] = []
         if resolved in runtime_set:
             protections.append("runtime-required")
-        if resolved in documented_set:
-            protections.append("tracked-reference")
         if protections:
             item["protections"] = protections
+        if resolved in conditional_review_set:
+            item["review_conditions"] = [
+                "active-build-writer",
+                "running-app-or-daemon-using-this-build",
+                "current-batch-rebuild-need",
+            ]
         return item
 
     kept_items = [describe(path) for path in kept]
     candidate_items = [describe(path) for path in candidates]
     return {
-        "schema_version": 3,
+        "schema_version": 4,
         "codex_root": str(CODEX_ROOT),
         "keep_sources": keep_sources,
         "reference_scan_paths": list(REFERENCE_SCAN_PATHS),
+        "conditional_review_paths": [
+            str(path.relative_to(REPOSITORY_ROOT)) for path in CONDITIONAL_REVIEW
+        ],
         "tracked_reference_file_count": len(reference_files),
         "documented_reference_count": len(all_documented),
         "documented_path_count": len(documented),
+        "documented_paths": [
+            str(path.relative_to(REPOSITORY_ROOT)) for path in documented
+        ],
         "missing_documented_paths": [
             str(path.relative_to(REPOSITORY_ROOT)) for path in missing_documented
         ],
-        "kept": kept_items,
+        "candidate_policy": {
+            "classification": "review-required",
+            "deletion_authorized": False,
+            "meaning": (
+                "candidate paths are not protected by the current fixture config "
+                "or explicit runtime keep list; they are not proven stale"
+            ),
+            "tracked_prose_is_provenance_only": True,
+            "required_checks_before_cleanup": [
+                "active-writer-or-open-handle",
+                "batch-ownership",
+                "unique-failure-evidence",
+                "rebuild-or-recovery-path",
+                "exact-user-confirmation-for-material-deletion",
+            ],
+        },
+        "protected": kept_items,
         "candidates": candidate_items,
         "summary": {
-            "kept_count": len(kept_items),
+            "protected_count": len(kept_items),
             "candidate_count": len(candidate_items),
             "missing_documented_path_count": len(missing_documented),
-            "kept_kib": sum(int(item["allocated_kib"]) for item in kept_items),
+            "protected_kib": sum(
+                int(item["allocated_kib"]) for item in kept_items
+            ),
             "candidate_kib": sum(
                 int(item["allocated_kib"]) for item in candidate_items
             ),
@@ -193,7 +221,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fail-on-candidates",
         action="store_true",
-        help="exit 1 when stale candidates remain",
+        help=(
+            "exit 1 when review candidates remain; this does not prove they are "
+            "stale or safe to delete"
+        ),
     )
     return parser.parse_args()
 
@@ -206,12 +237,13 @@ def main() -> int:
     else:
         summary = report["summary"]
         candidate_gib = int(summary["candidate_kib"]) / 1024 / 1024
-        kept_gib = int(summary["kept_kib"]) / 1024 / 1024
+        kept_gib = int(summary["protected_kib"]) / 1024 / 1024
         print(
-            f".codex current={kept_gib:.2f} GiB "
-            f"stale-candidates={candidate_gib:.2f} GiB "
+            f".codex protected={kept_gib:.2f} GiB "
+            f"review-candidates={candidate_gib:.2f} GiB "
             f"({summary['candidate_count']} entries)"
         )
+        print("review candidates are not deletion-authorized; inspect ownership and active use")
         for item in sorted(
             report["candidates"],
             key=lambda value: int(value["allocated_kib"]),

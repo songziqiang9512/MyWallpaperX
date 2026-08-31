@@ -37,21 +37,11 @@
 
 ### 2.1 与当前项目状态的关系
 
-本文把结构化随包文件和 Ghidra 证据整理为**研究候选观察**，不是待实现合同，也不维护 MyWallpaperX 的能力等级。候选观察必须经官方黑盒区分、去除静态实现细节并通过交接审查，才能形成新的中性行为合同。以下当前状态只作导航，准确等级仍以现役覆盖表与运行证据索引为准：
-
-| 能力面 | 当前边界 | 当前状态入口 |
-|---|---|---|
-| 通用 ECMAScript VM、module、owner/handle、event 与 timer | 未实现，保持 `L0`；现役只有若干彼此独立的项目自有bounded typed projection，不创建VM、module、script instance、handle或通用event runtime | [SceneScript API 覆盖表](scenescript-api-coverage.md) |
-| 文档级 inline property wrapper | 正式取证五类位置可保真保存scene/object/effect/pass owner、完整target path、source/properties/authored fallback/JSON value type及可选`wrapperKeys`，局部`L1`；独立source evidence遍历所有string-valued inline script，但nested/未知owner只取得provenance/conflict rejection权，`script + user`冲突fail-closed | [SceneScript API 覆盖表 §2](scenescript-api-coverage.md#2-property-bound-核心合同) |
-| bounded typed execution | 现役分别有 Text Date/string、time-of-day Blend、media placeholder fade 与 launch-origin startup typed producer；它们都不执行通用 JavaScript。历史 fixed native Text 与 exact native Audio Bars owner 已退役，普通/Workshop Effect Audio Bars 仍是独立 effect consumer；历史批次标签不再定义现役顺序 | [运行证据索引](runtime-evidence-index.md) |
-| bounded launch-origin startup projection | 只对完整`shared=false` initializer + 1 master + followers `object.origin` cohort建立typed producer；每host frame在surface loop外推进一次，target collision与额外source writer失败关闭 | [E-BOUNDED-LAUNCH-ORIGIN-TRANSITION](runtime-evidence-index.md#e-bounded-launch-origin-transition) |
-| Timeline | 已有部分 target/evaluator 的 `L2-L3`，不能由此推导 SceneScript runtime | [覆盖台账 §6.1](coverage-ledger.md#61-timeline-与-scenescript) |
-
-现役实现路线不由本页规定。implementation agent 只从[SceneScript API 覆盖表 §1.1](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[唯一现役路线](../scene-compatibility-roadmap.md)读取目标与顺序；需要新的官方非公开行为时，必须由独立研究任务产生经审查的中性交接合同。
+本文把结构化随包文件和 Ghidra 证据整理为**研究候选观察**，不是待实现合同，也不维护 MyWallpaperX 的能力等级、route 或产品 owner 快照。当前能力只查[SceneScript API 覆盖表](scenescript-api-coverage.md)，当前运行深度与失败边界只查[运行证据索引](runtime-evidence-index.md)，现役顺序只查[唯一现役路线](../scene-compatibility-roadmap.md)。候选观察必须经官方黑盒区分、去除静态实现细节并通过交接审查，才能形成新的中性行为合同；需要新的官方非公开行为时，必须由独立研究任务产生该合同。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 
-[SceneScript API 覆盖表](scenescript-api-coverage.md) 中「ECMAScript VM」一项仍为 `L0`；MyWallpaperX 已把目标收敛为 QuickJS-NG per-scene runtime/context，但尚未取得产品执行证据。Monaco 自动补全的 lib 清单直接给出官方自己界定的语言边界：
+以下 Monaco 自动补全 lib 清单只描述固定官方客户端快照中的 authoring/type surface；它不声明 MyWallpaperX 当前 VM 能力、产品 route 或运行证据：
 
 | 随包 lib 文件 | 含义 |
 |---|---|

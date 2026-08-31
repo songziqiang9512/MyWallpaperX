@@ -20,6 +20,9 @@ OFFICIAL_CLIENT_WORKFLOW_PATH = (
     / "semantics"
     / "official-client-behavior-research-workflow.md"
 )
+RELEASE_DOCUMENT_PATH = DOCUMENTATION_ROOT / "release" / "release-signing.md"
+CI_WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/ci.yml"
+RELEASE_WORKFLOW_PATH = REPOSITORY_ROOT / ".github/workflows/build.yml"
 DATED_MARKDOWN_PATTERN = re.compile(r"\d{4}-\d{2}-\d{2}")
 MARKDOWN_LINK_PATTERN = re.compile(r"!?\[[^\]]*\]\(([^)\n]+)\)")
 REPOSITORY_SOURCE_LINK_PATTERN = re.compile(
@@ -176,6 +179,54 @@ class DocumentRoleIndexTests(unittest.TestCase):
                 self.assertEqual(document.get("entrypoint"), "docs/history/README.md")
                 text = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
                 self.assertIn(HISTORICAL_BANNER, "\n".join(text.splitlines()[:12]))
+
+    def test_history_readme_authorities_match_machine_index(self) -> None:
+        rows: dict[str, set[str]] = {}
+        for line in HISTORY_README_PATH.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("| 20"):
+                continue
+            raw_targets = MARKDOWN_LINK_PATTERN.findall(line)
+            self.assertGreaterEqual(len(raw_targets), 2, line)
+            resolved = []
+            for raw_target in raw_targets:
+                parsed = urlsplit(raw_target.strip())
+                self.assertFalse(parsed.scheme or parsed.netloc, raw_target)
+                resolved.append(
+                    (HISTORY_README_PATH.parent / unquote(parsed.path))
+                    .resolve()
+                    .relative_to(REPOSITORY_ROOT)
+                    .as_posix()
+                )
+            historical_path, *authorities = resolved
+            self.assertNotIn(historical_path, rows)
+            rows[historical_path] = set(authorities)
+
+        indexed = {
+            str(document["path"]): set(document["currentAuthorities"])
+            for document in self.documents
+            if document.get("role") == "historical-evidence"
+        }
+        self.assertEqual(rows, indexed)
+
+    def test_release_requires_explicit_main_branch_dispatch(self) -> None:
+        release_workflow = RELEASE_WORKFLOW_PATH.read_text(encoding="utf-8")
+        release_trigger = release_workflow.split("on:\n", 1)[1].split(
+            "\npermissions:", 1
+        )[0]
+        self.assertIn("  workflow_dispatch:", release_trigger)
+        self.assertNotIn("  push:", release_trigger)
+        self.assertNotIn("  pull_request:", release_trigger)
+        self.assertIn("if: github.ref == 'refs/heads/main'", release_workflow)
+
+        ci_workflow = CI_WORKFLOW_PATH.read_text(encoding="utf-8")
+        ci_trigger = ci_workflow.split("on:\n", 1)[1].split("\npermissions:", 1)[0]
+        self.assertIn("  push:", ci_trigger)
+        self.assertIn("  pull_request:", ci_trigger)
+
+        release_document = RELEASE_DOCUMENT_PATH.read_text(encoding="utf-8")
+        self.assertIn("does **not** publish a release", release_document)
+        self.assertIn("explicit `workflow_dispatch`", release_document)
+        self.assertIn("against `main`", release_document)
 
     def test_dated_markdown_cannot_exist_outside_history(self) -> None:
         dated_outside_history = [

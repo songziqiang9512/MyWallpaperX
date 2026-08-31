@@ -28,9 +28,9 @@
 
 每项技术决策还必须同时维护三条轴：**目标合同**由本文和对应长期架构规定最终职责；**当前事实**由当前源码与可复现证据说明现状；**偏差债务**登记二者差异、当前 owner、route state/fallback、纠正门和退役条件。现有代码、测试和目录只证明当前事实，不得反向定义长期技术边界；触达旧实现时必须主动纠正当前纵向结果范围内的偏差，不得为兼容已知错误所有权继续扩张旧架构。
 
-## 1. 当前基线与迁移目标
+## 1. 产品基线与迁移目标
 
-当前产品是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，少量 SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与现有 Scene runtime，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。当前仓库尚未把通用 JavaScript VM、第三方 shader compiler 或 Scene XPC service 接入生产链。
+产品基线是 Swift-first 的原生 macOS 工程：AppKit 承担 App 生命周期、主界面、窗口和桌面宿主，SwiftUI 只作为 [AppKit 迁移计划](appkit-migration.md)列出的受控残留；Swift 承担产品模型、播放生命周期与 Scene host/runtime 所有权，Metal 承担 Scene GPU 执行，Python 承担测试、矩阵和开发自动化。通用 JavaScript VM、shader compiler 或隔离 service 当前是否已取得产品执行权，不在长期合同中保存移动快照；只由当前源码、对应专项覆盖表和运行证据索引裁决。
 
 Scene 的迁移目标已经确定：保留 Swift/Metal 产品底座，把作者内容交给少数通用执行单元处理，而不是继续为已知 effect、脚本表达式或样本建立越来越多的 Swift 专用准入路径。迁移按能够让真实内容立即出画面的纵向切片推进，不先横向建完所有平台。核心目标是：
 
@@ -122,14 +122,14 @@ XPC 或 bundled helper 只有在需要隔离不可信代码、编译器崩溃、
 
 ```text
 MyWallpaperX.app                                  Swift + AppKit
-  -> Scene execution domain（当前仍在 App）      Swift + Metal
+  -> Scene execution domain                      Swift + Metal
        -> Scene IR / state / resources            Swift
        -> material + RenderGraph contracts        Swift
-       -> SceneScript domain（迁移目标）          ECMAScript VM + Swift host bridge
-       -> shader compiler（迁移目标）             C/C++ backend + stable bridge
+       -> SceneScript domain                      ECMAScript VM + Swift host bridge
+       -> shader compiler                         C/C++ backend + stable bridge
        -> GraphExecutor / compositor              Swift + Metal / MSL
-  -> compiler subprocess harness（首批开发）      无产品执行权、可终止
-  -> compiler worker（产品隔离二选一）            in-process fault proof 不成立时采用
+  -> compiler subprocess harness（开发隔离项）    无产品执行权、可终止
+  -> compiler worker（条件隔离项）                in-process fault proof 不成立时采用
   -> renderer helper app（条件评估项）            仅在窗口与恢复证据成立时
 ```
 
@@ -139,7 +139,7 @@ compiler 在 scene load 或 variant 变化时工作，不持有 drawable、长�
 
 通用 SceneScript 不继续沿“在 Swift 中逐步补成完整 JavaScript 解释器”的路线。首选上游 QuickJS-NG，因为其 C API 可控制 runtime heap、stack 和 interrupt budget，适合先闭合最小 per-scene VM + typed mutation 纵向链。[QuickJS-NG C API](https://quickjs-ng.github.io/quickjs/developer-guide/intro/)
 
-JavaScriptCore 保留为系统框架对照，但当前 Xcode SDK 没有公开的执行时间限制入口；没有独立 worker 的可靠终止、内存和 teardown 证据时，不作为首条实现。固定 Wallpaper Engine 2.8.42 Windows 客户端的静态观察识别到 V8 runtime，这只支持“应使用真实 ECMAScript VM”的方向，不是官方公开或跨版本保证，也不代表项目应承担完整 V8 的体积和构建成本。
+JavaScriptCore 只保留为系统框架对照；除非能够证明项目所需的执行时间、内存、可靠终止和 teardown 合同，否则不作为首选实现。固定 Wallpaper Engine 2.8.42 Windows 客户端的静态观察识别到 V8 runtime，这只支持“应使用真实 ECMAScript VM”的方向，不是官方公开或跨版本保证，也不代表项目应承担完整 V8 的体积和构建成本。
 
 VM 执行 ECMAScript；Swift host bridge 负责 source/binding/owner/target IR、global/per-surface phase、官方 host API/module allowlist、typed handle/generation、mutation buffer、event/timer/effective time、pause/seek、作者值 fallback 和 teardown。
 
@@ -159,16 +159,16 @@ VM 首次进入受控开发产品路径前至少满足：
 
 ### 6.1 所有权转向
 
-当前 Swift authored-shader frontend/emitter 是已验证子集的现役路径和迁移 oracle，不是永久扩张方向。Swift 继续拥有 source provenance、author metadata/variant preparation、resource identity、host uniform、Program ABI、render state 校验、预算和 lifecycle；通用 compiler backend 负责语言解析、类型、stage link、代码生成和 reflection。
+迁移期间仍保留的 Swift authored-shader frontend/emitter 只可作为已验证子集的 bounded fallback 或差分 oracle，不是永久扩张方向；它是否仍持有产品 route 只查专项覆盖表。Swift 继续拥有 source provenance、author metadata/variant preparation、resource identity、host uniform、Program ABI、render state 校验、预算和 lifecycle；通用 compiler backend 负责语言解析、类型、stage link、代码生成和 reflection。
 
 ### 6.2 首选后端与对照
 
 | 路径 | 合理用途 | 边界 |
 |---|---|---|
-| 现有 Swift frontend/emitter | 已验证子集、差分 oracle、迁移期 fallback | 不再扩张为完整通用语言编译器 |
+| 迁移期 Swift frontend/emitter | 已验证子集、差分 oracle、有界 fallback | 不再扩张为完整通用语言编译器；产品 route 以专项表为准 |
 | Slang | HLSL-like corpus、MSL 与 reflection 评估 | Metal target 状态和 dialect 兼容需实测，[Slang](https://github.com/shader-slang/slang) |
 | DXC -> Metal Shader Converter | 现代 HLSL 到 DXIL/metallib 路径 | 不自动兼容历史 dialect 或 SM3 行为，[DXC](https://github.com/microsoft/DirectXShaderCompiler)、[Metal Shader Converter](https://developer.apple.com/metal/shader-converter/) |
-| **glslang -> SPIR-V -> SPIRV-Cross** | **当前首选：WE GLSL-like normalization 后生成 MSL/reflection** | 从独立上游固定版本集成；不得复制 Mirage vendor、bridge 或 shader rewrite，[glslang](https://github.com/KhronosGroup/glslang)、[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) |
+| **glslang -> SPIR-V -> SPIRV-Cross** | **选定 backend：WE GLSL-like normalization 后生成 MSL/reflection** | 从独立上游固定版本集成；不得复制 Mirage vendor、bridge 或 shader rewrite，[glslang](https://github.com/KhronosGroup/glslang)、[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) |
 
 第一轮只建设首选后端。只有真实 corpus spike 证明 dialect、MSL 或 runtime 约束无法以小型 normalization 解决，才带着失败分类评估 Slang 或 DXC；不并行建设三套 compiler。最终保持“Swift compatibility/host layer + 一个 production backend”。
 
@@ -243,7 +243,7 @@ V0 必须先取得真实可见结果；V1–V3 的独立研究和 fixture 可以
 ## 10. 工具链与语言模式
 
 - 仓库 Python 工具链固定为 Python 3.12.x；本地入口和 CI 显式选择解释器，不依赖裸 `python3` 默认值。
-- 当前产品 target 使用 Swift 5 language mode。Swift 6 迁移是独立工具链工作，不与 Scene 能力扩展混交。
+- 产品 target 的实际 Swift language mode 以 Xcode project 为准。Swift 6 迁移是独立工具链工作，不与 Scene 能力扩展混交。
 - 新隔离 module/target 和并发风险高的 provider/resource/compiler worker 边界可优先启用 Swift 6 strict concurrency；不得用批量 `@unchecked Sendable`、`nonisolated(unsafe)` 或关闭检查制造通过。[Swift version compatibility](https://docs.swift.org/swift-book/documentation/the-swift-programming-language/compatibility/)
 - Xcode、deployment target 或 Metal API 大版本升级独立验证源码、运行、签名发布和性能基线。
 

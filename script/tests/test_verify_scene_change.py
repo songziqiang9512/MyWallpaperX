@@ -31,7 +31,7 @@ def arguments(**overrides: object) -> argparse.Namespace:
         "sample_id": [],
         "sample_root": None,
         "output_dir": None,
-        "app": Path("app"),
+        "app": Path("/usr/bin/true"),
         "matrix_tier": None,
         "skip_runtime": False,
         "reason": "",
@@ -92,6 +92,62 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("documentation", groups)
         self.assertIn("test_document_role_index", gates[0].command)
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
+
+    def test_repository_skill_change_selects_governance_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [".agents/skills/mywallpaperx-maintainer/SKILL.md"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("repository-skill-governance", groups)
+        self.assertIn("test_scene_governance_contract", gates[0].command)
+
+    def test_root_governance_change_selects_repository_contracts(self) -> None:
+        gates, groups = verify.build_plan(
+            ["AGENTS.md"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("repository-governance", groups)
+        for module in (
+            "test_document_role_index",
+            "test_scene_governance_contract",
+            "test_scene_semantics_coverage",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(module, gates[0].command)
+
+    def test_release_workflow_change_selects_operational_contract(self) -> None:
+        gates, groups = verify.build_plan(
+            [".github/workflows/build.yml"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("release-workflow-governance", groups)
+        self.assertIn("test_document_role_index", gates[0].command)
+
+    def test_unmapped_change_is_blocked_instead_of_succeeding_with_zero_gates(self) -> None:
+        gates, groups = verify.build_plan(
+            ["script/code_health_baseline.json"],
+            arguments(),
+            self.registry,
+        )
+        self.assertEqual(groups, set())
+        self.assertEqual([gate.gate_id for gate in gates], ["unmapped-change"])
+        self.assertEqual(gates[0].status, "blocked")
+
+    def test_unmapped_change_remains_blocked_beside_mapped_change(self) -> None:
+        gates, _ = verify.build_plan(
+            ["docs/README.md", "script/code_health_baseline.json"],
+            arguments(),
+            self.registry,
+        )
+        self.assertIn("focused-tests", [gate.gate_id for gate in gates])
+        self.assertEqual(gates[-1].gate_id, "unmapped-change")
+        self.assertEqual(gates[-1].status, "blocked")
 
     def test_shader_source_changes_select_source_set_conservation(self) -> None:
         paths = (
@@ -455,7 +511,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
             with self.subTest(module=module):
                 self.assertIn(module, focused.command)
 
-    def test_render_graph_checkpoint_reuses_build_wrapper_code_health(self) -> None:
+    def test_render_graph_checkpoint_uses_pure_build_and_code_health(self) -> None:
         gates, groups = verify.build_plan(
             [
                 "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/"
@@ -466,10 +522,13 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "build-verify"],
+            ["focused-tests", "code-health", "build-verify"],
         )
         self.assertIn("render-graph", groups)
-        self.assertEqual(gates[-1].command, ("script/build_and_run.sh", "verify"))
+        self.assertEqual(
+            gates[-1].command,
+            ("/bin/bash", "script/run_checkpoint_build.sh"),
+        )
 
     def test_ci_build_adds_code_health_without_local_wrapper(self) -> None:
         gates, _ = verify.build_plan(
@@ -481,7 +540,20 @@ class SceneValidationSelectionTests(unittest.TestCase):
             [gate.gate_id for gate in gates],
             ["focused-tests", "code-health", "build-verify"],
         )
-        self.assertEqual(gates[-1].command[0], "xcodebuild")
+        self.assertEqual(
+            gates[-1].command,
+            ("/bin/bash", "script/run_checkpoint_build.sh"),
+        )
+
+    def test_every_xcode_product_input_root_triggers_checkpoint_build(self) -> None:
+        for path in (
+            "MyWallpaperX/App/AppDelegate.swift",
+            "MyWallpaperX.xcodeproj/project.pbxproj",
+            "MyWallpaperXHelp/en.lproj/index.html",
+            "WallpaperDaemonSources/main.swift",
+        ):
+            with self.subTest(path=path):
+                self.assertIn("build-verify", self.gate_ids([path], arguments()))
 
     def test_fixture_config_does_not_trigger_corpus_compilation(self) -> None:
         gates, groups = verify.build_plan(
@@ -514,10 +586,30 @@ class SceneValidationSelectionTests(unittest.TestCase):
         )
         self.assertEqual(
             [gate.gate_id for gate in gates],
-            ["focused-tests", "build-verify", "targeted-sample"],
+            ["focused-tests", "code-health", "build-verify", "targeted-sample"],
         )
         self.assertIn("texture", gates[0].command)
         self.assertIn("--sample-id", gates[-1].unresolved)
+
+    def test_integration_requires_explicit_frozen_staged_app(self) -> None:
+        gates, _ = verify.build_plan(
+            ["MyWallpaperX/Core/SteamWorkshopScene/Resources/SceneTexture.swift"],
+            arguments(
+                phase="integration",
+                app=None,
+                sample_id=["fixture"],
+                sample_root=Path("samples"),
+                output_dir=Path("output"),
+            ),
+            self.registry,
+        )
+        runtime = gates[-1]
+        self.assertEqual(runtime.gate_id, "targeted-sample")
+        self.assertEqual(runtime.status, "blocked")
+        self.assertIn("frozen staged executable", runtime.unresolved)
+
+    def test_cli_has_no_shared_derived_data_app_default(self) -> None:
+        self.assertIsNone(verify.parse_args([]).app)
 
     def test_ci_can_record_why_runtime_is_unavailable(self) -> None:
         gates, _ = verify.build_plan(
@@ -710,7 +802,25 @@ class SceneValidationSelectionTests(unittest.TestCase):
         deleted_test = "script/tests/test_scene_removed_contract.py"
         with patch.object(Path, "is_file", return_value=False):
             gates, _ = verify.build_plan([deleted_test], arguments(), self.registry)
-        self.assertEqual(gates, [])
+        self.assertEqual([gate.gate_id for gate in gates], ["repository-all-tests"])
+        self.assertIn("--scope", gates[0].command)
+        self.assertIn("all", gates[0].command)
+
+    def test_deleted_non_scene_test_also_runs_repository_suite(self) -> None:
+        deleted_test = "script/tests/test_document_removed_contract.py"
+        with patch.object(Path, "is_file", return_value=False):
+            gates, _ = verify.build_plan([deleted_test], arguments(), self.registry)
+        self.assertEqual([gate.gate_id for gate in gates], ["repository-all-tests"])
+        self.assertIn("all", gates[0].command)
+
+    def test_checkpoint_build_script_is_isolated_and_does_not_launch(self) -> None:
+        script = (SCRIPT_ROOT / "run_checkpoint_build.sh").read_text(encoding="utf-8")
+        self.assertIn("/private/tmp/mywallpaperx-checkpoint-build.", script)
+        self.assertIn("CHECKPOINT_LOCK_DIR", script)
+        self.assertIn("CODE_SIGNING_ALLOWED=NO", script)
+        self.assertNotIn("pkill", script)
+        self.assertNotIn("/usr/bin/open", script)
+        self.assertNotIn(".codex/DerivedData", script)
 
 
 if __name__ == "__main__":

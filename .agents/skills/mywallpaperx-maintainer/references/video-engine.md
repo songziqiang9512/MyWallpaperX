@@ -27,7 +27,7 @@ AppKit command
   -> correlated ready/frame/teardown evidence
 ```
 
-使用 `rg` 查 `setAsWallpaper`、`activeWallpaperRuntime`、`playbackIntent`、`displaySessions`、daemon command/event 和 helper ready/commit；核对两端 wire schema 和测试。长期语言、进程和 AppKit 边界只从 `docs/architecture/technology-stack-boundaries.md` 读取。
+从当前仍可达的 wallpaper apply 入口、active runtime 状态、daemon command/event 与 helper ready/commit 两端开始用 `rg` 追调用链；搜索词必须从现场代码取得，不在本 Skill 保存可能消失的固定 symbol 清单。随后核对两端 wire schema 和测试。长期语言、进程和 AppKit 边界只从 `docs/architecture/technology-stack-boundaries.md` 读取。
 
 ## 职责重建与默认边界
 

@@ -7,7 +7,7 @@
 - 先区分讨论、只读审查、诊断和实现。只读任务不得修改、构建、生成缓存、暂存或提交；实现任务默认做到与风险相称的可验证结果。
 - 开工先读 `git status`，保留已有改动并确认本批文件所有权。禁止 `git reset --hard`、`git checkout --`、`git clean`、`git add -A` 和任何会覆盖他人工作的宽泛操作。
 - 真实 Scene 样本根 `~/Movies/MyWallpaperX/创意工坊/Scene` 只读。benchmark、属性注入和缓存只能使用隔离副本、隔离 Workshop root 与临时 `HOME`。
-- 只改当前目标的完整职责边界。可为了闭合结果移动或重组整个类型族，但不得顺手清理无关代码；计划外问题进入现役能力台账或路线后另批处理。
+- 只改当前目标的完整职责边界。可为了闭合结果移动或重组整个类型族，但不得顺手清理无关代码；计划外问题先在最终汇报中登记并另批处理，只有当前能力、运行事实或任务顺序确实改变且本批拥有对应权威文件时才更新台账、证据或路线。
 - 删除历史材料、唯一失败现场或归属不明的生成物前必须列出精确清单并取得确认。禁止对仓库根、`.codex` 根或真实样本根做递归清理。
 
 ## 2. 事实入口与证据边界
@@ -24,9 +24,9 @@
 
 冲突时依次采用：当前代码与可复现运行证据、本文、长期架构合同、专题当前状态/稳定合同、现役计划、历史证据。这个顺序只裁决“当前是什么”的事实冲突，不允许当前错误实现覆盖目标合同；目标合同仍按来源边界由官方作者行为、本文与长期架构合同裁决。历史文件中的“当前”“下一批”和命令没有现役约束力。
 
-每个实现判断必须同时写清三条轴：**目标合同**说明按官方作者行为与项目长期架构最终应当怎样；**当前事实**只说明当前代码和可复现证据现在怎样；**偏差债务**登记二者差异、现任 owner、fallback/route state、纠正门和退役条件。旧代码、旧测试和旧目录只证明现状，不得反向成为规范。AI 触达一个现有 owner 时必须主动列出本职责内的偏差，并在当前纵向结果所需范围内纠正；不得为了兼容已知错误实现而扩张错误抽象、专用分支或测试预期。暂时无法同批纠正的偏差必须显式留债并保持目标合同不变。
+Scene 语义、owner、route 或目标与现状存在偏差的实现判断必须同时写清三条轴：**目标合同**说明按官方作者行为与项目长期架构最终应当怎样；**当前事实**只说明当前代码和可复现证据现在怎样；**偏差债务**登记二者差异、现任 owner、fallback/route state、纠正门和退役条件。纯机械改动或不涉及这些边界的 UI/文案工作无需制造空纠偏卡。旧代码、旧测试和旧目录只证明现状，不得反向成为规范。AI 触达一个现有 owner 时必须主动列出本职责内的偏差，并在当前纵向结果所需范围内纠正；不得为了兼容已知错误实现而扩张错误抽象、专用分支或测试预期。暂时无法同批纠正的偏差必须显式留债并保持目标合同不变。
 
-必须使用[Scene 资料来源索引](docs/scene/semantics/source-index.md)的七类命名来源：`official-public-contract`、`official-client-dynamic-golden`、`official-client-static-observation`、`authored-corpus-observation`、`third-party-reference-pattern`、`MyWallpaperX-current-evidence`和`MyWallpaperX-strategy`。corpus 只证明作者写了什么，项目当前证据只证明现在做到了什么，二者都不能直接变成目标策略。动态观察证明固定条件下发生了什么，不证明内部实现；静态观察只提供版本有界的职责和顺序，不证明画面。不得把官方未公开的内部 GraphExecutor/算法归给官方，也不得用 MirageWallpaper 定义官方语义。Mirage 只可借鉴职责、状态传播和顺序；不得复制其源码、shader、资产、payload、常量组合、算法表达或测试数据。
+Scene 资料必须按[Scene 资料来源索引](docs/scene/semantics/source-index.md)的 named source taxonomy 分类，类别清单只由该索引维护，本文不复制。corpus 只证明作者写了什么，项目当前证据只证明现在做到了什么，二者都不能直接变成目标策略。动态观察证明固定条件下发生了什么，不证明内部实现；静态观察只提供版本有界的职责和顺序，不证明画面。不得把官方未公开的内部 GraphExecutor/算法归给官方，也不得用 MirageWallpaper 定义官方语义。Mirage 只可借鉴职责、状态传播和顺序；不得复制其源码、shader、资产、payload、常量组合、算法表达或测试数据。
 
 不得把 `recognized`、`wired`、静态 census、compile success、路由计数、非黑截图、matrix PASS 或单个样本通过表述为完整兼容或 Wallpaper Engine 视觉等价。
 
@@ -75,7 +75,7 @@
 3. 尽早运行一个代表性真实内容，按新的首断点迭代到实际 Program/VM/component 和可见输出；
 4. 在 checkpoint 加入新组合/未见 fixture，证明没有退化为已知名称视觉特判；
 5. 按能力、owner、matrix 或运行事实的真实变化同步唯一权威文档；
-6. 冻结 diff，运行提交门并提交单一职责批次。
+6. 冻结 diff 并运行提交门；只有当前任务已授权提交时才提交单一职责批次，否则保留未提交 diff 并明确汇报。
 
 纯规则/历史整理可独立提交。目录迁移与功能行为变化默认分开提交。
 
@@ -84,7 +84,7 @@
 - 产品 UI 保持 Swift + AppKit；Scene GPU 主链保持 Swift + Metal；Python 3.12 只用于测试和开发工具。作者 shader 后端与 SceneScript VM 的推荐方案和替代条件只由[兼容运行时架构](docs/scene/runtime-architecture.md)决定。
 - Swift 拥有 identity、作者顺序、IR、属性、资源/target 生命周期、host bridge、typed diagnostics 和 Metal 调度；通用 compiler 执行 shader 语言语义，真实 VM 执行 ECMAScript，component interpreter 执行粒子组合。
 - 新增固定 MSL 用 `.metal` 构建期编译。Workshop 作者 shader 在 preparation/variant 阶段完成 cache、取消/预算、reflection 和 pipeline preflight；不得在 draw/pass encode 热路径首次同步编译。
-- 一个文件表达一个凝聚职责；没有真实复用、独立生命周期或清晰依赖边界时不增加协议、wrapper 或目录。400 行是审查提醒，新增文件不得超过 800 行，历史超过 800 行的文件不得增长；禁止用压缩排版、删空行或切断强耦合流程过门。
+- 一个文件表达一个凝聚职责；没有真实复用、独立生命周期或清晰依赖边界时不增加协议、wrapper 或目录。Swift 文件的 review/hard limit 与 grandfathered 基线只由 [`script/code_health_baseline.json`](script/code_health_baseline.json)维护；本文不复制移动数值。禁止用压缩排版、删空行或切断强耦合流程过门。
 
 Scene 分类根 `MyWallpaperX/Core/SteamWorkshopScene` 不直接放 Swift。一级职责为 `Format`、`Runtime`、`Properties`、`Resources`、`Rendering`、`RenderGraph`、`Effects`、`Text`、`Particles`；布局真值由 [`script/scene_source_layout.json`](script/scene_source_layout.json) 与自动测试维护。禁止 `Misc`、`Common`、`Helpers` 等兜底目录和预建空目录。
 
@@ -97,7 +97,7 @@ Scene 分类根 `MyWallpaperX/Core/SteamWorkshopScene` 不直接放 Swift。一�
 统一入口：
 
 ```bash
-python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-path> --run
+python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|milestone> --base HEAD --path <owned-file> --run
 ```
 
 | 阶段 | 目的 | 最低要求 |
@@ -107,7 +107,7 @@ python3.12 script/verify_scene_change.py --phase <inner|checkpoint|integration|m
 | `integration` | GPU、VM、资源、生命周期或可见变化 | 已批准 Fast case；尚未批准时使用契约化代表隔离内容并明确不是 suite PASS；实际执行、局部降级、compositor 输出 |
 | `milestone` | 跨 family、matrix、性能或发布 | 按风险选择 fixed/full、压力、长稳、签名/发布门 |
 
-- gate 显式报告 `planned/running/passed/failed/skipped/blocked`；缺命令、`--skip-runtime` 或缺样本只能得到 structural-only/skipped。
+- gate 结构化状态只使用 `planned/passed/failed/skipped/blocked`；执行中的瞬时日志可以显示 running，但不得把它冒充已持久化状态。缺命令、`--skip-runtime` 或缺样本只能得到 structural-only/skipped。
 - Fast Scene Suite 成员与 readiness 只查 `script/scene_fast_suite.json`；`selection-required` 成员、任意 `--sample-id` 或 full matrix 子集不能报告为 Fast Suite PASS。
 - 声称具体显示或动态恢复时，需要实际执行身份、GPU/VM completion、publication、terminal compositor、next-frame，以及与声明相称的截图 ROI/事件证据。架构广度迁移仍不能用任意非黑像素冒充视觉支持。
 - 完成状态分三层独立报告：`slice-visible` 只证明当前纵向切片真实可见或可执行；`owner-migration` 还要求显式 route state、fallback 指标、回滚演练和旧 owner 撤权；`parity-release` 再要求对应 bounded profile 的官方黑盒容差、发布依赖、性能/长稳与签名门。前一层不得冒充后一层，发行门也不得倒灌阻塞第一张正确画面。

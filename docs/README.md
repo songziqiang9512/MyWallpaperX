@@ -22,13 +22,13 @@
 
 - [Scene 专题入口](scene/README.md)：当前架构、路线、能力、证据和资料导航。
 - [Scene 兼容运行时架构](scene/runtime-architecture.md)：官方公开合同、2.8.42 客户端静态观察、Mirage clean-room 模式和项目独立方案的边界。
-- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：唯一现役 Scene 执行计划；当前先收口 V1 correctness atom 与 owner 债务，再依次闭合 V2、V3，以 V4 横切输入轨补齐 producer/provider，最后逐项进入 V5 epics。
+- [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：唯一现役 Scene 执行计划；只在该文件维护当前阶段、阶段顺序、完成门与退役条件，本导航不复制其移动状态。
 - [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。
 - [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
 - [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。
 - [运行证据索引](scene/semantics/runtime-evidence-index.md)：已运行的当前证据和失败边界。
 - [Corpus 能力清单](scene/semantics/scene-corpus-capability-inventory.md)：真实作者输入的影响面；不证明运行支持。
-- [Fast Scene Suite 合同](../script/scene_fast_suite.json)：七类低成本纵向门的机器定义；成员未批准时明确为 `selection-required`，不能把任意样本冒充 suite PASS。
+- [Fast Scene Suite 合同](../script/scene_fast_suite.json)：低成本纵向门的成员与 readiness 机器定义；成员未批准时明确为 `selection-required`，不能把任意样本冒充 suite PASS。
 
 ## App、Web 与发布
 
@@ -43,8 +43,8 @@
 
 - 现役 plan/contract 使用稳定、无日期的路径，并在首部声明 `document-role`；日期写入正文的复核字段。
 - 所有带日期 Markdown 只能位于 `docs/history/`；历史目录中的文件不能取得现役角色。
-- 每个专题只允许一个现役执行计划。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
-- 同一当前事实只保留一个权威解释，其他文件放短指针；不在多个专题表复制 commit、矩阵数字和报告路径。
+- 每个专题只允许一个现役执行计划。现役计划只保留当前阶段、顺序、完成门和退役条件；批次结果、route 数字、样本身份和报告摘要回到各自能力/证据权威。能力表、依赖图、来源索引和历史文档都不能决定下一任务。
+- 导航页只说明文档角色并链接权威入口，不复制当前阶段、完成数量、commit、矩阵数字、报告路径或本机缓存位置；同一当前事实只保留一个权威解释，其他文件放短指针。
 - 当前能力变化更新能力台账/专项表；运行证据变化更新运行证据索引；架构变化更新稳定架构；任务顺序变化只更新现役路线。
 - 新的历史材料统一进入 `docs/history/{architecture,scene,web,cross-topic}`，并登记截止日期、独有价值和当前权威。
 - 历史正文中的“当前”“下一步”和命令只属于其截止日期，不得被 Agent 当成现役指令。

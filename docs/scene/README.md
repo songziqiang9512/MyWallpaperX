@@ -12,7 +12,7 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 
 对每个触达范围都要分开写目标合同、当前事实和偏差债务。现有代码与测试只能证明当前实现；它们偏离目标架构时，应在当前纵向 atom 所需范围内主动纠正，而不是新增兼容错误实现的 wrapper、matcher 或专用分支。
 
-V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主线只按[兼容执行路线](scene-compatibility-roadmap.md)收口 V1 correctness atom 与 owner 债务，随后依次进入 V2、V3，以 V4 横切输入轨补齐 producer/provider，再逐项进入 V5。当前能力宽度和最新证据分别只查能力台账、专项表与运行证据索引。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
+当前阶段、顺序和完成门只查[兼容执行路线](scene-compatibility-roadmap.md)；本导航不复制会随批次变化的阶段状态。当前能力宽度和最新证据分别只查能力台账、专项表与运行证据索引。旧 G0–G5 计划、R0–R5 记录和 coverage-first 批次均已退役，只能从[历史索引](../history/README.md)追溯。
 
 ## 当前架构与计划
 
@@ -25,7 +25,7 @@ V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主
 
 - [能力台账](semantics/coverage-ledger.md)：所有系统的当前能力、部分能力、缺失项和待办。
 - [运行证据索引](semantics/runtime-evidence-index.md)：当前构建/运行身份、样本结果和证据限制。
-- [版本化证据包](evidence/v1/authored-fbo-allocation-lifecycle/manifest.json)：被运行证据索引采用的最小原始报告、结构化runtime evidence、必要日志/截图和逐文件哈希；它保存可复核载荷，但不取代运行证据索引的结论与边界。
+- 版本化证据载荷位于被 Git 忽略的本机缓存，只由[运行证据索引](semantics/runtime-evidence-index.md)保存输入、App、报告、manifest 身份与哈希摘要；现役文档不链接或依赖该本机目录。
 - [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
 - [Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)：成员、选择状态和 readiness 的唯一事实入口；任何 `selection-required` 成员都不能执行或计为 Suite PASS。
@@ -33,7 +33,7 @@ V0 的首个 ordinary authored material/shader 可见门已经闭合；当前主
 ## 专项合同与覆盖
 
 - [语义手册](semantics/README.md)：全部专项文档导航。
-- [Effect 执行覆盖](semantics/effect-execution-coverage.md)：45 类官方 Effect 的当前执行通路和缺口。
+- [Effect 执行覆盖](semantics/effect-execution-coverage.md)：官方 Effect taxonomy 各类输入的当前执行通路和缺口。
 - [Render Graph / Shader 覆盖](semantics/render-graph-shader-coverage.md)：Program、pass、FBO、command、target 和 shader primitive。
 - [SceneScript API 覆盖](semantics/scenescript-api-coverage.md)：语言、module、host API、handle、event 和 timer。
 - [Particle 组件覆盖](semantics/particle-component-coverage.md)：General、Emitter、Initializer、Operator、Renderer、Child 和 Control Point。

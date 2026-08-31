@@ -31,7 +31,7 @@ Skill 不拥有架构决策。发现冲突时，先回答是 Skill 错、实现�
 
 ## 自动修正条件
 
-本仓库用户已授权在开发中持续发现并纠正已证伪的 Skill，但这项 standing maintenance request 不自动扩大产品或其他文件的写入范围。实际修改仍同时满足：
+仓库不保存跨任务的 Skill 写入授权。只有当前用户请求或 `AGENTS.md` 明确允许修改 Skill 时，才继续检查以下条件：
 
 1. 当前是允许写入的实现任务；只读/讨论只报告候选。
 2. 反证足以区分 `skill-error` 与 `implementation-deviation`。

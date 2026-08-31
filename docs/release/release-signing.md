@@ -22,22 +22,30 @@ The workflow intentionally fails early when any signing secret is missing. Unsig
 
 ## Publish an auto-update
 
-Pushes to non-`main` branches run the Swift file-health gate only. They do not
-build app artifacts, create GitHub Releases, or update the Sparkle feed.
+The [CI workflow](../../.github/workflows/ci.yml) runs the repository gate
+selector for every non-tag push and pull request. Branch pushes use the
+`checkpoint` phase; pull requests and `main` use `integration`. CI has no
+private Workshop corpus, so runtime-dependent gates are explicitly reported as
+skipped there. CI never builds release artifacts, creates GitHub Releases, or
+updates the Sparkle feed.
 
-Pushing to `main` is the release action. The release version must already be
-committed in `MyWallpaperX.xcodeproj/project.pbxproj`; CI does not bump or
-commit project versions after publishing.
+Pushing or merging to `main` does **not** publish a release. Publishing requires
+an explicit `workflow_dispatch` of the [Release MyWallpaperX
+workflow](../../.github/workflows/build.yml) against `main`. The public version
+must already be committed in `MyWallpaperX.xcodeproj/project.pbxproj`; the
+release workflow does not bump or commit project versions after publishing.
 
 1. Create a release branch from current `main`.
 2. Run `script/prepare_release_version.sh <version>` and open/merge that release
    PR.
-3. The workflow resolves the public version from the Xcode project. If
+3. After the release PR is merged, manually run **Release MyWallpaperX** against
+   `main`.
+4. The workflow resolves the public version from the Xcode project. If
    `build-<version>` already exists, the workflow fails and asks for a newer
    release version instead of auto-incrementing.
-4. The workflow signs and notarizes the app, publishes the versioned DMG, signs
+5. The workflow signs and notarizes the app, publishes the versioned DMG, signs
    `appcast.xml`, and replaces the `update-feed` release asset.
 
-Manual `workflow_dispatch` remains available as a fallback, but it only
-publishes when run against `main`. Installed release builds check the feed once
-per day and can also use **检查更新…** from the application or status-bar menu.
+The release job is guarded to run only on `main`; dispatching it against another
+ref does not publish. Installed release builds check the feed once per day and
+can also use **检查更新…** from the application or status-bar menu.
