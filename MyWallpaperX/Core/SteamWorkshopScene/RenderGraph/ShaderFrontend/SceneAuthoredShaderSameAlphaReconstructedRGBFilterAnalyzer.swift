@@ -9,13 +9,16 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBSampleProjection:
     case blue
     case alpha
     case redGreen
+    case greenAlpha
     case rgbPermutation
 }
 
-/// Source proof for a post-process that reconstructs one straight RGB carrier
-/// from multiple samples of the same color slot, keeps the snapshot alpha, and
-/// consumes every other sampled slot only as typed data. The proof is entirely
-/// structural and carries exact sample projections into compiler revalidation.
+/// Source proof for a post-process that reconstructs one straight RGBA carrier
+/// from multiple samples of the same color slot and consumes every other
+/// sampled slot only as typed data. Alpha is either copied from the terminal
+/// snapshot or reconstructed from the same color slot at an authored
+/// coordinate. The proof is entirely structural and carries exact sample
+/// projections into compiler revalidation.
 nonisolated struct SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact:
     Equatable, Sendable
 {
@@ -25,6 +28,7 @@ nonisolated struct SceneAuthoredShaderSameAlphaReconstructedRGBFilterFact:
     let sourceSlot: Int
     let sourceSampleCallCounts: [Projection: Int]
     let dataSampleCallCounts: [Int: [Projection: Int]]
+    let preservesSnapshotAlpha: Bool
 
     var auxiliarySlots: Set<Int> { Set(dataSampleCallCounts.keys) }
 
@@ -157,7 +161,8 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         var initialized = Set<String>()
         var sourceCallIndices: Set<Int> = [snapshotCall.index]
         var rgbMutationCount = 0
-        var copiedSnapshotAlpha = false
+        var alphaInitializationWrite: Int?
+        var preservesSnapshotAlpha = false
         guard let declarationStatement = statements.firstIndex(where: {
                   $0.contains(carrierDeclaration)
               }),
@@ -197,19 +202,30 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
                    copied.name == snapshot,
                    copied.lanes == laneSequence {
                     initialized.formUnion(lanes)
-                    if lanes.contains("w") { copiedSnapshotAlpha = true }
+                    if lanes.contains("w") {
+                        guard alphaInitializationWrite == nil,
+                              let write = occurrences.first else { return nil }
+                        alphaInitializationWrite = write
+                        preservesSnapshotAlpha = true
+                    }
                     continue
                 }
-                guard lanes.count == 1,
-                      lanes.first != "w",
-                      let call = directProjectedSample(
+                guard let call = directProjectedSample(
                           assignment.expression,
                           calls: calls,
                           tokens: tokens
                       ),
                       call.slot == sourceSlot,
-                      normalizedLanes(call.projection) == lanes else {
+                      directCarrierProjectionIsSupported(call.projection),
+                      normalizedLaneSequence(call.projection) == laneSequence
+                else {
                     return nil
+                }
+                if lanes.contains("w") {
+                    guard alphaInitializationWrite == nil,
+                          let write = occurrences.first else { return nil }
+                    alphaInitializationWrite = write
+                    preservesSnapshotAlpha = false
                 }
                 sourceCallIndices.insert(call.index)
                 initialized.formUnion(lanes)
@@ -221,7 +237,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         }
 
         guard initialized == Set(["x", "y", "z", "w"]),
-              copiedSnapshotAlpha,
+              let alphaInitializationWrite,
               rgbMutationCount > 0,
               snapshotIsReadOnly(
                   snapshot,
@@ -233,7 +249,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
                   carrier,
                   from: statements[declarationStatement + 1].lowerBound,
                   to: output,
-                  initializedBy: sourceCallIndices,
+                  allowedWrite: alphaInitializationWrite,
                   tokens: tokens
               ) else { return nil }
 
@@ -251,7 +267,8 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
             }
             guard samplerType(slot: call.slot, fragment: fragment) == "sampler2D",
                   call.projection != .fullVector,
-                  call.projection != .alpha else { return nil }
+                  call.projection != .alpha,
+                  call.projection != .greenAlpha else { return nil }
             dataCounts[call.slot, default: [:]][call.projection, default: 0] += 1
         }
         let counts = Array(sourceCounts.values)
@@ -263,7 +280,8 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         return .init(
             sourceSlot: sourceSlot,
             sourceSampleCallCounts: sourceCounts,
-            dataSampleCallCounts: dataCounts
+            dataSampleCallCounts: dataCounts,
+            preservesSnapshotAlpha: preservesSnapshotAlpha
         )
     }
 
@@ -419,7 +437,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         _ name: String,
         from lowerBound: Int,
         to upperBound: Int,
-        initializedBy sourceCallIndices: Set<Int>,
+        allowedWrite: Int,
         tokens: [Token]
     ) -> Bool {
         // Initialization structure was proved statement-by-statement above.
@@ -435,21 +453,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
             }
             if hasWriteOperator(after: index, boundary: upperBound, tokens: tokens),
                lanes.contains("w") {
-                // The sole snapshot-alpha initialization is allowed; any
-                // later alpha write would break equal-alpha terminal mixing.
-                let statementStart = (lowerBound...index).reversed().first(where: {
-                    $0 == lowerBound || tokens[$0 - 1].text == ";"
-                }) ?? index
-                let sourceCalls = sourceCallIndices.filter {
-                    (statementStart...index).contains($0)
-                }
-                if sourceCalls.isEmpty,
-                   !(index + 5 < upperBound
-                     && tokens[index + 3].text == "="
-                     && tokens[index + 4].kind == .identifier
-                     && tokens[index + 5].text == ".") {
-                    return false
-                }
+                guard index == allowedWrite else { return false }
             }
         }
         return true
@@ -513,6 +517,7 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         case "z": return .blue
         case "w": return .alpha
         case "xy": return .redGreen
+        case "yw": return .greenAlpha
         case let value where value.count == 3
             && Set(value).isSubset(of: Set("xyz")):
             return .rgbPermutation
@@ -528,7 +533,34 @@ nonisolated enum SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer {
         case .blue: ["z"]
         case .alpha: ["w"]
         case .redGreen: ["x", "y"]
+        case .greenAlpha: ["y", "w"]
         case .rgbPermutation: ["x", "y", "z"]
+        }
+    }
+
+    private static func normalizedLaneSequence(
+        _ projection: Projection
+    ) -> [String] {
+        switch projection {
+        case .fullVector: ["x", "y", "z", "w"]
+        case .red: ["x"]
+        case .green: ["y"]
+        case .blue: ["z"]
+        case .alpha: ["w"]
+        case .redGreen: ["x", "y"]
+        case .greenAlpha: ["y", "w"]
+        case .rgbPermutation: ["x", "y", "z"]
+        }
+    }
+
+    private static func directCarrierProjectionIsSupported(
+        _ projection: Projection
+    ) -> Bool {
+        switch projection {
+        case .red, .green, .blue, .greenAlpha:
+            true
+        case .fullVector, .alpha, .redGreen, .rgbPermutation:
+            false
         }
     }
 

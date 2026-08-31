@@ -49,7 +49,8 @@ extension SceneGenericShaderArtifactBuilder {
         } else if let fact =
             SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
                 .analyze(fragmentSource: authoredSource) {
-            guard fact.sourceSlot == expectedSlot,
+            guard fact.preservesSnapshotAlpha,
+                  fact.sourceSlot == expectedSlot,
                   let lowered =
                     SceneGenericShaderSameAlphaReconstructedRGBFilterLowering
                         .lower(source, fact: fact) else {

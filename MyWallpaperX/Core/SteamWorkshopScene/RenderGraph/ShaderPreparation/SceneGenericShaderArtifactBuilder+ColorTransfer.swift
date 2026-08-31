@@ -98,6 +98,21 @@ extension SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
+            if let fact =
+                SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
+                    .analyze(fragmentSource: authoredSource),
+               !fact.preservesSnapshotAlpha,
+               fact.sourceSlot == expectedSlot {
+                guard let lowered =
+                        SceneGenericShaderSameAlphaReconstructedRGBFilterLowering
+                            .lower(source, fact: fact) else {
+                    throw Failure.colorTransfer
+                }
+                return (
+                    lowered,
+                    artifactTransfer(kind: "straight-alpha", slot: expectedSlot)
+                )
+            }
             if let fact = SceneAuthoredShaderAssociatedOverBlendAnalyzer
                 .analyze(fragmentSource: authoredSource),
                 fact.sourceSlot == expectedSlot

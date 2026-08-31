@@ -204,9 +204,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneResolvedMaterialProgramDerivation
                 .SameAlphaReconstructedRGBInputContract?
         if let fact = sameAlphaReconstructedRGBFact,
-           sourceColorTransfer == .straightAlphaPreserving(
-            textureSlot: fact.sourceSlot
-           ) {
+           sourceColorTransfer == (fact.preservesSnapshotAlpha
+            ? .straightAlphaPreserving(textureSlot: fact.sourceSlot)
+            : .straightAlpha(textureSlot: fact.sourceSlot)) {
             sameAlphaReconstructedRGBInputContract = .init(
                 sourceSlot: fact.sourceSlot,
                 dataSlots: fact.auxiliarySlots

@@ -896,6 +896,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 140样本当前只读census中的Shine上界为29个visible / 29个authored occurrence、13个样本、5-pass / 2-target共享图；这只证明作者数据影响面。现役共享source/compiler artifact合同现在可证明helper或direct静态loop产生的whole RGBA signal在typed `rgba8888` attachment处完成UNorm storage clamp，request/cache identity携带exact loop work与target boundary；SPIRV-Cross terminal只允许唯一whole `float4` carrier乘simple scalar facts。成员carrier、第二carrier、vector/call factor、错slot、额外sample、动态/分支/负权重与loop-work漂移继续失败关闭。真实`2241938645:68#effect#159`与未见`2269193950:13#effect#53`的5个material node均进入既有`ShaderPreparation → MaterialProgram → GraphTargets → GraphExecutor → Metal`，两张`1024×576/rgba8888` target完成GPU/publication/next-frame并由后缀进入唯一compositor；未见样本严格1/1 PASS，前者只因独立VHS `68#effect#114`仍局部passthrough而保持NON-PASS。profile-local disable只把目标node回滚到shared `boundedSwift`且整样本仍PASS。最高为`S3 bounded real graph execution + rollback`，不是Shine family、独立ROI/fidelity、140 corpus或官方parity；见[E-V1-SHINE-RGBA8-UNORM-ACCUMULATOR](runtime-evidence-index.md#e-v1-shine-rgba8-unorm-accumulator)。
 
+### 2026-08-31 V1 sampled-alpha RGBA reconstruction 纠正（V4 执行中）
+
+目标合同要求颜色sample与noise/mask data slot在同一ShaderPreparation/MaterialProgram中保持不同representation。现役identity-free source proof现可区分“terminal snapshot alpha原样守恒”和“alpha由同一color slot的作者坐标重建”两种形态；后一形态只允许exact same-slot `.ga/.yw` 初始化、同槽RGB reconstruction、互斥typed static data auxiliary与唯一terminal mix。compiler artifact逐项重证sample slot/projection/count、temporary用途与terminal endpoints，只解预乘color slot的每次sample，noise/mask保持data，并只在terminal预乘一次。错槽/投影、alpha覆写、hidden sample、temporary escape与endpoint漂移均失败关闭。
+
+真实`2241938645:68#effect#114`默认与恢复进程命中新增`source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter / generic-only / fallbackOwner=none`及同一Program；frame0/next-frame均1 authored / 1 material / 0 rejected、GPU completed与exact publication，effect 9后缀由唯一compositor消费。profile-local disable只把effect 3回退为typed previous-current，effects 4...9、GPU/publication/compositor/next-frame继续；未复活bounded frontend或专用VHS owner。三次strict selection因陈旧effect-count期待以及负门预期的局部passthrough保持NON-PASS，未放宽matrix。截图只排除黑屏、整层/整帧丢失与全局红绿交替，不证明VHS独立ROI/fidelity、其他revision、完整corpus或官方parity。上一段43/1/1的route census由本批更正为现役**44/1/1**；见[E-V1-VHS-SAMPLED-ALPHA-RGBA-RECONSTRUCTION](runtime-evidence-index.md#e-v1-vhs-sampled-alpha-rgba-reconstruction)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

@@ -22,6 +22,9 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
     static func lower(_ source: String, fact: Fact) -> String? {
         guard (0 ..< 8).contains(fact.sourceSlot),
               !fact.auxiliarySlots.isEmpty,
+              (fact.preservesSnapshotAlpha
+                ? fact.sourceSampleCallCounts[.greenAlpha] == nil
+                : fact.sourceSampleCallCounts[.greenAlpha] == 1),
               fact.auxiliarySlots.allSatisfy({ (0 ..< 8).contains($0) }),
               !fact.auxiliarySlots.contains(fact.sourceSlot),
               fact.totalSampleCallCount <= 32,
@@ -65,7 +68,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
               snapshotAndCarrierFlowIsProven(
                   snapshot: snapshot,
                   carrier: carrier,
-                  sourceSlot: fact.sourceSlot,
+                  fact: fact,
                   sourceCalls: calls.filter({ $0.slot == fact.sourceSlot }),
                   output: output.range,
                   body: body,
@@ -118,7 +121,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
     private static func snapshotAndCarrierFlowIsProven(
         snapshot: String,
         carrier: String,
-        sourceSlot: Int,
+        fact: Fact,
         sourceCalls: [SampleCall],
         output: NSRange,
         body: NSRange,
@@ -129,7 +132,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         let snapshotDefinitions = matches(
             #"(?m)^[ \t]*(?:const[ \t]+)?float4[ \t]+"#
                 + escapedSnapshot + #"\s*=\s*g_Texture"#
-                + String(sourceSlot) + #"\.sample\([^;]+\)\s*;[ \t]*$"#,
+                + String(fact.sourceSlot) + #"\.sample\([^;]+\)\s*;[ \t]*$"#,
             in: source
         )
         let carrierDeclarations = matches(
@@ -177,34 +180,52 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
             return false
         }
 
-        let alphaWrites = matches(
+        let carrierLaneWrites = matches(
             #"(?m)^[ \t]*"# + escapedCarrier
-                + #"\s*\.\s*(?:w|a)\s*=\s*([^;]+)\s*;[ \t]*$"#,
+                + #"\s*\.\s*([xyzwrgba]{1,4})\s*=\s*([^;]+)\s*;[ \t]*$"#,
             in: source
         )
+        let alphaWrites = carrierLaneWrites.filter {
+            guard let lanes = capture($0, 1, in: source) else { return false }
+            return lanes.map(normalizedLane).contains("w")
+        }
         guard alphaWrites.count == 1,
-              let alphaExpression = capture(alphaWrites[0], 1, in: source),
-              selectedLane(alphaExpression, from: snapshot) == "w",
               carrierDeclaration.range.location < alphaWrites[0].range.location,
               alphaWrites[0].range.location < output.location else { return false }
+        if fact.preservesSnapshotAlpha {
+            guard let alphaExpression = capture(alphaWrites[0], 2, in: source),
+                  selectedLane(alphaExpression, from: snapshot) == "w" else {
+                return false
+            }
+        }
 
-        var initializedColorLanes = Set<String>()
+        var initializedLanes = Set<String>()
         for call in sourceCalls where call.projection != .fullVector {
             guard let callRange = Range(call.range, in: source) else { return false }
             let text = escaped(String(source[callRange]))
-            let lane = compilerLane(call.projection)
-            guard let lane else { return false }
-            let assignments = matches(
-                #"(?m)^[ \t]*"# + escapedCarrier + #"\s*\.\s*"#
-                    + lane + #"\s*=\s*"# + text + #"\s*\.\s*"#
-                    + lane + #"\s*;[ \t]*$"#,
-                in: source
-            )
-            guard assignments.count == 1,
-                  assignments[0].range.location < output.location else {
+            if let lane = compilerLane(call.projection) {
+                let assignments = matches(
+                    #"(?m)^[ \t]*"# + escapedCarrier + #"\s*\.\s*"#
+                        + lane + #"\s*=\s*"# + text + #"\s*\.\s*"#
+                        + lane + #"\s*;[ \t]*$"#,
+                    in: source
+                )
+                guard assignments.count == 1,
+                      assignments[0].range.location < output.location else {
+                    return false
+                }
+                initializedLanes.insert(lane)
+            } else if call.projection == .greenAlpha {
+                guard greenAlphaInitializationIsProven(
+                    sampleText: text,
+                    carrier: escapedCarrier,
+                    output: output,
+                    source: source
+                ) else { return false }
+                initializedLanes.formUnion(["y", "w"])
+            } else {
                 return false
             }
-            initializedColorLanes.insert(lane)
         }
 
         let snapshotColorWrites = matches(
@@ -219,9 +240,10 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
                   let nested = capture(write, 3, in: source),
                   selectedLane(base, nested: nested) == normalizedLane(target)
             else { return false }
-            initializedColorLanes.insert(normalizedLane(target))
+            initializedLanes.insert(normalizedLane(target))
         }
-        guard initializedColorLanes == Set(["x", "y", "z"]) else {
+        if fact.preservesSnapshotAlpha { initializedLanes.insert("w") }
+        guard initializedLanes == Set(["x", "y", "z", "w"]) else {
             return false
         }
 
@@ -278,6 +300,50 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         case .blue: "z"
         default: nil
         }
+    }
+
+    private static func greenAlphaInitializationIsProven(
+        sampleText: String,
+        carrier: String,
+        output: NSRange,
+        source: String
+    ) -> Bool {
+        let direct = matches(
+            #"(?m)^[ \t]*"# + carrier
+                + #"\s*\.\s*(?:yw|ga)\s*=\s*"# + sampleText
+                + #"\s*\.\s*(?:yw|ga)\s*;[ \t]*$"#,
+            in: source
+        )
+        if direct.count == 1, direct[0].range.location < output.location {
+            return true
+        }
+        let temporaryDefinitions = matches(
+            #"(?m)^[ \t]*(?:const[ \t]+)?float2[ \t]+([A-Za-z_]\w*)\s*=\s*"#
+                + sampleText + #"\s*\.\s*(?:yw|ga)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard temporaryDefinitions.count == 1,
+              temporaryDefinitions[0].range.location < output.location,
+              let temporary = capture(temporaryDefinitions[0], 1, in: source)
+        else { return false }
+        let escapedTemporary = escaped(temporary)
+        let greenWrites = matches(
+            #"(?m)^[ \t]*"# + carrier
+                + #"\s*\.\s*(?:y|g)\s*=\s*"# + escapedTemporary
+                + #"\s*\.\s*(?:x|r)\s*;[ \t]*$"#,
+            in: source
+        )
+        let alphaWrites = matches(
+            #"(?m)^[ \t]*"# + carrier
+                + #"\s*\.\s*(?:w|a)\s*=\s*"# + escapedTemporary
+                + #"\s*\.\s*(?:y|g)\s*;[ \t]*$"#,
+            in: source
+        )
+        return greenWrites.count == 1
+            && alphaWrites.count == 1
+            && matches(#"\b"# + escapedTemporary + #"\b"#, in: source).count == 3
+            && greenWrites[0].range.location < output.location
+            && alphaWrites[0].range.location < output.location
     }
 
     private static func terminalOutputIsProven(
@@ -382,6 +448,7 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         case "z": return .blue
         case "w": return .alpha
         case "xy": return .redGreen
+        case "yw": return .greenAlpha
         case let value where value.count == 3
             && Set(value).isSubset(of: Set("xyz")):
             return .rgbPermutation

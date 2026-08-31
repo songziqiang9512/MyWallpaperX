@@ -80,6 +80,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-typed-data-rgb-filter"
     case sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter =
         "source-proven-graph-input-same-alpha-reconstructed-rgb-data-filter"
+    case sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter =
+        "source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter"
     case sourceProvenUnitPreviousBlurredComposite =
         "source-proven-unit-previous-blurred-composite"
     case sourceProvenUnitPreviousBlurredCompositeUnowned =
@@ -406,6 +408,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphTextureSlots.isSubset(of: Set([sourceSlot])),
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter
+        } else if case let .straightAlpha(sourceSlot) = colorTransfer,
+                  sameAlphaReconstructedRGBFilterSourceSlot == sourceSlot,
+                  !sameAlphaReconstructedRGBFilterAuxiliarySlots.isEmpty,
+                  sameAlphaReconstructedRGBFilterAuxiliarySlots
+                    == typedStaticDataAuxiliarySlots,
+                  !hasExternalProviderTexture,
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isSubset(of: Set([sourceSlot])),
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   typedDataRGBFilterSourceSlot == sourceSlot,
                   !typedDataRGBFilterAuxiliarySlots.isEmpty,
@@ -633,6 +645,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenGraphInputTypedDataRGBFilter,
              .sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter,
+             .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter,
              .sourceProvenUnitPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
@@ -687,6 +700,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         switch self {
         case .sourceProvenGraphInputPreservedAlphaRGBFilter,
              .sourceProvenGraphInputTypedDataRGBFilter,
+             .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter,
              .sourceProvenGraphInputStraightRGBScalarAlpha,
              .sourceProvenGraphInputRGBBlendScalarAlpha,
              .sourceProvenUnitPreviousBlurredComposite:

@@ -1,5 +1,7 @@
 # Scene 官方 Effect 执行覆盖表
 
+现役 VHS sampled-alpha RGBA 更正：共享frontend/compiler现在把同一graph-input color slot的snapshot、作者坐标`.ga/.yw`初始化与其余RGB reconstruction证明为straight RGBA；noise/mask slot继续是typed static data。真实`2241938645:68#effect#114`默认/恢复由新增identity-free `source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter / generic-only / fallbackOwner=none` Program执行，profile disable只对该effect发布previous-current，后续effects 4...9与唯一compositor继续。没有新增VHS planner/pipeline/renderer/texture loader或输出owner；strict selection因旧matrix期待保持NON-PASS，且无独立ROI/官方golden。现役route census为**44/1/1**；见[E-V1-VHS-SAMPLED-ALPHA-RGBA-RECONSTRUCTION](runtime-evidence-index.md#e-v1-vhs-sampled-alpha-rgba-reconstruction)。
+
 > 状态：现役专项能力表
 >
 > 最近核对：2026-08-31
