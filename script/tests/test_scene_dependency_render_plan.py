@@ -30,6 +30,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
 
@@ -372,6 +374,28 @@ enum Harness {
             visibleLayerIDs: Set(multiEffectXRayLayers.map(\.id)),
             verifiedXRayStageKeys: [xRayKey(layerID: 251, effectIndex: 1)]
         )
+        let hiddenVideoXRayLayers = [
+            layer(260, visible: false),
+            xRayConsumer(261, provider: 260),
+        ]
+        let hiddenVideoXRayDescriptor = SceneRenderDescriptor(
+            layers: hiddenVideoXRayLayers,
+            renderOrderLayerIDs: [261, 260]
+        )
+        let hiddenVideoXRayPlan = SceneDependencyRenderPlan(
+            descriptor: hiddenVideoXRayDescriptor,
+            visibleLayerIDs: [261]
+        )
+        let admittedHiddenVideoXRayPlan = SceneDependencyRenderPlan(
+            descriptor: hiddenVideoXRayDescriptor,
+            visibleLayerIDs: [261],
+            resolvedMaterialConsumerLayerIDs: [261]
+        )
+        let rejectedHiddenVideoXRayPlan = SceneDependencyRenderPlan(
+            descriptor: hiddenVideoXRayDescriptor,
+            visibleLayerIDs: [261],
+            resolvedMaterialConsumerLayerIDs: []
+        )
         let parsed = [
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42")?.variant.rawValue ?? "nil",
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_a")?.variant.rawValue ?? "nil",
@@ -521,6 +545,37 @@ enum Harness {
                 "multiEffectConsumer": multiEffectXRayPlan
                     .blocksStaticLayerSourcePassthrough(for: 251),
             ],
+            "hiddenVideoXRayProgramBinding": [
+                "provisional": hiddenVideoXRayPlan.bindingsByConsumerLayerID[261]?
+                    .kind == .imageLayerBlend,
+                "provider": hiddenVideoXRayPlan.bindingsByConsumerLayerID[261]?
+                    .providerLayerID ?? -1,
+                "slot": hiddenVideoXRayPlan.bindingsByConsumerLayerID[261]?
+                    .slot.slotIndex ?? -1,
+                "requiresProgram": hiddenVideoXRayPlan
+                    .bindingsByConsumerLayerID[261]?
+                    .requiresResolvedMaterialProgram ?? false,
+                "forward": hiddenVideoXRayPlan.bindingsByConsumerLayerID[261]?
+                    .requiresForwardCapture ?? false,
+                "runtimeAdmitted": admittedHiddenVideoXRayPlan
+                    .bindingsByConsumerLayerID[261] != nil,
+                "runtimeRejected": rejectedHiddenVideoXRayPlan
+                    .bindingsByConsumerLayerID[261] == nil,
+                "providerRequired": hiddenVideoXRayPlan.requiredProviderLayerIDs
+                    .contains(260),
+                "consumerRequiresEffect": hiddenVideoXRayPlan
+                    .requiredEffectConsumerLayerIDs.contains(261),
+                "activeExecution": admittedHiddenVideoXRayPlan
+                    .resolvedMaterialExecutionLayerIDs(
+                        visibleRootLayerIDs: [261],
+                        availableExecutionLayerIDs: [261]
+                    ).sorted(),
+                "inactiveExecution": admittedHiddenVideoXRayPlan
+                    .resolvedMaterialExecutionLayerIDs(
+                        visibleRootLayerIDs: [],
+                        availableExecutionLayerIDs: [261]
+                    ).sorted(),
+            ],
             "solidCarrierBinding": [
                 "consumer": solidCarrier?.consumerLayerID ?? -1,
                 "provider": solidCarrier?.providerLayerID ?? -1,
@@ -641,25 +696,30 @@ enum Harness {
                 "userTextureOverride": imageBlendBinding(userTextureOverride: true) == nil,
                 "extraReference": imageBlendBinding(extraReference: true) == nil,
                 "invalidTransform": imageBlendBinding(
-                    extraCombos: ["TRANSFORMUV": 2]
+                    extraCombos: ["TRANSFORMUV": 2],
+                    resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
                 "repeatWithoutTransform": imageBlendBinding(
-                    extraCombos: ["TRANSFORMREPEAT": 1]
+                    extraCombos: ["TRANSFORMREPEAT": 1],
+                    resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
                 "invalidTransformOffset": imageBlendBinding(
                     extraCombos: ["TRANSFORMUV": 1],
                     extraConstantShaderValues: [
                         "blendoffset": .init(components: [1]),
-                    ]
+                    ],
+                    resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
                 "invalidTransformScale": imageBlendBinding(
                     extraCombos: ["TRANSFORMUV": 1],
                     extraConstantShaderValues: [
                         "blendscale": .init(components: [0]),
-                    ]
+                    ],
+                    resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
                 "invalidBlendMode": imageBlendBinding(
-                    extraCombos: ["BLENDMODE": 33]
+                    extraCombos: ["BLENDMODE": 33],
+                    resolvedMaterialConsumerLayerIDs: []
                 ) == nil,
             ],
             "partialStrengthRequiresProgram":
@@ -1605,6 +1665,24 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
 
+    def test_hidden_image_provider_is_a_program_gated_external_primary(self) -> None:
+        self.assertEqual(
+            self.result["hiddenVideoXRayProgramBinding"],
+            {
+                "provisional": True,
+                "provider": 260,
+                "slot": 1,
+                "requiresProgram": True,
+                "forward": True,
+                "runtimeAdmitted": True,
+                "runtimeRejected": True,
+                "providerRequired": True,
+                "consumerRequiresEffect": True,
+                "activeExecution": [261],
+                "inactiveExecution": [],
+            },
+        )
+
     def test_verified_xray_authority_flows_from_stock_identity_to_dependency_plan(
         self,
     ) -> None:
@@ -1663,8 +1741,14 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         prepass = renderer[forward_preparation:authored_loop]
         self.assertIn("framePlans: resolvedMaterialFrameTargetPlans", prepass)
         self.assertIn(
-            ".requiresForwardCapture(for: provider.id)",
+            ".requiresForwardCapture(\n"
+            "                for: provider.id,\n"
+            "                activeExecutionLayerIDs: activeExecutionLayerIDs",
             renderer,
+        )
+        self.assertIn(
+            "resolvedMaterialExecutionLayerIDs(",
+            dependency_runtime,
         )
         self.assertIn(
             "executeDependencyGraphProviderIfRequired(",

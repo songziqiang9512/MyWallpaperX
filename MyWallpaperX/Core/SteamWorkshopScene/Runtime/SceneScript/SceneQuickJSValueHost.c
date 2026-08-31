@@ -118,6 +118,8 @@ bool mwx_scene_quickjs_restore_active_engine(
 }
 
 bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
+    // Author console output is a compatibility sink. User-requested diagnostics
+    // own collection and serialization, so normal launch/frame work stays clean.
     static const char source[] =
         "(() => {"
         "class Vec3 {"
@@ -152,8 +154,9 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "target[key]=target[key] instanceof Vec3?new Vec3(next):next;}"
         "return target;}"
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
+        "const console=Object.freeze({log(...args){},error(...args){}});"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
-        "return {Vec3,createScriptProperties,assignScriptProperties,deepFreeze,MediaPlaybackEvent};"
+        "return {Vec3,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
         "})()";
     JSContext *context = domain->context;
     JSValue host = JS_Eval(
@@ -172,18 +175,20 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     JSValue media_playback = JS_GetPropertyStr(
         context, host, "MediaPlaybackEvent"
     );
+    JSValue console = JS_GetPropertyStr(context, host, "console");
     domain->script_property_assigner = JS_GetPropertyStr(
         context, host, "assignScriptProperties"
     );
     domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
     JS_FreeValue(context, host);
     if (!JS_IsFunction(context, vec3) || !JS_IsFunction(context, builder) ||
-        !JS_IsObject(media_playback) ||
+        !JS_IsObject(media_playback) || !JS_IsObject(console) ||
         !JS_IsFunction(context, domain->script_property_assigner) ||
         !JS_IsFunction(context, domain->deep_freeze)) {
         JS_FreeValue(context, vec3);
         JS_FreeValue(context, builder);
         JS_FreeValue(context, media_playback);
+        JS_FreeValue(context, console);
         JS_FreeValue(context, domain->script_property_assigner);
         JS_FreeValue(context, domain->deep_freeze);
         domain->script_property_assigner = JS_UNDEFINED;
@@ -206,6 +211,13 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         global,
         "MediaPlaybackEvent",
         media_playback,
+        read_only
+    );
+    int console_result = JS_DefinePropertyValueStr(
+        context,
+        global,
+        "console",
+        console,
         read_only
     );
     JSValue shared = JS_NewObject(context);
@@ -238,7 +250,8 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     JS_FreeValue(context, shared_set);
     JS_FreeValue(context, global);
     return vec_result >= 0 && builder_result >= 0
-        && media_playback_result >= 0 && shared_result >= 0;
+        && media_playback_result >= 0 && console_result >= 0
+        && shared_result >= 0;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_scalar(

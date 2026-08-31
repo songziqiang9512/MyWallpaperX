@@ -224,6 +224,22 @@ struct SceneLayerSourcePassthroughPlan {
                 return .failure(.currentMediaAtomInvalid)
             }
             return .success(.currentMedia)
+        case let (
+            .provider(.video(candidateLayerID, lifecycleEpoch)),
+            .provider(contentGeneration)
+        ):
+            guard candidateLayerID == request.layer.id,
+                  lifecycleEpoch > 0,
+                  contentGeneration == publication.contentGeneration,
+                  request.baseTextureCandidate.map({
+                      sameAtom($0, publication.candidate)
+                  }) ?? false,
+                  publication.candidate.sampling.rawFlags == nil,
+                  publication.candidate.authoredFormat == nil,
+                  validCurrentMediaTexture(publication.texture) else {
+                return .failure(.currentMediaAtomInvalid)
+            }
+            return .success(.currentMedia)
         case (.builtIn, _), (.provider, _), (.file, _):
             return .failure(.sourceIdentityUnsupported)
         }

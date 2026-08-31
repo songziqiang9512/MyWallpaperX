@@ -43,6 +43,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorCandidateCatalog.swift",
     VM / "SceneScriptVectorMediaRouteCandidate.swift",
+    VM / "SceneScriptVectorProgramModels.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorRuntime.swift",
     VM / "SceneScriptQuickJSProgramCandidate.swift",

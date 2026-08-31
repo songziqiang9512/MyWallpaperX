@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Strict Boolean SceneScript publication for safe leaf-layer visibility."""
+"""Strict Boolean publication with read-only scene lookup visibility."""
 
 from __future__ import annotations
 
@@ -424,21 +424,21 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["effectBearingDefinitions"], 1)
         self.assertTrue(self.value["effectBearingValue"])
 
-    def test_named_reference_consumers_and_providers_remain_graph_owned(self) -> None:
-        self.assertEqual(self.value["namedConsumerProjected"], 0)
-        self.assertEqual(self.value["namedProviderProjected"], 0)
+    def test_named_graph_participants_keep_independent_visibility_owners(self) -> None:
+        self.assertEqual(self.value["namedConsumerProjected"], 1)
+        self.assertEqual(self.value["namedProviderProjected"], 1)
         self.assertEqual(self.value["shadowedNamedConsumerProjected"], 1)
 
-    def test_shared_handle_and_event_only_owners_remain_outside(self) -> None:
+    def test_shared_mutable_and_event_only_owners_remain_outside(self) -> None:
         self.assertEqual(self.value["cursorOnlyProjected"], 0)
         self.assertEqual(self.value["sharedUpdateProjected"], 0)
-        self.assertEqual(self.value["handleUpdateProjected"], 0)
+        self.assertEqual(self.value["handleUpdateProjected"], 1)
         self.assertEqual(self.value["dynamicGlobalWriteProjected"], 0)
         self.assertEqual(self.value["eventfulDefinitions"], 0)
 
-    def test_value_only_host_blocks_side_effect_capabilities(self) -> None:
+    def test_value_only_host_allows_read_only_scene_lookup_only(self) -> None:
         self.assertEqual(self.value["hiddenSharedCode"], "exception")
-        self.assertEqual(self.value["hiddenHandleCode"], "exception")
+        self.assertIsNone(self.value["hiddenHandleCode"])
         self.assertEqual(self.value["timerCode"], "exception")
         self.assertEqual(self.value["audioDefinitions"], 0)
         self.assertEqual(self.value["destroyDefinitions"], 0)

@@ -186,18 +186,38 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         descriptor: SceneRenderDescriptor,
         authoredPlans: [Graph],
         dynamicEffectVisibilityOwners: Set<DynamicEffectVisibilityOwner> = [],
+        dynamicLayerVisibilityOwnerTargets: Set<SceneDynamicTarget> = [],
         startupInactiveEffectVisibilityTargets: Set<SceneDynamicTarget> = [],
         conditionSchemaEvidence: [Graph.EffectKey: SceneGraphConditionSchemaEvidence] = [:]
     ) -> [Candidate] {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let dynamicVisibleRootLayerIDs = Set(
+            dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
+                guard case let .layer(layerID, .visibility) = target,
+                      let layers = descriptorGroups[layerID],
+                      layers.count == 1,
+                      let layer = layers.first,
+                      ["image", "solid"].contains(layer.contentKind),
+                      layer.parentID == nil,
+                      layer.childLayerIDs.isEmpty,
+                      case nil = layer.utilityLayer else { return nil }
+                return layerID
+            }
+        )
+        // A projected value-only VM owner makes this layer a safe launch-time
+        // execution root, not a visible compositor root. The committed frame
+        // snapshot still decides whether its graph and dependency closure run.
+        let executableVisibleRootLayerIDs = visibleLayerIDs.union(
+            dynamicVisibleRootLayerIDs
+        )
         let structuralUtilityDependencyConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
                 .structuralUtilityConsumerLayerIDs(in: descriptor)
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: visibleLayerIDs,
+            visibleLayerIDs: executableVisibleRootLayerIDs,
             executableUtilityConsumerLayerIDs:
                 structuralUtilityDependencyConsumerLayerIDs
         )
@@ -207,7 +227,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             SceneDirectBoolEffectVisibilityRouteAdmission.startupInactiveTargets(
                 in: descriptor,
                 candidates: startupInactiveEffectVisibilityTargets,
-                visibleLayerIDs: visibleLayerIDs,
+                visibleLayerIDs: executableVisibleRootLayerIDs,
                 dependencyPlan: dependencyPlan
             )
         let activeLayerIDs = Set(descriptor.layers.compactMap { layer in
@@ -280,7 +300,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             switch executionSourceRoute(
                 layer,
                 descriptor: descriptor,
-                visibleLayerIDs: visibleLayerIDs,
+                visibleLayerIDs: executableVisibleRootLayerIDs,
                 graphOutputProviderLayerIDs: graphOutputProviderLayerIDs,
                 dependencyOwnership: dependencyOwnership
             ) {
@@ -353,7 +373,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     initiallyInactiveEffectKeys:
                         initiallyInactiveEffectKeys,
                     sourceRoute: sourceRoute,
-                    isVisibleExecutionRoot: visibleLayerIDs.contains(layerID),
+                    isVisibleExecutionRoot:
+                        executableVisibleRootLayerIDs.contains(layerID),
                     isGraphOutputProvider:
                         graphOutputProviderLayerIDs.contains(layerID),
                     requiresGraphOutputProvider: {

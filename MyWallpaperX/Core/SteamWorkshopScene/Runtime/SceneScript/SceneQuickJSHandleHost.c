@@ -286,6 +286,7 @@ bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner) {
 
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) return;
+    mwx_scene_quickjs_clear_video_ended_callbacks(owner);
     if (owner->domain != NULL && owner->domain->context != NULL) {
         JS_FreeValue(owner->domain->context, owner->material_function_layer);
         JS_FreeValue(owner->domain->context, owner->scene_handle);
@@ -318,9 +319,7 @@ bool mwx_scene_quickjs_bind_owner_handles(
     owner->domain->active_layer = owner->value_only
         ? JS_UNDEFINED
         : JS_DupValue(context, owner->material_function_layer);
-    owner->domain->active_scene = owner->value_only
-        ? JS_UNDEFINED
-        : JS_DupValue(context, owner->scene_handle);
+    owner->domain->active_scene = JS_DupValue(context, owner->scene_handle);
     owner->domain->active_object = owner->value_only
         ? JS_UNDEFINED
         : JS_DupValue(context, owner->object_handle);
@@ -606,13 +605,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
         restore_failed = true;
         result = MWX_SCENE_QUICKJS_EXCEPTION;
     }
-    if (owner->material_function_overflow || owner->animation_command_overflow) {
+    if (owner->material_function_overflow || owner->animation_command_overflow ||
+        owner->video_command_overflow) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic,
             diagnostic_capacity,
-            owner->animation_command_overflow
-                ? "animation command buffer exceeded"
-                : "material function mutation buffer exceeded"
+            owner->video_command_overflow
+                ? "video command buffer exceeded"
+                : (owner->animation_command_overflow
+                    ? "animation command buffer exceeded"
+                    : "material function mutation buffer exceeded")
         );
         result = MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
     }

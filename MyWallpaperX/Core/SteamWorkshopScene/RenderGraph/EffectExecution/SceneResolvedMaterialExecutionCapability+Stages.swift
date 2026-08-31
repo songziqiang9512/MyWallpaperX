@@ -67,7 +67,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
         pairStep: SceneLayerFullFramePairPlan.EffectStep?
     ) -> SceneResolvedMaterialStageActivationPolicy? {
-        guard dependencyOwnership == .none,
+        guard dependencyOwnership.preEncodeVisualFailureSlots(
+                  in: product.graph
+              ) != nil,
               product.graph.effects.count == 1,
               let effect = product.graph.effects.first,
               product.clearFunctions.functions.isEmpty else { return nil }

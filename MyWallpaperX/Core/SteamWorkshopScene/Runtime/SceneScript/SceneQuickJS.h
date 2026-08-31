@@ -61,6 +61,22 @@ typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_STOP = 3
 } MWXSceneQuickJSAnimationCommand;
 
+typedef enum MWXSceneQuickJSVideoCommandKind {
+    MWX_SCENE_QUICKJS_VIDEO_PLAY = 1,
+    MWX_SCENE_QUICKJS_VIDEO_PAUSE = 2,
+    MWX_SCENE_QUICKJS_VIDEO_STOP = 3,
+    MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME = 4,
+    MWX_SCENE_QUICKJS_VIDEO_SET_RATE = 5,
+    MWX_SCENE_QUICKJS_VIDEO_SET_LOOP = 6
+} MWXSceneQuickJSVideoCommandKind;
+
+typedef struct MWXSceneQuickJSVideoCommand {
+    uint32_t kind;
+    int64_t layer_id;
+    double number_value;
+    uint32_t bool_value;
+} MWXSceneQuickJSVideoCommand;
+
 typedef struct MWXSceneQuickJSFrameInput {
     double time_of_day;
     double frame_time;
@@ -228,6 +244,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    uint32_t available,
+    double duration,
+    double rate,
+    uint32_t loop,
+    double current_time,
+    uint32_t is_playing,
+    uint64_t ended_generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 size_t mwx_scene_quickjs_owner_layer_mutation_count(
     const MWXSceneQuickJSOwner *owner
 );
@@ -236,6 +266,18 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
     MWXSceneQuickJSOwner *owner,
     size_t index,
     MWXSceneQuickJSLayerMutation *mutation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+size_t mwx_scene_quickjs_owner_video_command_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_video_command_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSVideoCommand *command,
     char *diagnostic,
     size_t diagnostic_capacity
 );

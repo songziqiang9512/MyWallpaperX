@@ -121,6 +121,17 @@ extension SceneMetalRenderer {
         let orderedLayers = preparationLayerIDs.compactMap {
             layersByID[$0]
         }
+        let availableExecutionLayerIDs =
+            imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
+        let frameVisibleRootLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: renderDescriptor,
+            snapshot: frameContext.dynamicValues
+        )
+        let activeExecutionLayerIDs = dependencyRuntime
+            .resolvedMaterialExecutionLayerIDs(
+                visibleRootLayerIDs: frameVisibleRootLayerIDs,
+                availableExecutionLayerIDs: availableExecutionLayerIDs
+            )
         var requests: [
             SceneResolvedMaterialGraphComposition.FrameTargetRequest
         ] = []
@@ -149,6 +160,15 @@ extension SceneMetalRenderer {
                 }
         }
         for layer in orderedLayers {
+            // An accepted dynamic root that is false in the committed frame
+            // owns no graph transaction and cannot make its hidden provider
+            // reject unrelated visible output. Product-authority rejections
+            // are intentionally not in `availableExecutionLayerIDs` and still
+            // flow through the ordinary fail-closed claim path below.
+            if availableExecutionLayerIDs.contains(layer.id),
+               !activeExecutionLayerIDs.contains(layer.id) {
+                continue
+            }
             let route = imageCompositor.preflightResolvedMaterialClaim(
                 layerID: layer.id
             )
@@ -162,6 +182,11 @@ extension SceneMetalRenderer {
                 return .rejected(reasonCode: reasonCode)
             case let .claimed(value):
                 claim = value
+            }
+            if case let .externalPrimary(binding) = claim.dependencyOwnership,
+               binding.kind != .resolvedMaterial,
+               imageTextures.isLayerSourcePending(binding.providerLayerID) {
+                return .deferred
             }
             let desiredSize: CGSize
             switch claim.sourceRoute {

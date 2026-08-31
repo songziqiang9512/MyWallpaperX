@@ -1,32 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
-    let values: [SceneDynamicTarget: SceneDynamicValue]
-    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
-    let animationMutations: [SceneTimelinePlaybackMutation]
-    let layerMutations: [SceneScriptLayerMutation]
-}
-
-nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
-    let authoredOrdinal: Int
-    let definition: SceneDynamicTargetDefinition
-    let properties: [String: SceneScriptPropertyInput]
-    let livePropertyInputTargets: Set<SceneDynamicTarget>
-    let hasCurrentAnimation: Bool
-    let handlesMediaThumbnail: Bool
-    let handlesMediaPlayback: Bool
-    let handlesMediaProperties: Bool
-    let handlesMediaTimeline: Bool
-    let owner: SceneScriptVectorOwner
-}
-
-nonisolated struct SceneScriptCursorOwnerRegistration: @unchecked Sendable {
-    let layerID: Int
-    let authoredOrder: Int
-    let owner: SceneScriptVectorOwner
-}
-
 /// Generic typed vector VM route. Admission is based only on the
 /// loss-preserving binding owner/path/type and descriptor identity. JavaScript
 /// semantics remain owned by QuickJS; there is no source-shape interpreter.
@@ -377,6 +350,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
+        var videoCommands: [SceneScriptVideoCommand] = []
+        var videoCommandTargets: Set<SceneDynamicTarget> = []
         for binding in bindings {
             let target = binding.definition.target
             if disabledTargets.contains(target) { continue }
@@ -414,6 +389,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var callbackVideoCommands: [SceneScriptVideoCommand] = []
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
@@ -433,11 +409,23 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(
+                        contentsOf: eventMutations.videoCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
                     continue
                 }
+            }
+            if binding.definition.valueType == .bool,
+               !callbackMaterialMutations.isEmpty
+                    || !callbackAnimationMutations.isEmpty {
+                failures[target] = .invalidArgument(
+                    "Boolean value owner produced out-of-cohort callback mutations"
+                )
+                disabledTargets.insert(target)
+                continue
             }
             if binding.owner.hasAudioRegistration {
                 switch binding.owner.refreshAudio(audioSpectrum) {
@@ -483,6 +471,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(
+                        contentsOf: eventMutations.videoCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -505,6 +496,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(
+                        contentsOf: eventMutations.videoCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -528,6 +522,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(
+                        contentsOf: eventMutations.videoCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -549,6 +546,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         contentsOf: eventMutations.animations
                     )
                     callbackLayerMutations.append(contentsOf: eventMutations.layers)
+                    callbackVideoCommands.append(
+                        contentsOf: eventMutations.videoCommands
+                    )
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -565,6 +565,23 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             ) {
             case let .success(evaluation):
                 let value = evaluation.value
+                if binding.definition.valueType == .bool {
+                    guard case let .layer(layerID, .visibility) = target,
+                          case let .bool(visible) = value,
+                          callbackLayerMutations.allSatisfy({ mutation in
+                              mutation.kind == .upsert && !mutation.isDynamic
+                                  && mutation.layerID == layerID
+                                  && mutation.fields == .visibility
+                                  && mutation.visible == visible
+                          }) else {
+                        failures[target] = .invalidArgument(
+                            "Boolean value owner produced conflicting target visibility"
+                        )
+                        disabledTargets.insert(target)
+                        continue
+                    }
+                    callbackLayerMutations.removeAll(keepingCapacity: true)
+                }
                 if let pendingPlaybackEvent {
                     consumedMediaPlaybackGenerations[target] =
                         pendingPlaybackEvent.generation
@@ -589,12 +606,17 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
                 values[target] = value
                 materialFunctionMutations.append(
                     contentsOf: callbackMaterialMutations
                 )
                 animationMutations.append(contentsOf: callbackAnimationMutations)
                 layerMutations.append(contentsOf: callbackLayerMutations)
+                videoCommands.append(contentsOf: callbackVideoCommands)
+                if !callbackVideoCommands.isEmpty {
+                    videoCommandTargets.insert(target)
+                }
                 if pendingMediaEvent != nil {
                     NSLog(
                         "MWX SceneScript VM: target=%@ event=mediaThumbnailChanged generation=%llu hasThumbnail=%@ primary=%.9g,%.9g,%.9g secondary=%.9g,%.9g,%.9g tertiary=%.9g,%.9g,%.9g text=%.9g,%.9g,%.9g highContrast=%.9g,%.9g,%.9g output=%@ mutations=%d route=generic-only fallback=none",
@@ -674,8 +696,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             failures: failures,
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            videoCommands: videoCommands,
+            videoCommandTargets: videoCommandTargets
         )
+    }
+
+    func rejectVideoCommandTargets(_ targets: Set<SceneDynamicTarget>) {
+        disabledTargets.formUnion(targets)
     }
 
     func userPropertiesJSON(

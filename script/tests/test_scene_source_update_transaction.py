@@ -314,6 +314,10 @@ struct SceneTextureProviderPublication {
     let requestIdentity: SceneFrameTextureIdentity
     let texture: MTLTexture
     let isComplete: Bool
+
+    var candidate: SceneTextureCandidate {
+        SceneTextureCandidate(texture: texture)
+    }
 }
 
 struct SceneLayerSourcePublication {
@@ -383,6 +387,9 @@ enum Harness {
         )
         guard textSnapshot[13] === replacement,
               textSnapshot.layerSourceRenderSize(for: 13) == [640, 320],
+              textSnapshot.candidate(
+                  for: 13, matching: replacement
+              )?.texture === replacement,
               textSnapshot.explicitLayerSourcePublication(
                 for: 13, matching: replacement
               )?.texture === replacement else {
@@ -396,6 +403,15 @@ enum Harness {
         guard mismatchedAtomSnapshot[13] == nil,
               mismatchedAtomSnapshot.layerSourceRenderSize(for: 13) == nil else {
             fatalError("mismatched atom did not fail closed")
+        }
+        let pendingVideoSnapshot = SceneBaseImageTextureSnapshot(
+            textures: [:],
+            candidates: [:],
+            pendingLayerSourceIDs: [21]
+        )
+        guard pendingVideoSnapshot.isLayerSourcePending(21),
+              !pendingVideoSnapshot.isLayerSourcePending(22) else {
+            fatalError("pending layer-source identity was not preserved")
         }
         print("preserved")
     }

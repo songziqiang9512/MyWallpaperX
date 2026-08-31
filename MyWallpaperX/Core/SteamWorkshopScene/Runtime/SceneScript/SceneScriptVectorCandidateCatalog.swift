@@ -135,8 +135,7 @@ nonisolated extension SceneScriptVectorProgram {
         if let candidate = visibilityProjection(
             binding,
             authoredOrdinal: authoredOrdinal,
-            descriptor: descriptor,
-            namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
+            descriptor: descriptor
         ) {
             return candidate
         }
@@ -283,8 +282,7 @@ nonisolated extension SceneScriptVectorProgram {
     private static func visibilityProjection(
         _ binding: SceneScriptBindingIR,
         authoredOrdinal: Int,
-        descriptor: SceneRenderDescriptor,
-        namedTextureDependencyLayerIDs: Set<Int>
+        descriptor: SceneRenderDescriptor
     ) -> SceneScriptVectorCandidate? {
         guard binding.owner.kind == .object,
               binding.targetKey == "visible",
@@ -304,9 +302,6 @@ nonisolated extension SceneScriptVectorProgram {
               ["image", "solid"].contains(layer.contentKind),
               layer.parentID == nil,
               layer.childLayerIDs.isEmpty,
-              layer.dependencyLayerIDs.isEmpty,
-              layer.authoredDependencies.isEmpty,
-              !namedTextureDependencyLayerIDs.contains(layerID),
               case nil = layer.utilityLayer else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
@@ -340,12 +335,12 @@ nonisolated extension SceneScriptVectorProgram {
         )
     }
 
-    /// Boolean value-return owners remain independent until authored global
-    /// order and shared-domain rollback are transactional. This is a
-    /// authored dependency gate, not source identity dispatch or a JavaScript
-    /// security sandbox: every module must export a value hook and must not use
-    /// dynamic-code constructors or mutable scene/global handles. The VM host
-    /// independently removes the named side-effect capabilities at execution.
+    /// Boolean value-return owners remain isolated from shared/global state
+    /// until authored cross-owner rollback is transactional. Read-only scene
+    /// lookup is allowed because layer/effect/animation writes are collected by
+    /// the host and rejected before a Boolean value is published. Graph and
+    /// named-texture dependencies remain independently admitted by the graph;
+    /// they do not change ownership of the visibility value itself.
     private static func independentBooleanValueSource(_ source: String) -> Bool {
         guard source.utf8.count <= 65_536,
               source.range(
@@ -357,7 +352,7 @@ nonisolated extension SceneScriptVectorProgram {
         }
         let mutableDependencies = [
             "shared", "globalThis", "eval", "Function", "constructor",
-            "thisScene", "thisLayer", "thisObject",
+            "thisLayer", "thisObject",
         ]
         return mutableDependencies.allSatisfy {
             !containsIdentifier($0, in: source)

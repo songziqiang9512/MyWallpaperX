@@ -135,7 +135,54 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->visible = visible != 0;
     staged->alpha = alpha;
     staged->point_size = point_size;
+    staged->video_available = false;
+    staged->video_duration = 0;
+    staged->video_rate = 1;
+    staged->video_loop = true;
+    staged->video_current_time = 0;
+    staged->video_is_playing = false;
+    staged->video_ended_generation = 0;
     staged->runtime_fields_staged = true;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    uint32_t available,
+    double duration,
+    double rate,
+    uint32_t loop,
+    double current_time,
+    uint32_t is_playing,
+    uint64_t ended_generation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active ||
+        domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        !domain->layers[layer_index].configured || available > 1 || loop > 1 ||
+        is_playing > 1 || !isfinite(duration) || duration < 0 ||
+        !isfinite(rate) || rate <= 0 || rate > 16 ||
+        !isfinite(current_time) || current_time < 0 ||
+        (duration > 0 && current_time > duration)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid staged layer video fields"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    MWXSceneQuickJSStagedLayerSnapshot *staged =
+        &domain->pending_layer_snapshot[layer_index];
+    staged->video_available = available != 0;
+    staged->video_duration = duration;
+    staged->video_rate = rate;
+    staged->video_loop = loop != 0;
+    staged->video_current_time = current_time;
+    staged->video_is_playing = is_playing != 0;
+    staged->video_ended_generation = ended_generation;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -218,6 +265,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->visible = staged->visible;
         record->alpha = staged->alpha;
         record->point_size = staged->point_size;
+        record->video_available = staged->video_available;
+        record->video_duration = staged->video_duration;
+        record->video_rate = staged->video_rate;
+        record->video_loop = staged->video_loop;
+        record->video_current_time = staged->video_current_time;
+        record->video_is_playing = staged->video_is_playing;
+        record->video_ended_generation = staged->video_ended_generation;
     }
     domain->layer_snapshot_generation = generation;
     clear_pending_snapshot(domain);

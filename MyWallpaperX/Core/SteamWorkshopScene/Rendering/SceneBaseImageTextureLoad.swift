@@ -6,12 +6,14 @@ struct SceneBaseImageTextureSnapshot {
     let explicitLayerSources: [Int: SceneTextureProviderPublication]
     private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
+    private let pendingLayerSourceIDs: Set<Int>
 
     init(
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
-        candidates: [Int: SceneTextureCandidate]
+        candidates: [Int: SceneTextureCandidate],
+        pendingLayerSourceIDs: Set<Int> = []
     ) {
         var validatedTextures = textures
         var validatedExplicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
@@ -47,9 +49,16 @@ struct SceneBaseImageTextureSnapshot {
         self.textures = validatedTextures
         self.explicitLayerSources = validatedExplicitLayerSources
         self.layerSourcePublications = validatedLayerSources
-        self.candidates = candidates.filter { layerID, candidate in
+        var validatedCandidates = candidates.filter { layerID, candidate in
             validatedTextures[layerID] === candidate.texture
         }
+        for (layerID, layerSource) in validatedLayerSources {
+            validatedCandidates[layerID] = layerSource.publication.candidate
+        }
+        self.candidates = validatedCandidates
+        self.pendingLayerSourceIDs = pendingLayerSourceIDs.subtracting(
+            validatedLayerSources.keys
+        )
     }
 
     subscript(layerID: Int) -> MTLTexture? {
@@ -87,6 +96,10 @@ struct SceneBaseImageTextureSnapshot {
             return nil
         }
         return layerSource.renderSizeWH
+    }
+
+    func isLayerSourcePending(_ layerID: Int) -> Bool {
+        pendingLayerSourceIDs.contains(layerID)
     }
 
 }
@@ -137,7 +150,8 @@ struct SceneBaseImageTextureStore {
     func snapshot(
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
-        layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
+        layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
+        pendingLayerSourceIDs: Set<Int> = []
     ) -> SceneBaseImageTextureSnapshot {
         var combinedPublications = publications.filter { layerID, publication in
             textures[layerID] === publication.texture
@@ -149,7 +163,8 @@ struct SceneBaseImageTextureStore {
             textures: textures,
             explicitLayerSources: combinedPublications,
             layerSourcePublications: layerSourcePublications,
-            candidates: candidates
+            candidates: candidates,
+            pendingLayerSourceIDs: pendingLayerSourceIDs
         )
     }
 

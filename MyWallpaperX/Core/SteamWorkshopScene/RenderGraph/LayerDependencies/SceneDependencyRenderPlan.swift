@@ -143,6 +143,36 @@ nonisolated struct SceneDependencyRenderPlan {
         return result.count == authoredLayerIDs.count ? result : nil
     }
 
+    /// Restricts prepared graph work to roots that are visible in the current
+    /// committed frame plus the effectful provider closure they actually use.
+    /// Static image providers are captured through this plan's named target
+    /// path and therefore never acquire a graph execution identity here.
+    nonisolated func resolvedMaterialExecutionLayerIDs(
+        visibleRootLayerIDs: Set<Int>,
+        availableExecutionLayerIDs: Set<Int>
+    ) -> Set<Int> {
+        var reachable = visibleRootLayerIDs.intersection(
+            availableExecutionLayerIDs
+        )
+        var changed = true
+        while changed {
+            changed = false
+            for binding in bindingsByConsumerLayerID.values
+            where reachable.contains(binding.consumerLayerID)
+                && requiredGraphOutputProviderLayerIDs.contains(
+                    binding.providerLayerID
+                )
+                && availableExecutionLayerIDs.contains(
+                    binding.providerLayerID
+                )
+            {
+                changed = reachable.insert(binding.providerLayerID).inserted
+                    || changed
+            }
+        }
+        return reachable
+    }
+
     nonisolated init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
@@ -418,6 +448,15 @@ nonisolated struct SceneDependencyRenderPlan {
                 declaration.requiresResolvedMaterialProgram
                     || !graphInternalReferences.isEmpty
             )
+        } else if let reference = materialProgramImageLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID
+        ) {
+            // Resource ownership only: the admitted MaterialProgram still
+            // proves shader semantics, scalar inputs and output authority.
+            contract = (reference, 0, .imageLayerBlend, true)
         } else if let reference = visibleImageGraphOutputReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -689,61 +728,6 @@ nonisolated struct SceneDependencyRenderPlan {
         return reference
     }
 
-    /// Generic carrier for one source-proven Program sampler backed by an
-    /// earlier visible image layer's graph-final publication. Shader identity,
-    /// effect name and scalar values deliberately do not participate here;
-    /// MaterialProgram admission owns those contracts after this compiler has
-    /// conserved the exact authored primary reference.
-    private nonisolated static func visibleImageGraphOutputReference(
-        layer: SceneRenderDescriptor.Layer,
-        visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
-        references: [Reference],
-        layersByID: [Int: SceneRenderDescriptor.Layer],
-        visibleLayerIDs: Set<Int>
-    ) -> Reference? {
-        guard layer.contentKind == "image",
-              hasNoUtilityLayer(layer),
-              layer.visible != false,
-              visibleLayerIDs.contains(layer.id),
-              layer.childLayerIDs.isEmpty,
-              layer.authoredDependencies.isEmpty,
-              references.count == 1,
-              let reference = references.first,
-              reference.variant == .primary,
-              reference.slot.passIndex == 0,
-              reference.slot.slotIndex == 1,
-              layer.dependencyLayerIDs == [reference.providerLayerID],
-              let provider = layersByID[reference.providerLayerID],
-              provider.contentKind == "image",
-              hasNoUtilityLayer(provider),
-              provider.visible != false,
-              visibleLayerIDs.contains(provider.id),
-              provider.childLayerIDs.isEmpty,
-              provider.authoredDependencies.isEmpty,
-              provider.dependencyLayerIDs.isEmpty,
-              provider.effects.contains(where: { $0.visible != false }) else {
-            return nil
-        }
-        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
-        guard effects.count == 1, let effect = effects.first,
-              effect.passes.count == 1 else { return nil }
-        let passes = effect.passes.filter {
-            $0.passIndex == reference.slot.passIndex
-        }
-        guard passes.count == 1, let pass = passes.first,
-              pass.textureSlots.indices.contains(reference.slot.slotIndex),
-              let path = pass.textureSlots[reference.slot.slotIndex],
-              SceneNamedTextureReference.parse(path) == .init(
-                  providerLayerID: reference.providerLayerID,
-                  variant: .primary
-              ), (!pass.userTextureInputs.indices.contains(
-                  reference.slot.slotIndex
-              ) || pass.userTextureInputs[reference.slot.slotIndex] == nil) else {
-            return nil
-        }
-        return reference
-    }
-
     /// Bounded structural carrier for one hidden static solid publication.
     /// Effect path, combo values and authored constants belong to shader and
     /// MaterialProgram admission; they never select this dependency owner.
@@ -775,19 +759,4 @@ nonisolated struct SceneDependencyRenderPlan {
         return reference
     }
 
-    private static func supportedImageLayerBlendDeclaration(
-        in visibleEffects: [SceneRenderDescriptor.EffectDescriptor]
-    ) -> SceneImageLayerBlendDependencyDeclaration? {
-        let declarations = visibleEffects.compactMap(
-            SceneImageLayerBlendDependencyContract.declaration
-        )
-        return declarations.count == 1 ? declarations[0] : nil
-    }
-
-    private nonisolated static func hasNoUtilityLayer(
-        _ layer: SceneRenderDescriptor.Layer
-    ) -> Bool {
-        if case nil = layer.utilityLayer { return true }
-        return false
-    }
 }

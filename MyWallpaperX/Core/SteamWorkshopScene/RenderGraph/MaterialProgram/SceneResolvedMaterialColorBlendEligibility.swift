@@ -157,13 +157,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
             return false
         }
-        let profile = SceneGenericShaderCapabilityProfile
-            .sourceProvenGraphInputSpatialWeightedColorBlend.rawValue
+        let profiles = Set([
+            SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputSpatialWeightedColorBlend.rawValue,
+            SceneGenericShaderCapabilityProfile
+                .providerBackedGraphInputSpatialWeightedColorBlend.rawValue,
+        ])
         return snapshot.variants.allSatisfy { variant in
             let activeSlots = Set(
                 variant.frontendProgram.textureBindings.map(\.slot)
             )
-            return variant.routeDecision.profile == profile
+            return profiles.contains(variant.routeDecision.profile)
                 && variant.frontendProgram.uniformLayout.fields.contains {
                 SceneResolvedMaterialUniformEncoder.hostUniform(
                     $0,

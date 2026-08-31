@@ -97,6 +97,40 @@ enum Harness {
             hostTime: 9_000
         )
 
+        var suspendedPause = SceneVideoProviderLifecycleState(epoch: 81)
+        suspendedPause.start(sceneTime: 0, hostTime: 10)
+        suspendedPause.suspend(sceneTime: 1, hostTime: 11)
+        suspendedPause.pause(sceneTime: 9, hostTime: 19)
+        let pausedWhileSuspended = suspendedPause.planFrame(
+            frameIndex: 1,
+            sceneTime: 12,
+            hostTime: 22
+        )
+
+        var suspendedRebuild = SceneVideoProviderLifecycleState(epoch: 82)
+        suspendedRebuild.start(sceneTime: 0, hostTime: 10)
+        suspendedRebuild.suspend(sceneTime: 1, hostTime: 11)
+        suspendedRebuild.rebuild(sceneTime: 9, hostTime: 19)
+        let rebuiltWhileSuspended = suspendedRebuild.planFrame(
+            frameIndex: 1,
+            sceneTime: 12,
+            hostTime: 22
+        )
+
+        var looping = SceneVideoProviderLifecycleState(epoch: 83)
+        looping.start(sceneTime: 100, hostTime: 200)
+        _ = looping.planFrame(
+            frameIndex: 1,
+            sceneTime: 105,
+            hostTime: 205
+        )
+        looping.didReachEnd(duration: 5)
+        let loopRestart = looping.planFrame(
+            frameIndex: 2,
+            sceneTime: 105.25,
+            hostTime: 205.25
+        )
+
         let firstStopRequestsCleanup = state.stop()
         let secondStopRequestsCleanup = state.stop()
 
@@ -120,6 +154,12 @@ enum Harness {
                 && close(resumed.itemTime, 1.0),
             "rebuildIsContinuous": rebuilt.shouldDecode
                 && close(rebuilt.itemTime, 1.5),
+            "suspendedPauseDoesNotAdvance": !pausedWhileSuspended.shouldDecode
+                && close(pausedWhileSuspended.itemTime, 1),
+            "suspendedRebuildDoesNotAdvance": !rebuiltWhileSuspended.shouldDecode
+                && close(rebuiltWhileSuspended.itemTime, 1),
+            "loopRestartsAtLatestSceneTime": loopRestart.shouldDecode
+                && close(loopRestart.itemTime, 0.25),
             "epochIsInherited": initialEpoch == 73
                 && pausedEpoch == initialEpoch
                 && resumedEpoch == initialEpoch
@@ -214,6 +254,9 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "pauseHoldsItemTime",
             "resumeIsContinuous",
             "rebuildIsContinuous",
+            "suspendedPauseDoesNotAdvance",
+            "suspendedRebuildDoesNotAdvance",
+            "loopRestartsAtLatestSceneTime",
             "epochIsInherited",
             "stopIsIdempotent",
         ):
@@ -258,7 +301,10 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "lifecycleEpoch: epoch",
             "generation: .provider(contentGeneration: contentGeneration)",
             "purpose: .premultipliedColor",
-            "content: .color(.unresolved)",
+            "content: content",
+            "resolvedColorContent(for: pixelBuffer)",
+            "kCVImageBufferAlphaChannelIsOpaque",
+            "kCVImageBufferAlphaChannelMode_PremultipliedAlpha",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, self.source)
@@ -269,9 +315,14 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
         assert current_frame is not None
         self.assertIn("needsPlayerAnchor || player.rate == 0", current_frame)
         self.assertIn("needsPlayerAnchor = player.rate == 0", current_frame)
-        self.assertGreaterEqual(
-            current_frame.count("if player.rate == 0"),
-            2,
+        self.assertIn(
+            "if lifecycle.isPlaying && player.rate == 0",
+            current_frame,
+            "an authored-playing source must retain the retry barrier",
+        )
+        self.assertIn(
+            "if player.rate == 0",
+            current_frame,
             "a missing first buffer must retain the retry barrier",
         )
 
@@ -359,6 +410,8 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         self.assertIn("videoSourceRegistry.source(", view)
         self.assertNotIn("currentTexture(forHostTime:", view)
         self.assertIn("source.currentFrame(for: timing)", assembly)
+        self.assertIn("pendingLayerSourceIDs.insert(layerID)", assembly)
+        self.assertIn("pendingLayerSourceIDs: pendingLayerSourceIDs", assembly)
 
     def test_registry_fails_closed_without_stable_file_metadata(self) -> None:
         registry = REGISTRY_SOURCE.read_text(encoding="utf-8")
@@ -379,6 +432,24 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             source_method.index("guard let sourceKey"),
             source_method.index("let identity = SourceIdentity("),
             "unavailable metadata must not form a video registry identity",
+        )
+
+    def test_video_command_failure_withholds_its_visibility_owner(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        application = frame_driver.index("videoTextureSourceRegistry?.apply(")
+        rejection = frame_driver.index(
+            ".rejectVideoCommandTargets(", application
+        )
+        publication = frame_driver.index(
+            "commonSceneScriptValues.merge(\n"
+            "            admittedSceneScriptVectorValues,",
+            application,
+        )
+        self.assertLess(application, rejection)
+        self.assertLess(rejection, publication)
+        self.assertIn(
+            "sceneScriptVectorResult.videoCommandTargets.contains($0.key)",
+            frame_driver[application:publication],
         )
 
 

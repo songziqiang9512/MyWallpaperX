@@ -17,6 +17,14 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialStageActivation.swift",
 ]
+ELIGIBILITY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialColorBlendEligibility.swift"
+)
+CAPABILITY_SOURCE = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -178,6 +186,24 @@ enum Harness {
 
 @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
 class SceneResolvedMaterialStageActivationTests(unittest.TestCase):
+    def test_provider_backed_pointer_stage_reuses_exact_passthrough_contract(
+        self,
+    ) -> None:
+        eligibility = ELIGIBILITY_SOURCE.read_text(encoding="utf-8")
+        capability = CAPABILITY_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            ".providerBackedGraphInputSpatialWeightedColorBlend.rawValue",
+            eligibility,
+        )
+        self.assertIn(
+            "dependencyOwnership.preEncodeVisualFailureSlots(",
+            capability,
+        )
+        self.assertNotIn(
+            "guard dependencyOwnership == .none",
+            capability,
+        )
+
     def test_typed_visibility_and_pointer_provider_activation(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-stage-activation-") as directory:
             root = Path(directory)

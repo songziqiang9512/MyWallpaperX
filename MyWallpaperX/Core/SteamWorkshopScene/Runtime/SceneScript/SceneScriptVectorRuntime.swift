@@ -5,6 +5,7 @@ nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let videoCommands: [SceneScriptVideoCommand]
 }
 
 nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
@@ -121,14 +122,10 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 let hasValueHook = try SceneScriptOwnerExportBridge.contains(
                     "init", owner: created
                 ) || SceneScriptOwnerExportBridge.contains("update", owner: created)
-                let handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
-                    "applyUserProperties", owner: created
-                )
                 let handlesDestroy = try SceneScriptOwnerExportBridge.contains(
                     "destroy", owner: created
                 )
-                guard hasValueHook, !handlesUserProperties,
-                      !handlesDestroy,
+                guard hasValueHook, !handlesDestroy,
                       !handlesMediaThumbnail, !handlesMediaPlayback,
                       !handlesMediaProperties, !handlesMediaTimeline,
                       exportedCursorEvents.isEmpty,
@@ -252,17 +249,34 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case let .success(value): layerMutations = value
         case let .failure(failure): return .failure(failure)
         }
-        if valueType == .bool,
-           !mutations.isEmpty || !animationMutations.isEmpty || !layerMutations.isEmpty {
-            return .failure(.invalidArgument(
-                "Boolean value owner produced out-of-cohort mutations"
-            ))
+        let videoCommands: [SceneScriptVideoCommand]
+        switch SceneScriptVideoCommandBridge.commands(owner: handle) {
+        case let .success(value): videoCommands = value
+        case let .failure(failure): return .failure(failure)
+        }
+        let publishedLayerMutations: [SceneScriptLayerMutation]
+        if valueType == .bool {
+            guard mutations.isEmpty, animationMutations.isEmpty,
+                  layerMutations.allSatisfy({ mutation in
+                      mutation.kind == .upsert && !mutation.isDynamic
+                          && mutation.layerID == layerID
+                          && mutation.fields == .visibility
+                          && mutation.visible == publishedValue.boolValue
+                  }) else {
+                return .failure(.invalidArgument(
+                    "Boolean value owner produced out-of-cohort mutations"
+                ))
+            }
+            publishedLayerMutations = []
+        } else {
+            publishedLayerMutations = layerMutations
         }
         return .success(.init(
             value: publishedValue,
             materialFunctionMutations: mutations,
             animationMutations: animationMutations,
-            layerMutations: layerMutations
+            layerMutations: publishedLayerMutations,
+            videoCommands: videoCommands
         ))
     }
 
@@ -478,5 +492,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         case MWX_SCENE_QUICKJS_MUTATION_OVERFLOW: .mutationOverflow(diagnostic)
         default: .invalidArgument(diagnostic)
         }
+    }
+}
+
+private nonisolated extension SceneDynamicValue {
+    var boolValue: Bool? {
+        guard case let .bool(value) = self else { return nil }
+        return value
     }
 }

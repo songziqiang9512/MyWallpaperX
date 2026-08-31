@@ -10,7 +10,8 @@ nonisolated extension SceneScriptQuickJSDomain {
 
     func publishLayerRuntimeFields(
         _ snapshot: SceneDynamicSnapshot,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]
     ) throws {
         try configureLayerCatalog(descriptor)
         for (index, layer) in descriptor.layers.enumerated() {
@@ -59,6 +60,27 @@ nonisolated extension SceneScriptQuickJSDomain {
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
                 throw layerSnapshotFailure(result, diagnostic: diagnostic)
+            }
+            if let video = videoSnapshots[layer.id] {
+                let videoResult = mwx_scene_quickjs_domain_update_layer_video_fields(
+                    handle,
+                    UInt32(index),
+                    1,
+                    video.duration,
+                    video.rate,
+                    video.loop ? 1 : 0,
+                    video.currentTime,
+                    video.isPlaying ? 1 : 0,
+                    video.endedGeneration,
+                    &diagnostic,
+                    diagnostic.count
+                )
+                guard videoResult == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(
+                        videoResult,
+                        diagnostic: diagnostic
+                    )
+                }
             }
         }
     }

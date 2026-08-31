@@ -355,12 +355,15 @@ extension SceneDesktopWallpaperHost {
             timing: timing,
             surface: sceneScriptSurfaceInput
         )
+        let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
+            .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             try launchContext.propertyVectorScriptProgram.domain?
                 .publishLayerSnapshot(
                     preliminaryForSceneScript,
-                    descriptor: launchContext.runtimeInput.renderDescriptor
+                    descriptor: launchContext.runtimeInput.renderDescriptor,
+                    videoSnapshots: sceneScriptVideoSnapshots
                 )
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
@@ -480,7 +483,8 @@ extension SceneDesktopWallpaperHost {
                         }
                     ),
                     materialFunctionMutations: [], animationMutations: [],
-                    layerMutations: []
+                    layerMutations: [], videoCommands: [],
+                    videoCommandTargets: []
                 ),
                 string: .init(
                     values: [:],
@@ -504,7 +508,8 @@ extension SceneDesktopWallpaperHost {
                 ),
                 materialFunctionMutations: [],
                 animationMutations: [],
-                layerMutations: []
+                layerMutations: [],
+                videoCommands: []
             )
         } else {
             coordinatedSceneScript = SceneScriptMediaFrameCoordinator.evaluate(
@@ -539,10 +544,6 @@ extension SceneDesktopWallpaperHost {
             }
         }
         commonSceneScriptValues.merge(
-            sceneScriptVectorResult.values,
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
-        commonSceneScriptValues.merge(
             sceneScriptStringResult.values,
             uniquingKeysWith: { _, genericValue in genericValue }
         )
@@ -555,6 +556,53 @@ extension SceneDesktopWallpaperHost {
         let layerTopology = layerMutationSnapshot
         let animationMutations = cursorResult.animationMutations
             + coordinatedSceneScript.animationMutations
+        var admittedSceneScriptVectorValues = sceneScriptVectorResult.values
+        if !coordinatedSceneScript.videoCommands.isEmpty {
+            switch videoTextureSourceRegistry?.apply(
+                coordinatedSceneScript.videoCommands,
+                timing: timing
+            ) {
+            case .success:
+                NSLog(
+                    "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
+                    coordinatedSceneScript.videoCommands.count,
+                    timing.frameIndex
+                )
+            case let .failure(failure):
+                admittedSceneScriptVectorValues = admittedSceneScriptVectorValues
+                    .filter {
+                        !sceneScriptVectorResult.videoCommandTargets.contains($0.key)
+                    }
+                launchContext.propertyVectorScriptProgram
+                    .rejectVideoCommandTargets(
+                        sceneScriptVectorResult.videoCommandTargets
+                    )
+                NSLog(
+                    "MWX SceneScript VM: videoCommands=%d owners=%d callback=rejected failure=%@ fallback=previous-current",
+                    coordinatedSceneScript.videoCommands.count,
+                    sceneScriptVectorResult.videoCommandTargets.count,
+                    String(describing: failure)
+                )
+            case nil:
+                admittedSceneScriptVectorValues = admittedSceneScriptVectorValues
+                    .filter {
+                        !sceneScriptVectorResult.videoCommandTargets.contains($0.key)
+                    }
+                launchContext.propertyVectorScriptProgram
+                    .rejectVideoCommandTargets(
+                        sceneScriptVectorResult.videoCommandTargets
+                    )
+                NSLog(
+                    "MWX SceneScript VM: videoCommands=%d owners=%d callback=rejected failure=registry-unavailable fallback=previous-current",
+                    coordinatedSceneScript.videoCommands.count,
+                    sceneScriptVectorResult.videoCommandTargets.count
+                )
+            }
+        }
+        commonSceneScriptValues.merge(
+            admittedSceneScriptVectorValues,
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
         if !animationMutations.isEmpty {
             switch launchContext.timelinePlaybackRuntime.apply(
                 animationMutations,

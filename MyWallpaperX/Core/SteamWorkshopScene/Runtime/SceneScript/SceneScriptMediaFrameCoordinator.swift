@@ -7,6 +7,7 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let videoCommands: [SceneScriptVideoCommand]
 }
 
 /// Executes media-bearing owners through one authored-order view of the
@@ -53,6 +54,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
+        var videoCommands: [SceneScriptVideoCommand] = []
         func appendSideEffects(
             materialFunctions: [SceneScriptMaterialFunctionMutation],
             animations: [SceneTimelinePlaybackMutation],
@@ -80,6 +82,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
                     animations: frameResult.animationMutations,
                     layers: frameResult.layerMutations
                 )
+                videoCommands.append(contentsOf: frameResult.videoCommands)
                 vector.merge(frameResult)
             case .string:
                 let frameResult = stringProgram.evaluate(
@@ -130,6 +133,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
             animations: remainingVector.animationMutations,
             layers: remainingVector.layerMutations
         )
+        videoCommands.append(contentsOf: remainingVector.videoCommands)
         vector.merge(remainingVector)
         let remainingString = stringProgram.evaluate(
             inputs: stringInputs.filter { !stringMediaTargets.contains($0.key) },
@@ -162,7 +166,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
             scalar: scalar.result,
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            videoCommands: videoCommands
         )
     }
 
@@ -180,6 +185,8 @@ private nonisolated struct VectorAccumulator {
     var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
     var animations: [SceneTimelinePlaybackMutation] = []
     var layers: [SceneScriptLayerMutation] = []
+    var videoCommands: [SceneScriptVideoCommand] = []
+    var videoCommandTargets: Set<SceneDynamicTarget> = []
 
     mutating func merge(_ frame: SceneScriptVectorFrameResult) {
         values.merge(frame.values) { _, new in new }
@@ -187,6 +194,8 @@ private nonisolated struct VectorAccumulator {
         materialFunctions.append(contentsOf: frame.materialFunctionMutations)
         animations.append(contentsOf: frame.animationMutations)
         layers.append(contentsOf: frame.layerMutations)
+        videoCommands.append(contentsOf: frame.videoCommands)
+        videoCommandTargets.formUnion(frame.videoCommandTargets)
     }
 
     var result: SceneScriptVectorFrameResult {
@@ -195,7 +204,9 @@ private nonisolated struct VectorAccumulator {
             failures: failures,
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layers
+            layerMutations: layers,
+            videoCommands: videoCommands,
+            videoCommandTargets: videoCommandTargets
         )
     }
 }

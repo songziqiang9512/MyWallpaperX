@@ -15,6 +15,12 @@ typedef struct MWXSceneQuickJSLayerHandle {
     bool persistent;
 } MWXSceneQuickJSLayerHandle;
 
+typedef struct MWXSceneQuickJSVideoHandle {
+    MWXSceneQuickJSDomain *domain;
+    uint64_t owner_identity;
+    uint32_t layer_index;
+} MWXSceneQuickJSVideoHandle;
+
 static void finalize_layer_handle(JSRuntime *runtime, JSValue value) {
     (void)runtime;
     free(JS_GetOpaque(value, JS_GetClassID(value)));
@@ -193,9 +199,22 @@ static JSValue layer_set(
         return JS_ThrowTypeError(context, "layer mutation target is not an owned dynamic layer");
     }
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    const uint32_t record_index = (uint32_t)(record - handle->domain->layers);
+    const bool value_owner_target_visibility = owner->value_only &&
+        (enum LayerProperty)magic == LAYER_VISIBLE &&
+        owner->target_layer_configured &&
+        record_index == owner->target_layer_index && !record->dynamic;
+    if (owner->value_only && !value_owner_target_visibility) {
+        return JS_ThrowTypeError(
+            context,
+            "Boolean value owner may only write its target visibility"
+        );
+    }
     const bool dynamic_target = record->dynamic &&
         record->owner_identity == handle->owner_identity;
-    const bool authored_target = !record->dynamic && handle->owner_target;
+    const bool authored_target = !record->dynamic && (
+        handle->owner_target || value_owner_target_visibility
+    );
     if (!dynamic_target && !authored_target)
         return JS_ThrowTypeError(context, "layer mutation target is not owned by this script");
 
@@ -345,6 +364,283 @@ static JSValue layer_set(
 
 static void free_layer_handle(void *opaque) { free(opaque); }
 
+static MWXSceneQuickJSLayerRecord *video_record_for_handle(
+    MWXSceneQuickJSVideoHandle *handle
+) {
+    if (handle == NULL || handle->domain == NULL ||
+        handle->domain->active_owner == NULL ||
+        !callback_owns(handle->domain->active_owner) ||
+        handle->domain->active_owner->identity != handle->owner_identity ||
+        handle->layer_index >= handle->domain->layer_count) return NULL;
+    MWXSceneQuickJSLayerRecord *record = &handle->domain->layers[
+        handle->layer_index
+    ];
+    return record->configured && !record->destroyed && record->video_available
+        ? record : NULL;
+}
+
+static bool append_video_command(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSLayerRecord *record,
+    uint32_t kind,
+    double number_value,
+    uint32_t bool_value
+) {
+    if (owner->video_command_count >= MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS) {
+        owner->video_command_overflow = true;
+        return false;
+    }
+    owner->video_commands[owner->video_command_count++] =
+        (MWXSceneQuickJSVideoCommand){
+            .kind = kind,
+            .layer_id = record->layer_id,
+            .number_value = number_value,
+            .bool_value = bool_value,
+        };
+    return true;
+}
+
+enum VideoProperty {
+    VIDEO_DURATION,
+    VIDEO_RATE,
+    VIDEO_LOOP,
+};
+
+static JSValue video_get(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argc; (void)argv;
+    MWXSceneQuickJSLayerRecord *record = video_record_for_handle(opaque);
+    if (record == NULL) return JS_ThrowTypeError(context, "video handle is stale");
+    switch ((enum VideoProperty)magic) {
+    case VIDEO_DURATION: return JS_NewFloat64(context, record->video_duration);
+    case VIDEO_RATE: return JS_NewFloat64(context, record->video_rate);
+    case VIDEO_LOOP: return JS_NewBool(context, record->video_loop);
+    }
+    return JS_UNDEFINED;
+}
+
+static JSValue video_set(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value;
+    MWXSceneQuickJSVideoHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
+    if (record == NULL || argc != 1)
+        return JS_ThrowTypeError(context, "video handle is stale");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    bool accepted = false;
+    if ((enum VideoProperty)magic == VIDEO_RATE) {
+        double value = 0;
+        if (JS_ToFloat64(context, &value, argv[0]) < 0 || !isfinite(value) ||
+            value <= 0 || value > 16)
+            return JS_ThrowRangeError(context, "video rate must be finite in (0, 16]");
+        accepted = append_video_command(
+            owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_RATE, value, 0
+        );
+    } else if ((enum VideoProperty)magic == VIDEO_LOOP) {
+        int value = JS_ToBool(context, argv[0]);
+        if (value < 0) return JS_EXCEPTION;
+        accepted = append_video_command(
+            owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_LOOP, 0,
+            value != 0 ? 1 : 0
+        );
+    } else {
+        return JS_ThrowTypeError(context, "video duration is read-only");
+    }
+    return accepted ? JS_UNDEFINED : JS_ThrowInternalError(
+        context, "video command buffer exceeded"
+    );
+}
+
+enum VideoFunction {
+    VIDEO_PLAY,
+    VIDEO_PAUSE,
+    VIDEO_STOP,
+    VIDEO_IS_PLAYING,
+    VIDEO_GET_CURRENT_TIME,
+    VIDEO_SET_CURRENT_TIME,
+    VIDEO_ADD_ENDED_CALLBACK,
+};
+
+static JSValue video_call(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value;
+    MWXSceneQuickJSVideoHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
+    if (record == NULL) return JS_ThrowTypeError(context, "video handle is stale");
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    switch ((enum VideoFunction)magic) {
+    case VIDEO_IS_PLAYING:
+        if (argc != 0) return JS_ThrowTypeError(context, "isPlaying expects no arguments");
+        return JS_NewBool(context, record->video_is_playing);
+    case VIDEO_GET_CURRENT_TIME:
+        if (argc != 0)
+            return JS_ThrowTypeError(context, "getCurrentTime expects no arguments");
+        return JS_NewFloat64(context, record->video_current_time);
+    case VIDEO_SET_CURRENT_TIME: {
+        double value = 0;
+        if (argc != 1 || JS_ToFloat64(context, &value, argv[0]) < 0 ||
+            !isfinite(value) || value < 0 ||
+            (record->video_duration > 0 && value > record->video_duration))
+            return JS_ThrowRangeError(
+                context, "setCurrentTime expects a bounded finite time"
+            );
+        if (!append_video_command(
+                owner, record, MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME,
+                value, 0
+            )) return JS_ThrowInternalError(context, "video command buffer exceeded");
+        return JS_UNDEFINED;
+    }
+    case VIDEO_ADD_ENDED_CALLBACK: {
+        if (argc != 1 || !JS_IsFunction(context, argv[0]))
+            return JS_ThrowTypeError(context, "addEndedCallback expects a function");
+        if (owner->video_ended_callback_count >=
+            MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS)
+            return JS_ThrowInternalError(context, "video callback buffer exceeded");
+        MWXSceneQuickJSVideoEndedCallbackRecord *callback =
+            &owner->video_ended_callbacks[owner->video_ended_callback_count++];
+        *callback = (MWXSceneQuickJSVideoEndedCallbackRecord){
+            .layer_id = record->layer_id,
+            .delivered_generation = record->video_ended_generation,
+            .callback = JS_DupValue(context, argv[0]),
+            .active = true,
+        };
+        return JS_UNDEFINED;
+    }
+    case VIDEO_PLAY:
+    case VIDEO_PAUSE:
+    case VIDEO_STOP: {
+        if (argc != 0) return JS_ThrowTypeError(context, "video command expects no arguments");
+        const uint32_t kind = (enum VideoFunction)magic == VIDEO_PLAY
+            ? MWX_SCENE_QUICKJS_VIDEO_PLAY
+            : ((enum VideoFunction)magic == VIDEO_PAUSE
+                ? MWX_SCENE_QUICKJS_VIDEO_PAUSE
+                : MWX_SCENE_QUICKJS_VIDEO_STOP);
+        if (!append_video_command(owner, record, kind, 0, 0))
+            return JS_ThrowInternalError(context, "video command buffer exceeded");
+        return JS_UNDEFINED;
+    }
+    }
+    return JS_UNDEFINED;
+}
+
+static void free_video_handle(void *opaque) { free(opaque); }
+
+static MWXSceneQuickJSVideoHandle *copy_video_handle(
+    MWXSceneQuickJSVideoHandle identity
+) {
+    MWXSceneQuickJSVideoHandle *copy = malloc(sizeof(*copy));
+    if (copy != NULL) *copy = identity;
+    return copy;
+}
+
+static JSValue make_video_handle(
+    JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t layer_index
+) {
+    MWXSceneQuickJSVideoHandle identity = {
+        .domain = owner->domain,
+        .owner_identity = owner->identity,
+        .layer_index = layer_index,
+    };
+    JSValue video = JS_NewObject(context);
+    if (JS_IsException(video)) return video;
+    const struct {
+        const char *name; enum VideoProperty property; bool writable;
+    } properties[] = {
+        {"duration", VIDEO_DURATION, false},
+        {"rate", VIDEO_RATE, true},
+        {"loop", VIDEO_LOOP, true},
+    };
+    for (size_t index = 0; index < sizeof(properties) / sizeof(properties[0]); ++index) {
+        MWXSceneQuickJSVideoHandle *getter_handle = copy_video_handle(identity);
+        MWXSceneQuickJSVideoHandle *setter_handle = properties[index].writable
+            ? copy_video_handle(identity) : NULL;
+        if (getter_handle == NULL ||
+            (properties[index].writable && setter_handle == NULL)) {
+            free(getter_handle); free(setter_handle); JS_FreeValue(context, video);
+            return JS_EXCEPTION;
+        }
+        JSValue getter = JS_NewCClosure(
+            context, video_get, properties[index].name, free_video_handle,
+            0, properties[index].property, getter_handle
+        );
+        JSValue setter = properties[index].writable ? JS_NewCClosure(
+            context, video_set, properties[index].name, free_video_handle,
+            1, properties[index].property, setter_handle
+        ) : JS_UNDEFINED;
+        JSAtom atom = JS_NewAtom(context, properties[index].name);
+        int result = JS_DefinePropertyGetSet(
+            context, video, atom, getter, setter, JS_PROP_ENUMERABLE
+        );
+        JS_FreeAtom(context, atom);
+        if (result < 0) { JS_FreeValue(context, video); return JS_EXCEPTION; }
+    }
+    const struct { const char *name; enum VideoFunction function; int argc; } functions[] = {
+        {"play", VIDEO_PLAY, 0}, {"pause", VIDEO_PAUSE, 0},
+        {"stop", VIDEO_STOP, 0}, {"isPlaying", VIDEO_IS_PLAYING, 0},
+        {"getCurrentTime", VIDEO_GET_CURRENT_TIME, 0},
+        {"setCurrentTime", VIDEO_SET_CURRENT_TIME, 1},
+        {"addEndedCallback", VIDEO_ADD_ENDED_CALLBACK, 1},
+    };
+    for (size_t index = 0; index < sizeof(functions) / sizeof(functions[0]); ++index) {
+        MWXSceneQuickJSVideoHandle *function_handle = copy_video_handle(identity);
+        if (function_handle == NULL) { JS_FreeValue(context, video); return JS_EXCEPTION; }
+        JSValue function = JS_NewCClosure(
+            context, video_call, functions[index].name, free_video_handle,
+            functions[index].argc, functions[index].function, function_handle
+        );
+        if (JS_IsException(function) || JS_DefinePropertyValueStr(
+                context, video, functions[index].name, function,
+                JS_PROP_ENUMERABLE
+            ) < 0) { JS_FreeValue(context, video); return JS_EXCEPTION; }
+    }
+    return video;
+}
+
+static JSValue get_video_texture(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (record == NULL || argc != 0)
+        return JS_ThrowTypeError(context, "getVideoTexture unavailable");
+    if (!handle->domain->active_owner->value_only) return JS_UNDEFINED;
+    if (!record->video_available) return JS_UNDEFINED;
+    uint32_t index = handle->owner_target
+        ? handle->domain->active_owner->target_layer_index
+        : handle->layer_index;
+    return make_video_handle(
+        context, handle->domain->active_owner, index
+    );
+}
+
+static bool define_get_video_texture(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+) {
+    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return false;
+    *handle = (MWXSceneQuickJSLayerHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target, .persistent = persistent,
+    };
+    JSValue function = JS_NewCClosure(
+        context, get_video_texture, "getVideoTexture", free_layer_handle,
+        0, 0, handle
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        context, layer, "getVideoTexture", function, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
 static bool define_property(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent,
@@ -412,6 +708,12 @@ static JSValue make_layer_handle(
                              fields[field].writable)) {
             JS_FreeValue(context, layer); return JS_EXCEPTION;
         }
+    }
+    if (!define_get_video_texture(
+            context, layer, owner, index, false, persistent
+        )) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
     }
     return layer;
 }
@@ -532,6 +834,8 @@ static JSValue create_layer(
 ) {
     (void)this_value; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque; MWXSceneQuickJSDomain *domain = owner->domain;
+    if (owner->value_only)
+        return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
     if (!callback_owns(owner) || argc != 1 || !JS_IsObject(argv[0]))
         return JS_ThrowTypeError(context, "createLayer expects one configuration object");
     size_t owned = 0, scene_dynamic = 0;
@@ -616,6 +920,8 @@ static JSValue sort_layer(
 ) {
     (void)this_value; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque; double order_value = 0;
+    if (owner->value_only)
+        return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
     if (!callback_owns(owner) || argc != 2 ||
         JS_ToFloat64(context, &order_value, argv[1]) < 0 || !isfinite(order_value) ||
         floor(order_value) != order_value || order_value < 0 || order_value > INT32_MAX)
@@ -648,6 +954,8 @@ static JSValue destroy_layer(
 ) {
     (void)this_value; (void)magic;
     MWXSceneQuickJSOwner *owner = opaque;
+    if (owner->value_only)
+        return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
     MWXSceneQuickJSLayerRecord *record = argc == 1
         ? resolve_layer_argument(context, owner, argv[0]) : NULL;
     if (record == NULL || !record->dynamic ||
@@ -677,6 +985,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
         if (!define_property(context, owner->material_function_layer, owner, 0, true, true,
                              fields[field].name, fields[field].property, fields[field].writable))
             return false;
+    if (!define_get_video_texture(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
     JSValue scene = JS_NewObject(context);
     if (JS_IsException(scene)) return false;
     struct { const char *name; JSCClosure *function; int argc; } functions[] = {
@@ -702,10 +1013,89 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     if (owner == NULL || owner->domain == NULL) return;
     owner->layer_mutation_count = 0;
     owner->authored_layer_mutation_fields = 0;
+    owner->video_command_count = 0;
+    owner->video_command_overflow = false;
     for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
         if (record->dirty && record->dirty_owner_identity == owner->identity) record->dirty = false;
     }
+}
+
+size_t mwx_scene_quickjs_owner_video_command_count(
+    const MWXSceneQuickJSOwner *owner
+) {
+    return owner == NULL ? 0 : owner->video_command_count;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_video_command_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t requested,
+    MWXSceneQuickJSVideoCommand *command,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || command == NULL ||
+        requested >= owner->video_command_count ||
+        requested >= MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "invalid video command index"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *command = owner->video_commands[requested];
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner
+) {
+    if (!callback_owns(owner)) return false;
+    JSContext *context = owner->domain->context;
+    for (size_t index = 0; index < owner->video_ended_callback_count; ++index) {
+        MWXSceneQuickJSVideoEndedCallbackRecord *callback =
+            &owner->video_ended_callbacks[index];
+        if (!callback->active) continue;
+        MWXSceneQuickJSLayerRecord *record = NULL;
+        for (uint32_t layer = 0; layer < owner->domain->layer_count; ++layer) {
+            MWXSceneQuickJSLayerRecord *candidate = &owner->domain->layers[layer];
+            if (candidate->configured && !candidate->destroyed &&
+                candidate->layer_id == callback->layer_id &&
+                candidate->video_available) {
+                record = candidate;
+                break;
+            }
+        }
+        if (record == NULL ||
+            record->video_ended_generation <= callback->delivered_generation)
+            continue;
+        JSValue result = JS_Call(
+            context, callback->callback, owner->module, 0, NULL
+        );
+        if (JS_IsException(result)) {
+            JS_FreeValue(context, result);
+            return false;
+        }
+        JS_FreeValue(context, result);
+        callback->delivered_generation = record->video_ended_generation;
+    }
+    return true;
+}
+
+void mwx_scene_quickjs_clear_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner
+) {
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->context == NULL) return;
+    for (size_t index = 0; index < owner->video_ended_callback_count; ++index) {
+        MWXSceneQuickJSVideoEndedCallbackRecord *callback =
+            &owner->video_ended_callbacks[index];
+        if (callback->active) {
+            JS_FreeValue(owner->domain->context, callback->callback);
+            callback->active = false;
+        }
+    }
+    owner->video_ended_callback_count = 0;
 }
 
 void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) {

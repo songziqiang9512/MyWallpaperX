@@ -1,5 +1,75 @@
 import Foundation
 
+nonisolated struct SceneScriptVideoPlaybackSnapshot: Equatable, Sendable {
+    let layerID: Int
+    let duration: TimeInterval
+    let rate: Double
+    let loop: Bool
+    let currentTime: TimeInterval
+    let isPlaying: Bool
+    let endedGeneration: UInt64
+}
+
+nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
+    enum Action: Equatable, Sendable {
+        case play
+        case pause
+        case stop
+        case setCurrentTime(TimeInterval)
+        case setRate(Double)
+        case setLoop(Bool)
+    }
+
+    let layerID: Int
+    let action: Action
+}
+
+nonisolated enum SceneScriptVideoCommandBridge {
+    static func commands(
+        owner: OpaquePointer
+    ) -> Result<[SceneScriptVideoCommand], SceneScriptScalarRuntimeFailure> {
+        let count = mwx_scene_quickjs_owner_video_command_count(owner)
+        guard count <= 64 else {
+            return .failure(.mutationOverflow("video command buffer exceeded"))
+        }
+        var output: [SceneScriptVideoCommand] = []
+        output.reserveCapacity(count)
+        for index in 0..<count {
+            var raw = MWXSceneQuickJSVideoCommand()
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = mwx_scene_quickjs_owner_video_command_at(
+                owner, index, &raw, &diagnostic, diagnostic.count
+            )
+            guard result == MWX_SCENE_QUICKJS_OK,
+                  raw.layer_id >= Int64(Int.min),
+                  raw.layer_id <= Int64(Int.max),
+                  raw.number_value.isFinite,
+                  raw.bool_value <= 1 else {
+                return .failure(.invalidArgument(String(cString: diagnostic)))
+            }
+            let action: SceneScriptVideoCommand.Action
+            switch raw.kind {
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_PLAY.rawValue):
+                action = .play
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_PAUSE.rawValue):
+                action = .pause
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_STOP.rawValue):
+                action = .stop
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_CURRENT_TIME.rawValue):
+                action = .setCurrentTime(raw.number_value)
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_RATE.rawValue):
+                action = .setRate(raw.number_value)
+            case UInt32(MWX_SCENE_QUICKJS_VIDEO_SET_LOOP.rawValue):
+                action = .setLoop(raw.bool_value != 0)
+            default:
+                return .failure(.invalidArgument("unknown video command"))
+            }
+            output.append(.init(layerID: Int(raw.layer_id), action: action))
+        }
+        return .success(output)
+    }
+}
+
 nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     enum Kind: Equatable, Sendable { case upsert, destroy }
 
@@ -181,7 +251,8 @@ nonisolated extension SceneScriptQuickJSDomain {
 
     func publishLayerSnapshot(
         _ snapshot: SceneDynamicSnapshot,
-        descriptor: SceneRenderDescriptor
+        descriptor: SceneRenderDescriptor,
+        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]
     ) throws {
         try configureLayerCatalog(descriptor)
         guard layerSnapshotGeneration < UInt64.max else {
@@ -204,7 +275,11 @@ nonisolated extension SceneScriptQuickJSDomain {
                 mwx_scene_quickjs_domain_abort_layer_snapshot(handle)
             }
         }
-        try publishLayerRuntimeFields(snapshot, descriptor: descriptor)
+        try publishLayerRuntimeFields(
+            snapshot,
+            descriptor: descriptor,
+            videoSnapshots: videoSnapshots
+        )
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
                   case let .vector3(x, y, z) = resolved.value,

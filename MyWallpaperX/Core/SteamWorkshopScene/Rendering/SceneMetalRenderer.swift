@@ -46,6 +46,8 @@ struct SceneMetalRenderer {
         self.effectAdmissionCatalog = effectAdmissionCatalog
         self.spotLightRuntime = SceneSpotLightRuntime(descriptor: renderDescriptor, pipeline: pipelineRepository.spotLight())
         let resolvedMaterialLayerIDs = resolvedMaterialRuntime?.executionLayerIDs ?? []
+        let resolvedMaterialVisibleRootLayerIDs =
+            resolvedMaterialRuntime?.visibleExecutionRootLayerIDs ?? []
         let executableUtilityConsumerLayerIDs = SceneUtilityLayerRuntimePlanner
             .executableUtilityConsumerLayerIDs(
                 in: renderDescriptor,
@@ -53,7 +55,8 @@ struct SceneMetalRenderer {
             )
         self.dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
-            visibleLayerIDs: visibleLayerIDs,
+            visibleLayerIDs:
+                visibleLayerIDs.union(resolvedMaterialVisibleRootLayerIDs),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys,
             resolvedMaterialConsumerLayerIDs: resolvedMaterialLayerIDs,
@@ -649,8 +652,12 @@ struct SceneMetalRenderer {
         executionTrace: SceneEffectExecutionFrameTrace
     ) -> Set<Int>? {
         var graphProviderLayerIDs: Set<Int> = []
+        let activeExecutionLayerIDs = Set(framePlans.keys)
         for provider in orderedLayers where dependencyRuntime
-            .requiresForwardCapture(for: provider.id) {
+            .requiresForwardCapture(
+                for: provider.id,
+                activeExecutionLayerIDs: activeExecutionLayerIDs
+            ) {
             if dependencyRuntime.requiresGraphOutputCapture(for: provider.id) {
                 guard executeDependencyGraphProviderIfRequired(
                     layer: provider,

@@ -454,12 +454,25 @@ extension SceneDesktopWallpaperHost {
         let provisionalSceneScriptValueTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
+        let projectedLayerVisibilityRootLayerIDs = Set(
+            propertyVectorScriptTargets.compactMap { target -> Int? in
+                guard case let .layer(layerID, .visibility) = target else {
+                    return nil
+                }
+                return layerID
+            }
+        )
+        let resolvedMaterialVisibleExecutionRootLayerIDs =
+            SceneLayerVisibility.visibleLayerIDs(in: runtimeInput.renderDescriptor)
+                .union(projectedLayerVisibilityRootLayerIDs)
         let resolvedMaterialAdmissionCandidates =
             SceneResolvedMaterialExecutionCapabilityAdmission.compile(
                 descriptor: runtimeInput.renderDescriptor,
                 authoredPlans: runtimeInput.authoredEffectRenderPlans,
                 dynamicEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners,
+                dynamicLayerVisibilityOwnerTargets:
+                    propertyVectorScriptTargets,
                 startupInactiveEffectVisibilityTargets:
                     runtimeInput.startupInactiveEffectVisibilityTargets,
                 conditionSchemaEvidence:
@@ -511,6 +524,8 @@ extension SceneDesktopWallpaperHost {
                 capabilities: resolvedMaterialExecutionCapabilities,
                 assets: materialAssetCatalog,
                 device: device,
+                visibleExecutionRootLayerIDs:
+                    resolvedMaterialVisibleExecutionRootLayerIDs,
                 cancellationCheck: { try cancellation?.check() }
             )
         firstSurfaceRuntimePreparation.start()

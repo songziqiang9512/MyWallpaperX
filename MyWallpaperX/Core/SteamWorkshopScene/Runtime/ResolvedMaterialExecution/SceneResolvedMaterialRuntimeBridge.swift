@@ -168,6 +168,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     private let submissions: SceneResolvedMaterialSubmissionCoordinator
+    let visibleExecutionRootLayerIDs: Set<Int>
     private let executionEvidenceLock = NSLock()
     private var executionEvidenceByKey: [Graph.EffectKey: String] = [:]
     private var executionEvidenceIssues: [String: Int] = [:]
@@ -182,6 +183,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
         assets: SceneMaterialAssetTextureCatalog,
         device: MTLDevice,
+        visibleExecutionRootLayerIDs: Set<Int> = [],
         logSink: @escaping LogSink = { NSLog("%@", $0) }
     ) {
         self.catalog = catalog
@@ -192,6 +194,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             capabilities: capabilities,
             logSink: logSink
         )
+        self.visibleExecutionRootLayerIDs = visibleExecutionRootLayerIDs
     }
 
     func resolvedAssetStates(

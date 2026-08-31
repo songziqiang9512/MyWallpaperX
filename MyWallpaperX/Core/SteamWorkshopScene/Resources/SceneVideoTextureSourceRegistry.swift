@@ -1,6 +1,12 @@
 import Foundation
 import Metal
 
+nonisolated enum SceneVideoCommandApplicationFailure: Error, Equatable {
+    case commandBudgetExceeded
+    case unavailableLayer(Int)
+    case invalidCommand(Int)
+}
+
 extension SceneTextureLoader {
     func makeVideoTextureSourceIfNeeded(
         from url: URL,
@@ -82,6 +88,52 @@ final class SceneVideoTextureSourceRegistry {
         sources.values.forEach {
             $0.pause(sceneTime: sceneTime, hostTime: hostTime)
         }
+    }
+
+    func sceneScriptSnapshots(
+        sceneTime: TimeInterval
+    ) -> [Int: SceneScriptVideoPlaybackSnapshot] {
+        let ordered = sources.sorted { lhs, rhs in
+            if lhs.key.layerID != rhs.key.layerID {
+                return lhs.key.layerID < rhs.key.layerID
+            }
+            return lhs.key.deviceRegistryID < rhs.key.deviceRegistryID
+        }
+        return ordered.reduce(
+            into: [Int: SceneScriptVideoPlaybackSnapshot]()
+        ) { result, entry in
+            let snapshot = entry.value.playbackSnapshot(sceneTime: sceneTime)
+            if result[snapshot.layerID] == nil {
+                result[snapshot.layerID] = snapshot
+            }
+        }
+    }
+
+    func apply(
+        _ commands: [SceneScriptVideoCommand],
+        timing: SceneFrameTiming
+    ) -> Result<Void, SceneVideoCommandApplicationFailure> {
+        guard commands.count <= 64 else {
+            return .failure(.commandBudgetExceeded)
+        }
+        let sourcesByLayer = Dictionary(grouping: sources.values) {
+            $0.playbackSnapshot(sceneTime: timing.sceneTime).layerID
+        }
+        for (index, command) in commands.enumerated() {
+            guard let targets = sourcesByLayer[command.layerID],
+                  !targets.isEmpty else {
+                return .failure(.unavailableLayer(command.layerID))
+            }
+            guard targets.allSatisfy({ $0.canApply(command) }) else {
+                return .failure(.invalidCommand(index))
+            }
+        }
+        for command in commands {
+            sourcesByLayer[command.layerID]?.forEach {
+                $0.apply(command, timing: timing)
+            }
+        }
+        return .success(())
     }
 
     func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {

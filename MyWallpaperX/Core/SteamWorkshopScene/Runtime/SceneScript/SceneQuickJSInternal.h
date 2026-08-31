@@ -22,6 +22,8 @@
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
 #define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
+#define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
+#define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -48,6 +50,13 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool destroyed;
     bool dirty;
     bool configured;
+    bool video_available;
+    bool video_loop;
+    bool video_is_playing;
+    double video_duration;
+    double video_rate;
+    double video_current_time;
+    uint64_t video_ended_generation;
 } MWXSceneQuickJSLayerRecord;
 
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
@@ -61,7 +70,21 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double point_size;
     bool visible;
     bool runtime_fields_staged;
+    bool video_available;
+    bool video_loop;
+    bool video_is_playing;
+    double video_duration;
+    double video_rate;
+    double video_current_time;
+    uint64_t video_ended_generation;
 } MWXSceneQuickJSStagedLayerSnapshot;
+
+typedef struct MWXSceneQuickJSVideoEndedCallbackRecord {
+    int64_t layer_id;
+    uint64_t delivered_generation;
+    JSValue callback;
+    bool active;
+} MWXSceneQuickJSVideoEndedCallbackRecord;
 
 typedef struct MWXSceneQuickJSAudioRegistration {
     uint32_t resolution;
@@ -140,6 +163,9 @@ struct MWXSceneQuickJSOwner {
     bool material_function_overflow;
     size_t animation_command_count;
     bool animation_command_overflow;
+    size_t video_command_count;
+    bool video_command_overflow;
+    size_t video_ended_callback_count;
     bool current_animation_available;
     uint32_t target_layer_index;
     bool target_layer_configured;
@@ -172,6 +198,12 @@ struct MWXSceneQuickJSOwner {
     ];
     MWXSceneQuickJSAnimationCommand animation_commands[
         MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS
+    ];
+    MWXSceneQuickJSVideoCommand video_commands[
+        MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS
+    ];
+    MWXSceneQuickJSVideoEndedCallbackRecord video_ended_callbacks[
+        MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS
     ];
 };
 
@@ -214,6 +246,12 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner
+);
+void mwx_scene_quickjs_clear_video_ended_callbacks(
+    MWXSceneQuickJSOwner *owner
+);
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,

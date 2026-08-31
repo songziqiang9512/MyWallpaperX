@@ -12,6 +12,7 @@ enum SceneFrameLayerTextureAssembly {
         var textures = base.textures
         var publications: [Int: SceneTextureProviderPublication] = [:]
         var layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
+        var pendingLayerSourceIDs: Set<Int> = []
 
         if let dynamicText {
             for (layerID, layerSource) in dynamicText.layerSources {
@@ -24,7 +25,10 @@ enum SceneFrameLayerTextureAssembly {
         _ = mediaThumbnail
         _ = mediaBindings
         for (layerID, source) in videoSources {
-            guard let frame = source.currentFrame(for: timing) else { continue }
+            guard let frame = source.currentFrame(for: timing) else {
+                pendingLayerSourceIDs.insert(layerID)
+                continue
+            }
             textures[layerID] = frame.texture
             if let layerSource = SceneLayerSourcePublication(
                 layerID: layerID,
@@ -38,7 +42,8 @@ enum SceneFrameLayerTextureAssembly {
         return base.snapshot(
             textures: textures,
             explicitLayerSources: publications,
-            layerSourcePublications: layerSourcePublications
+            layerSourcePublications: layerSourcePublications,
+            pendingLayerSourceIDs: pendingLayerSourceIDs
         )
     }
 }

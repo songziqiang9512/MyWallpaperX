@@ -79,6 +79,43 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
+    func resolvedMaterialExecutionLayerIDs(
+        visibleRootLayerIDs: Set<Int>,
+        availableExecutionLayerIDs: Set<Int>
+    ) -> Set<Int> {
+        var reachable = visibleRootLayerIDs.intersection(
+            availableExecutionLayerIDs
+        )
+        var changed = true
+        while changed {
+            changed = false
+            for binding in plan.bindingsByConsumerLayerID.values
+            where reachable.contains(binding.consumerLayerID)
+                && plan.requiredGraphOutputProviderLayerIDs.contains(
+                    binding.providerLayerID
+                )
+                && availableExecutionLayerIDs.contains(
+                    binding.providerLayerID
+                )
+            {
+                changed = reachable.insert(binding.providerLayerID).inserted
+                    || changed
+            }
+        }
+        return reachable
+    }
+
+    func requiresForwardCapture(
+        for providerLayerID: Int,
+        activeExecutionLayerIDs: Set<Int>
+    ) -> Bool {
+        plan.bindingsByConsumerLayerID.values.contains {
+            $0.providerLayerID == providerLayerID
+                && $0.requiresForwardCapture
+                && activeExecutionLayerIDs.contains($0.consumerLayerID)
+        }
+    }
+
     /// Verifies that every prepared provider output can be copied into its
     /// independently reserved named target. The reservation must remain a
     /// distinct texture because graph target allocation is free to reuse a

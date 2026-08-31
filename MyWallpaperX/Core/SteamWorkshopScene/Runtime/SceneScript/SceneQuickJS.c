@@ -543,6 +543,17 @@ static MWXSceneQuickJSResult call_primitive(
         );
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
+    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+        mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
+        mwx_scene_quickjs_restore_owner_handles(
+            owner, previous_global_layer, previous_global_scene,
+            previous_global_object
+        );
+        mwx_scene_quickjs_end_callback(owner);
+        return mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+    }
     JSValue argument = boolean_value
         ? JS_NewBool(domain->context, input != 0)
         : JS_NewFloat64(domain->context, input);
@@ -585,13 +596,16 @@ static MWXSceneQuickJSResult call_primitive(
             domain, diagnostic, diagnostic_capacity
         );
         JS_FreeValue(domain->context, result);
-        if (owner->material_function_overflow || owner->animation_command_overflow) {
+        if (owner->material_function_overflow || owner->animation_command_overflow ||
+            owner->video_command_overflow) {
             write_diagnostic(
                 diagnostic,
                 diagnostic_capacity,
-                owner->animation_command_overflow
-                    ? "animation command buffer exceeded"
-                    : "material function mutation buffer exceeded"
+                owner->video_command_overflow
+                    ? "video command buffer exceeded"
+                    : (owner->animation_command_overflow
+                        ? "animation command buffer exceeded"
+                        : "material function mutation buffer exceeded")
             );
             return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
         }
@@ -668,6 +682,17 @@ static MWXSceneQuickJSResult call_string(
         );
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
+    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+        mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
+        mwx_scene_quickjs_restore_owner_handles(
+            owner, previous_global_layer, previous_global_scene,
+            previous_global_object
+        );
+        mwx_scene_quickjs_end_callback(owner);
+        return mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+    }
     JSValue argument = JS_NewStringLen(domain->context, input, input_length);
     JSValue result = JS_IsException(argument)
         ? JS_EXCEPTION
@@ -700,7 +725,8 @@ static MWXSceneQuickJSResult call_string(
             domain, diagnostic, diagnostic_capacity
         );
         JS_FreeValue(domain->context, result);
-        return owner->material_function_overflow || owner->animation_command_overflow
+        return owner->material_function_overflow || owner->animation_command_overflow ||
+                owner->video_command_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
     }
     if (JS_IsUndefined(result)) {
@@ -853,6 +879,17 @@ static MWXSceneQuickJSResult call_vec3(
         write_diagnostic(diagnostic, diagnostic_capacity, "SceneScript frame engine host unavailable");
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
+    if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
+        mwx_scene_quickjs_restore_frame_engine_host(owner, previous_global_engine);
+        mwx_scene_quickjs_restore_owner_handles(
+            owner, previous_global_layer, previous_global_scene,
+            previous_global_object
+        );
+        mwx_scene_quickjs_end_callback(owner);
+        return mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+    }
     JSValue vector_arguments[3] = {
         JS_NewFloat64(domain->context, input[0]),
         JS_NewFloat64(domain->context, input[1]),
@@ -895,7 +932,8 @@ static MWXSceneQuickJSResult call_vec3(
             domain, diagnostic, diagnostic_capacity
         );
         JS_FreeValue(domain->context, result);
-        return owner->material_function_overflow || owner->animation_command_overflow
+        return owner->material_function_overflow || owner->animation_command_overflow ||
+                owner->video_command_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
