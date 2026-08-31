@@ -65,7 +65,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
         }
         do {
             let typedVertexSource = rewriteAssignmentVectorConversions(
-                rewriteFunctionVectorArguments(
+                SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                     SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                         vertexSource,
                         stage: .vertex
@@ -75,7 +75,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 stage: .vertex
             )
             let typedFragmentSource = rewriteAssignmentVectorConversions(
-                rewriteFunctionVectorArguments(
+                SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
                     SceneGenericShaderScalarArithmeticNormalizer.rewrite(
                         fragmentSource,
                         stage: .fragment
@@ -200,6 +200,14 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     facts: varyingPrefixFacts
                 )
             let expressionShapes = varyings.merging(uniforms) { current, _ in current }
+            vertex.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
+                vertex.body,
+                shapes: attributes.merging(expressionShapes) { current, _ in current }
+            )
+            fragment.body = SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewrite(
+                fragment.body,
+                shapes: expressionShapes
+            )
             vertex.body = rewriteComponentWiseBuiltInAssignmentResults(
                 vertex.body,
                 shapes: expressionShapes
@@ -501,66 +509,6 @@ void main() {
             guard known.contains(String(expression[tokenRange])) else { return false }
         }
         return true
-    }
-
-    /// Reuse the bounded frontend's source-proven vector argument narrowing
-    /// for built-ins and unambiguous user functions before Vulkan validation.
-    /// Unknown expressions and overloads remain fail-closed.
-    private static func rewriteFunctionVectorArguments(
-        _ source: String,
-        stage: SceneShaderContract.StageKind
-    ) -> String {
-        let normalized = source
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
-        let analysisSource = normalized.components(separatedBy: "\n").map { line in
-            line.trimmingCharacters(in: .whitespaces).hasPrefix("#version")
-                ? "" : line
-        }.joined(separator: "\n")
-        let lexer = SceneAuthoredShaderLexer.lex(source: analysisSource, stage: stage)
-        let analysis = SceneAuthoredShaderSyntaxAnalyzer.analyze(
-            lexerOutput: lexer,
-            stage: stage
-        )
-        guard analysis.diagnostics.isEmpty, let unit = analysis.unit else {
-            return normalized
-        }
-
-        var lineStarts = [0]
-        var scalarOffset = 0
-        for scalar in normalized.unicodeScalars {
-            scalarOffset += 1
-            if scalar == "\n" { lineStarts.append(scalarOffset) }
-        }
-        let insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
-            let token = unit.tokens[index]
-            guard token.kind == .identifier,
-                  let suffix = SceneAuthoredShaderVectorConversion.suffix(
-                      forIdentifierAt: index,
-                      in: unit.tokens,
-                      unit: unit
-                  ), token.line > 0, token.line <= lineStarts.count else {
-                return nil
-            }
-            let end = lineStarts[token.line - 1] + token.column - 1
-                + token.text.unicodeScalars.count
-            guard end <= normalized.unicodeScalars.count else { return nil }
-            return (end, ".\(suffix)")
-        }.sorted { $0.0 > $1.0 }
-        guard !insertions.isEmpty else { return normalized }
-
-        var result = normalized
-        for (offset, suffix) in insertions {
-            let scalarIndex = result.unicodeScalars.index(
-                result.unicodeScalars.startIndex,
-                offsetBy: offset
-            )
-            guard let index = String.Index(scalarIndex, within: result) else {
-                return normalized
-            }
-            result.insert(contentsOf: suffix, at: index)
-        }
-        return result
     }
 
     /// Reuse the bounded frontend's typed assignment conversion around a

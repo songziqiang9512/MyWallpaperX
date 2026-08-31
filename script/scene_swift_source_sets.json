@@ -205,6 +205,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderScalarVectorBroadcastNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",

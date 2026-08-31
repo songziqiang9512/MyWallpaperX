@@ -294,6 +294,24 @@ private struct ScalarVectorAssignmentOutput: Codable {
     let arithmeticRewriteIdempotent: Bool
 }
 
+private struct DirectFunctionVectorArgumentOutput: Codable {
+    let widerDirectArgumentNarrowed: Bool
+    let multipleFunctionsNarrowed: Bool
+    let explicitSwizzlePreserved: Bool
+    let sameWidthPreserved: Bool
+    let localAliasPreserved: Bool
+    let overloadedFunctionPreserved: Bool
+}
+
+private struct DirectTextureSampleAssignmentOutput: Codable {
+    let vec3Narrowed: Bool
+    let nestedVec2Narrowed: Bool
+    let scalarLodNarrowed: Bool
+    let explicitSwizzlePreserved: Bool
+    let compoundExpressionPreserved: Bool
+    let localOverloadPreserved: Bool
+}
+
 private struct CanonicalizerOutput: Codable {
     let arraysCompacted: Bool
     let loopsUnrolled: Bool
@@ -1164,6 +1182,146 @@ private struct GenericShaderArtifactHarness {
                     booleanFirst.contains("mix(0.0, 1.0, frequency)")
                     && booleanFirst.contains("smoothstep(0.0, 1.0, frequency)"),
                 arithmeticRewriteIdempotent: booleanFirst == booleanSecond
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--normalizer-direct-function-vector-argument" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec4 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = vec4(a_TexCoord, 0.0, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            func normalized(_ helperDefinitions: [String], call: String) -> String {
+                let fragment = ([
+                    "varying vec4 v_TexCoord;",
+                    "vec3 qualifiedHelper(const int mode, in vec3 value) { return value; }",
+                ] + helperDefinitions + [
+                    "void main() {",
+                    "    vec4 localAlias = v_TexCoord;",
+                    "    vec2 result = \(call);",
+                    "    gl_FragColor = vec4(result, 0.0, 1.0);",
+                    "}",
+                ]).joined(separator: "\n")
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return pair.fragment
+                case .failure: return ""
+                }
+            }
+            let single = [
+                "vec2 rotatePair(vec2 value, float angle) { return value * angle; }",
+            ]
+            let narrowed = normalized(single, call: "rotatePair(v_TexCoord, 1.0)")
+            let multiple = normalized([
+                "vec2 rotatePair(vec2 value, float angle) { return value * angle; }",
+                "vec2 offsetPair(vec2 value, float offset) { return value + offset; }",
+            ], call: "rotatePair(v_TexCoord, 1.0) + offsetPair(v_TexCoord, 1.0)")
+            let explicit = normalized(single, call: "rotatePair(v_TexCoord.xy, 1.0)")
+            let sameWidth = normalized(single, call: "rotatePair(v_TexCoord.xy, 1.0)")
+            let alias = normalized(single, call: "rotatePair(localAlias, 1.0)")
+            let overloaded = normalized([
+                "vec2 rotatePair(vec2 value, float angle) { return value * angle; }",
+                "vec3 rotatePair(vec3 value, float angle) { return value * angle; }",
+            ], call: "rotatePair(v_TexCoord, 1.0).xy")
+            let output = DirectFunctionVectorArgumentOutput(
+                widerDirectArgumentNarrowed:
+                    narrowed.contains("rotatePair(v_TexCoord.xy, 1.0)"),
+                multipleFunctionsNarrowed:
+                    multiple.contains("rotatePair(v_TexCoord.xy, 1.0)")
+                    && multiple.contains("offsetPair(v_TexCoord.xy, 1.0)"),
+                explicitSwizzlePreserved:
+                    explicit.contains("rotatePair(v_TexCoord.xy, 1.0)")
+                    && !explicit.contains("v_TexCoord.xy.xy"),
+                sameWidthPreserved:
+                    sameWidth.contains("rotatePair(v_TexCoord.xy, 1.0)"),
+                localAliasPreserved:
+                    alias.contains("rotatePair(localAlias, 1.0)"),
+                overloadedFunctionPreserved:
+                    overloaded.contains("rotatePair(v_TexCoord, 1.0).xy")
+                    && !overloaded.contains("v_TexCoord.xy, 1.0")
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--normalizer-direct-texture-sample-assignment" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord = a_TexCoord;",
+                "}",
+            ].joined(separator: "\n")
+            func normalized(_ assignment: String, prelude: [String] = []) -> String {
+                let fragment = ([
+                    "uniform sampler2D g_Texture0;",
+                    "varying vec2 v_TexCoord;",
+                ] + prelude + [
+                    "void main() {",
+                    "    \(assignment)",
+                    "    gl_FragColor = vec4(1.0);",
+                    "}",
+                ]).joined(separator: "\n")
+                switch SceneGenericShaderSourceNormalizer.normalize(
+                    vertexSource: vertex,
+                    fragmentSource: fragment,
+                    maximumStageSourceBytes: 64 * 1_024
+                ) {
+                case let .success(pair): return pair.fragment
+                case .failure: return ""
+                }
+            }
+            let vec3 = normalized(
+                "vec3 value = texSample2D(g_Texture0, v_TexCoord);"
+            )
+            let vec2 = normalized(
+                "vec2 value = texture2D(g_Texture0, frac(v_TexCoord));"
+            )
+            let scalar = normalized(
+                "float value = texSample2DLod(g_Texture0, v_TexCoord, 0.0);"
+            )
+            let swizzle = normalized(
+                "vec3 value = texSample2D(g_Texture0, v_TexCoord).gbr;"
+            )
+            let compound = normalized(
+                "vec3 value = texSample2D(g_Texture0, v_TexCoord) + vec4(1.0);"
+            )
+            let overloaded = normalized(
+                "vec3 value = texSample2D(g_Texture0, v_TexCoord);",
+                prelude: [
+                    "vec4 texSample2D(sampler2D value, vec2 uv) { return vec4(uv, 0.0, 1.0); }",
+                ]
+            )
+            let output = DirectTextureSampleAssignmentOutput(
+                vec3Narrowed: vec3.contains(
+                    "texSample2D(g_Texture0, v_TexCoord).xyz"
+                ),
+                nestedVec2Narrowed: vec2.contains(
+                    "texture2D(g_Texture0, frac(v_TexCoord)).xy"
+                ),
+                scalarLodNarrowed: scalar.contains(
+                    "texSample2DLod(g_Texture0, v_TexCoord, 0.0).r"
+                ),
+                explicitSwizzlePreserved:
+                    swizzle.contains("texSample2D(g_Texture0, v_TexCoord).gbr")
+                    && !swizzle.contains(").xyz.gbr"),
+                compoundExpressionPreserved:
+                    compound.contains(
+                        "texSample2D(g_Texture0, v_TexCoord) + vec4(1.0)"
+                    )
+                    && !compound.contains(").xyz +"),
+                localOverloadPreserved:
+                    overloaded.contains("texSample2D(g_Texture0, v_TexCoord)")
+                    && !overloaded.contains("v_TexCoord).xyz")
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4495,6 +4653,40 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "integerModuloPreserved": True,
             "scalarBuiltInEndpointsNormalized": True,
             "arithmeticRewriteIdempotent": True,
+        })
+
+    def test_product_normalizer_narrows_only_unambiguous_direct_function_arguments(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-direct-function-vector-argument"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "widerDirectArgumentNarrowed": True,
+            "multipleFunctionsNarrowed": True,
+            "explicitSwizzlePreserved": True,
+            "sameWidthPreserved": True,
+            "localAliasPreserved": True,
+            "overloadedFunctionPreserved": True,
+        })
+
+    def test_product_normalizer_narrows_only_direct_texture_sample_assignments(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-direct-texture-sample-assignment"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "vec3Narrowed": True,
+            "nestedVec2Narrowed": True,
+            "scalarLodNarrowed": True,
+            "explicitSwizzlePreserved": True,
+            "compoundExpressionPreserved": True,
+            "localOverloadPreserved": True,
         })
 
     def test_product_normalizer_preserves_vertex_position_contract(self):

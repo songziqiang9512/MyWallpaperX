@@ -61,6 +61,8 @@ EXTRA_SOURCES = [
     / "RenderGraph/ShaderPreparation/SceneGenericShaderTextureSamplingNormalizer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
     SCENE_ROOT

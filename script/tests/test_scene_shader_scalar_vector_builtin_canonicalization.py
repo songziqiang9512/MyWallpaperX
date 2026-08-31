@@ -43,6 +43,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderVaryingNormalizer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
 ]
 GLSLANG = (
