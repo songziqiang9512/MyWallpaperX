@@ -63,8 +63,7 @@ extension SceneResolvedMaterialGraphExecutor {
         boundedDetail: String? = nil,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
-        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
-              [
+        let ordinaryReason = [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
@@ -98,7 +97,12 @@ extension SceneResolvedMaterialGraphExecutor {
             "dependency-stage-reference-unavailable",
             "dependency-stage-secondary-reference-unavailable",
             "external-primary-provider-source-unavailable",
-        ].contains(reasonCode),
+        ].contains(reasonCode)
+        let framebufferPreparationLimitation =
+            reasonCode == "material-variant-envelope-invariant"
+                && !graph.renderTargets.isEmpty
+        guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
+              ordinaryReason || framebufferPreparationLimitation,
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,
                   transition: transition,

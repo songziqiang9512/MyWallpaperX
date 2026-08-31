@@ -79,7 +79,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             case .imageLayerBlend:
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 1
-                    && binding.blendMode == 0
+                    && (binding.requiresResolvedMaterialProgram
+                        || binding.blendMode == 0)
             case .visibleImageGraphOutput:
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 1

@@ -832,20 +832,35 @@ struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
     let allocation: ScenePersistentGraphTargetFramePlan
 }
+enum SceneOffscreenTextureFramePreflight {
+    enum Result {
+        case ready
+        case temporarilyBlocked
+        case rejected(reasonCode: String)
+    }
+}
 final class SceneOffscreenTexturePool {
     typealias Factory = (
         ScenePersistentGraphTargetFramePlan
     ) -> ScenePreparedPersistentGraphTargets?
     let factory: Factory
+    let preflightResult: SceneOffscreenTextureFramePreflight.Result
     private(set) var batchCommitCount = 0
     private(set) var discardedHistoryEffectsByCommit: [[
         Set<ScenePreparedPersistentGraphTargets.EffectKey>
     ]] = []
     init(
         prepared: ScenePreparedPersistentGraphTargets? = .init(),
-        factory: Factory? = nil
+        factory: Factory? = nil,
+        preflightResult: SceneOffscreenTextureFramePreflight.Result = .ready
     ) {
         self.factory = factory ?? { _ in prepared }
+        self.preflightResult = preflightResult
+    }
+    func preflightPersistentGraphTargets(
+        _ plans: [ScenePersistentGraphTargetFramePlan]
+    ) -> SceneOffscreenTextureFramePreflight.Result {
+        preflightResult
     }
     func preparePersistentGraphTargets(
         framePlan: ScenePersistentGraphTargetFramePlan
@@ -1037,6 +1052,7 @@ final class SceneResolvedMaterialGraphExecutor {
     typealias State = SceneGraphExecutionState
     enum Failure: String, Error {
         case unavailable = "fixture-preflight-unavailable"
+        case graphStructureRejected = "graph-structure-rejected"
         var isColorContractVisualRejection: Bool { false }
     }
     struct PreparedStage {
@@ -4544,6 +4560,15 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertIn("binding.slot.passIndex==0", compact_execution)
         self.assertIn("binding.slot.slotIndex==3", compact_execution)
         self.assertIn("binding.blendMode==0", compact_execution)
+        self.assertIn(
+            "SceneImageLayerBlendDependencyContract.supports("
+            "blendMode:binding.blendMode)",
+            compact_execution,
+        )
+        self.assertIn(
+            "binding.blendMode==0||binding.requiresResolvedMaterialProgram",
+            compact_execution,
+        )
         self.assertIn(
             "ifcase.externalPrimary=claim.dependencyOwnership",
             compact_execution,

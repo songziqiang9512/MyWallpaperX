@@ -25,10 +25,15 @@ nonisolated struct SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
-        /// The exact static image provider appears after its consumer in
-        /// authored compositor order and must publish in the offscreen
-        /// prepass. This never changes final layer composition order.
+        /// The exact image provider appears after its consumer in authored
+        /// compositor order and must publish in the offscreen prepass. A
+        /// static provider captures its source; an effectful provider executes
+        /// its already-admitted graph. Neither changes final composition order.
         let requiresForwardCapture: Bool
+        /// The binding is resource ownership only. UV transform or additional
+        /// graph-internal provenance must be consumed by an admitted
+        /// MaterialProgram, never by the legacy direct dependency composite.
+        let requiresResolvedMaterialProgram: Bool
 
         init(
             consumerLayerID: Int,
@@ -37,7 +42,8 @@ nonisolated struct SceneDependencyRenderPlan {
             referenceSlots: [SceneEffectPassSlot]? = nil,
             blendMode: Int,
             kind: Kind,
-            requiresForwardCapture: Bool = false
+            requiresForwardCapture: Bool = false,
+            requiresResolvedMaterialProgram: Bool = false
         ) {
             self.consumerLayerID = consumerLayerID
             self.providerLayerID = providerLayerID
@@ -46,6 +52,7 @@ nonisolated struct SceneDependencyRenderPlan {
             self.blendMode = blendMode
             self.kind = kind
             self.requiresForwardCapture = requiresForwardCapture
+            self.requiresResolvedMaterialProgram = requiresResolvedMaterialProgram
         }
     }
 
@@ -80,11 +87,60 @@ nonisolated struct SceneDependencyRenderPlan {
         staticLayerSourcePassthroughBlockedLayerIDs.contains(layerID)
     }
 
+    /// Stable dependency-first transaction order for the shared graph
+    /// submission. Final compositor order remains authored and is not changed.
+    nonisolated func resolvedMaterialPreparationOrder(
+        authoredLayerIDs: [Int]
+    ) -> [Int]? {
+        guard Set(authoredLayerIDs).count == authoredLayerIDs.count else {
+            return nil
+        }
+        let available = Set(authoredLayerIDs)
+        let authoredIndex = Dictionary(uniqueKeysWithValues:
+            authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
+        )
+        var indegree = Dictionary(uniqueKeysWithValues:
+            authoredLayerIDs.map { ($0, 0) }
+        )
+        var successors: [Int: Set<Int>] = [:]
+        for binding in bindingsByConsumerLayerID.values
+        where available.contains(binding.providerLayerID)
+            && available.contains(binding.consumerLayerID)
+            && binding.providerLayerID != binding.consumerLayerID {
+            if successors[binding.providerLayerID, default: []]
+                .insert(binding.consumerLayerID).inserted {
+                indegree[binding.consumerLayerID, default: 0] += 1
+            }
+        }
+        var remaining = available
+        var result: [Int] = []
+        result.reserveCapacity(authoredLayerIDs.count)
+        let forwardGraphProviders = Set(bindingsByConsumerLayerID.values
+            .filter(\.requiresForwardCapture)
+            .map(\.providerLayerID))
+            .intersection(requiredGraphOutputProviderLayerIDs)
+        while let next = remaining.filter({ indegree[$0] == 0 }).min(by: {
+            let lhsForward = forwardGraphProviders.contains($0)
+            let rhsForward = forwardGraphProviders.contains($1)
+            if lhsForward != rhsForward { return lhsForward }
+            return authoredIndex[$0, default: .max]
+                < authoredIndex[$1, default: .max]
+        }) {
+            remaining.remove(next)
+            result.append(next)
+            for successor in successors[next] ?? [] {
+                indegree[successor, default: 0] -= 1
+            }
+        }
+        return result.count == authoredLayerIDs.count ? result : nil
+    }
+
     nonisolated init(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = [],
-        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = []
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
+        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated().map {
@@ -186,6 +242,8 @@ nonisolated struct SceneDependencyRenderPlan {
                 visibleLayerIDs: visibleLayerIDs,
                 cyclicLayerIDs: cyclicLayerIDs,
                 executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
+                resolvedMaterialConsumerLayerIDs:
+                    resolvedMaterialConsumerLayerIDs,
                 namedProviderRouteDisabled: namedProviderRouteDisabled,
                 issues: &issues
             ) else {
@@ -301,6 +359,7 @@ nonisolated struct SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
+        resolvedMaterialConsumerLayerIDs: Set<Int>?,
         namedProviderRouteDisabled: Bool,
         issues: inout [Issue]
     ) -> Binding? {
@@ -308,22 +367,49 @@ nonisolated struct SceneDependencyRenderPlan {
         let contract: (
             reference: Reference,
             blendMode: Int,
-            kind: Binding.Kind
+            kind: Binding.Kind,
+            requiresResolvedMaterialProgram: Bool
         )?
         if let reference = singleSlot3SolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references
         ) {
-            contract = (reference, 0, .solidLayer)
+            contract = (reference, 0, .solidLayer, false)
         } else if let declaration = supportedImageLayerBlendDeclaration(
             in: visibleEffects
-        ), references.count == 1, let reference = references.first,
-           reference.slot.effectID == declaration.effectID,
-           reference.slot.passIndex == declaration.passIndex,
-           reference.slot.slotIndex == declaration.slotIndex,
-           reference.providerLayerID == declaration.providerLayerID {
-            contract = (reference, declaration.blendMode, .imageLayerBlend)
+        ), let declaredProvider = layersByID[declaration.providerLayerID],
+           declaredProvider.contentKind == "image",
+           hasNoUtilityLayer(declaredProvider) {
+            let matchingReferences = references.filter { reference in
+                reference.slot.effectID == declaration.effectID
+                    && reference.slot.passIndex == declaration.passIndex
+                    && reference.slot.slotIndex == declaration.slotIndex
+                    && reference.providerLayerID == declaration.providerLayerID
+            }
+            let graphInternalReferences = references.filter {
+                !matchingReferences.contains($0)
+            }
+            guard matchingReferences.count == 1,
+                  let reference = matchingReferences.first,
+                  graphInternalReferences.allSatisfy({ candidate in
+                      candidate.consumerLayerID == layer.id
+                          && candidate.providerLayerID == layer.id
+                  }) else {
+                issues.append(Issue(
+                    kind: .unsupportedConsumer,
+                    layerID: layer.id,
+                    providerLayerID: nil
+                ))
+                return nil
+            }
+            contract = (
+                reference,
+                declaration.blendMode,
+                .imageLayerBlend,
+                declaration.requiresResolvedMaterialProgram
+                    || !graphInternalReferences.isEmpty
+            )
         } else if let reference = visibleImageGraphOutputReference(
             layer: layer,
             visibleEffects: visibleEffects,
@@ -331,17 +417,27 @@ nonisolated struct SceneDependencyRenderPlan {
             layersByID: layersByID,
             visibleLayerIDs: visibleLayerIDs
         ) {
-            contract = (reference, 0, .visibleImageGraphOutput)
+            contract = (reference, 0, .visibleImageGraphOutput, false)
         } else if let reference = resolvedMaterialReference(
             in: visibleEffects,
             references: references
         ) {
-            contract = (reference, 0, .resolvedMaterial)
+            contract = (reference, 0, .resolvedMaterial, false)
         } else {
             contract = nil
         }
         guard let contract else {
             issues.append(Issue(kind: .unsupportedConsumer, layerID: layer.id, providerLayerID: nil))
+            return nil
+        }
+        if contract.requiresResolvedMaterialProgram,
+           let resolvedMaterialConsumerLayerIDs,
+           !resolvedMaterialConsumerLayerIDs.contains(layer.id) {
+            issues.append(Issue(
+                kind: .unsupportedConsumer,
+                layerID: layer.id,
+                providerLayerID: contract.reference.providerLayerID
+            ))
             return nil
         }
         let supportsConsumer = supportsEffectConsumer(
@@ -397,10 +493,17 @@ nonisolated struct SceneDependencyRenderPlan {
             return nil
         }
         let requiresForwardCapture = providerOrder > consumerOrder
-        let supportsForwardCapture = requiresForwardCapture
+        let supportsForwardSourceCapture = requiresForwardCapture
             && contract.kind == .imageLayerBlend
             && provider.effects.isEmpty
             && provider.dependencyLayerIDs.isEmpty
+        let supportsForwardGraphExecution = requiresForwardCapture
+            && contract.kind == .imageLayerBlend
+            && providerHasVisibleEffects
+            && provider.dependencyLayerIDs.isEmpty
+            && providerGraphIsAuthoredOrderIndependent(provider)
+        let supportsForwardCapture = supportsForwardSourceCapture
+            || supportsForwardGraphExecution
         let providerKindIsSupported = switch contract.kind {
         case .resolvedMaterial:
             provider.utilityLayer?.kind == .composition
@@ -455,8 +558,31 @@ nonisolated struct SceneDependencyRenderPlan {
                 ? references.map(\.slot) : [reference.slot],
             blendMode: contract.blendMode,
             kind: contract.kind,
-            requiresForwardCapture: requiresForwardCapture
+            requiresForwardCapture: requiresForwardCapture,
+            requiresResolvedMaterialProgram:
+                contract.requiresResolvedMaterialProgram
         )
+    }
+
+    /// A forward graph runs before any authored compositor layer. It may use
+    /// its own layer source, static assets and frame inputs, but not the main
+    /// target or another named layer target whose content is order-dependent.
+    private nonisolated static func providerGraphIsAuthoredOrderIndependent(
+        _ layer: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        guard SceneDependencyGraphAnalysis.references(in: [layer]).isEmpty
+        else { return false }
+        return layer.effects.filter { $0.visible != false }.allSatisfy { effect in
+            effect.passes.allSatisfy { pass in
+                let authoredPaths = pass.texturePaths
+                    + pass.textureSlots.compactMap { $0 }
+                return authoredPaths.allSatisfy { path in
+                    SceneNamedTextureReference.parse(path) == nil
+                        && path.caseInsensitiveCompare("_rt_FullFrameBuffer")
+                            != .orderedSame
+                }
+            }
+        }
     }
 
     private nonisolated static func supportsEffectConsumer(

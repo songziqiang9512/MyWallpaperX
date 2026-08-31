@@ -110,7 +110,15 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         let viewportSize = frameContext.screenSize
-        let orderedLayers = renderDescriptor.renderOrderLayerIDs.compactMap {
+        guard let preparationLayerIDs = dependencyRuntime
+                .resolvedMaterialPreparationOrder(
+                    authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
+                ) else {
+            return .rejected(
+                reasonCode: "resolved-material-preparation-order-invalid"
+            )
+        }
+        let orderedLayers = preparationLayerIDs.compactMap {
             layersByID[$0]
         }
         var requests: [
@@ -330,7 +338,13 @@ extension SceneMetalRenderer {
             )
         }
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
-        for layerID in renderDescriptor.renderOrderLayerIDs {
+        guard let preparationLayerIDs = dependencyRuntime
+                .resolvedMaterialPreparationOrder(
+                    authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
+                ) else {
+            return invalid("resolved-material-preparation-order-invalid")
+        }
+        for layerID in preparationLayerIDs {
             guard let plan = plans[layerID] else { continue }
             guard let layer = layersByID[layerID],
                   let layerModelMatrix = worldFramesByLayerID[layerID] else {

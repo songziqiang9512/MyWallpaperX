@@ -6,12 +6,25 @@ nonisolated struct SceneImageLayerBlendDependencyDeclaration: Hashable {
     let providerLayerID: Int
     let slotIndex: Int
     let blendMode: Int
+    let requiresResolvedMaterialProgram: Bool
 }
 
 /// The smallest stock Blend form whose external image-layer input is exact:
-/// one primary named target, normal mode, full strength, no transform, mask,
-/// user/system override, or secondary texture.
+/// one primary named target with no mask, user/system override, or secondary
+/// texture. Authored blending, strength, alpha and UV transform stay inside
+/// the resolved MaterialProgram; this contract only grants the referenced
+/// texture a named-target binding.
 nonisolated enum SceneImageLayerBlendDependencyContract {
+    private struct ConstantContract {
+        let requiresResolvedMaterialProgram: Bool
+    }
+
+    private static let maximumBlendMode = 32
+
+    static func supports(blendMode: Int) -> Bool {
+        (0...maximumBlendMode).contains(blendMode)
+    }
+
     static func declaration(
         for effect: SceneRenderDescriptor.EffectDescriptor
     ) -> SceneImageLayerBlendDependencyDeclaration? {
@@ -27,17 +40,26 @@ nonisolated enum SceneImageLayerBlendDependencyContract {
               pass.userTextureInputs.isEmpty,
               let reference = SceneNamedTextureReference.parse(path),
               reference.variant == .primary,
-              normalizedCombos(pass.combos) != nil,
-              fullStrength(pass.constantShaderValues) else {
+              let combos = normalizedCombos(pass.combos),
+              let constantContract = supportedConstants(
+                  pass.constantShaderValues,
+                  transformUV: combos["TRANSFORMUV", default: 0] == 1
+              ) else {
             return nil
         }
-        return .init(
+        let declaration = SceneImageLayerBlendDependencyDeclaration(
             effectID: effect.id,
             passIndex: 0,
             providerLayerID: reference.providerLayerID,
             slotIndex: 1,
-            blendMode: 0
+            blendMode: combos["BLENDMODE", default: 0],
+            requiresResolvedMaterialProgram:
+                constantContract.requiresResolvedMaterialProgram
+                    || combos["BLENDMODE", default: 0] != 0
+                    || combos["TRANSFORMUV", default: 0] == 1
+                    || combos["WRITEALPHA", default: 0] != 0
         )
+        return declaration
     }
 
     private static func normalizedCombos(_ authored: [String: Int]) -> [String: Int]? {
@@ -53,9 +75,12 @@ nonisolated enum SceneImageLayerBlendDependencyContract {
                 return nil
             }
         }
-        guard result["BLENDMODE"] == 0,
-              result["TRANSFORMUV", default: 0] == 0,
-              result["TRANSFORMREPEAT", default: 0] == 0,
+        let transformUV = result["TRANSFORMUV", default: 0]
+        let transformRepeat = result["TRANSFORMREPEAT", default: 0]
+        guard supports(blendMode: result["BLENDMODE", default: 0]),
+              (0...1).contains(transformUV),
+              (0...2).contains(transformRepeat),
+              transformUV == 1 || transformRepeat == 0,
               (0...1).contains(result["WRITEALPHA", default: 0]),
               result["NUMBLENDTEXTURES", default: 1] == 1,
               result["OPACITYMASK", default: 0] == 0 else {
@@ -64,26 +89,43 @@ nonisolated enum SceneImageLayerBlendDependencyContract {
         return result
     }
 
-    private static func fullStrength(
-        _ constants: [String: SceneDocument.ShaderValue]
-    ) -> Bool {
+    private static func supportedConstants(
+        _ constants: [String: SceneDocument.ShaderValue],
+        transformUV: Bool
+    ) -> ConstantContract? {
         var values: [String: SceneDocument.ShaderValue] = [:]
         for (key, value) in constants {
             guard values.updateValue(value, forKey: key.lowercased()) == nil else {
-                return false
+                return nil
             }
         }
         let allowed = Set(["multiply", "alpha", "blendangle", "blendoffset", "blendscale"])
         guard values.keys.allSatisfy(allowed.contains),
-              scalar(values["multiply"], default: 1) == 1,
-              scalar(values["alpha"], default: 1) == 1,
-              scalar(values["blendangle"], default: 0) == 0,
-              scalar(values["blendscale"], default: 1) == 1 else {
-            return false
+              let multiply = scalar(values["multiply"], default: 1),
+              let alpha = scalar(values["alpha"], default: 1),
+              let angle = scalar(values["blendangle"], default: 0),
+              let scale = scalar(values["blendscale"], default: 1),
+              multiply.isFinite,
+              alpha.isFinite,
+              angle.isFinite,
+              scale.isFinite,
+              scale > 0 else {
+            return nil
         }
-        guard let offset = values["blendoffset"] else { return true }
-        return offset.userBinding == nil
-            && offset.components == [0, 0]
+        let offset = values["blendoffset"]
+        let offsetComponents = offset?.components ?? [0, 0]
+        guard offset?.userBinding == nil,
+              offsetComponents.count == 2,
+              offsetComponents.allSatisfy(\.isFinite) else {
+            return nil
+        }
+        guard transformUV
+            || (angle == 0 && scale == 1 && offsetComponents == [0, 0]) else {
+            return nil
+        }
+        return ConstantContract(
+            requiresResolvedMaterialProgram: multiply != 1 || alpha != 1
+        )
     }
 
     private static func scalar(

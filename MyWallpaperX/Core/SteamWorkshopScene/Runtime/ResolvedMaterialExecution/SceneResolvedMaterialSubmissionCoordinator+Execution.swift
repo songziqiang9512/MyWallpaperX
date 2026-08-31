@@ -203,7 +203,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             case .imageLayerBlend:
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 1,
-                      binding.blendMode == 0 else { return false }
+                      SceneImageLayerBlendDependencyContract.supports(
+                          blendMode: binding.blendMode
+                      ),
+                      binding.blendMode == 0
+                        || binding.requiresResolvedMaterialProgram else {
+                    return false
+                }
             case .visibleImageGraphOutput:
                 guard binding.slot.passIndex == 0,
                       binding.slot.slotIndex == 1,

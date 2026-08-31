@@ -32,21 +32,23 @@
 
 ## 2. Object 与 Utility composition
 
+> Flat effectful forward provider 除了 hidden image、无 dependency/child 外，还必须 authored-order-independent：自身 layer source、静态 asset 与普通 frame input可进入共享 graph；scene background和任何 named layer target 仍关闭，避免 prepass 改写作者顺序。
+
 | 能力 | 等级 | 当前能力 | 下一门 |
 |---|---|---|---|
 | source order | `L3` | render order 固定为 scene object 顺序；[E-BASE](runtime-evidence-index.md#e-base) | dynamic topology 与 official golden |
 | parent transform | `L3` | origin/size/scale/angles 合成；[E-BASE](runtime-evidence-index.md#e-base) | 3D、shear、动态 target 和数值 golden |
 | effective visibility | `L3` | parent/child/effect/particle gating；[E-BASE](runtime-evidence-index.md#e-base) | live topology invalidation |
 | layer alpha/color/blend mode | `L3` | 静态 descriptor/compositor 子集；layer alpha 与纯 solid color 已由现有 per-surface snapshot live 消费；[E-BASE](runtime-evidence-index.md#e-base)、[E-LIVE-PROPERTY](runtime-evidence-index.md#e-live-property) | visibility/topology、non-solid/mixed color、完整 blend/premultiply/color space |
-| dependency layer IDs | `L3 bounded` | 可保留并进入 dependency plan；classic primary named-provider 的单 backward composition dependency由共享`.resolvedMaterial` binding与普通GraphExecutor执行，旧exact Clipping owner已删除；当前又支持由可见 image consumer 反向可达的隐藏 image provider closure，其中 effectful provider 的最终 GraphExecutor 输出复制到独立 primary named reservation 后再供下一层消费；pre-encode ordinary capture miss可沿该bounded closure逐层typed撤销并保留独立successor | secondary、forward/cycle、child、非 image provider、多个依赖、多个 provider reference、history、encode后publication失败与更深/混合 topology |
+| dependency layer IDs | `L3 bounded` | 可保留并进入 dependency plan；classic primary named-provider 的单 backward composition dependency由共享`.resolvedMaterial` binding与普通GraphExecutor执行，旧exact Clipping owner已删除；当前支持由可见 image consumer 反向可达的隐藏 image provider closure，以及无自身dependency/child的flat effectful forward hidden-image provider。effectful provider的最终GraphExecutor输出复制到独立primary named reservation后再供下游消费；pre-encode ordinary capture miss可沿已证backward closure逐层typed撤销并保留独立successor | secondary、nested forward/cycle、child、非 image provider、多个依赖、多个 provider reference、history、encode后publication失败与更深/混合 topology |
 | typed composition/project/fullscreen layer | `L3` | 有限 current-frame capture/geometry；classic primary `Clipping Mask` / `Clipping Mask -> static Opacity`的bounded结构经普通MaterialProgram执行，不再按effect path/hash选择专用实现；[E-UTILITY](runtime-evidence-index.md#e-utility) | 完整子场景边界、嵌套、其他named profile和target ordering |
 | current-frame capture | `L3` | bounded provider、clipping、GPU completion；composition dependency capture 与 named binding 共用完整-chain consumer 集合；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 capture mask/format/extent 与 SceneScript/dynamic alpha |
 | named primary `_a` target | `L3` | bounded producer/consumer 和预算池；`2974757317` 只捕获 `912/57382` 并绑定 `956/57098`；[E-UTILITY](runtime-evidence-index.md#e-utility) | 通用 authored identity、copy/swap/compose |
 | named secondary `_b` identity | `L2` | registry 区分完整 variant；同层 immediate-prior effect 的显式 `previous` graph binding 可证明低优先级 `_b` 只属 authored provenance，并由既有 graph identity 独占输入 ownership；[E-V1-EXACT-PREVIOUS-INPUT-SHADOW](runtime-evidence-index.md#e-v1-exact-previous-input-shadow) | 真正 `_b` producer/consumer、history 与非 immediate 拓扑仍未执行 |
 | RGB composition semantics | `L0` | current-frame capture 不能冒充 RGB camera | 独立 subtree capture、device output 和 author-off |
-| nested/effectful provider | `L3 bounded` | primary `_a`、backward、acyclic、hidden image provider closure 已闭合两级 effectful provider 链；另以 raw provider 前缀形成`91 -> 92 -> 104 -> 1104`，证明pre-encode ordinary capture miss只级联撤销真实下游、独立Program仍同帧composite并在下一帧恢复全链。provider graph final复制到独立named reservation，中间 provider 不持有 compositor | secondary、forward/cycle、child、非 image、multi-dependency/reference、history/resize/device-loss、encode后publication失败与任意深度/更深混合链 |
+| nested/effectful provider | `L3 bounded` | primary `_a`、backward、acyclic、hidden image provider closure 已闭合两级 effectful provider 链；另以 raw provider 前缀形成`91 -> 92 -> 104 -> 1104`，证明pre-encode ordinary capture miss只级联撤销真实下游、独立Program仍同帧composite并在下一帧恢复全链。flat forward又闭合`877->752`与`30->109`：preparation transaction依赖优先而最终compositor保持author order，provider graph final仍复制到独立named reservation且hidden provider不持有compositor | secondary、nested forward `92->104->27`、cycle、child、非 image、multi-dependency/reference、history/resize/device-loss、encode后publication失败与任意深度/更深混合链 |
 
-Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；另一个独立的 hidden-image provider closure 现只闭合 primary `_a`、backward、acyclic、effectful nested chain。`2974757317:914` 的 SceneScript alpha、`3768229922` 的 9 个隐藏 weighted profile、child/non-image/multi-dependency provider、任意 composition、RGB Composition 与 `_b` history 仍没有因此闭合。
+Utility composition 已是极窄的 `L3` 子集，不再写成完全缺失；hidden-image provider 现分别闭合 primary `_a` 的 backward acyclic nested chain与无自身dependency/child的flat effectful forward provider，尚未把两种失败半径合并成nested forward。`2974757317:914` 的 SceneScript alpha、`3768229922` 的 9 个隐藏 weighted profile、`2419444134:92->104->27`、child/non-image/multi-dependency provider、任意 composition、RGB Composition 与 `_b` history 仍没有因此闭合。
 
 <a id="3-puppet-warp"></a>
 ## 3. Puppet Warp 官方页面覆盖（13）

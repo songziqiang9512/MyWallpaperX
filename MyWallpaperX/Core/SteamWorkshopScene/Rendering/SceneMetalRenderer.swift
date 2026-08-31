@@ -56,6 +56,7 @@ struct SceneMetalRenderer {
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys,
+            resolvedMaterialConsumerLayerIDs: resolvedMaterialLayerIDs,
             device: device
         )
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
@@ -158,8 +159,9 @@ struct SceneMetalRenderer {
             target: drawable.texture,
             clearColor: sceneClearColor
         )
+        var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
-            captureForwardDependencyProviders(
+            if let prepared = prepareForwardDependencyProviders(
                 orderedLayers: orderedLayers,
                 imageTextures: imageTextures,
                 imagePipeline: imagePipeline,
@@ -168,10 +170,18 @@ struct SceneMetalRenderer {
                 cameraFrame: cameraFrame,
                 parallaxConfiguration: parallaxConfiguration,
                 viewportSize: viewportSize,
-                mainPass: mainPass
-            )
+                mainPass: mainPass,
+                framePlans: resolvedMaterialFrameTargetPlans,
+                commandBuffer: commandBuffer,
+                executionTrace: effectExecutionTrace
+            ) {
+                forwardGraphProviderLayerIDs = prepared
+            } else {
+                stopsAfterClaimedFailure = true
+            }
         }
         frameLayers: for layer in orderedLayers {
+            if stopsAfterClaimedFailure { break frameLayers }
             defer {
                 if !stopsAfterClaimedFailure { renderUtilityPlans(triggeredBy: layer.id,
                     imagePipeline: imagePipeline,
@@ -183,6 +193,10 @@ struct SceneMetalRenderer {
                     resolvedMaterialFrameTargetPlans:
                         resolvedMaterialFrameTargetPlans) }
             }
+            // Its graph was already executed and published before an earlier
+            // consumer. Keep authored trigger order, but never consume the
+            // same launch/frame claim twice.
+            if forwardGraphProviderLayerIDs.contains(layer.id) { continue }
             let baseSelection: SceneBaseMaterialTextureSelection
             switch layer.contentKind {
             case "image", "solid", "text":
@@ -616,10 +630,11 @@ struct SceneMetalRenderer {
         ] != nil
     }
 
-    /// Publishes only the plan-proven static image providers whose authored
-    /// compositor position is later than their consumer. The source capture
-    /// is offscreen and does not reorder either layer's final composition.
-    private func captureForwardDependencyProviders(
+    /// Publishes the plan-proven image providers whose authored position is
+    /// later than their consumer. Static providers use the existing source
+    /// capture; effectful providers consume their prepared graph claim. Both
+    /// remain offscreen and preserve authored final composition order.
+    private func prepareForwardDependencyProviders(
         orderedLayers: [SceneRenderDescriptor.Layer],
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,
@@ -628,10 +643,27 @@ struct SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
         viewportSize: CGSize,
-        mainPass: SceneMainPassEncoder
-    ) {
+        mainPass: SceneMainPassEncoder,
+        framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
+        commandBuffer: MTLCommandBuffer,
+        executionTrace: SceneEffectExecutionFrameTrace
+    ) -> Set<Int>? {
+        var graphProviderLayerIDs: Set<Int> = []
         for provider in orderedLayers where dependencyRuntime
             .requiresForwardCapture(for: provider.id) {
+            if dependencyRuntime.requiresGraphOutputCapture(for: provider.id) {
+                guard executeDependencyGraphProviderIfRequired(
+                    layer: provider,
+                    framePlan: framePlans[provider.id],
+                    textureRegistry: textureRegistry,
+                    dependencyRuntime: dependencyRuntime,
+                    mainPass: mainPass,
+                    commandBuffer: commandBuffer,
+                    executionTrace: executionTrace
+                ) == true else { return nil }
+                graphProviderLayerIDs.insert(provider.id)
+                continue
+            }
             let baseSource = baseMaterialTextureSelection(
                 for: provider,
                 imageTextures: imageTextures,
@@ -664,5 +696,6 @@ struct SceneMetalRenderer {
                 mainPass: mainPass
             )
         }
+        return graphProviderLayerIDs
     }
 }

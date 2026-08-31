@@ -26,6 +26,118 @@ def replace_once(source: str, marker: str, replacement: str) -> str:
     return source.replace(marker, replacement, 1)
 
 
+BASE_HARNESS = replace_once(
+    BASE_HARNESS,
+    "private func dormantGraphInputChainGraph() -> Graph {\n",
+    r'''private let externalIndependentFramebuffer = Graph.TextureIdentity(
+    kind: .framebuffer,
+    layerID: layerID,
+    effect: chainedFirstEffect,
+    name: "external-independent-first"
+)
+
+private func externalIndependentFramebufferGraph() -> Graph {
+    let nodes = [
+        material(
+            0,
+            ordinal: 0,
+            target: externalIndependentFramebuffer,
+            read: input,
+            owner: chainedFirstEffect
+        ),
+        material(
+            1,
+            ordinal: 1,
+            target: chainedFirstOutput,
+            read: externalIndependentFramebuffer,
+            owner: chainedFirstEffect
+        ),
+        material(
+            2,
+            ordinal: 0,
+            target: chainedSecondOutput,
+            read: chainedFirstOutput,
+            owner: chainedSecondEffect
+        ),
+        material(
+            3,
+            ordinal: 0,
+            target: chainedFinalOutput,
+            read: chainedSecondOutput,
+            owner: chainedThirdEffect
+        ),
+    ]
+    return .init(
+        layerID: layerID,
+        effects: [
+            .init(
+                key: chainedFirstEffect,
+                definitionPath: "effects/external-independent-first/effect.json",
+                input: input,
+                output: chainedFirstOutput,
+                nodeIndices: [0, 1]
+            ),
+            .init(
+                key: chainedSecondEffect,
+                definitionPath: "effects/external-dependent-second/effect.json",
+                input: chainedFirstOutput,
+                output: chainedSecondOutput,
+                nodeIndices: [2]
+            ),
+            .init(
+                key: chainedThirdEffect,
+                definitionPath: "effects/external-suffix-third/effect.json",
+                input: chainedSecondOutput,
+                output: chainedFinalOutput,
+                nodeIndices: [3]
+            ),
+        ],
+        renderTargets: [rawTarget(externalIndependentFramebuffer)],
+        nodes: nodes,
+        finalOutput: chainedFinalOutput,
+        blockers: []
+    )
+}
+
+private func externalIndependentFramebufferLayerGraph(
+    _ graph: Graph
+) -> AdmittedLayerGraph {
+    let stages = graph.effects.enumerated().map { index, effect in
+        let stageTargets = graph.renderTargets.filter {
+            $0.texture.effect == effect.key
+        }
+        let stageGraph = Graph(
+            layerID: graph.layerID,
+            effects: [effect],
+            renderTargets: stageTargets,
+            nodes: graph.nodes.filter { $0.effect == effect.key },
+            finalOutput: effect.output,
+            blockers: []
+        )
+        let inputRole: SceneAuthoredEffectInputRole = index == 0
+            ? .layerSource : .priorEffectOutput
+        return SceneEffectStageProgram(
+            effectKey: effect.key,
+            inputRole: inputRole,
+            stageGraph: stageGraph,
+            executionPlan: executionPlan(
+                for: stageGraph,
+                inputRole: inputRole
+            )
+        )
+    }
+    return .init(
+        layerID: graph.layerID,
+        renderGraph: graph,
+        stagePrograms: stages
+    )
+}
+
+private func dormantGraphInputChainGraph() -> Graph {
+''',
+)
+
+
 HARNESS = replace_once(
     BASE_HARNESS,
     "        let pixelGraph = chainedGraph()\n",
@@ -97,6 +209,77 @@ HARNESS = replace_once(
             var providerPreserved = false
             var failureCode = "setup"
         }
+
+        let independentFramebufferGraph =
+            externalIndependentFramebufferGraph()
+        let independentFramebufferChain =
+            externalIndependentFramebufferLayerGraph(
+                independentFramebufferGraph
+            )
+        let independentFramebufferBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: namedReference.providerLayerID,
+            slot: .init(
+                effectID: chainedSecondEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let independentFramebufferCapabilities = capabilities(
+            independentFramebufferChain,
+            catalog: catalog(
+                for: independentFramebufferGraph,
+                internalDefaultNodes: [0],
+                namedProvidersByNode: [2: namedReference]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: independentFramebufferBinding
+        )
+        let independentFramebufferClaim = independentFramebufferCapabilities
+            .claim(independentFramebufferChain)
+        let independentFramebufferCapability = independentFramebufferClaim
+            .flatMap {
+                independentFramebufferCapabilities.resolve(
+                    $0.token,
+                    for: independentFramebufferChain
+                )
+            }
+        let independentFramebufferCapabilityAvailable =
+            independentFramebufferCapability != nil
+        let independentFramebufferOwnership: Bool = {
+            guard let capability = independentFramebufferCapability,
+                  case .externalPrimary = capability.dependencyOwnership else {
+                return false
+            }
+            return true
+        }()
+        let independentFramebufferFirstFailure: Bool = {
+            guard let stages = independentFramebufferCapability?.stages,
+                  stages.count == 3,
+                  case .visualFailurePassthrough = stages[0]
+            else { return false }
+            return true
+        }()
+        let independentFramebufferDependencyResolved: Bool = {
+            guard let stages = independentFramebufferCapability?.stages,
+                  stages.count == 3,
+                  case .resolved = stages[1] else { return false }
+            return true
+        }()
+        let independentFramebufferSuffixResolved: Bool = {
+            guard let stages = independentFramebufferCapability?.stages,
+                  stages.count == 3,
+                  case .resolved = stages[2] else { return false }
+            return true
+        }()
+        let independentFramebufferLocalized =
+            independentFramebufferCapabilityAvailable
+            && independentFramebufferOwnership
+            && independentFramebufferFirstFailure
+            && independentFramebufferDependencyResolved
+            && independentFramebufferSuffixResolved
 
         func runExternalFailure(
             capabilities: Capabilities,
@@ -338,6 +521,18 @@ HARNESS = replace_once(
                     && externalLaunchFailure.previousCurrent
                     && externalLaunchFailure.suffix
                     && externalLaunchFailure.providerPreserved,
+            "independentFramebufferFailureDoesNotRevokeDependencyStage":
+                independentFramebufferLocalized,
+            "independentFramebufferCapabilityAvailable":
+                independentFramebufferCapabilityAvailable,
+            "independentFramebufferOwnership":
+                independentFramebufferOwnership,
+            "independentFramebufferFirstFailure":
+                independentFramebufferFirstFailure,
+            "independentFramebufferDependencyResolved":
+                independentFramebufferDependencyResolved,
+            "independentFramebufferSuffixResolved":
+                independentFramebufferSuffixResolved,
             "externalRuntimeFailureLocalizesAndContinues":
                 externalRuntimeFailure.prepared
                     && externalRuntimeFailure.encoded
@@ -401,6 +596,7 @@ class ExternalPrimaryVisualFailurePassthroughTests(unittest.TestCase):
             self.skipTest("Metal is unavailable")
         for key in (
             "externalLaunchFailureLocalizesAndContinues",
+            "independentFramebufferFailureDoesNotRevokeDependencyStage",
             "externalRuntimeFailureLocalizesAndContinues",
             "externalProviderSourceUnavailableLocalizesAndContinues",
             "externalLaunchFailureCannotMaskStaleProvider",

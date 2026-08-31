@@ -380,10 +380,39 @@ enum Harness {
         let solidCarrier = plan.bindingsByConsumerLayerID[31]
         let imageBlend = imageBlendBinding()
         let forwardImageBlend = imageBlendBinding(providerFirst: false)
+        let forwardEffectfulImageBlend = imageBlendBinding(
+            providerEffectful: true,
+            providerFirst: false
+        )
+        let transformedImageBlend = imageBlendBinding(
+            extraCombos: ["TRANSFORMUV": 1, "TRANSFORMREPEAT": 0],
+            extraConstantShaderValues: [
+                "blendangle": .init(components: [0]),
+                "blendoffset": .init(components: [1164, 0]),
+                "blendscale": .init(components: [1]),
+            ]
+        )
+        let imageBlendWithGraphInternalPrevious = imageBlendBinding(
+            sameLayerPreviousReference: true
+        )
+        let nonNormalTransformedImageBlend = imageBlendBinding(
+            extraCombos: ["BLENDMODE": 6, "TRANSFORMUV": 1],
+            extraConstantShaderValues: [
+                "blendangle": .init(components: [0]),
+                "blendoffset": .init(components: [100, 200]),
+                "blendscale": .init(components: [1.5]),
+            ],
+            multiply: 1.5
+        )
         let nestedImageBlend = nestedImageBlendPlan()
         let brokenNestedImageBlend = nestedImageBlendPlan(
             middleDependencyMismatch: true
         )
+        let forwardPreparation = forwardEffectfulPreparationPlan()
+        let forwardPreparationOrder = forwardPreparation.plan
+            .resolvedMaterialPreparationOrder(
+                authoredLayerIDs: forwardPreparation.authoredLayerIDs
+            )
         let result: [String: Any] = [
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
@@ -549,21 +578,91 @@ enum Harness {
                 "imageBlend": forwardImageBlend?.kind == .imageLayerBlend,
                 "forwardCapture": forwardImageBlend?.requiresForwardCapture ?? false,
             ],
+            "forwardEffectfulImageBlendBinding": [
+                "consumer": forwardEffectfulImageBlend?.consumerLayerID ?? -1,
+                "provider": forwardEffectfulImageBlend?.providerLayerID ?? -1,
+                "imageBlend": forwardEffectfulImageBlend?.kind == .imageLayerBlend,
+                "forwardCapture": forwardEffectfulImageBlend?
+                    .requiresForwardCapture ?? false,
+            ],
+            "forwardEffectfulPreparationOrder": [
+                "authored": forwardPreparation.authoredLayerIDs,
+                "prepared": forwardPreparationOrder ?? [],
+                "duplicateRejected": forwardPreparation.plan
+                    .resolvedMaterialPreparationOrder(
+                        authoredLayerIDs:
+                            forwardPreparation.authoredLayerIDs + [900]
+                    ) == nil,
+            ],
+            "transformedImageBlendBinding": [
+                "provider": transformedImageBlend?.providerLayerID ?? -1,
+                "imageBlend": transformedImageBlend?.kind == .imageLayerBlend,
+                "requiresProgram": transformedImageBlend?
+                    .requiresResolvedMaterialProgram ?? false,
+            ],
+            "imageBlendWithGraphInternalPrevious": [
+                "provider": imageBlendWithGraphInternalPrevious?
+                    .providerLayerID ?? -1,
+                "requiresProgram": imageBlendWithGraphInternalPrevious?
+                    .requiresResolvedMaterialProgram ?? false,
+            ],
+            "nonNormalTransformedImageBlend": [
+                "provider": nonNormalTransformedImageBlend?
+                    .providerLayerID ?? -1,
+                "blend": nonNormalTransformedImageBlend?.blendMode ?? -1,
+                "requiresProgram": nonNormalTransformedImageBlend?
+                    .requiresResolvedMaterialProgram ?? false,
+            ],
+            "programRequiredRuntimeRejects": [
+                "transform": imageBlendBinding(
+                    extraCombos: ["TRANSFORMUV": 1],
+                    resolvedMaterialConsumerLayerIDs: []
+                ) == nil,
+                "graphInternal": imageBlendBinding(
+                    sameLayerPreviousReference: true,
+                    resolvedMaterialConsumerLayerIDs: []
+                ) == nil,
+            ],
             "imageBlendRejects": [
                 "visibleProvider": imageBlendBinding(providerVisible: true) == nil,
                 "wrongProviderKind": imageBlendBinding(providerContentKind: "solid") == nil,
                 "secondary": imageBlendBinding(variantSuffix: "b") == nil,
                 "userTextureOverride": imageBlendBinding(userTextureOverride: true) == nil,
                 "extraReference": imageBlendBinding(extraReference: true) == nil,
-                "transformed": imageBlendBinding(extraCombos: ["TRANSFORMUV": 1]) == nil,
-                "partialStrength": imageBlendBinding(multiply: 0.5) == nil,
+                "invalidTransform": imageBlendBinding(
+                    extraCombos: ["TRANSFORMUV": 2]
+                ) == nil,
+                "repeatWithoutTransform": imageBlendBinding(
+                    extraCombos: ["TRANSFORMREPEAT": 1]
+                ) == nil,
+                "invalidTransformOffset": imageBlendBinding(
+                    extraCombos: ["TRANSFORMUV": 1],
+                    extraConstantShaderValues: [
+                        "blendoffset": .init(components: [1]),
+                    ]
+                ) == nil,
+                "invalidTransformScale": imageBlendBinding(
+                    extraCombos: ["TRANSFORMUV": 1],
+                    extraConstantShaderValues: [
+                        "blendscale": .init(components: [0]),
+                    ]
+                ) == nil,
+                "invalidBlendMode": imageBlendBinding(
+                    extraCombos: ["BLENDMODE": 33]
+                ) == nil,
             ],
+            "partialStrengthRequiresProgram":
+                imageBlendBinding(multiply: 0.5)?
+                    .requiresResolvedMaterialProgram == true,
             "imageBlendEffectfulProvider":
                 imageBlendBinding(providerEffectful: true)?.providerLayerID == 300,
+            "forwardImageBlendOrderIndependentAssetProvider":
+                imageBlendBinding(
+                    providerEffectful: true,
+                    providerTexturePaths: ["assets/noise.tex"],
+                    providerFirst: false
+                )?.providerLayerID == 300,
             "forwardImageBlendRejects": [
-                "effectful": imageBlendBinding(
-                    providerEffectful: true, providerFirst: false
-                ) == nil,
                 "inactiveEffect": imageBlendBinding(
                     providerEffectful: true,
                     providerEffectVisible: false,
@@ -577,6 +676,16 @@ enum Harness {
                 ) == nil,
                 "secondary": imageBlendBinding(
                     variantSuffix: "b", providerFirst: false
+                ) == nil,
+                "sceneBackground": imageBlendBinding(
+                    providerEffectful: true,
+                    providerTexturePaths: ["_rt_FullFrameBuffer"],
+                    providerFirst: false
+                ) == nil,
+                "implicitNamedInput": imageBlendBinding(
+                    providerEffectful: true,
+                    providerTexturePaths: ["_rt_imageLayerComposite_299_a"],
+                    providerFirst: false
                 ) == nil,
             ],
             "nestedImageBlend": [
@@ -992,6 +1101,7 @@ enum Harness {
         providerContentKind: String = "image",
         providerEffectful: Bool = false,
         providerEffectVisible: Bool? = true,
+        providerTexturePaths: [String] = [],
         providerDependencies: [Int] = [],
         providerChildLayerIDs: [Int] = [],
         variantSuffix: String = "a",
@@ -999,6 +1109,9 @@ enum Harness {
         extraReference: Bool = false,
         dependencyMismatch: Bool = false,
         extraCombos: [String: Int] = [:],
+        extraConstantShaderValues: [String: SceneDocument.ShaderValue] = [:],
+        sameLayerPreviousReference: Bool = false,
+        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil,
         multiply: Double = 1,
         providerFirst: Bool = true
     ) -> SceneDependencyRenderPlan.Binding? {
@@ -1009,7 +1122,14 @@ enum Harness {
                 id: "provider-effect",
                 file: "effects/tint/effect.json",
                 visible: providerEffectVisible,
-                passes: []
+                passes: providerTexturePaths.isEmpty ? [] : [.init(
+                    passIndex: 0,
+                    texturePaths: providerTexturePaths,
+                    textureSlots: providerTexturePaths.map(Optional.some),
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                )]
             )] : []
         let provider = SceneRenderDescriptor.Layer(
             id: providerID,
@@ -1026,6 +1146,11 @@ enum Harness {
         if extraReference { slots.append(extra) }
         var combos = ["BLENDMODE": 0]
         combos.merge(extraCombos) { _, new in new }
+        var constantShaderValues: [String: SceneDocument.ShaderValue] = [
+            "multiply": .init(components: [multiply]),
+            "alpha": .init(components: [1]),
+        ]
+        constantShaderValues.merge(extraConstantShaderValues) { _, new in new }
         let blend = SceneRenderDescriptor.EffectDescriptor(
             id: "image-blend",
             file: "effects/blend/effect.json",
@@ -1036,10 +1161,21 @@ enum Harness {
                 textureSlots: slots,
                 userTextureInputs: userTextureOverride ? [nil, 1] : [],
                 combos: combos,
-                constantShaderValues: [
-                    "multiply": .init(components: [multiply]),
-                    "alpha": .init(components: [1]),
-                ]
+                constantShaderValues: constantShaderValues
+            )]
+        )
+        let previousPath = "_rt_imageLayerComposite_\(consumerID)_b"
+        let graphInternalPrevious = SceneRenderDescriptor.EffectDescriptor(
+            id: "graph-internal-previous",
+            file: "effects/localcontrast/effect.json",
+            visible: true,
+            passes: [.init(
+                passIndex: 0,
+                texturePaths: [previousPath],
+                textureSlots: [nil, previousPath],
+                userTextureInputs: [],
+                combos: [:],
+                constantShaderValues: [:]
             )]
         )
         let consumer = SceneRenderDescriptor.Layer(
@@ -1049,7 +1185,8 @@ enum Harness {
             dependencyLayerIDs: dependencyMismatch ? [299] : [providerID],
             childLayerIDs: [],
             visible: true,
-            effects: [blend]
+            effects: [blend] + (sameLayerPreviousReference
+                ? [graphInternalPrevious] : [])
         )
         let descriptor = SceneRenderDescriptor(
             layers: [provider, consumer],
@@ -1058,7 +1195,9 @@ enum Harness {
         )
         return SceneDependencyRenderPlan(
             descriptor: descriptor,
-            visibleLayerIDs: [consumerID]
+            visibleLayerIDs: [consumerID],
+            resolvedMaterialConsumerLayerIDs:
+                resolvedMaterialConsumerLayerIDs
         ).bindingsByConsumerLayerID[consumerID]
     }
 
@@ -1123,6 +1262,67 @@ enum Harness {
         return SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: [402]
+        )
+    }
+
+    static func forwardEffectfulPreparationPlan() -> (
+        plan: SceneDependencyRenderPlan,
+        authoredLayerIDs: [Int]
+    ) {
+        let providerID = 300
+        let consumerID = 301
+        let provider = SceneRenderDescriptor.Layer(
+            id: providerID,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: [.init(
+                id: "provider-effect",
+                file: "effects/tint/effect.json",
+                visible: true,
+                passes: []
+            )]
+        )
+        let reference = "_rt_imageLayerComposite_\(providerID)_a"
+        let consumer = SceneRenderDescriptor.Layer(
+            id: consumerID,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [providerID],
+            childLayerIDs: [],
+            visible: true,
+            effects: [.init(
+                id: "image-blend",
+                file: "effects/blend/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [reference],
+                    textureSlots: [nil, reference],
+                    combos: ["BLENDMODE": 0],
+                    constantShaderValues: [
+                        "multiply": .init(components: [1]),
+                        "alpha": .init(components: [1]),
+                    ]
+                )]
+            )]
+        )
+        let independentLayerIDs = [800, 850, 900]
+        let independent = independentLayerIDs.map { layer($0) }
+        let authored = [800, consumerID, 850, providerID, 900]
+        let descriptor = SceneRenderDescriptor(
+            layers: independent + [provider, consumer],
+            renderOrderLayerIDs: authored
+        )
+        return (
+            SceneDependencyRenderPlan(
+                descriptor: descriptor,
+                visibleLayerIDs: Set(independentLayerIDs + [consumerID]),
+                resolvedMaterialConsumerLayerIDs: [consumerID]
+            ),
+            authored
         )
     }
 }
@@ -1437,18 +1637,28 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         draw_outcome = renderer.index("let drawOutcome = imageCompositor.drawOutcome(")
         self.assertLess(visibility_guard, draw_outcome)
 
-    def test_forward_static_image_capture_precedes_authored_layer_loop(self) -> None:
+    def test_forward_image_provider_preparation_precedes_authored_layer_loop(self) -> None:
         renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
         main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
-        forward_capture = renderer.index(
-            "captureForwardDependencyProviders(", main_pass
+        forward_preparation = renderer.index(
+            "prepareForwardDependencyProviders(", main_pass
         )
         authored_loop = renderer.index("frameLayers: for layer in orderedLayers")
-        self.assertLess(main_pass, forward_capture)
-        self.assertLess(forward_capture, authored_loop)
+        self.assertLess(main_pass, forward_preparation)
+        self.assertLess(forward_preparation, authored_loop)
+        prepass = renderer[forward_preparation:authored_loop]
+        self.assertIn("framePlans: resolvedMaterialFrameTargetPlans", prepass)
         self.assertIn(
             ".requiresForwardCapture(for: provider.id)",
+            renderer,
+        )
+        self.assertIn(
+            "executeDependencyGraphProviderIfRequired(",
+            renderer[renderer.index("private func prepareForwardDependencyProviders("):],
+        )
+        self.assertIn(
+            "forwardGraphProviderLayerIDs.contains(layer.id)",
             renderer,
         )
         self.assertIn(
@@ -1497,8 +1707,42 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "forwardCapture": True,
             },
         )
+        self.assertEqual(
+            self.result["forwardEffectfulImageBlendBinding"],
+            {
+                "consumer": 301,
+                "provider": 300,
+                "imageBlend": True,
+                "forwardCapture": True,
+            },
+        )
+        self.assertEqual(
+            self.result["forwardEffectfulPreparationOrder"],
+            {
+                "authored": [800, 301, 850, 300, 900],
+                "prepared": [300, 800, 301, 850, 900],
+                "duplicateRejected": True,
+            },
+        )
+        self.assertEqual(
+            self.result["transformedImageBlendBinding"],
+            {"provider": 300, "imageBlend": True, "requiresProgram": True},
+        )
+        self.assertEqual(
+            self.result["imageBlendWithGraphInternalPrevious"],
+            {"provider": 300, "requiresProgram": True},
+        )
+        self.assertEqual(
+            self.result["nonNormalTransformedImageBlend"],
+            {"provider": 300, "blend": 6, "requiresProgram": True},
+        )
+        self.assertTrue(all(self.result["programRequiredRuntimeRejects"].values()))
+        self.assertTrue(self.result["partialStrengthRequiresProgram"])
         self.assertTrue(all(self.result["imageBlendRejects"].values()))
         self.assertTrue(self.result["imageBlendEffectfulProvider"])
+        self.assertTrue(
+            self.result["forwardImageBlendOrderIndependentAssetProvider"]
+        )
         self.assertTrue(all(self.result["forwardImageBlendRejects"].values()))
         self.assertEqual(
             self.result["nestedImageBlend"],

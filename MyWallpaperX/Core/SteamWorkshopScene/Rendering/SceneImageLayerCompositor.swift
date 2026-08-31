@@ -136,8 +136,17 @@ struct SceneImageLayerCompositor {
         }
         let dependencyEffect = request.dependencyEffect
 
+        let graphConsumesExternalPrimary = request
+            .resolvedMaterialFrameTargetPlan?
+            .consumesExternalPrimaryDependency == true
         guard (dependencyEffect.map {
-            ($0.slotIndex == 1 && ($0.blendMode == 0 || $0.blendMode == 5))
+            if graphConsumesExternalPrimary {
+                return $0.slotIndex == 1
+                    && (0...SceneBlendModeShaderSource.maximumMode)
+                        .contains($0.blendMode)
+            }
+            return ($0.slotIndex == 1
+                && ($0.blendMode == 0 || $0.blendMode == 5))
                 || ($0.slotIndex == 3 && $0.blendMode == 0)
         } ?? true) else {
             _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,

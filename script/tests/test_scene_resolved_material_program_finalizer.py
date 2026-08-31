@@ -5977,7 +5977,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             expected,
         )
 
-    def test_only_local_declaration_conflicts_are_visual_passthroughs(self) -> None:
+    def test_visual_passthrough_reasons_remain_bounded(self) -> None:
         finalizer_text = FINALIZER_SOURCE.read_text(encoding="utf-8")
         visual_text = VISUAL_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
@@ -5995,7 +5995,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             visual_text,
         )
         self.assertNotIn("material-finalizer-active-uniform-schema", visual_text)
-        self.assertNotIn("material-variant-envelope-invariant", visual_text)
+        self.assertIn('reasonCode == "material-variant-envelope-invariant"', visual_text)
+        self.assertIn("&& !graph.renderTargets.isEmpty", visual_text)
 
     def test_frame_selection_consumes_only_precompiled_sampler_reachability(self) -> None:
         variant_text = VARIANT_CACHE_SOURCE.read_text(encoding="utf-8")

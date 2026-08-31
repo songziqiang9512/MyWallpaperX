@@ -7233,8 +7233,15 @@ private enum Harness {
             "nonOverwriteRejectedBeforeFrame": nonOverwriteCapabilities.claim(
                 ordinaryChain
             ) == nil,
-            "internalDefaultRejectedBeforeFrame":
-                internalDefaultCapabilities.claim(ordinaryChain) == nil,
+            "internalDefaultFramebufferFailureUsesWholeEffectPassthrough": {
+                guard let claim = internalDefaultCapabilities.claim(
+                          ordinaryChain
+                      ), let capability = internalDefaultCapabilities.resolve(
+                          claim.token,
+                          for: ordinaryChain
+                      ) else { return false }
+                return capability.stages.first?.visualFailureReasonCode != nil
+            }(),
             "rgbaClampProbeExecutes": rgbaClampProbe.executed,
             "rgbaClampPublicationIsTyped": rgbaClampProbe.publicationMatches,
             "rgbaClampProbeClampsOutOfRangeUV": matches(

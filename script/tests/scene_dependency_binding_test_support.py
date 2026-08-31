@@ -2,6 +2,12 @@
 
 
 SCENE_DEPENDENCY_BINDING_SUPPORT = r'''
+enum SceneImageLayerBlendDependencyContract {
+    static func supports(blendMode: Int) -> Bool {
+        (0...32).contains(blendMode)
+    }
+}
+
 extension SceneDependencyRenderPlan {
     struct Binding: Hashable {
         enum Kind: Hashable {
@@ -17,6 +23,7 @@ extension SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+        let requiresResolvedMaterialProgram: Bool
 
         init(
             consumerLayerID: Int,
@@ -24,7 +31,8 @@ extension SceneDependencyRenderPlan {
             slot: SceneEffectPassSlot,
             referenceSlots: [SceneEffectPassSlot]? = nil,
             blendMode: Int,
-            kind: Kind
+            kind: Kind,
+            requiresResolvedMaterialProgram: Bool = false
         ) {
             self.consumerLayerID = consumerLayerID
             self.providerLayerID = providerLayerID
@@ -32,6 +40,8 @@ extension SceneDependencyRenderPlan {
             self.referenceSlots = referenceSlots ?? [slot]
             self.blendMode = blendMode
             self.kind = kind
+            self.requiresResolvedMaterialProgram =
+                requiresResolvedMaterialProgram
         }
     }
 }

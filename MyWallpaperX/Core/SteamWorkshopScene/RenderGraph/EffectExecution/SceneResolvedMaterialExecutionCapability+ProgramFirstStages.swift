@@ -276,12 +276,12 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         case .none, .graphInternal:
             break
         case .externalPrimary:
-            guard product.graph.renderTargets.isEmpty,
-                  dependencyOwnership.preEncodeVisualFailureSlots(
-                in: product.graph
-            ) != nil else { return false }
+            guard let dependencySlots = dependencyOwnership
+                .preEncodeVisualFailureSlots(in: product.graph),
+                  dependencySlots.isEmpty
+                    || product.graph.renderTargets.isEmpty else { return false }
         }
-        guard [
+        let ordinaryVisualFailure = [
             "material-generic-owner-revoked",
             "material-variant-envelope-frontend",
             "material-variant-envelope-shader-preparation",
@@ -294,7 +294,16 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             "material-dynamic-uniform-contributor-producer-unavailable",
             "material-dynamic-uniform-script-attachment-unproven",
             "material-dynamic-uniform-producer-unavailable",
-        ].contains(failure.code),
+        ].contains(failure.code)
+        let framebufferPreparationLimitation = product.graph.renderTargets
+            .isEmpty == false
+            && failure.programFailureAttribution.map { attribution in
+                guard case let .launchEnvelope(.material(materialFailure)) =
+                        attribution.cause else { return false }
+                return materialFailure.phase == .preparation
+                    && materialFailure.code == .samplerInternalTargetUnsupported
+            } == true
+        guard (ordinaryVisualFailure || framebufferPreparationLimitation),
               product.graph.effects.count == 1,
               !product.graph.nodes.isEmpty,
               product.graph.blockers.isEmpty,
@@ -559,8 +568,9 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 nonisolated extension SceneResolvedMaterialDependencyOwnership {
     /// Returns the external provider slots owned by this exact single-effect
     /// stage. `nil` means the dependency owner cannot authorize a visual
-    /// fallback for the stage. Empty slots are valid only for dependency-free
-    /// and already graph-internal execution.
+    /// fallback for the stage. Empty slots mean this stage is independent of
+    /// the layer's external dependency; it may use the ordinary framebuffer
+    /// rollback proof without consuming or publishing that provider.
     func preEncodeVisualFailureSlots(
         in graph: SceneAuthoredEffectRenderPlan
     ) -> [SceneEffectPassSlot]? {
@@ -568,8 +578,7 @@ nonisolated extension SceneResolvedMaterialDependencyOwnership {
         case .none, .graphInternal:
             return []
         case let .externalPrimary(binding):
-            guard graph.renderTargets.isEmpty,
-                  graph.effects.count == 1,
+            guard graph.effects.count == 1,
                   let effect = graph.effects.first,
                   graph.layerID == binding.consumerLayerID,
                   effect.key.layerID == binding.consumerLayerID else {
@@ -578,8 +587,9 @@ nonisolated extension SceneResolvedMaterialDependencyOwnership {
             let slots = binding.referenceSlots.filter {
                 $0.effectID == effect.key.descriptorID
             }
-            guard !slots.isEmpty,
-                  Set(slots).count == slots.count,
+            guard !slots.isEmpty else { return [] }
+            guard graph.renderTargets.isEmpty else { return nil }
+            guard Set(slots).count == slots.count,
                   slots.allSatisfy({ slot in
                       graph.nodes.filter({ node in
                           node.effect == effect.key

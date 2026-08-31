@@ -78,6 +78,7 @@ struct SceneDependencyRenderPlan {
         let blendMode: Int
         let kind: Kind
         let requiresForwardCapture = false
+        let requiresResolvedMaterialProgram = false
     }
 
     let bindingsByConsumerLayerID: [Int: Binding]
@@ -89,11 +90,13 @@ struct SceneDependencyRenderPlan {
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
-        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>
+        verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
+        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil
     ) {
         _ = visibleLayerIDs
         _ = executableUtilityConsumerLayerIDs
         _ = verifiedXRayStageKeys
+        _ = resolvedMaterialConsumerLayerIDs
         bindingsByConsumerLayerID = descriptor.bindings
         requiredProviderLayerIDs = Set(descriptor.bindings.values.map(
             \.providerLayerID
@@ -106,6 +109,12 @@ struct SceneDependencyRenderPlan {
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
         _ = layerID
         return false
+    }
+
+    func resolvedMaterialPreparationOrder(
+        authoredLayerIDs: [Int]
+    ) -> [Int]? {
+        authoredLayerIDs
     }
 }
 

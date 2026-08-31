@@ -268,10 +268,33 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                       frameEpoch: frame.textureRegistrySnapshot.frameEpoch
                   ) else { return false }
             return true
-        }), let preparedTargets = pool.preparePersistentGraphTargets(
-            framePlans: requests.map { $0.targetPlan.allocation }
+        }) else {
+            let reason = "frame-preparation-request-ownership-mismatch"
+            emission = framePreparationFailureLocked([], reason: reason)
+            lock.unlock()
+            emit(emission)
+            return .rejected(reasonCode: reason)
+        }
+        let targetAllocations = requests.map { $0.targetPlan.allocation }
+        switch pool.preflightPersistentGraphTargets(targetAllocations) {
+        case .ready:
+            break
+        case .temporarilyBlocked:
+            let reason = "frame-target-plan-temporarily-blocked"
+            emission = framePreparationFailureLocked([], reason: reason)
+            lock.unlock()
+            emit(emission)
+            return .rejected(reasonCode: reason)
+        case let .rejected(reasonCode):
+            emission = framePreparationFailureLocked([], reason: reasonCode)
+            lock.unlock()
+            emit(emission)
+            return .rejected(reasonCode: reasonCode)
+        }
+        guard let preparedTargets = pool.preparePersistentGraphTargets(
+            framePlans: targetAllocations
         ) else {
-            let reason = "frame-target-plan-consumption-failed"
+            let reason = "frame-target-plan-allocation-failed"
             emission = framePreparationFailureLocked([], reason: reason)
             lock.unlock()
             emit(emission)
@@ -368,7 +391,12 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 let reason: String
                 switch result {
                 case let .failure(failure):
-                    reason = "graph-preflight-\(failure.rawValue)"
+                    if failure == .graphStructureRejected {
+                        reason = "graph-preflight-\(failure.rawValue)"
+                            + "-layer-\(claim.layerID)"
+                    } else {
+                        reason = "graph-preflight-\(failure.rawValue)"
+                    }
                     let hasCapturedMainSource: Bool
                     if case .capturedMainTargetTexture = claim.sourceRoute {
                         hasCapturedMainSource = true

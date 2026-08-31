@@ -39,13 +39,15 @@ final class SceneDependencyFrameRuntime {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
+        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil,
         device: MTLDevice
     ) {
         self.plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-            verifiedXRayStageKeys: verifiedXRayStageKeys
+            verifiedXRayStageKeys: verifiedXRayStageKeys,
+            resolvedMaterialConsumerLayerIDs: resolvedMaterialConsumerLayerIDs
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
     }
@@ -67,6 +69,14 @@ final class SceneDependencyFrameRuntime {
 
     func requiresGraphOutputCapture(for providerLayerID: Int) -> Bool {
         plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID)
+    }
+
+    func resolvedMaterialPreparationOrder(
+        authoredLayerIDs: [Int]
+    ) -> [Int]? {
+        plan.resolvedMaterialPreparationOrder(
+            authoredLayerIDs: authoredLayerIDs
+        )
     }
 
     /// Verifies that every prepared provider output can be copied into its
