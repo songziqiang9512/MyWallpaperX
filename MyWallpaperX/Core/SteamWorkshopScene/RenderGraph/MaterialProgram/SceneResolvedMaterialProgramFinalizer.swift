@@ -180,11 +180,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     conditionalGeneratedRGBInputContract:
                         selection.variant.conditionalGeneratedRGBInputContract,
                     associatedOverOverlaySlot:
-                        SceneResolvedMaterialProgramDerivation
-                            .associatedOverOverlaySlot(
-                                fragmentSource:
-                                    selection.variant.preparedShader.fragment.source
-                            ),
+                        selection.variant.associatedOverOverlaySlot,
                     premultipliedColorInputSlots:
                         selection.variant.premultipliedColorInputSlots
                 ) else {
@@ -244,6 +240,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 routeDecision: selection.variant.routeDecision,
                 conditionalGeneratedRGBInputContract:
                     selection.variant.conditionalGeneratedRGBInputContract,
+                associatedOverOverlaySlot:
+                    selection.variant.associatedOverOverlaySlot,
                 premultipliedColorInputSlots:
                     selection.variant.premultipliedColorInputSlots
             ) else {

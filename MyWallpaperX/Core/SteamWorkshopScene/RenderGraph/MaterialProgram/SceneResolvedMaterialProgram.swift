@@ -579,6 +579,7 @@ nonisolated struct SceneResolvedMaterialProgram {
         conditionalGeneratedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
                 .ConditionalGeneratedRGBInputContract?,
+        associatedOverOverlaySlot: Int? = nil,
         premultipliedColorInputSlots: Set<Int> = []
     ) -> Self? {
         guard let derived = SceneResolvedMaterialProgramDerivation.deriveCompiled(
@@ -586,6 +587,7 @@ nonisolated struct SceneResolvedMaterialProgram {
             frontend: frontend,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
+            associatedOverOverlaySlot: associatedOverOverlaySlot,
             premultipliedColorInputSlots: premultipliedColorInputSlots
         ) else { return nil }
         return Self(

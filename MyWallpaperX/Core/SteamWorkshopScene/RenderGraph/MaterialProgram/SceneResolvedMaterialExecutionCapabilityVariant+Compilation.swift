@@ -530,6 +530,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: [String(describing: error)]
             )
         }
+        let associatedOverOverlaySlot =
+            SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
+                fragmentSource: prepared.fragment.source
+            )
         return .init(
             readinessMask: readinessMask,
             textureFormats: variantKey.textureFormats,
@@ -543,6 +547,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
             premultipliedColorInputSlots:
                 premultipliedInputSlotsForProfile(routeDecision.profile),
+            associatedOverOverlaySlot: associatedOverOverlaySlot,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
             sameAlphaReconstructedRGBInputContract:

@@ -186,11 +186,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     conditionalGeneratedRGBInputContract:
                         variant.conditionalGeneratedRGBInputContract,
                     associatedOverOverlaySlot:
-                        SceneResolvedMaterialProgramDerivation
-                            .associatedOverOverlaySlot(
-                                fragmentSource:
-                                    variant.preparedShader.fragment.source
-                            ),
+                        variant.associatedOverOverlaySlot,
                     premultipliedColorInputSlots:
                         variant.premultipliedColorInputSlots
                 ) != nil

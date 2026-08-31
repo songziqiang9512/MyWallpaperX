@@ -12,7 +12,10 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         return derive(
             input,
             frontend: frontend,
-            conditionalGeneratedRGBInputContract: nil
+            conditionalGeneratedRGBInputContract: nil,
+            associatedOverOverlaySlot: associatedOverOverlaySlot(
+                fragmentSource: input.preparedShader.fragment.source
+            )
         )
     }
 
@@ -21,6 +24,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract?,
+        associatedOverOverlaySlot: Int? = nil,
         premultipliedColorInputSlots: Set<Int> = []
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
@@ -30,6 +34,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
             frontend: frontend,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,
+            associatedOverOverlaySlot: associatedOverOverlaySlot,
             premultipliedColorInputSlots: premultipliedColorInputSlots
         )
     }
@@ -39,6 +44,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract?,
+        associatedOverOverlaySlot: Int? = nil,
         premultipliedColorInputSlots: Set<Int> = []
     ) -> Program.Derived? {
         guard validPreparedStages(input.preparedShader),
@@ -73,9 +79,7 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   textureSlots: input.textureSlots,
                   conditionalGeneratedRGBInputContract:
                     conditionalGeneratedRGBInputContract,
-                  associatedOverOverlaySlot: associatedOverOverlaySlot(
-                      fragmentSource: input.preparedShader.fragment.source
-                  ),
+                  associatedOverOverlaySlot: associatedOverOverlaySlot,
                   premultipliedColorInputSlots:
                     premultipliedColorInputSlots
               ) else {

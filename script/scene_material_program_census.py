@@ -225,6 +225,7 @@ enum SceneResolvedMaterialProgramDerivation {
         frontend: SceneAuthoredShaderProgram,
         conditionalGeneratedRGBInputContract:
             ConditionalGeneratedRGBInputContract? = nil,
+        associatedOverOverlaySlot: Int? = nil,
         premultipliedColorInputSlots: Set<Int> = []
     ) -> SceneResolvedMaterialProgram.Derived? {
         nil

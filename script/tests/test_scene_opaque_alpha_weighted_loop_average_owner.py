@@ -119,6 +119,7 @@ private func launchGateVariant(
         graphInputSourceSlotFacts: base.graphInputSourceSlotFacts,
         preservedAlphaRGBColorSlots: base.preservedAlphaRGBColorSlots,
         sourceProvenOpaqueColorSlots: [0],
+        associatedOverOverlaySlot: base.associatedOverOverlaySlot,
         conditionalGeneratedRGBInputContract:
             base.conditionalGeneratedRGBInputContract,
         sameAlphaReconstructedRGBInputContract:
@@ -474,11 +475,22 @@ class SceneOpaqueAlphaWeightedLoopAverageOwnerTests(unittest.TestCase):
         self.assertIn(
             "sourceProvenOpaqueColorSlots = [fact.sourceSlot]", compilation
         )
+        self.assertIn(
+            "let associatedOverOverlaySlot =", compilation
+        )
+        self.assertIn(
+            "associatedOverOverlaySlot: associatedOverOverlaySlot", compilation
+        )
         for source in (finalizer, launch):
             self.assertIn(
                 "hasResolvedOpaqueColorSampleContract(", source
             )
             self.assertIn("variant.sourceProvenOpaqueColorSlots", source)
+        self.assertIn(
+            "associatedOverOverlaySlot:\n"
+            "                        variant.associatedOverOverlaySlot",
+            launch,
+        )
 
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_launch_gate_executes_internal_graph_typed_content_contract(self) -> None:
