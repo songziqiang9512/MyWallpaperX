@@ -37,11 +37,29 @@ extension SceneGenericShaderArtifactBuilder {
 
     static func prepareColorTransfer(
         msl source: String,
-        authoredSource: String
+        authoredSource: String,
+        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil
     ) throws -> (
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
+        if expectedColorTransfer?.usesRGBA8UnormAttachmentBoundary == true {
+            guard expectedColorTransfer?.kind
+                    == "independent-alpha-signal-preserving",
+                  let slot = expectedColorTransfer?.slot,
+                  expectedColorTransfer?.accumulatorLoopWork != nil,
+                  SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer
+                    .validates(source, expectedSlot: slot) else {
+                throw Failure.colorTransfer
+            }
+            return (
+                source,
+                artifactTransfer(
+                    kind: "independent-alpha-signal-preserving",
+                    slot: slot
+                )
+            )
+        }
         switch SceneAuthoredShaderColorTransferAnalyzer.analyze(
             fragmentSource: authoredSource
         ) {

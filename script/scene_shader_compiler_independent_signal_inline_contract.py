@@ -491,7 +491,60 @@ def _carrier_factors(expression: str, carrier: str, members: set[str]) -> Counte
     return Counter(remaining)
 
 
-def _validate_output_expression(expression: str, carrier: str) -> None:
+def validate_rgba8_unorm_whole_carrier_output(
+    expression: str,
+    carrier: str,
+) -> None:
+    """Prove one whole carrier scaled only by simple scalar facts."""
+    factors = _flattened_product(expression)
+    if factors is None:
+        _fail("independent-accumulator-output")
+    carrier_pattern = re.compile(rf"^{re.escape(carrier)}$")
+    carrier_factors = [
+        value for value in factors
+        if carrier_pattern.fullmatch(_strip_parentheses(value))
+    ]
+    remaining = [
+        re.sub(r"\s+", "", _strip_parentheses(value))
+        for value in factors
+        if carrier_pattern.fullmatch(_strip_parentheses(value)) is None
+    ]
+    if len(carrier_factors) != 1 or not remaining or any(
+        re.fullmatch(
+            r"(?:[+]?(?:\d+(?:\.\d*)?|\.\d+)[fF]?|"
+            r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)",
+            value,
+        ) is None
+        for value in remaining
+    ):
+        _fail("independent-accumulator-output")
+
+
+def _flattened_product(expression: str) -> list[str] | None:
+    value = _strip_parentheses(expression)
+    factors = _split_top_level(value, "*")
+    if factors is None:
+        return None
+    if len(factors) == 1:
+        return [value]
+    result: list[str] = []
+    for factor in factors:
+        nested = _flattened_product(factor)
+        if nested is None:
+            return None
+        result.extend(nested)
+    return result
+
+
+def _validate_output_expression(
+    expression: str,
+    carrier: str,
+    *,
+    uses_rgba8_unorm_attachment_boundary: bool,
+) -> None:
+    if uses_rgba8_unorm_attachment_boundary:
+        validate_rgba8_unorm_whole_carrier_output(expression, carrier)
+        return
     arguments = _constructor_arguments(expression, "float4")
     if len(arguments) != 2:
         _fail("independent-accumulator-output")
@@ -506,6 +559,7 @@ def inline_accumulator_static_loop_work(
     *,
     expected_slot: int,
     maximum_loop_work: int,
+    uses_rgba8_unorm_attachment_boundary: bool = False,
 ) -> int:
     """Prove one direct-entry independent-signal loop, or report not-applicable."""
     masked = _mask_comments(source)
@@ -620,8 +674,15 @@ def inline_accumulator_static_loop_work(
     if all_writes != 2 + tint_writes:
         _fail("independent-accumulator-carrier")
     expected_uses = 5 if tint_writes == 1 else 8
+    if uses_rgba8_unorm_attachment_boundary:
+        expected_uses -= 1
     if len(re.findall(rf"\b{re.escape(carrier)}\b", body)) != expected_uses:
         _fail("independent-accumulator-carrier")
     output = _output_expression(body, write)
-    _validate_output_expression(output, carrier)
+    _validate_output_expression(
+        output,
+        carrier,
+        uses_rgba8_unorm_attachment_boundary=
+            uses_rgba8_unorm_attachment_boundary,
+    )
     return bound

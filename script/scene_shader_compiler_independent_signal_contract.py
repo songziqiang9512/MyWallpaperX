@@ -13,6 +13,7 @@ from scene_shader_compiler_independent_signal_inline_contract import (
     InlineAccumulatorNotApplicable,
     inline_accumulator_static_loop_work,
     numeric_interval,
+    validate_rgba8_unorm_whole_carrier_output,
 )
 
 
@@ -54,10 +55,17 @@ def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
     if not isinstance(value, dict) or set(value) not in (
         {"kind", "slot"},
         {"kind", "slot", "accumulatorLoopWork"},
+        {
+            "kind", "slot", "accumulatorLoopWork",
+            "usesRGBA8UnormAttachmentBoundary",
+        },
     ):
         raise IndependentSignalContractFailure("expected-color-transfer")
     kind, slot = value.get("kind"), value.get("slot")
     accumulator_loop_work = value.get("accumulatorLoopWork")
+    uses_unorm_attachment_boundary = value.get(
+        "usesRGBA8UnormAttachmentBoundary"
+    )
     if (
         kind not in _TRANSFER_KINDS
         or isinstance(slot, bool)
@@ -72,11 +80,17 @@ def parse_expected_transfer(value: Any) -> dict[str, Any] | None:
                 or not 1 <= accumulator_loop_work <= 256
             )
         )
+        or (
+            "usesRGBA8UnormAttachmentBoundary" in value
+            and uses_unorm_attachment_boundary is not True
+        )
     ):
         raise IndependentSignalContractFailure("expected-color-transfer")
     result = {"kind": kind, "slot": slot}
     if "accumulatorLoopWork" in value:
         result["accumulatorLoopWork"] = accumulator_loop_work
+    if "usesRGBA8UnormAttachmentBoundary" in value:
+        result["usesRGBA8UnormAttachmentBoundary"] = True
     return result
 
 
@@ -111,6 +125,9 @@ def prepare_independent_signal_contract(
             fragment_msl,
             expected_slot=expected["slot"],
             maximum_loop_work=maximum_loop_work,
+            uses_rgba8_unorm_attachment_boundary=expected.get(
+                "usesRGBA8UnormAttachmentBoundary", False
+            ),
         )
         if loop_work is None or loop_work != expected_loop_work:
             raise IndependentSignalContractFailure(
@@ -604,13 +621,19 @@ def _accumulator_rgb_write_count(entry_body: str, carrier: str) -> int:
 
 
 def independent_signal_accumulator_static_loop_work(
-    source: str, *, expected_slot: int, maximum_loop_work: int
+    source: str,
+    *,
+    expected_slot: int,
+    maximum_loop_work: int,
+    uses_rgba8_unorm_attachment_boundary: bool = False,
 ) -> int | None:
     try:
         return inline_accumulator_static_loop_work(
             source,
             expected_slot=expected_slot,
             maximum_loop_work=maximum_loop_work,
+            uses_rgba8_unorm_attachment_boundary=
+                uses_rgba8_unorm_attachment_boundary,
         )
     except InlineAccumulatorNotApplicable:
         pass
@@ -764,21 +787,31 @@ def independent_signal_accumulator_static_loop_work(
         raise IndependentSignalContractFailure("independent-accumulator-main-flow")
     root_end = entry_body.find(";", writes[0].end())
     output = entry_body[writes[0].end():root_end]
-    rgb_uses = len(re.findall(
-        rf"\b{re.escape(main_carrier)}\s*\.\s*(?:xyz|rgb)\b", output
-    ))
-    alpha_uses = len(re.findall(
-        rf"\b{re.escape(main_carrier)}\s*\.\s*(?:w|a)\b", output
-    ))
-    if rgb_uses != 1 or alpha_uses != 1:
-        raise IndependentSignalContractFailure("independent-accumulator-output")
-    output_without_carrier = re.sub(
-        rf"\b{re.escape(main_carrier)}\s*\.\s*(?:xyz|rgb|w|a)\b",
-        "",
-        output,
-    )
-    if re.search(r"\.\s*(?:xyz|rgb|w|a)\b", output_without_carrier):
-        raise IndependentSignalContractFailure("independent-accumulator-output")
+    if uses_rgba8_unorm_attachment_boundary:
+        try:
+            validate_rgba8_unorm_whole_carrier_output(output, main_carrier)
+        except InlineAccumulatorContractFailure as failure:
+            raise IndependentSignalContractFailure(failure.code) from failure
+    else:
+        rgb_uses = len(re.findall(
+            rf"\b{re.escape(main_carrier)}\s*\.\s*(?:xyz|rgb)\b", output
+        ))
+        alpha_uses = len(re.findall(
+            rf"\b{re.escape(main_carrier)}\s*\.\s*(?:w|a)\b", output
+        ))
+        if rgb_uses != 1 or alpha_uses != 1:
+            raise IndependentSignalContractFailure(
+                "independent-accumulator-output"
+            )
+        output_without_carrier = re.sub(
+            rf"\b{re.escape(main_carrier)}\s*\.\s*(?:xyz|rgb|w|a)\b",
+            "",
+            output,
+        )
+        if re.search(r"\.\s*(?:xyz|rgb|w|a)\b", output_without_carrier):
+            raise IndependentSignalContractFailure(
+                "independent-accumulator-output"
+            )
     rgb_write_count = _accumulator_rgb_write_count(entry_body, main_carrier)
     allowed_writes = 1 + len(helper_calls) + rgb_write_count
     all_writes = len(re.findall(

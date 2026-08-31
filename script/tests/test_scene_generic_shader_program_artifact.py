@@ -69,6 +69,15 @@ private struct BuilderOutput: Codable {
     let mutatedColorRejected: Bool
 }
 
+private struct IndependentSignalUNormBuilderOutput: Codable {
+    let positiveKind: String?
+    let positiveSlot: Int?
+    let nestedProductAccepted: Bool
+    let memberCarrierRejected: Bool
+    let secondCarrierRejected: Bool
+    let wrongSlotRejected: Bool
+}
+
 private struct PreservedChannelUseOutput: Codable {
     let directRedGreen: String?
     let mixedSubset: String?
@@ -1208,6 +1217,62 @@ private struct GenericShaderArtifactHarness {
                 projectedUsesTargetPixels: projected.contains(
                     "(mwxPosition - vec2(0.5)) * mwxRenderSize"
                 )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-independent-unorm-accumulator" {
+            func metal(
+                output: String = "albedo * (uniforms.g_Intensity * 0.1)"
+            ) -> String {
+                [
+                    "#include <metal_stdlib>",
+                    "using namespace metal;",
+                    "struct Uniforms { float g_Intensity; };",
+                    "struct FragmentOut { float4 mwxFragColor [[color(0)]]; };",
+                    "static inline float4 collect(texture2d<float> g_Texture0, sampler s) {",
+                    "    return g_Texture0.sample(s, float2(0.5));",
+                    "}",
+                    "fragment FragmentOut mwxGenericFragment(",
+                    "    constant Uniforms& uniforms [[buffer(8)]],",
+                    "    texture2d<float> g_Texture0 [[texture(0)]],",
+                    "    sampler s [[sampler(0)]]) {",
+                    "    FragmentOut out = {};",
+                    "    float4 albedo = float4(0.0);",
+                    "    float4 extra = float4(0.0);",
+                    "    albedo += collect(g_Texture0, s);",
+                    "    out.mwxFragColor = \(output);",
+                    "    return out;",
+                    "}",
+                ].joined(separator: "\n")
+            }
+            func transfer(
+                _ source: String,
+                expectedSlot: Int = 0
+            ) -> SceneGenericShaderProgramArtifact.Program.ColorTransfer? {
+                let expected = SceneGenericShaderExpectedColorTransfer(
+                    .independentAlphaSignalPreserving(textureSlot: expectedSlot),
+                    accumulatorLoopWork: 120,
+                    usesRGBA8UnormAttachmentBoundary: true
+                )!
+                return try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: source,
+                    authoredSource: "void main() {}",
+                    expectedColorTransfer: expected
+                ).transfer
+            }
+            let positive = transfer(metal())
+            let output = IndependentSignalUNormBuilderOutput(
+                positiveKind: positive?.kind,
+                positiveSlot: positive?.slot,
+                nestedProductAccepted: positive != nil,
+                memberCarrierRejected: transfer(
+                    metal(output: "albedo.xyz * uniforms.g_Intensity")
+                ) == nil,
+                secondCarrierRejected: transfer(
+                    metal(output: "albedo * extra * 0.1")
+                ) == nil,
+                wrongSlotRejected: transfer(metal(), expectedSlot: 1) == nil
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4148,6 +4213,23 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             output.get("composedMetal", ""),
         )
         self.assertTrue(output["nonAudioVectorArrayRejected"])
+
+    def test_product_builder_accepts_typed_unorm_whole_signal_accumulator(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-independent-unorm-accumulator"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "positiveKind": "independent-alpha-signal-preserving",
+            "positiveSlot": 0,
+            "nestedProductAccepted": True,
+            "memberCarrierRejected": True,
+            "secondCarrierRejected": True,
+            "wrongSlotRejected": True,
+        })
 
     def test_product_builder_proves_scalar_two_color_interpolation(self):
         completed = subprocess.run(

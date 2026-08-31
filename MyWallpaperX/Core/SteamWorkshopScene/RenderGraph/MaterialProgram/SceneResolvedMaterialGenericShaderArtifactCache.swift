@@ -307,7 +307,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     fragmentSource: fragmentSource
                 ),
             independentSignalUNormAccumulatorSourceSlot:
-                SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer
+                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
                     .rgba8UnormAttachmentSourceSlot(
                         fragmentSource: fragmentSource
                     ),
@@ -388,6 +388,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         let expectedColorTransfer = SceneGenericShaderExpectedColorTransfer(
             colorTransfer,
             fragmentSource: fragmentSource,
+            usesRGBA8UnormAttachmentBoundary:
+                profile
+                    == .sourceProvenGraphTargetIndependentSignalUNormAccumulator,
             permitsStraightAlphaPreserving:
                 profile
                     == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
@@ -497,6 +500,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     vertexSource: vertexSource,
                     fragmentSource: fragmentSource,
                     outputSemantics: outputSemantics,
+                    expectedColorTransfer: expectedColorTransfer,
                     premultipliedColorInputSlots: premultipliedColorInputSlots,
                     cacheRoot: root
                 )

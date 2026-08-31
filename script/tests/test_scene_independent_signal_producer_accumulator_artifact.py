@@ -19,6 +19,9 @@ from scene_shader_compiler_independent_signal_contract import (  # noqa: E402
     parse_expected_transfer,
     prepare_independent_signal_contract,
 )
+from scene_shader_compiler_color_transfer_contract import (  # noqa: E402
+    expected_color_transfer_key,
+)
 
 
 def bindings(*slots: int) -> list[dict[str, object]]:
@@ -239,6 +242,32 @@ fragment FragmentOut mwxGenericFragment(
 """
 
 
+def rgba8_unorm_accumulator_msl(**kwargs: object) -> str:
+    source = accumulator_msl(**kwargs)
+    return source.replace(
+        "    out.mwxFragColor = float4(\n"
+        "        uniforms.g_Intensity * sampleIntensity * combinedSignal.xyz,\n"
+        "        fast::clamp(\n"
+        "            uniforms.g_Intensity * sampleIntensity * combinedSignal.w,\n"
+        "            0.0, 1.0));",
+        "    out.mwxFragColor = combinedSignal * "
+        "(uniforms.g_Intensity * sampleIntensity);",
+    )
+
+
+def rgba8_unorm_inline_accumulator_msl(**kwargs: object) -> str:
+    source = inline_accumulator_msl(**kwargs)
+    return source.replace(
+        "    out.mwxFragColor = float4(\n"
+        "        uniforms.g_Intensity * sampleIntensity * raySignal.xyz,\n"
+        "        fast::clamp(\n"
+        "            uniforms.g_Intensity * sampleIntensity * raySignal.w,\n"
+        "            0.0, 1.0));",
+        "    out.mwxFragColor = uniforms.g_Intensity * sampleIntensity * "
+        "raySignal;",
+    )
+
+
 class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
     def assert_rejected(
         self,
@@ -272,6 +301,18 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
             "accumulatorLoopWork": 30,
         }
         self.assertEqual(parse_expected_transfer(accumulator), accumulator)
+        unorm_accumulator = {
+            **accumulator,
+            "usesRGBA8UnormAttachmentBoundary": True,
+        }
+        self.assertEqual(
+            parse_expected_transfer(unorm_accumulator),
+            unorm_accumulator,
+        )
+        self.assertNotEqual(
+            expected_color_transfer_key(accumulator),
+            expected_color_transfer_key(unorm_accumulator),
+        )
         malformed = [
             {"kind": PRODUCER_KIND, "slot": True},
             {"kind": PRODUCER_KIND, "slot": 8},
@@ -291,6 +332,23 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
                 "kind": PRESERVING_KIND,
                 "slot": 0,
                 "accumulatorLoopWork": 257,
+            },
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "usesRGBA8UnormAttachmentBoundary": True,
+            },
+            {
+                "kind": PRESERVING_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 30,
+                "usesRGBA8UnormAttachmentBoundary": False,
+            },
+            {
+                "kind": PRODUCER_KIND,
+                "slot": 0,
+                "accumulatorLoopWork": 30,
+                "usesRGBA8UnormAttachmentBoundary": True,
             },
         ]
         for value in malformed:
@@ -433,6 +491,55 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
         )
         self.assertEqual(prepared, source)
 
+    def test_rgba8_unorm_helper_accumulator_uses_typed_storage_boundary(self) -> None:
+        source = rgba8_unorm_accumulator_msl()
+        expected = {
+            "kind": PRESERVING_KIND,
+            "slot": 0,
+            "accumulatorLoopWork": 32,
+            "usesRGBA8UnormAttachmentBoundary": True,
+        }
+        prepared, transfer = prepare_independent_signal_contract(
+            source,
+            expected,
+            bindings(0),
+        )
+        self.assertEqual(prepared, source)
+        self.assertEqual(transfer, {"kind": PRESERVING_KIND, "slot": 0})
+        self.assertEqual(
+            independent_signal_accumulator_static_loop_work(
+                source,
+                expected_slot=0,
+                maximum_loop_work=256,
+                uses_rgba8_unorm_attachment_boundary=True,
+            ),
+            32,
+        )
+        without_target = dict(expected)
+        without_target.pop("usesRGBA8UnormAttachmentBoundary")
+        self.assert_rejected(source, without_target, bindings(0))
+
+        drifts = {
+            "second-carrier": source.replace(
+                "combinedSignal * (uniforms.g_Intensity * sampleIntensity);",
+                "combinedSignal * combinedSignal * "
+                "(uniforms.g_Intensity * sampleIntensity);",
+            ),
+            "member-only": source.replace(
+                "combinedSignal * (uniforms.g_Intensity * sampleIntensity);",
+                "combinedSignal.xyz * "
+                "(uniforms.g_Intensity * sampleIntensity);",
+            ),
+            "hidden-call": source.replace(
+                "combinedSignal * (uniforms.g_Intensity * sampleIntensity);",
+                "abs(combinedSignal) * "
+                "(uniforms.g_Intensity * sampleIntensity);",
+            ),
+        }
+        for name, drift in drifts.items():
+            with self.subTest(name=name):
+                self.assert_rejected(drift, expected, bindings(0))
+
     def test_accumulator_safety_drift_fails_closed(self) -> None:
         source = accumulator_msl()
         expected = {
@@ -552,6 +659,28 @@ class IndependentSignalProducerAccumulatorArtifactTests(unittest.TestCase):
             bindings(4),
         )
         self.assertEqual(prepared, source)
+
+    def test_rgba8_unorm_direct_accumulator_uses_typed_storage_boundary(self) -> None:
+        source = rgba8_unorm_inline_accumulator_msl()
+        expected = {
+            "kind": PRESERVING_KIND,
+            "slot": 0,
+            "accumulatorLoopWork": 30,
+            "usesRGBA8UnormAttachmentBoundary": True,
+        }
+        prepared, transfer = prepare_independent_signal_contract(
+            source,
+            expected,
+            bindings(0),
+        )
+        self.assertEqual(prepared, source)
+        self.assertEqual(transfer, {"kind": PRESERVING_KIND, "slot": 0})
+        self.assert_rejected(
+            source,
+            {key: value for key, value in expected.items()
+             if key != "usesRGBA8UnormAttachmentBoundary"},
+            bindings(0),
+        )
 
     def test_direct_entry_accumulator_accepts_packed_rgb_tint(self) -> None:
         source = inline_accumulator_msl().replace(

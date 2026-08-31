@@ -59,6 +59,8 @@ def expected_color_transfer_key(expected: dict[str, Any] | None) -> str:
         key = f"{expected['kind']}:{expected['slot']}"
         if "accumulatorLoopWork" in expected:
             key += f":accumulator:{expected['accumulatorLoopWork']}"
+        if expected.get("usesRGBA8UnormAttachmentBoundary") is True:
+            key += ":rgba8-unorm"
         return key
     return ":".join([expected["kind"], *(str(slot) for slot in expected["slots"])])
 
@@ -106,6 +108,9 @@ def independent_signal_static_loop_work(
         fragment_msl,
         expected_slot=expected_transfer["slot"],
         maximum_loop_work=maximum_loop_work,
+        uses_rgba8_unorm_attachment_boundary=expected_transfer.get(
+            "usesRGBA8UnormAttachmentBoundary", False
+        ),
     )
     if actual_work != expected_work:
         raise IndependentSignalContractFailure(

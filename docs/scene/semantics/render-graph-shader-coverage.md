@@ -539,6 +539,10 @@ bounded frontend和generic normalizer现在共用`SceneAuthoredShaderVaryingPref
 
 该冻结首断点现由canonical typed graph-input fact闭合：launch只登记logical exact effect input，frame必须等GraphExecutor已有pair input exact publication后才选择`.graph(pairStep.inputIdentity)`；Program exact/semantic identity、diagnostic provenance、color/alpha eligibility与captured-main conservation都复用同一fact。真实`3749463715:536` effect0的slot0为new dormant provenance + exact layerSource536，effect1 slot0为既有implicit provenance + exact连续effect0 output；frame0和next-frame均为两段普通Program、0 rejected、GPU/publication，effect1由terminal compositor消费。旧`textureBindingInvalid`、source/frontend fact divergence与Metal-library rejection最终均为0。selection-required报告虽为1/1 PASS，本表只登记`S3 executable / prefer-generic`；没有controlled audio、预登记test_shader ROI、官方golden、owner migration或整样本兼容结论。见[E-V1-DORMANT-UNRESOLVED-MATERIAL-GRAPH-INPUT](runtime-evidence-index.md#e-v1-dormant-unresolved-material-graph-input)。
 
+### V1 typed RGBA8 whole-signal accumulator
+
+既有independent-signal producer、normalized sum、compositing、GraphTargets与唯一GraphExecutor不变；新增合同只覆盖source已证明的direct/helper静态accumulator，且selected graph target必须为typed RGBA8 UNorm。source exact loop work和attachment boundary共同进入request/cache key；产品artifact builder及外部worker镜像都重新验证SPIRV-Cross的唯一whole `float4` carrier、simple scalar factors、slot/sample与loop work。成员/第二carrier、vector或call factor、额外sample、动态bound、branch、负权重和source-artifact drift保持typed拒绝。真实`2241938645:68#effect#159`与未见`2269193950:13#effect#53`均以5 material / 2 `1024×576/rgba8888` target完成GPU/publication/next-frame，后缀进入唯一compositor；profile-local disable回滚shared `boundedSwift`。这只达到bounded `S3 executable + rollback`，不证明Shine独立ROI、完整family或官方parity。见[E-V1-SHINE-RGBA8-UNORM-ACCUMULATOR](runtime-evidence-index.md#e-v1-shine-rgba8-unorm-accumulator)。
+
 ## 7. 当前证据与更新规则
 
 当前 App、样本、报告、matrix 和签名身份只见[运行证据索引](runtime-evidence-index.md)。本表只维护能力合同与缺口，不复制某个旧提交的测试总数、报告路径或“下一批”。

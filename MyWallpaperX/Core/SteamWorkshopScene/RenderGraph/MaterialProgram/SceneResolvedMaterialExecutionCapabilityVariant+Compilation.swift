@@ -108,6 +108,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 fragmentSource: compilerSources.fragment,
                 provenRuntimeLoopBounds: runtimeLoopBounds.fragment
             )
+        let rgba8UnormAccumulatorSourceSlot = outputIsRGBA8Unorm
+            ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+                .rgba8UnormAttachmentSourceSlot(
+                    fragmentSource: compilerSources.fragment
+                )
+            : nil
         let conditionalGeneratedRGBFact =
             SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
                 fragmentSource: compilerSources.fragment
@@ -120,10 +126,19 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
                 fragmentSource: compilerSources.fragment
             )
+        let targetAwareSourceColorTransfer: SceneShaderColorTransfer =
+            if analyzedSourceColorTransfer == .unresolved,
+               let rgba8UnormAccumulatorSourceSlot {
+                .independentAlphaSignalPreserving(
+                    textureSlot: rgba8UnormAccumulatorSourceSlot
+                )
+            } else {
+                analyzedSourceColorTransfer
+            }
         let sourceColorTransfer: SceneShaderColorTransfer =
             spatialWeightedColorBlendFact.map {
                 .straightAlphaPreserving(textureSlot: $0.sourceSlot)
-            } ?? analyzedSourceColorTransfer
+            } ?? targetAwareSourceColorTransfer
         let spatialWeightedColorBlendTypedAuxiliarySlots = Set(
             sourceActiveSamplers.compactMap { slot, sampler in
                 sampler.sourceProvenPurpose == nil ? nil : slot

@@ -73,6 +73,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         requestKey: String,
         backendID: String,
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
+        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
         stages: [Stage],
         maximumArtifactBytes: Int
@@ -139,7 +140,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             case .color:
                 color = try prepareColorTransfer(
                     msl: fragmentStage.msl,
-                    authoredSource: fragmentStage.authoredSource
+                    authoredSource: fragmentStage.authoredSource,
+                    expectedColorTransfer: expectedColorTransfer
                 )
             case .redGreenUnorm:
                 guard SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
@@ -218,11 +220,18 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             guard premultipliedColorInputSlots.isSubset(
                 of: Set(bindings.map(\.slot))
             ) else { throw Failure.colorTransfer }
-            let accumulatorLoopWork = color.transfer.kind
-                    == "independent-alpha-signal-preserving"
-                ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
+            let accumulatorLoopWork: Int? = if
+                expectedColorTransfer?.usesRGBA8UnormAttachmentBoundary == true
+            {
+                expectedColorTransfer?.accumulatorLoopWork
+            } else if color.transfer.kind
+                == "independent-alpha-signal-preserving"
+            {
+                SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
                     .staticLoopWork(fragmentSource: fragmentStage.authoredSource)
-                : nil
+            } else {
+                nil
+            }
             let genericLoopSources = accumulatorLoopWork == nil
                 ? stages.map(\.source)
                 : [vertexStage.source]
