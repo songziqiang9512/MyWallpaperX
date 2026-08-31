@@ -14,6 +14,7 @@ class SceneMetalView: NSView {
     private var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
+    private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
@@ -241,6 +242,9 @@ class SceneMetalView: NSView {
             device: metalDevice,
             initialTextures: textLoad.textures
         )
+        dynamicImageTextures = SceneDynamicImageTextureProvider(
+            resources: preparedBaseImages.dynamicImageResources
+        )
         report.append(contentsOf: textLoad.messages)
         videoTextureSources = loadedVideoSources
         puppetPlaybackStates = loadedPuppetPlaybackStates
@@ -304,8 +308,12 @@ class SceneMetalView: NSView {
             dynamicLayers: layerTopology.dynamicLayers
         )
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
+        let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
+            dynamicLayers: layerTopology.dynamicLayers
+        )
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
-            base: imageTextures, dynamicText: dynamicTextSnapshot,
+            base: imageTextures, dynamicImage: dynamicImageSnapshot,
+            dynamicText: dynamicTextSnapshot,
             mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
             videoSources: videoTextureSources, timing: timing
         )

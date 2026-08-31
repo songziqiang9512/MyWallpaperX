@@ -836,8 +836,11 @@ static JSValue create_layer(
     MWXSceneQuickJSOwner *owner = opaque; MWXSceneQuickJSDomain *domain = owner->domain;
     if (owner->value_only)
         return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
-    if (!callback_owns(owner) || argc != 1 || !JS_IsObject(argv[0]))
-        return JS_ThrowTypeError(context, "createLayer expects one configuration object");
+    if (!callback_owns(owner) || argc != 1 ||
+        (!JS_IsObject(argv[0]) && !JS_IsString(argv[0])))
+        return JS_ThrowTypeError(
+            context, "createLayer expects one configuration or asset path"
+        );
     size_t owned = 0, scene_dynamic = 0;
     for (uint32_t i = 0; i < domain->layer_count; ++i)
         if (domain->layers[i].dynamic && !domain->layers[i].destroyed) {
@@ -849,23 +852,46 @@ static JSValue create_layer(
         domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS)
         return JS_ThrowInternalError(context, "dynamic layer budget exceeded");
     char *text = NULL, *font = NULL, *name = NULL, *color_text = NULL;
-    if (!read_optional_string(context, argv[0], "text", MWX_SCENE_QUICKJS_MAX_LAYER_TEXT, &text) ||
-        !read_optional_string(context, argv[0], "font", MWX_SCENE_QUICKJS_MAX_LAYER_FONT, &font) ||
-        !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
-        !read_optional_string(context, argv[0], "color", 128, &color_text)) {
-        free(text); free(font); free(name); free(color_text);
-        return JS_ThrowTypeError(context, "dynamic layer string field is invalid");
-    }
-    double point_size = optional_number(context, argv[0], "pointsize", 32);
-    double alpha = optional_number(context, argv[0], "alpha", 1);
+    char *asset_path = NULL;
+    double point_size = 32, alpha = 1;
     double color[3] = {1, 1, 1};
-    if (!isfinite(point_size) || point_size < 1 || point_size > 1024 ||
-        !isfinite(alpha) || alpha < 0 || alpha > 1 ||
-        (color_text[0] != '\0' && !parse_color(color_text, color))) {
-        free(text); free(font); free(name); free(color_text);
-        return JS_ThrowRangeError(context, "dynamic layer configuration is invalid");
+    if (JS_IsString(argv[0])) {
+        size_t length = 0;
+        const char *path = JS_ToCStringLen(context, &length, argv[0]);
+        if (path == NULL || length == 0 ||
+            length > MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH ||
+            memchr(path, '\0', length) != NULL) {
+            if (path != NULL) JS_FreeCString(context, path);
+            return JS_ThrowTypeError(context, "dynamic layer asset path is invalid");
+        }
+        asset_path = malloc(length + 1);
+        text = calloc(1, 1); font = calloc(1, 1); name = calloc(1, 1);
+        if (asset_path != NULL) {
+            memcpy(asset_path, path, length); asset_path[length] = '\0';
+        }
+        JS_FreeCString(context, path);
+        if (asset_path == NULL || text == NULL || font == NULL || name == NULL) {
+            free(asset_path); free(text); free(font); free(name);
+            return JS_EXCEPTION;
+        }
+    } else {
+        if (!read_optional_string(context, argv[0], "text", MWX_SCENE_QUICKJS_MAX_LAYER_TEXT, &text) ||
+            !read_optional_string(context, argv[0], "font", MWX_SCENE_QUICKJS_MAX_LAYER_FONT, &font) ||
+            !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
+            !read_optional_string(context, argv[0], "color", 128, &color_text)) {
+            free(text); free(font); free(name); free(color_text);
+            return JS_ThrowTypeError(context, "dynamic layer string field is invalid");
+        }
+        point_size = optional_number(context, argv[0], "pointsize", 32);
+        alpha = optional_number(context, argv[0], "alpha", 1);
+        if (!isfinite(point_size) || point_size < 1 || point_size > 1024 ||
+            !isfinite(alpha) || alpha < 0 || alpha > 1 ||
+            (color_text[0] != '\0' && !parse_color(color_text, color))) {
+            free(text); free(font); free(name); free(color_text);
+            return JS_ThrowRangeError(context, "dynamic layer configuration is invalid");
+        }
+        free(color_text);
     }
-    free(color_text);
     int64_t identity = -1;
     for (;;) {
         bool collision = false;
@@ -873,7 +899,7 @@ static JSValue create_layer(
             if (domain->layers[i].configured && domain->layers[i].layer_id == identity) collision = true;
         if (!collision) break;
         if (identity <= -9007199254740991LL) {
-            free(text); free(font); free(name);
+            free(text); free(font); free(name); free(asset_path);
             return JS_ThrowInternalError(context, "dynamic layer identity exhausted");
         }
         identity -= 1;
@@ -882,6 +908,7 @@ static JSValue create_layer(
     MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
     *record = (MWXSceneQuickJSLayerRecord){
         .layer_id = identity, .name = name, .text = text, .font = font,
+        .asset_path = asset_path,
         .scale = {1, 1, 1}, .color = {color[0], color[1], color[2]},
         .alpha = alpha, .point_size = point_size,
         .order_index = active_count(domain) - 1, .owner_identity = owner->identity,
@@ -1160,6 +1187,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
                 .point_size = record->point_size,
                 .text = record->text == NULL ? "" : record->text,
                 .font = record->font == NULL ? "" : record->font,
+                .asset_path = record->asset_path == NULL ? "" : record->asset_path,
             };
             memcpy(mutation->origin,
                    authored_transform_value(
@@ -1203,6 +1231,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .alpha = record->alpha, .point_size = record->point_size,
             .text = record->text == NULL ? "" : record->text,
             .font = record->font == NULL ? "" : record->font,
+            .asset_path = record->asset_path == NULL ? "" : record->asset_path,
         };
         memcpy(mutation->origin, record->current_origin, sizeof(mutation->origin));
         memcpy(mutation->scale, record->scale, sizeof(mutation->scale));

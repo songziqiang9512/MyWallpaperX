@@ -510,7 +510,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             color: current.color,
             pointSize: current.pointSize,
             text: current.text,
-            font: current.font
+            font: current.font,
+            assetPath: current.assetPath
         )
     }
 

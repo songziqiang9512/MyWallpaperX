@@ -372,7 +372,9 @@ struct SceneDocumentLoader {
                 components: components.isEmpty ? nil : components,
                 timeline: timeline.animation,
                 timelineDiagnostics: timeline.diagnostics.map(\.token),
-                scriptSource: keyed["script"] as? String, bindingKeys: uniqueSorted(Array(keyed.keys))
+                scriptSource: keyed["script"] as? String,
+                scriptProperties: scriptProperties(keyed["scriptproperties"]),
+                bindingKeys: uniqueSorted(Array(keyed.keys))
             )
         }
         return SceneDocument.ShaderValue(
@@ -381,6 +383,20 @@ struct SceneDocumentLoader {
             userBinding: nil,
             components: nil
         )
+    }
+
+    nonisolated private static func scriptProperties(
+        _ value: Any?
+    ) -> [String: SceneJSONValue]? {
+        guard let object = value as? [String: Any] else { return nil }
+        var result: [String: SceneJSONValue] = [:]
+        for (key, value) in object {
+            guard let parsed = SceneJSONValue(jsonObject: value) else {
+                return nil
+            }
+            result[key] = parsed
+        }
+        return result
     }
 
     nonisolated private static func numericComponents(in string: String) -> [Double] {

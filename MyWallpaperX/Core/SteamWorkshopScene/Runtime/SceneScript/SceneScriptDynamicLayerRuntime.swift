@@ -4,6 +4,35 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     let dynamicLayers: [SceneRenderDescriptor.Layer]
     let renderOrderLayerIDs: [Int]
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
+    let dynamicMaterialColorTargetsByLayerID: [Int: SceneDynamicTarget]
+
+    func resolvingDynamicMaterialColors(
+        from values: SceneDynamicSnapshot
+    ) -> Self {
+        var resolvedLayers = dynamicLayers
+        for index in resolvedLayers.indices {
+            let layerID = resolvedLayers[index].id
+            guard let target = dynamicMaterialColorTargetsByLayerID[layerID],
+                  case let .vector3(red, green, blue)? = values[target]?.value,
+                  red.isFinite, green.isFinite, blue.isFinite else { continue }
+            resolvedLayers[index].colorRGB = [red, green, blue].map {
+                Float(max(0, min($0, 1)))
+            }
+        }
+        return .init(
+            dynamicLayers: resolvedLayers,
+            renderOrderLayerIDs: renderOrderLayerIDs,
+            authoredLayerValues: authoredLayerValues,
+            dynamicMaterialColorTargetsByLayerID:
+                dynamicMaterialColorTargetsByLayerID
+        )
+    }
+}
+
+nonisolated struct SceneScriptDynamicImageLayerTemplate: Sendable {
+    let modelPath: String
+    let renderSizeWH: [Float]
+    let materialColorTarget: SceneDynamicTarget?
 }
 
 /// Launch-scoped layer mutation transaction. VM callbacks publish bounded
@@ -16,13 +45,18 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    private let dynamicImageTemplates:
+        [String: SceneScriptDynamicImageLayerTemplate]
 
     init(
         descriptor: SceneRenderDescriptor,
-        authoredMutationLayerIDs: Set<Int>
+        authoredMutationLayerIDs: Set<Int>,
+        dynamicImageTemplates:
+            [String: SceneScriptDynamicImageLayerTemplate] = [:]
     ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
         self.authoredMutationLayerIDs = authoredMutationLayerIDs
+        self.dynamicImageTemplates = dynamicImageTemplates
         order = descriptor.renderOrderLayerIDs
         authoredLayerDefinitions = descriptor.layers.filter {
             authoredMutationLayerIDs.contains($0.id)
@@ -54,10 +88,23 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
-        .init(
+        let colorTargets: [(Int, SceneDynamicTarget)] = dynamicLayersByID
+            .compactMap { layerID, layer in
+                guard let modelPath = layer.imagePath,
+                      let target = dynamicImageTemplates[
+                        modelPath.lowercased()
+                      ]?.materialColorTarget else { return nil }
+                return (layerID, target)
+            }
+        let dynamicMaterialColorTargetsByLayerID = Dictionary(
+            uniqueKeysWithValues: colorTargets
+        )
+        return .init(
             dynamicLayers: order.compactMap { dynamicLayersByID[$0] },
             renderOrderLayerIDs: order,
-            authoredLayerValues: authoredLayerValues
+            authoredLayerValues: authoredLayerValues,
+            dynamicMaterialColorTargetsByLayerID:
+                dynamicMaterialColorTargetsByLayerID
         )
     }
 
@@ -141,8 +188,21 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 }
                 candidateOrder.removeAll { $0 == mutation.layerID }
             case .upsert:
-                guard let layer = SceneRenderDescriptor.Layer.dynamicText(mutation) else {
-                    return .failure(.invalidArgument("dynamic text layer is invalid"))
+                let layer: SceneRenderDescriptor.Layer?
+                if let assetPath = mutation.assetPath {
+                    guard let template = dynamicImageTemplates[
+                        assetPath.lowercased()
+                    ] else {
+                        return .failure(.invalidArgument(
+                            "dynamic image resource is not launch-ready"
+                        ))
+                    }
+                    layer = .dynamicImage(mutation, template: template)
+                } else {
+                    layer = .dynamicText(mutation)
+                }
+                guard let layer else {
+                    return .failure(.invalidArgument("dynamic layer is invalid"))
                 }
                 candidateLayers[mutation.layerID] = layer
                 candidateOrder.removeAll { $0 == mutation.layerID }

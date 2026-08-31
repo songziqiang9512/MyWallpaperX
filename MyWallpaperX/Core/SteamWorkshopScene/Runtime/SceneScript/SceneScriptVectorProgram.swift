@@ -292,6 +292,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                       valueType: candidate.definition.valueType,
                       effectNames: layer.effects.map(\.name),
                       hasCurrentAnimation: candidate.hasCurrentAnimation,
+                      dynamicImagePathsByAuthoredIdentity: Dictionary(
+                        uniqueKeysWithValues: candidate.dynamicImageReferences.map {
+                            ($0.authoredPath.lowercased(), $0.modelPath)
+                        }
+                      ),
                       generation: generation,
                       budget: budget
                 )
@@ -312,6 +317,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 handlesMediaPlayback: owner.handlesMediaPlayback,
                 handlesMediaProperties: owner.handlesMediaProperties,
                 handlesMediaTimeline: owner.handlesMediaTimeline,
+                dynamicImageReferences: candidate.dynamicImageReferences,
                 owner: owner
             ))
         }
@@ -735,35 +741,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 userPropertiesJSON: userPropertiesJSON
             )
         }
-    }
-
-    static func passConstantPath(
-        objectIndex: Int, effectIndex: Int, passIndex: Int, name: String
-    ) -> [SceneScriptBindingPathComponent] {
-        [
-            .key("objects"), .index(objectIndex),
-            .key("effects"), .index(effectIndex),
-            .key("passes"), .index(passIndex),
-            .key("constantshadervalues"), .key(name),
-        ]
-    }
-
-    static func propertyInput(
-        _ value: SceneJSONValue
-    ) -> SceneScriptPropertyInput? {
-        SceneScriptPropertyInputCodec.propertyInput(value)
-    }
-
-    static func vector3(_ value: String) -> SIMD3<Double>? {
-        SceneScriptPropertyInputCodec.vector3(value)
-    }
-
-    static func vector2(_ value: String) -> SIMD2<Double>? {
-        SceneScriptPropertyInputCodec.vector2(value)
-    }
-
-    static func validName(_ value: String) -> Bool {
-        SceneScriptPropertyInputCodec.validName(value)
     }
 
     static func scriptPropertiesJSON(

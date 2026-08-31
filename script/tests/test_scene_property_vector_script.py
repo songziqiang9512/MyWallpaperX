@@ -87,6 +87,37 @@ struct SceneTextScriptDefinition {
     let source: String
 }
 
+struct SceneScriptDynamicImageReference: Equatable, Hashable, Sendable {
+    let authoredPath: String
+    let modelPath: String
+}
+
+enum SceneScriptDynamicImageReferenceAnalysis {
+    static func references(
+        in source: String,
+        descriptor: SceneRenderDescriptor
+    ) -> [SceneScriptDynamicImageReference]? { nil }
+}
+
+struct SceneShaderContract {}
+
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let scriptSource: String
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+    }
+
+    static func compile(
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        dynamicImageModelPaths: Set<String>,
+        admittedLayerColorConsumerIDs: Set<Int>
+    ) -> [Binding] { [] }
+}
+
 struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let layerID: Int
     let effectIndex: Int

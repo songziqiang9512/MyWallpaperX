@@ -43,17 +43,18 @@ static JSValue new_vec2_snapshot(
     double y
 ) {
     JSContext *context = domain->context;
-    JSValue value = JS_NewObject(context);
-    const int read_only = JS_PROP_ENUMERABLE;
-    if (JS_IsException(value) ||
-        JS_DefinePropertyValueStr(
-            context, value, "x", JS_NewFloat64(context, x), read_only
-        ) < 0 ||
-        JS_DefinePropertyValueStr(
-            context, value, "y", JS_NewFloat64(context, y), read_only
-        ) < 0) {
-        JS_FreeValue(context, value);
-        return JS_EXCEPTION;
+    JSValue arguments[2] = {
+        JS_NewFloat64(context, x),
+        JS_NewFloat64(context, y),
+    };
+    JSValue value = JS_CallConstructor(
+        context,
+        domain->vec2_constructor,
+        2,
+        arguments
+    );
+    for (size_t index = 0; index < 2; ++index) {
+        JS_FreeValue(context, arguments[index]);
     }
     return freeze_snapshot_value(domain, value);
 }
@@ -990,6 +991,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     }
     JS_SetContextOpaque(domain->context, domain);
     mwx_scene_quickjs_install_job_host(domain);
+    domain->vec2_constructor = JS_UNDEFINED;
     domain->vec3_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
     domain->script_property_assigner = JS_UNDEFINED;
@@ -1019,6 +1021,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     }
     mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
     if (domain->context != NULL) {
+        JS_FreeValue(domain->context, domain->vec2_constructor);
         JS_FreeValue(domain->context, domain->vec3_constructor);
         JS_FreeValue(domain->context, domain->deep_freeze);
         JS_FreeValue(domain->context, domain->script_property_assigner);
@@ -1034,6 +1037,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
                 free(domain->layers[index].name);
                 free(domain->layers[index].text);
                 free(domain->layers[index].font);
+                free(domain->layers[index].asset_path);
             }
             free(domain->layers);
         }
@@ -1347,6 +1351,24 @@ MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_value_only_with_budget(
     );
 }
 
+MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+    MWXSceneQuickJSDomain *domain,
+    const char *source,
+    size_t source_length,
+    uint64_t generation,
+    uint64_t interrupt_budget,
+    MWXSceneQuickJSResult *result,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    MWXSceneQuickJSOwner *owner = create_owner_with_budget(
+        domain, source, source_length, generation, interrupt_budget, false,
+        result, diagnostic, diagnostic_capacity
+    );
+    if (owner != NULL) owner->effectful_boolean = true;
+    return owner;
+}
+
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     MWXSceneQuickJSDomain *domain,
     const char *source,
@@ -1430,7 +1452,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     clear_diagnostic(diagnostic, diagnostic_capacity);
     if (owner == NULL || frame == NULL || output == NULL || !isfinite(input) ||
         boolean_value > 1 ||
-        ((boolean_value != 0) != owner->value_only) ||
+        (boolean_value != 0 &&
+         !owner->value_only && !owner->effectful_boolean) ||
+        (boolean_value == 0 && owner->value_only) ||
         (boolean_value != 0 && input != 0 && input != 1) ||
         !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
         frame->time_of_day > 1 || !isfinite(frame->frame_time) ||

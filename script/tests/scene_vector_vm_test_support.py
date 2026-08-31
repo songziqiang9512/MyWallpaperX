@@ -37,6 +37,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptCursorProgram.swift",
     VM / "SceneScriptDynamicLayerRuntime.swift",
+    VM / "SceneScriptDynamicImageReferenceAnalysis.swift",
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptScalarProgram+Projection.swift",
     VM / "SceneScriptStringProgram.swift",
@@ -102,6 +103,25 @@ struct SceneTextScriptDefinition {
     let source: String
 }
 
+struct SceneShaderContract {}
+
+enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let scriptSource: String
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+    }
+
+    static func compile(
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        dynamicImageModelPaths: Set<String>,
+        admittedLayerColorConsumerIDs: Set<Int>
+    ) -> [Binding] { [] }
+}
+
 struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let layerID: Int
     let effectIndex: Int
@@ -151,6 +171,9 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
+    struct ModelMaterialLink {
+        let modelPath: String
+    }
     enum SceneShaderUserValueKind {
         case null
         case string
@@ -250,6 +273,7 @@ struct SceneRenderDescriptor {
         var text: String? = nil
         var textStyle: TextStyle? = nil
         var sizeWH: [Float]? = nil
+        var imagePath: String? = nil
         var utilityLayer: UtilityLayer? = nil
         var parentID: Int? = nil
         var childLayerIDs: [Int] = []
@@ -260,11 +284,19 @@ struct SceneRenderDescriptor {
     }
 
     var layers: [Layer]
+    var modelMaterialLinks: [ModelMaterialLink] = []
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
 }
 
 extension SceneRenderDescriptor.Layer {
     static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
+        nil
+    }
+
+    static func dynamicImage(
+        _ mutation: SceneScriptLayerMutation,
+        template: SceneScriptDynamicImageLayerTemplate
+    ) -> Self? {
         nil
     }
 }

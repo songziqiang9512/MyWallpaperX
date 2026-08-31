@@ -77,7 +77,7 @@
           "SceneDependencyGraphAnalysis.swift",
           "SceneNamedTextureDependencyReferenceAnalysis.swift",
           "SceneImageLayerBlendDependencyContract.swift",
-          "SceneDependencyRenderPlan.swift",
+          "SceneDependencyRenderPlan*.swift",
           "SceneNamedRenderTargetPool.swift"
         ],
         "responsibility": "Inter-layer dependency planning and frame-scoped named-target reservation, publication, and texture pooling; excludes authored-effect FBO/history and compositor behavior."
@@ -186,6 +186,7 @@
           "SceneScriptCursorProgram.swift",
           "SceneScriptFallbackCatalog.swift",
           "SceneScriptVectorMediaRouteCandidate.swift",
+          "SceneScriptDynamicImageReferenceAnalysis.swift",
           "SceneScriptDynamicLayerRuntime.swift",
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptLayerHandleBridge.swift",
@@ -199,6 +200,7 @@
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorProgram.swift",
+          "SceneScriptVectorProgramModels.swift",
           "SceneScriptVectorRuntime.swift"
         ],
         "responsibility": "SceneScript VM owners, typed scalar/String/Vec and particle target projection plus callback-scoped cursor/media/property events and effect/scene/layer/object-animation bridges; excludes QuickJS core source, remaining host event API breadth, and GPU rendering consumers."

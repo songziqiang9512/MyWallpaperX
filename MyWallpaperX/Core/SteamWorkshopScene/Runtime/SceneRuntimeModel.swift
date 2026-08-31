@@ -153,11 +153,21 @@ struct SceneRuntimeModelBuilder {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: runtimeDescriptor
         )
+        let typedVisibilityOwnerLayerIDs = Set(
+            structuralPropertyVectorProjection.uniqueCandidates.compactMap {
+                candidate -> Int? in
+                guard case let .layer(layerID, .visibility) =
+                        candidate.definition.target else { return nil }
+                return layerID
+            }
+        )
         let directImageColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
                 guard layer.contentKind == "image",
                       layer.supportsDirectLayerColorConsumer,
-                      visibleLayerIDs.contains(layer.id) else { return nil }
+                      visibleLayerIDs.contains(layer.id)
+                        || typedVisibilityOwnerLayerIDs.contains(layer.id)
+                else { return nil }
                 return layer.id
             }
         )
@@ -165,7 +175,8 @@ struct SceneRuntimeModelBuilder {
             descriptor: renderDescriptor,
             scriptBindings: sceneDocument.scriptBindings,
             timelineTargets: timelineTargets,
-            admittedLayerColorConsumerIDs: directImageColorConsumerLayerIDs
+            admittedLayerColorConsumerIDs: directImageColorConsumerLayerIDs,
+            shaderContracts: assetCatalog.shaderContracts
         )
         let runtimeInput = SceneRuntimeInput(
             renderDescriptor: runtimeDescriptor,

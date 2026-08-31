@@ -307,6 +307,8 @@ extension SceneDesktopWallpaperHost {
             descriptor: runtimeInput.renderDescriptor,
             resourceView: model.resourceView,
             device: device,
+            dynamicImageModelPaths:
+                model.propertyVectorProjection.dynamicImageModelPaths,
             cancellationCheck: { try cancellation?.check() }
         )
         deviceResourcesPreparation.start()
@@ -697,7 +699,18 @@ extension SceneDesktopWallpaperHost {
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime(
                 descriptor: runtimeInput.renderDescriptor,
-                authoredMutationLayerIDs: sceneScriptOwnerLayerIDs
+                authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
+                dynamicImageTemplates: Dictionary(
+                    uniqueKeysWithValues: preparedDeviceResources.baseImages
+                        .dynamicImageResources.map { key, resource in
+                            (key, SceneScriptDynamicImageLayerTemplate(
+                                modelPath: resource.modelPath,
+                                renderSizeWH: resource.renderSizeWH,
+                                materialColorTarget: model.propertyVectorProjection
+                                    .dynamicImageMaterialColorTargets[key]
+                            ))
+                        }
+                )
             ),
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             soundPlaybackProgram: soundPlaybackProgram,

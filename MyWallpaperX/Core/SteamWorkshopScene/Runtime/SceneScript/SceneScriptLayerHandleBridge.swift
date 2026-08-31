@@ -107,6 +107,27 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let pointSize: Double
     let text: String
     let font: String
+    let assetPath: String?
+
+    func resolvingAssetPath(to resolved: String) -> Self {
+        .init(
+            kind: kind, isDynamic: isDynamic, fields: fields,
+            layerID: layerID, orderIndex: orderIndex, visible: visible,
+            alpha: alpha, origin: origin, scale: scale, angles: angles,
+            color: color, pointSize: pointSize, text: text, font: font,
+            assetPath: resolved
+        )
+    }
+
+    func selectingAuthoredFields(_ selected: Fields) -> Self {
+        .init(
+            kind: kind, isDynamic: isDynamic, fields: selected,
+            layerID: layerID, orderIndex: orderIndex, visible: visible,
+            alpha: alpha, origin: origin, scale: scale, angles: angles,
+            color: color, pointSize: pointSize, text: text, font: font,
+            assetPath: assetPath
+        )
+    }
 }
 
 nonisolated enum SceneScriptLayerMutationBridge {
@@ -154,7 +175,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                   raw.scale.0.isFinite, raw.scale.1.isFinite, raw.scale.2.isFinite,
                   raw.angles.0.isFinite, raw.angles.1.isFinite, raw.angles.2.isFinite,
                   raw.color.0.isFinite, raw.color.1.isFinite, raw.color.2.isFinite,
-                  let textPointer = raw.text, let fontPointer = raw.font else {
+                  let textPointer = raw.text, let fontPointer = raw.font,
+                  let assetPathPointer = raw.asset_path else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
             let fields = SceneScriptLayerMutation.Fields(rawValue: raw.fields)
@@ -174,11 +196,16 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 angles: .init(raw.angles.0, raw.angles.1, raw.angles.2),
                 color: .init(raw.color.0, raw.color.1, raw.color.2),
                 pointSize: raw.point_size,
-                text: String(cString: textPointer), font: String(cString: fontPointer)
+                text: String(cString: textPointer), font: String(cString: fontPointer),
+                assetPath: String(cString: assetPathPointer).nilIfEmpty
             ))
         }
         return .success(output)
     }
+}
+
+private nonisolated extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
 
 /// Publishes the existing frame snapshot into the callback-scoped SceneScript

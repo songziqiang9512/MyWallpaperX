@@ -40,6 +40,10 @@ struct SceneTexturePathResolver {
 
     func resolvePrimaryTexture(for layer: SceneRenderDescriptor.Layer) -> URL? {
         guard let modelPath = layer.imagePath else { return nil }
+        return resolvePrimaryTexture(modelPath: modelPath)
+    }
+
+    func resolvePrimaryTexture(modelPath: String) -> URL? {
         guard let materialPath = descriptor.modelMaterialLinks
             .first(where: { $0.modelPath == modelPath })?
             .materialPath else { return nil }

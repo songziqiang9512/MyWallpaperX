@@ -3,6 +3,7 @@ import Metal
 enum SceneFrameLayerTextureAssembly {
     static func make(
         base: SceneBaseImageTextureStore,
+        dynamicImage: SceneDynamicImageTextureProviderSnapshot? = nil,
         dynamicText: SceneDynamicTextTextureStore.Snapshot?,
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot? = nil,
         mediaBindings: SceneBaseMaterialProviderBindingProgram = .empty,
@@ -13,6 +14,16 @@ enum SceneFrameLayerTextureAssembly {
         var publications: [Int: SceneTextureProviderPublication] = [:]
         var layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
         var pendingLayerSourceIDs: Set<Int> = []
+
+        if let dynamicImage {
+            for (layerID, layerSource) in dynamicImage.layerSources {
+                textures[layerID] = layerSource.texture
+                layerSourcePublications[layerID] = layerSource
+            }
+            pendingLayerSourceIDs.formUnion(
+                dynamicImage.pendingLayerSourceIDs
+            )
+        }
 
         if let dynamicText {
             for (layerID, layerSource) in dynamicText.layerSources {

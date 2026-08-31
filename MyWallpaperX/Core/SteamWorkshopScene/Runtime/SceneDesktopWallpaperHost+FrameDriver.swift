@@ -671,7 +671,9 @@ extension SceneDesktopWallpaperHost {
 #endif
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
-                layerTopology: layerTopology,
+                layerTopology: layerTopology.resolvingDynamicMaterialColors(
+                    from: dynamicValues
+                ),
                 materialFunctionMutations:
                     cursorResult.materialFunctionMutations
                     + coordinatedSceneScript.materialFunctionMutations,
@@ -691,10 +693,7 @@ extension SceneDesktopWallpaperHost {
         if !layerMutations.isEmpty {
             switch launchContext.sceneScriptDynamicLayerRuntime.apply(layerMutations) {
             case .success:
-                NSLog(
-                    "MWX SceneScript VM: layerMutations=%d callback=committed nextFrame=true route=generic-only",
-                    layerMutations.count
-                )
+                break
             case let .failure(failure):
                 NSLog(
                     "MWX SceneScript VM: layerMutations=%d callback=rejected failure=%@ fallback=previous-current",

@@ -1,6 +1,15 @@
 import Foundation
 import Metal
 
+struct ScenePreparedDynamicImageResource {
+    let modelPath: String
+    let loaded: SceneBaseImageTextureLoad.Loaded
+
+    var renderSizeWH: [Float] {
+        [Float(loaded.texture.width), Float(loaded.texture.height)]
+    }
+}
+
 /// Immutable, device-bound ordinary base images prepared before AppKit surface
 /// activation. Animated, puppet, video, and other surface-scoped providers are
 /// deliberately excluded and keep their existing lifecycle owners.
@@ -13,6 +22,7 @@ final class ScenePreparedBaseImageResources {
     let textureLoader: SceneTextureLoader
     private let deviceRegistryID: UInt64
     private let entries: [Int: Entry]
+    let dynamicImageResources: [String: ScenePreparedDynamicImageResource]
     let loadedCount: Int
     let failedCount: Int
 
@@ -20,12 +30,14 @@ final class ScenePreparedBaseImageResources {
         textureLoader: SceneTextureLoader,
         deviceRegistryID: UInt64,
         entries: [Int: Entry],
+        dynamicImageResources: [String: ScenePreparedDynamicImageResource],
         loadedCount: Int,
         failedCount: Int
     ) {
         self.textureLoader = textureLoader
         self.deviceRegistryID = deviceRegistryID
         self.entries = entries
+        self.dynamicImageResources = dynamicImageResources
         self.loadedCount = loadedCount
         self.failedCount = failedCount
     }
@@ -35,6 +47,7 @@ final class ScenePreparedBaseImageResources {
         resourceView: SceneResourceView,
         device: MTLDevice,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
+        dynamicImageModelPaths: Set<String> = [],
         cancellationCheck: () throws -> Void
     ) throws -> ScenePreparedBaseImageResources {
         let textureLoader = SceneTextureLoader()
@@ -77,11 +90,42 @@ final class ScenePreparedBaseImageResources {
                 failedCount += 1
             }
         }
+        var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
+        for modelPath in dynamicImageModelPaths.sorted() {
+            try cancellationCheck()
+            guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath),
+                  let source = textureLoader.sourceKey(for: url) else {
+                failedCount += 1
+                continue
+            }
+            let container = url.pathExtension.lowercased() == "tex"
+                ? textureLoader.texContainer(from: url, source: source)
+                : nil
+            guard SceneBaseImageTextureLoad.specializedLoadReason(
+                url: url, container: container, usesPuppet: false
+            ) == nil else {
+                failedCount += 1
+                continue
+            }
+            switch SceneBaseImageTextureLoad.load(
+                from: url, usesPuppet: false, loader: textureLoader,
+                spriteTextureLoader: spriteTextureLoader, device: device
+            ) {
+            case let .loaded(loaded):
+                dynamicImageResources[modelPath.lowercased()] = .init(
+                    modelPath: modelPath, loaded: loaded
+                )
+                loadedCount += 1
+            case .failed:
+                failedCount += 1
+            }
+        }
         try cancellationCheck()
         return ScenePreparedBaseImageResources(
             textureLoader: textureLoader,
             deviceRegistryID: device.registryID,
             entries: entries,
+            dynamicImageResources: dynamicImageResources,
             loadedCount: loadedCount,
             failedCount: failedCount
         )
@@ -102,6 +146,7 @@ final class ScenePreparedBaseImageResources {
 
     var reportLine: String {
         "prepared static base resources: entries=\(entries.count)"
+            + " dynamicImages=\(dynamicImageResources.count)"
             + " loaded=\(loadedCount) failed=\(failedCount)"
             + " device=\(deviceRegistryID)"
     }
@@ -129,6 +174,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let descriptor: SceneRenderDescriptor
     private let resourceView: SceneResourceView
     private let device: MTLDevice
+    private let dynamicImageModelPaths: Set<String>
     private let externalCancellationCheck: () throws -> Void
     private var result: Result<ScenePreparedDeviceResources, Error>?
     private var cancellationRequested = false
@@ -137,11 +183,13 @@ final class ScenePreparedDeviceResourcesTask {
         descriptor: SceneRenderDescriptor,
         resourceView: SceneResourceView,
         device: MTLDevice,
+        dynamicImageModelPaths: Set<String> = [],
         cancellationCheck: @escaping () throws -> Void
     ) {
         self.descriptor = descriptor
         self.resourceView = resourceView
         self.device = device
+        self.dynamicImageModelPaths = dynamicImageModelPaths
         externalCancellationCheck = cancellationCheck
     }
 
@@ -164,6 +212,7 @@ final class ScenePreparedDeviceResourcesTask {
                     resourceView: resourceView,
                     device: device,
                     spriteTextureLoader: spriteTextureLoader,
+                    dynamicImageModelPaths: dynamicImageModelPaths,
                     cancellationCheck: checkCancellation
                 )
                 return ScenePreparedDeviceResources(

@@ -7,6 +7,15 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     let properties: [String: SceneScriptPropertyInput]
     let livePropertyInputTargets: Set<SceneDynamicTarget>
     let hasCurrentAnimation: Bool
+    let dynamicImageReferences: [SceneScriptDynamicImageReference]
+    /// Package-local image model whose proven neutral base-material tint is
+    /// driven by this typed owner. Dynamic instances reuse the target value;
+    /// the model path never selects an algorithm.
+    let dynamicMaterialModelPath: String?
+
+    var allowsDynamicLayerSideEffects: Bool {
+        !dynamicImageReferences.isEmpty
+    }
 }
 
 /// Side-effect-free projection of authored non-scalar typed bindings. Pass-owned
@@ -75,6 +84,28 @@ nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
             return layerID
         })
     }
+
+    var dynamicImageModelPaths: Set<String> {
+        Set(uniqueCandidates.flatMap(\.dynamicImageReferences).map(\.modelPath))
+    }
+
+    var dynamicImageMaterialColorTargets: [String: SceneDynamicTarget] {
+        let entries = uniqueCandidates.compactMap { candidate -> (
+            String, SceneDynamicTarget
+        )? in
+            guard let path = candidate.dynamicMaterialModelPath else {
+                return nil
+            }
+            return (path.lowercased(), candidate.definition.target)
+        }
+        let grouped = Dictionary(grouping: entries, by: \.0)
+        return Dictionary(uniqueKeysWithValues: grouped.compactMap { path, values in
+            guard values.count == 1, let target = values.first?.1 else {
+                return nil
+            }
+            return (path, target)
+        })
+    }
 }
 
 nonisolated struct SceneScriptVectorPassCompilation: Sendable {
@@ -105,13 +136,14 @@ nonisolated extension SceneScriptVectorProgram {
         scriptBindings: [SceneScriptBindingIR],
         timelineTargets: Set<SceneDynamicTarget> = [],
         admittedLayerColorConsumerIDs: Set<Int> = [],
+        shaderContracts: [SceneShaderContract] = [],
         excludedTargets: Set<SceneDynamicTarget> = []
     ) -> SceneScriptVectorCandidateCatalog {
         let namedTextureDependencyLayerIDs =
             SceneNamedTextureDependencyReferenceAnalysis.participatingLayerIDs(
                 in: descriptor.layers
             )
-        return .init(candidates: scriptBindings.enumerated().compactMap {
+        let authoredCandidates = scriptBindings.enumerated().compactMap {
             authoredOrdinal, binding in
             projection(
                 binding,
@@ -121,7 +153,79 @@ nonisolated extension SceneScriptVectorProgram {
                 admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
                 namedTextureDependencyLayerIDs: namedTextureDependencyLayerIDs
             )
-        }.filter { !excludedTargets.contains($0.definition.target) })
+        }
+        let dynamicModelPaths = Set(
+            authoredCandidates.flatMap(\.dynamicImageReferences).map(\.modelPath)
+        )
+        let materialBindings = SceneBaseMaterialColorModulationCompiler.compile(
+            descriptor: descriptor,
+            shaderContracts: shaderContracts,
+            dynamicImageModelPaths: dynamicModelPaths,
+            admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs
+        )
+        let materialCandidates = materialBindings.enumerated().compactMap {
+            offset, binding in
+            dynamicMaterialColorProjection(
+                binding,
+                authoredOrdinal: scriptBindings.count + offset
+            )
+        }
+        return .init(candidates: (authoredCandidates + materialCandidates).filter {
+            !excludedTargets.contains($0.definition.target)
+        })
+    }
+
+    private static func dynamicMaterialColorProjection(
+        _ binding: SceneBaseMaterialColorModulationCompiler.Binding,
+        authoredOrdinal: Int
+    ) -> SceneScriptVectorCandidate? {
+        guard materialValueSource(binding.scriptSource) else { return nil }
+        var properties: [String: SceneScriptPropertyInput] = [:]
+        for entry in binding.scriptProperties {
+            guard validName(entry.key),
+                  let input = propertyInput(entry.value) else { return nil }
+            properties[entry.key] = input
+        }
+        return .init(
+            authoredOrdinal: authoredOrdinal,
+            source: binding.scriptSource,
+            definition: .init(
+                target: .layer(
+                    layerID: binding.sourceLayerID,
+                    field: .color
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(
+                    binding.authoredColor.x,
+                    binding.authoredColor.y,
+                    binding.authoredColor.z
+                )
+            ),
+            properties: properties,
+            livePropertyInputTargets: [],
+            hasCurrentAnimation: false,
+            dynamicImageReferences: [],
+            dynamicMaterialModelPath: binding.modelPath
+        )
+    }
+
+    private static func materialValueSource(_ source: String) -> Bool {
+        guard source.utf8.count <= 65_536,
+              source.range(
+                of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
+                options: .regularExpression
+              ) != nil,
+              !source.contains("\\u"), !source.contains("\\x") else {
+            return false
+        }
+        let mutableDependencies = [
+            "shared", "globalThis", "eval", "Function", "constructor",
+            "thisLayer", "thisScene", "thisObject", "setTimeout",
+            "setInterval", "requestAnimationFrame",
+        ]
+        return mutableDependencies.allSatisfy {
+            !containsIdentifier($0, in: source)
+        }
     }
 
     private static func projection(
@@ -219,7 +323,9 @@ nonisolated extension SceneScriptVectorProgram {
                     binding: binding,
                     inputs: properties
                 ),
-            hasCurrentAnimation: hasCurrentAnimation
+            hasCurrentAnimation: hasCurrentAnimation,
+            dynamicImageReferences: [],
+            dynamicMaterialModelPath: nil
         )
     }
 
@@ -275,7 +381,9 @@ nonisolated extension SceneScriptVectorProgram {
             ),
             properties: [:],
             livePropertyInputTargets: [],
-            hasCurrentAnimation: false
+            hasCurrentAnimation: false,
+            dynamicImageReferences: [],
+            dynamicMaterialModelPath: nil
         )
     }
 
@@ -287,19 +395,27 @@ nonisolated extension SceneScriptVectorProgram {
         guard binding.owner.kind == .object,
               binding.targetKey == "visible",
               binding.valueType == .boolean,
-              independentBooleanValueSource(binding.source),
               let authored = binding.authoredValue?.boolValue,
               let objectIndex = binding.owner.objectIndex,
               let layerID = binding.owner.objectID,
               descriptor.layers.indices.contains(objectIndex) else { return nil }
         let layer = descriptor.layers[objectIndex]
-        guard layer.id == layerID,
+        let dynamicImageReferences =
+            SceneScriptDynamicImageReferenceAnalysis.references(
+                in: binding.source,
+                descriptor: descriptor
+            ) ?? []
+        let isIndependent = independentBooleanValueSource(binding.source)
+        guard isIndependent || !dynamicImageReferences.isEmpty,
+              layer.id == layerID,
               layer.layerIndex == objectIndex,
               layer.visible == authored,
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              ["image", "solid"].contains(layer.contentKind),
+              (isIndependent
+                ? ["image", "solid", "text"].contains(layer.contentKind)
+                : layer.contentKind == "image"),
               layer.parentID == nil,
               layer.childLayerIDs.isEmpty,
               case nil = layer.utilityLayer else { return nil }
@@ -331,7 +447,9 @@ nonisolated extension SceneScriptVectorProgram {
                     binding: binding,
                     inputs: properties
                 ),
-            hasCurrentAnimation: false
+            hasCurrentAnimation: false,
+            dynamicImageReferences: dynamicImageReferences,
+            dynamicMaterialModelPath: nil
         )
     }
 
@@ -461,7 +579,38 @@ nonisolated extension SceneScriptVectorProgram {
                     binding: binding,
                     inputs: properties
                 ),
-            hasCurrentAnimation: false
+            hasCurrentAnimation: false,
+            dynamicImageReferences: [],
+            dynamicMaterialModelPath: nil
         )
+    }
+
+    static func passConstantPath(
+        objectIndex: Int, effectIndex: Int, passIndex: Int, name: String
+    ) -> [SceneScriptBindingPathComponent] {
+        [
+            .key("objects"), .index(objectIndex),
+            .key("effects"), .index(effectIndex),
+            .key("passes"), .index(passIndex),
+            .key("constantshadervalues"), .key(name),
+        ]
+    }
+
+    static func propertyInput(
+        _ value: SceneJSONValue
+    ) -> SceneScriptPropertyInput? {
+        SceneScriptPropertyInputCodec.propertyInput(value)
+    }
+
+    static func vector3(_ value: String) -> SIMD3<Double>? {
+        SceneScriptPropertyInputCodec.vector3(value)
+    }
+
+    static func vector2(_ value: String) -> SIMD2<Double>? {
+        SceneScriptPropertyInputCodec.vector2(value)
+    }
+
+    static func validName(_ value: String) -> Bool {
+        SceneScriptPropertyInputCodec.validName(value)
     }
 }

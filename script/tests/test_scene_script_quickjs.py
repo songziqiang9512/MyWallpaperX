@@ -634,16 +634,18 @@ int main(void) {
         "  const world = input.cursorWorldPosition;\n"
         "  const screen = input.cursorScreenPosition;\n"
         "  const canvas = engine.canvasSize;\n"
-        "  if (!Object.isFrozen(input) || !Object.isFrozen(world) ||\n"
+        "  if (!(screen instanceof Vec2) || !(canvas instanceof Vec2) ||\n"
+        "      !Object.isFrozen(input) || !Object.isFrozen(world) ||\n"
         "      !Object.isFrozen(screen) || !Object.isFrozen(canvas)) {\n"
         "    throw new Error('mutable surface snapshot');\n"
         "  }\n"
         "  const divisor = new Vec3(canvas, 1).divide(new Vec3(10, 5, 1));\n"
         "  const arithmetic = new Vec3(15, 15, 2).subtract(divisor);\n"
+        "  const pair = new Vec2('2 3').add(new Vec2(4)).multiply(2);\n"
         "  return value + world.x + world.y + world.z +\n"
         "    screen.x + screen.y + canvas.x + canvas.y +\n"
         "    (input.cursorLeftDown ? 1 : 0) +\n"
-        "    arithmetic.x + arithmetic.y + arithmetic.z;\n"
+        "    arithmetic.x + arithmetic.y + arithmetic.z + pair.x + pair.y;\n"
         "}";
     MWXSceneQuickJSOwner *surface_input = mwx_scene_quickjs_owner_create(
         domain, surface_input_source, strlen(surface_input_source),
@@ -653,8 +655,8 @@ int main(void) {
         surface_input != NULL, "surface input compile", diagnostic
     );
     failures += update(
-        surface_input, 48, 1, MWX_SCENE_QUICKJS_OK, 263,
-        "callback surface input and Vec3 arithmetic"
+        surface_input, 48, 1, MWX_SCENE_QUICKJS_OK, 289,
+        "callback surface input and Vec2/Vec3 arithmetic"
     );
     MWXSceneQuickJSFrameInput refreshed_surface_frame = {
         .time_of_day = 0.25,
@@ -677,7 +679,7 @@ int main(void) {
         mwx_scene_quickjs_owner_update_scalar(
             surface_input, 48, 1, &refreshed_surface_frame,
             &refreshed_surface_output, diagnostic, sizeof(diagnostic)
-        ) == MWX_SCENE_QUICKJS_OK && refreshed_surface_output == 307,
+        ) == MWX_SCENE_QUICKJS_OK && refreshed_surface_output == 333,
         "surface input refreshes per callback",
         diagnostic
     );

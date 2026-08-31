@@ -21,6 +21,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private let valueType: SceneDynamicValueType
+    private let dynamicImagePathsByAuthoredIdentity: [String: String]
+
+    var allowsDynamicLayerSideEffects: Bool {
+        !dynamicImagePathsByAuthoredIdentity.isEmpty
+    }
 
     init(
         domain: SceneScriptQuickJSDomain,
@@ -29,6 +34,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         valueType: SceneDynamicValueType = .vector3,
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
+        dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
@@ -40,11 +46,19 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         self.generation = generation
         self.budget = budget
         self.valueType = valueType
+        self.dynamicImagePathsByAuthoredIdentity =
+            dynamicImagePathsByAuthoredIdentity
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created = source.withCString {
-            if valueType == .bool {
+            if valueType == .bool && !dynamicImagePathsByAuthoredIdentity.isEmpty {
+                mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+                    domain.handle, $0, source.utf8.count, generation,
+                    budget.interruptBudget, &creationResult,
+                    &diagnostic, diagnostic.count
+                )
+            } else if valueType == .bool {
                 mwx_scene_quickjs_owner_create_value_only_with_budget(
                     domain.handle, $0, source.utf8.count, generation,
                     budget.interruptBudget, &creationResult,
@@ -129,7 +143,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                       !handlesMediaThumbnail, !handlesMediaPlayback,
                       !handlesMediaProperties, !handlesMediaTimeline,
                       exportedCursorEvents.isEmpty,
-                      !ownerHasAudioRegistration else {
+                      (dynamicImagePathsByAuthoredIdentity.isEmpty
+                        ? !ownerHasAudioRegistration
+                        : true) else {
                     throw SceneScriptScalarRuntimeFailure.invalidSource
                 }
             }
@@ -180,12 +196,21 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             var output: UInt32 = 0
             result = scriptPropertiesJSON.withCString { properties in
                 userPropertiesJSON.withCString { userProperties in
-                    mwx_scene_quickjs_owner_update_bool_with_properties(
-                        handle, expectedGeneration, value ? 1 : 0, &frameInput,
-                        properties, scriptPropertiesJSON.utf8.count,
-                        userProperties, userPropertiesJSON.utf8.count,
-                        &output, &diagnostic, diagnostic.count
-                    )
+                    if allowsDynamicLayerSideEffects {
+                        mwx_scene_quickjs_owner_update_effectful_bool_with_properties(
+                            handle, expectedGeneration, value ? 1 : 0, &frameInput,
+                            properties, scriptPropertiesJSON.utf8.count,
+                            userProperties, userPropertiesJSON.utf8.count,
+                            &output, &diagnostic, diagnostic.count
+                        )
+                    } else {
+                        mwx_scene_quickjs_owner_update_bool_with_properties(
+                            handle, expectedGeneration, value ? 1 : 0, &frameInput,
+                            properties, scriptPropertiesJSON.utf8.count,
+                            userProperties, userPropertiesJSON.utf8.count,
+                            &output, &diagnostic, diagnostic.count
+                        )
+                    }
                 }
             }
             publishedValue = .bool(output != 0)
@@ -256,18 +281,58 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         }
         let publishedLayerMutations: [SceneScriptLayerMutation]
         if valueType == .bool {
-            guard mutations.isEmpty, animationMutations.isEmpty,
-                  layerMutations.allSatisfy({ mutation in
-                      mutation.kind == .upsert && !mutation.isDynamic
-                          && mutation.layerID == layerID
-                          && mutation.fields == .visibility
-                          && mutation.visible == publishedValue.boolValue
-                  }) else {
+            guard mutations.isEmpty, animationMutations.isEmpty else {
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
                 ))
             }
-            publishedLayerMutations = []
+            if allowsDynamicLayerSideEffects {
+                var resolved: [SceneScriptLayerMutation] = []
+                resolved.reserveCapacity(layerMutations.count)
+                for mutation in layerMutations {
+                    if !mutation.isDynamic {
+                        guard mutation.kind == .upsert,
+                              mutation.layerID == layerID,
+                              !mutation.fields.isEmpty,
+                              mutation.fields.isSubset(of: .authoredFields),
+                              !mutation.fields.contains(.visibility)
+                                || mutation.visible == publishedValue.boolValue else {
+                            return .failure(.invalidArgument(
+                                "Boolean dynamic-layer owner mutated an unowned authored field"
+                            ))
+                        }
+                        let transformFields = mutation.fields.subtracting(.visibility)
+                        if !transformFields.isEmpty {
+                            resolved.append(
+                                mutation.selectingAuthoredFields(transformFields)
+                            )
+                        }
+                        continue
+                    }
+                    guard let assetPath = mutation.assetPath,
+                          let modelPath = dynamicImagePathsByAuthoredIdentity[
+                            assetPath.lowercased()
+                          ] else {
+                        return .failure(.invalidArgument(
+                            "Boolean dynamic-layer owner requested an unprepared asset"
+                        ))
+                    }
+                    resolved.append(mutation.resolvingAssetPath(to: modelPath))
+                }
+                publishedLayerMutations = resolved
+            } else {
+                guard layerMutations.allSatisfy({ mutation in
+                    mutation.kind == .upsert && !mutation.isDynamic
+                        && mutation.layerID == layerID
+                        && mutation.fields == .visibility
+                        && mutation.visible == publishedValue.boolValue
+                }) else {
+                    return .failure(.invalidArgument(
+                        "Boolean value owner produced out-of-cohort mutations"
+                    ))
+                }
+                publishedLayerMutations = []
+            }
         } else {
             publishedLayerMutations = layerMutations
         }

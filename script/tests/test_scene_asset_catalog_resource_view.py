@@ -90,12 +90,21 @@ enum Harness {
         let model = catalog.models.first {
             $0.relativePath == "models/util/solidlayer_depthtest.json"
         }
+        let tint = catalog.materials.first {
+            $0.relativePath == "materials/workshop/bar.json"
+        }?.passes.first?.constantShaderValues["g_TintColor"]
         let result: [String: Any] = [
             "modelFound": model != nil,
             "solid": model?.isSolidLayer ?? false,
             "materialPath": model?.materialPath ?? "missing",
             "materialCatalogCount": catalog.materials.count,
             "shaderContractCount": catalog.shaderContracts.count,
+            "tintScript": tint?.scriptSource ?? "missing",
+            "tintBindingKeys": tint?.bindingKeys ?? [],
+            "tintRainbow": tint?.scriptProperties?["rainbow"]?.boolValue
+                ?? false,
+            "tintSpeed": tint?.scriptProperties?["speed"]?.numberValue
+                ?? -1,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -123,6 +132,42 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             encoding="utf-8",
         )
         (project / "scene.json").write_text("{}", encoding="utf-8")
+
+        package_model = package / "models/workshop/bar.json"
+        package_material = package / "materials/workshop/bar.json"
+        package_vertex = package / "shaders/workshop/tint.vert"
+        package_fragment = package / "shaders/workshop/tint.frag"
+        for path in (
+            package_model,
+            package_material,
+            package_vertex,
+            package_fragment,
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        package_model.write_text(
+            json.dumps({"material": "materials/workshop/bar.json"}),
+            encoding="utf-8",
+        )
+        package_material.write_text(
+            json.dumps({
+                "passes": [{
+                    "shader": "workshop/tint",
+                    "constantshadervalues": {
+                        "g_TintColor": {
+                            "value": "1 1 1",
+                            "script": "export function update(value) { return value; }",
+                            "scriptproperties": {
+                                "rainbow": True,
+                                "speed": 0.5,
+                            },
+                        },
+                    },
+                }],
+            }),
+            encoding="utf-8",
+        )
+        package_vertex.write_text("void main() {}", encoding="utf-8")
+        package_fragment.write_text("void main() {}", encoding="utf-8")
 
         stock_model = stock / "models/util/solidlayer_depthtest.json"
         stock_material = stock / "materials/util/solidlayer_depthtest.json"
@@ -178,8 +223,20 @@ class SceneAssetCatalogResourceViewTests(unittest.TestCase):
             self.result["materialPath"],
             "materials/util/solidlayer_depthtest.json",
         )
-        self.assertEqual(self.result["materialCatalogCount"], 0)
-        self.assertEqual(self.result["shaderContractCount"], 0)
+        self.assertEqual(self.result["materialCatalogCount"], 1)
+        self.assertEqual(self.result["shaderContractCount"], 1)
+
+    def test_material_constant_preserves_script_shape_and_properties(self) -> None:
+        self.assertEqual(
+            self.result["tintScript"],
+            "export function update(value) { return value; }",
+        )
+        self.assertEqual(
+            self.result["tintBindingKeys"],
+            ["script", "scriptproperties", "value"],
+        )
+        self.assertTrue(self.result["tintRainbow"])
+        self.assertEqual(self.result["tintSpeed"], 0.5)
 
 
 if __name__ == "__main__":

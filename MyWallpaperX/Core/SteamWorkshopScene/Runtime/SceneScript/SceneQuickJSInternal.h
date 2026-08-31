@@ -17,6 +17,7 @@
 #define MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS 256
 #define MWX_SCENE_QUICKJS_MAX_LAYER_TEXT 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_FONT 1024
+#define MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH 1024
 #define MWX_SCENE_QUICKJS_MAX_AUDIO_REGISTRATIONS 3
 #define MWX_SCENE_QUICKJS_MAX_TIMERS 32
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
@@ -35,6 +36,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     char *name;
     char *text;
     char *font;
+    char *asset_path;
     double authored_origin[3];
     double current_origin[3];
     double scale[3];
@@ -112,6 +114,7 @@ typedef struct MWXSceneQuickJSRejectionRecord {
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
+    JSValue vec2_constructor;
     JSValue vec3_constructor;
     JSValue deep_freeze;
     JSValue script_property_assigner;
@@ -154,6 +157,7 @@ struct MWXSceneQuickJSOwner {
     bool initialized;
     bool disabled;
     bool value_only;
+    bool effectful_boolean;
     bool teardown_started;
     uint32_t destroy_callback_count;
     JSValue material_function_layer;

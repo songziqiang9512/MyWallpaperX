@@ -20,6 +20,7 @@ nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
+    let dynamicImageReferences: [SceneScriptDynamicImageReference]
     let owner: SceneScriptVectorOwner
 }
 

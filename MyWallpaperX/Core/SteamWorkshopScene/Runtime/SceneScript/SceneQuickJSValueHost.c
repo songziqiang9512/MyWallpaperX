@@ -122,6 +122,25 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     // own collection and serialization, so normal launch/frame work stays clean.
     static const char source[] =
         "(() => {"
+        "class Vec2 {"
+        "constructor(x=0,y=x){if(typeof x==='string'){"
+        "const p=x.trim().split(/[\\s,]+/);"
+        "if(p.length<2)throw new TypeError('invalid Vec2 string');"
+        "this.x=Number(p[0]);this.y=Number(p[1]);return;}"
+        "if(x&&typeof x==='object'){this.x=Number(x.x);this.y=Number(x.y);return;}"
+        "this.x=Number(x);this.y=Number(y);}"
+        "copy(){return new Vec2(this.x,this.y);}"
+        "add(v){if(typeof v==='number'){return new Vec2(this.x+v,this.y+v);}"
+        "return new Vec2(this.x+v.x,this.y+v.y);}"
+        "subtract(v){if(typeof v==='number'){return new Vec2(this.x-v,this.y-v);}"
+        "return new Vec2(this.x-v.x,this.y-v.y);}"
+        "multiply(v){if(typeof v==='number'){return new Vec2(this.x*v,this.y*v);}"
+        "return new Vec2(this.x*v.x,this.y*v.y);}"
+        "divide(v){if(typeof v==='number'){return new Vec2(this.x/v,this.y/v);}"
+        "return new Vec2(this.x/v.x,this.y/v.y);}"
+        "isFinite(){return Number.isFinite(this.x)&&Number.isFinite(this.y);}"
+        "toString(){return `${this.x} ${this.y}`;}"
+        "}"
         "class Vec3 {"
         "constructor(x=0,y=x,z=x){if(typeof x==='string'){"
         "const p=x.trim().split(/[\\s,]+/);"
@@ -151,12 +170,13 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "}"
         "function assignScriptProperties(target,source){"
         "for(const key of Object.keys(source)){const next=source[key];"
-        "target[key]=target[key] instanceof Vec3?new Vec3(next):next;}"
+        "target[key]=target[key] instanceof Vec2?new Vec2(next):"
+        "target[key] instanceof Vec3?new Vec3(next):next;}"
         "return target;}"
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
         "const console=Object.freeze({log(...args){},error(...args){}});"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
-        "return {Vec3,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
+        "return {Vec2,Vec3,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
         "})()";
     JSContext *context = domain->context;
     JSValue host = JS_Eval(
@@ -170,6 +190,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         JS_FreeValue(context, host);
         return false;
     }
+    JSValue vec2 = JS_GetPropertyStr(context, host, "Vec2");
     JSValue vec3 = JS_GetPropertyStr(context, host, "Vec3");
     JSValue builder = JS_GetPropertyStr(context, host, "createScriptProperties");
     JSValue media_playback = JS_GetPropertyStr(
@@ -181,10 +202,12 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     );
     domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
     JS_FreeValue(context, host);
-    if (!JS_IsFunction(context, vec3) || !JS_IsFunction(context, builder) ||
+    if (!JS_IsFunction(context, vec2) || !JS_IsFunction(context, vec3) ||
+        !JS_IsFunction(context, builder) ||
         !JS_IsObject(media_playback) || !JS_IsObject(console) ||
         !JS_IsFunction(context, domain->script_property_assigner) ||
         !JS_IsFunction(context, domain->deep_freeze)) {
+        JS_FreeValue(context, vec2);
         JS_FreeValue(context, vec3);
         JS_FreeValue(context, builder);
         JS_FreeValue(context, media_playback);
@@ -195,10 +218,16 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         domain->deep_freeze = JS_UNDEFINED;
         return false;
     }
+    domain->vec2_constructor = JS_DupValue(context, vec2);
     domain->vec3_constructor = JS_DupValue(context, vec3);
     JSValue global = JS_GetGlobalObject(context);
     const int read_only = JS_PROP_ENUMERABLE;
-    int vec_result = JS_DefinePropertyValueStr(context, global, "Vec3", vec3, read_only);
+    int vec2_result = JS_DefinePropertyValueStr(
+        context, global, "Vec2", vec2, read_only
+    );
+    int vec3_result = JS_DefinePropertyValueStr(
+        context, global, "Vec3", vec3, read_only
+    );
     int builder_result = JS_DefinePropertyValueStr(
         context,
         global,
@@ -249,7 +278,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     JS_FreeValue(context, shared_get);
     JS_FreeValue(context, shared_set);
     JS_FreeValue(context, global);
-    return vec_result >= 0 && builder_result >= 0
+    return vec2_result >= 0 && vec3_result >= 0 && builder_result >= 0
         && media_playback_result >= 0 && console_result >= 0
         && shared_result >= 0;
 }
@@ -301,6 +330,29 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_bool_with_properties(
     uint32_t *output, char *diagnostic, size_t diagnostic_capacity
 ) {
     if (owner == NULL || !owner->value_only || input > 1 || output == NULL) {
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    double primitive_output = 0;
+    MWXSceneQuickJSResult result =
+        mwx_scene_quickjs_owner_update_primitive_with_properties(
+            owner, expected_generation, input, 1, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length, &primitive_output,
+            diagnostic, diagnostic_capacity
+        );
+    if (result == MWX_SCENE_QUICKJS_OK) *output = primitive_output != 0;
+    return result;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_effectful_bool_with_properties(
+    MWXSceneQuickJSOwner *owner, uint64_t expected_generation, uint32_t input,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json, size_t script_properties_length,
+    const char *user_properties_json, size_t user_properties_length,
+    uint32_t *output, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (owner == NULL || owner->value_only || !owner->effectful_boolean ||
+        input > 1 || output == NULL) {
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     double primitive_output = 0;

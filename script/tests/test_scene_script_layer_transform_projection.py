@@ -108,12 +108,68 @@ nonisolated struct SceneScriptBindingIR: Sendable {
 nonisolated struct SceneScriptPropertyInput: Sendable {}
 
 nonisolated enum SceneScriptPropertyInputCodec {
+    static func propertyInput(
+        _ value: SceneJSONValue
+    ) -> SceneScriptPropertyInput? {
+        guard case let .number(number) = value, number.isFinite else {
+            return nil
+        }
+        return .init()
+    }
+
+    static func vector2(_ value: String) -> SIMD2<Double>? {
+        let values = value.split(separator: " ").compactMap { Double($0) }
+        guard values.count == 2, values.allSatisfy(\.isFinite) else { return nil }
+        return .init(values[0], values[1])
+    }
+
+    static func vector3(_ value: String) -> SIMD3<Double>? {
+        let values = value.split(separator: " ").compactMap { Double($0) }
+        guard values.count == 3, values.allSatisfy(\.isFinite) else { return nil }
+        return .init(values[0], values[1], values[2])
+    }
+
+    static func validName(_ value: String) -> Bool {
+        !value.isEmpty
+    }
+
     static func liveConsumerTargets(
         binding: SceneScriptBindingIR,
         inputs: [String: SceneScriptPropertyInput]
     ) -> Set<SceneDynamicTarget> {
         []
     }
+}
+
+nonisolated struct SceneScriptDynamicImageReference: Equatable, Hashable, Sendable {
+    let authoredPath: String
+    let modelPath: String
+}
+
+nonisolated enum SceneScriptDynamicImageReferenceAnalysis {
+    static func references(
+        in source: String,
+        descriptor: SceneRenderDescriptor
+    ) -> [SceneScriptDynamicImageReference]? { nil }
+}
+
+nonisolated struct SceneShaderContract {}
+
+nonisolated enum SceneBaseMaterialColorModulationCompiler {
+    struct Binding {
+        let modelPath: String
+        let sourceLayerID: Int
+        let scriptSource: String
+        let scriptProperties: [String: SceneJSONValue]
+        let authoredColor: SIMD3<Double>
+    }
+
+    static func compile(
+        descriptor: SceneRenderDescriptor,
+        shaderContracts: [SceneShaderContract],
+        dynamicImageModelPaths: Set<String>,
+        admittedLayerColorConsumerIDs: Set<Int>
+    ) -> [Binding] { [] }
 }
 
 nonisolated struct SceneRenderDescriptor: Sendable {
@@ -167,39 +223,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
     var layers: [Layer]
 }
 
-nonisolated enum SceneScriptVectorProgram {
-    static func passConstantPath(
-        objectIndex: Int, effectIndex: Int, passIndex: Int, name: String
-    ) -> [SceneScriptBindingPathComponent] {
-        [
-            .key("objects"), .index(objectIndex),
-            .key("effects"), .index(effectIndex),
-            .key("passes"), .index(passIndex),
-            .key("constantshadervalues"), .key(name),
-        ]
-    }
-
-    static func vector2(_ value: String) -> SIMD2<Double>? {
-        let values = value.split(separator: " ").compactMap { Double($0) }
-        guard values.count == 2, values.allSatisfy(\.isFinite) else { return nil }
-        return .init(values[0], values[1])
-    }
-
-    static func vector3(_ value: String) -> SIMD3<Double>? {
-        let values = value.split(separator: " ").compactMap { Double($0) }
-        guard values.count == 3, values.allSatisfy(\.isFinite) else { return nil }
-        return .init(values[0], values[1], values[2])
-    }
-
-    static func validName(_ value: String) -> Bool {
-        !value.isEmpty
-    }
-
-    static func propertyInput(_ value: SceneJSONValue) -> SceneScriptPropertyInput? {
-        guard case let .number(number) = value, number.isFinite else { return nil }
-        return .init()
-    }
-}
+nonisolated enum SceneScriptVectorProgram {}
 
 func binding(
     key: String,

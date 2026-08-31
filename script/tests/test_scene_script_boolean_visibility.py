@@ -22,7 +22,8 @@ import Foundation
 private func descriptor(
     parentID: Int? = nil,
     effects: [SceneRenderDescriptor.EffectDescriptor] = [],
-    effectFiles: [String] = []
+    effectFiles: [String] = [],
+    contentKind: String = "image"
 ) -> SceneRenderDescriptor {
     SceneRenderDescriptor(layers: [
         .init(
@@ -35,6 +36,7 @@ private func descriptor(
             scaleHasScript: nil,
             alpha: 1,
             effects: effects,
+            contentKind: contentKind,
             parentID: parentID,
             effectFiles: effectFiles
         ),
@@ -87,9 +89,25 @@ private func namedReferenceDescriptor(
     ])
 }
 
+private func dynamicImageDescriptor() -> SceneRenderDescriptor {
+    SceneRenderDescriptor(
+        layers: [
+            .init(
+                id: 7, layerIndex: 0, name: "bars", visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                scaleHasScript: nil, alpha: 1, effects: []
+            ),
+        ],
+        modelMaterialLinks: [
+            .init(modelPath: "models/workshop/2727665642/bar.json"),
+        ]
+    )
+}
+
 private func binding(
     source: String,
-    wrapperKeys: [String] = ["script", "value"]
+    wrapperKeys: [String] = ["script", "value"],
+    authored: Bool = false
 ) -> SceneScriptBindingIR {
     .init(
         source: source,
@@ -104,7 +122,7 @@ private func binding(
         ),
         targetPath: [.key("objects"), .index(0), .key("visible")],
         properties: [:],
-        authoredValue: .bool(false),
+        authoredValue: .bool(authored),
         valueType: .boolean,
         wrapperKeys: wrapperKeys
     )
@@ -271,6 +289,10 @@ enum Harness {
                 wrapperKeys: ["script", "user", "value"]
             )]
         )
+        let textLeaf = SceneScriptVectorProgram.project(
+            descriptor: descriptor(contentKind: "text"),
+            scriptBindings: [authoredBinding]
+        )
         let effectBearingProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor(
@@ -337,6 +359,39 @@ enum Harness {
             userPropertyDefinitions: [],
             generation: 9
         )
+        let dynamicSource = """
+            export let __workshopId = '2727665642';
+            const audio = engine.registerAudioBuffers(16);
+            const bars = [];
+            export function init() {
+                const index = thisScene.getLayerIndex(thisLayer);
+                for (let i = 0; i < 2; ++i) {
+                    const bar = thisScene.createLayer('models/bar.json');
+                    thisScene.sortLayer(bar, index);
+                    bars.push(bar);
+                }
+            }
+            export function update(value) {
+                thisLayer.scale = new Vec3(2, 3, 1);
+                for (let i = 0; i < bars.length; ++i) {
+                    bars[i].origin = new Vec3(i * 10, 0, 0);
+                    bars[i].scale = new Vec3(1, audio.average[i] * 10, 1);
+                }
+                return value;
+            }
+            """
+        let dynamicProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: dynamicImageDescriptor(),
+            scriptBindings: [binding(source: dynamicSource, authored: true)],
+            userPropertyDefinitions: [],
+            generation: 11
+        )
+        let dynamic = dynamicProgram.evaluate(
+            inputs: [target: .bool(true)],
+            effectivePropertyValues: [:],
+            frame: frame(runtime: 2)
+        )
         let teardown = program.teardown(
             frame: frame(runtime: 3),
             effectivePropertyValues: [:],
@@ -358,6 +413,7 @@ enum Harness {
             "destroyDefinitions": destroyProgram.definitions.count,
             "parentedProjected": parented.targets.count,
             "userWrappedProjected": userWrapped.targets.count,
+            "textLeafProjected": textLeaf.targets.count,
             "effectBearingDefinitions": effectBearingProgram.definitions.count,
             "effectBearingValue": boolValue(effectBearing, target: target) as Any,
             "namedConsumerProjected": namedConsumer.targets.count,
@@ -368,6 +424,11 @@ enum Harness {
             "handleUpdateProjected": handleUpdate.targets.count,
             "dynamicGlobalWriteProjected": dynamicGlobalWrite.targets.count,
             "eventfulDefinitions": eventfulProgram.definitions.count,
+            "dynamicDefinitions": dynamicProgram.definitions.count,
+            "dynamicHasAudio": dynamicProgram.hasAudioConsumers,
+            "dynamicValue": boolValue(dynamic, target: target) as Any,
+            "dynamicLayerCount": dynamic.layerMutations.count,
+            "dynamicModelPaths": dynamic.layerMutations.compactMap(\.assetPath),
             "teardownDestroyInvoked": teardown?.destroyCallbackInvoked as Any,
             "teardownQuiescent": teardown?.snapshot.isQuiescent as Any,
             "teardownFailed": teardown?.failure != nil,
@@ -420,6 +481,9 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["parentedProjected"], 0)
         self.assertEqual(self.value["userWrappedProjected"], 0)
 
+    def test_ordinary_text_leaf_uses_the_value_only_boolean_owner(self) -> None:
+        self.assertEqual(self.value["textLeafProjected"], 1)
+
     def test_effect_bearing_leaf_uses_the_same_value_only_owner(self) -> None:
         self.assertEqual(self.value["effectBearingDefinitions"], 1)
         self.assertTrue(self.value["effectBearingValue"])
@@ -435,6 +499,19 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["handleUpdateProjected"], 1)
         self.assertEqual(self.value["dynamicGlobalWriteProjected"], 0)
         self.assertEqual(self.value["eventfulDefinitions"], 0)
+
+    def test_effectful_boolean_owner_publishes_prepared_dynamic_image_layers(self) -> None:
+        self.assertEqual(self.value["dynamicDefinitions"], 1)
+        self.assertTrue(self.value["dynamicHasAudio"])
+        self.assertTrue(self.value["dynamicValue"])
+        self.assertEqual(self.value["dynamicLayerCount"], 3)
+        self.assertEqual(
+            self.value["dynamicModelPaths"],
+            [
+                "models/workshop/2727665642/bar.json",
+                "models/workshop/2727665642/bar.json",
+            ],
+        )
 
     def test_value_only_host_allows_read_only_scene_lookup_only(self) -> None:
         self.assertEqual(self.value["hiddenSharedCode"], "exception")

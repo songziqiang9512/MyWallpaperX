@@ -302,7 +302,15 @@ struct SceneAssetCatalogLoader {
             return SceneDocument.ShaderValue(rawValue: string, valueKind: components.count > 1 ? "vector" : "string", userBinding: nil, components: components.isEmpty ? nil : components)
         }
         if let keyed = value as? [String: Any] {
-            let rawValue = (keyed["value"] as? String) ?? "\(keyed)"
+            let rawValue: String
+            if let string = keyed["value"] as? String { rawValue = string }
+            else if let number = keyed["value"] as? Double {
+                rawValue = String(number)
+            } else if let number = keyed["value"] as? Int {
+                rawValue = String(number)
+            } else {
+                rawValue = "\(keyed)"
+            }
             let components = numericComponents(in: rawValue)
             return SceneDocument.ShaderValue(
                 rawValue: rawValue,
@@ -311,10 +319,27 @@ struct SceneAssetCatalogLoader {
                 userValueKind: keyed["user"].flatMap(
                     SceneShaderUserValueKind.init(jsonObject:)
                 ),
-                components: components.isEmpty ? nil : components
+                components: components.isEmpty ? nil : components,
+                scriptSource: keyed["script"] as? String,
+                scriptProperties: scriptProperties(keyed["scriptproperties"]),
+                bindingKeys: SceneAssetCatalog.uniqueSorted(Array(keyed.keys))
             )
         }
         return SceneDocument.ShaderValue(rawValue: "\(value)", valueKind: "unknown", userBinding: nil, components: nil)
+    }
+
+    nonisolated private func scriptProperties(
+        _ value: Any?
+    ) -> [String: SceneJSONValue]? {
+        guard let object = value as? [String: Any] else { return nil }
+        var result: [String: SceneJSONValue] = [:]
+        for (key, value) in object {
+            guard let parsed = SceneJSONValue(jsonObject: value) else {
+                return nil
+            }
+            result[key] = parsed
+        }
+        return result
     }
 
     nonisolated private func numericComponents(in string: String) -> [Double] {

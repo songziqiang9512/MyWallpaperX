@@ -23,6 +23,46 @@ nonisolated extension SceneRenderDescriptor {
 }
 
 nonisolated extension SceneRenderDescriptor.Layer {
+    static func dynamicImage(
+        _ mutation: SceneScriptLayerMutation,
+        template: SceneScriptDynamicImageLayerTemplate
+    ) -> Self? {
+        guard mutation.isDynamic, mutation.kind == .upsert,
+              mutation.assetPath?.caseInsensitiveCompare(template.modelPath)
+                == .orderedSame else { return nil }
+        let origin = [mutation.origin.x, mutation.origin.y, mutation.origin.z]
+            .map(Float.init)
+        let scale = [mutation.scale.x, mutation.scale.y, mutation.scale.z]
+            .map(Float.init)
+        let angles = [mutation.angles.x, mutation.angles.y, mutation.angles.z]
+            .map(Float.init)
+        let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {
+            Float(max(0, min($0, 1)))
+        }
+        return SceneRenderDescriptor.Layer(
+            id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
+            cameraPath: nil, contentKind: "image",
+            imagePath: template.modelPath, particlePath: nil,
+            spotLight: nil, particleInstanceOverride: nil, utilityLayer: nil,
+            dependencyLayerIDs: [], authoredDependencies: [], parentID: nil,
+            childLayerIDs: [], attachmentName: nil,
+            parentAttachmentBindFrame: nil, puppetAnimationLayers: [],
+            visible: mutation.visible, alpha: mutation.alpha,
+            displayScriptOwnership: nil, colorRGB: color,
+            colorBlendMode: nil, brightness: 1, imageAlignment: nil,
+            origin: nil, size: nil, scale: nil, scaleHasScript: false,
+            angles: nil, originXYZ: origin, sizeWH: template.renderSizeWH,
+            scaleXYZ: scale, anglesXYZ: angles, parallaxDepthXY: [0, 0],
+            disablesParallaxPropagation: false, timelines: [],
+            timelineDiagnostics: [], particleTimelines: [],
+            particleTimelineDiagnostics: [], modelCropOffsetXY: nil,
+            puppetMeshPath: nil, text: nil, textStyle: nil, textScript: nil,
+            scriptBindings: nil, textureAnimationScripts: nil,
+            hasInlineScript: false, effects: [], effectFiles: [],
+            texturePaths: []
+        )
+    }
+
     static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
         guard mutation.isDynamic,
               mutation.kind == SceneScriptLayerMutation.Kind.upsert,

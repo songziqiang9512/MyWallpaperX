@@ -42,6 +42,10 @@ extension SceneDocument {
         let timelineDiagnostics: [String]
         /// Property-bound SceneScript source. Execution remains gated by a bounded compiler.
         let scriptSource: String?
+        /// Authored values exported by the constant's `scriptProperties`
+        /// declaration. `nil` preserves omission or a malformed non-object;
+        /// an empty dictionary is an explicitly authored empty object.
+        let scriptProperties: [String: SceneJSONValue]?
         /// Full wrapper shape used to preserve unknown metadata and reject
         /// omitted or additional producer-semantic fields where unmodeled.
         let bindingKeys: [String]
@@ -58,6 +62,7 @@ extension SceneDocument {
             timeline: SceneTimelineAnimation? = nil,
             timelineDiagnostics: [String] = [],
             scriptSource: String? = nil,
+            scriptProperties: [String: SceneJSONValue]? = nil,
             bindingKeys: [String] = []
         ) {
             self.rawValue = rawValue
@@ -68,6 +73,7 @@ extension SceneDocument {
             self.timeline = timeline
             self.timelineDiagnostics = timelineDiagnostics
             self.scriptSource = scriptSource
+            self.scriptProperties = scriptProperties
             self.bindingKeys = bindingKeys
         }
     }

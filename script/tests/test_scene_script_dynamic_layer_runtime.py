@@ -49,6 +49,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let pointSize: Double
     let text: String
     let font: String
+    let assetPath: String?
 }
 
 nonisolated enum SceneDynamicValueType: Sendable { case bool, vector3 }
@@ -56,8 +57,19 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case bool(Bool)
     case vector3(Double, Double, Double)
 }
+nonisolated enum SceneDynamicSource: Sendable { case sceneScript }
+nonisolated struct SceneDynamicResolvedValue: Sendable {
+    let value: SceneDynamicValue
+    let source: SceneDynamicSource
+}
+nonisolated struct SceneDynamicSnapshot: Sendable {
+    let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
+    subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? {
+        values[target]
+    }
+}
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case visibility, origin, scale, angles
+    case visibility, origin, scale, angles, color
 }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
@@ -75,6 +87,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
+        let imagePath: String?
+        var colorRGB: [Float]?
 
         static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
             guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
@@ -83,6 +97,45 @@ nonisolated struct SceneRenderDescriptor: Sendable {
                 visible: mutation.visible,
                 originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil
             )
+        }
+
+        static func dynamicImage(
+            _ mutation: SceneScriptLayerMutation,
+            template: SceneScriptDynamicImageLayerTemplate
+        ) -> Self? {
+            guard mutation.isDynamic, mutation.kind == .upsert,
+                  mutation.assetPath == template.modelPath else { return nil }
+            return .init(
+                id: mutation.layerID,
+                visible: mutation.visible,
+                originXYZ: nil,
+                scaleXYZ: nil,
+                anglesXYZ: nil,
+                imagePath: template.modelPath,
+                colorRGB: [
+                    Float(mutation.color.x),
+                    Float(mutation.color.y),
+                    Float(mutation.color.z),
+                ]
+            )
+        }
+
+        init(
+            id: Int,
+            visible: Bool?,
+            originXYZ: [Float]?,
+            scaleXYZ: [Float]?,
+            anglesXYZ: [Float]?,
+            imagePath: String? = nil,
+            colorRGB: [Float]? = nil
+        ) {
+            self.id = id
+            self.visible = visible
+            self.originXYZ = originXYZ
+            self.scaleXYZ = scaleXYZ
+            self.anglesXYZ = anglesXYZ
+            self.imagePath = imagePath
+            self.colorRGB = colorRGB
         }
     }
 
@@ -99,14 +152,16 @@ func mutation(
     text: String = "text",
     fields: SceneScriptLayerMutation.Fields = [],
     angles: SIMD3<Double> = .zero,
-    visible: Bool = true
+    visible: Bool = true,
+    assetPath: String? = nil
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
         layerID: id, orderIndex: order,
         visible: visible, alpha: alpha, origin: .zero,
         scale: .init(repeating: 1), angles: angles,
-        color: .init(repeating: 1), pointSize: 32, text: text, font: ""
+        color: .init(repeating: 1), pointSize: 32, text: text, font: "",
+        assetPath: assetPath
     )
 }
 
@@ -151,6 +206,30 @@ enum Harness {
         let afterRejected = runtime.snapshot()
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
         let afterDestroy = runtime.snapshot()
+        let colorTarget = SceneDynamicTarget.layer(layerID: 20, field: .color)
+        let imageRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: [],
+            dynamicImageTemplates: [
+                "models/bar.json": .init(
+                    modelPath: "models/bar.json",
+                    renderSizeWH: [4, 4],
+                    materialColorTarget: colorTarget
+                ),
+            ]
+        )
+        let imageCreate = imageRuntime.apply([
+            mutation(-2, order: 1, assetPath: "models/bar.json"),
+        ])
+        let imageSnapshot = imageRuntime.snapshot()
+        let resolvedImage = imageSnapshot.resolvingDynamicMaterialColors(
+            from: .init(values: [
+                colorTarget: .init(
+                    value: .vector3(0.25, 0.5, 0.75),
+                    source: .sceneScript
+                ),
+            ])
+        )
         let payload: [String: Any] = [
             "createSucceeded": succeeded(create),
             "priorSnapshotStable": beforeCreate.dynamicLayers.isEmpty,
@@ -172,6 +251,12 @@ enum Harness {
             "destroySucceeded": succeeded(destroy),
             "destroyedIDs": afterDestroy.dynamicLayers.map(\.id),
             "destroyedOrder": afterDestroy.renderOrderLayerIDs,
+            "dynamicImageSucceeded": succeeded(imageCreate),
+            "dynamicImageColorTarget":
+                imageSnapshot.dynamicMaterialColorTargetsByLayerID[-2]
+                    == colorTarget,
+            "dynamicImageColor": resolvedImage.dynamicLayers.first?
+                .colorRGB?.map(Double.init) ?? [],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -230,6 +315,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["destroySucceeded"])
         self.assertEqual(self.result["destroyedIDs"], [])
         self.assertEqual(self.result["destroyedOrder"], [10, 20])
+
+    def test_dynamic_image_inherits_typed_material_color(self) -> None:
+        self.assertTrue(self.result["dynamicImageSucceeded"])
+        self.assertTrue(self.result["dynamicImageColorTarget"])
+        self.assertEqual(self.result["dynamicImageColor"], [0.25, 0.5, 0.75])
 
 
 if __name__ == "__main__":
