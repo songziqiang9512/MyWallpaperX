@@ -222,9 +222,12 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertIn("shaderContracts: assetCatalog.shaderContracts", source)
         self.assertIn("sceneDocumentLoadErrorDescription", diagnostics)
         self.assertIn(
-            "diagnostics.sceneDocumentLoadErrorDescription",
+            "sourceFacts.sceneDocumentLoadErrorDescription",
             source,
         )
+        self.assertIn("SceneRuntimeSourceFactsBuilder().build(", source)
+        self.assertNotIn("SceneDiagnosticsBuilder", source)
+        self.assertNotIn("let diagnostics: SceneDiagnosticsReport", source)
         self.assertNotIn("SceneInterpretation", source)
         self.assertIn(
             ".effectLocalDirectBoolEffectVisibilityTargets",

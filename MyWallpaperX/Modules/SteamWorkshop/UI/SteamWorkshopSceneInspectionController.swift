@@ -19,7 +19,13 @@ final class SteamWorkshopSceneInspectionController {
 
     private struct Snapshot {
         let identity: Identity
-        let report: SceneDiagnosticsReport
+        let sourceFacts: SceneRuntimeSourceFacts
+        let diagnosticsReport: SceneDiagnosticsReport?
+    }
+
+    private enum InspectionResult {
+        case diagnostics(SceneDiagnosticsReport)
+        case properties(SceneRuntimeSourceFacts)
     }
 
     private struct Request {
@@ -86,6 +92,7 @@ final class SteamWorkshopSceneInspectionController {
         let identity = inspectionIdentity(for: record)
         presentedIdentity = identity
         let currentSnapshot = snapshot.flatMap { $0.identity == identity ? $0 : nil }
+        let currentDiagnosticsReport = currentSnapshot?.diagnosticsReport
         let launchState = SceneDesktopWallpaperHost.shared.launchState.flatMap {
             $0.recordID == record.id ? $0 : nil
         }
@@ -102,7 +109,10 @@ final class SteamWorkshopSceneInspectionController {
         let titleStack = verticalStack(spacing: 4)
         titleStack.addArrangedSubview(sectionTitle("Scene"))
         titleStack.addArrangedSubview(label(
-            statusText(identity: identity, hasCurrentSnapshot: currentSnapshot != nil),
+            statusText(
+                identity: identity,
+                hasCurrentDiagnostics: currentDiagnosticsReport != nil
+            ),
             font: .systemFont(ofSize: 12),
             color: .secondaryLabelColor,
             lines: 0
@@ -128,7 +138,7 @@ final class SteamWorkshopSceneInspectionController {
         let diagnosticsButton = ActionButton(
             title: diagnosticsButtonTitle(
                 identity: identity,
-                hasCurrentSnapshot: currentSnapshot != nil
+                hasCurrentDiagnostics: currentDiagnosticsReport != nil
             )
         ) { [weak self] in
             self?.requestDiagnostics(for: record)
@@ -173,7 +183,7 @@ final class SteamWorkshopSceneInspectionController {
         if diagnosticsExpanded {
             appendExpandedContent(
                 to: root,
-                currentSnapshot: currentSnapshot
+                currentReport: currentDiagnosticsReport
             )
         }
         return root
@@ -191,7 +201,10 @@ final class SteamWorkshopSceneInspectionController {
         let identity = inspectionIdentity(for: record)
         propertyMessage = nil
         if let snapshot, snapshot.identity == identity {
-            presentPropertyEditor(record: record, report: snapshot.report)
+            presentPropertyEditor(
+                record: record,
+                sourceFacts: snapshot.sourceFacts
+            )
             return
         }
         shouldOpenPropertiesAfterPreparation = true
@@ -212,16 +225,25 @@ final class SteamWorkshopSceneInspectionController {
         let rootURL = identity.folderURL
         let propertyOverrides = identity.propertyOverrides
         let workItem = DispatchWorkItem { [weak self] in
-            let report = SceneDiagnosticsBuilder().build(
-                rootURL: rootURL,
-                propertyOverrides: propertyOverrides
-            )
+            let result: InspectionResult
+            switch purpose {
+            case .diagnostics:
+                result = .diagnostics(SceneDiagnosticsBuilder().build(
+                    rootURL: rootURL,
+                    propertyOverrides: propertyOverrides
+                ))
+            case .properties:
+                result = .properties(SceneRuntimeSourceFactsBuilder().build(
+                    rootURL: rootURL,
+                    propertyOverrides: propertyOverrides
+                ))
+            }
             DispatchQueue.main.async { [weak self] in
                 self?.finishInspection(
                     requestID: requestID,
                     identity: identity,
                     record: record,
-                    report: report
+                    result: result
                 )
             }
         }
@@ -239,7 +261,7 @@ final class SteamWorkshopSceneInspectionController {
         requestID: UUID,
         identity: Identity,
         record: SteamWorkshopDownloadRecord,
-        report: SceneDiagnosticsReport
+        result: InspectionResult
     ) {
         guard request?.id == requestID else { return }
         request = nil
@@ -249,19 +271,36 @@ final class SteamWorkshopSceneInspectionController {
             return
         }
 
-        snapshot = Snapshot(identity: identity, report: report)
+        let sourceFacts: SceneRuntimeSourceFacts
+        let diagnosticsReport: SceneDiagnosticsReport?
+        switch result {
+        case let .diagnostics(report):
+            sourceFacts = report.sourceFacts
+            diagnosticsReport = report
+        case let .properties(facts):
+            sourceFacts = facts
+            diagnosticsReport = nil
+        }
+        snapshot = Snapshot(
+            identity: identity,
+            sourceFacts: sourceFacts,
+            diagnosticsReport: diagnosticsReport
+        )
         if shouldOpenPropertiesAfterPreparation {
             shouldOpenPropertiesAfterPreparation = false
-            presentPropertyEditor(record: record, report: report)
+            presentPropertyEditor(record: record, sourceFacts: sourceFacts)
         }
         onStateChange()
     }
 
     private func presentPropertyEditor(
         record: SteamWorkshopDownloadRecord,
-        report: SceneDiagnosticsReport
+        sourceFacts: SceneRuntimeSourceFacts
     ) {
-        guard let context = service.scenePropertyContext(for: record, report: report) else {
+        guard let context = service.scenePropertyContext(
+            for: record,
+            sourceFacts: sourceFacts
+        ) else {
             propertyMessage = "当前 Scene 没有可调节的受支持属性，或属性模型尚未解析成功。"
             onStateChange()
             return
@@ -278,42 +317,46 @@ final class SteamWorkshopSceneInspectionController {
         )
     }
 
-    private func statusText(identity: Identity, hasCurrentSnapshot: Bool) -> String {
+    private func statusText(
+        identity: Identity,
+        hasCurrentDiagnostics: Bool
+    ) -> String {
         if let request, request.identity == identity {
             return request.purpose == .diagnostics
                 ? "正在后台生成诊断；详情面板仍可继续使用"
                 : "正在后台准备属性；不会阻塞详情面板"
         }
-        if diagnosticsRequested, hasCurrentSnapshot {
+        if diagnosticsRequested, hasCurrentDiagnostics {
             return diagnosticsExpanded
                 ? "已展开当前 Scene 的诊断结果"
                 : "诊断已完成，按需展开查看"
         }
-        if diagnosticsRequested, snapshot != nil {
+        if diagnosticsRequested, snapshot?.diagnosticsReport != nil {
             return "Scene 内容或属性已变化，上次诊断结果已过期"
         }
-        return hasCurrentSnapshot
-            ? "诊断默认关闭；已有可复用的 Scene 解析结果"
-            : "诊断默认关闭，只有主动点击后才开始"
+        return "诊断默认关闭，只有主动点击后才开始"
     }
 
     private func diagnosticsButtonTitle(
         identity: Identity,
-        hasCurrentSnapshot: Bool
+        hasCurrentDiagnostics: Bool
     ) -> String {
         if let request, request.identity == identity {
             return request.purpose == .diagnostics ? "诊断中…" : "准备中…"
         }
-        return hasCurrentSnapshot && diagnosticsRequested ? "重新诊断" : "开始诊断"
+        return hasCurrentDiagnostics && diagnosticsRequested
+            ? "重新诊断" : "开始诊断"
     }
 
     private func appendExpandedContent(
         to stack: NSStackView,
-        currentSnapshot: Snapshot?
+        currentReport: SceneDiagnosticsReport?
     ) {
-        if diagnosticsRequested, let currentSnapshot {
-            appendReport(currentSnapshot.report, to: stack)
-        } else if diagnosticsRequested, snapshot != nil, currentSnapshot == nil {
+        if diagnosticsRequested, let currentReport {
+            appendReport(currentReport, to: stack)
+        } else if diagnosticsRequested,
+                  snapshot?.diagnosticsReport != nil,
+                  currentReport == nil {
             stack.addArrangedSubview(notice(
                 icon: "exclamationmark.arrow.triangle.2.circlepath",
                 text: "Scene 内容或属性已经变化，上次诊断结果已过期。"

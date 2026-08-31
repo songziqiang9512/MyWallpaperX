@@ -86,6 +86,14 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         self.assertIn("startInspection(for: record, purpose: .diagnostics)", diagnostics)
         self.assertIn("startInspection(for: record, purpose: .properties)", properties)
         self.assertEqual(self.controller.count("SceneDiagnosticsBuilder().build("), 1)
+        start = function_body(self.controller, "private func startInspection(")
+        diagnostics_branch = start[
+            start.index("case .diagnostics:") : start.index("case .properties:")
+        ]
+        properties_branch = start[start.index("case .properties:") :]
+        self.assertIn("SceneDiagnosticsBuilder().build(", diagnostics_branch)
+        self.assertNotIn("SceneDiagnosticsBuilder", properties_branch)
+        self.assertIn("SceneRuntimeSourceFactsBuilder().build(", properties_branch)
 
     def test_inspection_runs_off_main_and_rejects_stale_completion(self) -> None:
         start = function_body(self.controller, "private func startInspection(")

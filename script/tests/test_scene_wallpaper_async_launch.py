@@ -108,6 +108,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         prepare = function_body(self.launch, "private static func prepareLaunch(")
         self.assertIn(".preparingModel", prepare)
         self.assertIn("SceneRuntimeModelBuilder().build", prepare)
+        self.assertNotIn("SceneDiagnosticsBuilder", prepare)
+        self.assertNotIn("model.diagnostics", prepare)
         self.assertIn(".preparingPrograms", prepare)
         self.assertIn(".preparingResources", prepare)
         self.assertNotIn("percent", prepare.lower())

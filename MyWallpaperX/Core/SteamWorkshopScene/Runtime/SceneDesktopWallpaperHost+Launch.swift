@@ -294,18 +294,17 @@ extension SceneDesktopWallpaperHost {
         )
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
-        guard let cacheDirectory = model.diagnostics.packageReport?.outputURL else {
+        guard let cacheDirectory = model.packageReport?.outputURL else {
             throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
         }
         let runtimeInput = model.runtimeInput
-        let authoredRenderDescriptor = model.diagnostics.renderDescriptor
-            ?? runtimeInput.renderDescriptor
+        let authoredRenderDescriptor = model.authoredRenderDescriptor
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
         let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
             descriptor: runtimeInput.renderDescriptor,
-            resourceView: model.diagnostics.resourceView,
+            resourceView: model.resourceView,
             device: device,
             cancellationCheck: { try cancellation?.check() }
         )
@@ -482,7 +481,7 @@ extension SceneDesktopWallpaperHost {
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands,
-            resourceView: model.diagnostics.resourceView,
+            resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             device: device
         )
@@ -632,7 +631,7 @@ extension SceneDesktopWallpaperHost {
             )
         let soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
             document: model.sceneDocument,
-            resourceView: model.diagnostics.resourceView
+            resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
         try cancellation?.check()
@@ -679,7 +678,7 @@ extension SceneDesktopWallpaperHost {
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,
-            resourceView: model.diagnostics.resourceView,
+            resourceView: model.resourceView,
             logURL: logURL,
             recordID: recordID
         )

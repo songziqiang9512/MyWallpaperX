@@ -90,12 +90,12 @@ extension SteamWorkshopService {
 
     func scenePropertyContext(
         for record: SteamWorkshopDownloadRecord,
-        report: SceneDiagnosticsReport
+        sourceFacts: SceneRuntimeSourceFacts
     ) -> SteamWorkshopScenePropertyContext? {
         guard record.contentType == .scene,
-              let project = report.project,
-              let document = report.sceneDocument,
-              let renderDescriptor = report.renderDescriptor else {
+              let project = sourceFacts.project,
+              let document = sourceFacts.sceneDocument,
+              let renderDescriptor = sourceFacts.renderDescriptor else {
             return nil
         }
         let actionableKeys = Set(

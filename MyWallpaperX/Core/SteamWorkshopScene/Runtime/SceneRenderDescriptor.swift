@@ -196,24 +196,6 @@ struct SceneRenderDescriptorBuilder {
         return attachmentsByModelPath[modelPath]?[attachmentName]
     }
 
-    nonisolated func build(report: SceneDiagnosticsReport) -> SceneRenderDescriptor? {
-        guard let project = report.project,
-              let sceneDocument = report.sceneDocument,
-              let assetCatalog = report.assetCatalog,
-              let resourceReferences = report.resourceReferences,
-              let capabilityProfile = report.capabilityProfile else {
-            return nil
-        }
-
-        return build(
-            project: project,
-            sceneDocument: sceneDocument,
-            assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            capabilityProfile: capabilityProfile
-        )
-    }
-
     nonisolated private func materialPassDescriptors(from catalog: SceneAssetCatalog) -> [SceneRenderDescriptor.MaterialPassDescriptor] {
         catalog.materials.flatMap { material in
             material.passes.enumerated().map { index, pass in

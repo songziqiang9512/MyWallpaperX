@@ -13,17 +13,27 @@ struct SceneDiagnosticsReport {
         let message: String
     }
 
-    let project: SceneProject?
-    let sceneDocument: SceneDocument?
-    let assetCatalog: SceneAssetCatalog?
-    let resourceReferences: SceneResourceReferenceIndex?
-    let resourceIndex: SceneResourceIndex
-    let packageReport: ScenePkgExtractionReport?
-    let resourceView: SceneResourceView
+    let sourceFacts: SceneRuntimeSourceFacts
     let issues: [Issue]
-    let sceneDocumentLoadErrorDescription: String?
-    let capabilityProfile: SceneCapabilityProfile?
-    let renderDescriptor: SceneRenderDescriptor?
+
+    var project: SceneProject? { sourceFacts.project }
+    var sceneDocument: SceneDocument? { sourceFacts.sceneDocument }
+    var assetCatalog: SceneAssetCatalog? { sourceFacts.assetCatalog }
+    var resourceReferences: SceneResourceReferenceIndex? {
+        sourceFacts.resourceReferences
+    }
+    var resourceIndex: SceneResourceIndex { sourceFacts.resourceIndex }
+    var packageReport: ScenePkgExtractionReport? { sourceFacts.packageReport }
+    var resourceView: SceneResourceView { sourceFacts.resourceView }
+    var sceneDocumentLoadErrorDescription: String? {
+        sourceFacts.sceneDocumentLoadErrorDescription
+    }
+    var capabilityProfile: SceneCapabilityProfile? {
+        sourceFacts.capabilityProfile
+    }
+    var renderDescriptor: SceneRenderDescriptor? {
+        sourceFacts.renderDescriptor
+    }
 
     var isLaunchableInCurrentBuild: Bool {
         false
@@ -35,67 +45,25 @@ struct SceneDiagnosticsBuilder {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:]
     ) -> SceneDiagnosticsReport {
-        let project = try? SceneProjectLoader().load(from: rootURL)
-        let resourceIndex = SceneResourceIndexBuilder().build(rootURL: rootURL)
-        let packageReport: ScenePkgExtractionReport? = {
-            guard let packageURL = project?.packageURL else { return nil }
-            return try? ScenePkgExtractor(toolURL: nil).extract(
-                packageURL: packageURL,
-                outputURL: rootURL.appendingPathComponent(".scene-extracted", isDirectory: true)
-            )
-        }()
-        let resourceView = SceneResourceView(
-            projectRootURL: rootURL,
-            packageRootURL: packageReport?.outputURL
-        )
-        var sceneDocumentLoadError: Error?
-        let sceneDocument = project.flatMap { project -> SceneDocument? in
-            do {
-                return try SceneDocumentLoader().load(
-                    project: project,
-                    packageReport: packageReport,
-                    propertyOverrides: propertyOverrides
-                )
-            } catch {
-                sceneDocumentLoadError = error
-                return nil
-            }
-        }
-        let assetCatalog = project.flatMap { project in
-            try? SceneAssetCatalogLoader().load(
-                resourceView: resourceView,
-                referencedResourcePaths: sceneDocument?.referencedResourcePaths ?? []
-            )
-        }
-        let resourceReferences = sceneDocument.map {
-            SceneResourceReferenceIndexBuilder().build(
-                document: $0,
-                resourceView: resourceView
-            )
-        }
-        let capabilityProfile = SceneCapabilityProfileBuilder().build(
-            project: project,
-            sceneDocument: sceneDocument,
-            assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            resourceIndex: resourceIndex
-        )
-        let renderDescriptor: SceneRenderDescriptor? = {
-            guard let project,
-                  let sceneDocument,
-                  let assetCatalog,
-                  let resourceReferences else {
-                return nil
-            }
+        build(sourceFacts: SceneRuntimeSourceFactsBuilder().build(
+            rootURL: rootURL,
+            propertyOverrides: propertyOverrides
+        ))
+    }
 
-            return SceneRenderDescriptorBuilder().build(
-                project: project,
-                sceneDocument: sceneDocument,
-                assetCatalog: assetCatalog,
-                resourceReferences: resourceReferences,
-                capabilityProfile: capabilityProfile
-            )
-        }()
+    func build(
+        sourceFacts: SceneRuntimeSourceFacts
+    ) -> SceneDiagnosticsReport {
+        let project = sourceFacts.project
+        let resourceIndex = sourceFacts.resourceIndex
+        let packageReport = sourceFacts.packageReport
+        let sceneDocument = sourceFacts.sceneDocument
+        let assetCatalog = sourceFacts.assetCatalog
+        let resourceReferences = sourceFacts.resourceReferences
+        let capabilityProfile = sourceFacts.capabilityProfile
+        let renderDescriptor = sourceFacts.renderDescriptor
+        let sceneDocumentLoadErrorDescription =
+            sourceFacts.sceneDocumentLoadErrorDescription
         var issues: [SceneDiagnosticsReport.Issue] = []
 
         if project == nil {
@@ -133,7 +101,7 @@ struct SceneDiagnosticsBuilder {
         } else if project != nil {
             issues.append(.init(
                 severity: .blocking,
-                message: sceneDocumentLoadError?.localizedDescription
+                message: sceneDocumentLoadErrorDescription
                     ?? "scene.json 尚未解析成功。"
             ))
         }
@@ -177,17 +145,8 @@ struct SceneDiagnosticsBuilder {
         }
 
         return SceneDiagnosticsReport(
-            project: project,
-            sceneDocument: sceneDocument,
-            assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            resourceIndex: resourceIndex,
-            packageReport: packageReport,
-            resourceView: resourceView,
-            issues: issues,
-            sceneDocumentLoadErrorDescription: sceneDocumentLoadError?.localizedDescription,
-            capabilityProfile: capabilityProfile,
-            renderDescriptor: renderDescriptor
+            sourceFacts: sourceFacts,
+            issues: issues
         )
     }
 }

@@ -6,13 +6,15 @@ struct SceneRuntimeModel {
     let assetCatalog: SceneAssetCatalog
     let resourceReferences: SceneResourceReferenceIndex
     let resourceIndex: SceneResourceIndex
+    let packageReport: ScenePkgExtractionReport?
+    let resourceView: SceneResourceView
     let capabilityProfile: SceneCapabilityProfile
+    let authoredRenderDescriptor: SceneRenderDescriptor
     let renderDescriptor: SceneRenderDescriptor
     let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
     let propertyVectorProjection: SceneScriptVectorCandidateCatalog
     let authoredEffectRenderPlans: [SceneAuthoredEffectRenderPlan]
     let runtimeInput: SceneRuntimeInput
-    let diagnostics: SceneDiagnosticsReport
 
     /// Compatibility inputs remain two independent provenance-bearing facts.
     /// No unverified rule is applied merely by exposing this context.
@@ -65,32 +67,26 @@ struct SceneRuntimeModelBuilder {
         rootURL: URL,
         propertyOverrides: [String: SceneUserPropertyValue] = [:]
     ) throws -> SceneRuntimeModel {
-        let diagnostics = SceneDiagnosticsBuilder().build(
+        let sourceFacts = SceneRuntimeSourceFactsBuilder().build(
             rootURL: rootURL,
             propertyOverrides: propertyOverrides
         )
-        guard let project = diagnostics.project else {
+        guard let project = sourceFacts.project else {
             throw BuildError.missingProject
         }
-        guard let sceneDocument = diagnostics.sceneDocument else {
+        guard let sceneDocument = sourceFacts.sceneDocument else {
             throw BuildError.missingSceneDocument(
-                diagnostics.sceneDocumentLoadErrorDescription
+                sourceFacts.sceneDocumentLoadErrorDescription
             )
         }
-        guard let assetCatalog = diagnostics.assetCatalog else {
+        guard let assetCatalog = sourceFacts.assetCatalog else {
             throw BuildError.missingAssetCatalog
         }
-        guard let resourceReferences = diagnostics.resourceReferences else {
+        guard let resourceReferences = sourceFacts.resourceReferences else {
             throw BuildError.missingResourceReferences
         }
-        let capabilityProfile = SceneCapabilityProfileBuilder().build(
-            project: project,
-            sceneDocument: sceneDocument,
-            assetCatalog: assetCatalog,
-            resourceReferences: resourceReferences,
-            resourceIndex: diagnostics.resourceIndex
-        )
-        guard let renderDescriptor = diagnostics.renderDescriptor else {
+        let capabilityProfile = sourceFacts.capabilityProfile
+        guard let renderDescriptor = sourceFacts.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
         let compilation = ScenePropertyBindingCompiler().compile(
@@ -185,14 +181,16 @@ struct SceneRuntimeModelBuilder {
             sceneDocument: sceneDocument,
             assetCatalog: assetCatalog,
             resourceReferences: resourceReferences,
-            resourceIndex: diagnostics.resourceIndex,
+            resourceIndex: sourceFacts.resourceIndex,
+            packageReport: sourceFacts.packageReport,
+            resourceView: sourceFacts.resourceView,
             capabilityProfile: capabilityProfile,
+            authoredRenderDescriptor: renderDescriptor,
             renderDescriptor: runtimeInput.renderDescriptor,
             sharedLayerAlphaProgram: sharedLayerAlphaProgram,
             propertyVectorProjection: propertyVectorProjection,
             authoredEffectRenderPlans: runtimeInput.authoredEffectRenderPlans,
-            runtimeInput: runtimeInput,
-            diagnostics: diagnostics
+            runtimeInput: runtimeInput
         )
     }
 }

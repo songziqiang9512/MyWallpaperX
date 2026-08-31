@@ -472,8 +472,12 @@
     },
     {
       "id": "scene-workshop-bridge",
-      "patterns": ["MyWallpaperX/Modules/SteamWorkshop/Scene/**"],
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/**",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift"
+      ],
       "modules": [
+        "test_scene_detail_diagnostics_on_demand",
         "test_scene_property_live_routing",
         "test_scene_property_live_update_state",
         "test_scene_runtime_input"
