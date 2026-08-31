@@ -62,8 +62,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let resolvedMaterialExecutionCapabilities:
         SceneResolvedMaterialExecutionCapabilityCatalog
     let materialAssetCatalog: SceneMaterialAssetTextureCatalog
-    let pipelineRepository: SceneImageEffectPipelineRepository
-    let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
+    let preparedDeviceResources: ScenePreparedDeviceResources
     let timelineProgram: SceneTimelineProgram
     let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
     let textScriptProgram: SceneTextScriptProgram
@@ -93,7 +92,7 @@ struct SceneDesktopWallpaperLaunchContext {
             catalog: resolvedMaterialCatalog,
             capabilities: resolvedMaterialExecutionCapabilities,
             assets: materialAssetCatalog,
-            device: pipelineRepository.device
+            device: preparedDeviceResources.device
         )
     }
 
@@ -104,6 +103,7 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case missingPackageCache
     case conflictingBoundedSceneScriptTargets(String)
     case invalidBoundedSceneScriptProgramAt(String)
+    case requiredImagePipelineUnavailable
     case noSurface
 
     var errorDescription: String? {
@@ -116,6 +116,8 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
             "Scene 有界脚本目标存在冲突，已停止启动。\(details)"
         case .invalidBoundedSceneScriptProgramAt(let phase):
             "Scene 有界脚本目标在 \(phase) 无法形成，已停止启动。"
+        case .requiredImagePipelineUnavailable:
+            "Scene 必需的图像合成 pipeline 无法形成，已保留当前壁纸。"
         case .noSurface:
             "Scene 宿主未能创建可播放表面。"
         }
@@ -298,6 +300,20 @@ extension SceneDesktopWallpaperHost {
         let runtimeInput = model.runtimeInput
         let authoredRenderDescriptor = model.diagnostics.renderDescriptor
             ?? runtimeInput.renderDescriptor
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw SceneDesktopWallpaperHostLaunchError.noSurface
+        }
+        let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
+            descriptor: runtimeInput.renderDescriptor,
+            resourceView: model.diagnostics.resourceView,
+            device: device,
+            cancellationCheck: { try cancellation?.check() }
+        )
+        deviceResourcesPreparation.start()
+        defer {
+            deviceResourcesPreparation.cancel()
+            _ = try? deviceResourcesPreparation.value()
+        }
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
@@ -462,9 +478,6 @@ extension SceneDesktopWallpaperHost {
             timelineDefinitions: timelineDefinitions,
             provenSceneScriptValueTargets: provisionalSceneScriptValueTargets
         )
-        guard let device = MTLCreateSystemDefaultDevice() else {
-            throw SceneDesktopWallpaperHostLaunchError.noSurface
-        }
         try cancellation?.check()
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
@@ -621,6 +634,8 @@ extension SceneDesktopWallpaperHost {
             document: model.sceneDocument,
             resourceView: model.diagnostics.resourceView
         )
+        let preparedDeviceResources = try deviceResourcesPreparation.value()
+        try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
             effectAdmissionCatalog: effectAdmissionCatalog,
@@ -628,8 +643,7 @@ extension SceneDesktopWallpaperHost {
             resolvedMaterialExecutionCapabilities:
                 resolvedMaterialExecutionCapabilities,
             materialAssetCatalog: materialAssetCatalog,
-            pipelineRepository: SceneImageEffectPipelineRepository(device: device),
-            spriteTextureLoader: SceneMultiImageSpriteTextureLoader(),
+            preparedDeviceResources: preparedDeviceResources,
             timelineProgram: timelineProgram,
             timelinePlaybackRuntime: SceneTimelinePlaybackRuntime(
                 program: timelineProgram

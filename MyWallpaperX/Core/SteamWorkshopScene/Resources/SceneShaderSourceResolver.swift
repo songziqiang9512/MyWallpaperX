@@ -76,11 +76,7 @@ nonisolated struct SceneShaderSourceResolver {
         }
         let indexedResource = resourceView.resource(relativePath: virtualPath)
         let indexedRoot = indexedResource.flatMap { selected in
-            resourceView.roots.firstIndex { root in
-                root.index.resources.contains {
-                    $0.url.standardizedFileURL == selected.url.standardizedFileURL
-                }
-            }
+            resourceView.rootIndex(containing: selected.url)
         }
         let selected = indexedRoot.map { candidates[$0].resolution }
             ?? candidates.first { !isMissing($0.resolution) }?.resolution
@@ -93,9 +89,7 @@ nonisolated struct SceneShaderSourceResolver {
         root: SceneResourceView.Root,
         maximumBytes: Int
     ) -> Resolution {
-        let indexed = root.index.resources.first {
-            Self.identity($0.relativePath) == Self.identity(virtualPath)
-        }
+        let indexed = root.resource(relativePath: virtualPath)
         let candidate = indexed?.url.standardizedFileURL
             ?? root.url.appendingPathComponent(virtualPath).standardizedFileURL
         guard indexed != nil || FileManager.default.fileExists(atPath: candidate.path) else {

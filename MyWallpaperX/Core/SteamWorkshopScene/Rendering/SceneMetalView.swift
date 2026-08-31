@@ -26,7 +26,9 @@ class SceneMetalView: NSView {
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
-        pipelineRepository: SceneImageEffectPipelineRepository, resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
+        pipelineRepository: SceneImageEffectPipelineRepository,
+        imageLayerPipeline: SceneImageLayerPipeline,
+        resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
         frame: NSRect
     ) {
@@ -73,7 +75,7 @@ class SceneMetalView: NSView {
         super.init(frame: frame)
         self.layer = layer
         self.wantsLayer = true
-        self.imagePipeline = SceneImageLayerPipeline(device: metalDevice)
+        self.imagePipeline = imageLayerPipeline
     }
     @available(*, unavailable)
     required init?(coder: NSCoder) { nil }
@@ -81,11 +83,12 @@ class SceneMetalView: NSView {
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
+        preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
         logURL: URL? = nil
     ) {
-        let loader = SceneTextureLoader()
+        let loader = preparedBaseImages.textureLoader
         let resolver = SceneTexturePathResolver(
             resourceView: resourceView,
             descriptor: renderer.renderDescriptor
@@ -96,11 +99,13 @@ class SceneMetalView: NSView {
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var puppetRecomposeBytes = 0
+        var preparedBaseImageHitCount = 0
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
         report.append("cacheDirectory: \(cacheDirectory.path)")
         report.append(contentsOf: userPropertyTextureLoad.reportLines)
+        report.append(preparedBaseImages.reportLine)
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
@@ -147,13 +152,22 @@ class SceneMetalView: NSView {
                 report.append(message)
                 continue
             }
-            switch SceneBaseImageTextureLoad.load(
+            let preparedBaseImage = preparedBaseImages.outcome(
+                for: layer.id,
+                url: url,
+                device: metalDevice
+            )
+            let baseImage = preparedBaseImage ?? SceneBaseImageTextureLoad.load(
                 from: url,
                 usesPuppet: layer.puppetMeshPath != nil,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
                 device: metalDevice
-            ) {
+            )
+            if preparedBaseImage != nil {
+                preparedBaseImageHitCount += 1
+            }
+            switch baseImage {
             case .loaded(let baseLoad):
                 let texture = baseLoad.texture
                 var effectiveTexture = texture
@@ -185,6 +199,9 @@ class SceneMetalView: NSView {
                 )
                 var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(resourceView.displayPath(for: url))]"
                 message += baseLoad.message
+                if preparedBaseImage != nil {
+                    message += "; launch-prepared-static-base"
+                }
                 message += puppetMessage
                 if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
@@ -196,12 +213,16 @@ class SceneMetalView: NSView {
                 message += "; \(placementSummary)"
                 report.append(message)
             case .failed(let failure):
-                report.append(SceneBaseImageTextureLoad.failureReportLine(
+                var message = SceneBaseImageTextureLoad.failureReportLine(
                     failure,
                     layer: .init(id: layer.id, name: name),
                     url: url,
                     placementSummary: placementSummary
-                ))
+                )
+                if preparedBaseImage != nil {
+                    message += "; launch-prepared-static-base"
+                }
+                report.append(message)
             }
         }
         imageTextures = loaded
@@ -238,6 +259,9 @@ class SceneMetalView: NSView {
             report.append("particle runtime: pipeline unavailable")
         }
         report.append("")
+        report.append(
+            "prepared static base resource usage: hits=\(preparedBaseImageHitCount)"
+        )
         let loadedLayerCount = Set(loaded.textures.keys).union(loadedVideoSources.keys).count
         report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
         if let logURL {

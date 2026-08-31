@@ -33,6 +33,14 @@ INSPECTION = (
     / "UI"
     / "SteamWorkshopSceneInspectionController.swift"
 )
+SPOT_LIGHT_RUNTIME = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Rendering"
+    / "SceneSpotLightRuntime.swift"
+)
 
 
 def function_body(source: str, signature: str) -> str:
@@ -57,6 +65,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.coordinator = COORDINATOR.read_text(encoding="utf-8")
         cls.debug_runner = DEBUG_RUNNER.read_text(encoding="utf-8")
         cls.inspection = INSPECTION.read_text(encoding="utf-8")
+        cls.spot_light_runtime = SPOT_LIGHT_RUNTIME.read_text(encoding="utf-8")
 
     def test_product_request_uses_background_preparation_entrypoint(self) -> None:
         observer = function_body(
@@ -102,6 +111,41 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn(".preparingPrograms", prepare)
         self.assertIn(".preparingResources", prepare)
         self.assertNotIn("percent", prepare.lower())
+
+    def test_device_resources_prepare_before_surface_activation(self) -> None:
+        prepare = function_body(self.launch, "private static func prepareLaunch(")
+        host_rebuild = function_body(self.host, "private func rebuildSurfaces(")
+        self.assertIn("ScenePreparedDeviceResourcesTask(", prepare)
+        self.assertIn("deviceResourcesPreparation.start()", prepare)
+        self.assertIn("deviceResourcesPreparation.value()", prepare)
+        self.assertIn("preparedDeviceResources: preparedDeviceResources", prepare)
+        self.assertLess(
+            prepare.index("deviceResourcesPreparation.start()"),
+            prepare.index("SceneTimelineTargetCompiler.compile("),
+        )
+        self.assertNotIn("SceneImageLayerPipeline(device:", host_rebuild)
+        self.assertEqual(
+            host_rebuild.count(
+                "launchContext.preparedDeviceResources.imageLayerPipeline"
+            ),
+            1,
+        )
+        self.assertEqual(
+            host_rebuild.count(
+                "launchContext.preparedDeviceResources.baseImages"
+            ),
+            2,
+        )
+
+    def test_optional_spot_light_pipeline_is_not_built_without_authored_plans(self) -> None:
+        self.assertIn(
+            "pipeline: @autoclosure () -> SceneSpotLightPipeline?",
+            self.spot_light_runtime,
+        )
+        self.assertIn(
+            "self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()",
+            self.spot_light_runtime,
+        )
 
     def test_existing_output_is_not_switched_before_preparation_succeeds(self) -> None:
         request = function_body(self.launch, "func requestLaunch(")

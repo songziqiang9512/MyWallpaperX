@@ -40,6 +40,10 @@ HOST_LAUNCH_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
 )
+PREPARED_DEVICE_RESOURCES_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePreparedDeviceResources.swift"
+)
 EFFECT_HANDLE_BRIDGE_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
@@ -812,6 +816,9 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_launch_owns_and_reuses_the_lazy_effect_pipeline_repository(self) -> None:
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
+        prepared_resources = PREPARED_DEVICE_RESOURCES_SOURCE.read_text(
+            encoding="utf-8"
+        )
         host = HOST_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
@@ -819,15 +826,18 @@ class SceneFrameContextTests(unittest.TestCase):
         repository = PIPELINE_REPOSITORY_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn(
-            "let pipelineRepository: SceneImageEffectPipelineRepository", launch
+            "let preparedDeviceResources: ScenePreparedDeviceResources", launch
         )
         self.assertIn(
-            "pipelineRepository: SceneImageEffectPipelineRepository(device: device)",
-            launch,
+            "let pipelineRepository = SceneImageEffectPipelineRepository(",
+            prepared_resources,
+        )
+        self.assertIn(
+            "preparedDeviceResources: preparedDeviceResources", launch
         )
         rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
         self.assertIn(
-            "pipelineRepository: launchContext.pipelineRepository", rebuild
+            "launchContext.preparedDeviceResources.pipelineRepository", rebuild
         )
         self.assertIn(
             "pipelineRepository: SceneImageEffectPipelineRepository", view

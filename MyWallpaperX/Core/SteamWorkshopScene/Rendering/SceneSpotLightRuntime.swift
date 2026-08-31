@@ -27,14 +27,14 @@ final class SceneSpotLightRuntime {
 
     init(
         descriptor: SceneRenderDescriptor,
-        pipeline: SceneSpotLightPipeline?
+        pipeline: @autoclosure () -> SceneSpotLightPipeline?
     ) {
         plansByLayerID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.compactMap { layer in
                 SceneSpotLightPlan(layer: layer).map { (layer.id, $0) }
             }
         )
-        self.pipeline = pipeline
+        self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()
     }
 
     func render(

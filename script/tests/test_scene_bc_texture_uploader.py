@@ -795,14 +795,14 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         view = METAL_VIEW_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "let spriteTextureLoader: SceneMultiImageSpriteTextureLoader",
+            "let preparedDeviceResources: ScenePreparedDeviceResources",
             launch,
         )
         rebuild = host.split("private func rebuildSurfaces(", maxsplit=1)[1]
         rebuild = rebuild.split("private func teardownSurfaces", maxsplit=1)[0]
         self.assertEqual(
             rebuild.count(
-                "spriteTextureLoader: launchContext.spriteTextureLoader"
+                "launchContext.preparedDeviceResources.spriteTextureLoader"
             ),
             2,
         )

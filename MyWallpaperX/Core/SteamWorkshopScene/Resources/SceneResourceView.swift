@@ -13,6 +13,25 @@ struct SceneResourceView {
         let source: Source
         let url: URL
         let index: SceneResourceIndex
+        private let resourcesByIdentity: [String: SceneResourceIndex.Resource]
+
+        nonisolated init(source: Source, url: URL, index: SceneResourceIndex) {
+            self.source = source
+            self.url = url
+            self.index = index
+            var resourcesByIdentity: [String: SceneResourceIndex.Resource] = [:]
+            for resource in index.resources {
+                let identity = SceneResourceView.identity(resource.relativePath)
+                if resourcesByIdentity[identity] == nil {
+                    resourcesByIdentity[identity] = resource
+                }
+            }
+            self.resourcesByIdentity = resourcesByIdentity
+        }
+
+        nonisolated func resource(relativePath: String) -> SceneResourceIndex.Resource? {
+            resourcesByIdentity[SceneResourceView.identity(relativePath)]
+        }
     }
 
     let roots: [Root]
@@ -66,17 +85,14 @@ struct SceneResourceView {
     nonisolated func resource(relativePath rawPath: String) -> SceneResourceIndex.Resource? {
         guard let normalized = Self.normalizedRelativePath(rawPath) else { return nil }
         for root in roots {
-            if let resource = root.index.resources.first(where: {
-                Self.identity($0.relativePath) == Self.identity(normalized)
-            }) {
+            if let resource = root.resource(relativePath: normalized) {
                 return resource
             }
             if root.source == .stock,
                normalized.localizedLowercase.hasPrefix("assets/"),
-               let resource = root.index.resources.first(where: {
-                   Self.identity($0.relativePath)
-                       == Self.identity(String(normalized.dropFirst("assets/".count)))
-               }) {
+               let resource = root.resource(
+                   relativePath: String(normalized.dropFirst("assets/".count))
+               ) {
                 return resource
             }
         }
@@ -99,6 +115,14 @@ struct SceneResourceView {
 
     nonisolated func source(containing resourceURL: URL) -> Source? {
         root(containing: resourceURL)?.source
+    }
+
+    nonisolated func rootIndex(containing resourceURL: URL) -> Int? {
+        let candidate = resourceURL.standardizedFileURL.path
+        return roots.firstIndex { root in
+            let rootPath = root.url.path
+            return candidate == rootPath || candidate.hasPrefix(rootPath + "/")
+        }
     }
 
     nonisolated private func root(containing resourceURL: URL) -> Root? {

@@ -68,6 +68,9 @@ enum Harness {
             "exactRelative": resolver.resolveTextureFile(
                 named: "materials/exact.tex"
             )?.path ?? "missing",
+            "caseInsensitive": view.resource(
+                relativePath: "MATERIALS/EXACT.TEX"
+            )?.url.path ?? "missing",
             "exactStock": resolver.resolveTextureFile(
                 named: "materials/exact-stock.tex"
             )?.path ?? "missing",
@@ -185,6 +188,10 @@ class SceneResourceViewTests(unittest.TestCase):
     def test_exact_relative_texture_paths_use_the_shared_resource_namespace(self) -> None:
         self.assertEqual(
             self.result["exactRelative"],
+            str((self.loose / "materials/exact.tex").resolve()),
+        )
+        self.assertEqual(
+            self.result["caseInsensitive"],
             str((self.loose / "materials/exact.tex").resolve()),
         )
         self.assertEqual(

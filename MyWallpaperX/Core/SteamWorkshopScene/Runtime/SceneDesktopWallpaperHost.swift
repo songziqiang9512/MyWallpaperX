@@ -365,7 +365,10 @@ final class SceneDesktopWallpaperHost {
                 effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
                 baseMaterialProviderBindings:
                     launchContext.baseMaterialProviderBindings,
-                pipelineRepository: launchContext.pipelineRepository,
+                pipelineRepository:
+                    launchContext.preparedDeviceResources.pipelineRepository,
+                imageLayerPipeline:
+                    launchContext.preparedDeviceResources.imageLayerPipeline,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
                 frame: frame
@@ -377,7 +380,10 @@ final class SceneDesktopWallpaperHost {
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
-                    spriteTextureLoader: launchContext.spriteTextureLoader,
+                    preparedBaseImages:
+                        launchContext.preparedDeviceResources.baseImages,
+                    spriteTextureLoader:
+                        launchContext.preparedDeviceResources.spriteTextureLoader,
                     initialDynamicValues: initialParticleDynamicValues
                 )
             } else {
@@ -385,7 +391,10 @@ final class SceneDesktopWallpaperHost {
                     from: launchContext.cacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
-                    spriteTextureLoader: launchContext.spriteTextureLoader,
+                    preparedBaseImages:
+                        launchContext.preparedDeviceResources.baseImages,
+                    spriteTextureLoader:
+                        launchContext.preparedDeviceResources.spriteTextureLoader,
                     initialDynamicValues: initialParticleDynamicValues,
                     logURL: launchContext.logURL
                 )

@@ -40,6 +40,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
     SCENE_ROOT / "Rendering/SceneBaseImageTextureCandidateSupport.swift",
     SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift",
+    SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad+Ordinary.swift",
 ]
 
 
