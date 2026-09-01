@@ -1569,6 +1569,47 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(dynamic["diagnosticCodes"], ["dynamicLoop"])
         self.assertEqual(unbounded["diagnosticCodes"], ["unsupportedControlFlow"])
 
+    def test_nested_local_declaration_may_reuse_outer_loop_name(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            #define AA 1
+            varying vec2 v_TexCoord;
+            void main() {
+                vec3 total = vec3(0.0);
+                for (int m = 0; m < AA; m++)
+                for (int n = 0; n < AA; n++) {
+                    vec2 m = v_TexCoord + vec2(float(n));
+                    total += vec3(m, 0.0);
+                }
+                gl_FragColor = vec4(total, 1.0);
+            }
+            """,
+        )
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertGreater(output["staticLoopWork"], 1)
+        self.assertIsNone(output.get("metalError"))
+
+    def test_outer_loop_counter_write_still_fails_with_local_reuse(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            #define AA 1
+            varying vec2 v_TexCoord;
+            void main() {
+                vec3 total = vec3(0.0);
+                for (int m = 0; m < AA; m++) {
+                    vec2 local = v_TexCoord;
+                    m = 0;
+                    total += vec3(local, 0.0);
+                }
+                gl_FragColor = vec4(total, 1.0);
+            }
+            """,
+            metal=False,
+        )
+        self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+
     def test_proven_runtime_uniform_loop_bound_compiles_without_clamp(self):
         output = self.compile(
             VERTEX_SOURCE,

@@ -319,6 +319,15 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
         for index in range where tokens[index].text == name {
             if index + 1 < range.upperBound,
                assignments.contains(tokens[index + 1].text) {
+                // A compound loop body is a nested lexical scope. Its local
+                // value may reuse the induction-variable spelling without
+                // mutating the loop counter (for example `vec2 m = ...`
+                // inside `for (int m = ...)`). Keep later writes conservative;
+                // only the declaration initializer itself is excluded here.
+                if tokens[index + 1].text == "=",
+                   isLocalDeclarationName(at: index, in: range, tokens: tokens) {
+                    continue
+                }
                 return true
             }
             if index + 1 < range.upperBound,
@@ -331,6 +340,17 @@ nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
             }
         }
         return false
+    }
+
+    private static func isLocalDeclarationName(
+        at index: Int,
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Bool {
+        guard index > range.lowerBound else { return false }
+        return SceneAuthoredShaderValueType(
+            authoredName: tokens[index - 1].text
+        ) != nil
     }
 
     private static func isWritten(
