@@ -4,7 +4,7 @@ extension SceneDependencyRenderPlan {
     /// Builds descriptor-only carriers one exact slot at a time. They never
     /// enter product edges or targets here; Program finalization may promote
     /// one carrier after proving the selected mixed-provider envelope.
-    nonisolated static func potentialSystemNamedFallbackBindings(
+    nonisolated static func potentialOptionalNamedFallbackBindings(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
@@ -21,7 +21,7 @@ extension SceneDependencyRenderPlan {
             in: descriptor.layers
         )
         let potentialReferences = Set(SceneDependencyGraphAnalysis
-            .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+            .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
         )
         let allPotentialReferences = Array(potentialReferences)
         let routeDisabled = ProcessInfo.processInfo.environment[

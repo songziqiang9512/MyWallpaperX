@@ -19,15 +19,16 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
         }
     }
 
-    /// A system texture may explicitly publish `absent`, allowing the frame
-    /// selector to continue to a lower authored named target. These references
-    /// are only admission candidates: they acquire capture/publication
-    /// authority after an exact MaterialProgram variant proves the mixed slot.
-    nonisolated static func potentialSystemNamedFallbackReferences(
+    /// A typed system or user-property texture may explicitly publish
+    /// `absent`, allowing the frame selector to continue to a lower authored
+    /// named target. These references are only admission candidates: they
+    /// acquire capture/publication authority after an exact MaterialProgram
+    /// variant proves the mixed slot.
+    nonisolated static func potentialOptionalNamedFallbackReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
         references(in: layers) { slotIndex, pass in
-            hasSystemUserTexture(slotIndex: slotIndex, pass: pass)
+            hasOptionalUserTexture(slotIndex: slotIndex, pass: pass)
         }
     }
 
@@ -72,16 +73,16 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
         }
     }
 
-    /// An exact system producer may publish `absent`, which authorizes the
-    /// shared frame selector to continue to a lower authored named target.
-    /// Other user-texture kinds retain their old terminal-shadowing contract.
+    /// An exact typed optional producer may publish `absent`, which authorizes
+    /// the shared frame selector to continue to a lower authored named target.
+    /// Path and unknown user-texture kinds retain terminal-shadowing behavior.
     nonisolated static func userTextureAllowsNamedFallback(
         slotIndex: Int,
         pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
     ) -> Bool {
         guard pass.userTextureInputs.indices.contains(slotIndex),
               let input = pass.userTextureInputs[slotIndex] else { return true }
-        return input.kind == .system && !input.value.isEmpty
+        return [.system, .property].contains(input.kind) && !input.value.isEmpty
     }
 
     private nonisolated static func hasUserTexture(
@@ -96,12 +97,12 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     /// ownership. It must never by itself grant runtime capture or block a
     /// safe layer-source passthrough; the runtime plan intersects it with the
     /// admitted external-primary capability set.
-    nonisolated static func hasSystemUserTexture(
+    nonisolated static func hasOptionalUserTexture(
         slotIndex: Int,
         pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
     ) -> Bool {
         guard pass.userTextureInputs.indices.contains(slotIndex),
               let input = pass.userTextureInputs[slotIndex] else { return false }
-        return input.kind == .system && !input.value.isEmpty
+        return [.system, .property].contains(input.kind) && !input.value.isEmpty
     }
 }

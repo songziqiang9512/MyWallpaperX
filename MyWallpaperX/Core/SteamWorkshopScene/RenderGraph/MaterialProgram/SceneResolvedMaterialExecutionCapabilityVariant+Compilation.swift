@@ -376,6 +376,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             case SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputOverlayAlphaBlend.rawValue,
                  SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputOverlayColorBlendAlphaPreserving.rawValue,
+                 SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputAssociatedOverBlend.rawValue:
                 premultipliedColorAuxiliarySlots
             default:

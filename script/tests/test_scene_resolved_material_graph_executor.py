@@ -129,7 +129,7 @@ enum SceneDependencyGraphAnalysis {
         layers.flatMap(\.namedReferences)
     }
 
-    static func potentialSystemNamedFallbackReferences(
+    static func potentialOptionalNamedFallbackReferences(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [SceneDependencyRenderPlan.Reference] {
         layers.flatMap(\.potentialNamedReferences)
@@ -152,7 +152,7 @@ struct SceneDependencyRenderPlan {
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
 
-    static func potentialSystemNamedFallbackBindings(
+    static func potentialOptionalNamedFallbackBindings(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
@@ -177,7 +177,7 @@ struct SceneDependencyRenderPlan {
         )
         let potentials = Set(
             SceneDependencyGraphAnalysis
-                .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
         ).intersection(admittedResolvedMaterialReferences)
         references = products + potentials.filter { !products.contains($0) }
         namedReferenceConsumerLayerIDs = Set(references.compactMap {
@@ -1394,6 +1394,7 @@ private func template(
     pixelTransform explicitPixelTransform: Int? = nil,
     namedProvider: SceneNamedTextureReference? = nil,
     systemProvider: String? = nil,
+    userPropertyProvider: String? = nil,
     systemProviderHighest: Bool = true,
     systemProviderLowerReference: Template.TextureReference? = nil,
     mixedSystemNamedBlendOverride: Bool? = nil,
@@ -1432,7 +1433,7 @@ private func template(
         scalarConsumer: scalarConsumer,
         repeatProbe: repeatProbe,
         crossLayerMix: namedProvider != nil,
-        systemProviderMix: systemProvider != nil,
+        systemProviderMix: systemProvider != nil || userPropertyProvider != nil,
         mixedSystemNamedBlend: mixedSystemNamedBlendOverride ?? {
             guard let lower = systemProviderLowerReference else {
                 return false
@@ -1479,6 +1480,16 @@ private func template(
             candidates: systemProviderHighest
                 ? [lower, provider] : [provider, lower]
         )
+    }
+    if let userPropertyProvider,
+       let lower = systemProviderLowerReference {
+        slots[1] = .init(index: 1, candidates: [
+            .init(reference: lower, provenance: .instance),
+            .init(
+                reference: .userProperty(.init(key: userPropertyProvider)),
+                provenance: .userTexture
+            ),
+        ])
     }
     if let colorBlendMaskPath {
         slots[1] = .init(index: 1, candidates: [
@@ -1617,6 +1628,7 @@ private func catalog(
     pixelTransformsByNode: [Int: Int] = [:],
     namedProvidersByNode: [Int: SceneNamedTextureReference] = [:],
     systemProvidersByNode: [Int: String] = [:],
+    userPropertyProvidersByNode: [Int: String] = [:],
     systemProviderBelowAssetNodes: Set<Int> = [],
     systemProviderLowerReferencesByNode:
         [Int: Template.TextureReference] = [:],
@@ -1668,6 +1680,8 @@ private func catalog(
                 pixelTransform: pixelTransformsByNode[node.nodeIndex],
                 namedProvider: namedProvidersByNode[node.nodeIndex],
                 systemProvider: systemProvidersByNode[node.nodeIndex],
+                userPropertyProvider:
+                    userPropertyProvidersByNode[node.nodeIndex],
                 systemProviderHighest:
                     !systemProviderBelowAssetNodes.contains(node.nodeIndex),
                 systemProviderLowerReference:
@@ -3017,7 +3031,7 @@ private func capabilities(
     dynamicProducers: Capabilities.DynamicProducerCatalog = .empty,
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
-    potentialSystemNamedFallback: Bool = false,
+    potentialOptionalNamedFallback: Bool = false,
     additionalNamedProvider: SceneNamedTextureReference? = nil,
     additionalDependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
     forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
@@ -3066,7 +3080,7 @@ private func capabilities(
             slot: dependencyBinding.slot,
             variant: namedProvider.variant
         )
-        if potentialSystemNamedFallback {
+        if potentialOptionalNamedFallback {
             consumer.potentialNamedReferences = [reference]
             consumer.potentialNamedBindings = [dependencyBinding]
         } else {
@@ -3464,13 +3478,32 @@ private enum Harness {
             ),
             namedProvider: namedReference,
             dependencyBinding: mixedExternalBinding,
-            potentialSystemNamedFallback: true
+            potentialOptionalNamedFallback: true
         )
         let mixedSystemNamedClaim = mixedSystemNamedCapabilities.claim(
             crossLayerChain
         )
         let mixedSystemNamedCapability = mixedSystemNamedClaim.flatMap {
             mixedSystemNamedCapabilities.resolve($0.token, for: crossLayerChain)
+        }
+        let mixedPropertyNamedCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                userPropertyProvidersByNode: [0: "customCover"],
+                systemProviderLowerReferencesByNode: [
+                    0: .provider(.namedLayerTarget(namedReference)),
+                ]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: mixedExternalBinding,
+            potentialOptionalNamedFallback: true
+        )
+        let mixedPropertyNamedClaim = mixedPropertyNamedCapabilities.claim(
+            crossLayerChain
+        )
+        let mixedPropertyNamedCapability = mixedPropertyNamedClaim.flatMap {
+            mixedPropertyNamedCapabilities.resolve($0.token, for: crossLayerChain)
         }
         let systemOnlyWithPotentialCapabilities = capabilities(
             crossLayerChain,
@@ -3484,7 +3517,7 @@ private enum Harness {
             ),
             namedProvider: namedReference,
             dependencyBinding: mixedExternalBinding,
-            potentialSystemNamedFallback: true
+            potentialOptionalNamedFallback: true
         )
         let systemOnlyWithPotentialCapability =
             systemOnlyWithPotentialCapabilities.claim(crossLayerChain).flatMap {
@@ -3529,7 +3562,7 @@ private enum Harness {
             catalog: conflictingCatalog,
             namedProvider: namedReference,
             dependencyBinding: mixedExternalBinding,
-            potentialSystemNamedFallback: true,
+            potentialOptionalNamedFallback: true,
             additionalNamedProvider: conflictingNamedReference,
             additionalDependencyBinding: conflictingBinding
         ).claim(conflictingChain) == nil
@@ -3538,7 +3571,7 @@ private enum Harness {
             catalog: conflictingCatalog,
             namedProvider: namedReference,
             dependencyBinding: mixedExternalBinding,
-            potentialSystemNamedFallback: true
+            potentialOptionalNamedFallback: true
         ).claim(conflictingChain) == nil
         var crossLayerPrepared = false
         var crossLayerEncoded = false
@@ -4150,7 +4183,7 @@ private enum Harness {
             $0.routeDecision.profile
         } ?? []
         let colorBlendOptionalMaskProof = colorBlendMaterial?.variants
-            .provesEffectLocalOptionalColorBlendTextureFailure(slot: 1) == true
+            .provesEffectLocalOptionalTextureFailure(slot: 1) == true
         let systemProviderCapabilities = capabilities(
             pixelChain,
             catalog: catalog(
@@ -7351,6 +7384,29 @@ private enum Harness {
                     && material.variants
                         .provesEffectLocalSystemProviderTextureFailure(slot: 1)
             }(),
+            "mixedPropertyNamedFallbackConservesExternalDependency": {
+                guard let capability = mixedPropertyNamedCapability,
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership,
+                      let material = capability.material(
+                          effect: effect,
+                          nodeIndex: 0
+                      ) else { return false }
+                return binding == mixedExternalBinding
+                    && material.variants
+                        .provesExactMixedNamedFallback(slot: 1)
+                    && material.variants
+                        .provesEffectLocalUserPropertyTextureFailure(slot: 1)
+            }(),
+            "mixedPropertyNamedClaimCreated":
+                mixedPropertyNamedClaim != nil,
+            "mixedPropertyNamedCapabilityCreated":
+                mixedPropertyNamedCapability != nil,
+            "mixedPropertyNamedExactEnvelopeProved":
+                mixedPropertyNamedCapability?.material(
+                    effect: effect,
+                    nodeIndex: 0
+                )?.variants.provesExactMixedNamedFallback(slot: 1) == true,
             "unselectedPotentialDoesNotRevokeSystemOnlyProgram": {
                 guard let capability = systemOnlyWithPotentialCapability,
                       case .none = capability.dependencyOwnership else {
@@ -8119,6 +8175,7 @@ private enum Harness {
             "mixedKinds": mixedKinds,
             "crossLayerPixel": crossLayerPixel,
             "crossLayerReport": crossLayerCapabilities.reportLines,
+            "mixedPropertyReport": mixedPropertyNamedCapabilities.reportLines,
             "encodedPixel": encodedRead.firstPixel,
             "encodedLastPixel": encodedRead.lastPixel,
             "addressProbePixels": [

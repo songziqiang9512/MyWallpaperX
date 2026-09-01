@@ -464,7 +464,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return ownership
             }
             guard resolvedDependencyStages.allSatisfy({
-                      $0.origin == .exactMixedSystemFallback
+                      $0.origin == .exactMixedOptionalFallback
                   }) else { return nil }
             let matchingBindings = potentialBindings.filter {
                 $0.consumerLayerID == layerID
@@ -520,7 +520,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     private struct ResolvedExternalDependency: Hashable {
         enum Origin: Hashable {
             case terminalNamed
-            case exactMixedSystemFallback
+            case exactMixedOptionalFallback
         }
 
         let materialKey: MaterialKey
@@ -587,19 +587,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     reference = value
                     origin = .terminalNamed
                 } else if material.variants
-                    .provesEffectLocalSystemProviderTextureFailure(
+                    .provesExactMixedNamedFallback(
                         slot: slot.index
                     ), slot.candidates.count == 2,
                     case let .provider(.namedLayerTarget(value)) =
                         slot.candidates[0].reference {
-                    // The highest-precedence system provider may be absent at
-                    // a concrete frame. The exact precompiled mixed-provider
+                    // The highest-precedence optional input may be absent at a
+                    // concrete frame. The exact precompiled mixed-provider
                     // envelope then selects this lower compositor color
                     // publication, so dependency conservation must retain its
                     // provider edge even though it is not the static last
                     // candidate.
                     reference = value
-                    origin = .exactMixedSystemFallback
+                    origin = .exactMixedOptionalFallback
                 } else {
                     reference = nil
                     origin = nil

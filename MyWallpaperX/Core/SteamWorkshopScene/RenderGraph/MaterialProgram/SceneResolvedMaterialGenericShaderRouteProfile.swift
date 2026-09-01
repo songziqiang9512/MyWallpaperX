@@ -96,6 +96,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "provider-backed-graph-input-spatial-weighted-color-blend"
     case sourceProvenGraphInputOverlayAlphaBlend =
         "source-proven-graph-input-overlay-alpha-blend"
+    case sourceProvenGraphInputOverlayColorBlendAlphaPreserving =
+        "source-proven-graph-input-overlay-color-blend-alpha-preserving"
     case sourceProvenGraphInputAssociatedOverBlend =
         "source-proven-graph-input-associated-over-blend"
     case sourceProvenGraphInputConditionalStraightUnion =
@@ -134,6 +136,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         colorBlendSourceSlot: Int?,
         overlayAlphaBlendSourceSlot: Int? = nil,
         overlayAlphaBlendAuxiliarySlot: Int? = nil,
+        overlayAlphaPreservingBlendSourceSlot: Int? = nil,
+        overlayAlphaPreservingBlendAuxiliarySlot: Int? = nil,
         associatedOverBlendSourceSlot: Int? = nil,
         associatedOverBlendOverlaySlot: Int? = nil,
         conditionalStraightUnionSourceSlot: Int?,
@@ -420,6 +424,28 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter
         } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
+                  overlayAlphaPreservingBlendSourceSlot == sourceSlot,
+                  let overlaySlot = overlayAlphaPreservingBlendAuxiliarySlot,
+                  overlaySlot != sourceSlot,
+                  activeTextureSlots == Set([sourceSlot, overlaySlot]),
+                  ((typedStaticDataAuxiliarySlots == Set([overlaySlot])
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && !hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots
+                        == Set([overlaySlot])
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
+                      && premultipliedColorAuxiliarySlots == Set([overlaySlot])
+                      && hasExternalProviderTexture)),
+                  !producesScalarRedOutput,
+                  graphTextureSlots.isEmpty,
+                  graphInputTextureSlots == Set([sourceSlot]) {
+            self = .sourceProvenGraphInputOverlayColorBlendAlphaPreserving
+        } else if case let .straightAlphaPreserving(sourceSlot) = colorTransfer,
                   typedDataRGBFilterSourceSlot == sourceSlot,
                   !typedDataRGBFilterAuxiliarySlots.isEmpty,
                   typedDataRGBFilterAuxiliarySlots
@@ -667,6 +693,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
              .sourceProvenGraphInputSpatialWeightedColorBlend,
              .providerBackedGraphInputSpatialWeightedColorBlend,
              .sourceProvenGraphInputOverlayAlphaBlend,
+             .sourceProvenGraphInputOverlayColorBlendAlphaPreserving,
              .sourceProvenGraphInputConditionalStraightUnion,
              .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha,
              .sourceProvenGraphInputSingleSamplerAlphaMutation,
@@ -742,6 +769,8 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
             || self == .sourceProvenGraphInputOverlayAlphaBlend
+            || self
+                == .sourceProvenGraphInputOverlayColorBlendAlphaPreserving
             || self == .sourceProvenGraphInputAssociatedOverBlend
             || self
                 == .sourceProvenGraphInputConditionalOpaqueAlphaWeightedRGB

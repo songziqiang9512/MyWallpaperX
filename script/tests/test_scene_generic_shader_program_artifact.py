@@ -7496,6 +7496,96 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             self.assertNotEqual(rejected["routeProfile"], profile)
             self.assertNotIn(f"profile={profile}", rejected_log)
 
+    def test_overlay_color_blend_preserving_alpha_has_atomic_shared_rollback(
+        self,
+    ):
+        profile = (
+            "source-proven-graph-input-overlay-color-blend-alpha-preserving"
+        )
+        fragment = OVERLAY_ALPHA_BLEND_FRAGMENT.replace(
+            "    carrier.a = overlay.a * g_AlphaMultiply;\n",
+            "",
+        )
+        facts = {
+            "graph_input_slots": (0,),
+            "active_slots": (0, 1),
+            "typed_static_data_auxiliary_slots": (1,),
+        }
+        with tempfile.TemporaryDirectory(
+            prefix="mwx-generic-artifact-test-"
+        ) as directory:
+            root = Path(directory)
+            observed, requests, cache, _ = self.run_harness(
+                root,
+                route="observe-only",
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(observed["routeProfile"], profile)
+            request = json.loads(
+                (
+                    requests / f"{observed['requestKey']}.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                request["expectedColorTransfer"],
+                {
+                    "kind": "straight-alpha-preserving",
+                    "slot": 0,
+                },
+            )
+
+            artifact = self.artifact(
+                observed["requestKey"],
+                color_transfer="straight-alpha-preserving",
+                auxiliary_channel_use="unproven",
+            )
+            artifact_path = cache / f"{observed['requestKey']}.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            accepted, _, _, accepted_log = self.run_harness(
+                root,
+                route=None,
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(accepted["status"], "accepted")
+            self.assertEqual(accepted["routeState"], "generic-only")
+            self.assertIn(
+                f"state=generic-only profile={profile} outcome=accepted",
+                accepted_log,
+            )
+
+            artifact["program"]["metalSourceSHA256"] = "0" * 64
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+            fallback, _, _, fallback_log = self.run_harness(
+                root,
+                route=None,
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(fallback["code"], "artifact-contract-rejected")
+            self.assertTrue(fallback["permitsBoundedFrontend"])
+            self.assertEqual(fallback["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"profile={profile} outcome=shared-backend-fallback ",
+                fallback_log,
+            )
+
+            rolled_back, _, _, rollback_log = self.run_harness(
+                root,
+                route=None,
+                profile_routes=f"{profile}=disable-generic",
+                fragment=fragment,
+                **facts,
+            )
+            self.assertEqual(rolled_back["code"], "route-disabled")
+            self.assertTrue(rolled_back["permitsBoundedFrontend"])
+            self.assertEqual(rolled_back["fallbackOwner"], "bounded-frontend")
+            self.assertIn(
+                f"state=disable-generic profile={profile} outcome=fallback",
+                rollback_log,
+            )
+
     def test_straight_rgb_scalar_alpha_profile_accepts_exact_optional_mask(
         self,
     ):

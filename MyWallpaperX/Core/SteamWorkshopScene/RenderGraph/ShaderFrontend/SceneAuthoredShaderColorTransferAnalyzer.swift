@@ -123,16 +123,20 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         fragmentSource source: String
     ) -> (
         auxiliaryRGB: Int?,
-        overlayAlpha: (source: Int, overlay: Int)?
+        overlayAlpha: (source: Int, overlay: Int)?,
+        overlayAlphaPreserving: (source: Int, overlay: Int)?
     ) {
         guard let (fragment, main, outputUses) = analyzedMain(source) else {
-            return (nil, nil)
+            return (nil, nil, nil)
         }
         return (
             SceneAuthoredShaderAuxiliaryRGBMixAnalyzer.analyze(
                 outputUses: outputUses, fragment: fragment, main: main
             ),
             SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyze(
+                outputUses: outputUses, fragment: fragment, main: main
+            ),
+            SceneAuthoredShaderOverlayAlphaBlendAnalyzer.analyzeAlphaPreserving(
                 outputUses: outputUses, fragment: fragment, main: main
             )
         )
@@ -178,6 +182,14 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             main: main
         ) {
             return .passthrough(textureSlot: slot)
+        }
+        if let slots = SceneAuthoredShaderOverlayAlphaBlendAnalyzer
+            .analyzeAlphaPreserving(
+                outputUses: outputUses,
+                fragment: fragment,
+                main: main
+            ) {
+            return .straightAlphaPreserving(textureSlot: slots.source)
         }
         if let slots = SceneAuthoredShaderColorMixGraphAnalyzer.analyze(
             outputUses: outputUses,

@@ -13,7 +13,18 @@ extension SceneGenericShaderArtifactBuilder {
             msl: String,
             transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
         )?
-        if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+        let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
+            .blendSourceSlots(fragmentSource: authoredSource)
+        if let overlay = blendSourceSlots.overlayAlphaPreserving {
+            guard overlay.source == expectedSlot,
+                  let lowered = SceneGenericShaderAssociatedOverBlendLowering
+                    .lowerAlphaPreserving(
+                        source,
+                        sourceSlot: overlay.source,
+                        overlaySlot: overlay.overlay
+                    ) else { throw Failure.colorTransfer }
+            preserving = preservingTransfer(lowered, slot: expectedSlot)
+        } else if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: authoredSource) {
             guard fact.blurredSlot == expectedSlot,
                   let lowered =

@@ -237,7 +237,7 @@ extension SceneResolvedMaterialGraphExecutor {
                              .optionalTextureContentMismatch,
                              .optionalTextureSamplingUnresolved:
                             proven = material.variants
-                                .provesEffectLocalOptionalColorBlendTextureFailure(
+                                .provesEffectLocalOptionalTextureFailure(
                                     slot: slot
                                 )
                         case .systemProviderPending,

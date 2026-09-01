@@ -300,6 +300,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             colorBlendSourceSlot: colorBlendSourceSlot,
             overlayAlphaBlendSourceSlot: blendSourceSlots.overlayAlpha?.source,
             overlayAlphaBlendAuxiliarySlot: blendSourceSlots.overlayAlpha?.overlay,
+            overlayAlphaPreservingBlendSourceSlot:
+                blendSourceSlots.overlayAlphaPreserving?.source,
+            overlayAlphaPreservingBlendAuxiliarySlot:
+                blendSourceSlots.overlayAlphaPreserving?.overlay,
             associatedOverBlendSourceSlot: associatedOverBlendFact?.sourceSlot,
             associatedOverBlendOverlaySlot: associatedOverBlendFact?.overlaySlot,
             conditionalStraightUnionSourceSlot: conditionalStraightUnionSourceSlot,
@@ -405,11 +409,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
                     || profile
                         == .sourceProvenGraphInputStageUniformStraightAlphaPreservingStaticAuxiliary
+                    || profile
+                        == .sourceProvenGraphInputOverlayColorBlendAlphaPreserving
         )
         let premultipliedColorInputSlots: Set<Int> = switch profile {
         case .providerBackedGraphInputSpatialWeightedColorBlend:
             spatialWeightedColorBlendExternalColorSlot.map { [$0] } ?? []
         case .sourceProvenGraphInputOverlayAlphaBlend,
+             .sourceProvenGraphInputOverlayColorBlendAlphaPreserving,
              .sourceProvenGraphInputAssociatedOverBlend:
             premultipliedColorAuxiliarySlots
         default:

@@ -471,10 +471,11 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         _ reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose
     ) -> Bool {
-        guard purpose == .mask else { return false }
         switch reference {
-        case .asset, .userProperty:
-            return true
+        case .asset:
+            return purpose == .mask
+        case .userProperty:
+            return [.mask, .preservedChannels].contains(purpose)
         case .provider, .graph:
             return false
         }

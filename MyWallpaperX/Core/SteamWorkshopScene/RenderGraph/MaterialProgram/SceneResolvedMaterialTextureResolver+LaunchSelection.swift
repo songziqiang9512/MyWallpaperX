@@ -94,7 +94,19 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     throw launchSelectionFailure(.textureBindingInvalid, slot: slot)
                 }
             case .userProperty:
-                return .deferred
+                // A property-backed texture has no launch-time publication,
+                // but the exact mixed property/named envelope proves both
+                // selectable representations before frames begin. Treat its
+                // high-precedence reference like another typed provider once
+                // the sampler is known; arbitrary property slots remain
+                // deferred and cannot acquire product authority here.
+                guard let sampler,
+                      let mixed = SceneResolvedMaterialMixedProviderSlotFact
+                        .resolve(in: textureSlot, sampler: sampler),
+                      case .userProperty = mixed.optionalInput,
+                      let purpose = mixed.purpose(for: candidate.reference)
+                else { return .deferred }
+                return .selected(candidate.reference, purpose: purpose)
             case .provider, .graph:
                 return .selected(
                     candidate.reference,

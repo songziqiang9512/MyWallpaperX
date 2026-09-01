@@ -211,7 +211,7 @@ enum Harness {
         )
         let allMixedPotentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialSystemNamedFallbackReferences(
+                .potentialOptionalNamedFallbackReferences(
                     in: mixedProviderDescriptor.layers
                 )
         )
@@ -228,6 +228,39 @@ enum Harness {
             descriptor: mixedProviderDescriptor,
             visibleLayerIDs: [mixedConsumer.id],
             admittedResolvedMaterialReferences: mixedPotentialReferences
+        )
+        let propertyProvider = layer(1331, visible: false)
+        let propertyConsumer = SceneRenderDescriptor.Layer(
+            id: 1511,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [propertyProvider.id],
+            childLayerIDs: [],
+            visible: true,
+            effects: [shadowedEffect(
+                id: 963,
+                provider: propertyProvider.id,
+                userTextureKind: .property
+            )]
+        )
+        let propertyDescriptor = SceneRenderDescriptor(
+            layers: [propertyConsumer, propertyProvider],
+            renderOrderLayerIDs: [propertyConsumer.id, propertyProvider.id]
+        )
+        let propertyPotentialReferences = Set(
+            SceneDependencyGraphAnalysis
+                .potentialOptionalNamedFallbackReferences(
+                    in: propertyDescriptor.layers
+                )
+        )
+        let propertyUnadmittedPlan = SceneDependencyRenderPlan(
+            descriptor: propertyDescriptor,
+            visibleLayerIDs: [propertyConsumer.id]
+        )
+        let propertyAdmittedPlan = SceneDependencyRenderPlan(
+            descriptor: propertyDescriptor,
+            visibleLayerIDs: [propertyConsumer.id],
+            admittedResolvedMaterialReferences: propertyPotentialReferences
         )
         let isolatedConsumer = layer(
             1510,
@@ -636,6 +669,23 @@ enum Harness {
                     .blocksStaticLayerSourcePassthrough(for: mixedConsumer.id),
                 "providerBlocked": mixedProviderUnadmittedPlan
                     .blocksStaticLayerSourcePassthrough(for: mixedProvider.id),
+            ],
+            "mixedPropertyNamedProvider": [
+                "potentialCount": propertyPotentialReferences.count,
+                "unadmittedReferences": propertyUnadmittedPlan.references.count,
+                "unadmittedBinding": propertyUnadmittedPlan
+                    .bindingsByConsumerLayerID[propertyConsumer.id] != nil,
+                "unadmittedConsumerBlocked": propertyUnadmittedPlan
+                    .blocksStaticLayerSourcePassthrough(for: propertyConsumer.id),
+                "unadmittedProviderBlocked": propertyUnadmittedPlan
+                    .blocksStaticLayerSourcePassthrough(for: propertyProvider.id),
+                "admittedReferences": propertyAdmittedPlan.references.count,
+                "admittedBinding": propertyAdmittedPlan
+                    .bindingsByConsumerLayerID[propertyConsumer.id]?
+                    .requiresResolvedMaterialProgram == true,
+                "admittedProvider": propertyAdmittedPlan
+                    .bindingsByConsumerLayerID[propertyConsumer.id]?
+                    .providerLayerID ?? -1,
             ],
             "potentialCycleIsolation": [
                 "broadCycles": SceneDependencyGraphAnalysis.cyclicLayerIDs(
@@ -1767,7 +1817,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             },
         )
 
-    def test_only_exact_system_user_texture_retains_lower_named_dependency(
+    def test_only_exact_optional_user_texture_retains_lower_named_dependency(
         self,
     ) -> None:
         self.assertEqual(
@@ -1817,6 +1867,23 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "unadmittedProviderEdges": [],
             },
             self.result,
+        )
+
+    def test_mixed_property_named_provider_requires_exact_program_admission(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["mixedPropertyNamedProvider"],
+            {
+                "potentialCount": 1,
+                "unadmittedReferences": 0,
+                "unadmittedBinding": False,
+                "unadmittedConsumerBlocked": False,
+                "unadmittedProviderBlocked": False,
+                "admittedReferences": 1,
+                "admittedBinding": True,
+                "admittedProvider": 1331,
+            },
         )
 
     def test_cycle_forward_and_invalid_external_primary_contracts_fail_closed(self) -> None:

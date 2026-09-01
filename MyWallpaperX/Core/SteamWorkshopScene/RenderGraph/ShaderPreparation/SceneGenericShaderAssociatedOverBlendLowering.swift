@@ -20,6 +20,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             blendFunctions: [fact.blendFunction],
             blendWeight: fact.blendWeight,
             blendWeightUniform: fact.blendWeightUniform,
+            writesRGBOnly: false,
             requiresOverlayAlphaWrite: false
         )
     }
@@ -39,7 +40,27 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             blendFunctions: ["ApplyBlending", "mix", "lerp"],
             blendWeight: nil,
             blendWeightUniform: nil,
+            writesRGBOnly: true,
             requiresOverlayAlphaWrite: true
+        )
+    }
+
+    /// Companion conservation for a two-input RGB blend that deliberately
+    /// retains the base alpha instead of replacing it with overlay alpha.
+    static func lowerAlphaPreserving(
+        _ source: String,
+        sourceSlot: Int,
+        overlaySlot: Int
+    ) -> String? {
+        lower(
+            source,
+            sourceSlot: sourceSlot,
+            overlaySlot: overlaySlot,
+            blendFunctions: ["ApplyBlending", "mix", "lerp"],
+            blendWeight: nil,
+            blendWeightUniform: nil,
+            writesRGBOnly: true,
+            requiresOverlayAlphaWrite: false
         )
     }
 
@@ -50,6 +71,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         blendFunctions: Set<String>,
         blendWeight: String?,
         blendWeightUniform: String?,
+        writesRGBOnly: Bool,
         requiresOverlayAlphaWrite: Bool
     ) -> String? {
         guard (0 ..< 8).contains(sourceSlot),
@@ -116,12 +138,15 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
                   blendFunctions: blendFunctions,
                   blendWeight: blendWeight,
                   blendWeightUniform: blendWeightUniform,
+                  writesRGBOnly: writesRGBOnly,
                   requiresOverlayAlphaWrite: requiresOverlayAlphaWrite,
                   in: operationBody
-              ) || (requiresOverlayAlphaWrite && hasCompilerSpilledBlendUpdate(
+              ) || (writesRGBOnly && hasCompilerSpilledBlendUpdate(
                   sourceCarrier: sourceCarrier,
                   overlayCarrier: overlayCarrier,
                   blendFunctions: blendFunctions,
+                  expectedComponentWrites:
+                    requiresOverlayAlphaWrite ? 4 : 3,
                   in: operationBody
               ))),
               matches(#"\b(?:discard|discard_fragment)\b"#, in: source).isEmpty
@@ -151,6 +176,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         sourceCarrier: String,
         overlayCarrier: String,
         blendFunctions: Set<String>,
+        expectedComponentWrites: Int,
         in source: String
     ) -> Bool {
         let sourceName = escaped(sourceCarrier)
@@ -183,7 +209,8 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
                   initializerForScalar(weight, in: source) ?? "",
                   expectedUniform: nil
               ),
-              componentAssignmentCount(to: sourceCarrier, in: source) == 4
+              componentAssignmentCount(to: sourceCarrier, in: source)
+                == expectedComponentWrites
         else { return false }
         return true
     }
@@ -226,6 +253,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
         blendFunctions: Set<String>,
         blendWeight: String?,
         blendWeightUniform: String?,
+        writesRGBOnly: Bool,
         requiresOverlayAlphaWrite: Bool,
         in source: String
     ) -> Bool {
@@ -236,7 +264,7 @@ nonisolated enum SceneGenericShaderAssociatedOverBlendLowering {
             .map(escaped)
             .joined(separator: "|")
         let weight = blendWeight.map(escaped) ?? #"[A-Za-z_]\w*"#
-        let colorMember = requiresOverlayAlphaWrite
+        let colorMember = writesRGBOnly
             ? #"\.(?:rgb|xyz)"#
             : ""
         let pattern = #"(?m)^[ \t]*"#

@@ -9,11 +9,135 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
+    private struct CoreFact {
+        let sourceSlot: Int
+        let overlaySlot: Int
+        let base: String
+        let overlay: String
+        let baseDefinition: Int
+        let overlayDefinition: Int
+        let weight: String
+        let weightDefinition: Int
+        let rgbWrite: Int
+        let output: Int
+        let outputExpression: ArraySlice<Token>
+        let blendCall: Call
+        let weightOverlayUse: Int
+    }
+
     static func analyze(
         outputUses: [Int],
         fragment: Unit,
         main: Unit.Function
     ) -> (source: Int, overlay: Int)? {
+        guard let core = analyzeCore(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) else { return nil }
+        let tokens = fragment.tokens
+        guard let alphaWrite = uniqueMemberAssignment(
+                core.base,
+                component: "a",
+                after: core.rgbWrite,
+                before: core.output,
+                tokens: tokens,
+                body: main.bodyRange
+              ),
+              let alphaExpression = memberAssignmentExpression(
+                after: alphaWrite, tokens: tokens, body: main.bodyRange
+              ),
+              let alphaOverlayUse = overlayAlphaProductUse(
+                alphaExpression,
+                overlay: core.overlay,
+                excluded: core.base
+              ),
+              exactUses(
+                core.base,
+                expected: [
+                    core.rgbWrite,
+                    core.blendCall.arguments[1].startIndex,
+                    alphaWrite,
+                    core.outputExpression.startIndex,
+                ],
+                after: core.baseDefinition,
+                before: core.outputExpression.endIndex,
+                tokens: tokens
+              ),
+              exactUses(
+                core.overlay,
+                expected: [
+                    core.blendCall.arguments[2].startIndex,
+                    core.weightOverlayUse,
+                    alphaOverlayUse,
+                ],
+                after: core.overlayDefinition,
+                before: core.output,
+                tokens: tokens
+              ),
+              exactUses(
+                core.weight,
+                expected: [core.blendCall.arguments[3].startIndex],
+                after: core.weightDefinition,
+                before: core.output,
+                tokens: tokens
+              ) else {
+            return nil
+        }
+        return (source: core.sourceSlot, overlay: core.overlaySlot)
+    }
+
+    /// Proves the companion Blend shape where authored RGB changes but the
+    /// base sample's alpha is intentionally retained. This remains distinct
+    /// from WRITEALPHA because its terminal storage contract is
+    /// `.straightAlphaPreserving`.
+    static func analyzeAlphaPreserving(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> (source: Int, overlay: Int)? {
+        guard let core = analyzeCore(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) else { return nil }
+        let tokens = fragment.tokens
+        guard exactUses(
+                core.base,
+                expected: [
+                    core.rgbWrite,
+                    core.blendCall.arguments[1].startIndex,
+                    core.outputExpression.startIndex,
+                ],
+                after: core.baseDefinition,
+                before: core.outputExpression.endIndex,
+                tokens: tokens
+              ),
+              exactUses(
+                core.overlay,
+                expected: [
+                    core.blendCall.arguments[2].startIndex,
+                    core.weightOverlayUse,
+                ],
+                after: core.overlayDefinition,
+                before: core.output,
+                tokens: tokens
+              ),
+              exactUses(
+                core.weight,
+                expected: [core.blendCall.arguments[3].startIndex],
+                after: core.weightDefinition,
+                before: core.output,
+                tokens: tokens
+              ) else { return nil }
+        return (source: core.sourceSlot, overlay: core.overlaySlot)
+    }
+
+    private static func analyzeCore(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> CoreFact? {
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
@@ -73,58 +197,25 @@ nonisolated enum SceneAuthoredShaderOverlayAlphaBlendAnalyzer {
                 overlay: overlay,
                 excluded: base
               ),
-              let alphaWrite = uniqueMemberAssignment(
-                base,
-                component: "a",
-                after: rgbWrite,
-                before: output,
-                tokens: tokens,
-                body: main.bodyRange
-              ),
-              let alphaExpression = memberAssignmentExpression(
-                after: alphaWrite, tokens: tokens, body: main.bodyRange
-              ),
-              let alphaOverlayUse = overlayAlphaProductUse(
-                alphaExpression,
-                overlay: overlay,
-                excluded: base
-              ),
               SceneAuthoredShaderStraightBlendOutputAnalyzer
                 .hasNormalBlendHelper(fragment),
-              exactSampleCalls([baseDefinition, overlayDefinition], tokens: tokens),
-              exactUses(
-                base,
-                expected: [
-                    rgbWrite,
-                    blendCall.arguments[1].startIndex,
-                    alphaWrite,
-                    outputExpression.startIndex,
-                ],
-                after: baseDefinition,
-                before: outputExpression.endIndex,
-                tokens: tokens
-              ),
-              exactUses(
-                overlay,
-                expected: [
-                    blendCall.arguments[2].startIndex,
-                    weightOverlayUse,
-                    alphaOverlayUse,
-                ],
-                after: overlayDefinition,
-                before: output,
-                tokens: tokens
-              ),
-              exactUses(
-                weight,
-                expected: [blendCall.arguments[3].startIndex],
-                after: weightDefinition,
-                before: output,
-                tokens: tokens
-              ) else {
-            return nil
-        }
-        return (source: baseSlot, overlay: overlaySlot)
+              exactSampleCalls([baseDefinition, overlayDefinition], tokens: tokens)
+        else { return nil }
+        return .init(
+            sourceSlot: baseSlot,
+            overlaySlot: overlaySlot,
+            base: base,
+            overlay: overlay,
+            baseDefinition: baseDefinition,
+            overlayDefinition: overlayDefinition,
+            weight: weight,
+            weightDefinition: weightDefinition,
+            rgbWrite: rgbWrite,
+            output: output,
+            outputExpression: outputExpression,
+            blendCall: blendCall,
+            weightOverlayUse: weightOverlayUse
+        )
     }
 
     private struct Call {

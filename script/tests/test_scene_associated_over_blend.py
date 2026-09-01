@@ -89,6 +89,14 @@ private struct Output: Codable {
     let overlayAlphaMissingAlphaWriteRejected: Bool
     let overlayAlphaZeroContributionRejected: Bool
     let overlayAlpha957LoweringAccepted: Bool
+    let overlayAlphaPreservingAccepted: Bool
+    let overlayAlphaPreservingTransferAccepted: Bool
+    let overlayAlphaPreservingDataRouteProfile: String
+    let overlayAlphaPreservingPremultipliedRouteProfile: String
+    let overlayAlphaPreservingDataLoweringAccepted: Bool
+    let overlayAlphaPreservingDataLoweringLeavesOverlayData: Bool
+    let overlayAlphaPreservingPremultipliedLoweringUnpremultipliesOverlay: Bool
+    let overlayAlphaPreservingAlphaMutationRejected: Bool
 }
 
 private let associatedOverHelper = """
@@ -198,6 +206,12 @@ void main() {
 }
 """
 
+private let overlayAlphaPreservingAuthored =
+    writeAlphaApplyBlendingAuthored.replacingOccurrences(
+        of: "    albedo.a = blendColors.a * g_AlphaMultiply;\n",
+        with: ""
+    )
+
 private let compilerMSL = """
 #include <metal_stdlib>
 using namespace metal;
@@ -227,6 +241,14 @@ private func overlayAlpha(
     ).overlayAlpha
 }
 
+private func overlayAlphaPreserving(
+    _ source: String
+) -> (source: Int, overlay: Int)? {
+    SceneAuthoredShaderColorTransferAnalyzer.blendSourceSlots(
+        fragmentSource: source
+    ).overlayAlphaPreserving
+}
+
 private func lowered(
     _ msl: String,
     authored: String,
@@ -249,6 +271,7 @@ private func profile(
     graphInputs: Set<Int>,
     graphTargets: Set<Int> = [],
     typedStatic: Set<Int> = [],
+    preservedChannels: Set<Int> = [],
     premultipliedColor: Set<Int> = [],
     provider: Bool = false
 ) -> SceneGenericShaderCapabilityProfile {
@@ -259,6 +282,10 @@ private func profile(
         colorBlendSourceSlot: nil,
         overlayAlphaBlendSourceSlot: overlayAlpha(authored)?.source,
         overlayAlphaBlendAuxiliarySlot: overlayAlpha(authored)?.overlay,
+        overlayAlphaPreservingBlendSourceSlot:
+            overlayAlphaPreserving(authored)?.source,
+        overlayAlphaPreservingBlendAuxiliarySlot:
+            overlayAlphaPreserving(authored)?.overlay,
         associatedOverBlendSourceSlot: fact(authored)?.sourceSlot,
         associatedOverBlendOverlaySlot: fact(authored)?.overlaySlot,
         conditionalStraightUnionSourceSlot: nil,
@@ -271,6 +298,7 @@ private func profile(
         preservedAlphaRGBFilterTextureSlots: [],
         activeTextureSlots: active,
         typedStaticDataAuxiliarySlots: typedStatic,
+        preservedChannelsExternalProviderTextureSlots: preservedChannels,
         premultipliedColorAuxiliarySlots: premultipliedColor,
         unitCompositeBlurredSlot: nil,
         unitCompositePreviousSlot: nil,
@@ -345,6 +373,20 @@ private enum Harness {
                 with: "out.mwxFragColor = carrier;"
             ),
             authored: overlayAlphaAuthored
+        )
+        let overlayAlphaPreservingCompilerMSL = compilerMSL
+            .replacingOccurrences(
+                of: "albedo = Composite(albedo, blendColors, blendAlpha);",
+                with: "albedo.xyz = mix(albedo.xyz, blendColors.xyz, blendAlpha);"
+            )
+        let overlayAlphaPreservingDataLowered = lowered(
+            overlayAlphaPreservingCompilerMSL,
+            authored: overlayAlphaPreservingAuthored
+        )
+        let overlayAlphaPreservingPremultipliedLowered = lowered(
+            overlayAlphaPreservingCompilerMSL,
+            authored: overlayAlphaPreservingAuthored,
+            premultipliedColorInputSlots: [1]
         )
         let expected = SceneGenericShaderCapabilityProfile
             .sourceProvenGraphInputAssociatedOverBlend
@@ -669,7 +711,46 @@ private enum Harness {
                     """
                 ),
                 authored: writeAlphaApplyBlendingAuthored
-            ) != nil
+            ) != nil,
+            overlayAlphaPreservingAccepted:
+                overlayAlphaPreserving(overlayAlphaPreservingAuthored)?.source == 0
+                && overlayAlphaPreserving(
+                    overlayAlphaPreservingAuthored
+                )?.overlay == 1,
+            overlayAlphaPreservingTransferAccepted:
+                transfer(overlayAlphaPreservingAuthored)
+                    == .straightAlphaPreserving(textureSlot: 0),
+            overlayAlphaPreservingDataRouteProfile: profile(
+                authored: overlayAlphaPreservingAuthored,
+                active: [0, 1],
+                graphInputs: [0],
+                preservedChannels: [1],
+                provider: true
+            ).rawValue,
+            overlayAlphaPreservingPremultipliedRouteProfile: profile(
+                authored: overlayAlphaPreservingAuthored,
+                active: [0, 1],
+                graphInputs: [0],
+                premultipliedColor: [1],
+                provider: true
+            ).rawValue,
+            overlayAlphaPreservingDataLoweringAccepted:
+                overlayAlphaPreservingDataLowered != nil,
+            overlayAlphaPreservingDataLoweringLeavesOverlayData:
+                overlayAlphaPreservingDataLowered?.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample"
+                ) == false,
+            overlayAlphaPreservingPremultipliedLoweringUnpremultipliesOverlay:
+                overlayAlphaPreservingPremultipliedLowered?.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample"
+                ) == true,
+            overlayAlphaPreservingAlphaMutationRejected:
+                overlayAlphaPreserving(
+                    overlayAlphaPreservingAuthored.replacingOccurrences(
+                        of: "    gl_FragColor = albedo;",
+                        with: "    albedo.a = 1.0;\n    gl_FragColor = albedo;"
+                    )
+                ) == nil
         )
         print(String(
             data: try JSONEncoder().encode(output),
@@ -773,6 +854,33 @@ class SceneAssociatedOverBlendTests(unittest.TestCase):
         self.assertTrue(self.result["overlayAlphaMissingAlphaWriteRejected"])
         self.assertTrue(self.result["overlayAlphaZeroContributionRejected"])
         self.assertTrue(self.result["overlayAlpha957LoweringAccepted"])
+        self.assertTrue(self.result["overlayAlphaPreservingAccepted"])
+        self.assertTrue(self.result["overlayAlphaPreservingTransferAccepted"])
+        preserving_profile = (
+            "source-proven-graph-input-overlay-color-blend-alpha-preserving"
+        )
+        self.assertEqual(
+            self.result["overlayAlphaPreservingDataRouteProfile"],
+            preserving_profile,
+        )
+        self.assertEqual(
+            self.result["overlayAlphaPreservingPremultipliedRouteProfile"],
+            preserving_profile,
+        )
+        self.assertTrue(
+            self.result["overlayAlphaPreservingDataLoweringAccepted"]
+        )
+        self.assertTrue(
+            self.result["overlayAlphaPreservingDataLoweringLeavesOverlayData"]
+        )
+        self.assertTrue(
+            self.result[
+                "overlayAlphaPreservingPremultipliedLoweringUnpremultipliesOverlay"
+            ]
+        )
+        self.assertTrue(
+            self.result["overlayAlphaPreservingAlphaMutationRejected"]
+        )
 
     def test_unproven_dataflow_and_foreign_blend_forms_fail_closed(self) -> None:
         for key in (

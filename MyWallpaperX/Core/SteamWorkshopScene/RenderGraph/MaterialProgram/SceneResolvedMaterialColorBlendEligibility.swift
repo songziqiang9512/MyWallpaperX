@@ -178,10 +178,13 @@ nonisolated extension SceneResolvedMaterialVariantCache {
     }
 
     /// A finalizer hint may become an effect-local passthrough only when the
-    /// complete launch envelope proves the new shared color-blend profile and
-    /// the failed slot is a readiness-driven, non-graph opacity mask.
-    func provesEffectLocalOptionalColorBlendTextureFailure(slot: Int) -> Bool {
+    /// complete launch envelope proves either the exact mixed optional/named
+    /// slot or the readiness-driven, non-graph color-blend opacity mask.
+    func provesEffectLocalOptionalTextureFailure(slot: Int) -> Bool {
         guard (0 ..< 8).contains(slot) else { return false }
+        if provesEffectLocalUserPropertyTextureFailure(slot: slot) {
+            return true
+        }
         let snapshot = launchEnvelopeCapabilitySnapshot()
         let profile = SceneGenericShaderCapabilityProfile
             .sourceProvenGraphInputColorBlend.rawValue
@@ -246,30 +249,25 @@ nonisolated extension SceneResolvedMaterialVariantCache {
               let declaration = snapshot.template.textureSlots[slot],
               declaration.index == slot,
               let selected = declaration.candidates.last,
-              case .provider(.system) = selected.reference,
+              case let .provider(.system(systemProviderName)) =
+                selected.reference,
               !snapshot.template.graphRole.bindings.contains(where: {
                   $0.slot == slot
               }) else {
             return false
+        }
+        if provesExactMixedNamedFallback(
+            slot: slot,
+            optionalInput: .system(systemProviderName)
+        ) {
+            return true
         }
         let lowerCandidatesAreStaticAssets = declaration.candidates.dropLast()
             .allSatisfy { candidate in
                   if case .asset = candidate.reference { return true }
                   return false
             }
-        let mixedProviderFacts = reachableSamplers.compactMap {
-            SceneResolvedMaterialMixedProviderSlotFact.resolve(
-                in: declaration,
-                sampler: $0
-            )
-        }
-        let hasExactMixedProviderEnvelope =
-            mixedProviderFacts.count == reachableSamplers.count
-                && Set(mixedProviderFacts).count == 1
-        guard lowerCandidatesAreStaticAssets
-                || hasExactMixedProviderEnvelope else {
-            return false
-        }
+        guard lowerCandidatesAreStaticAssets else { return false }
         let selectedOrdinal = declaration.candidates.index(
             before: declaration.candidates.endIndex
         )
@@ -299,17 +297,77 @@ nonisolated extension SceneResolvedMaterialVariantCache {
               }) else {
             return false
         }
-        if hasExactMixedProviderEnvelope {
-            guard snapshot.variants.contains(where: {
-                $0.activeSamplers[slot] != nil
-                    && $0.premultipliedColorInputSlots.contains(slot)
-            }), snapshot.variants.contains(where: {
-                $0.activeSamplers[slot] != nil
-                    && !$0.premultipliedColorInputSlots.contains(slot)
-            }) else { return false }
-        }
         return snapshot.variants.contains {
             $0.activeSamplers[slot] != nil
         }
+    }
+
+    /// A user-selected Scene texture has the same optional publication
+    /// lifecycle as other typed visual providers. Only the exact two-source
+    /// property/named envelope may turn its pending or unavailable state into
+    /// an effect-local previous-current fallback.
+    func provesEffectLocalUserPropertyTextureFailure(slot: Int) -> Bool {
+        guard (0 ..< 8).contains(slot) else { return false }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard let declaration = snapshot.template.textureSlots[slot],
+              let selected = declaration.candidates.last,
+              case let .userProperty(request) = selected.reference else {
+            return false
+        }
+        return provesExactMixedNamedFallback(
+            slot: slot,
+            optionalInput: .userProperty(request.key)
+        )
+    }
+
+    /// Proves that every reachable sampler and every precompiled launch
+    /// variant conserves the exact lower named-color / higher optional-data
+    /// selection. This proof grants dependency promotion and nothing else.
+    func provesExactMixedNamedFallback(
+        slot: Int,
+        optionalInput expectedInput:
+            SceneResolvedMaterialMixedProviderSlotFact.OptionalInput? = nil
+    ) -> Bool {
+        guard (0 ..< 8).contains(slot) else { return false }
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard snapshot.hasCachedReachability,
+              snapshot.inputIdentity != nil,
+              snapshot.allEntriesReady,
+              !snapshot.variants.isEmpty,
+              let reachableSamplers = snapshot.reachableSamplers?[slot],
+              !reachableSamplers.isEmpty,
+              let declaration = snapshot.template.textureSlots[slot],
+              declaration.index == slot,
+              !snapshot.template.graphRole.bindings.contains(where: {
+                  $0.slot == slot
+              }) else {
+            return false
+        }
+        let facts = reachableSamplers.compactMap {
+            SceneResolvedMaterialMixedProviderSlotFact.resolve(
+                in: declaration,
+                sampler: $0
+            )
+        }
+        guard facts.count == reachableSamplers.count,
+              Set(facts).count == 1,
+              let fact = facts.first,
+              expectedInput == nil || fact.optionalInput == expectedInput,
+              snapshot.variants.allSatisfy({ variant in
+                  let sampler = variant.activeSamplers[slot]
+                  let bindings = variant.frontendProgram.textureBindings.filter {
+                      $0.slot == slot
+                  }
+                  return sampler == nil ? bindings.isEmpty : bindings.count == 1
+              }), snapshot.variants.contains(where: {
+                  $0.activeSamplers[slot] != nil
+                      && $0.premultipliedColorInputSlots.contains(slot)
+              }), snapshot.variants.contains(where: {
+                  $0.activeSamplers[slot] != nil
+                      && !$0.premultipliedColorInputSlots.contains(slot)
+              }) else {
+            return false
+        }
+        return true
     }
 }

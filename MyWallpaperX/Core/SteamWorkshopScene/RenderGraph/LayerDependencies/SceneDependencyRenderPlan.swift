@@ -189,7 +189,7 @@ nonisolated struct SceneDependencyRenderPlan {
         )
         let potentialReferences = Set(
             SceneDependencyGraphAnalysis
-                .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+                .potentialOptionalNamedFallbackReferences(in: descriptor.layers)
         )
         let admittedPotentialReferences = potentialReferences.intersection(
             admittedResolvedMaterialReferences

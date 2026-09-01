@@ -1,6 +1,6 @@
 import Foundation
 
-/// Exact authored shape whose high-precedence system data can be explicitly
+/// Exact authored shape whose high-precedence optional input can be explicitly
 /// absent, exposing a lower same-frame compositor color publication. The two
 /// candidates share one sampler slot but require different Program input ABI.
 /// Keeping this structural and name-independent prevents a sample/effect
@@ -9,9 +9,36 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
     typealias Template = SceneResolvedMaterialTemplate
     typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler
 
+    enum OptionalInput: Hashable {
+        case system(String)
+        case userProperty(String)
+
+        init?(_ reference: Template.TextureReference) {
+            switch reference {
+            case let .provider(.system(name)) where !name.isEmpty:
+                self = .system(name)
+            case let .userProperty(request) where !request.key.isEmpty:
+                self = .userProperty(request.key)
+            default:
+                return nil
+            }
+        }
+
+        func matches(_ reference: Template.TextureReference) -> Bool {
+            switch (self, reference) {
+            case let (.system(expected), .provider(.system(actual))):
+                expected == actual
+            case let (.userProperty(expected), .userProperty(actual)):
+                expected == actual.key
+            default:
+                false
+            }
+        }
+    }
+
     let slot: Int
     let lowerNamedReference: SceneNamedTextureReference
-    let systemProviderName: String
+    let optionalInput: OptionalInput
 
     static func resolve(
         in textureSlot: Template.TextureSlot,
@@ -27,16 +54,16 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
                 textureSlot.candidates[0].reference,
               reference.variant == .primary,
               textureSlot.candidates[0].provenance != .explicitBinding,
-              case let .provider(.system(name)) =
-                textureSlot.candidates[1].reference,
               textureSlot.candidates[1].provenance == .userTexture,
-              !name.isEmpty,
+              let optionalInput = OptionalInput(
+                  textureSlot.candidates[1].reference
+              ),
               sampler.purpose(for: textureSlot.candidates[1].reference)
                 == .preservedChannels else { return nil }
         return .init(
             slot: textureSlot.index,
             lowerNamedReference: reference,
-            systemProviderName: name
+            optionalInput: optionalInput
         )
     }
 
@@ -63,7 +90,7 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
         case let .provider(.namedLayerTarget(reference))
         where reference == lowerNamedReference:
             return .premultipliedColor
-        case let .provider(.system(name)) where name == systemProviderName:
+        case let reference where optionalInput.matches(reference):
             return .preservedChannels
         default:
             return nil
