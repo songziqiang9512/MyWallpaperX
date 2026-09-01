@@ -352,8 +352,13 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
             / "SceneResolvedMaterialFramePreflight.swift"
         ).read_text()
         self.assertIn(
+            "let dynamicLayerVisibilityOwnerTargets = propertyVectorScriptTargets\n"
+            "            .union(propertyLayerVisibilityTargets)",
+            launch,
+        )
+        self.assertIn(
             "dynamicLayerVisibilityOwnerTargets:\n"
-            "                    propertyVectorScriptTargets",
+            "                    dynamicLayerVisibilityOwnerTargets",
             launch,
         )
         self.assertIn(

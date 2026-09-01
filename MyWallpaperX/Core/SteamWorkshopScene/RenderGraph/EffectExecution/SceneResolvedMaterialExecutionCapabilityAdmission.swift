@@ -149,6 +149,41 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
     }
 }
 
+/// A dynamic layer-wide visibility owner may prepare an ordinary root as an
+/// execution candidate without making it visible. Hierarchy and utility
+/// lifecycle stay on their existing rebuild route; the frame snapshot remains
+/// the only compositor visibility authority.
+nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
+    static func targets(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<SceneDynamicTarget> {
+        let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
+        return Set(candidates.compactMap { target in
+            guard case let .layer(layerID, .visibility) = target,
+                  let layers = descriptorGroups[layerID],
+                  layers.count == 1,
+                  let layer = layers.first,
+                  ["image", "solid"].contains(layer.contentKind),
+                  layer.parentID == nil,
+                  layer.childLayerIDs.isEmpty,
+                  case nil = layer.utilityLayer else { return nil }
+            return target
+        })
+    }
+
+    static func layerIDs(
+        in descriptor: SceneRenderDescriptor,
+        candidates: Set<SceneDynamicTarget>
+    ) -> Set<Int> {
+        Set(targets(in: descriptor, candidates: candidates).compactMap {
+            guard case let .layer(layerID, .visibility) = $0 else { return nil }
+            return layerID
+        })
+    }
+
+}
+
 /// Raw-graph conservation and condition/function admission for one launch.
 /// It never consumes a secondary renderer route or a recovery subset.
 nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
@@ -193,22 +228,15 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
         let rawGroups = Dictionary(grouping: authoredPlans, by: \.layerID)
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
-        let dynamicVisibleRootLayerIDs = Set(
-            dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
-                guard case let .layer(layerID, .visibility) = target,
-                      let layers = descriptorGroups[layerID],
-                      layers.count == 1,
-                      let layer = layers.first,
-                      ["image", "solid"].contains(layer.contentKind),
-                      layer.parentID == nil,
-                      layer.childLayerIDs.isEmpty,
-                      case nil = layer.utilityLayer else { return nil }
-                return layerID
-            }
-        )
-        // A projected value-only VM owner makes this layer a safe launch-time
-        // execution root, not a visible compositor root. The committed frame
-        // snapshot still decides whether its graph and dependency closure run.
+        let dynamicVisibleRootLayerIDs =
+            SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
+                in: descriptor,
+                candidates: dynamicLayerVisibilityOwnerTargets
+            )
+        // A typed property or projected value-only VM owner makes this layer a
+        // safe launch-time execution root, not a visible compositor root. The
+        // committed frame snapshot still decides whether its graph and
+        // dependency closure run.
         let executableVisibleRootLayerIDs = visibleLayerIDs.union(
             dynamicVisibleRootLayerIDs
         )

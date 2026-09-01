@@ -49,8 +49,22 @@ PREPARED_DEVICE_RESOURCES = (
     / "Runtime"
     / "ScenePreparedDeviceResources.swift"
 )
-
-
+METAL_VIEW = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Rendering"
+    / "SceneMetalView.swift"
+)
+DEFERRED_BASE_IMAGES = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Runtime"
+    / "SceneDesktopWallpaperHost+DeferredBaseImages.swift"
+)
 def function_body(source: str, signature: str) -> str:
     start = source.index(signature)
     opening = source.index("{", start)
@@ -75,6 +89,10 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.inspection = INSPECTION.read_text(encoding="utf-8")
         cls.spot_light_runtime = SPOT_LIGHT_RUNTIME.read_text(encoding="utf-8")
         cls.prepared_device_resources = PREPARED_DEVICE_RESOURCES.read_text(
+            encoding="utf-8"
+        )
+        cls.metal_view = METAL_VIEW.read_text(encoding="utf-8")
+        cls.deferred_base_images = DEFERRED_BASE_IMAGES.read_text(
             encoding="utf-8"
         )
 
@@ -148,6 +166,67 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
                 "launchContext.preparedDeviceResources.baseImages"
             ),
             2,
+        )
+
+    def test_hidden_effectless_combo_images_defer_without_blocking_first_frame(self) -> None:
+        prepare = function_body(self.launch, "private static func prepareLaunch(")
+        admission = function_body(
+            self.deferred_base_images,
+            "static func deferredEffectlessBaseImageLayerIDs(",
+        )
+        task = function_body(
+            self.prepared_device_resources,
+            "func start()",
+        )
+        request = function_body(
+            self.prepared_device_resources,
+            "func requestDeferredBaseImage(",
+        )
+        worker = function_body(
+            self.prepared_device_resources,
+            "private func runDeferredWorker()",
+        )
+        load = function_body(self.metal_view, "func loadImageLayers(")
+        adopt = function_body(
+            self.metal_view,
+            "func adoptPreparedDeferredBaseImage(",
+        )
+
+        self.assertIn("bindingProgram.evaluate(", admission)
+        self.assertIn("SceneLayerVisibility.visibleLayerIDs(", admission)
+        self.assertIn("layer.effects.isEmpty", admission)
+        self.assertIn("layer.dependencyLayerIDs.isEmpty", admission)
+        self.assertIn("layer.authoredDependencies.isEmpty", admission)
+        self.assertIn("displayScriptOwnership?.isEmpty != false", admission)
+        self.assertIn("liveConditionalLayerVisibilityTargets", admission)
+        self.assertIn("deferredBaseImageLayerIDs: deferredBaseImageLayerIDs", prepare)
+        self.assertLess(
+            prepare.index("let deferredBaseImageLayerIDs"),
+            prepare.index("ScenePreparedDeviceResourcesTask("),
+        )
+        self.assertIn(
+            "deferredBaseImageLayerIDs: deferredBaseImageLayerIDs",
+            task,
+        )
+        self.assertLess(
+            load.index("preparedBaseImages.deferredLayerIDs.contains(layer.id)"),
+            load.index("videoSourceRegistry.source("),
+        )
+        self.assertIn("deferred-static-base", load)
+        self.assertIn("requestedGenerations[layerID] = requestGeneration", request)
+        self.assertIn("generation < requestGeneration", request)
+        self.assertIn("requestedGenerations.removeValue", request)
+        self.assertIn("deferredQueue.async", request)
+        self.assertIn("loader: deferredTextureLoader", worker)
+        self.assertIn("spriteTextureLoader: deferredSpriteTextureLoader", worker)
+        self.assertIn("guard !cancelled", worker)
+        self.assertNotIn("deferredBaseImageQueue", self.metal_view)
+        self.assertIn("preparedBaseImages.outcome(", adopt)
+        self.assertIn("imageTextures.set(", adopt)
+        activate = function_body(self.host, "func activate(")
+        self.assertLess(
+            activate.index("cancelDeferredPreparation()"),
+            activate.index("launchContext = context"),
         )
 
     def test_first_surface_runtime_warmup_overlaps_program_compilation(self) -> None:

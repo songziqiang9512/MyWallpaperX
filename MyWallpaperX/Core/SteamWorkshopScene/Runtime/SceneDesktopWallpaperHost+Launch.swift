@@ -303,12 +303,21 @@ extension SceneDesktopWallpaperHost {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        let propertyLayerVisibilityTargets =
+            runtimeInput.propertyBindingProgram.liveLayerVisibilityTargets
+        let deferredBaseImageLayerIDs = Self.deferredEffectlessBaseImageLayerIDs(
+            in: runtimeInput.renderDescriptor,
+            bindingProgram: runtimeInput.propertyBindingProgram,
+            effectivePropertyValues: runtimeInput.effectivePropertyValues
+        )
         let deviceResourcesPreparation = ScenePreparedDeviceResourcesTask(
             descriptor: runtimeInput.renderDescriptor,
             resourceView: model.resourceView,
             device: device,
+            sceneGeneration: sceneScriptGeneration,
             dynamicImageModelPaths:
                 model.propertyVectorProjection.dynamicImageModelPaths,
+            deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             cancellationCheck: { try cancellation?.check() }
         )
         deviceResourcesPreparation.start()
@@ -456,8 +465,10 @@ extension SceneDesktopWallpaperHost {
         let provisionalSceneScriptValueTargets = propertyVectorScriptTargets
             .union(sceneScriptScalarTargets)
             .union(sceneScriptStringTargets)
+        let dynamicLayerVisibilityOwnerTargets = propertyVectorScriptTargets
+            .union(propertyLayerVisibilityTargets)
         let projectedLayerVisibilityRootLayerIDs = Set(
-            propertyVectorScriptTargets.compactMap { target -> Int? in
+            dynamicLayerVisibilityOwnerTargets.compactMap { target -> Int? in
                 guard case let .layer(layerID, .visibility) = target else {
                     return nil
                 }
@@ -474,7 +485,7 @@ extension SceneDesktopWallpaperHost {
                 dynamicEffectVisibilityOwners:
                     frameDrivenEffectVisibilityOwners,
                 dynamicLayerVisibilityOwnerTargets:
-                    propertyVectorScriptTargets,
+                    dynamicLayerVisibilityOwnerTargets,
                 startupInactiveEffectVisibilityTargets:
                     runtimeInput.startupInactiveEffectVisibilityTargets,
                 conditionSchemaEvidence:

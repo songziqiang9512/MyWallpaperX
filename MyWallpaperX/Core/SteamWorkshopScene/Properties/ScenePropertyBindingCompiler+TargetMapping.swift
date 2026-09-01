@@ -9,6 +9,19 @@ extension ScenePropertyBindingCompiler {
         valueType: SceneDynamicValueType,
         propertyKind: SceneUserPropertyKind
     )? {
+        if binding.reference.isConditional,
+           propertyKind == .combo {
+            switch binding.target {
+            case let .layerVisibility(layerID) where layerID >= 0:
+                return (
+                    .layer(layerID: layerID, field: .visibility),
+                    .bool,
+                    .combo
+                )
+            default:
+                break
+            }
+        }
         guard case let .shaderValue(
             layerID, effectIndex, passIndex, name, _
         ) = binding.target else {

@@ -15,6 +15,8 @@ class SceneMetalView: NSView {
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
+    private weak var preparedBaseImages: ScenePreparedBaseImageResources?
+    private var deferredBaseImageURLs: [Int: URL] = [:]
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
@@ -101,6 +103,8 @@ class SceneMetalView: NSView {
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var puppetRecomposeBytes = 0
         var preparedBaseImageHitCount = 0
+        self.preparedBaseImages = preparedBaseImages
+        deferredBaseImageURLs.removeAll(keepingCapacity: true)
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
@@ -136,6 +140,20 @@ class SceneMetalView: NSView {
                 report.append("layer \(layer.id) \"\(name)\": no texture URL (built-in or unresolvable); \(placementSummary)")
                 continue
             }
+            let preparedBaseImage = preparedBaseImages.outcome(
+                for: layer.id,
+                url: url,
+                device: metalDevice
+            )
+            if preparedBaseImages.deferredLayerIDs.contains(layer.id),
+               preparedBaseImage == nil {
+                deferredBaseImageURLs[layer.id] = url
+                report.append(
+                    "layer \(layer.id) \"\(name)\":"
+                        + " deferred-static-base; \(placementSummary)"
+                )
+                continue
+            }
             if let videoSource = videoSourceRegistry.source(
                 from: url,
                 layerID: layer.id,
@@ -153,11 +171,6 @@ class SceneMetalView: NSView {
                 report.append(message)
                 continue
             }
-            let preparedBaseImage = preparedBaseImages.outcome(
-                for: layer.id,
-                url: url,
-                device: metalDevice
-            )
             let baseImage = preparedBaseImage ?? SceneBaseImageTextureLoad.load(
                 from: url,
                 usesPuppet: layer.puppetMeshPath != nil,
@@ -270,6 +283,29 @@ class SceneMetalView: NSView {
         report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
         if let logURL {
             try? report.joined(separator: "\n").write(to: logURL, atomically: true, encoding: .utf8)
+        }
+    }
+
+    func adoptPreparedDeferredBaseImage(layerID: Int) -> Bool {
+        if imageTextures[layerID] != nil { return true }
+        guard let preparedBaseImages,
+              let url = deferredBaseImageURLs[layerID],
+              let outcome = preparedBaseImages.outcome(
+                  for: layerID,
+                  url: url,
+                  device: metalDevice
+              ) else { return false }
+        switch outcome {
+        case let .loaded(loaded):
+            imageTextures.set(
+                loaded.texture,
+                candidate: loaded.candidate,
+                layerID: layerID
+            )
+            deferredBaseImageURLs.removeValue(forKey: layerID)
+            return true
+        case .failed:
+            return false
         }
     }
 

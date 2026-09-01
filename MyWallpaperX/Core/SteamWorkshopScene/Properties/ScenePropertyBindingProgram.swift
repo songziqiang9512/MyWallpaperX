@@ -5,6 +5,21 @@ nonisolated struct ScenePropertyBindingInstruction: Codable, Equatable {
     let path: SceneUserPropertyPath
     let target: SceneDynamicTarget
     let valueType: SceneDynamicValueType
+    let condition: SceneUserPropertyValue?
+
+    nonisolated init(
+        propertyKey: String,
+        path: SceneUserPropertyPath,
+        target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType,
+        condition: SceneUserPropertyValue? = nil
+    ) {
+        self.propertyKey = propertyKey
+        self.path = path
+        self.target = target
+        self.valueType = valueType
+        self.condition = condition
+    }
 }
 
 nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
@@ -38,7 +53,19 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                 ))
                 continue
             }
-            switch Self.convert(value, as: instruction.valueType) {
+            let conversion: Result<SceneDynamicValue, ValueError>
+            if let condition = instruction.condition {
+                if instruction.valueType == .bool,
+                   case let .string(value) = value,
+                   case let .string(condition) = condition {
+                    conversion = .success(.bool(value == condition))
+                } else {
+                    conversion = .failure(.typeMismatch)
+                }
+            } else {
+                conversion = Self.convert(value, as: instruction.valueType)
+            }
+            switch conversion {
             case let .success(dynamicValue):
                 userValues[instruction.target] = dynamicValue
             case let .failure(error):
@@ -47,6 +74,29 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                     instruction: instruction,
                     message: error.runtimeMessage
                 ))
+            }
+        }
+
+        let conditionalGroups = Dictionary(
+            grouping: validation.instructions.filter { $0.condition != nil },
+            by: \.propertyKey
+        )
+        for (_, instructions) in conditionalGroups {
+            let selectedCount = instructions.reduce(into: 0) { count, instruction in
+                guard case .bool(true)? = userValues[instruction.target] else { return }
+                count += 1
+            }
+            guard selectedCount == 1,
+                  instructions.allSatisfy({ userValues[$0.target] != nil }) else {
+                instructions.forEach { userValues.removeValue(forKey: $0.target) }
+                if let instruction = instructions.first {
+                    diagnostics.append(.runtime(
+                        code: .invalidRuntimeValue,
+                        instruction: instruction,
+                        message: "Combo 图层选择必须精确命中一个候选。"
+                    ))
+                }
+                continue
             }
         }
 
@@ -71,6 +121,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         let rebuildRequired = Set(rebuildRequiredPropertyKeys)
         return Set(validation.instructions.compactMap { instruction in
             guard instruction.valueType == .bool,
+                  instruction.condition == nil,
                   instructionsByPropertyKey[instruction.propertyKey]?.count == 1,
                   !rebuildRequired.contains(instruction.propertyKey),
                   case .effectVisibility = instruction.target,
@@ -102,6 +153,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             guard !siblings.isEmpty,
                   siblings.allSatisfy({ sibling in
                       guard sibling.valueType == .bool,
+                            sibling.condition == nil,
                             case .effectVisibility = sibling.target else {
                           return false
                       }
@@ -113,6 +165,34 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                   case .bool = definition.authoredValue else { return nil }
             return instruction.target
         })
+    }
+
+    /// Layer visibility producers admitted by the typed binding program. A
+    /// controlling key may fan out to multiple layers; live-state still
+    /// requires every sibling target to be active before committing the key.
+    nonisolated var liveLayerVisibilityTargets: Set<SceneDynamicTarget> {
+        let validation = ScenePropertyBindingProgramValidator().validate(self)
+        let definitions = Dictionary(
+            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
+        )
+        let rebuildRequired = Set(rebuildRequiredPropertyKeys)
+        return Set(validation.instructions.compactMap { instruction in
+            guard !rebuildRequired.contains(instruction.propertyKey),
+                  instruction.valueType == .bool,
+                  case .layer(_, .visibility) = instruction.target,
+                  let definition = definitions[instruction.target],
+                  definition.valueType == .bool,
+                  case .bool = definition.authoredValue else { return nil }
+            return instruction.target
+        })
+    }
+
+    nonisolated var liveConditionalLayerVisibilityTargets:
+        Set<SceneDynamicTarget> {
+        let conditionalTargets = Set(instructions.compactMap { instruction in
+            instruction.condition == nil ? nil : instruction.target
+        })
+        return liveLayerVisibilityTargets.intersection(conditionalTargets)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -229,6 +309,18 @@ nonisolated struct ScenePropertyBindingCompiler {
         var rebuildRequiredKeys = Set(report.diagnostics.compactMap(\.propertyKey))
         let propertiesByKey = Dictionary(grouping: catalog.definitions, by: \.key)
         let sortedBindings = report.bindings.sorted(by: Self.bindingOrder)
+        let bindingsByPropertyKey = Dictionary(
+            grouping: sortedBindings,
+            by: \.reference.key
+        )
+        let admittedConditionalLayerVisibilityKeys = Set(
+            bindingsByPropertyKey.compactMap { propertyKey, bindings -> String? in
+                Self.isAdmittedConditionalLayerVisibilityGroup(
+                    bindings: bindings,
+                    definitions: propertiesByKey[propertyKey] ?? []
+                ) ? propertyKey : nil
+            }
+        )
         var targetBindings: [SceneDynamicTarget: [SceneUserPropertyBinding]] = [:]
         for binding in sortedBindings {
             let definitions = propertiesByKey[binding.reference.key] ?? []
@@ -262,13 +354,16 @@ nonisolated struct ScenePropertyBindingCompiler {
             }
 
             var isValid = true
-            if binding.reference.isConditional {
+            if binding.reference.isConditional,
+               !admittedConditionalLayerVisibilityKeys.contains(
+                   binding.reference.key
+               ) {
                 isValid = false
                 diagnostics.append(Self.compileDiagnostic(
                     code: .conditionalBinding,
                     binding: binding,
                     target: mapped.target,
-                    message: "当前 binding program 仅接受 direct binding。"
+                    message: "conditional binding 未形成完整的 Combo 图层选择组。"
                 ))
             }
             switch propertyDefinitions.count {
@@ -302,10 +397,20 @@ nonisolated struct ScenePropertyBindingCompiler {
                     ))
                 }
                 if let defaultValue = property.defaultValue {
-                    if case let .failure(error) = ScenePropertyBindingProgram.convert(
-                        defaultValue,
-                        as: mapped.valueType
-                    ) {
+                    let defaultValidation = binding.reference.isConditional
+                        && admittedConditionalLayerVisibilityKeys.contains(
+                            binding.reference.key
+                        )
+                        ? Self.validateConditionalValue(
+                            defaultValue,
+                            condition: binding.reference.condition,
+                            propertyKind: property.kind
+                        )
+                        : ScenePropertyBindingProgram.convert(
+                            defaultValue,
+                            as: mapped.valueType
+                        ).map { _ in () }
+                    if case let .failure(error) = defaultValidation {
                         isValid = false
                         diagnostics.append(Self.compileDiagnostic(
                             code: Self.propertyDefaultCode(error),
@@ -370,7 +475,8 @@ nonisolated struct ScenePropertyBindingCompiler {
                 propertyKey: binding.reference.key,
                 path: binding.path,
                 target: mapped.target,
-                valueType: mapped.valueType
+                valueType: mapped.valueType,
+                condition: binding.reference.condition
             ))
         }
 
@@ -414,6 +520,57 @@ nonisolated struct ScenePropertyBindingCompiler {
         }
         return ScenePropertyBindingProgram.convert(fallback, as: valueType)
     }
+
+    private nonisolated static func validateConditionalValue(
+        _ value: SceneUserPropertyValue,
+        condition: SceneUserPropertyValue?,
+        propertyKind: SceneUserPropertyKind
+    ) -> Result<Void, ScenePropertyBindingProgram.ValueError> {
+        guard let condition else { return .failure(.unsupportedType) }
+        switch (propertyKind, value, condition) {
+        case (.combo, .string, .string):
+            return .success(())
+        default:
+            return .failure(.typeMismatch)
+        }
+    }
+
+    private nonisolated static func isAdmittedConditionalLayerVisibilityGroup(
+        bindings: [SceneUserPropertyBinding],
+        definitions: [SceneUserPropertyDefinition]
+    ) -> Bool {
+        guard (2 ... 256).contains(bindings.count),
+              definitions.count == 1,
+              let property = definitions.first,
+              property.kind == .combo,
+              case let .string(defaultValue)? = property.defaultValue,
+              property.options.count == bindings.count else { return false }
+
+        let optionValues = property.options.compactMap { option -> String? in
+            guard case let .string(value) = option.value else { return nil }
+            return value
+        }
+        guard optionValues.count == property.options.count,
+              Set(optionValues).count == optionValues.count else { return false }
+
+        var conditions: [String] = []
+        var selectedFallbackConditions: [String] = []
+        for binding in bindings {
+            guard case let .layerVisibility(layerID) = binding.target,
+                  layerID >= 0,
+                  case let .string(condition)? = binding.reference.condition,
+                  case let .bool(fallback)? = binding.fallbackValue else {
+                return false
+            }
+            conditions.append(condition)
+            if fallback { selectedFallbackConditions.append(condition) }
+        }
+        return Set(conditions).count == conditions.count
+            && Set(conditions) == Set(optionValues)
+            && conditions.contains(defaultValue)
+            && selectedFallbackConditions == [defaultValue]
+    }
+
     private nonisolated static func bindingOrder(
         _ lhs: SceneUserPropertyBinding,
         _ rhs: SceneUserPropertyBinding

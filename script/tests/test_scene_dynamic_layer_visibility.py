@@ -42,6 +42,7 @@ private let child = SceneDynamicTarget.layer(layerID: 2, field: .visibility)
 private let owned = SceneDynamicTarget.layer(layerID: 4, field: .visibility)
 private let alphaOwned = SceneDynamicTarget.layer(layerID: 6, field: .visibility)
 private let sideEffect = SceneDynamicTarget.layer(layerID: 3, field: .visibility)
+private let authoredHidden = SceneDynamicTarget.layer(layerID: 5, field: .visibility)
 private let definitions = [
     SceneDynamicTargetDefinition(target: root, valueType: .bool, authoredValue: .bool(false)),
     SceneDynamicTargetDefinition(target: child, valueType: .bool, authoredValue: .bool(true)),
@@ -51,6 +52,9 @@ private let definitions = [
     ),
     SceneDynamicTargetDefinition(
         target: sideEffect, valueType: .bool, authoredValue: .bool(true)
+    ),
+    SceneDynamicTargetDefinition(
+        target: authoredHidden, valueType: .bool, authoredValue: .bool(false)
     ),
 ]
 private let descriptor = SceneRenderDescriptor(layers: [
@@ -161,6 +165,14 @@ enum Harness {
             ),
             "sideEffectHidden": visible([sideEffect: .bool(false)]),
             "sideEffectShown": visible([sideEffect: .bool(true)]),
+            "userPropertyHidesUnowned": visible(
+                [:],
+                userValues: [sideEffect: .bool(false)]
+            ),
+            "userPropertyRestoresAuthoredHidden": visible(
+                [:],
+                userValues: [authoredHidden: .bool(true)]
+            ),
             "sideEffectHasSourceAuthority": sourceAuthority(
                 layerID: 3,
                 [sideEffect: .bool(true)]
@@ -208,6 +220,8 @@ class SceneDynamicLayerVisibilityTests(unittest.TestCase):
         self.assertFalse(value["alphaOwnerHasSourceAuthority"])
         self.assertEqual(value["sideEffectHidden"], [])
         self.assertEqual(value["sideEffectShown"], [3])
+        self.assertEqual(value["userPropertyHidesUnowned"], [])
+        self.assertEqual(value["userPropertyRestoresAuthoredHidden"], [3, 5])
         self.assertTrue(value["sideEffectHasSourceAuthority"])
 
 

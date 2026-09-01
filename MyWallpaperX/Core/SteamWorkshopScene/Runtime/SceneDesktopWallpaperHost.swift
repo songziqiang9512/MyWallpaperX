@@ -40,6 +40,14 @@ final class SceneDesktopWallpaperHost {
         }
     }
 
+    struct PendingDeferredLayerVisibilityUpdate {
+        let generation: UInt64
+        let replacements: [String: SceneUserPropertyValue]
+        let changedPropertyKeys: Set<String>
+        let layerIDs: Set<Int>
+        let recordID: String?
+    }
+
     var surfaces: [CGDirectDisplayID: Surface] = [:]
     var launchContext: SceneDesktopWallpaperLaunchContext?
     private var observers: [NSObjectProtocol] = []
@@ -64,12 +72,16 @@ final class SceneDesktopWallpaperHost {
     var launchCancellation: SceneWallpaperLaunchCancellation?
     var nextLaunchRequestGeneration: UInt64 = 0
     var launchState: SceneWallpaperLaunchState?
+    var nextDeferredPropertyGeneration: UInt64 = 0
+    var pendingDeferredLayerVisibilityUpdate:
+        PendingDeferredLayerVisibilityUpdate?
 #if DEBUG
     var debugPointerOverride: SceneSurfacePointerState?
     var debugSurfaceReferenceFrames: [CGDirectDisplayID: NSRect] = [:]
     var debugDropDynamicValuesFrameIndex: UInt64?
     var debugDidDropDynamicValues = false
     var debugDidLogDynamicValuesRecovery = false
+    var debugDynamicLayerVisibilitySignature: String?
 #endif
 
     var activeRecordID: String? { launchContext?.recordID }
@@ -101,8 +113,21 @@ final class SceneDesktopWallpaperHost {
         )
         if let launchContext {
             teardownSceneScriptOwners(launchContext, reason: teardownReason)
+            launchContext.preparedDeviceResources.baseImages
+                .cancelDeferredPreparation()
         }
+        if let pending = pendingDeferredLayerVisibilityUpdate {
+            logDeferredLayerVisibilityTransition(
+                generation: pending.generation,
+                layerIDs: pending.layerIDs,
+                state: "cancelled:scene-switch"
+            )
+        }
+        pendingDeferredLayerVisibilityUpdate = nil
         launchContext = context
+#if DEBUG
+        debugDynamicLayerVisibilitySignature = nil
+#endif
         sharedLayerAlphaRuntime = .init(
             program: context.sharedLayerAlphaProgram
         )
@@ -147,21 +172,72 @@ final class SceneDesktopWallpaperHost {
         recordID: String?
     ) -> Bool {
         guard var context = launchContext,
-              context.recordID == recordID,
-              context.liveState.apply(
-                  replacements: replacements,
-                  changedPropertyKeys: changedPropertyKeys,
-                  unavailableConsumerTargets:
-                      Self.unavailableLiveScriptPropertyTargets(in: context)
-              ) else {
+              context.recordID == recordID else {
             return false
         }
-        guard soundPlaybackRegistry?.canApply(
-            userValues: context.liveState.userValues
+        var candidateLiveState = context.liveState
+        guard candidateLiveState.apply(
+            replacements: replacements,
+            changedPropertyKeys: changedPropertyKeys,
+            unavailableConsumerTargets:
+                Self.unavailableLiveScriptPropertyTargets(in: context)
+        ), soundPlaybackRegistry?.canApply(
+            userValues: candidateLiveState.userValues
         ) != false else {
             return false
         }
-        soundPlaybackRegistry?.apply(userValues: context.liveState.userValues)
+
+        let deferredLayerIDs = deferredLayerVisibilitySelection(
+            in: context,
+            effectiveValues: candidateLiveState.effectiveValues,
+            changedPropertyKeys: changedPropertyKeys
+        )
+        if !deferredLayerIDs.isEmpty {
+            guard nextDeferredPropertyGeneration < UInt64.max else {
+                return false
+            }
+            nextDeferredPropertyGeneration += 1
+            let generation = nextDeferredPropertyGeneration
+            let resources = context.preparedDeviceResources.baseImages
+            for layerID in deferredLayerIDs.sorted() {
+                resources.requestDeferredBaseImage(
+                    layerID: layerID,
+                    requestGeneration: generation
+                )
+            }
+            if let superseded = pendingDeferredLayerVisibilityUpdate {
+                logDeferredLayerVisibilityTransition(
+                    generation: superseded.generation,
+                    layerIDs: superseded.layerIDs,
+                    state: "superseded"
+                )
+            }
+            pendingDeferredLayerVisibilityUpdate = .init(
+                generation: generation,
+                replacements: replacements,
+                changedPropertyKeys: changedPropertyKeys,
+                layerIDs: deferredLayerIDs,
+                recordID: recordID
+            )
+            logDeferredLayerVisibilityTransition(
+                generation: generation,
+                layerIDs: deferredLayerIDs,
+                state: "pending"
+            )
+            promotePendingDeferredLayerVisibilityIfReady()
+            return true
+        }
+        if let pending = pendingDeferredLayerVisibilityUpdate,
+           !pending.changedPropertyKeys.isDisjoint(with: changedPropertyKeys) {
+            logDeferredLayerVisibilityTransition(
+                generation: pending.generation,
+                layerIDs: pending.layerIDs,
+                state: "superseded"
+            )
+            pendingDeferredLayerVisibilityUpdate = nil
+        }
+        context.liveState = candidateLiveState
+        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
         launchContext = context
         return true
     }

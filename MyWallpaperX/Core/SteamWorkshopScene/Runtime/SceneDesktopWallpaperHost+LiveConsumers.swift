@@ -1,4 +1,107 @@
+import Foundation
+
 extension SceneDesktopWallpaperHost {
+    func deferredLayerVisibilitySelection(
+        in context: SceneDesktopWallpaperLaunchContext,
+        effectiveValues: [String: SceneUserPropertyValue],
+        changedPropertyKeys: Set<String>
+    ) -> Set<Int> {
+        let selectedValues = context.runtimeInput.propertyBindingProgram.evaluate(
+            effectiveValues: effectiveValues
+        ).userValues
+        let deferredLayerIDs = context.preparedDeviceResources.baseImages
+            .deferredLayerIDs
+        return Set(
+            context.runtimeInput.propertyBindingProgram.instructions.compactMap {
+                instruction -> Int? in
+                guard changedPropertyKeys.contains(instruction.propertyKey),
+                      instruction.condition != nil,
+                      case let .layer(layerID, .visibility) = instruction.target,
+                      deferredLayerIDs.contains(layerID),
+                      case .bool(true)? = selectedValues[instruction.target]
+                else { return nil }
+                return layerID
+            }
+        )
+    }
+
+    func promotePendingDeferredLayerVisibilityIfReady() {
+        guard let pending = pendingDeferredLayerVisibilityUpdate,
+              var context = launchContext,
+              context.recordID == pending.recordID else { return }
+        let resources = context.preparedDeviceResources.baseImages
+        let statuses = pending.layerIDs.map {
+            resources.deferredStatus(for: $0)
+        }
+        if let failure = statuses.compactMap({ status -> String? in
+            guard case let .failed(code) = status else { return nil }
+            return code
+        }).first {
+            pendingDeferredLayerVisibilityUpdate = nil
+            logDeferredLayerVisibilityTransition(
+                generation: pending.generation,
+                layerIDs: pending.layerIDs,
+                state: "failed:\(failure)"
+            )
+            return
+        }
+        guard statuses.allSatisfy({ $0 == .ready }), !surfaces.isEmpty else {
+            return
+        }
+        guard surfaces.values.allSatisfy({ surface in
+            pending.layerIDs.allSatisfy {
+                surface.metalView.adoptPreparedDeferredBaseImage(layerID: $0)
+            }
+        }) else { return }
+
+        var candidateLiveState = context.liveState
+        guard candidateLiveState.apply(
+            replacements: pending.replacements,
+            changedPropertyKeys: pending.changedPropertyKeys,
+            unavailableConsumerTargets:
+                Self.unavailableLiveScriptPropertyTargets(in: context)
+        ), soundPlaybackRegistry?.canApply(
+            userValues: candidateLiveState.userValues
+        ) != false else {
+            pendingDeferredLayerVisibilityUpdate = nil
+            logDeferredLayerVisibilityTransition(
+                generation: pending.generation,
+                layerIDs: pending.layerIDs,
+                state: "failed:commit-validation"
+            )
+            return
+        }
+        context.liveState = candidateLiveState
+        soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
+        launchContext = context
+        guard pendingDeferredLayerVisibilityUpdate?.generation
+                == pending.generation else { return }
+        pendingDeferredLayerVisibilityUpdate = nil
+        logDeferredLayerVisibilityTransition(
+            generation: pending.generation,
+            layerIDs: pending.layerIDs,
+            state: "committed"
+        )
+    }
+
+    func logDeferredLayerVisibilityTransition(
+        generation: UInt64,
+        layerIDs: Set<Int>,
+        state: String
+    ) {
+#if DEBUG
+        guard Self.usesDebugEvidenceWindow else { return }
+#else
+        guard state.hasPrefix("failed") else { return }
+#endif
+        NSLog(
+            "MWX deferred property transition: schema=deferred-property-transition-v1 generation=%llu layers=%@ state=%@",
+            generation,
+            layerIDs.sorted().map(String.init).joined(separator: ","),
+            state
+        )
+    }
+
     static func unavailableLiveScriptPropertyTargets(
         in context: SceneDesktopWallpaperLaunchContext
     ) -> Set<SceneDynamicTarget> {
@@ -25,6 +128,7 @@ extension SceneDesktopWallpaperHost {
             effectiveValues: runtimeInput.effectivePropertyValues,
             activeConsumerTargets: activeLiveConsumerTargets(
                 in: runtimeInput.renderDescriptor,
+                propertyBindingProgram: runtimeInput.propertyBindingProgram,
                 resolvedMaterialExecutionCapabilities:
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
@@ -36,6 +140,7 @@ extension SceneDesktopWallpaperHost {
 
     static func activeLiveConsumerTargets(
         in descriptor: SceneRenderDescriptor,
+        propertyBindingProgram: ScenePropertyBindingProgram,
         resolvedMaterialExecutionCapabilities:
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
@@ -49,8 +154,14 @@ extension SceneDesktopWallpaperHost {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
+        let layerVisibilityTargets =
+            SceneDynamicLayerVisibilityRouteAdmission.targets(
+                in: descriptor,
+                candidates: propertyBindingProgram.liveLayerVisibilityTargets
+            )
         return descriptor.layers.reduce(
             into: effectTargets
+                .union(layerVisibilityTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)
                 .union(propertyVectorScriptProgram.livePropertyInputTargets)
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)

@@ -55,6 +55,15 @@ nonisolated struct ScenePropertyBindingProgramValidator {
                 ))
                 continue
             }
+            guard instruction.condition == nil || instruction.valueType == .bool else {
+                diagnostics.append(.structure(
+                    code: .programTypeMismatch,
+                    instruction: instruction,
+                    target: target,
+                    message: "conditional instruction 必须生成 Boolean target。"
+                ))
+                continue
+            }
             validInstructions.append(instruction)
         }
 

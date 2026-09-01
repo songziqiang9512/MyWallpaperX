@@ -147,6 +147,9 @@ enum Harness {
             "officialTextureRuntimeType": definitionsByKey["officialTexture"]?.runtimeType ?? "",
             "sceneTextureRuntimeType": definitionsByKey["sceneTexture"]?.runtimeType ?? "",
             "unknownOverrideIgnored": catalog.effectiveValues(overrides: ["unknown": .string("x")])["unknown"] == nil,
+            "invalidComboOverrideUsesDefault": catalog.effectiveValues(
+                overrides: ["mode": .string("01")]
+            )["mode"] == .string("1"),
             "bindingCount": resolution.bindingReport.bindings.count,
             "conditionalBindingCount": resolution.bindingReport.conditionalBindingCount,
             "unsupportedBindingCount": resolution.bindingReport.unsupportedBindings.count,
@@ -375,6 +378,7 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["officialTextureRuntimeType"], "texture")
         self.assertEqual(result["sceneTextureRuntimeType"], "scenetexture")
         self.assertTrue(result["unknownOverrideIgnored"])
+        self.assertTrue(result["invalidComboOverrideUsesDefault"])
         self.assertEqual(result["bindingCount"], 17)
         self.assertEqual(result["conditionalBindingCount"], 3)
         self.assertEqual(result["unsupportedBindingCount"], 3)

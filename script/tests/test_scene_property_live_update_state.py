@@ -49,6 +49,14 @@ enum Harness {
         layerID: 6,
         effectIndex: 0
     )
+    static let layoutOne = SceneDynamicTarget.layer(
+        layerID: 7,
+        field: .visibility
+    )
+    static let layoutTwo = SceneDynamicTarget.layer(
+        layerID: 8,
+        field: .visibility
+    )
 
     static func main() throws {
         let liveProgram = program(
@@ -249,6 +257,65 @@ enum Harness {
         let mixedVisibilityWasAtomic = unchanged(
             mixedVisibilityState,
             from: beforeMixedVisibility
+        )
+
+        let conditionalLayoutProgram = ScenePropertyBindingProgram(
+            definitions: [
+                .init(target: layoutOne, valueType: .bool, authoredValue: .bool(true)),
+                .init(target: layoutTwo, valueType: .bool, authoredValue: .bool(false)),
+            ],
+            instructions: [
+                .init(
+                    propertyKey: "layout",
+                    path: .init(components: [.key("layout"), .index(0)]),
+                    target: layoutOne,
+                    valueType: .bool,
+                    condition: .string("one")
+                ),
+                .init(
+                    propertyKey: "layout",
+                    path: .init(components: [.key("layout"), .index(1)]),
+                    target: layoutTwo,
+                    valueType: .bool,
+                    condition: .string("two")
+                ),
+            ]
+        )
+        var conditionalLayoutState = ScenePropertyLiveUpdateState(
+            program: conditionalLayoutProgram,
+            effectiveValues: ["layout": .string("one")],
+            activeConsumerTargets: [layoutOne, layoutTwo]
+        )
+        let conditionalLayoutInitial = bool(conditionalLayoutState, layoutOne) == true
+            && bool(conditionalLayoutState, layoutTwo) == false
+        let conditionalLayoutAccepted = conditionalLayoutState.apply(
+            .string("two"),
+            forPropertyKey: "layout"
+        )
+        let conditionalLayoutSwapped = bool(conditionalLayoutState, layoutOne) == false
+            && bool(conditionalLayoutState, layoutTwo) == true
+        let beforeUnmatchedLayout = conditionalLayoutState
+        let conditionalLayoutUnmatchedRejected = !conditionalLayoutState.apply(
+            .string("missing"),
+            forPropertyKey: "layout"
+        )
+        let conditionalLayoutUnmatchedWasAtomic = unchanged(
+            conditionalLayoutState,
+            from: beforeUnmatchedLayout
+        )
+        var partialLayoutState = ScenePropertyLiveUpdateState(
+            program: conditionalLayoutProgram,
+            effectiveValues: ["layout": .string("one")],
+            activeConsumerTargets: [layoutOne]
+        )
+        let beforePartialLayout = partialLayoutState
+        let conditionalLayoutPartialRejected = !partialLayoutState.apply(
+            .string("two"),
+            forPropertyKey: "layout"
+        )
+        let conditionalLayoutPartialWasAtomic = unchanged(
+            partialLayoutState,
+            from: beforePartialLayout
         )
 
         let scriptRoot: [String: Any] = [
@@ -513,6 +580,17 @@ enum Harness {
             "xrayVisibilityUpdated": xrayVisibilityUpdated,
             "mixedVisibilityRejected": mixedVisibilityRejected,
             "mixedVisibilityWasAtomic": mixedVisibilityWasAtomic,
+            "conditionalLayoutInitial": conditionalLayoutInitial,
+            "conditionalLayoutAccepted": conditionalLayoutAccepted,
+            "conditionalLayoutSwapped": conditionalLayoutSwapped,
+            "conditionalLayoutUnmatchedRejected":
+                conditionalLayoutUnmatchedRejected,
+            "conditionalLayoutUnmatchedWasAtomic":
+                conditionalLayoutUnmatchedWasAtomic,
+            "conditionalLayoutPartialRejected":
+                conditionalLayoutPartialRejected,
+            "conditionalLayoutPartialWasAtomic":
+                conditionalLayoutPartialWasAtomic,
             "scriptProviderClassified": scriptProviderClassified,
             "scriptProviderAccepted": scriptProviderAccepted,
             "scriptProviderPublishedBoth": scriptProviderPublishedBoth,
@@ -524,7 +602,7 @@ enum Harness {
             "unsupportedScriptPathRebuilds": unsupportedScriptPathRebuilds,
             "malformedProviderRebuilds": malformedProviderRebuilds,
             "nullOuterUserProviderClassified": nullOuterUserProviderClassified,
-            "unsupportedColorProviderRebuilds": unsupportedColorProviderRebuilds,
+            "colorProviderClassified": !unsupportedColorProviderRebuilds,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -666,6 +744,15 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["mixedVisibilityRejected"])
         self.assertTrue(self.result["mixedVisibilityWasAtomic"])
 
+    def test_conditional_layout_selection_is_exact_and_atomic(self) -> None:
+        self.assertTrue(self.result["conditionalLayoutInitial"])
+        self.assertTrue(self.result["conditionalLayoutAccepted"])
+        self.assertTrue(self.result["conditionalLayoutSwapped"])
+        self.assertTrue(self.result["conditionalLayoutUnmatchedRejected"])
+        self.assertTrue(self.result["conditionalLayoutUnmatchedWasAtomic"])
+        self.assertTrue(self.result["conditionalLayoutPartialRejected"])
+        self.assertTrue(self.result["conditionalLayoutPartialWasAtomic"])
+
     def test_script_property_provider_is_typed_and_requires_its_vm_consumer(self) -> None:
         self.assertTrue(self.result["scriptProviderClassified"])
         self.assertTrue(self.result["scriptProviderAccepted"])
@@ -680,7 +767,7 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["unsupportedScriptPathRebuilds"])
         self.assertTrue(self.result["malformedProviderRebuilds"])
         self.assertTrue(self.result["nullOuterUserProviderClassified"])
-        self.assertTrue(self.result["unsupportedColorProviderRebuilds"])
+        self.assertTrue(self.result["colorProviderClassified"])
 
     def test_effect_visibility_mapping_is_generic_and_live_rejection_requests_relaunch(
         self,

@@ -238,7 +238,7 @@ enum AudioCaptureDemandHarness {
         # 采样必须在 surface 循环之外：频谱是 host-shared 输入，
         # 同一帧内所有屏幕必须看到同一份数据。
         sample_index = source.index("let audioSpectrum = SceneAudioSpectrumInbox")
-        loop_index = source.index("for surface in surfaces.values", sample_index - 400)
+        loop_index = source.index("for (displayID, surface) in surfaces", sample_index)
         self.assertLess(
             sample_index,
             loop_index,

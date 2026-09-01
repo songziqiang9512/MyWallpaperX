@@ -72,7 +72,13 @@ nonisolated struct SceneUserPropertyDocumentResolver {
             }
             if let condition = reference.condition {
                 guard target.acceptsConditionalBoolean else { return result }
-                result["value"] = effectiveValue.matches(condition)
+                if case .layerVisibility = target,
+                   case let .string(value) = effectiveValue,
+                   case let .string(conditionValue) = condition {
+                    result["value"] = value == conditionValue
+                } else {
+                    result["value"] = effectiveValue.matches(condition)
+                }
             } else {
                 result["value"] = effectiveValue.foundationValue
             }

@@ -71,7 +71,17 @@ extension SceneDesktopWallpaperHost {
         if clearContext {
             if let launchContext {
                 teardownSceneScriptOwners(launchContext, reason: reason)
+                launchContext.preparedDeviceResources.baseImages
+                    .cancelDeferredPreparation()
             }
+            if let pending = pendingDeferredLayerVisibilityUpdate {
+                logDeferredLayerVisibilityTransition(
+                    generation: pending.generation,
+                    layerIDs: pending.layerIDs,
+                    state: "cancelled:surface-stop"
+                )
+            }
+            pendingDeferredLayerVisibilityUpdate = nil
             SceneAudioSpectrumInbox.shared.setDemand(false)
             sharedLayerAlphaRuntime = .init(program: .empty)
 #if DEBUG
@@ -217,7 +227,9 @@ extension SceneDesktopWallpaperHost {
     }
 
     private func renderFrame() -> SceneFrameDriverAttempt {
-        guard let launchContext, !surfaces.isEmpty else { return .inactive }
+        guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
+        promotePendingDeferredLayerVisibilityIfReady()
+        guard let launchContext else { return .inactive }
         guard surfaces.values.allSatisfy({
             !$0.metalView.shouldDeferResolvedMaterialFrame
         }) else {
@@ -669,6 +681,12 @@ extension SceneDesktopWallpaperHost {
 #else
             let dynamicValues = resolvedDynamicValues
 #endif
+#if DEBUG
+            logDebugDynamicLayerVisibilityIfChanged(
+                descriptor: launchContext.runtimeInput.renderDescriptor,
+                snapshot: dynamicValues
+            )
+#endif
             surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
                 layerTopology: layerTopology.resolvingDynamicMaterialColors(
@@ -704,6 +722,38 @@ extension SceneDesktopWallpaperHost {
         }
         return .rendered
     }
+
+#if DEBUG
+    private func logDebugDynamicLayerVisibilityIfChanged(
+        descriptor: SceneRenderDescriptor,
+        snapshot: SceneDynamicSnapshot
+    ) {
+        guard Self.usesDebugEvidenceWindow else { return }
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: descriptor,
+            snapshot: snapshot
+        )
+        let records = descriptor.layers.compactMap { layer -> String? in
+            guard let resolved = snapshot[
+                .layer(layerID: layer.id, field: .visibility)
+            ], case let .bool(value) = resolved.value else { return nil }
+            return "layer=\(layer.id) source=\(resolved.source.rawValue)"
+                + " value=\(value)"
+                + " effective=\(visibleLayerIDs.contains(layer.id))"
+        }
+        let signature = records.joined(separator: "|")
+        guard signature != debugDynamicLayerVisibilitySignature else { return }
+        debugDynamicLayerVisibilitySignature = signature
+        for record in records {
+            NSLog(
+                "MWX dynamic layer visibility: schema=dynamic-layer-visibility-v1 frame=%llu generation=%llu %@",
+                snapshot.frameIndex,
+                snapshot.generation,
+                record
+            )
+        }
+    }
+#endif
 
     func updateMouseLocations() {
 #if DEBUG

@@ -33,32 +33,29 @@ enum SceneLayerVisibility {
         }
     }
 
-    /// Source passthrough may consume the same committed visibility authority
-    /// as the normal layer walk. It must not revive authored/user fallback or
-    /// bypass the still-unsupported alpha owner.
+    /// Source passthrough consumes the same highest-priority committed Boolean
+    /// as the normal layer walk. A SceneScript display owner still requires an
+    /// actual SceneScript publication and the unsupported alpha owner remains
+    /// fail closed.
     nonisolated static func hasCurrentSourceDisplayAuthority(
         for layer: SceneRenderDescriptor.Layer,
         snapshot: SceneDynamicSnapshot?
     ) -> Bool {
-        if let resolved = snapshot?[
+        let resolved = snapshot?[
             .layer(layerID: layer.id, field: .visibility)
-        ], layer.displayScriptOwnership?.alpha != true,
-           resolved.source == .sceneScript,
-           case let .bool(value) = resolved.value {
+        ]
+        if let ownership = layer.displayScriptOwnership,
+           !ownership.isEmpty {
+            guard ownership.alpha != true,
+                  ownership.visible == true,
+                  resolved?.source == .sceneScript,
+                  case .bool(true) = resolved?.value else { return false }
+            return true
+        }
+        if let resolved, case let .bool(value) = resolved.value {
             return value
         }
-        guard let ownership = layer.displayScriptOwnership,
-              !ownership.isEmpty else { return layer.visible != false }
-        guard ownership.alpha != true,
-              ownership.visible == true,
-              let resolved = snapshot?[
-                  .layer(layerID: layer.id, field: .visibility)
-              ],
-              resolved.source == .sceneScript,
-              case .bool(true) = resolved.value else {
-            return false
-        }
-        return true
+        return layer.visible != false
     }
 
     nonisolated private static func isEffectivelyVisible(
@@ -69,18 +66,10 @@ enum SceneLayerVisibility {
         var current: SceneRenderDescriptor.Layer? = layer
         var visited: Set<Int> = []
         while let candidate = current {
-            let scriptVisibility = snapshot?[
-                .layer(layerID: candidate.id, field: .visibility)
-            ].flatMap { resolved -> Bool? in
-                guard resolved.source == .sceneScript,
-                      case let .bool(value) = resolved.value else { return nil }
-                return value
-            }
             guard hasCurrentSourceDisplayAuthority(
                 for: candidate,
                 snapshot: snapshot
             ),
-                  scriptVisibility ?? candidate.visible ?? true,
                   visited.insert(candidate.id).inserted else {
                 return false
             }

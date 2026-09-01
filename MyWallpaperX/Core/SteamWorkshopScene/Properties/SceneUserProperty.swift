@@ -181,9 +181,15 @@ nonisolated struct SceneUserPropertyCatalog {
     nonisolated func effectiveValues(
         overrides: [String: SceneUserPropertyValue]
     ) -> [String: SceneUserPropertyValue] {
-        let knownKeys = Set(definitions.map(\.key))
+        let definitionsByKey = Dictionary(grouping: definitions, by: \.key)
         return overrides.reduce(into: defaultValues) { values, override in
-            guard knownKeys.contains(override.key) else { return }
+            guard let matches = definitionsByKey[override.key],
+                  matches.count == 1,
+                  let definition = matches.first else { return }
+            if definition.kind == .combo,
+               !definition.options.contains(where: { $0.value == override.value }) {
+                return
+            }
             values[override.key] = override.value
         }
     }

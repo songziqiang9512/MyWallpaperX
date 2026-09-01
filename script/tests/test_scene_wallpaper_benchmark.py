@@ -2236,6 +2236,53 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             benchmark.live_property_update_failures(requested, None),
         )
 
+    def test_deferred_property_transition_requires_one_terminal_per_generation(
+        self,
+    ) -> None:
+        metrics = benchmark.deferred_property_transition_metrics("\n".join([
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=1 "
+            "layers=25 state=pending",
+            "MWX deferred base image: schema=deferred-base-image-v2 "
+            "sceneGeneration=7 requestGeneration=1 layer=25 status=ready",
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=1 "
+            "layers=25 state=committed",
+        ]))
+        self.assertTrue(metrics["contract_succeeded"])
+        self.assertEqual(metrics["pending_generations"], [1])
+        self.assertEqual(metrics["committed_generations"], [1])
+        self.assertEqual(metrics["terminal_generations"], [1])
+        self.assertEqual(metrics["resource_outcomes"][0]["layer_id"], 25)
+
+        superseded = benchmark.deferred_property_transition_metrics("\n".join([
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=1 "
+            "layers=95 state=pending",
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=1 "
+            "layers=95 state=superseded",
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=2 "
+            "layers=25 state=pending",
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=2 "
+            "layers=25 state=committed",
+        ]))
+        self.assertTrue(superseded["contract_succeeded"])
+        self.assertEqual(superseded["terminal_generations"], [1, 2])
+
+        incomplete = benchmark.deferred_property_transition_metrics(
+            "MWX deferred property transition: "
+            "schema=deferred-property-transition-v1 generation=3 "
+            "layers=29 state=pending"
+        )
+        self.assertFalse(incomplete["contract_succeeded"])
+        self.assertIn(
+            "deferred property generation missing unique terminal state",
+            incomplete["validation_failures"],
+        )
+
     def test_user_texture_overrides_stay_inside_isolated_sample(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-user-texture-") as directory:
             runtime_sample = Path(directory)
@@ -6447,6 +6494,58 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn(
             "resolved material graph accepted layer GPU completion missing",
             missing_gpu_metrics["validation_failures"],
+        )
+
+    def test_resolved_material_graph_accepts_typed_dormant_dynamic_layer(
+        self,
+    ) -> None:
+        preview_text = "\n".join([
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=30 status=accepted",
+        ])
+        metrics = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([
+                "MWX dynamic layer visibility: "
+                "schema=dynamic-layer-visibility-v1 frame=1 generation=1 "
+                "layer=30 source=userProperty value=false effective=false",
+                "resolved material runtime audit: schema=scene-graph-executor-v1 "
+                "claimed=0 encoded=0 failures=0 deferred=0 pending=0 "
+                "gpuEncoded=0",
+            ]),
+        )
+
+        self.assertTrue(metrics["dormant_contract_succeeded"])
+        self.assertTrue(metrics["contract_succeeded"])
+        self.assertEqual(
+            metrics["dynamic_visibility"]["dormant_accepted_layer_ids"],
+            [30],
+        )
+        self.assertEqual(
+            metrics["dynamic_visibility"]["execution_expected_layer_ids"],
+            [],
+        )
+        self.assertEqual(metrics["layer_routes"]["missing_layer_ids"], [])
+        self.assertEqual(metrics["validation_failures"], [])
+
+        malformed = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([
+                "MWX dynamic layer visibility: "
+                "schema=dynamic-layer-visibility-v1 frame=1 generation=1 "
+                "layer=30 source=unknown value=false effective=false",
+                "resolved material runtime audit: schema=scene-graph-executor-v1 "
+                "claimed=0 encoded=0 failures=0 deferred=0 pending=0 "
+                "gpuEncoded=0",
+            ]),
+        )
+        self.assertFalse(malformed["contract_succeeded"])
+        self.assertIn(
+            "resolved material graph dynamic visibility evidence malformed",
+            malformed["validation_failures"],
         )
 
     def test_resolved_material_graph_next_frame_is_conserved_per_layer(

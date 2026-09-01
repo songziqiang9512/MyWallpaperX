@@ -580,6 +580,29 @@ RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
     r"dependency=(?P<dependency>none|graph-internal|external-primary) "
     r"dependencyReferences=(?P<dependency_references>\d+)"
 )
+DYNAMIC_LAYER_VISIBILITY_RE = re.compile(
+    r"MWX dynamic layer visibility: "
+    r"schema=dynamic-layer-visibility-v1 "
+    r"frame=(?P<frame>\d+) generation=(?P<generation>\d+) "
+    r"layer=(?P<id>\d+) "
+    r"source=(?P<source>authored|userProperty|timeline|sceneScript) "
+    r"value=(?P<value>true|false) effective=(?P<effective>true|false)(?=\s|$)",
+)
+DEFERRED_PROPERTY_TRANSITION_RE = re.compile(
+    r"MWX deferred property transition: "
+    r"schema=deferred-property-transition-v1 "
+    r"generation=(?P<generation>\d+) "
+    r"layers=(?P<layers>\d+(?:,\d+)*) "
+    r"state=(?P<state>pending|committed|superseded|"
+    r"failed:[A-Za-z0-9._-]+|cancelled:[A-Za-z0-9._-]+)(?=\s|$)"
+)
+DEFERRED_BASE_IMAGE_RE = re.compile(
+    r"MWX deferred base image: schema=deferred-base-image-v2 "
+    r"sceneGeneration=(?P<scene_generation>\d+) "
+    r"requestGeneration=(?P<request_generation>\d+) "
+    r"layer=(?P<layer>\d+) "
+    r"status=(?P<status>ready|failed:[A-Za-z0-9._-]+)(?=\s|$)"
+)
 RESOLVED_MATERIAL_SCENE_BACKGROUND_RE = re.compile(
     r"resolved material scene background: "
     r"schema=scene-background-provider-v1 layer=(?P<id>\d+) "
@@ -2722,6 +2745,52 @@ def resolved_material_graph_execution_metrics(
             "resolved material graph accepted layer count conservation failed"
         )
 
+    visibility_lines = [
+        line.strip()
+        for line in log_text.splitlines()
+        if "MWX dynamic layer visibility:" in line
+    ]
+    raw_visibility_records = [
+        {
+            "frame": int(match.group("frame")),
+            "generation": int(match.group("generation")),
+            "layer_id": int(match.group("id")),
+            "source": match.group("source"),
+            "value": match.group("value") == "true",
+            "effective": match.group("effective") == "true",
+        }
+        for match in DYNAMIC_LAYER_VISIBILITY_RE.finditer(log_text)
+    ]
+    visibility_counts: dict[tuple[int, int, int], int] = {}
+    latest_visibility_by_layer: dict[int, dict[str, Any]] = {}
+    for record in raw_visibility_records:
+        key = (record["frame"], record["generation"], record["layer_id"])
+        visibility_counts[key] = visibility_counts.get(key, 0) + 1
+        latest_visibility_by_layer[record["layer_id"]] = record
+    duplicate_visibility_layer_ids = sorted(
+        key[2] for key, count in visibility_counts.items()
+        if count > 1
+    )
+    visibility_records = sorted(
+        latest_visibility_by_layer.values(),
+        key=lambda record: record["layer_id"],
+    )
+    malformed_visibility_count = (
+        len(visibility_lines) - len(raw_visibility_records)
+    )
+    if malformed_visibility_count:
+        capability_failures.append(
+            "resolved material graph dynamic visibility evidence malformed"
+        )
+    if duplicate_visibility_layer_ids:
+        capability_failures.append(
+            "resolved material graph dynamic visibility evidence duplicated"
+        )
+    current_hidden_layer_ids = sorted({
+        record["layer_id"] for record in visibility_records
+        if record["effective"] is False
+    })
+
     scene_background_lines = [
         line.strip()
         for line in preview_text.splitlines()
@@ -2888,6 +2957,14 @@ def resolved_material_graph_execution_metrics(
         "program_next_frame_layer_ids"
     ]
     accepted_layer_set = set(accepted_layer_ids)
+    dormant_layer_set = (
+        accepted_layer_set.intersection(current_hidden_layer_ids)
+        .difference(observed_layer_ids)
+    )
+    execution_expected_layer_set = accepted_layer_set.difference(
+        dormant_layer_set
+    )
+    execution_expected_layer_ids = sorted(execution_expected_layer_set)
     named_capture = named_target_capture_execution_metrics(log_text)
     graph_output = resolved_material_graph_output_metrics(
         accepted_layer_ids,
@@ -2920,7 +2997,7 @@ def resolved_material_graph_execution_metrics(
     if effect_execution is None:
         effect_execution = effect_execution_metrics(log_text, static_disposition)
     exact_backend = resolved_material_graph_exact_backend_metrics(
-        accepted_layer_ids,
+        execution_expected_layer_ids,
         effect_execution,
         static_disposition,
         graph_observations,
@@ -2945,7 +3022,7 @@ def resolved_material_graph_execution_metrics(
             "resolved material graph mixed Program exact subject join failed"
         )
     passthrough = resolved_material_graph_passthrough_metrics(
-        accepted_layer_ids,
+        execution_expected_layer_ids,
         graph_observations,
         static_disposition,
     )
@@ -2958,19 +3035,21 @@ def resolved_material_graph_execution_metrics(
             "resolved material graph activity has no capability evidence"
         )
     missing_gpu_completed_layer_ids = sorted(
-        accepted_layer_set.difference(observed_layer_ids)
+        execution_expected_layer_set.difference(observed_layer_ids)
     )
     missing_compositor_consumed_layer_ids = sorted(
-        accepted_layer_set
+        execution_expected_layer_set
         .difference(named_published_layer_ids)
         .difference(compositor_consumed_layer_ids)
     )
     missing_next_frame_layer_ids = sorted(
-        accepted_layer_set.difference(next_frame_layer_ids)
+        execution_expected_layer_set.difference(next_frame_layer_ids)
     )
     missing_exact_backend_layer_ids = exact_backend["missing_layer_ids"]
     missing_passthrough_layer_ids = sorted(
-        accepted_layer_set.difference(passthrough["complete_layer_ids"])
+        execution_expected_layer_set.difference(
+            passthrough["complete_layer_ids"]
+        )
     )
     missing_layer_ids = sorted(
         set(missing_gpu_completed_layer_ids).union(
@@ -3045,7 +3124,7 @@ def resolved_material_graph_execution_metrics(
         capability_failures.append(
             "resolved material graph non-accepted layer exact backend observed"
         )
-    if accepted_count is not None and accepted_count > 0:
+    if execution_expected_layer_ids:
         if not executor_observations:
             executor_failures.append(
                 "resolved material graph executor evidence missing"
@@ -3121,26 +3200,32 @@ def resolved_material_graph_execution_metrics(
         program_observed_layer_ids
     ).union(
         effect_local_only_layer_ids.intersection(observed_layer_ids),
-        accepted_layer_set.difference(exact_required_layer_ids).intersection(
+        execution_expected_layer_set.difference(
+            exact_required_layer_ids
+        ).intersection(
             observed_layer_ids
         )
     )
     output_evidence_layer_ids = pure_program_layer_ids.intersection(
         program_output_consumed_layer_set
     ).union(
-        accepted_layer_set.difference(pure_program_layer_ids).intersection(
+        execution_expected_layer_set.difference(
+            pure_program_layer_ids
+        ).intersection(
             output_consumed_layer_set
         )
     )
     next_frame_evidence_layer_ids = program_required_layer_ids.intersection(
         program_next_frame_layer_ids
     ).union(
-        accepted_layer_set.difference(program_required_layer_ids).intersection(
+        execution_expected_layer_set.difference(
+            program_required_layer_ids
+        ).intersection(
             next_frame_layer_ids
         )
     )
     succeeded_layer_ids = sorted(
-        accepted_layer_set
+        execution_expected_layer_set
         .intersection(execution_observed_layer_ids)
         .intersection(output_evidence_layer_ids)
         .intersection(next_frame_evidence_layer_ids)
@@ -3154,15 +3239,14 @@ def resolved_material_graph_execution_metrics(
     )
     execution_succeeded = bool(
         capability is not None
-        and accepted_count is not None
-        and accepted_count > 0
+        and execution_expected_layer_ids
         and executor_observations
         and claimed_count > 0
         and encoded_count > 0
         and gpu_encoded_count > 0
         and failure_count == 0
         and minimum_transactions_satisfied
-        and succeeded_layer_ids == accepted_layer_ids
+        and succeeded_layer_ids == execution_expected_layer_ids
         and not missing_layer_ids
         and not unexpected_layer_ids
         and not validation_failures
@@ -3183,6 +3267,17 @@ def resolved_material_graph_execution_metrics(
         and not unexpected_layer_ids
         and not validation_failures
     )
+    dormant_contract_succeeded = bool(
+        capability is not None
+        and accepted_count is not None
+        and accepted_count > 0
+        and not execution_expected_layer_ids
+        and route_evidence_complete
+        and zero_executor_counters
+        and graph_observations["observation_count"] == 0
+        and not unexpected_layer_ids
+        and not validation_failures
+    )
     return {
         "has_evidence": bool(
             capability_observations
@@ -3192,14 +3287,33 @@ def resolved_material_graph_execution_metrics(
                 graph_observations["has_evidence"]
                 and exact_backend["has_evidence"]
                 and passthrough["has_evidence"]
-                if accepted_count and accepted_count > 0
+                if execution_expected_layer_ids
                 else graph_observations["observation_count"] == 0
             )
         ),
         "execution_succeeded": execution_succeeded,
         "zero_contract_succeeded": zero_contract_succeeded,
-        "contract_succeeded": execution_succeeded or zero_contract_succeeded,
+        "dormant_contract_succeeded": dormant_contract_succeeded,
+        "contract_succeeded": (
+            execution_succeeded
+            or zero_contract_succeeded
+            or dormant_contract_succeeded
+        ),
         "succeeded_layer_ids": succeeded_layer_ids,
+        "dynamic_visibility": {
+            "has_evidence": bool(visibility_records),
+            "schema_version": (
+                "dynamic-layer-visibility-v1" if visibility_records else None
+            ),
+            "current_hidden_layer_ids": current_hidden_layer_ids,
+            "dormant_accepted_layer_ids": sorted(dormant_layer_set),
+            "execution_expected_layer_ids": execution_expected_layer_ids,
+            "duplicate_layer_ids": duplicate_visibility_layer_ids,
+            "malformed_observation_count": malformed_visibility_count,
+            "records": sorted(
+                visibility_records, key=lambda record: record["layer_id"]
+            ),
+        },
         "capability": {
             "has_evidence": bool(capability_observations),
             "schema_version": (
@@ -6007,6 +6121,88 @@ def live_property_update_metrics(log_text: str) -> dict[str, Any] | None:
     }
 
 
+def deferred_property_transition_metrics(log_text: str) -> dict[str, Any]:
+    transition_lines = [
+        line for line in log_text.splitlines()
+        if "MWX deferred property transition:" in line
+    ]
+    resource_lines = [
+        line for line in log_text.splitlines()
+        if "MWX deferred base image:" in line
+    ]
+    transitions = [
+        {
+            "generation": int(match.group("generation")),
+            "layer_ids": [
+                int(value) for value in match.group("layers").split(",")
+            ],
+            "state": match.group("state"),
+        }
+        for match in DEFERRED_PROPERTY_TRANSITION_RE.finditer(log_text)
+    ]
+    resource_outcomes = [
+        {
+            "scene_generation": int(match.group("scene_generation")),
+            "request_generation": int(match.group("request_generation")),
+            "layer_id": int(match.group("layer")),
+            "status": match.group("status"),
+        }
+        for match in DEFERRED_BASE_IMAGE_RE.finditer(log_text)
+    ]
+    failures: list[str] = []
+    if len(transition_lines) != len(transitions):
+        failures.append("deferred property transition evidence malformed")
+    if len(resource_lines) != len(resource_outcomes):
+        failures.append("deferred base image evidence malformed")
+
+    by_generation: dict[int, list[dict[str, Any]]] = {}
+    for transition in transitions:
+        by_generation.setdefault(transition["generation"], []).append(
+            transition
+        )
+    terminal_prefixes = ("committed", "superseded", "failed:", "cancelled:")
+    pending_generations: list[int] = []
+    committed_generations: list[int] = []
+    terminal_generations: list[int] = []
+    for generation, records in sorted(by_generation.items()):
+        pending = [record for record in records if record["state"] == "pending"]
+        terminals = [
+            record for record in records
+            if record["state"].startswith(terminal_prefixes)
+        ]
+        if pending:
+            pending_generations.append(generation)
+        if any(record["state"] == "committed" for record in terminals):
+            committed_generations.append(generation)
+        if terminals:
+            terminal_generations.append(generation)
+        if len(pending) != 1:
+            failures.append(
+                "deferred property generation missing unique pending state"
+            )
+        if len(terminals) != 1:
+            failures.append(
+                "deferred property generation missing unique terminal state"
+            )
+        if pending and terminals and records.index(pending[0]) > records.index(terminals[0]):
+            failures.append("deferred property terminal preceded pending state")
+        if pending and terminals and pending[0]["layer_ids"] != terminals[0]["layer_ids"]:
+            failures.append("deferred property terminal layer identity mismatch")
+
+    return {
+        "has_evidence": bool(transition_lines or resource_lines),
+        "transition_count": len(transitions),
+        "resource_outcome_count": len(resource_outcomes),
+        "pending_generations": pending_generations,
+        "committed_generations": committed_generations,
+        "terminal_generations": terminal_generations,
+        "transitions": transitions,
+        "resource_outcomes": resource_outcomes,
+        "contract_succeeded": not failures,
+        "validation_failures": sorted(set(failures)),
+    }
+
+
 def live_property_update_failures(
     requested: Any,
     metrics: dict[str, Any] | None,
@@ -6455,6 +6651,9 @@ def run_sample(
     )
     performance = performance_metrics(log_text, surface_count)
     live_property_update = live_property_update_metrics(log_text)
+    deferred_property_transition = deferred_property_transition_metrics(
+        log_text
+    )
     cursor_ripple_persistence = cursor_ripple_persistence_metrics(log_text)
     cursor_ripple_visible = cursor_ripple_visible_metrics(log_text)
     loaded_match = LOADED_RE.search(preview_text)
@@ -6707,6 +6906,7 @@ def run_sample(
         live_property_overrides,
         live_property_update,
     ))
+    failures.extend(deferred_property_transition["validation_failures"])
     failures.extend(cursor_ripple_persistence_failures(
         cursor_ripple_persistence,
         require_evidence=require_cursor_ripple_persistence,
@@ -7208,6 +7408,7 @@ def run_sample(
             "cursor_ripple_persistence": cursor_ripple_persistence,
             "cursor_ripple_visible": cursor_ripple_visible,
             "live_property_update": live_property_update,
+            "deferred_property_transition": deferred_property_transition,
             "loaded_textures": loaded,
             "texture_candidates": total,
             "loaded_ratio": round(loaded_ratio, 4),

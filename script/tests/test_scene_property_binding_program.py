@@ -122,6 +122,42 @@ enum Harness {
             )], diagnostics: []),
             catalog: catalog
         )
+        let conditionalLayerTargets = [
+            SceneDynamicTarget.layer(layerID: 41, field: .visibility),
+            SceneDynamicTarget.layer(layerID: 42, field: .visibility),
+        ]
+        let conditionalLayer = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "layout", .bool(true), 41, .layerVisibility(layerID: 41),
+                    condition: .string("one")
+                ),
+                binding(
+                    "layout", .bool(false), 42, .layerVisibility(layerID: 42),
+                    condition: .string("two")
+                ),
+            ], diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "layout", defaultValue: "one", options: ["one", "two"]
+            )])
+        )
+        let conditionalLayerEvaluation = conditionalLayer.program.evaluate(
+            effectiveValues: ["layout": .string("two")]
+        )
+        let conditionalLayerUnmatched = conditionalLayer.program.evaluate(
+            effectiveValues: ["layout": .string("missing")]
+        )
+        let incompleteConditionalLayer = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "layout", .bool(true), 43, .layerVisibility(layerID: 43),
+                    condition: .string("one")
+                ),
+            ], diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "layout", defaultValue: "one", options: ["one", "two"]
+            )])
+        )
         let duplicate = compiler.compile(
             report: .init(bindings: [
                 binding("opacity", .number(0.2), 50, .layerAlpha(layerID: 50), pathSuffix: "a"),
@@ -764,6 +800,25 @@ enum Harness {
             "invalidCatalogCodes": codes(invalidCatalog.diagnostics),
             "conditionalCount": conditional.program.instructions.count,
             "conditionalCodes": codes(conditional.diagnostics),
+            "conditionalLayerCount": conditionalLayer.program.instructions.count,
+            "conditionalLayerTargets": conditionalLayer.program.liveLayerVisibilityTargets
+                == Set(conditionalLayerTargets),
+            "conditionalLayerCodes": codes(conditionalLayer.diagnostics),
+            "conditionalLayerRebuild":
+                conditionalLayer.program.rebuildRequiredPropertyKeys,
+            "conditionalLayerValues": conditionalLayerTargets.map {
+                String(describing: conditionalLayerEvaluation.userValues[$0]!)
+            },
+            "conditionalLayerRuntimeCodes":
+                codes(conditionalLayerEvaluation.diagnostics),
+            "conditionalLayerUnmatchedCount":
+                conditionalLayerUnmatched.userValues.count,
+            "conditionalLayerUnmatchedCodes":
+                codes(conditionalLayerUnmatched.diagnostics),
+            "incompleteConditionalLayerCount":
+                incompleteConditionalLayer.program.instructions.count,
+            "incompleteConditionalLayerRebuild":
+                incompleteConditionalLayer.program.rebuildRequiredPropertyKeys,
             "duplicateCount": duplicate.program.instructions.count,
             "duplicateCodes": codes(duplicate.diagnostics),
             "rejectedCount": rejected.program.instructions.count,
@@ -950,6 +1005,31 @@ enum Harness {
         )
     }
 
+    static func comboProperty(
+        _ key: String,
+        defaultValue: String,
+        options: [String]
+    ) -> SceneUserPropertyDefinition {
+        .init(
+            key: key,
+            title: key,
+            kind: .combo,
+            runtimeType: SceneUserPropertyKind.combo.rawValue,
+            order: 0,
+            index: nil,
+            minimumValue: nil,
+            maximumValue: nil,
+            stepValue: nil,
+            allowsFractionalValues: false,
+            fractionalPrecision: nil,
+            displayCondition: nil,
+            defaultValue: .string(defaultValue),
+            options: options.map {
+                .init(label: $0, value: .string($0), displayCondition: nil)
+            }
+        )
+    }
+
     static func conditionalInput() -> SceneUserPropertyBinding {
         binding("opacity", .number(1), 70, .layerAlpha(layerID: 70), condition: .bool(true))
     }
@@ -1111,6 +1191,26 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["conditionalCodes"], ["conditionalBinding"])
         self.assertEqual(self.result["duplicateCount"], 0)
         self.assertEqual(self.result["duplicateCodes"], ["duplicateTarget"])
+
+    def test_complete_combo_layer_group_compiles_and_selects_exactly_one(self) -> None:
+        self.assertEqual(self.result["conditionalLayerCount"], 2)
+        self.assertTrue(self.result["conditionalLayerTargets"])
+        self.assertEqual(self.result["conditionalLayerCodes"], [])
+        self.assertEqual(self.result["conditionalLayerRebuild"], [])
+        self.assertEqual(
+            self.result["conditionalLayerValues"],
+            ["bool(false)", "bool(true)"],
+        )
+        self.assertEqual(self.result["conditionalLayerRuntimeCodes"], [])
+        self.assertEqual(self.result["conditionalLayerUnmatchedCount"], 0)
+        self.assertEqual(
+            self.result["conditionalLayerUnmatchedCodes"],
+            ["invalidRuntimeValue"],
+        )
+        self.assertEqual(self.result["incompleteConditionalLayerCount"], 0)
+        self.assertEqual(
+            self.result["incompleteConditionalLayerRebuild"], ["layout"]
+        )
 
     def test_missing_invalid_and_unsupported_inputs_are_diagnostic(self) -> None:
         self.assertEqual(self.result["rejectedCount"], 0)
