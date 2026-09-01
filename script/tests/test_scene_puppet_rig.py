@@ -83,6 +83,9 @@ def matrix(tx: float = 0, ty: float = 0, nan: bool = False) -> list[float]:
 
 def build_rig_mdl(
     *,
+    magic: bytes = b"MDLV0023",
+    skeleton_marker: bytes = b"MDLS0004\0",
+    animation_marker: bytes = b"MDLA0006\0",
     stride: int = 80,
     bone_count: int = 2,
     bad_parent: bool = False,
@@ -111,12 +114,12 @@ def build_rig_mdl(
         struct.pack_into("<2f", record, stride - 8, u, v)
         vertex_blob += record
     index_blob = struct.pack("<6H", 0, 1, 2, 2, 1, 0)
-    body = bytearray(b"MDLV0023\0" + b"\0" * 24)
+    body = bytearray(magic + b"\0" + b"\0" * 24)
     body += struct.pack("<II", 0, len(vertex_blob))
     body += vertex_blob
     body += struct.pack("<I", len(index_blob)) + index_blob
 
-    mdls = bytearray(b"MDLS0004\0" + b"\0" * 4 + struct.pack("<I", bone_count))
+    mdls = bytearray(skeleton_marker + b"\0" * 4 + struct.pack("<I", bone_count))
     for bone in range(bone_count):
         parent = -1 if bone == 0 else bone - 1
         if bad_parent and bone == 1:
@@ -132,7 +135,7 @@ def build_rig_mdl(
         mdls += b"{}\0"
     mdla_offset = len(body) + len(mdls)
     struct.pack_into("<I", mdls, 9, mdla_offset)
-    return bytes(body + mdls + b"MDLA0006\0")
+    return bytes(body + mdls + animation_marker)
 
 
 class SceneMdlPuppetRigReaderTests(unittest.TestCase):
@@ -158,6 +161,14 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_rig_mdl(),
             "stride84.mdl": build_rig_mdl(stride=84),
+            "mdlv0017-rig.mdl": build_rig_mdl(
+                magic=b"MDLV0017",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0004\0",
+            ),
+            "mdlv0017-wrong-skeleton.mdl": build_rig_mdl(
+                magic=b"MDLV0017",
+            ),
             "bad-parent.mdl": build_rig_mdl(bad_parent=True),
             "bad-matrix.mdl": build_rig_mdl(bad_matrix=True),
             "bad-weight-sum.mdl": build_rig_mdl(bad_weight_sum=True),
@@ -203,6 +214,16 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["stride"], 84)
         self.assertEqual(entry["weights"][2]["indices"], [1, 0, 0, 0])
+
+    def test_mdlv0017_reads_only_the_version_matched_mdls0002_rig(self):
+        entry = self.results["mdlv0017-rig.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["stride"], entry["boneCount"]), (80, 2))
+        self.assertEqual(entry["parents"], [-1, 0])
+        self.assertIn(
+            "version-matched skeleton block",
+            self.results["mdlv0017-wrong-skeleton.mdl"]["error"],
+        )
 
     def test_invalid_parent_fails_closed(self):
         self.assertIn("invalid rig parent", self.results["bad-parent.mdl"]["error"])

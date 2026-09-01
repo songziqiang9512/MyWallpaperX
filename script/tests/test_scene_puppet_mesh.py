@@ -185,6 +185,7 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_mdl(),
             "stride84.mdl": build_mdl(stride=84),
+            "mdlv0017.mdl": build_mdl(magic=b"MDLV0017"),
             "mdlv0021.mdl": build_mdl(magic=b"MDLV0021"),
             "bad-magic.mdl": build_mdl(magic=b"MDLX0001"),
             "no-block.mdl": b"MDLV0023\x00" + b"\x00" * 64 + b"MDLS",
@@ -250,6 +251,11 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         entry = self.results["mdlv0021.mdl"]
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["version"], "MDLV0021")
+
+    def test_mdlv0017_magic_is_accepted_by_the_strict_mesh_reader(self):
+        entry = self.results["mdlv0017.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["version"], "MDLV0017")
 
     def test_unknown_magic_fails_closed(self):
         entry = self.results["bad-magic.mdl"]

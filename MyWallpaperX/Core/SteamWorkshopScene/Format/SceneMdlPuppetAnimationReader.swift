@@ -21,23 +21,23 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
         case .unsupportedMagic(let magic):
             return "unsupported animation mdl magic \(magic)"
         case .skeletonBlockMissing:
-            return "MDLA requires a preceding MDLS0004 block"
+            return "MDLA requires the version-matched preceding MDLS block"
         case .invalidSkeletonBounds:
-            return "invalid MDLS0004 animation boundary"
+            return "invalid version-matched MDLS animation boundary"
         case .invalidBoneCount(let count):
-            return "invalid MDLS0004 bone count \(count)"
+            return "invalid animation bone count \(count)"
         case .invalidAnimationBounds:
-            return "invalid MDLA0006 bounds"
+            return "invalid version-matched MDLA bounds"
         case .invalidAnimationCount(let count):
-            return "invalid MDLA0006 animation count \(count)"
+            return "invalid MDLA animation count \(count)"
         case .invalidAnimationHeader(let index):
-            return "invalid MDLA0006 animation header \(index)"
+            return "invalid MDLA animation header \(index)"
         case .duplicateAnimationID(let id):
-            return "duplicate MDLA0006 animation id \(id)"
+            return "duplicate MDLA animation id \(id)"
         case .invalidAnimationName(let id):
-            return "invalid MDLA0006 animation name for id \(id)"
+            return "invalid MDLA animation name for id \(id)"
         case .unsupportedAnimationMode(let mode):
-            return "unsupported MDLA0006 animation mode \(mode)"
+            return "unsupported MDLA animation mode \(mode)"
         case .animationBoneCount(let id, let expected, let actual):
             return "animation \(id) has \(actual) bones; expected \(expected)"
         case .invalidTrack(let id, let boneIndex):
@@ -50,16 +50,41 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
     }
 }
 
-// Restricted MDLA0006 reader verified against MDLV0023 assets from three
-// independent Workshop samples. Tracks are ordered by MDLS bone index and
-// contain frameCount + 1 full transforms. Although the editor guide recommends
-// animating angles, real assets also vary translation and scale; all three
-// components are therefore retained without claiming a mixer or evaluator.
+// Restricted version-matched MDLA reader. MDLV0017/MDLS0002/MDLA0004 and
+// MDLV0023/MDLS0004/MDLA0006 share the same bounded full-transform track
+// records; their distinct trailer shapes remain part of the version contract.
+// Tracks are ordered by MDLS bone index and contain frameCount + 1 full
+// transforms. Real assets vary translation, rotation, and scale, so all three
+// components are retained without claiming unsupported mixing semantics.
 enum SceneMdlPuppetAnimationReader {
-    private static let mdlMagic = "MDLV0023"
-    private static let skeletonMarker = Data("MDLS0004\0".utf8)
+    private enum TrailerContract {
+        case legacyZeros10
+        case modernAuxiliary
+    }
+
+    private struct VersionContract {
+        let skeletonMarker: Data
+        let animationMarker: Data
+        let trailer: TrailerContract
+    }
+
+    private static let versionContracts = [
+        "MDLV0017": VersionContract(
+            skeletonMarker: Data("MDLS0002\0".utf8),
+            animationMarker: Data("MDLA0004\0".utf8),
+            trailer: .legacyZeros10
+        ),
+        "MDLV0023": VersionContract(
+            skeletonMarker: Data("MDLS0004\0".utf8),
+            animationMarker: Data("MDLA0006\0".utf8),
+            trailer: .modernAuxiliary
+        ),
+    ]
+    private static let knownAnimationMarkers = [
+        Data("MDLA0004\0".utf8),
+        Data("MDLA0006\0".utf8),
+    ]
     private static let attachmentMarker = Data("MDAT0001\0".utf8)
-    private static let animationMarker = Data("MDLA0006\0".utf8)
     private static let markerSize = 9
     private static let maxBoneCount = 4_096
     private static let maxAnimationCount = 1_024
@@ -73,14 +98,18 @@ enum SceneMdlPuppetAnimationReader {
 
     static func read(data rawData: Data) throws -> SceneMdlPuppetAnimationSet? {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
-        guard let animationOffset = data.range(of: animationMarker)?.lowerBound else {
+        let presentMarkers = knownAnimationMarkers.filter { data.range(of: $0) != nil }
+        guard presentMarkers.isEmpty == false else {
             return nil
         }
         let magic = String(decoding: data.prefix(8), as: UTF8.self)
-        guard magic == mdlMagic else {
+        guard let contract = versionContracts[magic],
+              presentMarkers.count == 1,
+              presentMarkers[0] == contract.animationMarker,
+              let animationOffset = data.range(of: contract.animationMarker)?.lowerBound else {
             throw SceneMdlPuppetAnimationReadError.unsupportedMagic(magic)
         }
-        guard let skeletonOffset = data.range(of: skeletonMarker)?.lowerBound,
+        guard let skeletonOffset = data.range(of: contract.skeletonMarker)?.lowerBound,
               skeletonOffset < animationOffset else {
             throw SceneMdlPuppetAnimationReadError.skeletonBlockMissing
         }
@@ -92,7 +121,8 @@ enum SceneMdlPuppetAnimationReader {
         let animations = try readAnimations(
             data: data,
             blockOffset: animationOffset,
-            boneCount: boneCount
+            boneCount: boneCount,
+            trailerContract: contract.trailer
         )
         return SceneMdlPuppetAnimationSet(boneCount: boneCount, animations: animations)
     }
@@ -127,7 +157,8 @@ enum SceneMdlPuppetAnimationReader {
     private static func readAnimations(
         data: Data,
         blockOffset: Int,
-        boneCount: Int
+        boneCount: Int,
+        trailerContract: TrailerContract
     ) throws -> [SceneMdlPuppetAnimation] {
         var cursor = blockOffset + markerSize
         guard cursor + 8 <= data.count else {
@@ -222,7 +253,8 @@ enum SceneMdlPuppetAnimationReader {
                 cursor: &cursor,
                 bound: endOffset,
                 animationID: id,
-                sampleCount: sampleCount
+                sampleCount: sampleCount,
+                contract: trailerContract
             )
             animations.append(SceneMdlPuppetAnimation(
                 id: id,
@@ -295,8 +327,15 @@ enum SceneMdlPuppetAnimationReader {
         cursor: inout Int,
         bound: Int,
         animationID: Int,
-        sampleCount: Int
+        sampleCount: Int,
+        contract: TrailerContract
     ) throws {
+        if contract == .legacyZeros10 {
+            guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
+                throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+            }
+            return
+        }
         guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 5),
               cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)

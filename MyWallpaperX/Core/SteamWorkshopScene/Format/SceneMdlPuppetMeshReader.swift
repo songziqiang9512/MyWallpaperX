@@ -54,14 +54,15 @@ enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable, Sen
 // ("MDLS"), animation ("MDLA") and attachment ("MDAT") blocks are read-only
 // bounds here; this reader never interprets them.
 enum SceneMdlPuppetMeshReader {
-    private static let supportedMagics = ["MDLV0021", "MDLV0023"]
+    private static let supportedMagics = ["MDLV0017", "MDLV0021", "MDLV0023"]
     private static let magicLength = 8
     // Magic + trailing NUL, matching the audited player's marker size.
     private static let markerSize = 9
     private static let meshHeaderSize = 8
-    // Verified vertex layouts: 80 bytes (6 tail/arm assets) and 84 bytes
-    // (skinned base asset). Position is 3 floats at offset 0, UV the final
-    // 2 floats. Other strides fail closed until a real asset proves them.
+    // Verified vertex layouts: 80 bytes across MDLV0017/0023 assets and 84
+    // bytes for the verified skinned base asset. Position is 3 floats at
+    // offset 0, UV the final 2 floats. Other strides fail closed until a real
+    // asset proves them.
     private static let vertexStrideCandidates = [80, 84]
     private static let maxAbsolutePosition: Float = 1_000_000
     private static let maxAbsoluteUV: Float = 64

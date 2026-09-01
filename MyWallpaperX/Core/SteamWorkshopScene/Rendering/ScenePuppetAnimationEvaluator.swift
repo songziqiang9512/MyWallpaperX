@@ -33,7 +33,7 @@ enum ScenePuppetAnimationSelectionFailure: Error, CustomStringConvertible, Equat
         case .unsupportedMixingProfile:
             return "animation layers mix opaque and additive clips outside the bounded profile"
         case .unknownAnimation(let id):
-            return "animation id \(id) is absent from MDLA0006"
+            return "animation id \(id) is absent from the version-matched MDLA block"
         }
     }
 }
@@ -52,8 +52,10 @@ enum ScenePuppetAnimationSelector {
             guard let animationID = layer.animationID,
                   layer.additive != nil,
                   layer.blend == 1,
-                  layer.blendIn == false,
-                  layer.blendOut == false,
+                  // Omitted blend edges are the authored false defaults; an
+                  // explicit true still stays outside this bounded profile.
+                  layer.blendIn != true,
+                  layer.blendOut != true,
                   layer.rate == 1 else {
                 return .failure(.unsupportedLayer(layer.id))
             }

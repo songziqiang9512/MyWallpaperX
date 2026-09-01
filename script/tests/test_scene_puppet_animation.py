@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Contract tests for the restricted MDLV0023/MDLA0006 rotation IR reader."""
+"""Contract tests for the restricted version-matched Puppet animation reader."""
 
 from __future__ import annotations
 
@@ -116,6 +116,7 @@ def animation_record(
     nan_transform: bool = False,
     auxiliary: bool = False,
     bad_auxiliary_key: bool = False,
+    legacy_trailer: bool = False,
 ) -> bytes:
     body = bytearray(struct.pack("<II", animation_id, header_state))
     body += name.encode() + b"\0"
@@ -139,6 +140,9 @@ def animation_record(
                 *transform(frame, bone, nan_component=nan_transform and frame == 1 and bone == 0),
             )
         body += samples[:byte_count]
+    if legacy_trailer:
+        body += b"\0" * 10
+        return bytes(body)
     body += b"\0" * 5
     if auxiliary:
         values = [index / frame_count for index in range(sample_count)]
@@ -156,6 +160,7 @@ def build_mdl(
     *,
     magic: bytes = b"MDLV0023",
     bone_count: int = 2,
+    skeleton_marker: bytes = b"MDLS0004\0",
     include_attachment_boundary: bool = False,
     animation_marker: bytes = b"MDLA0006\0",
     declared_animation_count: int | None = None,
@@ -165,7 +170,7 @@ def build_mdl(
         animations = [animation_record(101, "Idle", 2, bone_count)]
     prefix = bytearray(magic + b"\0" + b"\0" * 24)
     mdls_offset = len(prefix)
-    mdls = bytearray(b"MDLS0004\0" + b"\0" * 4 + struct.pack("<I", bone_count))
+    mdls = bytearray(skeleton_marker + b"\0" * 4 + struct.pack("<I", bone_count))
     mdat = bytearray(b"MDAT0001\0" + b"\0" * 4) if include_attachment_boundary else bytearray()
     mdla_offset = len(prefix) + len(mdls) + len(mdat)
     struct.pack_into("<I", mdls, 9, len(prefix) + len(mdls) if mdat else mdla_offset)
@@ -212,6 +217,16 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         ]
         cls.fixtures = {
             "valid.mdl": build_mdl(valid_animations, include_attachment_boundary=True),
+            "valid-legacy.mdl": build_mdl(
+                [animation_record(303, "Legacy", 2, 2, legacy_trailer=True)],
+                magic=b"MDLV0017",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0004\0",
+            ),
+            "mismatched-legacy-markers.mdl": build_mdl(
+                [animation_record(303, "Legacy", 2, 2)],
+                magic=b"MDLV0017",
+            ),
             "absent.mdl": b"MDLV0023\0" + b"\0" * 32,
             "old-version.mdl": build_mdl(magic=b"MDLV0016"),
             "bad-end.mdl": build_mdl(corrupt_end_offset=True),
@@ -279,17 +294,30 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
     def test_absent_block_returns_no_animation_set(self):
         self.assertEqual(self.results["absent.mdl"].get("absent"), True)
 
+    def test_mdlv0017_mdls0002_mdla0004_preserves_the_same_transform_ir(self):
+        entry = self.results["valid-legacy.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["boneCount"], 2)
+        self.assertEqual(entry["animations"][0]["id"], 303)
+        self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
+
+    def test_mdlv0017_rejects_the_mismatched_modern_markers(self):
+        self.assertIn(
+            "unsupported animation mdl magic",
+            self.results["mismatched-legacy-markers.mdl"]["error"],
+        )
+
     def test_old_mdl_version_fails_closed(self):
         self.assertIn("unsupported animation mdl magic", self.results["old-version.mdl"]["error"])
 
     def test_invalid_block_end_fails_closed(self):
-        self.assertIn("invalid MDLA0006 bounds", self.results["bad-end.mdl"]["error"])
+        self.assertIn("invalid version-matched MDLA bounds", self.results["bad-end.mdl"]["error"])
 
     def test_zero_animation_count_fails_closed(self):
-        self.assertIn("invalid MDLA0006 animation count 0", self.results["zero-count.mdl"]["error"])
+        self.assertIn("invalid MDLA animation count 0", self.results["zero-count.mdl"]["error"])
 
     def test_duplicate_animation_id_fails_closed(self):
-        self.assertIn("duplicate MDLA0006 animation id 101", self.results["duplicate-id.mdl"]["error"])
+        self.assertIn("duplicate MDLA animation id 101", self.results["duplicate-id.mdl"]["error"])
 
     def test_mdls_mdla_bone_count_mismatch_fails_closed(self):
         self.assertIn("has 3 bones; expected 2", self.results["bone-mismatch.mdl"]["error"])
@@ -304,7 +332,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         self.assertIn("invalid verified auxiliary track", self.results["bad-auxiliary.mdl"]["error"])
 
     def test_unverified_animation_mode_fails_closed(self):
-        self.assertIn("unsupported MDLA0006 animation mode mirror", self.results["unsupported-mode.mdl"]["error"])
+        self.assertIn("unsupported MDLA animation mode mirror", self.results["unsupported-mode.mdl"]["error"])
 
     def test_three_real_sources_match_scene_animation_ids_when_available(self):
         if len(self.real_assets) != 3:

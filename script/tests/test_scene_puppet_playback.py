@@ -214,6 +214,19 @@ enum Harness {
                 "rate": "fast",
             ]
         ])[0]
+        let defaultBlendEdges = ScenePuppetAnimationLayer(
+            id: 12,
+            animationID: 100,
+            name: "Default edges",
+            additive: false,
+            blend: 1,
+            blendIn: nil,
+            blendOut: nil,
+            blendTime: nil,
+            rate: 1,
+            visible: true,
+            visibilityBinding: nil
+        )
         let payload: [String: Any] = [
             "selection": selectionResult([layer()], set: set),
             "inactive": selectionResult([layer(visible: false)], set: set),
@@ -226,6 +239,7 @@ enum Harness {
             "boundVisibility": selectionResult(
                 [layer(visibilityBinding: "animate")], set: set
             ),
+            "defaultBlendEdges": selectionResult([defaultBlendEdges], set: set),
             "unknown": selectionResult([layer(animationID: 999)], set: set),
             "frameIndices": [0.0, 0.6, 1.0].map {
                 ScenePuppetAnimationEvaluator.frameIndex(
@@ -282,6 +296,10 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
     def test_strict_single_clip_selection(self) -> None:
         self.assertEqual(self.result["selection"], "selected:single-absolute:100")
         self.assertEqual(self.result["inactive"], "inactive")
+        self.assertEqual(
+            self.result["defaultBlendEdges"],
+            "selected:single-absolute:100",
+        )
 
     def test_bounded_additive_selection_and_unsupported_profiles(self) -> None:
         self.assertEqual(self.result["additive"], "selected:disjoint-additive:100")
@@ -291,7 +309,7 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
             self.result["boundVisibility"],
             "selected:single-absolute:100",
         )
-        self.assertIn("absent from MDLA0006", self.result["unknown"])
+        self.assertIn("absent from the version-matched MDLA block", self.result["unknown"])
 
     def test_fixed_step_sampling_wraps_without_interpolation(self) -> None:
         self.assertEqual(self.result["frameIndices"], [0, 1, 0])

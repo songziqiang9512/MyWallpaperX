@@ -32,11 +32,11 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Send
         case .unsupportedMagic(let magic):
             return "unsupported rig mdl magic \(magic)"
         case .skeletonBlockMissing:
-            return "rig requires an MDLS0004 block"
+            return "rig requires the version-matched skeleton block"
         case .invalidSkeletonBounds:
-            return "invalid MDLS0004 rig bounds"
+            return "invalid version-matched rig bounds"
         case .invalidBoneCount(let count):
-            return "invalid MDLS0004 rig bone count \(count)"
+            return "invalid rig bone count \(count)"
         case .invalidBoneRecord(let index):
             return "invalid MDLS0004 rig bone record \(index)"
         case .invalidBoneParent(let boneIndex, let parentIndex):
@@ -53,13 +53,20 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Send
     }
 }
 
-// MDLS0004 bind hierarchy plus the four-index/four-weight vertex fields
-// verified across sixteen animated MDLV0023 assets from three Workshop
-// samples. The index fields begin at stride - 40 and weights at stride - 24
-// for the verified 80- and 84-byte vertex records.
+// Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
+// fields. MDLV0017/MDLS0002 and MDLV0023/MDLS0004 use the same strictly
+// validated record shape; the version pair is still checked before any bone
+// data is consumed. The index fields begin at stride - 40 and weights at
+// stride - 24 for the verified 80- and 84-byte vertex records.
 enum SceneMdlPuppetRigReader {
-    private static let mdlMagic = "MDLV0023"
-    private static let skeletonMarker = Data("MDLS0004\0".utf8)
+    private struct VersionContract {
+        let skeletonMarker: Data
+    }
+
+    private static let versionContracts = [
+        "MDLV0017": VersionContract(skeletonMarker: Data("MDLS0002\0".utf8)),
+        "MDLV0023": VersionContract(skeletonMarker: Data("MDLS0004\0".utf8)),
+    ]
     private static let markerSize = 9
     private static let matrixByteCount = 64
     private static let maxBoneCount = 4_096
@@ -74,10 +81,10 @@ enum SceneMdlPuppetRigReader {
     ) throws -> SceneMdlPuppetRig {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
         let magic = String(decoding: data.prefix(8), as: UTF8.self)
-        guard magic == mdlMagic, mesh.version == mdlMagic else {
+        guard let contract = versionContracts[magic], mesh.version == magic else {
             throw SceneMdlPuppetRigReadError.unsupportedMagic(magic)
         }
-        guard let skeletonOffset = data.range(of: skeletonMarker)?.lowerBound else {
+        guard let skeletonOffset = data.range(of: contract.skeletonMarker)?.lowerBound else {
             throw SceneMdlPuppetRigReadError.skeletonBlockMissing
         }
         let bones = try readBones(data: data, blockOffset: skeletonOffset)
