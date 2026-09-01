@@ -1,9 +1,9 @@
 import Foundation
 
-/// Makes the authored integer mask boundary explicit when a built-in `max`
-/// combines one integer with a product of scalar `step` results. Each `step`
-/// result is exactly zero or one, so the conversion preserves the authored
-/// value without admitting general float-to-int coercion.
+/// Makes authored integer mask boundaries explicit when scalar `step` results
+/// flow into integer storage. Each result is exactly zero or one, so the
+/// conversion preserves the authored value without admitting general
+/// float-to-int coercion.
 nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
     static func rewrite(
         _ source: String,
@@ -42,6 +42,34 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
         }
 
         var insertions: [(offset: Int, text: String)] = []
+        for index in unit.tokens.indices {
+            guard unit.tokens[index].text == "step", index >= 2,
+                  unit.tokens[index - 1].text == "=",
+                  unit.tokens[index - 2].kind == .identifier,
+                  declaredType(
+                      unit.tokens[index - 2].text,
+                      before: index,
+                      unit: unit
+                  ) == .int,
+                  index + 1 < unit.tokens.count,
+                  unit.tokens[index + 1].text == "(",
+                  let closing = SceneAuthoredShaderVectorConversion
+                    .matchingParenthesis(tokens: unit.tokens, opening: index + 1),
+                  closing + 1 < unit.tokens.count,
+                  unit.tokens[closing + 1].text == ";",
+                  let arguments = argumentRanges(
+                      opening: index + 1,
+                      closing: closing,
+                      tokens: unit.tokens
+                  ), arguments.count == 2,
+                  arguments.allSatisfy({
+                      isScalarNumeric($0, before: index, unit: unit)
+                  }),
+                  let start = offset(index, after: false),
+                  let end = offset(closing, after: true) else { continue }
+            insertions.append((start, "int("))
+            insertions.append((end, ")"))
+        }
         for index in unit.tokens.indices {
             guard unit.tokens[index].text == "max", index >= 2,
                   unit.tokens[index - 1].text == "=",
@@ -144,8 +172,27 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> Bool {
         var range = sourceRange
+        while range.count >= 2,
+              unit.tokens[range.lowerBound].text == "(",
+              SceneAuthoredShaderVectorConversion.matchingParenthesis(
+                  tokens: unit.tokens,
+                  opening: range.lowerBound
+              ) == range.upperBound - 1 {
+            range = (range.lowerBound + 1)..<(range.upperBound - 1)
+        }
         while range.count > 1, ["+", "-"].contains(unit.tokens[range.lowerBound].text) {
             range = (range.lowerBound + 1)..<range.upperBound
+        }
+        if let split = scalarArithmeticSplit(range, tokens: unit.tokens) {
+            return isScalarNumeric(
+                range.lowerBound..<split,
+                before: limit,
+                unit: unit
+            ) && isScalarNumeric(
+                (split + 1)..<range.upperBound,
+                before: limit,
+                unit: unit
+            )
         }
         if range.count == 1 {
             let token = unit.tokens[range.lowerBound]
@@ -170,6 +217,28 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
               ) else { return false }
         return [.float2, .float3, .float4, .int2, .int3, .int4,
                 .uint2, .uint3, .uint4].contains(type)
+    }
+
+    private static func scalarArithmeticSplit(
+        _ range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> Int? {
+        var depth = 0
+        for index in range.reversed() {
+            let text = tokens[index].text
+            if [")", "]"].contains(text) { depth += 1 }
+            if ["(", "["].contains(text) { depth -= 1 }
+            guard depth >= 0 else { return nil }
+            guard depth == 0, ["+", "-", "*", "/", "%"].contains(text),
+                  index > range.lowerBound, index + 1 < range.upperBound else {
+                continue
+            }
+            let previous = tokens[index - 1].text
+            guard !["+", "-", "*", "/", "%", "(", "[", ","].contains(previous)
+            else { continue }
+            return index
+        }
+        return nil
     }
 
     private static func declaredType(

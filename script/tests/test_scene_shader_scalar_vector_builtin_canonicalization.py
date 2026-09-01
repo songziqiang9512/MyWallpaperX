@@ -166,6 +166,18 @@ private struct ScalarVectorBuiltInHarness {
             "int value = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(float(value));",
             declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"]
         )
+        let directDiscreteMask = canonical(
+            "int value = step(g_Ratio.x, g_Ratio.y); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let directDiscreteArithmeticMask = canonical(
+            "int value = step(1 - g_Ratio.x, g_Ratio.y); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
+        let directVectorStepMask = canonical(
+            "int value = step(g_Ratio, g_Ratio.y); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform vec2 g_Ratio;"]
+        )
         let nonDiscreteMask = canonical(
             "int value = max(lower, g_Ratio.x); gl_FragColor = vec4(float(value));",
             declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"]
@@ -173,6 +185,11 @@ private struct ScalarVectorBuiltInHarness {
         let userDefinedStepMask = canonical(
             "int value = max(lower, step(g_Ratio.x, g_Ratio.y)); gl_FragColor = vec4(float(value));",
             declarations: ["uniform int lower;", "uniform vec2 g_Ratio;"],
+            helpers: ["float step(float edge, float value) { return value; }"]
+        )
+        let userDefinedDirectStepMask = canonical(
+            "int value = step(g_Ratio.x, g_Ratio.y); gl_FragColor = vec4(float(value));",
+            declarations: ["uniform vec2 g_Ratio;"],
             helpers: ["float step(float edge, float value) { return value; }"]
         )
         let compound = canonical(
@@ -222,6 +239,7 @@ private struct ScalarVectorBuiltInHarness {
             )
         let compileFragment = fragment(
             "int mask = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y));\n"
+                + "    int directMask = step(1 - g_Ratio.x, g_Ratio.y);\n"
                 + "    float weight = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y));\n"
                 + "    vec2 broadcast = g_Ratio.x * g_Ratio.y;\n"
                 + "    broadcast *= 1.0 / g_Ratio4;\n"
@@ -297,12 +315,24 @@ private struct ScalarVectorBuiltInHarness {
                 "discreteMask": discreteMask.contains(
                     "max(lower, int(step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)))"
                 ),
+                "directDiscreteMask": directDiscreteMask.contains(
+                    "int value = int(step(g_Ratio.x, g_Ratio.y))"
+                ),
+                "directDiscreteArithmeticMask": directDiscreteArithmeticMask.contains(
+                    "int value = int(step(1 - g_Ratio.x, g_Ratio.y))"
+                ),
+                "directVectorStepMaskPreserved": directVectorStepMask.contains(
+                    "int value = step(g_Ratio, g_Ratio.y)"
+                ) && !directVectorStepMask.contains("int(step("),
                 "nonDiscreteMaskPreserved": nonDiscreteMask.contains(
                     "max(lower, g_Ratio.x)"
                 ) && !nonDiscreteMask.contains("int(g_Ratio.x)"),
                 "userDefinedStepMaskPreserved": userDefinedStepMask.contains(
                     "max(lower, step(g_Ratio.x, g_Ratio.y))"
                 ) && !userDefinedStepMask.contains("int(step("),
+                "userDefinedDirectStepMaskPreserved": userDefinedDirectStepMask.contains(
+                    "int value = step(g_Ratio.x, g_Ratio.y)"
+                ) && !userDefinedDirectStepMask.contains("int(step("),
                 "compoundPreserved": compound.contains(
                     "max(0 + 0, albedo.rgb)"
                 ) && !compound.contains("vec3(0.0)"),
@@ -334,6 +364,9 @@ private struct ScalarVectorBuiltInHarness {
                 ) == true,
                 "normalizedDiscreteMask": normalized?.fragment.contains(
                     "max(lower, int(step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y)))"
+                ) == true,
+                "normalizedDirectDiscreteMask": normalized?.fragment.contains(
+                    "int directMask = int(step(1 - g_Ratio.x, g_Ratio.y))"
                 ) == true,
                 "normalizedScalarStepMin": normalized?.fragment.contains(
                     "min(1.0, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y))"

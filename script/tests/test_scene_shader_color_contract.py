@@ -771,6 +771,26 @@ enum Harness {
                 "float alpha = weight; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
             ),
+            "straightBlendPureRGBHelper": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(11, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);",
+                blendReturns: "return mix(base, max(base, blend), opacity); " +
+                    "return mix(base, blend, opacity);"
+            ),
+            "straightBlendHelperTextureRead": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(11, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = weight; " +
+                "gl_FragColor = vec4(finalColor, alpha);",
+                blendReturns: "return mix(base, " +
+                    "texSample2D(g_Texture1, v_TexCoord).rgb, opacity);"
+            ),
             "straightBlendDifferentAlpha": transfer(
                 "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
                 "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
@@ -1976,6 +1996,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["straightBlendReplacement"], "straight-slot:0"
         )
         self.assertEqual(
+            self.result["straightBlendPureRGBHelper"], "straight-slot:0"
+        )
+        self.assertEqual(
             self.result["closedControlFlowStraightAlpha"], "straight-slot:0"
         )
         self.assertEqual(self.result["localAlpha"], "straight-slot:0")
@@ -2443,6 +2466,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "straightRGBMath",
             "straightBlendDifferentAlpha",
             "straightBlendExtraSample",
+            "straightBlendHelperTextureRead",
             "mixedSampleAlpha",
             "sampledMaskAlpha",
             "conditionalLocalAlpha",

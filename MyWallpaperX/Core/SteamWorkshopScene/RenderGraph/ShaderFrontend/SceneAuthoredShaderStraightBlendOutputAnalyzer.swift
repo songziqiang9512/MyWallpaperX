@@ -16,6 +16,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
     private enum BlendHelper {
         case normal
         case additive
+        case pureRGB
     }
 
     static func analyze(
@@ -76,7 +77,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         }
         let alphaSampleUse: Int?
         switch helper {
-        case .normal:
+        case .normal, .pureRGB:
             guard texts(alphaExpression) == texts(blendArguments[3]),
                   !alphaExpression.contains(where: { $0.text == sample }) else {
                 return nil
@@ -180,7 +181,7 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
                 .assignmentExpression(
                     after: alphaDefinition, in: tokens, body: main.bodyRange
                 ), member(alphaExpression, name: sample, component: "a"),
-              [.normal, .additive].contains(blendHelper(fragment)),
+              [.normal, .additive, .pureRGB].contains(blendHelper(fragment)),
               helperFunctionsDoNotSampleTextures(fragment, excluding: main),
               let sampling = uniqueSampleSlotAllowingScalarAuxiliaries(
                 sample, before: output, tokens: tokens, body: main.bodyRange
@@ -217,34 +218,44 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         let matches = fragment.functions.filter { $0.name == "ApplyBlending" }
         guard matches.count == 1, let function = matches.first else { return nil }
         let tokens = fragment.tokens
-        let parameters = split(tokens[function.parameterRange])
-        let names = parameters.compactMap {
-            $0.last(where: { $0.kind == .identifier })?.text
-        }
-        guard names.count == 4,
+        guard let names = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .blendParameterNames(function, fragment: fragment),
               function.bodyRange.count >= 5,
               tokens[function.bodyRange.lowerBound].text == "{",
-              tokens[function.bodyRange.lowerBound + 1].text == "return",
               tokens[function.bodyRange.upperBound - 1].text == "}" else {
             return nil
         }
-        let start = function.bodyRange.lowerBound + 2
-        guard let semicolon = (start..<function.bodyRange.upperBound).first(
-            where: { tokens[$0].text == ";" }
-        ) else { return nil }
-        let firstExpression = tokens[start..<semicolon]
-        if semicolon == function.bodyRange.upperBound - 2,
-           let arguments = callArguments(
-                tokens[start..<semicolon], function: ["mix", "lerp"], count: 3
-           ), identifier(arguments[0]) == names[1],
-           identifier(strippingParentheses(arguments[1])) == names[2],
-           identifier(arguments[2]) == names[3] {
-            return .normal
+        if tokens[function.bodyRange.lowerBound + 1].text == "return" {
+            let start = function.bodyRange.lowerBound + 2
+            guard let semicolon = (start..<function.bodyRange.upperBound).first(
+                where: { tokens[$0].text == ";" }
+            ) else { return nil }
+            let firstExpression = tokens[start..<semicolon]
+            if semicolon == function.bodyRange.upperBound - 2,
+               let arguments = callArguments(
+                    firstExpression, function: ["mix", "lerp"], count: 3
+               ), identifier(arguments[0]) == names[1],
+               identifier(strippingParentheses(arguments[1])) == names[2],
+               identifier(arguments[2]) == names[3] {
+                return .normal
+            }
+            if texts(firstExpression) == [
+                names[1], "+", names[2], "*", names[3],
+            ] {
+                return .additive
+            }
         }
-        guard texts(firstExpression) == [
-            names[1], "+", names[2], "*", names[3],
-        ] else { return nil }
-        return .additive
+        guard let closure = SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer
+                .safeReadOnlyHelperClosure(
+                    rootName: function.name,
+                    fragment: fragment
+                ),
+              closure.allSatisfy({ helper in
+                  !helper.bodyRange.contains(where: { index in
+                      ["texSample2D", "texture2D"].contains(tokens[index].text)
+                  })
+              }) else { return nil }
+        return .pureRGB
     }
 
     private static func intersectAlphaSampleUse(
