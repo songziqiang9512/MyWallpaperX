@@ -205,12 +205,12 @@ struct SceneRenderDescriptor {
     }
 
     struct SceneEffectTextureInput: ExpressibleByBooleanLiteral {
-        enum Kind { case asset, system }
+        enum Kind: Equatable { case path, system, property, unknown }
         let kind: Kind
         let value: String
 
         init(booleanLiteral value: Bool) {
-            kind = .asset
+            kind = .path
             self.value = value ? "fixture-user-texture" : ""
         }
     }

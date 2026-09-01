@@ -259,6 +259,10 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "dependencyEffect?.texture",
             compact_compositor,
         )
+        self.assertIn(
+            "($0.slotIndex==3&&$0.blendMode==0)",
+            compact_compositor,
+        )
 
     def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")

@@ -141,9 +141,14 @@ struct SceneImageLayerCompositor {
             .consumesExternalPrimaryDependency == true
         guard (dependencyEffect.map {
             if graphConsumesExternalPrimary {
-                return $0.slotIndex == 1
+                // Frame preflight and the runtime bridge have already matched
+                // the exact dependency ownership atom. Preserve both product
+                // shapes they admit: primary color input in slot 1, and the
+                // structural hidden-solid carrier in slot 3 with normal blend.
+                return ($0.slotIndex == 1
                     && (0...SceneBlendModeShaderSource.maximumMode)
-                        .contains($0.blendMode)
+                        .contains($0.blendMode))
+                    || ($0.slotIndex == 3 && $0.blendMode == 0)
             }
             return ($0.slotIndex == 1
                 && ($0.blendMode == 0 || $0.blendMode == 5))
