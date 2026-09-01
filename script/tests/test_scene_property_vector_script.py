@@ -30,6 +30,7 @@ SOURCES = [
     SCENE / "Properties/SceneUserPropertyBindings.swift",
     VM / "SceneScriptPropertyInput.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
+    SCENE / "RenderGraph/SceneEffectTextureInput.swift",
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
@@ -194,14 +195,14 @@ struct SceneRenderDescriptor {
             let id: Int?
             let constantShaderValues: [String: ShaderValue]
             let textureSlots: [String?]
-            let userTextureInputs: [Bool?]
+            let userTextureInputs: [SceneEffectTextureInput?]
 
             init(
                 passIndex: Int,
                 id: Int?,
                 constantShaderValues: [String: ShaderValue],
                 textureSlots: [String?] = [],
-                userTextureInputs: [Bool?] = []
+                userTextureInputs: [SceneEffectTextureInput?] = []
             ) {
                 self.passIndex = passIndex
                 self.id = id

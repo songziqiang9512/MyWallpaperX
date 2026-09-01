@@ -25,15 +25,22 @@ nonisolated struct ScenePropertyBindingInstruction: Codable, Equatable {
 nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     let definitions: [SceneDynamicTargetDefinition]
     let instructions: [ScenePropertyBindingInstruction]
+    /// Full authored Combo domains for admitted conditional layer groups.
+    /// Keeping unused options is necessary because an option may intentionally
+    /// hide every conditional layer in the group.
+    let conditionalValueDomainsByPropertyKey: [String: [String]]
     let rebuildRequiredPropertyKeys: [String]
 
     nonisolated init(
         definitions: [SceneDynamicTargetDefinition],
         instructions: [ScenePropertyBindingInstruction],
+        conditionalValueDomainsByPropertyKey: [String: [String]] = [:],
         rebuildRequiredPropertyKeys: [String] = []
     ) {
         self.definitions = definitions
         self.instructions = instructions
+        self.conditionalValueDomainsByPropertyKey =
+            conditionalValueDomainsByPropertyKey
         self.rebuildRequiredPropertyKeys = Array(Set(rebuildRequiredPropertyKeys)).sorted()
     }
 
@@ -81,19 +88,40 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             grouping: validation.instructions.filter { $0.condition != nil },
             by: \.propertyKey
         )
-        for (_, instructions) in conditionalGroups {
-            let selectedCount = instructions.reduce(into: 0) { count, instruction in
-                guard case .bool(true)? = userValues[instruction.target] else { return }
-                count += 1
+        for (propertyKey, instructions) in conditionalGroups {
+            let allTargetsResolved = instructions.allSatisfy {
+                userValues[$0.target] != nil
             }
-            guard selectedCount == 1,
-                  instructions.allSatisfy({ userValues[$0.target] != nil }) else {
+            let hasValidSelection: Bool
+            if let domain = conditionalValueDomainsByPropertyKey[propertyKey] {
+                hasValidSelection = {
+                    guard case let .string(selected)? = effectiveValues[propertyKey],
+                          domain.contains(selected) else { return false }
+                    return instructions.allSatisfy { instruction in
+                        guard case let .string(condition)? = instruction.condition,
+                              domain.contains(condition),
+                              case let .bool(isVisible)? = userValues[instruction.target]
+                        else { return false }
+                        return isVisible == (selected == condition)
+                    }
+                }()
+            } else {
+                // Preserve decode/runtime compatibility for older exact
+                // one-layer-per-option programs that predate domain capture.
+                hasValidSelection = instructions.reduce(into: 0) {
+                    count, instruction in
+                    guard case .bool(true)? = userValues[instruction.target]
+                    else { return }
+                    count += 1
+                } == 1
+            }
+            guard allTargetsResolved, hasValidSelection else {
                 instructions.forEach { userValues.removeValue(forKey: $0.target) }
                 if let instruction = instructions.first {
                     diagnostics.append(.runtime(
                         code: .invalidRuntimeValue,
                         instruction: instruction,
-                        message: "Combo 图层选择必须精确命中一个候选。"
+                        message: "Combo 图层选择必须命中声明域并原子解析完整图层组。"
                     ))
                 }
                 continue
@@ -198,6 +226,7 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case definitions
         case instructions
+        case conditionalValueDomainsByPropertyKey
         case rebuildRequiredPropertyKeys
     }
 
@@ -206,6 +235,10 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         let program = ScenePropertyBindingProgram(
             definitions: try container.decode([SceneDynamicTargetDefinition].self, forKey: .definitions),
             instructions: try container.decode([ScenePropertyBindingInstruction].self, forKey: .instructions),
+            conditionalValueDomainsByPropertyKey: try container.decodeIfPresent(
+                [String: [String]].self,
+                forKey: .conditionalValueDomainsByPropertyKey
+            ) ?? [:],
             rebuildRequiredPropertyKeys: try container.decode(
                 [String].self,
                 forKey: .rebuildRequiredPropertyKeys
@@ -227,6 +260,10 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(definitions, forKey: .definitions)
         try container.encode(instructions, forKey: .instructions)
+        try container.encode(
+            conditionalValueDomainsByPropertyKey,
+            forKey: .conditionalValueDomainsByPropertyKey
+        )
         try container.encode(rebuildRequiredPropertyKeys, forKey: .rebuildRequiredPropertyKeys)
     }
 
@@ -313,13 +350,18 @@ nonisolated struct ScenePropertyBindingCompiler {
             grouping: sortedBindings,
             by: \.reference.key
         )
-        let admittedConditionalLayerVisibilityKeys = Set(
-            bindingsByPropertyKey.compactMap { propertyKey, bindings -> String? in
-                Self.isAdmittedConditionalLayerVisibilityGroup(
+        let conditionalLayerVisibilityDomains = Dictionary(
+            uniqueKeysWithValues: bindingsByPropertyKey.compactMap {
+                propertyKey, bindings -> (String, [String])? in
+                guard let domain = Self.conditionalLayerVisibilityDomain(
                     bindings: bindings,
                     definitions: propertiesByKey[propertyKey] ?? []
-                ) ? propertyKey : nil
+                ) else { return nil }
+                return (propertyKey, domain)
             }
+        )
+        let admittedConditionalLayerVisibilityKeys = Set(
+            conditionalLayerVisibilityDomains.keys
         )
         var targetBindings: [SceneDynamicTarget: [SceneUserPropertyBinding]] = [:]
         for binding in sortedBindings {
@@ -497,6 +539,8 @@ nonisolated struct ScenePropertyBindingCompiler {
             program: .init(
                 definitions: definitions,
                 instructions: instructions,
+                conditionalValueDomainsByPropertyKey:
+                    conditionalLayerVisibilityDomains,
                 rebuildRequiredPropertyKeys: rebuildRequiredKeys.sorted()
             ),
             diagnostics: diagnostics
@@ -535,40 +579,40 @@ nonisolated struct ScenePropertyBindingCompiler {
         }
     }
 
-    private nonisolated static func isAdmittedConditionalLayerVisibilityGroup(
+    private nonisolated static func conditionalLayerVisibilityDomain(
         bindings: [SceneUserPropertyBinding],
         definitions: [SceneUserPropertyDefinition]
-    ) -> Bool {
-        guard (2 ... 256).contains(bindings.count),
+    ) -> [String]? {
+        guard (1 ... 256).contains(bindings.count),
               definitions.count == 1,
               let property = definitions.first,
               property.kind == .combo,
-              case let .string(defaultValue)? = property.defaultValue,
-              property.options.count == bindings.count else { return false }
+              case let .string(defaultValue)? = property.defaultValue
+        else { return nil }
 
         let optionValues = property.options.compactMap { option -> String? in
             guard case let .string(value) = option.value else { return nil }
             return value
         }
-        guard optionValues.count == property.options.count,
-              Set(optionValues).count == optionValues.count else { return false }
+        let optionValueSet = Set(optionValues)
+        guard !optionValues.isEmpty,
+              optionValues.count == property.options.count,
+              optionValueSet.count == optionValues.count,
+              optionValueSet.contains(defaultValue) else { return nil }
 
-        var conditions: [String] = []
-        var selectedFallbackConditions: [String] = []
+        var layerIDs = Set<Int>()
         for binding in bindings {
             guard case let .layerVisibility(layerID) = binding.target,
                   layerID >= 0,
+                  layerIDs.insert(layerID).inserted,
                   case let .string(condition)? = binding.reference.condition,
-                  case let .bool(fallback)? = binding.fallbackValue else {
-                return false
+                  optionValueSet.contains(condition),
+                  case let .bool(fallback)? = binding.fallbackValue,
+                  fallback == (condition == defaultValue) else {
+                return nil
             }
-            conditions.append(condition)
-            if fallback { selectedFallbackConditions.append(condition) }
         }
-        return Set(conditions).count == conditions.count
-            && Set(conditions) == Set(optionValues)
-            && conditions.contains(defaultValue)
-            && selectedFallbackConditions == [defaultValue]
+        return optionValues
     }
 
     private nonisolated static func bindingOrder(

@@ -366,6 +366,13 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
             admission,
         )
         self.assertIn(
+            '["image", "solid", "text"].contains(layer.contentKind)',
+            admission,
+        )
+        self.assertIn('layer.contentKind == "composition"', admission)
+        self.assertIn("visibleLayerIDs.contains(layerID)", admission)
+        self.assertIn("layer.utilityLayer?.kind == .composition", admission)
+        self.assertIn(
             "resolvedMaterialExecutionLayerIDs(",
             preflight,
         )

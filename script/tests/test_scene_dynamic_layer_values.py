@@ -211,9 +211,9 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         image_case = renderer.split('case "image", "solid", "text":', 1)[1].split(
             'case "composition", "project", "fullscreen":', 1
         )[0]
-        _, particle_tail = renderer.split(
-            'case "composition", "project", "fullscreen":', 1
-        )[1].split('case "particle":', 1)
+        _, particle_tail = renderer.split('case "composition":', 1)[1].split(
+            'case "particle":', 1
+        )
         utility_dispatch = effect_execution.split("func renderUtilityPlans(", 1)[1]
         particle_case = particle_tail.split("default:", 1)[0]
         self.assertIn("SceneDynamicLayerValues.alpha(", image_case)

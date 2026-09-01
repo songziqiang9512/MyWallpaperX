@@ -82,7 +82,8 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     ) -> Bool {
         guard pass.userTextureInputs.indices.contains(slotIndex),
               let input = pass.userTextureInputs[slotIndex] else { return true }
-        return [.system, .property].contains(input.kind) && !input.value.isEmpty
+        return (input.kind == .system || input.kind == .property)
+            && !input.value.isEmpty
     }
 
     private nonisolated static func hasUserTexture(
@@ -103,6 +104,7 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     ) -> Bool {
         guard pass.userTextureInputs.indices.contains(slotIndex),
               let input = pass.userTextureInputs[slotIndex] else { return false }
-        return [.system, .property].contains(input.kind) && !input.value.isEmpty
+        return (input.kind == .system || input.kind == .property)
+            && !input.value.isEmpty
     }
 }

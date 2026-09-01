@@ -57,6 +57,10 @@ enum Harness {
         layerID: 8,
         field: .visibility
     )
+    static let layoutThree = SceneDynamicTarget.layer(
+        layerID: 9,
+        field: .visibility
+    )
 
     static func main() throws {
         let liveProgram = program(
@@ -263,6 +267,7 @@ enum Harness {
             definitions: [
                 .init(target: layoutOne, valueType: .bool, authoredValue: .bool(true)),
                 .init(target: layoutTwo, valueType: .bool, authoredValue: .bool(false)),
+                .init(target: layoutThree, valueType: .bool, authoredValue: .bool(true)),
             ],
             instructions: [
                 .init(
@@ -279,21 +284,41 @@ enum Harness {
                     valueType: .bool,
                     condition: .string("two")
                 ),
+                .init(
+                    propertyKey: "layout",
+                    path: .init(components: [.key("layout"), .index(2)]),
+                    target: layoutThree,
+                    valueType: .bool,
+                    condition: .string("one")
+                ),
+            ],
+            conditionalValueDomainsByPropertyKey: [
+                "layout": ["base", "one", "two"],
             ]
         )
         var conditionalLayoutState = ScenePropertyLiveUpdateState(
             program: conditionalLayoutProgram,
             effectiveValues: ["layout": .string("one")],
-            activeConsumerTargets: [layoutOne, layoutTwo]
+            activeConsumerTargets: [layoutOne, layoutTwo, layoutThree]
         )
         let conditionalLayoutInitial = bool(conditionalLayoutState, layoutOne) == true
             && bool(conditionalLayoutState, layoutTwo) == false
+            && bool(conditionalLayoutState, layoutThree) == true
         let conditionalLayoutAccepted = conditionalLayoutState.apply(
             .string("two"),
             forPropertyKey: "layout"
         )
         let conditionalLayoutSwapped = bool(conditionalLayoutState, layoutOne) == false
             && bool(conditionalLayoutState, layoutTwo) == true
+            && bool(conditionalLayoutState, layoutThree) == false
+        let conditionalLayoutBaseAccepted = conditionalLayoutState.apply(
+            .string("base"),
+            forPropertyKey: "layout"
+        )
+        let conditionalLayoutBaseCleared =
+            bool(conditionalLayoutState, layoutOne) == false
+                && bool(conditionalLayoutState, layoutTwo) == false
+                && bool(conditionalLayoutState, layoutThree) == false
         let beforeUnmatchedLayout = conditionalLayoutState
         let conditionalLayoutUnmatchedRejected = !conditionalLayoutState.apply(
             .string("missing"),
@@ -583,6 +608,8 @@ enum Harness {
             "conditionalLayoutInitial": conditionalLayoutInitial,
             "conditionalLayoutAccepted": conditionalLayoutAccepted,
             "conditionalLayoutSwapped": conditionalLayoutSwapped,
+            "conditionalLayoutBaseAccepted": conditionalLayoutBaseAccepted,
+            "conditionalLayoutBaseCleared": conditionalLayoutBaseCleared,
             "conditionalLayoutUnmatchedRejected":
                 conditionalLayoutUnmatchedRejected,
             "conditionalLayoutUnmatchedWasAtomic":
@@ -744,10 +771,12 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["mixedVisibilityRejected"])
         self.assertTrue(self.result["mixedVisibilityWasAtomic"])
 
-    def test_conditional_layout_selection_is_exact_and_atomic(self) -> None:
+    def test_conditional_layout_cohort_and_base_selection_are_atomic(self) -> None:
         self.assertTrue(self.result["conditionalLayoutInitial"])
         self.assertTrue(self.result["conditionalLayoutAccepted"])
         self.assertTrue(self.result["conditionalLayoutSwapped"])
+        self.assertTrue(self.result["conditionalLayoutBaseAccepted"])
+        self.assertTrue(self.result["conditionalLayoutBaseCleared"])
         self.assertTrue(self.result["conditionalLayoutUnmatchedRejected"])
         self.assertTrue(self.result["conditionalLayoutUnmatchedWasAtomic"])
         self.assertTrue(self.result["conditionalLayoutPartialRejected"])

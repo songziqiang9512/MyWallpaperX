@@ -161,26 +161,34 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
 }
 
 /// A dynamic layer-wide visibility owner may prepare an ordinary root as an
-/// execution candidate without making it visible. Hierarchy and utility
-/// lifecycle stay on their existing rebuild route; the frame snapshot remains
-/// the only compositor visibility authority.
+/// execution candidate without making it visible. A composition root may join
+/// only when its lifecycle already exists at launch; activating a previously
+/// hidden utility or changing hierarchy still requires rebuild. The frame
+/// snapshot remains the only compositor visibility authority.
 nonisolated enum SceneDynamicLayerVisibilityRouteAdmission {
     static func targets(
         in descriptor: SceneRenderDescriptor,
         candidates: Set<SceneDynamicTarget>
     ) -> Set<SceneDynamicTarget> {
         let descriptorGroups = Dictionary(grouping: descriptor.layers, by: \.id)
-        return Set(candidates.compactMap { target in
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        var admitted = Set<SceneDynamicTarget>()
+        for target in candidates {
             guard case let .layer(layerID, .visibility) = target,
                   let layers = descriptorGroups[layerID],
                   layers.count == 1,
                   let layer = layers.first,
-                  ["image", "solid"].contains(layer.contentKind),
                   layer.parentID == nil,
-                  layer.childLayerIDs.isEmpty,
-                  case nil = layer.utilityLayer else { return nil }
-            return target
-        })
+                  layer.childLayerIDs.isEmpty else { continue }
+            guard (["image", "solid", "text"].contains(layer.contentKind)
+                    && layer.utilityLayer == nil)
+                || (layer.contentKind == "composition"
+                    && visibleLayerIDs.contains(layerID)
+                    && layer.utilityLayer?.kind == .composition)
+            else { continue }
+            admitted.insert(target)
+        }
+        return admitted
     }
 
     static func layerIDs(

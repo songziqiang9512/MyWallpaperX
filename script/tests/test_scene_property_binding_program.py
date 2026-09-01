@@ -147,15 +147,62 @@ enum Harness {
         let conditionalLayerUnmatched = conditionalLayer.program.evaluate(
             effectiveValues: ["layout": .string("missing")]
         )
-        let incompleteConditionalLayer = compiler.compile(
+        let baseOptionConditionalLayer = compiler.compile(
             report: .init(bindings: [
                 binding(
-                    "layout", .bool(true), 43, .layerVisibility(layerID: 43),
+                    "layout", .bool(false), 43, .layerVisibility(layerID: 43),
                     condition: .string("one")
                 ),
             ], diagnostics: []),
             catalog: .init(definitions: [comboProperty(
-                "layout", defaultValue: "one", options: ["one", "two"]
+                "layout", defaultValue: "base", options: ["base", "one"]
+            )])
+        )
+        let baseOptionConditionalEvaluation =
+            baseOptionConditionalLayer.program.evaluate(
+                effectiveValues: ["layout": .string("base")]
+            )
+        let cohortLayerTargets = (44 ... 47).map {
+            SceneDynamicTarget.layer(layerID: $0, field: .visibility)
+        }
+        let cohortConditionalLayer = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "outfit", .bool(false), 44, .layerVisibility(layerID: 44),
+                    condition: .string("one")
+                ),
+                binding(
+                    "outfit", .bool(false), 45, .layerVisibility(layerID: 45),
+                    condition: .string("one")
+                ),
+                binding(
+                    "outfit", .bool(false), 46, .layerVisibility(layerID: 46),
+                    condition: .string("two")
+                ),
+                binding(
+                    "outfit", .bool(false), 47, .layerVisibility(layerID: 47),
+                    condition: .string("two")
+                ),
+            ], diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "outfit", defaultValue: "base", options: ["base", "one", "two"]
+            )])
+        )
+        let cohortConditionalEvaluation = cohortConditionalLayer.program.evaluate(
+            effectiveValues: ["outfit": .string("one")]
+        )
+        let cohortBaseEvaluation = cohortConditionalLayer.program.evaluate(
+            effectiveValues: ["outfit": .string("base")]
+        )
+        let invalidCohortFallback = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "outfit", .bool(true), 48, .layerVisibility(layerID: 48),
+                    condition: .string("one")
+                ),
+            ], diagnostics: []),
+            catalog: .init(definitions: [comboProperty(
+                "outfit", defaultValue: "base", options: ["base", "one"]
             )])
         )
         let duplicate = compiler.compile(
@@ -815,10 +862,34 @@ enum Harness {
                 conditionalLayerUnmatched.userValues.count,
             "conditionalLayerUnmatchedCodes":
                 codes(conditionalLayerUnmatched.diagnostics),
-            "incompleteConditionalLayerCount":
-                incompleteConditionalLayer.program.instructions.count,
-            "incompleteConditionalLayerRebuild":
-                incompleteConditionalLayer.program.rebuildRequiredPropertyKeys,
+            "conditionalLayerDomain":
+                conditionalLayer.program.conditionalValueDomainsByPropertyKey["layout"] ?? [],
+            "baseOptionConditionalLayerCount":
+                baseOptionConditionalLayer.program.instructions.count,
+            "baseOptionConditionalValue": String(describing:
+                baseOptionConditionalEvaluation.userValues[
+                    .layer(layerID: 43, field: .visibility)
+                ]!
+            ),
+            "cohortConditionalLayerCount":
+                cohortConditionalLayer.program.instructions.count,
+            "cohortConditionalDomain":
+                cohortConditionalLayer.program
+                    .conditionalValueDomainsByPropertyKey["outfit"] ?? [],
+            "cohortConditionalValues": cohortLayerTargets.map {
+                String(describing: cohortConditionalEvaluation.userValues[$0]!)
+            },
+            "cohortBaseValues": cohortLayerTargets.map {
+                String(describing: cohortBaseEvaluation.userValues[$0]!)
+            },
+            "cohortConditionalCodes": codes(cohortConditionalLayer.diagnostics),
+            "cohortConditionalRuntimeCodes":
+                codes(cohortConditionalEvaluation.diagnostics),
+            "cohortBaseRuntimeCodes": codes(cohortBaseEvaluation.diagnostics),
+            "invalidCohortFallbackCount":
+                invalidCohortFallback.program.instructions.count,
+            "invalidCohortFallbackRebuild":
+                invalidCohortFallback.program.rebuildRequiredPropertyKeys,
             "duplicateCount": duplicate.program.instructions.count,
             "duplicateCodes": codes(duplicate.diagnostics),
             "rejectedCount": rejected.program.instructions.count,
@@ -1192,11 +1263,12 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["duplicateCount"], 0)
         self.assertEqual(self.result["duplicateCodes"], ["duplicateTarget"])
 
-    def test_complete_combo_layer_group_compiles_and_selects_exactly_one(self) -> None:
+    def test_combo_layer_groups_preserve_domain_and_select_whole_cohorts(self) -> None:
         self.assertEqual(self.result["conditionalLayerCount"], 2)
         self.assertTrue(self.result["conditionalLayerTargets"])
         self.assertEqual(self.result["conditionalLayerCodes"], [])
         self.assertEqual(self.result["conditionalLayerRebuild"], [])
+        self.assertEqual(self.result["conditionalLayerDomain"], ["one", "two"])
         self.assertEqual(
             self.result["conditionalLayerValues"],
             ["bool(false)", "bool(true)"],
@@ -1207,10 +1279,25 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             self.result["conditionalLayerUnmatchedCodes"],
             ["invalidRuntimeValue"],
         )
-        self.assertEqual(self.result["incompleteConditionalLayerCount"], 0)
+        self.assertEqual(self.result["baseOptionConditionalLayerCount"], 1)
+        self.assertEqual(self.result["baseOptionConditionalValue"], "bool(false)")
+        self.assertEqual(self.result["cohortConditionalLayerCount"], 4)
         self.assertEqual(
-            self.result["incompleteConditionalLayerRebuild"], ["layout"]
+            self.result["cohortConditionalDomain"], ["base", "one", "two"]
         )
+        self.assertEqual(
+            self.result["cohortConditionalValues"],
+            ["bool(true)", "bool(true)", "bool(false)", "bool(false)"],
+        )
+        self.assertEqual(
+            self.result["cohortBaseValues"],
+            ["bool(false)", "bool(false)", "bool(false)", "bool(false)"],
+        )
+        self.assertEqual(self.result["cohortConditionalCodes"], [])
+        self.assertEqual(self.result["cohortConditionalRuntimeCodes"], [])
+        self.assertEqual(self.result["cohortBaseRuntimeCodes"], [])
+        self.assertEqual(self.result["invalidCohortFallbackCount"], 0)
+        self.assertEqual(self.result["invalidCohortFallbackRebuild"], ["outfit"])
 
     def test_missing_invalid_and_unsupported_inputs_are_diagnostic(self) -> None:
         self.assertEqual(self.result["rejectedCount"], 0)
