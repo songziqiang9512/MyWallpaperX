@@ -233,7 +233,8 @@ enum Harness {
             kind: .upsert, isDynamic: false, fields: .origin,
             layerID: 10, orderIndex: 0, visible: true, alpha: 1,
             origin: .init(x, 0, 0), scale: .init(1, 1, 1), angles: .zero,
-            color: .init(1, 1, 1), pointSize: 32, text: "", font: ""
+            color: .init(1, 1, 1), pointSize: 32, text: "", font: "",
+            assetPath: nil
         )
     }
 
