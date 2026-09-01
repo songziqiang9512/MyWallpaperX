@@ -940,6 +940,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 同一`eyesnitroeffect=true`严格隔离运行由修复前`admitted-fallback / visual-failure-passthrough / 0/1 NON-PASS`变为`admitted-generic / program / 1/1 PASS`；目标effect首帧与next-frame均GPU completed并发布，后缀进入terminal compositor，GraphExecutor 28/28/28且0 failure。截图只作眼部局部发光方向与整构图安全旁证，没有预登记ROI或官方golden，因此最高仍为`S3 real effect execution + whole-composition safety`，不升级Nitro family、149 corpus或视觉parity。精确代码、负门、App身份与hash见[E-V4-SCALARIZED-RGB-PRESERVED-ALPHA](runtime-evidence-index.md#e-v4-scalarized-rgb-preserved-alpha)。
 
+### 2026-09-02 V4 pass scalar Timeline/SceneScript 与独立 opacity 坐标 resolution
+
+现役typed input主链已把exact `animation/script/value` pass scalar接入既有QuickJS → authored Timeline → dynamic snapshot → MaterialProgram，而不是恢复旧album transition owner或为`multiply`增加专用profile。准入要求完整layer/effect/pass/constant/source/fallback identity、空properties、无user及同target合法Timeline；错wrapper、无Timeline和额外provider继续局部失败。149包只读统计的作者影响面为20个target / 6样本，只是上界。真实`2902406982:702#effect#708`在`mediaThumbnailChanged`后执行owner-local animation mutation，并从provider pending的previous-current恢复为普通`generic-only`Program。
+
+同一真实纵向结果的下一断点`g_Texture7Resolution`由共享shader数据流补齐：只有独立`vec2`坐标精确取自authored UV、由缺席resolution slot归一化，并唯一供另一active texture sample消费时，才复用既有`.neutralMissingTextureResolution`；source XY覆写、target额外使用、非恒等UV、错purpose/publication仍拒绝。目标effect随后完成CPU encode、GPU、exact publication与next-frame，其Opacity后缀进入唯一compositor。严格selection仍因启动provider恢复和独立Audio Bars color-contract保持NON-PASS；没有把非黑或整窗截图冒充Blend Gradient ROI/完整样本/官方parity。见[E-V4-SCENESCRIPT-PASS-TIMELINE-ANIMATION](runtime-evidence-index.md#e-v4-scenescript-pass-timeline-animation)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

@@ -105,8 +105,18 @@ nonisolated extension SceneScriptScalarProgram {
               value.components?.first?.bitPattern == authored.bitPattern else {
             return nil
         }
+        let target = SceneDynamicTarget.effectConstant(
+            layerID: layerID,
+            effectIndex: effectIndex,
+            passIndex: passIndex,
+            name: name
+        )
         let validWrapper =
-            (binding.wrapperKeys == ["script", "value"]
+            (binding.wrapperKeys == ["animation", "script", "value"]
+                && binding.properties.isEmpty
+                && value.userValueKind == nil
+                && timelineTargets.contains(target))
+            || (binding.wrapperKeys == ["script", "value"]
                 && binding.properties.isEmpty
                 && value.userValueKind == nil)
             || (SceneScriptDynamicProviderHostContract.supports(
@@ -117,12 +127,7 @@ nonisolated extension SceneScriptScalarProgram {
                 && binding.properties.isEmpty
                 && value.userValueKind == .null)
         guard validWrapper else { return nil }
-        return .effectConstant(
-            layerID: layerID,
-            effectIndex: effectIndex,
-            passIndex: passIndex,
-            name: name
-        )
+        return target
     }
 
     private static func expectedPath(

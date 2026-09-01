@@ -308,6 +308,10 @@ enum Harness {
                                 components: [-0.2],
                                 userValueKind: .null
                             ),
+                            "unseenTimelineScalar": .init(
+                                scriptSource: mediaAnimationSource,
+                                components: [1]
+                            ),
                         ]
                     )]
                 )]
@@ -1118,6 +1122,70 @@ enum Harness {
             effectivePropertyValues: [:], frame: frame,
             mediaThumbnailEvent: mediaEvent
         )
+        let passTimelineTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10,
+            effectIndex: 0,
+            passIndex: 0,
+            name: "unseenTimelineScalar"
+        )
+        let passTimeline = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "unseenTimelineScalar",
+                source: mediaAnimationSource,
+                value: 1,
+                wrapperKeys: ["animation", "script", "value"]
+            )],
+            timelineTargets: [passTimelineTarget],
+            generation: 151
+        )
+        let passTimelineResult = passTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.4)],
+            frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        let passTimelineDuplicate = passTimeline.evaluate(
+            inputs: [passTimelineTarget: .scalar(0.6)],
+            frame: frame,
+            mediaThumbnailEvent: mediaEvent
+        )
+        let passTimelineWithoutTarget = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "unseenTimelineScalar",
+                source: mediaAnimationSource,
+                value: 1,
+                wrapperKeys: ["animation", "script", "value"]
+            )],
+            generation: 152
+        )
+        let passTimelineWrongWrapper = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "unseenTimelineScalar",
+                source: mediaAnimationSource,
+                value: 1,
+                wrapperKeys: ["animation", "extra", "script", "value"]
+            )],
+            timelineTargets: [passTimelineTarget],
+            generation: 153
+        )
+        let passTimelineWithProperties = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "unseenTimelineScalar",
+                source: mediaAnimationSource,
+                value: 1,
+                wrapperKeys: ["animation", "script", "value"],
+                properties: ["unexpected": .number(1)]
+            )],
+            timelineTargets: [passTimelineTarget],
+            generation: 154
+        )
         let playbackTarget = SceneDynamicTarget.effectConstant(
             layerID: 10, effectIndex: 0, passIndex: 0, name: "alpha"
         )
@@ -1376,6 +1444,21 @@ enum Harness {
             },
             "mediaGenerationDeduplicated":
                 duplicateMediaOriginResult.animationMutations.isEmpty,
+            "passTimelineBindings": passTimeline.bindings.count,
+            "passTimelineValue": scalar(
+                passTimelineResult.values[passTimelineTarget]
+            ),
+            "passTimelineCommands": passTimelineResult.animationMutations.map {
+                $0.command.rawValue
+            },
+            "passTimelineGenerationDeduplicated":
+                passTimelineDuplicate.animationMutations.isEmpty,
+            "passTimelineWithoutTargetRejected":
+                passTimelineWithoutTarget.bindings.isEmpty,
+            "passTimelineWrongWrapperRejected":
+                passTimelineWrongWrapper.bindings.isEmpty,
+            "passTimelinePropertiesRejected":
+                passTimelineWithProperties.bindings.isEmpty,
             "playbackBindings": playbackProgram.bindings.count,
             "playbackPlaying": scalar(playing.values[playbackTarget]),
             "playbackNextFrame": scalar(playingNextFrame.values[playbackTarget]),
@@ -2055,6 +2138,13 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["genericAlphaWrongWrapperRejected"])
         self.assertEqual(value["mediaAnimationCommands"], ["stop", "play"])
         self.assertTrue(value["mediaGenerationDeduplicated"])
+        self.assertEqual(value["passTimelineBindings"], 1)
+        self.assertEqual(value["passTimelineValue"], 0.4)
+        self.assertEqual(value["passTimelineCommands"], ["stop", "play"])
+        self.assertTrue(value["passTimelineGenerationDeduplicated"])
+        self.assertTrue(value["passTimelineWithoutTargetRejected"])
+        self.assertTrue(value["passTimelineWrongWrapperRejected"])
+        self.assertTrue(value["passTimelinePropertiesRejected"])
         self.assertEqual(value["playbackBindings"], 1)
         self.assertEqual(value["playbackPlaying"], 0.5)
         self.assertEqual(value["playbackNextFrame"], 1.0)

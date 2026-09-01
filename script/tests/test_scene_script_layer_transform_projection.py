@@ -162,6 +162,13 @@ nonisolated enum SceneScriptDynamicImageReferenceAnalysis {
 
 nonisolated struct SceneShaderContract {}
 
+nonisolated struct SceneEffectTextureInput: Sendable {
+    enum Kind: Sendable { case system, property }
+
+    let kind: Kind
+    let value: String
+}
+
 nonisolated enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
         let modelPath: String
@@ -196,7 +203,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             let id: Int?
             let constantShaderValues: [String: ShaderValue]
             let textureSlots: [String?]
-            let userTextureInputs: [Bool?]
+            let userTextureInputs: [SceneEffectTextureInput?]
         }
 
         let id: String

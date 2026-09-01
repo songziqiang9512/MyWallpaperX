@@ -2428,6 +2428,47 @@ private func neutralTextureResolutionSources(
     )
 }
 
+private func separateNeutralTextureResolutionSources(
+    resolutionSlot: Int,
+    coordinateSlot: Int,
+    sourceVarying: String,
+    targetVarying: String
+) -> (vertex: String, fragment: String) {
+    (
+        """
+        attribute vec3 a_Position;
+        attribute vec2 a_TexCoord;
+        varying vec4 \(sourceVarying);
+        varying vec2 \(targetVarying);
+        uniform vec4 g_Texture\(resolutionSlot)Resolution;
+        void main() {
+            \(sourceVarying).xy = a_TexCoord;
+            \(targetVarying) = vec2(
+                ((\(sourceVarying).x * g_Texture\(resolutionSlot)Resolution.z)
+                    / (g_Texture\(resolutionSlot)Resolution.x)),
+                ((\(sourceVarying).y * g_Texture\(resolutionSlot)Resolution.w)
+                    / (g_Texture\(resolutionSlot)Resolution.y))
+            );
+            gl_Position = vec4(a_Position, 1.0);
+        }
+        """,
+        """
+        varying vec4 \(sourceVarying);
+        varying vec2 \(targetVarying);
+        uniform sampler2D g_Texture0; // {"material":"framebuffer"}
+        uniform sampler2D g_Texture\(coordinateSlot); // {"mode":"opacitymask"}
+        void main() {
+            vec4 current = texSample2D(g_Texture0, \(sourceVarying).xy);
+            float mask = texSample2D(
+                g_Texture\(coordinateSlot),
+                \(targetVarying)
+            ).r;
+            gl_FragColor = vec4(current.rgb, current.a * mask);
+        }
+        """
+    )
+}
+
 private func neutralTextureResolutionResult(
     _ device: MTLDevice,
     resolutionSlot: Int = 1,
@@ -2576,6 +2617,45 @@ private func neutralTextureResolutionUnseenToken(_ device: MTLDevice) -> String 
     return "success"
 }
 
+private func separateNeutralTextureResolutionToken(_ device: MTLDevice) -> String {
+    let sources = separateNeutralTextureResolutionSources(
+        resolutionSlot: 7,
+        coordinateSlot: 3,
+        sourceVarying: "baseCoordinates",
+        targetVarying: "opacityCoordinates"
+    )
+    let result = neutralTextureResolutionResult(
+        device,
+        resolutionSlot: 7,
+        coordinateSlot: 3,
+        varying: "unusedPackedCoordinates",
+        physicalSize: CGSize(width: 256, height: 256),
+        mappedSize: CGSize(width: 256, height: 256),
+        vertexSourceOverride: sources.vertex.replacingOccurrences(
+            of: "baseCoordinates.xy = a_TexCoord;",
+            with: "baseCoordinates.xy = a_TexCoord; baseCoordinates.zw = baseCoordinates.xy;"
+        ),
+        fragmentSourceOverride: sources.fragment
+    )
+    guard case let .success(program) = result,
+          program.textureSlots[7] == nil,
+          program.exactIdentity.textureSlots[3]?.physicalExtent == [256, 256],
+          let uniform = program.resolvedUniforms.first(where: {
+              $0.field.name == "g_Texture7Resolution"
+          }),
+          case let .neutralMissingTextureResolution(fact) = uniform.source,
+          fact.resolutionSlot == 7,
+          fact.coordinateTextureSlot == 3,
+          fact.varyingName == "opacityCoordinates",
+          fact.sourceComponents == "baseCoordinates.xy",
+          fact.targetComponents == "xy",
+          (0 ..< 4).allSatisfy({
+              Harness.float(uniform.encodedValue, at: $0 * 4) == 1
+          })
+    else { return failureToken(result) }
+    return "success"
+}
+
 private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
     let sources = neutralTextureResolutionSources(
         resolutionSlot: 1,
@@ -2592,6 +2672,20 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
     }
     let resolution = "g_Texture1Resolution"
     let varying = "coordinateCarrier"
+    let separate = separateNeutralTextureResolutionSources(
+        resolutionSlot: 7,
+        coordinateSlot: 3,
+        sourceVarying: "baseCoordinates",
+        targetVarying: "opacityCoordinates"
+    )
+    func separateFact(_ vertex: String, _ fragment: String? = nil)
+        -> SceneAuthoredShaderNeutralTextureResolutionFact? {
+        SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
+            vertexSource: vertex,
+            fragmentSource: fragment ?? separate.fragment,
+            activeSamplerSlots: [0, 3]
+        )
+    }
     let realVertex = """
     uniform mat4 g_ModelViewProjectionMatrix;
     uniform vec4 g_Texture1Resolution;
@@ -2682,6 +2776,20 @@ private func neutralTextureResolutionAnalyzerCases() -> [String: Bool] {
     }()
     return [
         "exact": fact(sources.vertex) != nil,
+        "separateExact": separateFact(separate.vertex) != nil,
+        "separateSourceOverwrite": separateFact(
+            separate.vertex.replacingOccurrences(
+                of: "gl_Position =",
+                with: "baseCoordinates.xy = opacityCoordinates; gl_Position ="
+            )
+        ) == nil,
+        "separateTargetLiveUse": separateFact(
+            separate.vertex,
+            separate.fragment.replacingOccurrences(
+                of: "gl_FragColor =",
+                with: "float live = opacityCoordinates.x; gl_FragColor ="
+            )
+        ) == nil,
         "realActiveCurrentAndMask": SceneAuthoredShaderNeutralTextureResolutionAnalyzer
             .analyze(
                 vertexSource: realVertex,
@@ -5313,6 +5421,8 @@ private enum Harness {
         let neutralTextureResolution = neutralTextureResolutionToken(device)
         let neutralTextureResolutionUnseen =
             neutralTextureResolutionUnseenToken(device)
+        let separateNeutralTextureResolution =
+            separateNeutralTextureResolutionToken(device)
         let neutralTextureResolutionAnalyzer =
             neutralTextureResolutionAnalyzerCases()
         let neutralTextureResolutionFailures =
@@ -5339,6 +5449,8 @@ private enum Harness {
                 "neutralTextureResolution": neutralTextureResolution == "success",
                 "neutralTextureResolutionUnseen":
                     neutralTextureResolutionUnseen == "success",
+                "separateNeutralTextureResolution":
+                    separateNeutralTextureResolution == "success",
                 "neutralTextureResolutionAnalyzer":
                     neutralTextureResolutionAnalyzer.values.allSatisfy { $0 },
                 "attenuationEligibility": attenuationEligibility.values.allSatisfy { $0 },
@@ -5618,6 +5730,7 @@ private enum Harness {
                 compatibilityTargetTextureCandidateTokens(),
             "neutralTextureResolution": neutralTextureResolution,
             "neutralTextureResolutionUnseen": neutralTextureResolutionUnseen,
+            "separateNeutralTextureResolution": separateNeutralTextureResolution,
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "dormantGraphInputFacts": dormantGraphInputFacts,
