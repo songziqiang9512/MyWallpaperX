@@ -33,6 +33,7 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
 
 typedef struct MWXSceneQuickJSLayerRecord {
     int64_t layer_id;
+    int64_t parent_id;
     char *name;
     char *text;
     char *font;
@@ -48,6 +49,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     uint64_t owner_identity;
     uint64_t dirty_owner_identity;
     bool visible;
+    bool has_parent;
     bool dynamic;
     bool destroyed;
     bool dirty;

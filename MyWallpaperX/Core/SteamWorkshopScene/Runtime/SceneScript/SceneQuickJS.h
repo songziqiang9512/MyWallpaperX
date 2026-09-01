@@ -200,6 +200,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
     int64_t layer_id,
+    uint32_t has_parent,
+    int64_t parent_id,
     const char *name,
     size_t name_length,
     const double origin[3],
@@ -211,6 +213,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
     int64_t layer_id,
+    uint32_t has_parent,
+    int64_t parent_id,
     const char *name,
     size_t name_length,
     const double origin[3],
@@ -534,6 +538,37 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const double input[3],
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double output[3],
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -545,6 +580,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     char *output,
     size_t output_capacity,
     size_t *output_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *input,
+    size_t input_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *output,
+    size_t output_capacity,
+    size_t *output_length,
+    uint32_t *did_initialize,
     char *diagnostic,
     size_t diagnostic_capacity
 );

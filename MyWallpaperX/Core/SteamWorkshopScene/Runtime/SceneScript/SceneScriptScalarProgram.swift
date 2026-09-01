@@ -409,6 +409,44 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
+            var evaluationInput = value
+            if changedUserPropertiesJSON != nil || pendingPlaybackEvent != nil
+                || pendingMediaEvent != nil || pendingPropertiesEvent != nil
+                || pendingTimelineEvent != nil {
+                switch binding.initializeIfNeeded(
+                    input: value,
+                    frame: frame,
+                    scriptPropertiesJSON: propertiesJSON,
+                    userPropertiesJSON: userPropertiesJSON,
+                    expectedGeneration: generation,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(initialization):
+                    if let initialization {
+                        guard case let .scalar(initializedValue) = initialization.value else {
+                            failures[binding.target] = .badReturn(
+                                "scalar initialization returned a non-scalar value"
+                            )
+                            disabledTargets.insert(binding.target)
+                            continue
+                        }
+                        evaluationInput = initializedValue
+                        callbackMaterialMutations.append(
+                            contentsOf: initialization.materialFunctionMutations
+                        )
+                        callbackAnimationMutations.append(
+                            contentsOf: initialization.animationMutations
+                        )
+                        callbackLayerMutations.append(
+                            contentsOf: initialization.layerMutations
+                        )
+                    }
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             if let changedUserPropertiesJSON {
                 switch binding.dispatchUserProperties(
                     changedPropertiesJSON: changedUserPropertiesJSON,
@@ -547,7 +585,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 }
             }
             switch binding.evaluate(
-                input: value,
+                input: evaluationInput,
                 frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,

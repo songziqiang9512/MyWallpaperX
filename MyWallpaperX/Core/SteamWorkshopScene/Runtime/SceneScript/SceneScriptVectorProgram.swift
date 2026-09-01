@@ -369,11 +369,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             if disabledTargets.contains(target) { continue }
             guard let input = inputs[target],
                   input.valueType == binding.definition.valueType,
-                  let propertiesJSON = Self.scriptPropertiesJSON(
+                  let propertiesJSON = SceneScriptPropertyInputCodec.scriptPropertiesJSON(
                       binding.properties,
                       effectiveValues: effectivePropertyValues
                   ) else { continue }
-            let changedUserPropertiesJSON = Self.changedUserPropertiesJSON(
+            let changedUserPropertiesJSON =
+                SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
                 previous: appliedUserPropertiesByTarget[target],
                 current: effectivePropertyValues,
                 kinds: userPropertyKinds
@@ -401,10 +402,45 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
+            var initializationLayerMutations: [SceneScriptLayerMutation] = []
             var callbackVideoCommands: [SceneScriptVideoCommand] = []
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
+            var evaluationInput = input
+            if changedUserPropertiesJSON != nil || pendingPlaybackEvent != nil
+                || pendingMediaEvent != nil || pendingPropertiesEvent != nil
+                || pendingTimelineEvent != nil {
+                switch binding.owner.initializeIfNeeded(
+                    input: input,
+                    frame: frame,
+                    scriptPropertiesJSON: propertiesJSON,
+                    userPropertiesJSON: userJSON,
+                    expectedGeneration: generation,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(initialization):
+                    if let initialization {
+                        evaluationInput = initialization.value
+                        callbackMaterialMutations.append(
+                            contentsOf: initialization.materialFunctionMutations
+                        )
+                        callbackAnimationMutations.append(
+                            contentsOf: initialization.animationMutations
+                        )
+                        initializationLayerMutations.append(
+                            contentsOf: initialization.layerMutations
+                        )
+                        callbackVideoCommands.append(
+                            contentsOf: initialization.videoCommands
+                        )
+                    }
+                case let .failure(failure):
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
+            }
             if let changedUserPropertiesJSON {
                 switch binding.owner.dispatchUserProperties(
                     changedPropertiesJSON: changedUserPropertiesJSON,
@@ -568,7 +604,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 }
             }
             switch binding.owner.evaluate(
-                input: input,
+                input: evaluationInput,
                 frame: frame,
                 scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userJSON,
@@ -594,6 +630,10 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     }
                     callbackLayerMutations.removeAll(keepingCapacity: true)
                 }
+                callbackLayerMutations.insert(
+                    contentsOf: initializationLayerMutations,
+                    at: callbackLayerMutations.startIndex
+                )
                 if let pendingPlaybackEvent {
                     consumedMediaPlaybackGenerations[target] =
                         pendingPlaybackEvent.generation
@@ -721,7 +761,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     func userPropertiesJSON(
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> String {
-        Self.userPropertiesJSON(
+        SceneScriptPropertyInputCodec.userPropertiesJSON(
             values: effectiveValues,
             kinds: userPropertyKinds
         )
@@ -737,7 +777,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         userPropertiesJSON: String
     ) -> [SceneScriptOwnerTeardownOutcome] {
         bindings.map { binding in
-            let propertiesJSON = Self.scriptPropertiesJSON(
+            let propertiesJSON =
+                SceneScriptPropertyInputCodec.scriptPropertiesJSON(
                 binding.properties,
                 effectiveValues: effectivePropertyValues
             ) ?? ""
@@ -747,37 +788,5 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 userPropertiesJSON: userPropertiesJSON
             )
         }
-    }
-
-    static func scriptPropertiesJSON(
-        _ inputs: [String: SceneScriptPropertyInput],
-        effectiveValues: [String: SceneUserPropertyValue]
-    ) -> String? {
-        SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-            inputs,
-            effectiveValues: effectiveValues
-        )
-    }
-
-    private static func userPropertiesJSON(
-        values: [String: SceneUserPropertyValue],
-        kinds: [String: SceneUserPropertyKind]
-    ) -> String {
-        SceneScriptPropertyInputCodec.userPropertiesJSON(
-            values: values,
-            kinds: kinds
-        )
-    }
-
-    private static func changedUserPropertiesJSON(
-        previous: [String: SceneUserPropertyValue]?,
-        current: [String: SceneUserPropertyValue],
-        kinds: [String: SceneUserPropertyKind]
-    ) -> String? {
-        SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
-            previous: previous,
-            current: current,
-            kinds: kinds
-        )
     }
 }

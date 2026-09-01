@@ -21,6 +21,13 @@ typedef struct MWXSceneQuickJSVideoHandle {
     uint32_t layer_index;
 } MWXSceneQuickJSVideoHandle;
 
+static JSValue make_layer_handle(
+    JSContext *context,
+    MWXSceneQuickJSOwner *owner,
+    uint32_t index,
+    bool persistent
+);
+
 static void finalize_layer_handle(JSRuntime *runtime, JSValue value) {
     (void)runtime;
     free(JS_GetOpaque(value, JS_GetClassID(value)));
@@ -72,10 +79,8 @@ static MWXSceneQuickJSLayerRecord *record_for_handle(
     MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
     if (!record->configured || record->destroyed) return NULL;
     if (record->dynamic) {
-        if (!handle->persistent || record->owner_identity != handle->owner_identity) {
-            return NULL;
-        }
-    } else if (!handle->owner_target &&
+        if (!handle->persistent) return NULL;
+    } else if (!handle->owner_target && !handle->persistent &&
                handle->callback_epoch != domain->callback_epoch) {
         return NULL;
     }
@@ -201,6 +206,7 @@ static JSValue layer_set(
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
     const uint32_t record_index = (uint32_t)(record - handle->domain->layers);
     const bool value_owner_target_visibility = owner->value_only &&
+        handle->owner_target &&
         (enum LayerProperty)magic == LAYER_VISIBLE &&
         owner->target_layer_configured &&
         record_index == owner->target_layer_index && !record->dynamic;
@@ -363,6 +369,27 @@ static JSValue layer_set(
 }
 
 static void free_layer_handle(void *opaque) { free(opaque); }
+
+static JSValue get_parent(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (record == NULL || argc != 0)
+        return JS_ThrowTypeError(context, "getParent layer handle is stale");
+    if (!record->has_parent) return JS_UNDEFINED;
+    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    for (uint32_t index = 0; index < handle->domain->authored_layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *parent = &handle->domain->layers[index];
+        if (parent->configured && !parent->destroyed &&
+            parent->layer_id == record->parent_id) {
+            return make_layer_handle(context, owner, index, true);
+        }
+    }
+    return JS_ThrowTypeError(context, "layer parent identity is invalid");
+}
 
 static MWXSceneQuickJSLayerRecord *video_record_for_handle(
     MWXSceneQuickJSVideoHandle *handle
@@ -673,18 +700,41 @@ static bool define_property(
     return result >= 0;
 }
 
+static bool define_get_parent(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+) {
+    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return false;
+    *handle = (MWXSceneQuickJSLayerHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = index,
+        .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target, .persistent = persistent,
+    };
+    JSValue function = JS_NewCClosure(
+        context, get_parent, "getParent", free_layer_handle, 0, 0, handle
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        context, layer, "getParent", function, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
 static JSValue make_layer_handle(
     JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t index, bool persistent
 ) {
     if (!callback_owns(owner) || index >= owner->domain->layer_count) {
         return JS_ThrowRangeError(context, "layer target does not exist");
     }
+    const bool owner_target = owner->target_layer_configured &&
+        index == owner->target_layer_index;
     MWXSceneQuickJSLayerHandle *identity = calloc(1, sizeof(*identity));
     if (identity == NULL) return JS_EXCEPTION;
     *identity = (MWXSceneQuickJSLayerHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
         .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target,
         .persistent = persistent,
     };
     JSValue layer = JS_NewObjectClass(
@@ -703,14 +753,20 @@ static JSValue make_layer_handle(
         {"name", LAYER_NAME, false},
     };
     for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field) {
-        if (!define_property(context, layer, owner, index, false, persistent,
+        if (!define_property(context, layer, owner, index, owner_target, persistent,
                              fields[field].name, fields[field].property,
                              fields[field].writable)) {
             JS_FreeValue(context, layer); return JS_EXCEPTION;
         }
     }
     if (!define_get_video_texture(
-            context, layer, owner, index, false, persistent
+            context, layer, owner, index, owner_target, persistent
+        )) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
+    }
+    if (!define_get_parent(
+            context, layer, owner, index, owner_target, persistent
         )) {
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
@@ -780,7 +836,7 @@ static JSValue get_layer(
     }
     if (storage < 0) return JS_ThrowRangeError(context, "getLayer target does not exist");
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[storage];
-    return make_layer_handle(context, owner, (uint32_t)storage, record->dynamic);
+    return make_layer_handle(context, owner, (uint32_t)storage, true);
 }
 
 static JSValue get_layer_by_id(
@@ -795,7 +851,7 @@ static JSValue get_layer_by_id(
     for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[index];
         if (record->configured && !record->destroyed && record->layer_id == (int64_t)value)
-            return make_layer_handle(context, owner, index, record->dynamic);
+            return make_layer_handle(context, owner, index, true);
     }
     return JS_ThrowRangeError(context, "getLayerByID target does not exist");
 }
@@ -911,7 +967,7 @@ static JSValue create_layer(
         .asset_path = asset_path,
         .scale = {1, 1, 1}, .color = {color[0], color[1], color[2]},
         .alpha = alpha, .point_size = point_size,
-        .order_index = active_count(domain) - 1, .owner_identity = owner->identity,
+        .order_index = active_count(domain), .owner_identity = owner->identity,
         .visible = true, .dynamic = true, .configured = true,
     };
     if (!mark_dirty(owner, record)) return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
@@ -939,6 +995,36 @@ static JSValue get_layer_count(
     MWXSceneQuickJSOwner *owner = opaque;
     if (!callback_owns(owner)) return JS_ThrowTypeError(context, "getLayerCount unavailable");
     return JS_NewInt32(context, active_count(owner->domain));
+}
+
+static JSValue enumerate_layers(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSOwner *owner = opaque;
+    if (!callback_owns(owner) || argc != 0)
+        return JS_ThrowTypeError(context, "enumerateLayers unavailable");
+    const int32_t count = active_count(owner->domain);
+    JSValue result = JS_NewArray(context);
+    if (JS_IsException(result)) return result;
+    for (int32_t order = 0; order < count; ++order) {
+        const int32_t storage = storage_at_order(owner->domain, order);
+        if (storage < 0) {
+            JS_FreeValue(context, result);
+            return JS_ThrowInternalError(context, "layer render order is invalid");
+        }
+        JSValue layer = make_layer_handle(
+            context, owner, (uint32_t)storage, true
+        );
+        if (JS_IsException(layer) || JS_SetPropertyUint32(
+                context, result, (uint32_t)order, layer
+            ) < 0) {
+            JS_FreeValue(context, result);
+            return JS_EXCEPTION;
+        }
+    }
+    return result;
 }
 
 static JSValue sort_layer(
@@ -1015,11 +1101,15 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!define_get_video_texture(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
+    if (!define_get_parent(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
     JSValue scene = JS_NewObject(context);
     if (JS_IsException(scene)) return false;
     struct { const char *name; JSCClosure *function; int argc; } functions[] = {
         {"getLayer", get_layer, 1}, {"getLayerByID", get_layer_by_id, 1},
-        {"getLayerCount", get_layer_count, 0}, {"createLayer", create_layer, 1},
+        {"getLayerCount", get_layer_count, 0},
+        {"enumerateLayers", enumerate_layers, 0}, {"createLayer", create_layer, 1},
         {"destroyLayer", destroy_layer, 1}, {"sortLayer", sort_layer, 2},
         {"getLayerIndex", get_layer_index, 1},
     };
@@ -1262,8 +1352,54 @@ static char *copy_string(const char *source, size_t length) {
     if (length > 0) memcpy(copy, source, length); copy[length] = '\0'; return copy;
 }
 
+static bool valid_layer_identity(int64_t identity) {
+    return identity >= -9007199254740991LL &&
+        identity <= 9007199254740991LL;
+}
+
+static bool validate_complete_layer_catalog(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    for (uint32_t index = 0; index < domain->authored_layer_count; ++index)
+        if (!domain->layers[index].configured) return true;
+    for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+        for (uint32_t candidate = index + 1;
+             candidate < domain->authored_layer_count; ++candidate) {
+            if (domain->layers[candidate].layer_id == record->layer_id) {
+                mwx_scene_quickjs_write_diagnostic(
+                    diagnostic, diagnostic_capacity,
+                    "duplicate authored layer identity"
+                );
+                return false;
+            }
+        }
+        if (!record->has_parent) continue;
+        bool parent_found = false;
+        for (uint32_t candidate = 0;
+             candidate < domain->authored_layer_count; ++candidate) {
+            MWXSceneQuickJSLayerRecord *parent = &domain->layers[candidate];
+            if (candidate != index && parent->layer_id == record->parent_id) {
+                parent_found = true;
+                break;
+            }
+        }
+        if (!parent_found) {
+            mwx_scene_quickjs_write_diagnostic(
+                diagnostic, diagnostic_capacity,
+                "invalid authored parent identity"
+            );
+            return false;
+        }
+    }
+    return true;
+}
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, int64_t layer_id,
+    uint32_t has_parent, int64_t parent_id,
     const char *name, size_t name_length, const double origin[3],
     const double scale[3], const double angles[3], uint32_t visible, double alpha,
     const char *text, size_t text_length, const char *font, size_t font_length,
@@ -1274,6 +1410,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
         text == NULL || font == NULL || name_length > MWX_SCENE_QUICKJS_MAX_LAYER_NAME ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT || font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
         origin == NULL || scale == NULL || angles == NULL || color == NULL ||
+        has_parent > 1 || !valid_layer_identity(layer_id) ||
+        (has_parent && (!valid_layer_identity(parent_id) || parent_id == layer_id)) ||
         !isfinite(alpha) || !isfinite(point_size) || domain->layers[layer_index].configured)
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     for (size_t i = 0; i < 3; ++i)
@@ -1283,16 +1421,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     record->name = copy_string(name, name_length); record->text = copy_string(text, text_length);
     record->font = copy_string(font, font_length);
     if (record->name == NULL || record->text == NULL || record->font == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
-    record->layer_id = layer_id; memcpy(record->authored_origin, origin, sizeof(record->authored_origin));
+    record->layer_id = layer_id; record->parent_id = parent_id;
+    record->has_parent = has_parent != 0;
+    memcpy(record->authored_origin, origin, sizeof(record->authored_origin));
     memcpy(record->current_origin, origin, sizeof(record->current_origin));
     memcpy(record->scale, scale, sizeof(record->scale)); memcpy(record->angles, angles, sizeof(record->angles));
     memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0;
     record->alpha = alpha; record->point_size = point_size; record->order_index = (int32_t)layer_index;
-    record->configured = true; return MWX_SCENE_QUICKJS_OK;
+    record->configured = true;
+    return validate_complete_layer_catalog(
+        domain, diagnostic, diagnostic_capacity
+    ) ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, int64_t layer_id,
+    uint32_t has_parent, int64_t parent_id,
     const char *name, size_t name_length, const double origin[3],
     char *diagnostic, size_t diagnostic_capacity
 ) {
@@ -1300,7 +1444,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     static const double angles[3] = {0, 0, 0};
     static const double color[3] = {1, 1, 1};
     return mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
-        domain, layer_index, layer_id, name, name_length, origin,
+        domain, layer_index, layer_id, has_parent, parent_id,
+        name, name_length, origin,
         scale, angles, 1, 1, "", 0, "", 0, 32, color,
         diagnostic, diagnostic_capacity
     );

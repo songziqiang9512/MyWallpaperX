@@ -1435,6 +1435,206 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     free(owner);
 }
 
+static MWXSceneQuickJSResult initialize_primitive_callback(
+    MWXSceneQuickJSOwner *owner,
+    double input,
+    bool boolean_value,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    *output = input;
+    if (owner->initialized) return MWX_SCENE_QUICKJS_OK;
+    JSValue init = JS_UNDEFINED;
+    if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    if (JS_IsFunction(owner->domain->context, init)) {
+        result = call_primitive(
+            owner, init, input, boolean_value, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length,
+            output, diagnostic, diagnostic_capacity
+        );
+    }
+    JS_FreeValue(owner->domain->context, init);
+    if (result == MWX_SCENE_QUICKJS_OK) owner->initialized = true;
+    return result;
+}
+
+static MWXSceneQuickJSResult initialize_vec3_callback(
+    MWXSceneQuickJSOwner *owner,
+    const double input[3],
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double output[3],
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    memcpy(output, input, sizeof(double) * 3);
+    if (owner->initialized) return MWX_SCENE_QUICKJS_OK;
+    JSValue init = JS_UNDEFINED;
+    if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    if (JS_IsFunction(owner->domain->context, init)) {
+        result = call_vec3(
+            owner, init, input, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length,
+            output, diagnostic, diagnostic_capacity
+        );
+    }
+    JS_FreeValue(owner->domain->context, init);
+    if (result == MWX_SCENE_QUICKJS_OK) owner->initialized = true;
+    return result;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    double input,
+    uint32_t boolean_value,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double *output,
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || frame == NULL || output == NULL ||
+        did_initialize == NULL || !isfinite(input) || boolean_value > 1 ||
+        (boolean_value != 0 && !owner->value_only && !owner->effectful_boolean) ||
+        (boolean_value == 0 && owner->value_only) ||
+        (boolean_value != 0 && input != 0 && input != 1) ||
+        !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
+        frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
+        frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "invalid SceneScript initialization argument");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *output = input;
+    *did_initialize = 0;
+    if (owner->generation != expected_generation) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "stale SceneScript owner generation");
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+    if (owner->disabled) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "SceneScript owner is disabled");
+        return MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (owner->initialized) return MWX_SCENE_QUICKJS_OK;
+    owner->domain->interrupted = false;
+    owner->material_function_count = 0;
+    owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
+    MWXSceneQuickJSResult result = initialize_primitive_callback(
+        owner, input, boolean_value != 0, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length,
+        output, diagnostic, diagnostic_capacity
+    );
+    if (result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return result;
+    }
+    *did_initialize = 1;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_vec3(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const double input[3],
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    double output[3],
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || owner->value_only || input == NULL || frame == NULL ||
+        output == NULL || did_initialize == NULL ||
+        !isfinite(input[0]) || !isfinite(input[1]) || !isfinite(input[2]) ||
+        !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
+        frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
+        frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "invalid SceneScript Vec3 initialization argument");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    memcpy(output, input, sizeof(double) * 3);
+    *did_initialize = 0;
+    if (owner->generation != expected_generation) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "stale SceneScript owner generation");
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+    if (owner->disabled) {
+        write_diagnostic(diagnostic, diagnostic_capacity,
+                         "SceneScript owner is disabled");
+        return MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (owner->initialized) return MWX_SCENE_QUICKJS_OK;
+    owner->domain->interrupted = false;
+    owner->material_function_count = 0;
+    owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
+    MWXSceneQuickJSResult result = initialize_vec3_callback(
+        owner, input, frame,
+        script_properties_json, script_properties_length,
+        user_properties_json, user_properties_length,
+        output, diagnostic, diagnostic_capacity
+    );
+    if (result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return result;
+    }
+    *did_initialize = 1;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,
@@ -1486,26 +1686,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         return timer_result;
     }
     if (!owner->initialized) {
-        JSValue init = JS_UNDEFINED;
-        if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        MWXSceneQuickJSResult result = initialize_primitive_callback(
+            owner, input, boolean_value != 0, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length,
+            output, diagnostic, diagnostic_capacity
+        );
+        if (result != MWX_SCENE_QUICKJS_OK) {
             owner->disabled = true;
-            return MWX_SCENE_QUICKJS_EXCEPTION;
+            return result;
         }
-        if (JS_IsFunction(domain->context, init)) {
-            MWXSceneQuickJSResult result = call_primitive(
-                owner, init, input, boolean_value != 0, frame,
-                script_properties_json, script_properties_length,
-                user_properties_json, user_properties_length,
-                output, diagnostic, diagnostic_capacity
-            );
-            JS_FreeValue(domain->context, init);
-            if (result != MWX_SCENE_QUICKJS_OK) {
-                owner->disabled = true;
-                return result;
-            }
-            input = *output;
-        }
-        owner->initialized = true;
+        input = *output;
     }
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {
@@ -1527,6 +1718,125 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
         owner->disabled = true;
     }
     return result;
+}
+
+static MWXSceneQuickJSResult initialize_string_callback(
+    MWXSceneQuickJSOwner *owner,
+    const char *input,
+    size_t input_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *output,
+    size_t output_capacity,
+    size_t *output_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (input_length >= output_capacity) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity, "SceneScript string output exceeded"
+        );
+        return MWX_SCENE_QUICKJS_BAD_RETURN;
+    }
+    memmove(output, input, input_length);
+    output[input_length] = '\0';
+    *output_length = input_length;
+    if (owner->initialized) return MWX_SCENE_QUICKJS_OK;
+    JSValue init = JS_UNDEFINED;
+    if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
+    if (JS_IsFunction(owner->domain->context, init)) {
+        result = call_string(
+            owner, init, output, *output_length, frame,
+            user_properties_json, user_properties_length,
+            output, output_capacity, output_length,
+            diagnostic, diagnostic_capacity
+        );
+    }
+    JS_FreeValue(owner->domain->context, init);
+    if (result == MWX_SCENE_QUICKJS_OK) owner->initialized = true;
+    return result;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *input,
+    size_t input_length,
+    const MWXSceneQuickJSFrameInput *frame,
+    const char *user_properties_json,
+    size_t user_properties_length,
+    char *output,
+    size_t output_capacity,
+    size_t *output_length,
+    uint32_t *did_initialize,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    clear_diagnostic(diagnostic, diagnostic_capacity);
+    if (owner == NULL || owner->value_only || input == NULL ||
+        input_length > 65536 || memchr(input, '\0', input_length) != NULL ||
+        frame == NULL || output == NULL || output_capacity == 0 ||
+        output_length == NULL || did_initialize == NULL ||
+        !isfinite(frame->time_of_day) || frame->time_of_day < 0 ||
+        frame->time_of_day > 1 || !isfinite(frame->frame_time) ||
+        frame->frame_time < 0 || !isfinite(frame->runtime) || frame->runtime < 0) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid SceneScript string initialization argument"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *did_initialize = 0;
+    if (owner->generation != expected_generation) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "stale SceneScript owner generation"
+        );
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+    if (owner->disabled) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity, "SceneScript owner is disabled"
+        );
+        return MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (owner->initialized) {
+        if (input_length >= output_capacity) return MWX_SCENE_QUICKJS_BAD_RETURN;
+        memmove(output, input, input_length);
+        output[input_length] = '\0';
+        *output_length = input_length;
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    owner->domain->interrupted = false;
+    owner->material_function_count = 0;
+    owner->material_function_overflow = false;
+    mwx_scene_quickjs_owner_begin_layer_mutations(owner);
+    owner->animation_command_count = 0;
+    owner->animation_command_overflow = false;
+    MWXSceneQuickJSResult timer_result = mwx_scene_quickjs_run_due_timers(
+        owner, frame, user_properties_json, user_properties_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return timer_result;
+    }
+    MWXSceneQuickJSResult result = initialize_string_callback(
+        owner, input, input_length, frame,
+        user_properties_json, user_properties_length,
+        output, output_capacity, output_length,
+        diagnostic, diagnostic_capacity
+    );
+    if (result != MWX_SCENE_QUICKJS_OK) {
+        owner->disabled = true;
+        return result;
+    }
+    *did_initialize = 1;
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
@@ -1589,25 +1899,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     current[input_length] = '\0';
     size_t current_length = input_length;
     if (!owner->initialized) {
-        JSValue init = JS_UNDEFINED;
-        if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        MWXSceneQuickJSResult result = initialize_string_callback(
+            owner, current, current_length, frame,
+            user_properties_json, user_properties_length,
+            current, sizeof(current), &current_length,
+            diagnostic, diagnostic_capacity
+        );
+        if (result != MWX_SCENE_QUICKJS_OK) {
             owner->disabled = true;
-            return MWX_SCENE_QUICKJS_EXCEPTION;
+            return result;
         }
-        if (JS_IsFunction(domain->context, init)) {
-            MWXSceneQuickJSResult result = call_string(
-                owner, init, current, current_length, frame,
-                user_properties_json, user_properties_length,
-                current, sizeof(current), &current_length,
-                diagnostic, diagnostic_capacity
-            );
-            JS_FreeValue(domain->context, init);
-            if (result != MWX_SCENE_QUICKJS_OK) {
-                owner->disabled = true;
-                return result;
-            }
-        }
-        owner->initialized = true;
     }
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {
@@ -1686,25 +1987,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_vec3(
     }
     double current[3] = {input[0], input[1], input[2]};
     if (!owner->initialized) {
-        JSValue init = JS_UNDEFINED;
-        if (!get_function(owner, "init", &init, diagnostic, diagnostic_capacity)) {
+        MWXSceneQuickJSResult result = initialize_vec3_callback(
+            owner, current, frame,
+            script_properties_json, script_properties_length,
+            user_properties_json, user_properties_length,
+            current, diagnostic, diagnostic_capacity
+        );
+        if (result != MWX_SCENE_QUICKJS_OK) {
             owner->disabled = true;
-            return MWX_SCENE_QUICKJS_EXCEPTION;
+            return result;
         }
-        if (JS_IsFunction(domain->context, init)) {
-            MWXSceneQuickJSResult result = call_vec3(
-                owner, init, current, frame,
-                script_properties_json, script_properties_length,
-                user_properties_json, user_properties_length,
-                current, diagnostic, diagnostic_capacity
-            );
-            JS_FreeValue(domain->context, init);
-            if (result != MWX_SCENE_QUICKJS_OK) {
-                owner->disabled = true;
-                return result;
-            }
-        }
-        owner->initialized = true;
     }
     JSValue update = JS_UNDEFINED;
     if (!get_function(owner, "update", &update, diagnostic, diagnostic_capacity)) {

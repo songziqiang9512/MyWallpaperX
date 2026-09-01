@@ -213,14 +213,23 @@ private nonisolated extension String {
 /// from descriptor-authored origins and overlays only resolved current values.
 nonisolated extension SceneScriptQuickJSDomain {
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {
+        let layerIDs = Set(descriptor.layers.map(\.id))
         guard descriptor.layers.count <= 4096,
+              layerIDs.count == descriptor.layers.count,
               descriptor.layers.allSatisfy({ layer in
                   let layerID = Int64(layer.id)
+                  let parentID = layer.parentID.map(Int64.init)
                   let validOrigin = layer.originXYZ.map {
                       $0.count == 3 && $0.allSatisfy(\.isFinite)
                   } ?? true
                   return layerID >= -9_007_199_254_740_991
                     && layerID <= 9_007_199_254_740_991
+                    && parentID.map {
+                        $0 >= -9_007_199_254_740_991
+                            && $0 <= 9_007_199_254_740_991
+                            && $0 != layerID
+                            && layerIDs.contains(Int($0))
+                    } ?? true
                     && (layer.name?.utf8.count ?? 0) <= 256
                     && !(layer.name?.contains("\0") ?? false)
                     && validOrigin
@@ -231,7 +240,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
         let signature = descriptor.layers.enumerated().map { index, layer in
             let origin = layer.originXYZ ?? [0, 0, 0]
-            return "\(index):\(layer.id):\(layer.name ?? ""):\(origin)"
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin)"
         }.joined(separator: "|")
         if let configured = layerCatalogSignature {
             guard configured == signature else {
@@ -261,6 +270,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                 origin.withUnsafeBufferPointer { originPointer in
                     mwx_scene_quickjs_domain_set_layer_descriptor(
                         handle, UInt32(index), Int64(layer.id),
+                        layer.parentID == nil ? 0 : 1,
+                        Int64(layer.parentID ?? 0),
                         namePointer, name.utf8.count,
                         originPointer.baseAddress,
                         &diagnostic, diagnostic.count

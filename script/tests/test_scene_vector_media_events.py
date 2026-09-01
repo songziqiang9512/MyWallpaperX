@@ -788,7 +788,13 @@ enum Harness {
     export var scriptProperties = createScriptProperties()
       .addSlider({name:'step',value:1}).finish();
     let applied = 0;
+    let initialized = false;
+    export function init(value) {
+      initialized = true;
+      return value;
+    }
     export function applyUserProperties(changed) {
+      if (!initialized) { throw new Error('properties before init'); }
       if (changed.hasOwnProperty('mode')) {
         applied = scriptProperties.step + engine.userProperties.mode;
       }

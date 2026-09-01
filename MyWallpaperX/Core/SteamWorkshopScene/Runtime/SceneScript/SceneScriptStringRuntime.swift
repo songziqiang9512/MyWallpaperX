@@ -130,6 +130,47 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         )
     }
 
+    func initializeIfNeeded(
+        input: String,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        expectedGeneration: UInt64,
+        interruptBudget: UInt64?
+    ) -> Result<SceneScriptStringEvaluation?, SceneScriptScalarRuntimeFailure> {
+        guard input.utf8.count <= 65_536, !input.contains("\0") else {
+            return .failure(.invalidArgument("invalid string initialization input"))
+        }
+        guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        var rawFrame = frame.quickJSValue
+        var output = [CChar](repeating: 0, count: 65_537)
+        var outputLength = 0
+        var didInitialize: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = input.withCString { inputPointer in
+            userPropertiesJSON.withCString { userProperties in
+                mwx_scene_quickjs_owner_initialize_string(
+                    handle, expectedGeneration,
+                    inputPointer, input.utf8.count, &rawFrame,
+                    userProperties, userPropertiesJSON.utf8.count,
+                    &output, output.count, &outputLength, &didInitialize,
+                    &diagnostic, diagnostic.count
+                )
+            }
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            return .failure(Self.failure(result, diagnostic))
+        }
+        guard didInitialize != 0 else { return .success(nil) }
+        guard outputLength <= 65_536 else {
+            return .failure(.badReturn("oversized initialized string output"))
+        }
+        let value = String(decoding: output.prefix(outputLength).map {
+            UInt8(bitPattern: $0)
+        }, as: UTF8.self)
+        return callbackEvaluation(value).map(Optional.some)
+    }
+
     func evaluate(
         input: String,
         frame: SceneScriptFrameInput,
@@ -173,6 +214,12 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         let value = String(decoding: output.prefix(outputLength).map {
             UInt8(bitPattern: $0)
         }, as: UTF8.self)
+        return callbackEvaluation(value)
+    }
+
+    private func callbackEvaluation(
+        _ value: String
+    ) -> Result<SceneScriptStringEvaluation, SceneScriptScalarRuntimeFailure> {
         let layerID: Int
         switch target {
         case let .text(value, _), let .layer(value, _): layerID = value

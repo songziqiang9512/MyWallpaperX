@@ -653,7 +653,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         return mutations(owner: owner, target: target, layerID: layerID)
     }
 
-    private static func mutations(
+    static func mutations(
         owner: OpaquePointer,
         target: SceneDynamicTarget,
         layerID: Int

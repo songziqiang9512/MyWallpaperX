@@ -174,6 +174,92 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         )
     }
 
+    func initializeIfNeeded(
+        input: SceneDynamicValue,
+        frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String,
+        userPropertiesJSON: String,
+        expectedGeneration: UInt64,
+        interruptBudget: UInt64?
+    ) -> Result<SceneScriptVectorEvaluation?, SceneScriptScalarRuntimeFailure> {
+        guard input.valueType == valueType, input.isFinite else {
+            return .failure(.invalidArgument("invalid typed initialization input"))
+        }
+        guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        var frameInput = frame.quickJSValue
+        var didInitialize: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result: MWXSceneQuickJSResult
+        let publishedValue: SceneDynamicValue
+        switch input {
+        case let .bool(value):
+            var output = 0.0
+            result = scriptPropertiesJSON.withCString { properties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                        handle, expectedGeneration, value ? 1 : 0, 1,
+                        &frameInput, properties, scriptPropertiesJSON.utf8.count,
+                        userProperties, userPropertiesJSON.utf8.count,
+                        &output, &didInitialize, &diagnostic, diagnostic.count
+                    )
+                }
+            }
+            publishedValue = .bool(output != 0)
+        case .vector2, .vector3:
+            let source: [Double]
+            switch input {
+            case let .vector2(x, y): source = [x, y, 0]
+            case let .vector3(x, y, z): source = [x, y, z]
+            default: preconditionFailure("typed initialization input changed")
+            }
+            var output = [Double](repeating: 0, count: 3)
+            result = source.withUnsafeBufferPointer { sourceBuffer in
+                output.withUnsafeMutableBufferPointer { outputBuffer in
+                    scriptPropertiesJSON.withCString { properties in
+                        userPropertiesJSON.withCString { userProperties in
+                            mwx_scene_quickjs_owner_initialize_vec3(
+                                handle, expectedGeneration, sourceBuffer.baseAddress,
+                                &frameInput,
+                                properties, scriptPropertiesJSON.utf8.count,
+                                userProperties, userPropertiesJSON.utf8.count,
+                                outputBuffer.baseAddress, &didInitialize,
+                                &diagnostic, diagnostic.count
+                            )
+                        }
+                    }
+                }
+            }
+            guard output.allSatisfy(\.isFinite) else {
+                return .failure(.badReturn("invalid initialized Vec3 output"))
+            }
+            publishedValue = valueType == .vector2
+                ? .vector2(output[0], output[1])
+                : .vector3(output[0], output[1], output[2])
+        default:
+            return .failure(.invalidArgument("invalid typed initialization input"))
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            return .failure(Self.failure(result, diagnostic))
+        }
+        guard didInitialize != 0 else { return .success(nil) }
+        guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            return .failure(.invalidArgument("effect handle layer identity unavailable"))
+        }
+        let callbackMutations: SceneScriptMediaEventMutations
+        switch SceneScriptMediaEventBridge.mutations(
+            owner: handle, target: target, layerID: layerID
+        ) {
+        case let .success(value): callbackMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
+        return validatedEvaluation(
+            value: publishedValue,
+            mutations: callbackMutations,
+            layerID: layerID
+        ).map(Optional.some)
+    }
+
     func evaluate(
         input: SceneDynamicValue,
         frame: SceneScriptFrameInput,
@@ -253,43 +339,37 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
-        let mutations: [SceneScriptMaterialFunctionMutation]
-        switch SceneScriptEffectHandleBridge.mutations(
-            owner: handle,
+        let callbackMutations: SceneScriptMediaEventMutations
+        switch SceneScriptMediaEventBridge.mutations(
+            owner: handle, target: target, layerID: layerID
+        ) {
+        case let .success(value): callbackMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
+        return validatedEvaluation(
+            value: publishedValue,
+            mutations: callbackMutations,
             layerID: layerID
-        ) {
-        case let .success(value): mutations = value
-        case let .failure(failure): return .failure(failure)
-        }
-        let animationMutations: [SceneTimelinePlaybackMutation]
-        switch SceneScriptAnimationHandleBridge.mutations(
-            owner: handle,
-            target: target
-        ) {
-        case let .success(value): animationMutations = value
-        case let .failure(failure): return .failure(failure)
-        }
-        let layerMutations: [SceneScriptLayerMutation]
-        switch SceneScriptLayerMutationBridge.mutations(owner: handle) {
-        case let .success(value): layerMutations = value
-        case let .failure(failure): return .failure(failure)
-        }
-        let videoCommands: [SceneScriptVideoCommand]
-        switch SceneScriptVideoCommandBridge.commands(owner: handle) {
-        case let .success(value): videoCommands = value
-        case let .failure(failure): return .failure(failure)
-        }
+        )
+    }
+
+    private func validatedEvaluation(
+        value publishedValue: SceneDynamicValue,
+        mutations: SceneScriptMediaEventMutations,
+        layerID: Int
+    ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
         let publishedLayerMutations: [SceneScriptLayerMutation]
         if valueType == .bool {
-            guard mutations.isEmpty, animationMutations.isEmpty else {
+            guard mutations.materialFunctions.isEmpty,
+                  mutations.animations.isEmpty else {
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
                 ))
             }
             if allowsDynamicLayerSideEffects {
                 var resolved: [SceneScriptLayerMutation] = []
-                resolved.reserveCapacity(layerMutations.count)
-                for mutation in layerMutations {
+                resolved.reserveCapacity(mutations.layers.count)
+                for mutation in mutations.layers {
                     if !mutation.isDynamic {
                         guard mutation.kind == .upsert,
                               mutation.layerID == layerID,
@@ -321,7 +401,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 }
                 publishedLayerMutations = resolved
             } else {
-                guard layerMutations.allSatisfy({ mutation in
+                guard mutations.layers.allSatisfy({ mutation in
                     mutation.kind == .upsert && !mutation.isDynamic
                         && mutation.layerID == layerID
                         && mutation.fields == .visibility
@@ -334,14 +414,14 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 publishedLayerMutations = []
             }
         } else {
-            publishedLayerMutations = layerMutations
+            publishedLayerMutations = mutations.layers
         }
         return .success(.init(
             value: publishedValue,
-            materialFunctionMutations: mutations,
-            animationMutations: animationMutations,
+            materialFunctionMutations: mutations.materialFunctions,
+            animationMutations: mutations.animations,
             layerMutations: publishedLayerMutations,
-            videoCommands: videoCommands
+            videoCommands: mutations.videoCommands
         ))
     }
 

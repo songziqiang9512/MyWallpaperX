@@ -1653,7 +1653,13 @@ enum Harness {
     export var scriptProperties = createScriptProperties()
       .addSlider({name:'step',value:1}).finish();
     let applied = 0;
+    let initialized = false;
+    export function init(value) {
+      initialized = true;
+      return value;
+    }
     export function applyUserProperties(changed) {
+      if (!initialized) { throw new Error('properties before init'); }
       if (changed.hasOwnProperty('mode')) {
         applied = scriptProperties.step + engine.userProperties.mode;
       }
@@ -1781,7 +1787,12 @@ enum Harness {
 
     static let orderedScalarMediaSource = """
     function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
-    export function mediaPlaybackChanged() { mark("sP"); }
+    let initialized = false;
+    export function init(value) { initialized = true; mark("sI"); return value; }
+    export function mediaPlaybackChanged() {
+        if (!initialized) { throw new Error("scalar media before init"); }
+        mark("sP");
+    }
     export function mediaPropertiesChanged() { thisLayer.visible = false; mark("sR"); }
     export function mediaThumbnailChanged() { mark("sH"); }
     export function mediaTimelineChanged() { mark("sL"); }
@@ -1790,7 +1801,12 @@ enum Harness {
 
     static let orderedVectorMediaSource = """
     function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
-    export function mediaPlaybackChanged() { mark("vP"); }
+    let initialized = false;
+    export function init(value) { initialized = true; mark("vI"); return value; }
+    export function mediaPlaybackChanged() {
+        if (!initialized) { throw new Error("vector media before init"); }
+        mark("vP");
+    }
     export function mediaPropertiesChanged() { thisLayer.visible = false; mark("vR"); }
     export function mediaThumbnailChanged() { mark("vH"); }
     export function mediaTimelineChanged() { mark("vL"); }
@@ -1799,7 +1815,12 @@ enum Harness {
 
     static let orderedStringMediaSource = """
     function mark(value) { shared.mediaOrder = (shared.mediaOrder || "") + value; }
-    export function mediaPlaybackChanged() { mark("tP"); }
+    let initialized = false;
+    export function init(value) { initialized = true; mark("tI"); return value; }
+    export function mediaPlaybackChanged() {
+        if (!initialized) { throw new Error("string media before init"); }
+        mark("tP");
+    }
     export function mediaPropertiesChanged() { thisLayer.visible = false; mark("tR"); }
     export function mediaThumbnailChanged() { mark("tH"); }
     export function mediaTimelineChanged() { mark("tL"); }
@@ -1864,6 +1885,14 @@ enum Harness {
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "newSlider", value: 50})
         .finish();
+    let initialized = false;
+    export function init(value) {
+        initialized = true;
+        return value;
+    }
+    export function applyUserProperties() {
+        if (!initialized) { throw new Error("properties before scalar init"); }
+    }
     export function update(value) {
         if (scriptProperties.newSlider < 0) {
             throw new Error("scalar provider failure");
@@ -2037,7 +2066,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def test_media_events_follow_authored_family_and_callback_order(self) -> None:
         value = self.result()
-        first = "sPsRsHsLsUvPvRvHvLvUtPtRtHtLtU"
+        first = "sIsPsRsHsLsUvIvPvRvHvLvUtItPtRtHtLtU"
         self.assertEqual(value["orderedMediaTrace"], first)
         self.assertEqual(value["orderedMediaDuplicateTrace"], first + "sUvUtU")
         self.assertEqual(value["orderedMediaFailures"], 0)

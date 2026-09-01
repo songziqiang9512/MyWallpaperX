@@ -260,7 +260,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         for binding in bindings {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
-                  case let .string(current) = input else { continue }
+                  case let .string(inputString) = input else { continue }
+            var current = inputString
             let playback = observedPlayback.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
                     > consumedMediaPlaybackGenerations[binding.target, default: 0]
@@ -293,6 +294,41 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             var ownerMaterialFunctions: [SceneScriptMaterialFunctionMutation] = []
             var ownerAnimations: [SceneTimelinePlaybackMutation] = []
             var ownerLayerMutations: [SceneScriptLayerMutation] = []
+            if playback != nil || properties != nil || thumbnail != nil
+                || timeline != nil {
+                switch binding.initializeIfNeeded(
+                    input: current,
+                    frame: frame,
+                    userPropertiesJSON: userPropertiesJSON,
+                    expectedGeneration: generation,
+                    interruptBudget: interruptBudget
+                ) {
+                case let .success(initialization):
+                    if let initialization {
+                        guard case let .string(initialized) = initialization.value else {
+                            failures[binding.target] = .badReturn(
+                                "string initialization returned a non-string value"
+                            )
+                            disabledTargets.insert(binding.target)
+                            continue
+                        }
+                        current = initialized
+                        ownerMaterialFunctions.append(
+                            contentsOf: initialization.materialFunctionMutations
+                        )
+                        ownerAnimations.append(
+                            contentsOf: initialization.animationMutations
+                        )
+                        ownerLayerMutations.append(
+                            contentsOf: initialization.layerMutations
+                        )
+                    }
+                case let .failure(failure):
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
+            }
             if let playback, !dispatch(
                 binding.dispatchMediaPlayback(
                     playback, frame: frame, userPropertiesJSON: userPropertiesJSON,

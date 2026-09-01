@@ -81,6 +81,34 @@ static int update(
     );
 }
 
+static int update_bool(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    uint32_t input,
+    MWXSceneQuickJSResult expected,
+    uint32_t expected_output,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    uint32_t output = 0;
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_update_bool_with_properties(
+            owner, generation, input, &frame, NULL, 0, "{}", 2,
+            &output, diagnostic, sizeof(diagnostic)
+        );
+    return check(
+        actual == expected &&
+            (expected != MWX_SCENE_QUICKJS_OK || output == expected_output),
+        label,
+        diagnostic
+    );
+}
+
 static int media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -435,13 +463,15 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
-            domain, 0, 17, "anchor", strlen("anchor"), authored_zero,
+            domain, 0, 17, 0, 0,
+            "anchor", strlen("anchor"), authored_zero,
             diagnostic, sizeof(diagnostic)
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
-            domain, 1, 42, "C1", strlen("C1"), authored_day,
+            domain, 1, 42, 1, 17,
+            "C1", strlen("C1"), authored_day,
             diagnostic, sizeof(diagnostic)
         );
     }
@@ -491,6 +521,32 @@ int main(void) {
 
     int failures = 0;
     failures += configure_layers(domain);
+    MWXSceneQuickJSDomain *invalid_parent_domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        invalid_parent_domain != NULL, "invalid parent domain", diagnostic
+    );
+    if (invalid_parent_domain != NULL) {
+        const double origin[3] = {0, 0, 0};
+        MWXSceneQuickJSResult invalid_parent_result =
+            mwx_scene_quickjs_domain_configure_layer_catalog(
+                invalid_parent_domain, 1, diagnostic, sizeof(diagnostic)
+            );
+        if (invalid_parent_result == MWX_SCENE_QUICKJS_OK) {
+            invalid_parent_result = mwx_scene_quickjs_domain_set_layer_descriptor(
+                invalid_parent_domain, 0, 7, 1, 999,
+                "orphan", strlen("orphan"), origin,
+                diagnostic, sizeof(diagnostic)
+            );
+        }
+        failures += check(
+            invalid_parent_result == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+            "invalid authored parent rejected",
+            diagnostic
+        );
+        mwx_scene_quickjs_domain_destroy(invalid_parent_domain);
+    }
     MWXSceneQuickJSOwner *positive = mwx_scene_quickjs_owner_create(
         domain,
         "'use strict';\n"
@@ -1073,7 +1129,10 @@ int main(void) {
     const char *layer_source =
         "export function update(value) {"
         "const day=1; const layer=thisScene.getLayer(`C${day}`);"
-        "if(thisScene.getLayerCount()!==2||thisScene.getLayer(1).id!==42||"
+        "const listed=thisScene.enumerateLayers();"
+        "if(listed.length!==2||listed[0].id!==17||listed[1].id!==42||"
+        "listed[0].getParent()!==undefined||layer.getParent().id!==17||"
+        "thisScene.getLayerCount()!==2||thisScene.getLayer(1).id!==42||"
         "thisScene.getLayerByID(42).name!=='C1')throw new Error('layer identity');"
         "return layer.origin.copy().add(new Vec3(1,1,1));}";
     MWXSceneQuickJSOwner *layer_owner = mwx_scene_quickjs_owner_create(
@@ -1088,23 +1147,61 @@ int main(void) {
         layer_output, "layer current origin"
     );
 
-    const char *stale_layer_source =
-        "let saved; export function update(value){"
-        "if(!saved){saved=thisScene.getLayer('C1');return saved.origin;}"
-        "return saved.origin;}";
-    MWXSceneQuickJSOwner *stale_layer = mwx_scene_quickjs_owner_create(
-        domain, stale_layer_source, strlen(stale_layer_source),
+    const char *persistent_layer_source =
+        "let saved; export function init(){"
+        "saved=thisScene.enumerateLayers()[1].getParent();}"
+        "export function update(){return saved.origin;}";
+    MWXSceneQuickJSOwner *persistent_layer = mwx_scene_quickjs_owner_create(
+        domain, persistent_layer_source, strlen(persistent_layer_source),
         14, diagnostic, sizeof(diagnostic)
     );
-    failures += check(stale_layer != NULL, "stale layer compile", diagnostic);
-    const double current_layer[3] = {4, 5, 6};
+    failures += check(
+        persistent_layer != NULL, "persistent layer compile", diagnostic
+    );
+    const double current_layer[3] = {1, 2, 3};
     failures += update_vec3(
-        stale_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
-        current_layer, "layer handle callback scope"
+        persistent_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+        current_layer, "layer handle survives init to update"
     );
     failures += update_vec3(
-        stale_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_EXCEPTION,
-        layer_input, "stale layer handle rejected"
+        persistent_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
+        current_layer, "layer handle survives later callbacks"
+    );
+
+    const char *value_only_layers_source =
+        "export function update(value){"
+        "const listed=thisScene.enumerateLayers();"
+        "if(listed.length!==2||listed[1].getParent().id!==17)"
+        "throw new Error('value-only enumeration');"
+        "let rejected=false;try{listed[0].visible=false;}catch(error){rejected=true;}"
+        "if(!rejected||listed[0].visible!==true)throw new Error('writable peer');"
+        "listed[1].visible=value;"
+        "if(listed[1].visible!==true)throw new Error('readonly owner target');"
+        "return value;}";
+    MWXSceneQuickJSResult value_only_create_result = MWX_SCENE_QUICKJS_OK;
+    MWXSceneQuickJSOwner *value_only_layers =
+        mwx_scene_quickjs_owner_create_value_only_with_budget(
+            domain, value_only_layers_source, strlen(value_only_layers_source),
+            52, 100000, &value_only_create_result,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        value_only_layers != NULL &&
+            value_only_create_result == MWX_SCENE_QUICKJS_OK,
+        "value-only layer enumeration compile",
+        diagnostic
+    );
+    failures += configure_owner_layer(
+        value_only_layers, 42, "value-only layer identity"
+    );
+    failures += update_bool(
+        value_only_layers, 52, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "value-only enumeration preserves exact target authority"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(value_only_layers) == 0,
+        "value-only enumeration rejected peers and kept target stable",
+        diagnostic
     );
 
     const char *stale_effect_source =
@@ -1886,6 +1983,10 @@ int main(void) {
         "shared.dynamicLayer=shadow;return value;}"
         "export function update(value){"
         "shadow.text='tick';shadow.angles=new Vec3(1,2,3);"
+        "const listed=thisScene.enumerateLayers();"
+        "if(listed.length!==3||listed[0].id!==17||"
+        "listed[1].id!==shadow.id||listed[2].id!==42)"
+        "throw new Error('dynamic render order');"
         "return thisScene.getLayerIndex(shadow)*100+thisScene.getLayerCount();}";
     MWXSceneQuickJSOwner *dynamic_layer = mwx_scene_quickjs_owner_create(
         domain, dynamic_layer_source, strlen(dynamic_layer_source),
@@ -1914,17 +2015,48 @@ int main(void) {
         "unchanged dynamic layer setters are deduplicated", ""
     );
 
+    const char *destroyed_enumerated_source =
+        "export function update(value){"
+        "const created=thisScene.createLayer({text:'temporary'});"
+        "const listed=thisScene.enumerateLayers();const saved=listed[listed.length-1];"
+        "if(saved.id!==created.id)throw new Error('dynamic enumeration tail');"
+        "thisScene.destroyLayer(created);"
+        "let stale=false;try{saved.id;}catch(error){stale=true;}"
+        "if(!stale)throw new Error('destroyed handle survived');return value;}";
+    MWXSceneQuickJSOwner *destroyed_enumerated = mwx_scene_quickjs_owner_create(
+        domain, destroyed_enumerated_source, strlen(destroyed_enumerated_source),
+        53, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        destroyed_enumerated != NULL, "destroyed enumeration compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        destroyed_enumerated, 17, "destroyed enumeration owner identity"
+    );
+    failures += update(
+        destroyed_enumerated, 53, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "destroyed enumerated handle becomes stale"
+    );
+
     MWXSceneQuickJSOwner *dynamic_intruder = mwx_scene_quickjs_owner_create(
         domain,
-        "export function update(value){thisScene.sortLayer(shared.dynamicLayer,0);return value;}",
-        strlen("export function update(value){thisScene.sortLayer(shared.dynamicLayer,0);return value;}"),
+        "export function update(value){const layer=thisScene.enumerateLayers()[1];"
+        "let rejected=false;try{layer.text='intrusion';}catch(error){rejected=true;}"
+        "if(!rejected)throw new Error('foreign dynamic write');"
+        "return layer.text==='tick'?1:0;}",
+        strlen(
+            "export function update(value){const layer=thisScene.enumerateLayers()[1];"
+            "let rejected=false;try{layer.text='intrusion';}catch(error){rejected=true;}"
+            "if(!rejected)throw new Error('foreign dynamic write');"
+            "return layer.text==='tick'?1:0;}"
+        ),
         41, diagnostic, sizeof(diagnostic)
     );
     failures += check(dynamic_intruder != NULL, "dynamic intruder compile", diagnostic);
     failures += configure_owner_layer(dynamic_intruder, 17, "dynamic intruder identity");
     failures += update(
-        dynamic_intruder, 41, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "cross-owner dynamic layer handle rejected"
+        dynamic_intruder, 41, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "cross-owner dynamic layer is readable but not writable"
     );
 
     MWXSceneQuickJSOwner *static_sort = mwx_scene_quickjs_owner_create(
@@ -1959,7 +2091,7 @@ int main(void) {
     failures += layer_mutation(
         static_setter, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
         0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN,
-        42, 1, "clock", "static layer transform snapshot"
+        42, 2, "clock", "static layer transform snapshot"
     );
 
     MWXSceneQuickJSOwner *static_visible = mwx_scene_quickjs_owner_create(
@@ -1981,7 +2113,7 @@ int main(void) {
     failures += layer_mutation(
         static_visible, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
         0, MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY,
-        42, 1, "clock", "static layer visibility snapshot"
+        42, 2, "clock", "static layer visibility snapshot"
     );
     MWXSceneQuickJSLayerMutation static_visibility_mutation = {0};
     failures += check(
@@ -2058,6 +2190,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(timer_budget);
     mwx_scene_quickjs_owner_destroy(timer_exception);
     mwx_scene_quickjs_owner_destroy(dynamic_layer);
+    mwx_scene_quickjs_owner_destroy(destroyed_enumerated);
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(static_setter);
@@ -2066,7 +2199,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
-    mwx_scene_quickjs_owner_destroy(stale_layer);
+    mwx_scene_quickjs_owner_destroy(persistent_layer);
+    mwx_scene_quickjs_owner_destroy(value_only_layers);
     mwx_scene_quickjs_owner_destroy(layer_owner);
     mwx_scene_quickjs_owner_destroy(cross_owner);
     mwx_scene_quickjs_owner_destroy(mutation_overflow);

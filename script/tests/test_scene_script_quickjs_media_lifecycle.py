@@ -91,7 +91,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         );
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
-            domain, 0, 42, "media", strlen("media"), origin,
+            domain, 0, 42, 0, 0, "media", strlen("media"), origin,
             diagnostic, sizeof(diagnostic)
         );
     }

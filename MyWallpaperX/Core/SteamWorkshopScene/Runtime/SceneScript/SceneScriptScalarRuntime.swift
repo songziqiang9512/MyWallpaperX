@@ -290,6 +290,64 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         )
     }
 
+    func initializeIfNeeded(
+        input: Double,
+        frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String,
+        userPropertiesJSON: String,
+        expectedGeneration: UInt64,
+        interruptBudget: UInt64?
+    ) -> Result<SceneScriptScalarEvaluation?, SceneScriptScalarRuntimeFailure> {
+        guard Self.accepts(input), frame.timeOfDay.isFinite,
+              (0...1).contains(frame.timeOfDay), frame.frameTime.isFinite,
+              frame.frameTime >= 0, frame.runtime.isFinite,
+              frame.runtime >= 0 else {
+            return .failure(.invalidArgument("invalid scalar initialization input"))
+        }
+        guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        var output = 0.0
+        var didInitialize: UInt32 = 0
+        var frameInput = frame.quickJSValue
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = scriptPropertiesJSON.withCString { properties in
+            userPropertiesJSON.withCString { userProperties in
+                mwx_scene_quickjs_owner_initialize_primitive_with_properties(
+                    handle, expectedGeneration, input, 0, &frameInput,
+                    properties, scriptPropertiesJSON.utf8.count,
+                    userProperties, userPropertiesJSON.utf8.count,
+                    &output, &didInitialize, &diagnostic, diagnostic.count
+                )
+            }
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            return .failure(Self.failure(
+                raw: result,
+                diagnostic: Self.diagnostic(diagnostic)
+            ))
+        }
+        guard didInitialize != 0 else { return .success(nil) }
+        guard Self.accepts(output),
+              let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            return .failure(.badReturn("invalid initialized scalar output"))
+        }
+        let callbackMutations: SceneScriptMediaEventMutations
+        switch SceneScriptMediaEventBridge.mutations(
+            owner: handle,
+            target: target,
+            layerID: layerID
+        ) {
+        case let .success(value): callbackMutations = value
+        case let .failure(failure): return .failure(failure)
+        }
+        return .success(.init(
+            value: .scalar(output),
+            materialFunctionMutations: callbackMutations.materialFunctions,
+            animationMutations: callbackMutations.animations,
+            layerMutations: callbackMutations.layers
+        ))
+    }
+
     func evaluate(
         input: Double,
         frame: SceneScriptFrameInput,
