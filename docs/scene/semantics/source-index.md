@@ -217,6 +217,7 @@ Group 与 display condition 在 Overview 中定义。Texture Variants 不能由 
 - https://docs.wallpaperengine.io/en/scene/scenescript/reference/module/WEMath.html（`smoothStep` 等数学 helper）
 - https://docs.wallpaperengine.io/en/scene/scenescript/reference/event/update.html（property-bound `update(value)`）
 - https://docs.wallpaperengine.io/en/scene/scenescript/tutorial/timeofday.html（公开的 time-of-day + Blend amount 用法）
+- https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IParticleSystemInstance.html（particle instance modifier 是与 initializer/operator 结果相乘的 factor；`colorn` 修改粒子颜色，`1.0` 为不改变）
 
 官方类型文件当前列出的主要 class/interface：
 

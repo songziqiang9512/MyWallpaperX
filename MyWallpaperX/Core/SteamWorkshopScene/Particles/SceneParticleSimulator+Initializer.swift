@@ -22,8 +22,7 @@ extension SceneParticleSimulator {
                     initializer, defaults: (.zero, SIMD3(repeating: 255))
                 ) / 255
             case .hsvColor:
-                if !hasHSVColorOverrideConflict,
-                   let color = randomHSVColor(initializer) { particle.color = color }
+                if let color = randomHSVColor(initializer) { particle.color = color }
             case .colorList:
                 if let color = randomColorFromList(initializer) { particle.color = color }
             case .alpha:
@@ -64,9 +63,4 @@ extension SceneParticleSimulator {
         }
     }
 
-    private nonisolated var hasHSVColorOverrideConflict: Bool {
-        guard !definition.flags.disablesColorOverrides else { return false }
-        return activeInstanceOverride?.color != nil
-            || activeInstanceOverride?.normalizedColor != nil
-    }
 }

@@ -595,6 +595,13 @@ enum Harness {
         var colors = simulator(colorJSON, seed: 1, step: 0.1)
         colors.advance(by: 0.1)
         let randomColor = colors.particles[0].color
+        let colorFactorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
+            try object(#"{"colorn":"0.5 1 0.25"}"#)
+        )
+        var colorsWithOverride = simulator(
+            colorJSON, override: colorFactorOverride, seed: 1, step: 0.1
+        )
+        colorsWithOverride.advance(by: 0.1)
         let colorAmount = (randomColor.x * 255 - 10) / 230
         let expectedGreen = (40 + 160 * colorAmount) / 255
         let expectedBlue = (80 + 80 * colorAmount) / 255
@@ -653,11 +660,14 @@ enum Harness {
         let hsvColorOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"colorn":"0.5 1 1"}"#)
         )
-        var hsvColorConflict = simulator(
-            makeHSVColorJSON(completeHSVColorFields, count: 1),
+        var hsvColorWithOverride = simulator(
+            makeHSVColorJSON(
+                #""huemin":0.5,"huemax":0.5,"huesteps":1,"saturationmin":0,"saturationmax":0,"valuemin":0.5,"valuemax":0.5"#,
+                count: 1
+            ),
             override: hsvColorOverride, seed: 44, step: 0.1
         )
-        hsvColorConflict.advance(by: 0.1)
+        hsvColorWithOverride.advance(by: 0.1)
         let firstEventColor = SIMD3(0.2, 0.4, 0.6)
         let secondEventColor = SIMD3(0.8, 0.3, 0.1)
         var inheritedSnapshot = simulator(
@@ -1418,6 +1428,8 @@ enum Harness {
                 vector(longQuarterLifeOscillationPosition),
             "colorUsesSingleInterpolation": abs(randomColor.y - expectedGreen) < 1e-12
                 && abs(randomColor.z - expectedBlue) < 1e-12,
+            "colorOverrideFactor": vector(colorsWithOverride.particles[0].color),
+            "colorBeforeOverrideFactor": vector(randomColor),
             "colorListColors": colorList.particles.map { vector($0.color) },
             "colorListDiagnostics": colorList.diagnostics.map(\.kind.rawValue),
             "colorListThenColor": vector(colorListThenColor.particles[0].color),
@@ -1435,9 +1447,9 @@ enum Harness {
             "invalidHSVColorDiagnostics": invalidHSVColors.map {
                 $0.diagnostics.map(\.kind.rawValue)
             },
-            "hsvColorConflict": vector(hsvColorConflict.particles[0].color),
-            "hsvColorConflictDiagnostics":
-                hsvColorConflict.diagnostics.map(\.kind.rawValue),
+            "hsvColorWithOverride": vector(hsvColorWithOverride.particles[0].color),
+            "hsvColorWithOverrideDiagnostics":
+                hsvColorWithOverride.diagnostics.map(\.kind.rawValue),
             "inheritedSnapshotColor": vector(inheritedSnapshot.particles[0].color),
             "inheritedSnapshotDiagnostics":
                 inheritedSnapshot.diagnostics.map(\.kind.rawValue),
@@ -2801,6 +2813,14 @@ class SceneParticleSimulatorTests(unittest.TestCase):
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 
+    def test_color_instance_override_multiplies_initializer_result(self) -> None:
+        for actual, base, factor in zip(
+            self.results["colorOverrideFactor"],
+            self.results["colorBeforeOverrideFactor"],
+            [0.25, 1, 0.0625],
+        ):
+            self.assertAlmostEqual(actual, base * factor, places=12)
+
     def test_color_list_selects_authored_members_in_initializer_order(self) -> None:
         colors = {tuple(value) for value in self.results["colorListColors"]}
         self.assertEqual(colors, {(1, 0, 0), (0, 1, 0), (0, 0, 1)})
@@ -2839,15 +2859,15 @@ class SceneParticleSimulatorTests(unittest.TestCase):
             self.results["hsvThenColor"], [64 / 255, 128 / 255, 1]
         )
 
-    def test_hsv_color_random_rejects_incomplete_unbounded_or_color_override_profiles(self) -> None:
+    def test_hsv_color_random_rejects_only_incomplete_or_unbounded_profiles(self) -> None:
         self.assertEqual(self.results["invalidHSVColors"], [[1, 1, 1]] * 19)
         self.assertEqual(
             self.results["invalidHSVColorDiagnostics"],
             [["hsvColorUnsupported"]] * 19,
         )
-        self.assertEqual(self.results["hsvColorConflict"], [0.25, 1, 1])
+        self.assertEqual(self.results["hsvColorWithOverride"], [0.125, 0.5, 0.5])
         self.assertEqual(
-            self.results["hsvColorConflictDiagnostics"], ["hsvColorUnsupported"]
+            self.results["hsvColorWithOverrideDiagnostics"], ["hsvColorBounded"]
         )
 
     def test_event_color_inheritance_executes_snapshot_follow_and_authored_order(self) -> None:

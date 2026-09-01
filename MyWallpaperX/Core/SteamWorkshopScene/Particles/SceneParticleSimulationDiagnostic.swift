@@ -157,10 +157,7 @@ extension SceneParticleSimulationMath {
         for initializer in definition.initializers {
             switch initializer.kind {
             case .hsvColor:
-                let hasOverrideConflict = !definition.flags.disablesColorOverrides
-                    && (instanceOverride?.color != nil
-                        || instanceOverride?.normalizedColor != nil)
-                add(initializer.boundedHSVColor == nil || hasOverrideConflict
+                add(initializer.boundedHSVColor == nil
                     ? .hsvColorUnsupported : .hsvColorBounded, "hsvcolorrandom")
             case .colorList:
                 add(initializer.boundedColorList == nil
