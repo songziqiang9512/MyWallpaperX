@@ -4405,6 +4405,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             passthrough_plan,
         )
         self.assertIn("route.allowsLayerSourcePassthrough", passthrough_plan)
+        self.assertIn(
+            "resolvedSourceKind == .staticPuppet", passthrough_plan
+        )
         self.assertIn("request.dependencyEffect == nil", passthrough_plan)
         self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
         self.assertIn(

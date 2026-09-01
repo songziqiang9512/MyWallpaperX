@@ -1202,15 +1202,15 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertTrue(self.visibility_result["oldScriptBindingsMissing"])
         self.assertTrue(self.visibility_result["oldDisplayOwnershipMissing"])
 
-    def test_unproven_display_scripts_suppress_layers_and_descendants(self) -> None:
-        self.assertEqual(self.visibility_result["visibleLayerIDs"], [1])
+    def test_visible_scripts_keep_previous_current_while_alpha_stays_suppressed(self) -> None:
+        self.assertEqual(self.visibility_result["visibleLayerIDs"], [1, 2, 3])
         self.assertEqual(
             self.visibility_result["reportLines"],
             [
                 "scene layer display-state: layer=2 fields=visible "
-                "disposition=suppressed reason=unproven-inline-scenescript",
+                "disposition=previous-current reason=awaiting-scenescript-publication",
                 "scene layer display-state: layer=4 fields=alpha "
-                "disposition=suppressed reason=unproven-inline-scenescript",
+                "disposition=suppressed reason=unproven-inline-scenescript-alpha",
             ],
         )
 

@@ -116,6 +116,7 @@ def animation_record(
     nan_transform: bool = False,
     auxiliary: bool = False,
     bad_auxiliary_key: bool = False,
+    per_bone_auxiliary_trailer: bool = False,
     legacy_trailer: bool = False,
 ) -> bytes:
     body = bytearray(struct.pack("<II", animation_id, header_state))
@@ -142,6 +143,21 @@ def animation_record(
         body += samples[:byte_count]
     if legacy_trailer:
         body += b"\0" * 10
+        return bytes(body)
+    if per_bone_auxiliary_trailer:
+        body += b"\0" * 4
+        if auxiliary:
+            body += b"\1"
+            values = [index / frame_count for index in range(sample_count)]
+            for bone in range(bone_count):
+                byte_count = sample_count * 4
+                if bad_auxiliary_key and bone == 0:
+                    byte_count -= 4
+                body += struct.pack("<II", 0, byte_count)
+                body += struct.pack(f"<{sample_count}f", *values)
+        else:
+            body += b"\0"
+        body += b"\0" * 4
         return bytes(body)
     body += b"\0" * 5
     if auxiliary:
@@ -217,6 +233,57 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         ]
         cls.fixtures = {
             "valid.mdl": build_mdl(valid_animations, include_attachment_boundary=True),
+            "valid-mdlv0016.mdl": build_mdl(
+                [animation_record(
+                    96,
+                    "Legacy Per Bone",
+                    2,
+                    2,
+                    auxiliary=True,
+                    per_bone_auxiliary_trailer=True,
+                )],
+                magic=b"MDLV0016",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0003\0",
+            ),
+            "valid-mdlv0016-no-auxiliary.mdl": build_mdl(
+                [animation_record(
+                    97,
+                    "Legacy No Auxiliary",
+                    2,
+                    2,
+                    per_bone_auxiliary_trailer=True,
+                )],
+                magic=b"MDLV0016",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0003\0",
+            ),
+            "bad-mdlv0016-animation-marker.mdl": build_mdl(
+                [animation_record(
+                    98,
+                    "Mismatched Marker",
+                    2,
+                    2,
+                    per_bone_auxiliary_trailer=True,
+                )],
+                magic=b"MDLV0016",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0004\0",
+            ),
+            "bad-mdlv0016-auxiliary.mdl": build_mdl(
+                [animation_record(
+                    96,
+                    "Legacy Per Bone",
+                    2,
+                    2,
+                    auxiliary=True,
+                    bad_auxiliary_key=True,
+                    per_bone_auxiliary_trailer=True,
+                )],
+                magic=b"MDLV0016",
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0003\0",
+            ),
             "valid-legacy.mdl": build_mdl(
                 [animation_record(303, "Legacy", 2, 2, legacy_trailer=True)],
                 magic=b"MDLV0017",
@@ -228,7 +295,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 magic=b"MDLV0017",
             ),
             "absent.mdl": b"MDLV0023\0" + b"\0" * 32,
-            "old-version.mdl": build_mdl(magic=b"MDLV0016"),
+            "unknown-version.mdl": build_mdl(magic=b"MDLV0015"),
             "bad-end.mdl": build_mdl(corrupt_end_offset=True),
             "zero-count.mdl": build_mdl(declared_animation_count=0),
             "duplicate-id.mdl": build_mdl(
@@ -301,14 +368,40 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         self.assertEqual(entry["animations"][0]["id"], 303)
         self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
 
+    def test_mdlv0016_mdls0002_mdla0003_reads_per_bone_auxiliary_trailer(self):
+        entry = self.results["valid-mdlv0016.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["boneCount"], entry["animations"][0]["id"]), (2, 96))
+        self.assertEqual(entry["animations"][0]["sampleCounts"], [3, 3])
+
+    def test_mdlv0016_rejects_malformed_per_bone_auxiliary_track(self):
+        self.assertIn(
+            "invalid verified auxiliary track",
+            self.results["bad-mdlv0016-auxiliary.mdl"]["error"],
+        )
+
+    def test_mdlv0016_accepts_the_verified_no_auxiliary_trailer(self):
+        entry = self.results["valid-mdlv0016-no-auxiliary.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["boneCount"], entry["animations"][0]["id"]), (2, 97))
+
+    def test_mdlv0016_rejects_an_unverified_animation_marker_pair(self):
+        self.assertIn(
+            "unsupported animation mdl magic",
+            self.results["bad-mdlv0016-animation-marker.mdl"]["error"],
+        )
+
     def test_mdlv0017_rejects_the_mismatched_modern_markers(self):
         self.assertIn(
             "unsupported animation mdl magic",
             self.results["mismatched-legacy-markers.mdl"]["error"],
         )
 
-    def test_old_mdl_version_fails_closed(self):
-        self.assertIn("unsupported animation mdl magic", self.results["old-version.mdl"]["error"])
+    def test_unknown_mdl_version_fails_closed(self):
+        self.assertIn(
+            "unsupported animation mdl magic",
+            self.results["unknown-version.mdl"]["error"],
+        )
 
     def test_invalid_block_end_fails_closed(self):
         self.assertIn("invalid version-matched MDLA bounds", self.results["bad-end.mdl"]["error"])

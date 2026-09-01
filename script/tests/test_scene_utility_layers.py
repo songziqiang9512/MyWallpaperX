@@ -43,6 +43,9 @@ SUBMISSION_COORDINATOR_SOURCE = (
 EFFECT_EXECUTION_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 )
+COMPOSITION_SOURCE_FALLBACK = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+CompositionSourceFallback.swift"
+)
 CAPABILITY_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
@@ -274,6 +277,25 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertNotIn("authoredEffectTelemetry", combined)
         self.assertNotIn("legacyAuthoredFrameTables", combined)
         self.assertIn("utilityCaptureTelemetry.record(", frame_renderer)
+
+    def test_composition_source_fallback_is_neutral_and_structure_bounded(
+        self,
+    ) -> None:
+        fallback = COMPOSITION_SOURCE_FALLBACK.read_text(encoding="utf-8")
+        compact = "".join(fallback.split())
+        self.assertIn(
+            "SceneImageLayerBlendDependencyContract.declaration(",
+            compact,
+        )
+        self.assertIn("declaration.blendMode==0", compact)
+        self.assertIn("!declaration.requiresResolvedMaterialProgram", compact)
+        self.assertIn("provider.visible==false", compact)
+        self.assertIn(
+            "SceneBaseImageTextureCandidateResolver.sample(", compact
+        )
+        self.assertIn("SceneImageLayerMainPassRenderer.draw(", compact)
+        self.assertNotIn("2959875782", fallback)
+        self.assertNotIn("ranger_wed", fallback)
 
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")

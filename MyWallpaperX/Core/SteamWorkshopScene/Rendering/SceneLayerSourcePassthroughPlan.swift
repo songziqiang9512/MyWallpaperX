@@ -35,6 +35,7 @@ struct SceneLayerSourcePassthroughPlan {
 
     enum SourceKind: Equatable {
         case staticFile
+        case staticPuppet
         case currentMedia
     }
 
@@ -86,7 +87,8 @@ struct SceneLayerSourcePassthroughPlan {
     static func resolve(
         request: SceneImageLayerDrawRequest,
         publication: SceneTextureProviderPublication?,
-        route: SceneResolvedMaterialClaimRoute
+        route: SceneResolvedMaterialClaimRoute,
+        allowsStaticSourceGraphPublication: Bool = false
     ) -> Result<Self, RejectionReason> {
         guard route.allowsLayerSourcePassthrough else {
             return .failure(.routeUnavailable)
@@ -158,10 +160,14 @@ struct SceneLayerSourcePassthroughPlan {
         case let .success(value): resolvedSourceKind = value
         case let .failure(reason): return .failure(reason)
         }
-        // The media provider is already an explicit degraded display authority.
-        // Authored cross-layer roles only block static-file source fallback here.
+        // Media and a fully reconstituted static Puppet are already exact
+        // current display atoms. A graph role may still block their named
+        // publication, but it must not remove the provider's own compositor
+        // result. Other static sources need an exact reserved-target publisher.
         guard resolvedSourceKind == .currentMedia
-            || !request.blocksStaticLayerSourcePassthrough else {
+            || resolvedSourceKind == .staticPuppet
+            || !request.blocksStaticLayerSourcePassthrough
+            || allowsStaticSourceGraphPublication else {
             return .failure(.staticSourceGraphRolePresent)
         }
         guard let geometry = projectedGeometry(for: request.mvp) else {
@@ -210,6 +216,25 @@ struct SceneLayerSourcePassthroughPlan {
                 return .failure(.staticSourceAtomInvalid)
             }
             return .success(.staticFile)
+        case let (
+            .provider(.puppet(candidateLayerID)),
+            .provider(contentGeneration)
+        ):
+            guard candidateLayerID == request.layer.id,
+                  contentGeneration == publication.contentGeneration,
+                  request.baseTextureCandidate.map({
+                      sameAtom($0, publication.candidate)
+                  }) ?? false,
+                  publication.candidate.sampling == .linearClamp,
+                  publication.candidate.sampling.rawFlags == nil,
+                  publication.candidate.authoredFormat == nil,
+                  publication.candidate.physicalSize
+                    == publication.candidate.mappedSize,
+                  publication.candidate.uvTransform == .identity,
+                  validStaticPuppetTexture(publication.texture) else {
+                return .failure(.staticSourceAtomInvalid)
+            }
+            return .success(.staticPuppet)
         case let (
             .provider(.mediaThumbnailCurrent),
             .provider(contentGeneration)
@@ -269,6 +294,11 @@ struct SceneLayerSourcePassthroughPlan {
             && texture.sampleCount == 1
             && texture.mipmapLevelCount == 1
             && texture.usage.contains(.shaderRead)
+    }
+
+    private static func validStaticPuppetTexture(_ texture: MTLTexture) -> Bool {
+        validCurrentMediaTexture(texture)
+            && texture.usage.contains(.renderTarget)
     }
 
     private static func projectedGeometry(

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Metal
 
@@ -137,6 +138,32 @@ struct SceneBaseImageTextureStore {
                 contentGeneration: contentGeneration
             )
         }
+    }
+
+    mutating func setStaticPuppetRecomposition(
+        _ texture: MTLTexture,
+        layerID: Int
+    ) {
+        contentGeneration &+= 1
+        let size = CGSize(width: texture.width, height: texture.height)
+        let candidate = SceneTextureCandidate(
+            texture: texture,
+            identity: .provider(.puppet(layerID: layerID)),
+            generation: .provider(contentGeneration: contentGeneration),
+            purpose: .premultipliedColor,
+            content: .color(.resolved(.premultipliedAlpha)),
+            physicalSize: size,
+            mappedSize: size,
+            uvTransform: .identity,
+            sampling: .linearClamp
+        )
+        textures[layerID] = texture
+        candidates[layerID] = candidate
+        publications[layerID] = Self.publication(
+            for: candidate,
+            layerID: layerID,
+            contentGeneration: contentGeneration
+        )
     }
 
     mutating func merge(_ incoming: [Int: MTLTexture]) {

@@ -325,10 +325,12 @@ final class SceneDependencyFrameRuntime {
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
         textureRegistry: SceneFrameTextureRegistry,
-        mainPass: SceneMainPassEncoder
+        mainPass: SceneMainPassEncoder,
+        permitsGraphOutputSourceFallback: Bool = false
     ) -> Bool? {
         guard plan.requiredProviderLayerIDs.contains(layer.id) else { return nil }
-        guard !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
+        guard permitsGraphOutputSourceFallback
+            || !plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
             return false
         }
 #if DEBUG
@@ -513,6 +515,39 @@ final class SceneDependencyFrameRuntime {
 #endif
         }
         return encoded
+    }
+
+    /// Publishes the exact current source when a visible effect graph has no
+    /// product owner. This is the named-target half of the same fail-soft
+    /// source passthrough used by the compositor: downstream consumers receive
+    /// the preserved current source, never an unpublished reservation or an
+    /// unrelated texture atom.
+    func captureGraphSourceFallbackIfRequired(
+        layer: SceneRenderDescriptor.Layer,
+        sourceTexture: MTLTexture?,
+        sourceCandidate: SceneTextureCandidate?,
+        usesAuthoredLayerColor: Bool = true,
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize,
+        pipeline: SceneImageLayerPipeline,
+        textureRegistry: SceneFrameTextureRegistry,
+        mainPass: SceneMainPassEncoder
+    ) -> Bool? {
+        guard plan.requiredGraphOutputProviderLayerIDs.contains(layer.id) else {
+            return nil
+        }
+        return captureProviderIfRequired(
+            layer: layer,
+            sourceTexture: sourceTexture,
+            sourceCandidate: sourceCandidate,
+            usesAuthoredLayerColor: usesAuthoredLayerColor,
+            layerMVP: layerMVP,
+            viewportSize: viewportSize,
+            pipeline: pipeline,
+            textureRegistry: textureRegistry,
+            mainPass: mainPass,
+            permitsGraphOutputSourceFallback: true
+        )
     }
 
     /// Publishes an effectful provider's unified graph output into the exact

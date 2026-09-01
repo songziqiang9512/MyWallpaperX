@@ -26,10 +26,14 @@ enum SceneLayerVisibility {
         descriptor.layers.compactMap { layer in
             guard let ownership = layer.displayScriptOwnership,
                   !ownership.isEmpty else { return nil }
+            let keepsPreviousCurrent = ownership.visible && !ownership.alpha
             return "scene layer display-state: layer=\(layer.id)"
                 + " fields=\(ownership.fields.joined(separator: ","))"
-                + " disposition=suppressed"
-                + " reason=unproven-inline-scenescript"
+                + (keepsPreviousCurrent
+                    ? " disposition=previous-current"
+                        + " reason=awaiting-scenescript-publication"
+                    : " disposition=suppressed"
+                        + " reason=unproven-inline-scenescript-alpha")
         }
     }
 
@@ -47,10 +51,11 @@ enum SceneLayerVisibility {
         if let ownership = layer.displayScriptOwnership,
            !ownership.isEmpty {
             guard ownership.alpha != true,
-                  ownership.visible == true,
-                  resolved?.source == .sceneScript,
-                  case .bool(true) = resolved?.value else { return false }
-            return true
+                  ownership.visible == true else { return false }
+            if let resolved, case let .bool(value) = resolved.value {
+                return value
+            }
+            return layer.visible != false
         }
         if let resolved, case let .bool(value) = resolved.value {
             return value

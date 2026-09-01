@@ -50,14 +50,16 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
     }
 }
 
-// Restricted version-matched MDLA reader. MDLV0017/MDLS0002/MDLA0004 and
-// MDLV0023/MDLS0004/MDLA0006 share the same bounded full-transform track
-// records; their distinct trailer shapes remain part of the version contract.
+// Restricted version-matched MDLA reader. MDLV0016/MDLS0002/MDLA0003,
+// MDLV0017/MDLS0002/MDLA0004, and MDLV0023/MDLS0004/MDLA0006 share the same
+// bounded full-transform track records; their distinct trailer shapes remain
+// part of the version contract.
 // Tracks are ordered by MDLS bone index and contain frameCount + 1 full
 // transforms. Real assets vary translation, rotation, and scale, so all three
 // components are retained without claiming unsupported mixing semantics.
 enum SceneMdlPuppetAnimationReader {
     private enum TrailerContract {
+        case perBoneAuxiliary
         case legacyZeros10
         case modernAuxiliary
     }
@@ -69,6 +71,11 @@ enum SceneMdlPuppetAnimationReader {
     }
 
     private static let versionContracts = [
+        "MDLV0016": VersionContract(
+            skeletonMarker: Data("MDLS0002\0".utf8),
+            animationMarker: Data("MDLA0003\0".utf8),
+            trailer: .perBoneAuxiliary
+        ),
         "MDLV0017": VersionContract(
             skeletonMarker: Data("MDLS0002\0".utf8),
             animationMarker: Data("MDLA0004\0".utf8),
@@ -81,6 +88,7 @@ enum SceneMdlPuppetAnimationReader {
         ),
     ]
     private static let knownAnimationMarkers = [
+        Data("MDLA0003\0".utf8),
         Data("MDLA0004\0".utf8),
         Data("MDLA0006\0".utf8),
     ]
@@ -253,6 +261,7 @@ enum SceneMdlPuppetAnimationReader {
                 cursor: &cursor,
                 bound: endOffset,
                 animationID: id,
+                boneCount: boneCount,
                 sampleCount: sampleCount,
                 contract: trailerContract
             )
@@ -327,9 +336,21 @@ enum SceneMdlPuppetAnimationReader {
         cursor: inout Int,
         bound: Int,
         animationID: Int,
+        boneCount: Int,
         sampleCount: Int,
         contract: TrailerContract
     ) throws {
+        if contract == .perBoneAuxiliary {
+            try readPerBoneAuxiliaryTrailer(
+                data: data,
+                cursor: &cursor,
+                bound: bound,
+                animationID: animationID,
+                boneCount: boneCount,
+                sampleCount: sampleCount
+            )
+            return
+        }
         if contract == .legacyZeros10 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
@@ -363,6 +384,45 @@ enum SceneMdlPuppetAnimationReader {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
         guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
+            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        }
+    }
+
+    private static func readPerBoneAuxiliaryTrailer(
+        data: Data,
+        cursor: inout Int,
+        bound: Int,
+        animationID: Int,
+        boneCount: Int,
+        sampleCount: Int
+    ) throws {
+        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4),
+              cursor < bound else {
+            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        }
+        let hasAuxiliaryTracks = data[cursor]
+        cursor += 1
+        if hasAuxiliaryTracks == 1 {
+            let expectedBytes = sampleCount * 4
+            for _ in 0..<boneCount {
+                guard cursor + 8 + expectedBytes <= bound,
+                      readUInt32(data, at: cursor) == 0,
+                      Int(readUInt32(data, at: cursor + 4)) == expectedBytes else {
+                    throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+                }
+                cursor += 8
+                for frameIndex in 0..<sampleCount {
+                    let value = readFloat(data, at: cursor + frameIndex * 4)
+                    guard value.isFinite, value >= 0, value <= 1.0001 else {
+                        throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+                    }
+                }
+                cursor += expectedBytes
+            }
+        } else if hasAuxiliaryTracks != 0 {
+            throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+        }
+        guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
     }

@@ -56,7 +56,9 @@ enum ScenePuppetAnimationSelector {
                   // explicit true still stays outside this bounded profile.
                   layer.blendIn != true,
                   layer.blendOut != true,
-                  layer.rate == 1 else {
+                  let rate = layer.rate,
+                  rate.isFinite,
+                  rate > 0 else {
                 return .failure(.unsupportedLayer(layer.id))
             }
             guard layer.visibilityBinding == nil || layer.id != nil else {
@@ -284,7 +286,9 @@ struct ScenePuppetAnimationEvaluator {
     ) -> Int {
         guard sceneTime.isFinite, rate.isFinite, sceneTime > 0, rate > 0 else { return 0 }
         let framePhase = sceneTime * rate * Double(animation.framesPerSecond)
+        guard framePhase.isFinite else { return 0 }
         let wrapped = framePhase.truncatingRemainder(dividingBy: Double(animation.frameCount))
+        guard wrapped.isFinite else { return 0 }
         return Int(wrapped.rounded(.down))
     }
 

@@ -38,7 +38,7 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Send
         case .invalidBoneCount(let count):
             return "invalid rig bone count \(count)"
         case .invalidBoneRecord(let index):
-            return "invalid MDLS0004 rig bone record \(index)"
+            return "invalid version-matched rig bone record \(index)"
         case .invalidBoneParent(let boneIndex, let parentIndex):
             return "invalid rig parent \(parentIndex) for bone \(boneIndex)"
         case .invalidBindMatrix(let index):
@@ -54,18 +54,29 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Send
 }
 
 // Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
-// fields. MDLV0017/MDLS0002 and MDLV0023/MDLS0004 use the same strictly
-// validated record shape; the version pair is still checked before any bone
-// data is consumed. The index fields begin at stride - 40 and weights at
-// stride - 24 for the verified 80- and 84-byte vertex records.
+// fields. MDLV0016/MDLS0002, MDLV0017/MDLS0002, and MDLV0023/MDLS0004 use the
+// same strictly validated record shape; the version pair is still checked
+// before any bone data is consumed. The index fields begin at stride - 40 and
+// weights at stride - 24 for the verified 52-, 80-, and 84-byte records.
 enum SceneMdlPuppetRigReader {
     private struct VersionContract {
         let skeletonMarker: Data
+        let vertexStrides: Set<Int>
     }
 
     private static let versionContracts = [
-        "MDLV0017": VersionContract(skeletonMarker: Data("MDLS0002\0".utf8)),
-        "MDLV0023": VersionContract(skeletonMarker: Data("MDLS0004\0".utf8)),
+        "MDLV0016": VersionContract(
+            skeletonMarker: Data("MDLS0002\0".utf8),
+            vertexStrides: [52]
+        ),
+        "MDLV0017": VersionContract(
+            skeletonMarker: Data("MDLS0002\0".utf8),
+            vertexStrides: [80, 84]
+        ),
+        "MDLV0023": VersionContract(
+            skeletonMarker: Data("MDLS0004\0".utf8),
+            vertexStrides: [80, 84]
+        ),
     ]
     private static let markerSize = 9
     private static let matrixByteCount = 64
@@ -169,7 +180,9 @@ enum SceneMdlPuppetRigReader {
         skeletonOffset: Int,
         boneCount: Int
     ) throws -> [SceneMdlPuppetRig.VertexWeights] {
-        guard mesh.vertexStride == 80 || mesh.vertexStride == 84 else {
+        let magic = mesh.version
+        guard let contract = versionContracts[magic],
+              contract.vertexStrides.contains(mesh.vertexStride) else {
             throw SceneMdlPuppetRigReadError.unsupportedVertexStride(mesh.vertexStride)
         }
         let vertexDataOffset = mesh.meshBlockOffset + 8

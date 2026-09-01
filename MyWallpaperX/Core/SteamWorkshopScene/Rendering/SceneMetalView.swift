@@ -133,6 +133,9 @@ class SceneMetalView: NSView {
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
+        var staticPuppetRecompositions: [
+            ScenePuppetLayerLoad.StaticRecomposeIdentity: MTLTexture
+        ] = [:]
         var puppetRecomposeBytes = 0
         var preparedBaseImageHitCount = 0
         renderer.installResolvedMaterialExecutionEvidence()
@@ -224,8 +227,23 @@ class SceneMetalView: NSView {
             case .loaded(let baseLoad):
                 let texture = baseLoad.texture
                 var effectiveTexture = texture
+                var hasStaticPuppetRecomposition = false
                 var puppetMessage: String?
-                if let imagePipeline,
+                let staticPuppetIdentity = ScenePuppetLayerLoad.staticRecomposeIdentity(
+                    for: layer,
+                    atlasTexture: texture,
+                    atlasIsAnimated: baseLoad.animation != nil,
+                    cacheDirectory: cacheDirectory,
+                    loader: loader
+                )
+                if let staticPuppetIdentity,
+                   let cachedTexture = staticPuppetRecompositions[staticPuppetIdentity] {
+                    effectiveTexture = cachedTexture
+                    hasStaticPuppetRecomposition = true
+                    if report.isEnabled {
+                        puppetMessage = "; puppet bind-pose source reused"
+                    }
+                } else if let imagePipeline,
                    let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
                        for: layer,
                        atlasTexture: texture,
@@ -239,6 +257,11 @@ class SceneMetalView: NSView {
                     if let recomposedTexture = puppetOutcome.texture {
                         effectiveTexture = recomposedTexture
                         puppetRecomposeBytes += puppetOutcome.byteCost
+                        if let staticPuppetIdentity,
+                           puppetOutcome.playback == nil {
+                            staticPuppetRecompositions[staticPuppetIdentity] = recomposedTexture
+                            hasStaticPuppetRecomposition = true
+                        }
                     }
                     if let playback = puppetOutcome.playback {
                         loadedPuppetPlaybackStates[layer.id] = playback
@@ -247,11 +270,18 @@ class SceneMetalView: NSView {
                         puppetMessage = "; \(puppetOutcome.message)"
                     }
                 }
-                loaded.set(
-                    effectiveTexture,
-                    candidate: baseLoad.candidate,
-                    layerID: layer.id
-                )
+                if hasStaticPuppetRecomposition {
+                    loaded.setStaticPuppetRecomposition(
+                        effectiveTexture,
+                        layerID: layer.id
+                    )
+                } else {
+                    loaded.set(
+                        effectiveTexture,
+                        candidate: baseLoad.candidate,
+                        layerID: layer.id
+                    )
+                }
                 if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
                 }

@@ -86,6 +86,7 @@ enum Harness {
         }
 
         let validPublication = publication()
+        let puppetPublication = publication(provider: .puppet(layerID: 8))
         let valid = SceneLayerSourcePublication(
             layerID: 8,
             publication: validPublication,
@@ -110,6 +111,23 @@ enum Harness {
                 renderSizeWH: [.infinity, 320]
               ) == nil else {
             fatalError("layer-source atom contract failed")
+        }
+
+        guard SceneLayerSourcePublication(
+            layerID: 8,
+            publication: puppetPublication,
+            renderSizeWH: [640, 320]
+        ) != nil,
+        SceneLayerSourcePublication.supportsDirectTextureLane(
+            layerID: 8,
+            publication: puppetPublication
+        ),
+        SceneLayerSourcePublication(
+            layerID: 8,
+            publication: publication(provider: .puppet(layerID: 9)),
+            renderSizeWH: [640, 320]
+        ) == nil else {
+            fatalError("puppet layer-source atom was not identity bounded")
         }
 
         let negativeLayerPublication = publication(

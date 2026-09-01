@@ -185,6 +185,13 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_mdl(),
             "stride84.mdl": build_mdl(stride=84),
+            "mdlv0016.mdl": build_mdl(magic=b"MDLV0016", stride=52),
+            "mdlv0016-with-mdat.mdl": build_mdl(
+                magic=b"MDLV0016",
+                stride=52,
+                suffix=b"MDAT0001\x00" + b"\x00" * 8,
+            ),
+            "mdlv0016-wrong-stride.mdl": build_mdl(magic=b"MDLV0016"),
             "mdlv0017.mdl": build_mdl(magic=b"MDLV0017"),
             "mdlv0021.mdl": build_mdl(magic=b"MDLV0021"),
             "bad-magic.mdl": build_mdl(magic=b"MDLX0001"),
@@ -246,6 +253,17 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["stride"], 84)
         self.assertEqual(entry["vertices"][1], [10.0, -20.0, 0.0, 0.5, 0.75])
+
+    def test_mdlv0016_reads_only_the_verified_stride_52_mesh(self):
+        entry = self.results["mdlv0016.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["version"], entry["stride"]), ("MDLV0016", 52))
+        self.assertFalse(self.results["mdlv0016-wrong-stride.mdl"]["ok"])
+
+    def test_mdlv0016_does_not_expand_the_mdlv0023_attachment_contract(self):
+        entry = self.results["mdlv0016-with-mdat.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertIn("unsupported attachment mdl magic MDLV0016", entry["attachmentError"])
 
     def test_mdlv0021_magic_is_accepted(self):
         entry = self.results["mdlv0021.mdl"]

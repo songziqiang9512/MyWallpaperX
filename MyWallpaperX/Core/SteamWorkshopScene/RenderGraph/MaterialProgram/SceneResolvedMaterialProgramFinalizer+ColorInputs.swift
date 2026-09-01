@@ -135,6 +135,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
         case .provider(.graph): "provider-graph"
         case .provider(.mediaThumbnailCurrent): "provider-media-thumbnail"
         case .provider(.mediaThumbnailPrevious): "provider-media-thumbnail-previous"
+        case .provider(.puppet): "provider-puppet"
         case .provider(.namedLayerTarget): "provider-named-layer"
         case .provider(.sceneBackground): "provider-scene-background"
         case .provider(.video): "provider-video"

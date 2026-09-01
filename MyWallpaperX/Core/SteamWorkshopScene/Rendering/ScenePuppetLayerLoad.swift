@@ -8,11 +8,45 @@ import Metal
 // unsupported puppets stay visible in diagnostics instead of silently
 // pretending to be supported.
 enum ScenePuppetLayerLoad {
+    struct StaticRecomposeIdentity: Hashable {
+        fileprivate let puppetMeshSource: SceneTextureLoader.SourceKey
+        fileprivate let atlasTexture: ObjectIdentifier
+        fileprivate let layerWidthBits: UInt32
+        fileprivate let layerHeightBits: UInt32
+    }
+
     struct Outcome {
         let texture: MTLTexture?
         let playback: ScenePuppetPlaybackState?
         let byteCost: Int
         let message: String
+    }
+
+    static func staticRecomposeIdentity(
+        for layer: SceneRenderDescriptor.Layer,
+        atlasTexture: MTLTexture,
+        atlasIsAnimated: Bool,
+        cacheDirectory: URL,
+        loader: SceneTextureLoader
+    ) -> StaticRecomposeIdentity? {
+        guard atlasIsAnimated == false,
+              layer.puppetAnimationLayers.isEmpty,
+              let puppetMeshPath = layer.puppetMeshPath,
+              let renderSize = layer.renderSizeWH,
+              renderSize.count >= 2,
+              let puppetMeshURL = containedFileURL(
+                  relativePath: puppetMeshPath,
+                  cacheDirectory: cacheDirectory
+              ),
+              let puppetMeshSource = loader.sourceKey(for: puppetMeshURL) else {
+            return nil
+        }
+        return StaticRecomposeIdentity(
+            puppetMeshSource: puppetMeshSource,
+            atlasTexture: ObjectIdentifier(atlasTexture),
+            layerWidthBits: renderSize[0].bitPattern,
+            layerHeightBits: renderSize[1].bitPattern
+        )
     }
 
     static func recomposedTexture(
@@ -73,7 +107,7 @@ enum ScenePuppetLayerLoad {
             do {
                 let rig = try SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
                 guard let animationSet = try SceneMdlPuppetAnimationReader.read(data: data) else {
-                    animationFallbackMessage = "animation rejected: MDLA0006 is absent"
+                    animationFallbackMessage = "animation rejected: version-matched MDLA is absent"
                     return staticOutcome(
                         layer: layer,
                         mesh: mesh,

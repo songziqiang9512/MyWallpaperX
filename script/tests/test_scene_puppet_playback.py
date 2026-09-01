@@ -30,6 +30,7 @@ func layer(
     animationID: Int = 100,
     additive: Bool = false,
     blend: Double = 1,
+    rate: Double = 1,
     visible: Bool? = true,
     visibilityBinding: String? = nil
 ) -> ScenePuppetAnimationLayer {
@@ -42,7 +43,7 @@ func layer(
         blendIn: false,
         blendOut: false,
         blendTime: 0.5,
-        rate: 1,
+        rate: rate,
         visible: visible,
         visibilityBinding: visibilityBinding
     )
@@ -236,6 +237,8 @@ enum Harness {
             ], set: set),
             "additive": selectionResult([layer(additive: true)], set: set),
             "blend": selectionResult([layer(blend: 0.5)], set: set),
+            "fractionalRate": selectionResult([layer(rate: 0.8)], set: set),
+            "zeroRate": selectionResult([layer(rate: 0)], set: set),
             "boundVisibility": selectionResult(
                 [layer(visibilityBinding: "animate")], set: set
             ),
@@ -305,6 +308,14 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         self.assertEqual(self.result["additive"], "selected:disjoint-additive:100")
         self.assertIn("mix opaque and additive", self.result["mixed"])
         self.assertIn("outside the bounded playback profile", self.result["blend"])
+        self.assertEqual(
+            self.result["fractionalRate"],
+            "selected:single-absolute:100",
+        )
+        self.assertIn(
+            "outside the bounded playback profile",
+            self.result["zeroRate"],
+        )
         self.assertEqual(
             self.result["boundVisibility"],
             "selected:single-absolute:100",

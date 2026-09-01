@@ -161,6 +161,12 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_rig_mdl(),
             "stride84.mdl": build_rig_mdl(stride=84),
+            "mdlv0016-rig.mdl": build_rig_mdl(
+                magic=b"MDLV0016",
+                stride=52,
+                skeleton_marker=b"MDLS0002\0",
+                animation_marker=b"MDLA0003\0",
+            ),
             "mdlv0017-rig.mdl": build_rig_mdl(
                 magic=b"MDLV0017",
                 skeleton_marker=b"MDLS0002\0",
@@ -214,6 +220,13 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["stride"], 84)
         self.assertEqual(entry["weights"][2]["indices"], [1, 0, 0, 0])
+
+    def test_mdlv0016_stride_52_reads_the_shared_rig_shape(self):
+        entry = self.results["mdlv0016-rig.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["stride"], entry["boneCount"]), (52, 2))
+        self.assertEqual(entry["parents"], [-1, 0])
+        self.assertEqual(entry["weights"][1]["indices"], [0, 1, 0, 0])
 
     def test_mdlv0017_reads_only_the_version_matched_mdls0002_rig(self):
         entry = self.results["mdlv0017-rig.mdl"]

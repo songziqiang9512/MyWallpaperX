@@ -54,16 +54,20 @@ enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable, Sen
 // ("MDLS"), animation ("MDLA") and attachment ("MDAT") blocks are read-only
 // bounds here; this reader never interprets them.
 enum SceneMdlPuppetMeshReader {
-    private static let supportedMagics = ["MDLV0017", "MDLV0021", "MDLV0023"]
+    private static let vertexStridesByMagic = [
+        "MDLV0016": [52],
+        "MDLV0017": [80, 84],
+        "MDLV0021": [80, 84],
+        "MDLV0023": [80, 84],
+    ]
     private static let magicLength = 8
     // Magic + trailing NUL, matching the audited player's marker size.
     private static let markerSize = 9
     private static let meshHeaderSize = 8
-    // Verified vertex layouts: 80 bytes across MDLV0017/0023 assets and 84
-    // bytes for the verified skinned base asset. Position is 3 floats at
-    // offset 0, UV the final 2 floats. Other strides fail closed until a real
-    // asset proves them.
-    private static let vertexStrideCandidates = [80, 84]
+    // Verified vertex layouts: 52 bytes across MDLV0016 assets, 80 bytes
+    // across MDLV0017/0023 assets, and 84 bytes for the verified skinned base
+    // asset. Position is 3 floats at offset 0, UV the final 2 floats. Other
+    // version/stride pairs fail closed until a real asset proves them.
     private static let maxAbsolutePosition: Float = 1_000_000
     private static let maxAbsoluteUV: Float = 64
 
@@ -74,11 +78,15 @@ enum SceneMdlPuppetMeshReader {
             throw SceneMdlPuppetMeshReadError.fileTooSmall
         }
         let magic = String(decoding: data.prefix(magicLength), as: UTF8.self)
-        guard supportedMagics.contains(magic) else {
+        guard let vertexStrides = vertexStridesByMagic[magic] else {
             throw SceneMdlPuppetMeshReadError.unsupportedMagic(magic)
         }
         let searchBound = firstOccurrence(of: "MDLS", in: data) ?? data.count
-        guard let block = findMeshBlock(in: data, bound: searchBound) else {
+        guard let block = findMeshBlock(
+            in: data,
+            bound: searchBound,
+            vertexStrides: vertexStrides
+        ) else {
             throw SceneMdlPuppetMeshReadError.meshBlockNotFound
         }
         return try decode(block: block, magic: magic, data: data)
@@ -98,7 +106,11 @@ enum SceneMdlPuppetMeshReader {
     // vertex slot exactly up to vertexCount-1, which uniquely determines the
     // stride: max(index) == vertexBytes/strideA - 1 and == vertexBytes/strideB - 1
     // cannot both hold for distinct strides.
-    private static func findMeshBlock(in data: Data, bound: Int) -> MeshBlock? {
+    private static func findMeshBlock(
+        in data: Data,
+        bound: Int,
+        vertexStrides: [Int]
+    ) -> MeshBlock? {
         guard bound > markerSize + meshHeaderSize + 4 else { return nil }
         for offset in markerSize..<(bound - meshHeaderSize - 4) {
             let vertexBytes = Int(readUInt32(data, at: offset + 4))
@@ -110,7 +122,7 @@ enum SceneMdlPuppetMeshReader {
             guard indexBytes > 0,
                   indexBytes % 6 == 0,
                   indexLengthOffset + 4 + indexBytes <= bound else { continue }
-            let strides = vertexStrideCandidates.filter { stride in
+            let strides = vertexStrides.filter { stride in
                 vertexBytes % stride == 0 && vertexBytes / stride >= 3
             }
             guard strides.isEmpty == false else { continue }

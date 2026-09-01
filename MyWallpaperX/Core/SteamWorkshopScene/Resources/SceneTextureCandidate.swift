@@ -77,6 +77,7 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
     case graph(allocationGeneration: UInt64, physicalToken: String)
     case mediaThumbnailCurrent
     case mediaThumbnailPrevious
+    case puppet(layerID: Int)
     case namedLayerTarget(
         providerLayerID: Int,
         variant: String,
@@ -96,6 +97,8 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
             return "media-thumbnail:current"
         case .mediaThumbnailPrevious:
             return "media-thumbnail:previous"
+        case let .puppet(layerID):
+            return "puppet:\(layerID)"
         case let .namedLayerTarget(providerLayerID, variant, frameEpoch):
             return "named-layer-target:\(providerLayerID):"
                 + "\(variant):epoch:\(frameEpoch)"

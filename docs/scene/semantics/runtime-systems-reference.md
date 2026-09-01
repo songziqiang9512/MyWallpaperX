@@ -442,7 +442,7 @@ producer-agnostic inbox 现分别保存 playback、artwork five-color、title/ar
 
 ## 8. Puppet、3D 和 Lighting
 
-Puppet 已有第一个受限执行子集：MDLV mesh block 在加载时把图集重组为 bind-pose 纹理（`8bac86e`，`executed-degraded`），下游 mask/effect/blend 无感消费；MDLS 骨骼、MDLA 动画、MDAT attachment 只解析边界不消费。其余能力按现役路线属于 V5 后续，但格式和时钟设计不能提前封死：
+Puppet 已有受限执行子集：MDLV0016/0017/0023 mesh 在加载时把图集重组为 bind-pose纹理；匹配的 MDLS 骨骼与 MDLA0003/0004/0006 full-TRS strict single clip进入同一CPU LBS、Metal source update、typed publication与唯一 compositor，bounded disjoint-bone additive组合和MDLV0023静态MDAT attachment也已执行。静态0016重组可按exact mesh/atlas/size复用；MDLA0003 auxiliary scalar、动画attachment follow、冲突mixing、constraint/IK/physics仍不消费。其余能力按现役路线属于 V5 后续，但格式和时钟设计不能提前封死：
 
 - Puppet：bone hierarchy/weights、animation、spring/rigid/rope/wind、animation events、attachment-relative child 定位；
 - 3D：model/node/material、skeletal animation、attachments、camera、physics；

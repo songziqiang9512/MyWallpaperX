@@ -466,6 +466,51 @@ enum Harness {
             textureRegistry: registry,
             mainPass: .init(texture: source, commandBuffer: commandBuffer)
         ) == false
+        let fallbackRuntime = SceneDependencyFrameRuntime(
+            descriptor: descriptor,
+            visibleLayerIDs: [400, 401],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        var fallbackReservationFailure: String?
+        let fallbackReservation = fallbackRuntime.reserveEffectInput(
+            for: binding,
+            providerLayer: provider,
+            providerTexture: source,
+            providerCandidate: candidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            frameEpoch: 13,
+            failureReason: &fallbackReservationFailure
+        )
+        let fallbackRegistry = SceneFrameTextureRegistry(frameEpoch: 13)
+        let sourceFallbackPublished = fallbackRuntime
+            .captureGraphSourceFallbackIfRequired(
+                layer: provider,
+                sourceTexture: source,
+                sourceCandidate: candidate,
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 2, height: 2),
+                pipeline: .init(),
+                textureRegistry: fallbackRegistry,
+                mainPass: .init(
+                    texture: source,
+                    commandBuffer: commandBuffer
+                )
+            ) == true
+        let sourceFallbackReady: Bool
+        switch fallbackRuntime.resolvedMaterialEffectInputResolution(
+            for: 401,
+            textureRegistry: fallbackRegistry
+        ) {
+        case let .ready(value):
+            sourceFallbackReady = value.texture === fallbackReservation?.texture
+                && value.texture !== source
+                && fallbackReservationFailure == nil
+                && fallbackRegistry.readyPublicationCount == 1
+        case .unavailable, .invalid:
+            sourceFallbackReady = false
+        }
         let wrongObjectRejected = runtime.publishGraphOutputIfRequired(
             layerID: 400,
             texture: provisionalInput!.texture,
@@ -608,6 +653,8 @@ enum Harness {
             "unavailableBeforePublication": unavailableBeforePublication,
             "installed": installed,
             "rawCaptureRefused": rawCaptureRefused,
+            "sourceFallbackPublished": sourceFallbackPublished,
+            "sourceFallbackReady": sourceFallbackReady,
             "wrongObjectRejected": wrongObjectRejected,
             "failedPublicationLeftReservationUnpublished":
                 failedPublicationLeftReservationUnpublished,
@@ -684,6 +731,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "unavailableBeforePublication": True,
                     "installed": True,
                     "rawCaptureRefused": True,
+                    "sourceFallbackPublished": True,
+                    "sourceFallbackReady": True,
                     "wrongObjectRejected": True,
                     "failedPublicationLeftReservationUnpublished": True,
                     "published": True,

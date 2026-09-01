@@ -64,6 +64,7 @@ struct SceneImageLayerCompositor {
         _ request: SceneImageLayerDrawRequest,
         explicitLayerSourcePublication: SceneTextureProviderPublication?,
         resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)? = nil,
+        layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)? = nil,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
@@ -88,9 +89,24 @@ struct SceneImageLayerCompositor {
         let passthroughResolution = SceneLayerSourcePassthroughPlan.resolve(
             request: request,
             publication: explicitLayerSourcePublication,
-            route: resolvedMaterialRoute
+            route: resolvedMaterialRoute,
+            allowsStaticSourceGraphPublication:
+                layerSourceGraphFallbackPublisher != nil
         )
         if case let .success(passthroughPlan) = passthroughResolution {
+            if request.blocksStaticLayerSourcePassthrough,
+               let layerSourceGraphFallbackPublisher,
+               !layerSourceGraphFallbackPublisher(
+                   passthroughPlan.source.texture
+               ) {
+                executionTrace?.recordRouteOperation(
+                    layerID: request.layer.id,
+                    origin: executionOrigin,
+                    operation: "degraded-named-provider-source-publication",
+                    outcome: .failed(reasonCode: "named-target-capture-failed")
+                )
+                return .failed
+            }
             let uniforms = makeFragmentUniforms(
                 values: request.uniforms,
                 textureFrame: passthroughPlan.source.uvTransform,
@@ -116,6 +132,17 @@ struct SceneImageLayerCompositor {
                     ? .encoded
                     : .failed(reasonCode: "main-pass-encode-failed")
             )
+            if request.blocksStaticLayerSourcePassthrough,
+               layerSourceGraphFallbackPublisher != nil {
+                executionTrace?.recordRouteOperation(
+                    layerID: request.layer.id,
+                    origin: executionOrigin,
+                    operation: "degraded-named-provider-source-publication",
+                    outcome: encoded
+                        ? .encoded
+                        : .failed(reasonCode: "main-pass-encode-failed")
+                )
+            }
             return encoded ? .layerSourcePassthrough : .failed
         }
         guard !hasUnclaimedVisibleEffects else {

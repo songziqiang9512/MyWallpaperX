@@ -421,6 +421,27 @@ struct SceneMetalRenderer {
                         for: layer.id,
                         matching: texture
                     )
+                let layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)?
+                if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                    layerSourceGraphFallbackPublisher = { fallbackTexture in
+                        guard fallbackTexture === texture else { return false }
+                        return dependencyRuntime
+                            .captureGraphSourceFallbackIfRequired(
+                                layer: layer,
+                                sourceTexture: fallbackTexture,
+                                sourceCandidate: baseSource.candidate,
+                                usesAuthoredLayerColor:
+                                    baseSource.usesAuthoredLayerColor,
+                                layerMVP: mvp,
+                                viewportSize: viewportSize,
+                                pipeline: imagePipeline,
+                                textureRegistry: textureRegistry,
+                                mainPass: mainPass
+                            ) == true
+                    }
+                } else {
+                    layerSourceGraphFallbackPublisher = nil
+                }
                 let resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)?
                 if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
                     resolvedMaterialGraphOutputPublisher = { graphOutput in
@@ -460,6 +481,8 @@ struct SceneMetalRenderer {
                     explicitLayerSourcePublication: explicitLayerSourcePublication,
                     resolvedMaterialGraphOutputPublisher:
                         resolvedMaterialGraphOutputPublisher,
+                    layerSourceGraphFallbackPublisher:
+                        layerSourceGraphFallbackPublisher,
                     pipeline: imagePipeline,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace,
@@ -477,7 +500,23 @@ struct SceneMetalRenderer {
                     stopsAfterClaimedFailure = true
                     break frameLayers
                 }
-            case "composition", "project", "fullscreen":
+            case "composition":
+                if resolvedMaterialFrameTargetPlans[layer.id] == nil,
+                   let imagePipeline {
+                    _ = drawCompositionSourceFallback(
+                        layer: layer,
+                        imageTextures: imageTextures,
+                        imagePipeline: imagePipeline,
+                        frameContext: frameContext,
+                        worldFramesByLayerID: frameWorldFrames,
+                        cameraFrame: cameraFrame,
+                        parallaxConfiguration: parallaxConfiguration,
+                        time: time,
+                        mainPass: mainPass,
+                        executionTrace: effectExecutionTrace
+                    )
+                }
+            case "project", "fullscreen":
                 break
             case "quad":
                 if !drawQuadLayer(
@@ -691,8 +730,22 @@ struct SceneMetalRenderer {
             .requiresForwardCapture(
                 for: provider.id,
                 activeExecutionLayerIDs: activeExecutionLayerIDs
-            ) {
+        ) {
             if dependencyRuntime.requiresGraphOutputCapture(for: provider.id) {
+                if framePlans[provider.id] == nil {
+                    guard captureForwardGraphSourceFallback(
+                        provider: provider,
+                        imageTextures: imageTextures,
+                        imagePipeline: imagePipeline,
+                        frameContext: frameContext,
+                        worldFramesByLayerID: worldFramesByLayerID,
+                        cameraFrame: cameraFrame,
+                        parallaxConfiguration: parallaxConfiguration,
+                        viewportSize: viewportSize,
+                        mainPass: mainPass
+                    ) else { return nil }
+                    continue
+                }
                 guard executeDependencyGraphProviderIfRequired(
                     layer: provider,
                     framePlan: framePlans[provider.id],
