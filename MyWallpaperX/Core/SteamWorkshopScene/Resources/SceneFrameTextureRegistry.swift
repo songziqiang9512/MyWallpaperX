@@ -128,6 +128,9 @@ final class SceneFrameTextureRegistry {
         systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture] = [:],
         explicitSystemTextures: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
+        ] = [:],
+        systemProviderStates: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderState
         ] = [:]
     ) -> UInt64 {
         frameEpoch &+= 1
@@ -184,6 +187,14 @@ final class SceneFrameTextureRegistry {
             } else {
                 publishPersistent(texture, for: identity)
             }
+        }
+        for systemIdentity in systemProviderStates.keys.sorted(by: {
+            $0.reportToken < $1.reportToken
+        }) {
+            guard let state = systemProviderStates[systemIdentity] else {
+                continue
+            }
+            publish(state, for: .system(systemIdentity))
         }
         return frameEpoch
     }

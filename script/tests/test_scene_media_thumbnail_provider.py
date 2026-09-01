@@ -241,6 +241,7 @@ let store = SceneMediaThumbnailTextureStore(
 let a = png(red: 255, green: 0, blue: 0)
 let b = png(red: 0, green: 255, blue: 0)
 let c = png(red: 231, green: 17, blue: 149, alpha: 0, width: 2, height: 3)
+let initialEmpty = store.snapshot()
 
 _ = inbox.publish(a)
 store.update(from: inbox.latest())
@@ -271,6 +272,42 @@ let allTransitionSystemIdentities: Set<SceneSystemProviderTextureIdentity> = [
     colorSystemIdentity, preservedSystemIdentity,
     previousColorSystemIdentity, previousPreservedSystemIdentity,
 ]
+func providerStateIsAbsent(
+    _ snapshot: SceneMediaThumbnailTextureStore.Snapshot,
+    _ identity: SceneSystemProviderTextureIdentity
+) -> Bool {
+    guard case .absent? = snapshot.providerStates[identity] else { return false }
+    return true
+}
+func providerStateIsPending(
+    _ snapshot: SceneMediaThumbnailTextureStore.Snapshot,
+    _ identity: SceneSystemProviderTextureIdentity
+) -> Bool {
+    guard case .pending? = snapshot.providerStates[identity] else { return false }
+    return true
+}
+func providerStateIsUnavailable(
+    _ snapshot: SceneMediaThumbnailTextureStore.Snapshot,
+    _ identity: SceneSystemProviderTextureIdentity
+) -> Bool {
+    guard case .unavailable? = snapshot.providerStates[identity] else { return false }
+    return true
+}
+func providerStateIsReady(
+    _ snapshot: SceneMediaThumbnailTextureStore.Snapshot,
+    _ identity: SceneSystemProviderTextureIdentity,
+    matching texture: MTLTexture?
+) -> Bool {
+    guard
+        let texture,
+        case let .ready(publication)? = snapshot.providerStates[identity]
+    else {
+        return false
+    }
+    return publication.requestIdentity == .system(identity)
+        && publication.texture === texture
+        && publication.isComplete
+}
 let baseBinding = SceneBaseMaterialProviderBindingProgram.BaseMaterialBinding(
     layerID: 3588, source: .layerInstance, slotIndex: 0
 )
@@ -278,8 +315,7 @@ let readyRegistry = SceneFrameTextureRegistry()
 _ = readyRegistry.beginFrame(
     frameIndex: 1,
     layerSources: [:],
-    systemTextures: third.systemTextures,
-    explicitSystemTextures: third.publications
+    systemProviderStates: third.providerStates
 )
 let readyResolution = SceneBaseMaterialTextureResolver.resolve(
     binding: baseBinding,
@@ -511,8 +547,7 @@ let previousReadyRegistry = SceneFrameTextureRegistry()
 _ = previousReadyRegistry.beginFrame(
     frameIndex: 4,
     layerSources: [:],
-    systemTextures: fourth.systemTextures,
-    explicitSystemTextures: fourth.publications
+    systemProviderStates: fourth.providerStates
 )
 let previousReadyResolution = SceneBaseMaterialTextureResolver.resolve(
     binding: previousBaseBinding,
@@ -611,6 +646,22 @@ oversizedSourceStore.update(from: oversizedSourceInbox.latest())
 let pendingOversizedSource = oversizedSourceStore.snapshot()
 oversizedSourceQueue.resume()
 let oversizedSource = waitFor(oversizedSourceStore, generation: 2)
+
+let firstFailureInbox = SceneMediaThumbnailInbox()
+let firstFailureQueue = DispatchQueue(label: "fixture.media-thumbnail-first-failure")
+let firstFailureStore = SceneMediaThumbnailTextureStore(
+    device: device,
+    decodingQueue: firstFailureQueue
+)
+_ = firstFailureInbox.publish(Data([0, 1, 2, 3]))
+firstFailureStore.update(from: firstFailureInbox.latest())
+let firstFailure = waitFor(firstFailureStore, generation: 1)
+firstFailureQueue.suspend()
+_ = firstFailureInbox.publish(a)
+firstFailureStore.update(from: firstFailureInbox.latest())
+let firstRecoveryPending = firstFailureStore.snapshot()
+firstFailureQueue.resume()
+let firstRecovery = waitFor(firstFailureStore, generation: 2)
 
 let eventInbox = SceneMediaThumbnailInbox()
 let primaryColor = SIMD3(0.125, 0.5, 1.0)
@@ -746,6 +797,9 @@ let duplicateEmptyPropertiesAccepted = eventInbox.publishMediaProperties(
 let afterDuplicateEmptyProperties = eventInbox.latest()
 
 let result: [String: Any] = [
+    "initialEmptyStatesAbsent": allTransitionSystemIdentities.allSatisfy {
+        providerStateIsAbsent(initialEmpty, $0)
+    },
     "initialPendingGeneration": initialPending.pendingGeneration.map(Int.init) ?? -1,
     "initialPendingExact":
         initialPending.generation == 0
@@ -755,6 +809,11 @@ let result: [String: Any] = [
         && initialPending.preservedPrevious == nil
         && initialPending.pendingIdentities
             == [colorSystemIdentity, preservedSystemIdentity],
+    "initialPendingStatesExact":
+        providerStateIsPending(initialPending, colorSystemIdentity)
+        && providerStateIsPending(initialPending, preservedSystemIdentity)
+        && providerStateIsAbsent(initialPending, previousColorSystemIdentity)
+        && providerStateIsAbsent(initialPending, previousPreservedSystemIdentity),
     "generation": third.generation,
     "currentPixel": pixel(third.current?.texture),
     "preservedCurrentPixel": pixel(third.preservedCurrent?.texture),
@@ -762,6 +821,17 @@ let result: [String: Any] = [
     "preservedPublicationComplete": third.preservedCurrent?.isComplete == true,
     "initialPreviousUnavailable":
         third.previous == nil && third.preservedPrevious == nil,
+    "firstReadyStatesExact":
+        providerStateIsReady(
+            third, colorSystemIdentity, matching: third.current?.texture
+        )
+        && providerStateIsReady(
+            third,
+            preservedSystemIdentity,
+            matching: third.preservedCurrent?.texture
+        )
+        && providerStateIsAbsent(third, previousColorSystemIdentity)
+        && providerStateIsAbsent(third, previousPreservedSystemIdentity),
     "currentRequestExact": third.current?.requestIdentity
         == .system(colorSystemIdentity),
     "preservedRequestExact": third.preservedCurrent?.requestIdentity
@@ -874,6 +944,23 @@ let result: [String: Any] = [
     "pendingPreviousUnavailable":
         retainedDuringPending.previous == nil
         && retainedDuringPending.preservedPrevious == nil,
+    "replacementPendingStatesExact":
+        providerStateIsReady(
+            retainedDuringPending,
+            colorSystemIdentity,
+            matching: retainedDuringPending.current?.texture
+        )
+        && providerStateIsReady(
+            retainedDuringPending,
+            preservedSystemIdentity,
+            matching: retainedDuringPending.preservedCurrent?.texture
+        )
+        && providerStateIsPending(
+            retainedDuringPending, previousColorSystemIdentity
+        )
+        && providerStateIsPending(
+            retainedDuringPending, previousPreservedSystemIdentity
+        ),
     "fourthCurrentPixel": pixel(fourth.current?.texture),
     "fourthPreservedPixel": pixel(fourth.preservedCurrent?.texture),
     "fourthPreviousPixel": pixel(fourth.previous?.texture),
@@ -890,6 +977,22 @@ let result: [String: Any] = [
             == .provider(contentGeneration: fourth.generation)
         && fourth.preservedPrevious?.candidate.generation
             == .provider(contentGeneration: fourth.generation),
+    "replacementReadyStatesExact": allTransitionSystemIdentities.allSatisfy {
+        switch $0 {
+        case colorSystemIdentity:
+            providerStateIsReady(fourth, $0, matching: fourth.current?.texture)
+        case preservedSystemIdentity:
+            providerStateIsReady(
+                fourth, $0, matching: fourth.preservedCurrent?.texture
+            )
+        case previousColorSystemIdentity:
+            providerStateIsReady(fourth, $0, matching: fourth.previous?.texture)
+        default:
+            providerStateIsReady(
+                fourth, $0, matching: fourth.preservedPrevious?.texture
+            )
+        }
+    },
     "baseMaterialPreviousReadyExact":
         previousReadyExact
         && previousReadySource?.texture === fourth.previous?.texture
@@ -925,6 +1028,9 @@ let result: [String: Any] = [
     "failedPreserved": failed.preservedCurrent == nil,
     "failedPrevious": failed.previous == nil,
     "failedPreservedPrevious": failed.preservedPrevious == nil,
+    "decodeFailureStatesUnavailable": allTransitionSystemIdentities.allSatisfy {
+        providerStateIsUnavailable(failed, $0)
+    },
     "recoveryPendingGeneration":
         retainedDuringRecovery.pendingGeneration.map(Int.init) ?? -1,
     "recoveryPendingExact":
@@ -935,17 +1041,39 @@ let result: [String: Any] = [
         && retainedDuringRecovery.preservedPrevious == nil
         && retainedDuringRecovery.pendingIdentities
             == allTransitionSystemIdentities,
+    "recoveryPendingStatesExact": allTransitionSystemIdentities.allSatisfy {
+        providerStateIsPending(retainedDuringRecovery, $0)
+    },
     "recoveredCurrentPixel": pixel(recovered.current?.texture),
     "recoveredPreservedPixel": pixel(recovered.preservedCurrent?.texture),
     "recoveredPreviousPixel": pixel(recovered.previous?.texture),
     "recoveredPreservedPreviousPixel": pixel(
         recovered.preservedPrevious?.texture
     ),
+    "recoveredStatesExact": allTransitionSystemIdentities.allSatisfy {
+        switch $0 {
+        case colorSystemIdentity:
+            providerStateIsReady(recovered, $0, matching: recovered.current?.texture)
+        case preservedSystemIdentity:
+            providerStateIsReady(
+                recovered, $0, matching: recovered.preservedCurrent?.texture
+            )
+        case previousColorSystemIdentity:
+            providerStateIsReady(recovered, $0, matching: recovered.previous?.texture)
+        default:
+            providerStateIsReady(
+                recovered, $0, matching: recovered.preservedPrevious?.texture
+            )
+        }
+    },
     "clearedGeneration": cleared.generation,
     "clearedCurrent": cleared.current == nil,
     "clearedPreserved": cleared.preservedCurrent == nil,
     "clearedPrevious": cleared.previous == nil,
     "clearedPreservedPrevious": cleared.preservedPrevious == nil,
+    "clearStatesAbsent": allTransitionSystemIdentities.allSatisfy {
+        providerStateIsAbsent(cleared, $0)
+    },
     "oversizedSourceColorReady": oversizedSource.current != nil,
     "oversizedSourceRetainsBothWhilePending":
         beforeOversizedSource.current != nil
@@ -963,6 +1091,58 @@ let result: [String: Any] = [
         && oversizedSource.systemTextures[colorSystemIdentity] != nil
         && oversizedSource.systemTextures[preservedSystemIdentity] == nil
         && oversizedSource.publications[preservedSystemIdentity] == nil,
+    "partialPurposeStatesExact":
+        providerStateIsReady(
+            oversizedSource,
+            colorSystemIdentity,
+            matching: oversizedSource.current?.texture
+        )
+        && providerStateIsUnavailable(
+            oversizedSource, preservedSystemIdentity
+        )
+        && providerStateIsReady(
+            oversizedSource,
+            previousColorSystemIdentity,
+            matching: oversizedSource.previous?.texture
+        )
+        && providerStateIsReady(
+            oversizedSource,
+            previousPreservedSystemIdentity,
+            matching: oversizedSource.preservedPrevious?.texture
+        ),
+    "firstMalformedHasNoInventedPrevious":
+        providerStateIsUnavailable(firstFailure, colorSystemIdentity)
+        && providerStateIsUnavailable(firstFailure, preservedSystemIdentity)
+        && providerStateIsAbsent(firstFailure, previousColorSystemIdentity)
+        && providerStateIsAbsent(
+            firstFailure, previousPreservedSystemIdentity
+        ),
+    "firstRecoveryPendingKeepsPreviousAbsent":
+        providerStateIsPending(firstRecoveryPending, colorSystemIdentity)
+        && providerStateIsPending(
+            firstRecoveryPending, preservedSystemIdentity
+        )
+        && providerStateIsAbsent(
+            firstRecoveryPending, previousColorSystemIdentity
+        )
+        && providerStateIsAbsent(
+            firstRecoveryPending, previousPreservedSystemIdentity
+        ),
+    "firstRecoveryKeepsPreviousAbsent":
+        providerStateIsReady(
+            firstRecovery,
+            colorSystemIdentity,
+            matching: firstRecovery.current?.texture
+        )
+        && providerStateIsReady(
+            firstRecovery,
+            preservedSystemIdentity,
+            matching: firstRecovery.preservedCurrent?.texture
+        )
+        && providerStateIsAbsent(firstRecovery, previousColorSystemIdentity)
+        && providerStateIsAbsent(
+            firstRecovery, previousPreservedSystemIdentity
+        ),
     "oversizedSourceRotatesPreviousAtomically":
         oversizedSource.previous != nil
         && oversizedSource.preservedPrevious != nil
@@ -1180,13 +1360,16 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(result["generation"], 3)
+        self.assertTrue(result["initialEmptyStatesAbsent"])
         self.assertEqual(result["initialPendingGeneration"], 3)
         self.assertTrue(result["initialPendingExact"])
+        self.assertTrue(result["initialPendingStatesExact"])
         self.assertEqual(result["currentPixel"], [0, 0, 0, 0])
         self.assertEqual(result["preservedCurrentPixel"], [231, 17, 149, 0])
         self.assertTrue(result["currentPublicationComplete"])
         self.assertTrue(result["preservedPublicationComplete"])
         self.assertTrue(result["initialPreviousUnavailable"])
+        self.assertTrue(result["firstReadyStatesExact"])
         self.assertTrue(result["currentRequestExact"])
         self.assertTrue(result["preservedRequestExact"])
         self.assertTrue(result["purposeQualifiedSystemAtoms"])
@@ -1229,6 +1412,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertEqual(result["pendingCurrentPixel"], [0, 0, 0, 0])
         self.assertEqual(result["pendingPreservedPixel"], [231, 17, 149, 0])
         self.assertTrue(result["pendingPreviousUnavailable"])
+        self.assertTrue(result["replacementPendingStatesExact"])
         self.assertEqual(result["fourthCurrentPixel"], [255, 0, 0, 255])
         self.assertEqual(result["fourthPreservedPixel"], [255, 0, 0, 255])
         self.assertEqual(result["fourthPreviousPixel"], [0, 0, 0, 0])
@@ -1236,6 +1420,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             result["fourthPreservedPreviousPixel"], [231, 17, 149, 0]
         )
         self.assertTrue(result["fourthPreviousExact"])
+        self.assertTrue(result["replacementReadyStatesExact"])
         self.assertTrue(result["baseMaterialPreviousReadyExact"])
         self.assertTrue(
             result["baseMaterialPreviousUnavailableKeepsAuthoredFallback"]
@@ -1253,22 +1438,30 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["failedPreserved"])
         self.assertTrue(result["failedPrevious"])
         self.assertTrue(result["failedPreservedPrevious"])
+        self.assertTrue(result["decodeFailureStatesUnavailable"])
         self.assertEqual(result["recoveryPendingGeneration"], 6)
         self.assertTrue(result["recoveryPendingExact"])
+        self.assertTrue(result["recoveryPendingStatesExact"])
         self.assertEqual(result["recoveredCurrentPixel"], [0, 255, 0, 255])
         self.assertEqual(result["recoveredPreservedPixel"], [0, 255, 0, 255])
         self.assertEqual(result["recoveredPreviousPixel"], [255, 0, 0, 255])
         self.assertEqual(
             result["recoveredPreservedPreviousPixel"], [255, 0, 0, 255]
         )
+        self.assertTrue(result["recoveredStatesExact"])
         self.assertEqual(result["clearedGeneration"], 7)
         self.assertTrue(result["clearedCurrent"])
         self.assertTrue(result["clearedPreserved"])
         self.assertTrue(result["clearedPrevious"])
         self.assertTrue(result["clearedPreservedPrevious"])
+        self.assertTrue(result["clearStatesAbsent"])
         self.assertTrue(result["oversizedSourceColorReady"])
         self.assertTrue(result["oversizedSourceRetainsBothWhilePending"])
         self.assertTrue(result["oversizedSourcePreservedUnavailable"])
+        self.assertTrue(result["partialPurposeStatesExact"])
+        self.assertTrue(result["firstMalformedHasNoInventedPrevious"])
+        self.assertTrue(result["firstRecoveryPendingKeepsPreviousAbsent"])
+        self.assertTrue(result["firstRecoveryKeepsPreviousAbsent"])
         self.assertTrue(result["oversizedSourceRotatesPreviousAtomically"])
         self.assertTrue(result["eventInitialEmpty"])
         self.assertTrue(result["propertiesAccepted"])

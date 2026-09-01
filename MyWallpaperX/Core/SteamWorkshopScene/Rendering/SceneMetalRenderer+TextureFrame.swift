@@ -19,18 +19,12 @@ extension SceneMetalRenderer {
             ),
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyStates,
-            systemTextures: mediaThumbnail.systemTextures,
-            explicitSystemTextures: mediaThumbnail.publications
+            systemProviderStates: mediaThumbnail.providerStates
         )
         for identity in baseMaterialProviderBindings.systemProviderDemands.sorted(by: {
             $0.reportToken < $1.reportToken
-        }) where mediaThumbnail.publications[identity] == nil
-            && mediaThumbnail.systemTextures[identity] == nil {
-            let status: SceneFrameTextureRegistry.ProviderStatus =
-                mediaThumbnail.pendingGeneration != nil
-                    && mediaThumbnail.pendingIdentities.contains(identity)
-                ? .pending : .unavailable
-            textureRegistry.set(status, for: .system(identity))
+        }) where mediaThumbnail.providerStates[identity] == nil {
+            textureRegistry.set(.unavailable, for: .system(identity))
         }
         for (identity, status) in imageCompositor
             .resolvedMaterialSystemProviderBlocks(mediaThumbnail) {

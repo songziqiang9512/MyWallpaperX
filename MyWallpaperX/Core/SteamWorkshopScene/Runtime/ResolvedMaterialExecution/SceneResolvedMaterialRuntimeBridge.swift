@@ -247,20 +247,19 @@ final class SceneResolvedMaterialRuntimeBridge {
         for identity in catalog.systemProviderDemands.sorted(by: {
             $0.reportToken < $1.reportToken
         }) {
-            // Only an exactly missing provider is a visual availability
-            // state. Initial async preparation remains pending; a completed
-            // generation without the demanded purpose is unavailable. Any
-            // partial or malformed atom must enter the registry unchanged so
-            // MaterialProgram can hard-reject request identity, generation,
-            // lifecycle and publication integrity independently.
-            // Per-consumer purpose checking also lets one compatible demand
-            // continue when another demand for the same provider is invalid.
-            if snapshot.publications[identity] == nil,
-               snapshot.systemTextures[identity] == nil {
-                blocks[identity] = snapshot.pendingGeneration != nil
-                    && snapshot.pendingIdentities.contains(identity)
-                    ? .pending
-                    : .unavailable
+            guard let state = snapshot.providerStates[identity] else {
+                blocks[identity] = .unavailable
+                continue
+            }
+            switch state {
+            case .ready:
+                break
+            case .absent:
+                blocks[identity] = .absent
+            case .pending:
+                blocks[identity] = .pending
+            case .unavailable:
+                blocks[identity] = .unavailable
             }
         }
         return blocks

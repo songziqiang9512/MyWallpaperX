@@ -3,6 +3,29 @@ import ImageIO
 import Metal
 
 final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
+    private enum ContentAvailability {
+        case absent
+        case present
+        case unavailable
+    }
+
+    private static let currentColorIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
+        purpose: .premultipliedColor
+    )
+    private static let currentPreservedIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
+        purpose: .preservedChannels
+    )
+    private static let previousColorIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
+        purpose: .premultipliedColor
+    )
+    private static let previousPreservedIdentity = SceneSystemProviderTextureIdentity(
+        name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
+        purpose: .preservedChannels
+    )
+
     private final class DecodeRequest: @unchecked Sendable {
         let input: SceneMediaThumbnailInbox.Snapshot
         let willRotatePrevious: Bool
@@ -39,6 +62,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         let preservedCurrent: SceneTextureProviderPublication?
         let previous: SceneTextureProviderPublication?
         let preservedPrevious: SceneTextureProviderPublication?
+        let providerStates: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderState
+        ]
         let systemTextures: [SceneSystemProviderTextureIdentity: MTLTexture]
         let publications: [
             SceneSystemProviderTextureIdentity: SceneTextureProviderPublication
@@ -52,6 +78,12 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             preservedCurrent: nil,
             previous: nil,
             preservedPrevious: nil,
+            providerStates: [
+                SceneMediaThumbnailTextureStore.currentColorIdentity: .absent,
+                SceneMediaThumbnailTextureStore.currentPreservedIdentity: .absent,
+                SceneMediaThumbnailTextureStore.previousColorIdentity: .absent,
+                SceneMediaThumbnailTextureStore.previousPreservedIdentity: .absent,
+            ],
             systemTextures: [:],
             publications: [:]
         )
@@ -65,6 +97,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var readyGeneration: UInt64 = 0
     private var currentTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
     private var previousTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
+    private var currentAvailability: ContentAvailability = .absent
+    private var previousAvailability: ContentAvailability = .absent
     private var lastSuccessfulTextures: [SceneTextureLoadPurpose: MTLTexture] = [:]
     private var lastSuccessfulEncodedCurrent: Data?
     private var reportedPendingGeneration: UInt64?
@@ -202,26 +236,36 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             pendingIdentities = []
         } else {
             var identities: Set<SceneSystemProviderTextureIdentity> = [
-                .init(
-                    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
-                    purpose: .premultipliedColor
-                ),
-                .init(
-                    name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
-                    purpose: .preservedChannels
-                ),
+                Self.currentColorIdentity,
+                Self.currentPreservedIdentity,
             ]
             if pendingRequest?.willRotatePrevious == true {
-                identities.insert(.init(
-                    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
-                    purpose: .premultipliedColor
-                ))
-                identities.insert(.init(
-                    name: SceneBaseMaterialProviderBindingProgram.previousIdentity,
-                    purpose: .preservedChannels
-                ))
+                identities.insert(Self.previousColorIdentity)
+                identities.insert(Self.previousPreservedIdentity)
             }
             pendingIdentities = identities
+        }
+        let exactIdentities: [
+            SceneSystemProviderTextureIdentity: ContentAvailability
+        ] = [
+            Self.currentColorIdentity: currentAvailability,
+            Self.currentPreservedIdentity: currentAvailability,
+            Self.previousColorIdentity: previousAvailability,
+            Self.previousPreservedIdentity: previousAvailability,
+        ]
+        let providerStates = exactIdentities.reduce(into: [
+            SceneSystemProviderTextureIdentity: SceneTextureProviderState
+        ]()) { states, pair in
+            if let publication = publications[pair.key] {
+                states[pair.key] = .ready(publication)
+            } else if pendingIdentities.contains(pair.key) {
+                states[pair.key] = .pending
+            } else {
+                states[pair.key] = switch pair.value {
+                case .absent: .absent
+                case .present, .unavailable: .unavailable
+                }
+            }
         }
         return Snapshot(
             generation: readyGeneration,
@@ -231,6 +275,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             preservedCurrent: preservedCurrent,
             previous: previous,
             preservedPrevious: preservedPrevious,
+            providerStates: providerStates,
             systemTextures: textures,
             publications: publications
         )
@@ -269,13 +314,19 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         if input.current == nil {
             currentTextures.removeAll(keepingCapacity: true)
             previousTextures.removeAll(keepingCapacity: true)
+            currentAvailability = .absent
+            previousAvailability = .absent
             lastSuccessfulTextures.removeAll(keepingCapacity: true)
             lastSuccessfulEncodedCurrent = nil
         } else if !decodedTextures.isEmpty {
             if request.willRotatePrevious {
                 previousTextures = lastSuccessfulTextures
+                previousAvailability = .present
+            } else if previousTextures.isEmpty {
+                previousAvailability = .absent
             }
             currentTextures = decodedTextures
+            currentAvailability = .present
             lastSuccessfulTextures = decodedTextures
             lastSuccessfulEncodedCurrent = input.current
         } else {
@@ -285,6 +336,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             // identify the actual previous cover.
             currentTextures.removeAll(keepingCapacity: true)
             previousTextures.removeAll(keepingCapacity: true)
+            currentAvailability = .unavailable
+            previousAvailability = lastSuccessfulTextures.isEmpty
+                ? .absent : .unavailable
         }
         readyGeneration = input.generation
         reportedPendingGeneration = nil
