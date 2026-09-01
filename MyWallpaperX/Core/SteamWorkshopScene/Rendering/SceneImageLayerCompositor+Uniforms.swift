@@ -40,18 +40,34 @@ extension SceneImageLayerCompositor {
         guard let sourceSample = request.resolvedBaseTextureSample() else {
             return nil
         }
-        let brightness = request.layer.contentKind == "text"
-            ? 1 : max(0, Float(request.layer.brightness ?? 1))
-        let usesAuthoredColor = request.layer.contentKind == "image"
-            || request.layer.contentKind == "solid"
-        let tint = usesAuthoredColor
-            ? request.uniforms.tint : SIMD3<Float>(repeating: 1)
-        return makeFragmentUniforms(
+        return sourceFragmentUniforms(
             values: request.uniforms,
+            layer: request.layer,
+            sourceSample: sourceSample,
+            routesOffscreen: routesOffscreen,
+            dependencyBlendMode: request.dependencyEffect?.blendMode
+        )
+    }
+
+    func sourceFragmentUniforms(
+        values: SceneImageLayerUniformValues,
+        layer: SceneRenderDescriptor.Layer,
+        sourceSample: SceneBaseImageTextureSample,
+        routesOffscreen: Bool,
+        dependencyBlendMode: Int?
+    ) -> SceneLayerFragmentUniforms {
+        let brightness = layer.contentKind == "text"
+            ? 1 : max(0, Float(layer.brightness ?? 1))
+        let usesAuthoredColor = layer.contentKind == "image"
+            || layer.contentKind == "solid"
+        let tint = usesAuthoredColor
+            ? values.tint : SIMD3<Float>(repeating: 1)
+        return makeFragmentUniforms(
+            values: values,
             textureFrame: sourceSample.textureFrame,
             tint: tint * brightness,
             dependencyBlendMode: routesOffscreen
-                ? nil : request.dependencyEffect?.blendMode,
+                ? nil : dependencyBlendMode,
             sourceSampling: sourceSample.sampling
         )
     }

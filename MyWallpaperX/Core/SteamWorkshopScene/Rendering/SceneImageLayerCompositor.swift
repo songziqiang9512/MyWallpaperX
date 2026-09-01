@@ -107,21 +107,10 @@ struct SceneImageLayerCompositor {
                 )
                 return .failed
             }
-            let uniforms = makeFragmentUniforms(
-                values: request.uniforms,
-                textureFrame: passthroughPlan.source.uvTransform,
-                tint: SIMD3<Float>(repeating: 1),
-                dependencyBlendMode: nil,
-                sourceSampling: passthroughPlan.source.sampling
-            )
-            let encoded = SceneImageLayerMainPassRenderer.draw(
-                texture: passthroughPlan.source.texture,
-                mvp: passthroughPlan.modelViewProjection,
-                uniforms: uniforms,
-                dependencyTexture: nil,
-                layer: request.layer,
+            let encoded = drawLayerSourcePassthrough(
+                passthroughPlan,
+                request: request,
                 pipeline: pipeline,
-                colorBlendPipeline: nil,
                 mainPass: mainPass
             )
             executionTrace?.recordRouteOperation(
@@ -345,6 +334,80 @@ struct SceneImageLayerCompositor {
         return rendered
             ? .normal(consumedDependency: dependencyEffect != nil)
             : .failed
+    }
+
+    private func drawLayerSourcePassthrough(
+        _ plan: SceneLayerSourcePassthroughPlan,
+        request: SceneImageLayerDrawRequest,
+        pipeline: SceneImageLayerPipeline,
+        mainPass: SceneMainPassEncoder
+    ) -> Bool {
+        let blendMode = request.layer.colorBlendMode ?? 0
+        guard SceneLayerColorBlendRenderer.supports(blendMode) else {
+            return false
+        }
+        let routesOffscreen = blendMode > 0
+        let sourceUniforms = sourceFragmentUniforms(
+            values: request.uniforms,
+            layer: request.layer,
+            sourceSample: SceneBaseImageTextureSample(
+                textureFrame: plan.source.uvTransform,
+                sampling: plan.source.sampling
+            ),
+            routesOffscreen: routesOffscreen,
+            dependencyBlendMode: nil
+        )
+
+        if !routesOffscreen {
+            return SceneImageLayerMainPassRenderer.draw(
+                texture: plan.source.texture,
+                mvp: plan.modelViewProjection,
+                uniforms: sourceUniforms,
+                dependencyTexture: nil,
+                layer: request.layer,
+                pipeline: pipeline,
+                colorBlendPipeline: nil,
+                mainPass: mainPass
+            )
+        }
+
+        guard let colorBlendPipeline = colorBlendPipelineSlot.resolve(),
+              let pool = request.offscreenTexturePool,
+              let dimensions = offscreenDimensions(for: request),
+              let target = pool.compositionTarget(
+                  width: dimensions.width,
+                  height: dimensions.height
+              ),
+              let styledSource = mainPass.encodeOffscreen({ commandBuffer in
+                  SceneOffscreenEffectRenderer.captureSource(
+                      sourceTexture: plan.source.texture,
+                      target: target.texture,
+                      sourceUniforms: sourceUniforms,
+                      pipeline: pipeline,
+                      commandBuffer: commandBuffer
+                  ) ? target.texture : nil
+              }) else { return false }
+
+        let finalUniforms = makeFragmentUniforms(
+            values: SceneImageLayerUniformValues(
+                time: request.uniforms.time,
+                alpha: 1,
+                cursorUV: request.uniforms.cursorUV
+            ),
+            textureFrame: .identity,
+            tint: SIMD3(repeating: 1),
+            dependencyBlendMode: nil
+        )
+        return SceneImageLayerMainPassRenderer.draw(
+            texture: styledSource,
+            mvp: plan.modelViewProjection,
+            uniforms: finalUniforms,
+            dependencyTexture: nil,
+            layer: request.layer,
+            pipeline: pipeline,
+            colorBlendPipeline: colorBlendPipeline,
+            mainPass: mainPass
+        )
     }
 
     func executeResolvedMaterialClaim(

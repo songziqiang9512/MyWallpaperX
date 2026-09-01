@@ -796,6 +796,45 @@ enum Harness {
                     == mappedNearestSample.textureFrame.uniform0
                 && sourceUniforms?.textureFrame1
                     == mappedNearestSample.textureFrame.uniform1
+        let styledSourceUniforms = compositor.sourceFragmentUniforms(
+            for: .init(
+                layer: .init(contentKind: "image", brightness: 1.5),
+                texture: baseDirect.texture,
+                uniforms: .init(
+                    time: 0,
+                    alpha: 0.5,
+                    cursorUV: .zero,
+                    tint: SIMD3(0.2, 0.4, 0.6)
+                ),
+                dependencyEffect: nil,
+                effectSourceExtent: nil,
+                sourceSample: mappedNearestSample
+            ),
+            routesOffscreen: true
+        )
+        let styledTint = styledSourceUniforms?.tint
+        let sourceFragmentUniformCarriesAuthoredStyle =
+            styledSourceUniforms?.alpha == 0.5
+                && abs((styledTint?.x ?? 0) - 0.3) < 0.000_001
+                && abs((styledTint?.y ?? 0) - 0.6) < 0.000_001
+                && abs((styledTint?.z ?? 0) - 0.9) < 0.000_001
+                && styledTint?.w == 1
+        let zeroAlphaPixel = try renderSample(
+            texture: baseDirect.texture,
+            uniforms: compositor.makeFragmentUniforms(
+                values: .init(
+                    time: 0,
+                    alpha: 0,
+                    cursorUV: .zero,
+                    tint: SIMD3(repeating: 1)
+                ),
+                textureFrame: .identity,
+                tint: SIMD3(repeating: 1),
+                dependencyBlendMode: nil
+            ),
+            library: imageLayerLibrary,
+            device: device
+        )
         let wrappedInterior = try renderSample(
             texture: baseDirect.texture,
             uniforms: compositor.makeFragmentUniforms(
@@ -1258,6 +1297,9 @@ enum Harness {
                 nearestBetweenTexels != linearBetweenTexels,
             "sourceFragmentUniformCarriesCandidateAtom":
                 sourceFragmentUniformCarriesCandidateAtom,
+            "sourceFragmentUniformCarriesAuthoredStyle":
+                sourceFragmentUniformCarriesAuthoredStyle,
+            "zeroAlphaPixel": zeroAlphaPixel,
             "basePaddedR8Specialized":
                 basePaddedSpecialized.candidate == nil
                     && basePaddedSpecialized.message.contains("specialized authored binding"),
@@ -2030,6 +2072,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "slotBindingWrongPurposeRejected": True,
                 "slotBindingWrongSlotRejected": True,
                 "sourceFragmentUniformCarriesCandidateAtom": True,
+                "sourceFragmentUniformCarriesAuthoredStyle": True,
                 "textureChangedAfterRewrite": True,
                 "textureChangedAfterAtomicReplace": True,
                 "textureChangedWithRestoredSizeAndMTime": True,
@@ -2040,6 +2083,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "unparsedFallbackRejected": True,
                 "unknownFlagsBaseSampleRejected": True,
                 "unknownSamplerBaseLoadRejected": True,
+                "zeroAlphaPixel": [0, 0, 0, 255],
                 "samplerFailureDoesNotPoisonSiblingLoad": True,
                 "wrongPurposeRejected": True,
                 "wrongOutputRejected": True,

@@ -4406,6 +4406,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("route.allowsLayerSourcePassthrough", passthrough_plan)
         self.assertIn(
+            "SceneLayerColorBlendRenderer.supports(", passthrough_plan
+        )
+        self.assertNotIn("layerStyleNonneutral", passthrough_plan)
+        self.assertNotIn("layerBlendNonneutral", passthrough_plan)
+        self.assertIn(
             "resolvedSourceKind == .staticPuppet", passthrough_plan
         )
         self.assertIn("request.dependencyEffect == nil", passthrough_plan)
@@ -4441,6 +4446,16 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             "return encoded ? .layerSourcePassthrough : .failed",
             source_passthrough,
         )
+        self.assertIn("drawLayerSourcePassthrough(", source_passthrough)
+        fallback_renderer = compositor[compositor.index(
+            "private func drawLayerSourcePassthrough("
+        ):compositor.index("func executeResolvedMaterialClaim(")]
+        self.assertIn("sourceFragmentUniforms(", fallback_renderer)
+        self.assertIn("textureFrame: plan.source.uvTransform", fallback_renderer)
+        self.assertIn("sampling: plan.source.sampling", fallback_renderer)
+        self.assertIn("SceneOffscreenEffectRenderer.captureSource(", fallback_renderer)
+        self.assertIn("colorBlendPipelineSlot.resolve()", fallback_renderer)
+        self.assertIn("alpha: 1", fallback_renderer)
         self.assertNotIn(
             ".normal(consumedDependency:",
             source_passthrough,

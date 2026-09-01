@@ -16,8 +16,7 @@ struct SceneLayerSourcePassthroughPlan {
         case finalAlphaPresent = "final-alpha-present"
         case dependencyPresent = "dependency-present"
         case sourceCoverageUnproven = "source-coverage-unproven"
-        case layerBlendNonneutral = "layer-blend-nonneutral"
-        case layerStyleNonneutral = "layer-style-nonneutral"
+        case layerBlendUnsupported = "layer-blend-unsupported"
         case textureFrameNonidentity = "texture-frame-nonidentity"
         case publicationRequestMismatch = "publication-request-mismatch"
         case publicationTextureMismatch = "publication-texture-mismatch"
@@ -118,16 +117,10 @@ struct SceneLayerSourcePassthroughPlan {
         guard !request.masks.blocksLayerSourcePassthrough(
             forVisibleEffects: request.layer.effects
         ) else { return .failure(.sourceCoverageUnproven) }
-        guard (request.layer.colorBlendMode ?? 0) == 0 else {
-            return .failure(.layerBlendNonneutral)
-        }
-        guard neutral(request.uniforms.alpha),
-              neutral(request.uniforms.tint.x),
-              neutral(request.uniforms.tint.y),
-              neutral(request.uniforms.tint.z),
-              neutralColor(request.layer.colorRGB),
-              neutral(Float(request.layer.brightness ?? 1)) else {
-            return .failure(.layerStyleNonneutral)
+        guard SceneLayerColorBlendRenderer.supports(
+            request.layer.colorBlendMode ?? 0
+        ) else {
+            return .failure(.layerBlendUnsupported)
         }
         guard request.textureFrame == .identity else {
             return .failure(.textureFrameNonidentity)
@@ -422,16 +415,6 @@ struct SceneLayerSourcePassthroughPlan {
         return abs(twiceSignedArea) * 0.5
     }
 
-    private static func neutral(_ value: Float) -> Bool {
-        value.isFinite && abs(value - 1) <= 0.000_001
-    }
-
-    private static func neutralColor(_ values: [Float]?) -> Bool {
-        guard let values else { return true }
-        return values.count == 3 && values.allSatisfy {
-            $0.isFinite && abs($0 - 1) <= 0.000_001
-        }
-    }
 }
 
 private extension SIMD2 where Scalar == Float {
