@@ -212,8 +212,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 )
             }
             let pipelineState = compiledRenderState.flatMap {
-                Self.pipelineRenderState(
-                    for: $0,
+                SceneParticlePipelineRenderStateCompiler.compile(
+                    $0,
                     definition: definition,
                     materialPass: materialPass
                 )
@@ -323,66 +323,6 @@ nonisolated struct SceneParticleAssetGraphLoader {
             pass.cullMode,
             pass.alphaWriting,
         ].map { $0 ?? "<nil>" }.joined(separator: "/")
-    }
-
-    private static func pipelineRenderState(
-        for state: SceneMaterialRenderState,
-        definition: SceneParticleDefinition,
-        materialPass: SceneParticleMaterialPass?
-    ) -> SceneParticlePipelineRenderState? {
-        guard state.depthTest == .disabled,
-              state.depthWrite == .disabled,
-              [.unspecified, .default].contains(state.alphaWriting) else {
-            return nil
-        }
-        let blendMode: SceneParticlePipelineBlendMode
-        switch state.blending {
-        case .translucent: blendMode = .translucent
-        case .additive: blendMode = .additive
-        case .normal: return nil
-        }
-        let cullMode: SceneParticlePipelineCullMode
-        switch state.cullMode {
-        case .noCull:
-            cullMode = .none
-        case .normal:
-            guard supportsNormalCull(
-                definition: definition,
-                materialPass: materialPass
-            ) else { return nil }
-            cullMode = .back
-        }
-        return SceneParticlePipelineRenderState(
-            blendMode: blendMode,
-            cullMode: cullMode
-        )
-    }
-
-    private static func supportsNormalCull(
-        definition: SceneParticleDefinition,
-        materialPass: SceneParticleMaterialPass?
-    ) -> Bool {
-        guard let materialPass,
-              !materialPass.hasUserTextureInputs,
-              !materialPass.hasUserShaderValues,
-              materialPass.combos.allSatisfy({
-                  $0.key.uppercased() == "REFRACT" && $0.value == 0
-              }),
-              !definition.flags.isWorldSpace,
-              definition.renderers.count == 1,
-              let renderer = definition.renderers.first,
-              !renderer.isWorldSpace,
-              renderer.rawFlags == 0,
-              renderer.axis == nil,
-              !renderer.hasMalformedFields,
-              renderer.unsupportedFieldNames.isEmpty,
-              renderer.orientation.map({
-                  $0.trimmingCharacters(in: .whitespacesAndNewlines).localizedLowercase
-              }).map({ $0.isEmpty || $0 == "screen" }) ?? true,
-              !definition.diagnostics.contains(where: {
-                  $0.kind == .malformedComponent && $0.path.hasPrefix("renderer[")
-              }) else { return false }
-        return renderer.kind == .sprite
     }
 
     static func normalizedPath(_ rawPath: String) -> String {

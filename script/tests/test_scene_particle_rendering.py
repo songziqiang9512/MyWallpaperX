@@ -41,6 +41,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleShaderSource.swift",
     SOURCE_ROOT / "Particles/SceneParticleSamplerStateSet.swift",
     SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
+    SOURCE_ROOT / "Particles/SceneParticleDepthTargetPool.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
 ]
 
@@ -189,6 +190,8 @@ enum Harness {
                 additive.destinationAlpha == .oneMinusSourceAlpha,
             ],
             "additiveFractionalAlphaPixel": additiveFractionalAlphaPixel(),
+            "depthAndOverbrightPixel": depthAndOverbrightPixel(),
+            "depthTargetLease": depthTargetLeaseContract(),
             "metalDraw": renderSmokeTest(),
             "spriteAspectBounds": spriteBounds(
                 currentAspect: 2, nextAspect: 2, frameMix: 0
@@ -433,6 +436,139 @@ enum Harness {
             mipmapLevel: 0
         )
         return pixel.map(Int.init)
+    }
+
+    private static func depthAndOverbrightPixel() -> [Int] {
+        let size = 8
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let command = queue.makeCommandBuffer(),
+              let depthLease = pipeline.acquireDepthTarget(width: size, height: size)
+        else { return [] }
+        let inputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .rgba8Unorm,
+            width: 1,
+            height: 1,
+            mipmapped: false
+        )
+        inputDescriptor.usage = .shaderRead
+        inputDescriptor.storageMode = .shared
+        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: size,
+            height: size,
+            mipmapped: false
+        )
+        outputDescriptor.usage = .renderTarget
+        outputDescriptor.storageMode = .shared
+        guard let red = device.makeTexture(descriptor: inputDescriptor),
+              let green = device.makeTexture(descriptor: inputDescriptor),
+              let output = device.makeTexture(descriptor: outputDescriptor) else { return [] }
+        var redPixel: [UInt8] = [255, 0, 0, 255]
+        var greenPixel: [UInt8] = [0, 255, 0, 255]
+        red.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0,
+            withBytes: &redPixel,
+            bytesPerRow: 4
+        )
+        green.replace(
+            region: MTLRegionMake2D(0, 0, 1, 1),
+            mipmapLevel: 0,
+            withBytes: &greenPixel,
+            bytesPerRow: 4
+        )
+        let near = SceneParticleMetalInstanceBuffer()
+        let far = SceneParticleMetalInstanceBuffer()
+        guard near.update(device: device, instances: [instance(x: 0, z: 0.2)]),
+              far.update(device: device, instances: [instance(x: 0, z: 0.8)]) else { return [] }
+        let pass = MTLRenderPassDescriptor()
+        pass.colorAttachments[0].texture = output
+        pass.colorAttachments[0].loadAction = .clear
+        pass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
+        pass.colorAttachments[0].storeAction = .store
+        pass.depthAttachment.texture = depthLease.texture
+        pass.depthAttachment.loadAction = .clear
+        pass.depthAttachment.clearDepth = 1
+        pass.depthAttachment.storeAction = .dontCare
+        guard let encoder = command.makeRenderCommandEncoder(descriptor: pass) else { return [] }
+        let uniforms = SceneParticleLayerUniforms(
+            viewProjection: SceneMatrix.identity(),
+            layerModel: SceneMatrix.identity(),
+            basis: SceneParticleOrientation.screen.basis(
+                cameraRight: SIMD3(1, 0, 0),
+                cameraUp: SIMD3(0, 1, 0),
+                cameraForward: SIMD3(0, 0, -1)
+            )
+        )
+        let state = SceneParticlePipelineRenderState(
+            blendMode: .translucent,
+            cullMode: .none,
+            depthTestEnabled: true,
+            depthWriteEnabled: true,
+            overbright: 0.5
+        )
+        pipeline.draw(
+            texture: red,
+            instances: near,
+            uniforms: uniforms,
+            renderState: state,
+            colorSampling: .directImageFallback,
+            usesDepthAttachment: true,
+            encoder: encoder
+        )
+        pipeline.draw(
+            texture: green,
+            instances: far,
+            uniforms: uniforms,
+            renderState: state,
+            colorSampling: .directImageFallback,
+            usesDepthAttachment: true,
+            encoder: encoder
+        )
+        encoder.endEncoding()
+        guard near.markSubmitted(on: command), far.markSubmitted(on: command) else { return [] }
+        depthLease.arm(on: command)
+        guard commitAndWait(command) else { return [] }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        output.getBytes(
+            &pixel,
+            bytesPerRow: size * 4,
+            from: MTLRegionMake2D(size / 2, size / 2, 1, 1),
+            mipmapLevel: 0
+        )
+        return pixel.map(Int.init)
+    }
+
+    private static func depthTargetLeaseContract() -> [String: Bool] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let pipeline = SceneParticleMetalPipeline(device: device),
+              let queue = device.makeCommandQueue(),
+              let first = pipeline.acquireDepthTarget(width: 8, height: 8),
+              let second = pipeline.acquireDepthTarget(width: 8, height: 8),
+              let third = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
+        let rejectsFourth = pipeline.acquireDepthTarget(width: 8, height: 8) == nil
+        let firstTexture = first.texture
+        first.cancel()
+        let replacement = pipeline.acquireDepthTarget(width: 8, height: 8)
+        let reusesReleased = replacement?.texture === firstTexture
+        replacement?.cancel()
+        second.cancel()
+        third.cancel()
+        guard let command = queue.makeCommandBuffer(),
+              let armed = pipeline.acquireDepthTarget(width: 8, height: 8) else { return [:] }
+        let armedTexture = armed.texture
+        armed.arm(on: command)
+        let completed = commitAndWait(command)
+        let afterCompletion = pipeline.acquireDepthTarget(width: 8, height: 8)
+        let completionReleased = completed && afterCompletion?.texture === armedTexture
+        afterCompletion?.cancel()
+        return [
+            "rejectsFourth": rejectsFourth,
+            "reusesReleased": reusesReleased,
+            "completionReleased": completionReleased,
+        ]
     }
 
     private static func instanceBufferSlotTest() -> [String: Any] {
@@ -1651,9 +1787,9 @@ enum Harness {
         return pixel.map(Int.init)
     }
 
-    private static func instance(x: Float) -> SceneParticleGPUInstance {
+    private static func instance(x: Float, z: Float = 0) -> SceneParticleGPUInstance {
         SceneParticleGPUInstance(
-            position: SIMD3(x, 0, 0), size: 1, rotation: .zero,
+            position: SIMD3(x, 0, z), size: 1, rotation: .zero,
             color: SIMD3(repeating: 1), alpha: 1
         )
     }
@@ -1745,6 +1881,23 @@ class SceneParticleRenderingTests(unittest.TestCase):
             self.skipTest("Metal offscreen draw is unavailable")
         for channel in pixel:
             self.assertAlmostEqual(channel, 64, delta=2)
+
+    def test_depth_state_rejects_far_fragment_and_overbright_scales_rgb_only(self) -> None:
+        pixel = self.result["depthAndOverbrightPixel"]
+        if not pixel:
+            self.skipTest("Metal depth draw is unavailable")
+        self.assertEqual(pixel[0], 0)
+        self.assertEqual(pixel[1], 0)
+        self.assertAlmostEqual(pixel[2], 128, delta=2)
+        self.assertEqual(pixel[3], 255)
+        self.assertEqual(
+            self.result["depthTargetLease"],
+            {
+                "rejectsFourth": True,
+                "reusesReleased": True,
+                "completionReleased": True,
+            },
+        )
 
     def test_non_square_sprite_geometry_tracks_current_and_blended_frame_aspect(self) -> None:
         wide = self.result["spriteAspectBounds"]

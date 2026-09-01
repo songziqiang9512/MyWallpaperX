@@ -367,7 +367,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
             }
         case .controlPointAttract:
-            applyControlPointForce(value, duration: duration)
+            applyControlPointForce(
+                value,
+                duration: duration,
+                normalizedLives: normalizedLives
+            )
         case .boids:
             applyBoids(value, duration: duration)
         case .vortex:

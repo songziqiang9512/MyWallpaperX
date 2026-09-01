@@ -14,12 +14,17 @@ struct SceneParticleMetalPipeline {
         let destinationAlpha: MTLBlendFactor
     }
 
+    private let device: MTLDevice
     private let translucentState: MTLRenderPipelineState
     private let additiveState: MTLRenderPipelineState
+    private let depthTranslucentState: MTLRenderPipelineState
+    private let depthAdditiveState: MTLRenderPipelineState
     private let refractTranslucentState: MTLRenderPipelineState
     private let refractAdditiveState: MTLRenderPipelineState
+    private let depthStates: [Int: MTLDepthStencilState]
     private let samplerStates: SceneParticleSamplerStateSet
     private let framebufferSnapshot: SceneFramebufferSnapshot
+    private let depthTargetPool = SceneParticleDepthTargetPool()
 
     private static let unitQuad: [SceneParticleQuadVertex] = [
         .init(position: SIMD2(-0.5, -0.5), texcoord: SIMD2(0, 1)),
@@ -47,6 +52,22 @@ struct SceneParticleMetalPipeline {
                   pixelFormat: pixelFormat,
                   blendMode: .additive
               ),
+              let depthTranslucent = Self.makeState(
+                  device: device,
+                  vertex: vertex,
+                  fragment: fragment,
+                  pixelFormat: pixelFormat,
+                  blendMode: .translucent,
+                  depthPixelFormat: .depth32Float
+              ),
+              let depthAdditive = Self.makeState(
+                  device: device,
+                  vertex: vertex,
+                  fragment: fragment,
+                  pixelFormat: pixelFormat,
+                  blendMode: .additive,
+                  depthPixelFormat: .depth32Float
+              ),
               let refractTranslucent = Self.makeState(
                   device: device,
                   vertex: vertex,
@@ -61,13 +82,18 @@ struct SceneParticleMetalPipeline {
                   pixelFormat: pixelFormat,
                   blendMode: .additive
               ),
-              let samplerStates = SceneParticleSamplerStateSet(device: device) else {
+              let samplerStates = SceneParticleSamplerStateSet(device: device),
+              let depthStates = Self.makeDepthStates(device: device) else {
             return nil
         }
         translucentState = translucent
+        self.device = device
         additiveState = additive
+        depthTranslucentState = depthTranslucent
+        depthAdditiveState = depthAdditive
         refractTranslucentState = refractTranslucent
         refractAdditiveState = refractAdditive
+        self.depthStates = depthStates
         self.samplerStates = samplerStates
         framebufferSnapshot = SceneFramebufferSnapshot(
             device: device,
@@ -93,12 +119,17 @@ struct SceneParticleMetalPipeline {
         renderState: SceneParticlePipelineRenderState,
         colorUVScale: SIMD2<Float> = SIMD2(repeating: 1),
         colorSampling: SceneParticleTextureSampling,
+        usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder
     ) {
         guard let drawState = instances.currentDrawState() else { return }
-        encoder.setRenderPipelineState(
-            renderState.blendMode == .additive ? additiveState : translucentState
-        )
+        let state = renderState.blendMode == .additive
+            ? (usesDepthAttachment ? depthAdditiveState : additiveState)
+            : (usesDepthAttachment ? depthTranslucentState : translucentState)
+        encoder.setRenderPipelineState(state)
+        if usesDepthAttachment {
+            encoder.setDepthStencilState(depthState(for: renderState))
+        }
         configureCull(renderState.cullMode, encoder: encoder)
         defer { encoder.setCullMode(.none) }
         var quad = Self.unitQuad
@@ -119,10 +150,15 @@ struct SceneParticleMetalPipeline {
             samplerStates.state(for: colorSampling),
             index: 0
         )
-        var uvScale = colorUVScale
+        var parameters = SIMD4<Float>(
+            colorUVScale.x,
+            colorUVScale.y,
+            renderState.overbright,
+            0
+        )
         encoder.setFragmentBytes(
-            &uvScale,
-            length: MemoryLayout<SIMD2<Float>>.stride,
+            &parameters,
+            length: MemoryLayout<SIMD4<Float>>.stride,
             index: 0
         )
         encoder.drawPrimitives(
@@ -131,6 +167,10 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+    }
+
+    func acquireDepthTarget(width: Int, height: Int) -> SceneParticleDepthTargetLease? {
+        depthTargetPool.acquire(device: device, width: width, height: height)
     }
 
     func snapshot(
@@ -233,16 +273,24 @@ struct SceneParticleMetalPipeline {
         encoder.setCullMode(mode == .back ? .back : .none)
     }
 
+    private func depthState(
+        for state: SceneParticlePipelineRenderState
+    ) -> MTLDepthStencilState? {
+        depthStates[(state.depthTestEnabled ? 2 : 0) | (state.depthWriteEnabled ? 1 : 0)]
+    }
+
     private static func makeState(
         device: MTLDevice,
         vertex: MTLFunction,
         fragment: MTLFunction,
         pixelFormat: MTLPixelFormat,
-        blendMode: SceneParticlePipelineBlendMode
+        blendMode: SceneParticlePipelineBlendMode,
+        depthPixelFormat: MTLPixelFormat = .invalid
     ) -> MTLRenderPipelineState? {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertex
         descriptor.fragmentFunction = fragment
+        descriptor.depthAttachmentPixelFormat = depthPixelFormat
         let attachment = descriptor.colorAttachments[0]!
         attachment.pixelFormat = pixelFormat
         attachment.isBlendingEnabled = true
@@ -252,5 +300,24 @@ struct SceneParticleMetalPipeline {
         attachment.sourceAlphaBlendFactor = blend.sourceAlpha
         attachment.destinationAlphaBlendFactor = blend.destinationAlpha
         return try? device.makeRenderPipelineState(descriptor: descriptor)
+    }
+
+    private static func makeDepthStates(
+        device: MTLDevice
+    ) -> [Int: MTLDepthStencilState]? {
+        var states: [Int: MTLDepthStencilState] = [:]
+        for depthTest in [false, true] {
+            for depthWrite in [false, true] {
+                let descriptor = MTLDepthStencilDescriptor()
+                descriptor.depthCompareFunction = depthTest ? .lessEqual : .always
+                descriptor.isDepthWriteEnabled = depthWrite
+                let key = (depthTest ? 2 : 0) | (depthWrite ? 1 : 0)
+                guard let state = device.makeDepthStencilState(descriptor: descriptor) else {
+                    return nil
+                }
+                states[key] = state
+            }
+        }
+        return states
     }
 }

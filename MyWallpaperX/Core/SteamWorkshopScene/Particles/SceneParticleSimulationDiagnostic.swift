@@ -243,9 +243,17 @@ extension SceneParticleSimulationMath {
         let pointerPoints = definition.controlPoints.filter(\.followsPointer)
         if !pointerPoints.isEmpty {
             let positionAroundIdentities = definition.positionAroundPointerControlPointIdentities
+            let forceIdentities = Set(definition.operators.compactMap { value -> Int? in
+                guard definition.supportsBoundedControlPointForce(value),
+                      case let .supported(plan) = value.controlPointForceAdmission
+                else { return nil }
+                return plan.controlPoint
+            })
             let supported = pointerPoints.allSatisfy { point in
-                point.hasBoundedPointerInput
-                    || point.id.map(positionAroundIdentities.contains) == true
+                guard let identity = point.id else { return false }
+                return point.hasBoundedPointerInput
+                    && (forceIdentities.contains(identity)
+                        || positionAroundIdentities.contains(identity))
             }
             add(supported ? .pointerControlPointBounded
                           : .pointerControlPointUnsupported,

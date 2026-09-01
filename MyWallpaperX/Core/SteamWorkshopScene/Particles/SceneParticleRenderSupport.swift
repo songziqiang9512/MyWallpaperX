@@ -13,6 +13,27 @@ nonisolated enum SceneParticlePipelineCullMode: String, Equatable, Sendable {
 nonisolated struct SceneParticlePipelineRenderState: Equatable, Sendable {
     let blendMode: SceneParticlePipelineBlendMode
     let cullMode: SceneParticlePipelineCullMode
+    let depthTestEnabled: Bool
+    let depthWriteEnabled: Bool
+    let overbright: Float
+
+    nonisolated init(
+        blendMode: SceneParticlePipelineBlendMode,
+        cullMode: SceneParticlePipelineCullMode,
+        depthTestEnabled: Bool = false,
+        depthWriteEnabled: Bool = false,
+        overbright: Float = 1
+    ) {
+        self.blendMode = blendMode
+        self.cullMode = cullMode
+        self.depthTestEnabled = depthTestEnabled
+        self.depthWriteEnabled = depthWriteEnabled
+        self.overbright = overbright
+    }
+
+    var requiresDepthAttachment: Bool {
+        depthTestEnabled || depthWriteEnabled
+    }
 }
 
 nonisolated enum SceneParticleSpriteAnimationMode: Equatable, Sendable {

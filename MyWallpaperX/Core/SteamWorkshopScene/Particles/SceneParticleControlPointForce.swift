@@ -66,7 +66,7 @@ nonisolated struct SceneParticleControlPointForcePlan {
 
 nonisolated extension SceneParticleControlPoint {
     var hasBoundedPointerInput: Bool {
-        guard rawFlags == 1, let id, (1 ... 7).contains(id), angles == nil,
+        guard rawFlags == 1, let id, (0 ... 7).contains(id), angles == nil,
               parentControlPoint == nil else { return false }
         return hasExactZeroOffset
     }
@@ -148,8 +148,16 @@ private nonisolated extension SceneParticleBoundValue {
 nonisolated extension SceneParticleOperator {
     var controlPointForceAdmission: SceneParticleControlPointForceAdmission {
         guard kind == .controlPointAttract, rawFlags == 0,
-              blendInStart == nil, blendInEnd == nil,
-              blendOutStart == nil, blendOutEnd == nil,
+              Self.validBlendPair(start: blendInStart, end: blendInEnd),
+              Self.validBlendPair(
+                  start: blendOutStart,
+                  end: blendOutEnd,
+                  permitsInactiveTail: true
+              ),
+              Self.validBlendOrder(
+                  blendInEnd: blendInEnd,
+                  blendOutStart: blendOutStart
+              ),
               !audioResponse.isEnabled,
               let acceleration = scale?.scalarValue, acceleration.isFinite,
               abs(acceleration) <= 1_000_000,
@@ -163,6 +171,26 @@ nonisolated extension SceneParticleOperator {
             acceleration: acceleration,
             maximumDistance: maximumDistance
         ))
+    }
+
+    private static func validBlendPair(
+        start: Double?,
+        end: Double?,
+        permitsInactiveTail: Bool = false
+    ) -> Bool {
+        guard start != nil || end != nil else { return true }
+        guard let start, let end, start.isFinite, end.isFinite,
+              start <= end else { return false }
+        if (0 ... 1).contains(start), (0 ... 1).contains(end) { return true }
+        return permitsInactiveTail && start >= 1 && end <= 1_000_000
+    }
+
+    private static func validBlendOrder(
+        blendInEnd: Double?,
+        blendOutStart: Double?
+    ) -> Bool {
+        guard let blendInEnd, let blendOutStart else { return true }
+        return blendInEnd <= blendOutStart
     }
 
     private static func boundedVector(

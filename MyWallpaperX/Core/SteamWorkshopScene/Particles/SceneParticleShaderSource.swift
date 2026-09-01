@@ -175,10 +175,12 @@ fragment float4 sceneParticleFrag(
     Varyings in [[stage_in]],
     texture2d<float> texture [[texture(0)]],
     sampler colorSampler [[sampler(0)]],
-    constant float2 &colorUVScale [[buffer(0)]]) {
-    float4 first = texture.sample(colorSampler, in.uv0 * colorUVScale);
-    float4 second = texture.sample(colorSampler, in.uv1 * colorUVScale);
-    return mix(first, second, in.frameBlend) * in.tint;
+    constant float4 &parameters [[buffer(0)]]) {
+    float4 first = texture.sample(colorSampler, in.uv0 * parameters.xy);
+    float4 second = texture.sample(colorSampler, in.uv1 * parameters.xy);
+    float4 result = mix(first, second, in.frameBlend) * in.tint;
+    result.rgb *= parameters.z;
+    return result;
 }
 
 fragment float4 sceneParticleRefractFrag(

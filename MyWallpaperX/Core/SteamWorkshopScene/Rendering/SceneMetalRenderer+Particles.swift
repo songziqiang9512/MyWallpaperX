@@ -10,7 +10,15 @@ extension SceneMetalRenderer {
         viewportSize: SIMD2<Float>,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer
-    ) {
+    ) -> SceneParticleDepthTargetLease? {
+        let usesDepth = batches.contains { $0.renderState.requiresDepthAttachment }
+        let targetExtent = mainPass.targetExtent
+        let depthLease = usesDepth ? pipeline.acquireDepthTarget(
+            width: targetExtent.width,
+            height: targetExtent.height
+        ) : nil
+        guard !usesDepth || depthLease != nil else { return nil }
+        var clearsDepth = usesDepth
         for batch in batches {
             let basis = particleBasis(
                 for: batch,
@@ -42,7 +50,13 @@ extension SceneMetalRenderer {
                     colorSampling: batch.colorSampling,
                     encoder: encoder
                 )
-            } else if let encoder = mainPass.encoder() {
+            } else if let encoder = usesDepth
+                ? mainPass.encoder(
+                    depthTexture: depthLease?.texture,
+                    clearsDepth: clearsDepth
+                )
+                : mainPass.encoder() {
+                clearsDepth = false
                 pipeline.draw(
                     texture: batch.texture,
                     instances: batch.instanceBuffer,
@@ -50,10 +64,12 @@ extension SceneMetalRenderer {
                     renderState: batch.renderState,
                     colorUVScale: batch.colorUVScale,
                     colorSampling: batch.colorSampling,
+                    usesDepthAttachment: usesDepth,
                     encoder: encoder
                 )
             }
             batch.instanceBuffer.markSubmitted(on: commandBuffer)
         }
+        return depthLease
     }
 }

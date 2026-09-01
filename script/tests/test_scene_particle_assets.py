@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Particles/SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "Particles/SceneParticlePipelineRenderStateCompiler.swift",
     SOURCE_ROOT / "Particles/SceneParticleTextureSource.swift",
     SOURCE_ROOT / "Particles/SceneParticleRefractionPlan.swift",
     SOURCE_ROOT / "Particles/SceneParticleAssetGraph.swift",
@@ -96,6 +97,16 @@ enum Harness {
             "material": "materials/particle/unsupported-state.json",
             "emitter": [["name": "sphereRandom"]]
         ], relativePath: "particles/unsupported-state.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/depth.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite"]]
+        ], relativePath: "particles/depth.json", under: directory)
+        try writeJSON([
+            "material": "materials/particle/depth.json",
+            "emitter": [["name": "sphereRandom"]],
+            "renderer": [["name": "sprite", "orientation": "fixed"]]
+        ], relativePath: "particles/depth-fixed.json", under: directory)
         try writeJSON([
             "material": "materials/particle/normal-cull.json",
             "emitter": [["name": "sphereRandom"]],
@@ -177,6 +188,22 @@ enum Harness {
                 alphaWriting: "enabled"
             ),
             SceneParticleMaterialPass(
+                materialPath: "materials/particle/depth.json",
+                shaderPath: "shaders/genericparticle.json",
+                texturePaths: ["particle/root"],
+                blending: "translucent",
+                combos: ["CUTOUT": 0, "REFRACT": 0],
+                constantValues: [
+                    "ui_editor_properties_overbright": .init(
+                        components: [1.19],
+                        isStatic: true
+                    )
+                ],
+                depthTest: "enabled",
+                depthWrite: "enabled",
+                alphaWriting: "default"
+            ),
+            SceneParticleMaterialPass(
                 materialPath: "materials/particle/normal-cull.json",
                 shaderPath: "shaders/genericparticle.json",
                 texturePaths: ["particle/root"],
@@ -212,6 +239,8 @@ enum Harness {
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/depth.json",
+                "particles/depth-fixed.json",
                 "particles/normal-cull.json",
                 "particles/normal-cull-fixed.json",
                 "particles/normal-cull-trail.json",
@@ -229,6 +258,8 @@ enum Harness {
         let refract = graph.assetsByPath["particles/refract.json"]
         let unknownBlend = graph.assetsByPath["particles/unknown-blend.json"]
         let unsupportedState = graph.assetsByPath["particles/unsupported-state.json"]
+        let depth = graph.assetsByPath["particles/depth.json"]
+        let depthFixed = graph.assetsByPath["particles/depth-fixed.json"]
         let normalCull = graph.assetsByPath["particles/normal-cull.json"]
         let normalCullFixed = graph.assetsByPath["particles/normal-cull-fixed.json"]
         let normalCullTrail = graph.assetsByPath["particles/normal-cull-trail.json"]
@@ -267,6 +298,11 @@ enum Harness {
             "unknownBlendStateRejected": unknownBlend?.renderState == nil,
             "unsupportedStateRejected": unsupportedState?.pipelineState == nil
                 && unsupportedState?.renderState == nil,
+            "depthTestEnabled": depth?.pipelineState?.depthTestEnabled ?? false,
+            "depthWriteEnabled": depth?.pipelineState?.depthWriteEnabled ?? false,
+            "depthOverbright": depth?.pipelineState?.overbright ?? -1,
+            "depthFixedRejected": depthFixed?.pipelineState == nil
+                && depthFixed?.renderState == nil,
             "rootCull": root?.pipelineState?.cullMode.rawValue ?? "",
             "normalCull": normalCull?.pipelineState?.cullMode.rawValue ?? "",
             "normalCullFixedRejected": normalCullFixed?.pipelineState == nil
@@ -606,7 +642,7 @@ class SceneParticleAssetTests(unittest.TestCase):
 
     def test_synthetic_asset_graph(self) -> None:
         result = self.run_harness("synthetic")
-        self.assertEqual(result["assetCount"], 14)
+        self.assertEqual(result["assetCount"], 16)
         self.assertEqual(
             result["rootPaths"],
             [
@@ -618,6 +654,8 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "particles/refract.json",
                 "particles/unknown-blend.json",
                 "particles/unsupported-state.json",
+                "particles/depth.json",
+                "particles/depth-fixed.json",
                 "particles/normal-cull.json",
                 "particles/normal-cull-fixed.json",
                 "particles/normal-cull-trail.json",
@@ -642,6 +680,10 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["unknownBlendRejected"])
         self.assertTrue(result["unknownBlendStateRejected"])
         self.assertTrue(result["unsupportedStateRejected"])
+        self.assertTrue(result["depthTestEnabled"])
+        self.assertTrue(result["depthWriteEnabled"])
+        self.assertAlmostEqual(result["depthOverbright"], 1.19, places=6)
+        self.assertTrue(result["depthFixedRejected"])
         self.assertEqual(result["rootCull"], "none")
         self.assertEqual(result["normalCull"], "back")
         self.assertTrue(result["normalCullFixedRejected"])
@@ -659,7 +701,7 @@ class SceneParticleAssetTests(unittest.TestCase):
                 "missingTextureFile": 1,
                 "missingTextureReference": 1,
                 "unsupportedBlendMode": 1,
-                "unsupportedRenderState": 3,
+                "unsupportedRenderState": 4,
                 "unsupportedShader": 2,
             },
         )

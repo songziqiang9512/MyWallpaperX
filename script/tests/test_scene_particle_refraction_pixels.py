@@ -53,6 +53,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Particles/SceneParticleShaderSource.swift",
     SCENE_ROOT / "Particles/SceneParticleSamplerStateSet.swift",
     SCENE_ROOT / "Particles/SceneParticleMetalPipeline.swift",
+    SCENE_ROOT / "Particles/SceneParticleDepthTargetPool.swift",
     SCENE_ROOT / "Particles/SceneParticleTextureSource.swift",
 ]
 

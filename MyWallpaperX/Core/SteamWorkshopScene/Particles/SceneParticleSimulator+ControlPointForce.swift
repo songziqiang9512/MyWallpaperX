@@ -3,11 +3,13 @@ import Foundation
 nonisolated extension SceneParticleSimulator {
     func applyControlPointForce(
         _ value: SceneParticleOperator,
-        duration: Double
+        duration: Double,
+        normalizedLives: [Double]
     ) {
         guard definition.supportsBoundedControlPointForce(value),
               case let .supported(plan) = value.controlPointForceAdmission,
-              let target = controlPointPosition(plan.controlPoint, offset: plan.origin)
+              let target = controlPointPosition(plan.controlPoint, offset: plan.origin),
+              normalizedLives.count == particles.count
         else { return }
         for index in particles.indices {
             let delta = target - particles[index].position
@@ -15,7 +17,8 @@ nonisolated extension SceneParticleSimulator {
             guard distance.isFinite, distance > 1e-12,
                   distance <= plan.maximumDistance else { continue }
             SceneParticleSimulationMath.addFinite(
-                delta / distance * plan.acceleration * duration,
+                delta / distance * plan.acceleration * duration
+                    * operatorBlend(value, normalizedLives[index]),
                 to: &particles[index].velocity
             )
         }

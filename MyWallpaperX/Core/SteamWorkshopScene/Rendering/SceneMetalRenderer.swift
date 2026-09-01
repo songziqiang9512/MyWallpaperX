@@ -110,6 +110,8 @@ struct SceneMetalRenderer {
         }
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
         defer { sourceUpdateTransaction.cancel() }
+        var particleDepthLeases: [SceneParticleDepthTargetLease] = []
+        defer { particleDepthLeases.forEach { $0.cancel() } }
         let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
             frameIndex: frameContext.frameIndex
         )
@@ -477,7 +479,7 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration
                 )
-                renderParticleBatches(
+                if let depthLease = renderParticleBatches(
                     layerBatches,
                     pipeline: particlePipeline,
                     model: model,
@@ -488,7 +490,9 @@ struct SceneMetalRenderer {
                     ),
                     mainPass: mainPass,
                     commandBuffer: commandBuffer
-                )
+                ) {
+                    particleDepthLeases.append(depthLease)
+                }
             default:
                 continue
             }
@@ -506,6 +510,7 @@ struct SceneMetalRenderer {
         )
         performanceTelemetry?.recordSubmitted(on: commandBuffer)
         sourceUpdateTransaction.arm(on: commandBuffer)
+        particleDepthLeases.forEach { $0.arm(on: commandBuffer) }
         commandBuffer.commit()
         sourceUpdateTransaction.didSubmit()
         if let cpuStart {

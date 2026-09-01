@@ -471,6 +471,38 @@ enum Harness {
             controlPointForceJSON(scale: "2", threshold: "20"), seed: 1, step: 1
         )
         pointerAtCenter.advance(by: 1, dynamicControlPoints: [1: .zero])
+        var pointerZero = simulator(
+            controlPointForceJSON(
+                scale: "2", threshold: "20", controlPoint: 0
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerZero.advance(by: 1, dynamicControlPoints: [0: SIMD3(10, 0, 0)])
+        var pointerInactiveTailBlend = simulator(
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":2, "blendoutend":2"#,
+                controlPoint: 0
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerInactiveTailBlend.advance(
+            by: 1,
+            dynamicControlPoints: [0: SIMD3(10, 0, 0)]
+        )
+        var pointerLifetimeBlend = simulator(
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":0, "blendoutend":1"#
+            ),
+            seed: 1,
+            step: 1
+        )
+        pointerLifetimeBlend.advance(by: 1, dynamicControlPoints: [1: SIMD3(10, 0, 0)])
         let pointerDefinition = SceneParticleDefinitionParser().parse(
             root: try! object(controlPointForceJSON(scale: "2", threshold: "20"))
         )
@@ -491,6 +523,11 @@ enum Harness {
             controlPointForceJSON(scale: #""1 2 3""#, threshold: "20"),
             controlPointForceJSON(scale: "2", threshold: "20", flags: 3),
             controlPointForceJSON(scale: "2", threshold: "20", extra: #", "blendinstart":0"#),
+            controlPointForceJSON(
+                scale: "2",
+                threshold: "20",
+                extra: #", "blendoutstart":0.8, "blendoutend":0.2"#
+            ),
             controlPointForceJSON(scale: "2", threshold: "20", controlPoint: 8),
             controlPointForceJSON(scale: "2", threshold: "20", pointOffset: "0 0"),
             controlPointForceJSON(scale: "2", threshold: "20", systemFlags: 1),
@@ -1333,6 +1370,11 @@ enum Harness {
             "pointerPushVelocity": vector(pointerPush.particles[0].velocity),
             "pointerOutsideVelocity": vector(pointerOutside.particles[0].velocity),
             "pointerAtCenterVelocity": vector(pointerAtCenter.particles[0].velocity),
+            "pointerZeroVelocity": vector(pointerZero.particles[0].velocity),
+            "pointerInactiveTailBlendVelocity": vector(
+                pointerInactiveTailBlend.particles[0].velocity
+            ),
+            "pointerLifetimeBlendVelocity": vector(pointerLifetimeBlend.particles[0].velocity),
             "pointerMapped": pointerMapped.map(vector) ?? [],
             "pointerOutsideInactive": pointerOutsideMapped?.x.isNaN == true
                 && pointerOutsideMapped?.y.isNaN == true
@@ -1880,7 +1922,7 @@ enum Harness {
          "initializer":[{"name":"lifetimerandom","min":10,"max":10}],
          "operator":[{"name":"movement","flags":\(movementFlags)},{"name":"controlpointattract","controlpoint":\(controlPoint),"origin":"0 0 0","scale":\(scale),"threshold":\(threshold)\(extra)}],
          "renderer":[{"name":"sprite"}],
-         "controlpoint":[{"id":1,"flags":\(flags),"offset":"\(pointOffset)"}\(controlPointSuffix)]}
+         "controlpoint":[{"id":\(controlPoint),"flags":\(flags),"offset":"\(pointOffset)"}\(controlPointSuffix)]}
         """
     }
 
@@ -2519,6 +2561,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["pointerPushVelocity"], [-2, 0, 0])
         self.assertEqual(self.results["pointerOutsideVelocity"], [0, 0, 0])
         self.assertEqual(self.results["pointerAtCenterVelocity"], [0, 0, 0])
+        self.assertEqual(self.results["pointerZeroVelocity"], [2, 0, 0])
+        self.assertEqual(self.results["pointerInactiveTailBlendVelocity"], [2, 0, 0])
+        self.assertAlmostEqual(self.results["pointerLifetimeBlendVelocity"][0], 1.8)
         self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
         self.assertTrue(self.results["pointerOutsideInactive"])
         self.assertTrue(self.results["duplicatePointerRejected"])
@@ -2528,7 +2573,7 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         )
         self.assertEqual(
             self.results["invalidControlPointForceVelocities"],
-            [[0, 0, 0]] * 10,
+            [[0, 0, 0]] * 11,
         )
         for diagnostics in self.results["invalidControlPointForceDiagnostics"]:
             self.assertIn("controlPointForceUnsupported", diagnostics)
