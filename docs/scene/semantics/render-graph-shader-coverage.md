@@ -433,7 +433,7 @@
 | 类型 alias：`vec2/3/4`、`mat2/3/4x3/4`；函数 alias 另含 `mul`、`mod`、`fmod` | `L0` | 与 Syntax 中 alias 一并进入可版本化 symbol table。 |
 | 整数字面量默认尝试改成 float；`WEMOBILE_DISABLE_INTEGER_CONVERSION` 可关闭 | `L0` | 不能靠文本替换；需 token-aware rewrite 和 before/after fixture。 |
 | 平台分支用独立 `#ifdef HLSL` / `#ifdef GLSL`；`#elif` 不支持，`#else` 对未来 API 不稳 | `L0` | preprocessor 需与官方限制一致并输出明确诊断。 |
-| 移动端编译失败时移除所属 effect，壁纸继续运行 | `L0` | MyWallpaperX尚未实现官方移动端的per-effect移除合同。当前只有更窄的source-stage故障隔离降级：route精确为`.unclaimed`，不存在已授权/可执行typed dependency、source-copy、frame target或final-alpha，也没有已加载mask或其他非中性合成责任，且exact static-file或current-media atom与authored quad全部闭合时，仅把source交给普通final layer compose。它不执行或发布effect output，记录`degraded-layer-source-passthrough`并使benchmark保持NON-PASS，不得用来提升本行等级或声称官方行为。 |
+| 移动端编译失败时移除所属 effect，壁纸继续运行 | `L0` | MyWallpaperX尚未实现官方移动端的per-effect移除合同。当前只有更窄的source-stage故障隔离降级：route精确为`.unclaimed`，不存在最终获准/可执行的typed dependency binding、source-copy、frame target或final-alpha，也没有已加载mask或其他非中性合成责任，且exact static-file或current-media atom与authored quad全部闭合时，仅把source交给普通final layer compose。未绑定consumer不拥有dependency product authority；取得binding的consumer与不安全provider仍禁止passthrough，publication/generation/texture/color/alpha/UV/geometry/mask守卫不变。该路径不执行或发布effect output，记录`degraded-layer-source-passthrough`并使benchmark保持NON-PASS，不得用来提升本行等级或声称官方行为。 |
 
 <a id="op-shader-desaturation"></a>
 ### 4.6 Desaturation Tutorial

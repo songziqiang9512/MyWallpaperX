@@ -1809,7 +1809,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "providers": [],
                 "graphProviders": [],
                 "effectConsumers": [401, 402],
-                "passthroughBlocked": [400, 401, 402],
+                # Route rollback keeps both provider identities blocked, but
+                # the terminal unbound consumer may retain its base source.
+                "passthroughBlocked": [400, 401],
                 "issues": [
                     "401:namedProviderRouteDisabled:400",
                     "402:namedProviderRouteDisabled:401",
@@ -1904,23 +1906,23 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertEqual(self.result["matrixBindingCount"], 7)
         self.assertEqual(self.result["matrixRequiredProviders"], [10, 11, 12, 13, 14, 15])
 
-    def test_visible_dependency_edge_blocks_both_sides_from_static_passthrough(self) -> None:
+    def test_unbound_consumer_preserves_base_while_provider_stays_blocked(self) -> None:
         self.assertEqual(
             self.result["staticPassthroughBlocks"],
             {
                 "namedProvider": True,
-                "namedConsumer": True,
+                "namedConsumer": False,
                 "hiddenNamedProvider": False,
                 "hiddenNamedConsumer": False,
                 "selfReference": False,
                 "unreferenced": False,
                 "explicitProvider": True,
-                "explicitConsumer": True,
+                "explicitConsumer": False,
                 "requiredProvidersEmpty": True,
             },
         )
 
-    def test_xray_consumer_passthrough_exemption_is_typed_and_provider_sided(
+    def test_unbound_xray_shapes_keep_provider_sided_safety(
         self,
     ) -> None:
         self.assertEqual(
@@ -1928,20 +1930,20 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             {
                 "exemptConsumer": False,
                 "xRayProvider": True,
-                "extraDependency": True,
-                "opacityMaskCombo": True,
-                "blendModeCombo": True,
-                "nonStockDefinition": True,
-                "secondNamedSlot": True,
-                "mismatchedProvider": True,
-                "secondNamedReference": True,
-                "multiplePasses": True,
+                "extraDependency": False,
+                "opacityMaskCombo": False,
+                "blendModeCombo": False,
+                "nonStockDefinition": False,
+                "secondNamedSlot": False,
+                "mismatchedProvider": False,
+                "secondNamedReference": False,
+                "multiplePasses": False,
                 "exemptThenProvider": True,
-                "upperConsumer": True,
+                "upperConsumer": False,
             },
         )
 
-    def test_xray_passthrough_requires_verified_identity_and_existing_provider(
+    def test_xray_provider_safety_does_not_block_unbound_consumer_fallback(
         self,
     ) -> None:
         self.assertEqual(
@@ -1949,9 +1951,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             {
                 "exactProvider": True,
                 "exactConsumer": False,
-                "missingProviderConsumer": True,
+                "missingProviderConsumer": False,
                 "unverifiedStockPathProvider": True,
-                "unverifiedStockPathConsumer": True,
+                "unverifiedStockPathConsumer": False,
                 "multiEffectProvider": True,
                 "multiEffectConsumer": False,
             },

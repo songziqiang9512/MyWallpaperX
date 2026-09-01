@@ -272,9 +272,6 @@ nonisolated struct SceneDependencyRenderPlan {
         }
         for consumerLayerID in reachableConsumerLayerIDs {
             for providerLayerID in dependencyEdges[consumerLayerID] ?? [] {
-                if !xRayExemptConsumerLayerIDs.contains(consumerLayerID) {
-                    passthroughBlockedLayerIDs.insert(consumerLayerID)
-                }
                 if layersByID[providerLayerID] != nil,
                    !passthroughSafeGraphOutputProviderLayerIDs.contains(
                        providerLayerID
@@ -349,6 +346,18 @@ nonisolated struct SceneDependencyRenderPlan {
             }
             removedBinding = !consumerLayerIDsToRemove.isEmpty
         }
+
+        // An unbound named-input consumer owns no product dependency result.
+        // If its unsupported effect chain is omitted, drawing the already
+        // validated base source is the smallest previous-current fallback.
+        // Executable consumers remain blocked until their binding is consumed,
+        // and every unsafe provider remains blocked above so a base image can
+        // never masquerade as a named graph publication downstream.
+        passthroughBlockedLayerIDs.formUnion(
+            bindings.keys.filter {
+                !xRayExemptConsumerLayerIDs.contains($0)
+            }
+        )
 
         self.references = references
         self.namedReferenceConsumerLayerIDs = Set(references.compactMap { reference in
