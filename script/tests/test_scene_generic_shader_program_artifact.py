@@ -36,6 +36,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
     Path(__file__).with_name("fixtures")
     / "SceneGenericShaderRouteResolutionSupport.swift",
@@ -58,6 +60,15 @@ private struct CoordinatorOutput: Codable {
     let firstFailed: Bool
     let repeatedFailed: Bool
     let independentSucceeded: Bool
+}
+
+private struct ResolutionCacheOutput: Codable {
+    let acceptedOperationCount: Int
+    let firstAcceptedCacheHit: Bool
+    let repeatedAcceptedCacheHit: Bool
+    let rejectedOperationCount: Int
+    let firstRejectedCacheHit: Bool
+    let repeatedRejectedCacheHit: Bool
 }
 
 private struct BuilderOutput: Codable {
@@ -2966,8 +2977,8 @@ private struct GenericShaderArtifactHarness {
             return
         }
         if CommandLine.arguments[1] == "--coordinator" {
-            let coordinator = SceneResolvedMaterialGenericShaderArtifactCache
-                .CompilationCoordinator()
+            let coordinator =
+                SceneResolvedMaterialGenericShaderCompilationCoordinator()
             var operationCount = 0
             let failed: () -> Result<URL, SceneGenericShaderCompiler.Failure> = {
                 operationCount += 1
@@ -2987,6 +2998,107 @@ private struct GenericShaderArtifactHarness {
                 firstFailed: failedResult(first.result),
                 repeatedFailed: failedResult(repeated.result),
                 independentSucceeded: succeededResult(independent.result)
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--resolution-cache" {
+            func input(fragmentSource: String) ->
+                SceneResolvedMaterialGenericShaderResolutionCache.Input
+            {
+                .init(
+                    vertexSource: "vertex",
+                    fragmentSource: fragmentSource,
+                    alphaAttenuationSourceSlot: nil,
+                    colorBlendSourceSlot: nil,
+                    unitCompositeBlurredSlot: nil,
+                    unitCompositePreviousSlot: nil,
+                    unitCompositeMaskSlot: nil,
+                    hasExternalProviderTexture: false,
+                    producesScalarRedOutput: false,
+                    producesRedGreenUnormOutput: false,
+                    hasOnlyScalarDataInputs: false,
+                    isSourceIndependentPremultipliedOutput: false,
+                    graphTextureSlots: [],
+                    graphInputTextureSlots: [],
+                    activeTextureSlots: [],
+                    activeOpacityMaskSlots: [],
+                    typedStaticDataAuxiliarySlots: [],
+                    premultipliedColorAuxiliarySlots: [],
+                    spatialWeightedColorBlendSourceSlot: nil,
+                    spatialWeightedColorBlendActiveSlots: [],
+                    spatialWeightedColorBlendTypedAuxiliarySlots: [],
+                    spatialWeightedColorBlendExternalColorSlot: nil,
+                    r8TextureSlots: [],
+                    hasDefaultedOpacityMaskSampler: false,
+                    hasOnlyTypedOpacityMaskAuxiliary: false,
+                    hasOnlyGraphInputSampler: false,
+                    outputIsRGBA8Unorm: false,
+                    sourceColorTransfer: nil,
+                    outputSemantics: .color,
+                    runtimeLoopBounds: .none
+                )
+            }
+
+            let cache = SceneResolvedMaterialGenericShaderResolutionCache()
+            let program = SceneAuthoredShaderProgram(
+                metalSource: "",
+                vertexFunctionName: "vertex",
+                fragmentFunctionName: "fragment",
+                uniformLayout: .init(fields: [], byteSize: 0),
+                textureBindings: [],
+                staticLoopWork: 0,
+                colorTransfer: .opaque
+            )
+            let decision = SceneGenericShaderRouteDecision(
+                profile: "fixture",
+                state: "generic-only",
+                fallbackOwner: "none"
+            )
+            var acceptedOperationCount = 0
+            let acceptedOperation = {
+                acceptedOperationCount += 1
+                return SceneResolvedMaterialGenericShaderArtifactCache.Resolution
+                    .accepted(
+                        program: program,
+                        requestKey: "accepted",
+                        routeDecision: decision
+                    )
+            }
+            let firstAccepted = cache.perform(
+                key: input(fragmentSource: "accepted"),
+                operation: acceptedOperation
+            )
+            let repeatedAccepted = cache.perform(
+                key: input(fragmentSource: "accepted"),
+                operation: acceptedOperation
+            )
+
+            var rejectedOperationCount = 0
+            let rejectedOperation = {
+                rejectedOperationCount += 1
+                return SceneResolvedMaterialGenericShaderArtifactCache.Resolution
+                    .ownerDeferred(
+                        code: "fixture",
+                        requestKey: "rejected",
+                        routeDecision: decision
+                    )
+            }
+            let firstRejected = cache.perform(
+                key: input(fragmentSource: "rejected"),
+                operation: rejectedOperation
+            )
+            let repeatedRejected = cache.perform(
+                key: input(fragmentSource: "rejected"),
+                operation: rejectedOperation
+            )
+            let output = ResolutionCacheOutput(
+                acceptedOperationCount: acceptedOperationCount,
+                firstAcceptedCacheHit: firstAccepted.cacheHit,
+                repeatedAcceptedCacheHit: repeatedAccepted.cacheHit,
+                rejectedOperationCount: rejectedOperationCount,
+                firstRejectedCacheHit: firstRejected.cacheHit,
+                repeatedRejectedCacheHit: repeatedRejected.cacheHit
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4331,6 +4443,23 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "firstFailed": True,
             "repeatedFailed": True,
             "independentSucceeded": True,
+        })
+
+    def test_resolution_cache_only_reuses_accepted_exact_inputs(self):
+        completed = subprocess.run(
+            [str(self.binary), "--resolution-cache"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "acceptedOperationCount": 1,
+            "firstAcceptedCacheHit": False,
+            "repeatedAcceptedCacheHit": True,
+            "rejectedOperationCount": 2,
+            "firstRejectedCacheHit": False,
+            "repeatedRejectedCacheHit": False,
         })
 
     def test_straight_alpha_preserving_proves_composed_same_slot_output(self):

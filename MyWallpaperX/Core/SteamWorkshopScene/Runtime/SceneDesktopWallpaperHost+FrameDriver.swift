@@ -191,11 +191,12 @@ extension SceneDesktopWallpaperHost {
         let nextDeadline: CFTimeInterval
         switch attempt {
         case .rendered:
-            var cadenceDeadline = scheduledDeadline + sceneFrameInterval
-            while cadenceDeadline <= now {
-                cadenceDeadline += sceneFrameInterval
-            }
-            nextDeadline = cadenceDeadline
+            let cadenceDeadline = scheduledDeadline + sceneFrameInterval
+            // A frame that only narrowly crosses its deadline must not wait for
+            // another complete 60 Hz slot. Realign at the current host time;
+            // fast frames still wait for cadence, while the existing busy gate
+            // continues to enforce single-frame-in-flight graphs.
+            nextDeadline = max(cadenceDeadline, now)
         case .busy:
             // History-bearing graphs remain single-frame-in-flight. A short
             // retry prevents a slight overrun from losing a full 60 Hz slot.

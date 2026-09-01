@@ -99,6 +99,7 @@
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache+ExecutionTelemetry.swift",
           "SceneResolvedMaterialGenericShaderArtifactCache.swift",
+          "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderRequest.swift",
           "SceneResolvedMaterialGenericShaderRouteProfile.swift",

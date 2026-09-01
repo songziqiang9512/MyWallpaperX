@@ -30,6 +30,8 @@ SWIFT_SOURCES = [
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteProfile.swift",
     MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderArtifactCache.swift",
+    MATERIAL_PROGRAM_ROOT
+    / "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRequest.swift",
     MATERIAL_PROGRAM_ROOT
     / "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",

@@ -35,7 +35,10 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static let maximumArtifactBytes = 2 * 1_024 * 1_024
     private static let maximumRouteAnalysisSourceBytes = 512 * 1_024
     static let routeTelemetry = RouteTelemetry()
-    private static let compilationCoordinator = CompilationCoordinator()
+    private static let compilationCoordinator =
+        SceneResolvedMaterialGenericShaderCompilationCoordinator()
+    private static let resolutionCache =
+        SceneResolvedMaterialGenericShaderResolutionCache()
 
     final class RouteTelemetry: @unchecked Sendable {
         private let lock = NSLock()
@@ -129,7 +132,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         }
 
         func recordCompilerLifecycle(
-            source: CompilationCoordinator.Source,
+            source: SceneResolvedMaterialGenericShaderCompilationCoordinator.Source,
             outcome: String,
             reason: String,
             requestKey: String
@@ -148,45 +151,6 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 requestKey,
                 count
             )
-        }
-    }
-
-    final class CompilationCoordinator: @unchecked Sendable {
-        enum Source: String {
-            case spawn
-            case launchResultCache = "launch-result-cache"
-        }
-
-        struct Outcome {
-            let result: Result<URL, SceneGenericShaderCompiler.Failure>
-            let source: Source
-        }
-
-        private let condition = NSCondition()
-        private var active = Set<String>()
-        private var completed: [String: Result<URL, SceneGenericShaderCompiler.Failure>] = [:]
-
-        func perform(
-            key: String,
-            operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
-        ) -> Outcome {
-            condition.lock()
-            while active.contains(key) {
-                condition.wait()
-            }
-            if let result = completed[key] {
-                condition.unlock()
-                return .init(result: result, source: .launchResultCache)
-            }
-            active.insert(key)
-            condition.unlock()
-            let result = operation()
-            condition.lock()
-            completed[key] = result
-            active.remove(key)
-            condition.broadcast()
-            condition.unlock()
-            return .init(result: result, source: .spawn)
         }
     }
 
@@ -222,6 +186,46 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) -> Resolution {
+        let resolutionInput = SceneResolvedMaterialGenericShaderResolutionCache.Input(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
+            colorBlendSourceSlot: colorBlendSourceSlot,
+            unitCompositeBlurredSlot: unitCompositeBlurredSlot,
+            unitCompositePreviousSlot: unitCompositePreviousSlot,
+            unitCompositeMaskSlot: unitCompositeMaskSlot,
+            hasExternalProviderTexture: hasExternalProviderTexture,
+            producesScalarRedOutput: producesScalarRedOutput,
+            producesRedGreenUnormOutput: producesRedGreenUnormOutput,
+            hasOnlyScalarDataInputs: hasOnlyScalarDataInputs,
+            isSourceIndependentPremultipliedOutput:
+                isSourceIndependentPremultipliedOutput,
+            graphTextureSlots: graphTextureSlots,
+            graphInputTextureSlots: graphInputTextureSlots,
+            activeTextureSlots: activeTextureSlots,
+            activeOpacityMaskSlots: activeOpacityMaskSlots,
+            typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            premultipliedColorAuxiliarySlots:
+                premultipliedColorAuxiliarySlots,
+            spatialWeightedColorBlendSourceSlot:
+                spatialWeightedColorBlendSourceSlot,
+            spatialWeightedColorBlendActiveSlots:
+                spatialWeightedColorBlendActiveSlots,
+            spatialWeightedColorBlendTypedAuxiliarySlots:
+                spatialWeightedColorBlendTypedAuxiliarySlots,
+            spatialWeightedColorBlendExternalColorSlot:
+                spatialWeightedColorBlendExternalColorSlot,
+            r8TextureSlots: r8TextureSlots,
+            hasDefaultedOpacityMaskSampler: hasDefaultedOpacityMaskSampler,
+            hasOnlyTypedOpacityMaskAuxiliary:
+                hasOnlyTypedOpacityMaskAuxiliary,
+            hasOnlyGraphInputSampler: hasOnlyGraphInputSampler,
+            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
+            sourceColorTransfer: sourceColorTransfer,
+            outputSemantics: outputSemantics,
+            runtimeLoopBounds: runtimeLoopBounds
+        )
+        let outcome = resolutionCache.perform(key: resolutionInput) {
         let colorTransfer = sourceColorTransfer
             ?? SceneAuthoredShaderColorTransferAnalyzer.analyze(
                 fragmentSource: fragmentSource
@@ -582,6 +586,20 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             requestKey: key,
             routeDecision: routeDecision
         )
+        }
+        if outcome.cacheHit,
+           case let .accepted(_, requestKey, decision) = outcome.resolution,
+           let state = RouteState(rawValue: decision.state),
+           let profile = CapabilityProfile(rawValue: decision.profile) {
+            routeTelemetry.record(
+                state: state,
+                profile: profile,
+                outcome: "accepted",
+                reason: "-",
+                requestKey: requestKey
+            )
+        }
+        return outcome.resolution
     }
 
     private static func fallback(

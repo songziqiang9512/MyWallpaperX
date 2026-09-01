@@ -738,6 +738,8 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         self.assertIn("case .rendered:", schedule)
         self.assertIn("scheduledDeadline + sceneFrameInterval", schedule)
+        self.assertIn("nextDeadline = max(cadenceDeadline, now)", schedule)
+        self.assertNotIn("while cadenceDeadline <= now", schedule)
 
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")

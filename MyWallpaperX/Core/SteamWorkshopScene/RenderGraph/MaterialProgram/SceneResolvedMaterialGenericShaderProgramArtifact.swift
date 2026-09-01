@@ -4,7 +4,9 @@ import Foundation
 /// Output ABI requested from the generic compiler. It is source-independent
 /// and participates in the request key so color-lowered and raw-data Metal can
 /// never share an artifact.
-nonisolated enum SceneGenericShaderOutputSemantics: String, Codable, Sendable {
+nonisolated enum SceneGenericShaderOutputSemantics:
+    String, Codable, Hashable, Sendable
+{
     case color
     case redGreenUnorm = "red-green-unorm"
     case preservedRGBAUnorm = "preserved-rgba-unorm"

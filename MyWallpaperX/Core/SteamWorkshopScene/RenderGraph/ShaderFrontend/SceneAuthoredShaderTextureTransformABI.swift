@@ -24,13 +24,7 @@ nonisolated enum SceneMaterialTextureTransformABI {
     static func component(
         forFieldName name: String
     ) -> (slot: Int, component: Component)? {
-        for slot in 0 ..< 8 {
-            for component in [Component.originAndXAxis, .yAxis]
-            where name == fieldName(slot: slot, component: component) {
-                return (slot, component)
-            }
-        }
-        return nil
+        componentByFieldName[name]
     }
 
     static func fields(
@@ -64,20 +58,45 @@ nonisolated enum SceneMaterialTextureTransformABI {
         layout: SceneAuthoredShaderUniformLayout,
         activeSlots: Set<Int>
     ) -> Bool {
-        let fields = layout.fields.filter {
-            component(forFieldName: $0.authoredName) != nil
-                || component(forFieldName: $0.name) != nil
+        guard activeSlots.allSatisfy({ (0 ..< 8).contains($0) }) else {
+            return false
         }
-        guard fields.count == activeSlots.count * 2 else { return false }
-        return activeSlots.allSatisfy { slot in
-            [Component.originAndXAxis, .yAxis].allSatisfy { component in
-                let name = fieldName(slot: slot, component: component)
-                return fields.contains {
-                    $0.name == name && $0.authoredName == name
-                        && $0.stage == nil && $0.type == .float4
-                        && $0.arrayCount == nil
-                }
+        var expectedMask: UInt16 = 0
+        for slot in activeSlots {
+            expectedMask |= UInt16(0b11) << UInt16(slot * 2)
+        }
+        var observedMask: UInt16 = 0
+        for field in layout.fields {
+            let authored = component(forFieldName: field.authoredName)
+            let runtime = component(forFieldName: field.name)
+            guard authored != nil || runtime != nil else { continue }
+            guard let authored, let runtime,
+                  authored.slot == runtime.slot,
+                  authored.component == runtime.component,
+                  activeSlots.contains(authored.slot),
+                  field.stage == nil,
+                  field.type == .float4,
+                  field.arrayCount == nil else {
+                return false
             }
+            let componentOffset: Int = authored.component == .originAndXAxis ? 0 : 1
+            let fieldMask = UInt16(1) << UInt16(authored.slot * 2 + componentOffset)
+            guard observedMask & fieldMask == 0 else { return false }
+            observedMask |= fieldMask
         }
+        return observedMask == expectedMask
     }
+
+    private static let componentByFieldName: [
+        String: (slot: Int, component: Component)
+    ] = {
+        var result: [String: (slot: Int, component: Component)] = [:]
+        result.reserveCapacity(16)
+        for slot in 0 ..< 8 {
+            result[fieldName(slot: slot, component: .originAndXAxis)] =
+                (slot, .originAndXAxis)
+            result[fieldName(slot: slot, component: .yAxis)] = (slot, .yAxis)
+        }
+        return result
+    }()
 }

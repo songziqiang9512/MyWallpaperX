@@ -11,6 +11,46 @@ nonisolated struct SceneParticlePositionOscillation: Sendable {
     let phase: SIMD3<Double>
 }
 
+nonisolated struct SceneParticleOperatorBlendPlan: Sendable {
+    let hasBlendIn: Bool
+    let blendInStart: Double
+    let blendInEnd: Double
+    let hasBlendOut: Bool
+    let blendOutStart: Double
+    let blendOutEnd: Double
+
+    nonisolated init(_ value: SceneParticleOperator) {
+        hasBlendIn = value.blendInStart != nil || value.blendInEnd != nil
+        blendInStart = value.blendInStart ?? 0
+        blendInEnd = value.blendInEnd ?? 0
+        hasBlendOut = value.blendOutStart != nil || value.blendOutEnd != nil
+        blendOutStart = value.blendOutStart ?? 1
+        blendOutEnd = value.blendOutEnd ?? 1
+    }
+}
+
+nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
+    let frequencyMinimum: Double
+    let frequencyMaximum: Double
+    let scaleMinimum: SIMD3<Double>
+    let scaleMaximum: SIMD3<Double>
+    let phaseMinimum: Double
+    let phaseMaximum: Double
+
+    nonisolated init(_ value: SceneParticleOperator) {
+        frequencyMinimum = value.frequencyMinimum ?? 0
+        frequencyMaximum = value.frequencyMaximum ?? 5
+        scaleMinimum = SceneParticleSimulationMath.vector(
+            value.scaleMinimum, fallback: .zero
+        )
+        scaleMaximum = SceneParticleSimulationMath.vector(
+            value.scaleMaximum, fallback: SIMD3(repeating: 1)
+        )
+        phaseMinimum = value.phaseMinimum ?? 0
+        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+    }
+}
+
 extension SceneParticleSimulator {
     nonisolated func oscillationFactor(
         _ value: SceneParticleOperator,
@@ -49,19 +89,26 @@ extension SceneParticleSimulator {
         _ value: SceneParticleOperator,
         _ life: Double
     ) -> Double {
+        operatorBlend(SceneParticleOperatorBlendPlan(value), life)
+    }
+
+    nonisolated func operatorBlend(
+        _ plan: SceneParticleOperatorBlendPlan,
+        _ life: Double
+    ) -> Double {
         var result = 1.0
-        if value.blendInStart != nil || value.blendInEnd != nil {
+        if plan.hasBlendIn {
             result *= SceneParticleSimulationMath.changeAmount(
                 life,
-                value.blendInStart ?? 0,
-                value.blendInEnd ?? 0
+                plan.blendInStart,
+                plan.blendInEnd
             )
         }
-        if value.blendOutStart != nil || value.blendOutEnd != nil {
+        if plan.hasBlendOut {
             result *= 1 - SceneParticleSimulationMath.changeAmount(
                 life,
-                value.blendOutStart ?? 1,
-                value.blendOutEnd ?? 1
+                plan.blendOutStart,
+                plan.blendOutEnd
             )
         }
         return result
@@ -81,7 +128,7 @@ extension SceneParticleSimulator {
     }
 
     nonisolated func positionOscillation(
-        _ value: SceneParticleOperator,
+        _ plan: SceneParticlePositionOscillationPlan,
         particleIndex: Int,
         operatorIndex: Int,
         mask: SIMD3<Double>
@@ -92,26 +139,20 @@ extension SceneParticleSimulator {
         )
         if let cached = positionOscillationCache[key] { return cached }
 
-        let scaleMinimum = SceneParticleSimulationMath.vector(
-            value.scaleMinimum, fallback: .zero
-        )
-        let scaleMaximum = SceneParticleSimulationMath.vector(
-            value.scaleMaximum, fallback: SIMD3(repeating: 1)
-        )
         var frequency = SIMD3<Double>.zero
         var scale = SIMD3<Double>.zero
         var phase = SIMD3<Double>.zero
         for component in 0..<3 where abs(mask[component]) > 1e-6 {
             frequency[component] = oscillationRandom(
-                value.frequencyMinimum ?? 0, value.frequencyMaximum ?? 5,
+                plan.frequencyMinimum, plan.frequencyMaximum,
                 particleIndex, operatorIndex, component
             )
             scale[component] = oscillationRandom(
-                scaleMinimum[component], scaleMaximum[component],
+                plan.scaleMinimum[component], plan.scaleMaximum[component],
                 particleIndex, operatorIndex, component + 3
             )
             phase[component] = oscillationRandom(
-                value.phaseMinimum ?? 0, value.phaseMaximum ?? 2 * .pi,
+                plan.phaseMinimum, plan.phaseMaximum,
                 particleIndex, operatorIndex, component + 6
             )
         }
@@ -124,7 +165,7 @@ extension SceneParticleSimulator {
 
     nonisolated func positionOscillationDelta(
         _ oscillation: SceneParticlePositionOscillation,
-        value: SceneParticleOperator,
+        blend: SceneParticleOperatorBlendPlan,
         mask: SIMD3<Double>,
         age: Double,
         lifetime: Double,
@@ -133,8 +174,8 @@ extension SceneParticleSimulator {
         let previousAge = max(age - duration, 0)
         let currentLife = min(max(age / max(lifetime, 1e-12), 0), 1)
         let previousLife = min(max(previousAge / max(lifetime, 1e-12), 0), 1)
-        let currentBlend = operatorBlend(value, currentLife)
-        let previousBlend = operatorBlend(value, previousLife)
+        let currentBlend = operatorBlend(blend, currentLife)
+        let previousBlend = operatorBlend(blend, previousLife)
         var result = SIMD3<Double>.zero
         for component in 0..<3 where abs(mask[component]) > 1e-6 {
             let phase = oscillation.phase[component]

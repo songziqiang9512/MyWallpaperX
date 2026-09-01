@@ -10,6 +10,7 @@ nonisolated extension SceneParticleSimulator {
             : overrideScalar(activeInstanceOverride?.speed)
         let maximumSpeed = plan.maximumSpeed * max(speedScale, 0)
         guard maximumSpeed.isFinite, maximumSpeed <= 1_000_000 else { return }
+        let blendPlan = SceneParticleOperatorBlendPlan(value)
 
         for index in particles.indices {
             let velocity = particles[index].velocity
@@ -18,7 +19,7 @@ nonisolated extension SceneParticleSimulator {
             let life = min(max(
                 particles[index].age / max(particles[index].lifetime, 1e-12), 0
             ), 1)
-            let blend = operatorBlend(value, life)
+            let blend = operatorBlend(blendPlan, life)
             let target = velocity / speed * maximumSpeed
             let result = velocity + (target - velocity) * blend
             guard result.x.isFinite, result.y.isFinite, result.z.isFinite else { continue }

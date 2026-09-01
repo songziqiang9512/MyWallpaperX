@@ -295,6 +295,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 particles[index].color *= start + (end - start) * amount
             }
         case .oscillateAlpha:
+            let blend = SceneParticleOperatorBlendPlan(value)
             for index in particles.indices {
                 let factor = oscillationFactor(
                     value,
@@ -303,9 +304,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     age: particles[index].age
                 )
                 particles[index].alpha *= 1 + (factor - 1)
-                    * operatorBlend(value, normalizedLives[index])
+                    * operatorBlend(blend, normalizedLives[index])
             }
         case .oscillateSize:
+            let blend = SceneParticleOperatorBlendPlan(value)
             for index in particles.indices {
                 let factor = oscillationFactor(
                     value,
@@ -315,17 +317,22 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     sizeDefaults: true
                 )
                 particles[index].size *= 1 + (factor - 1)
-                    * operatorBlend(value, normalizedLives[index])
+                    * operatorBlend(blend, normalizedLives[index])
             }
         case .oscillatePosition:
             let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
+            let oscillationPlan = SceneParticlePositionOscillationPlan(value)
+            let blend = SceneParticleOperatorBlendPlan(value)
             for index in particles.indices {
                 let oscillation = positionOscillation(
-                    value, particleIndex: index, operatorIndex: operatorIndex, mask: mask
+                    oscillationPlan,
+                    particleIndex: index,
+                    operatorIndex: operatorIndex,
+                    mask: mask
                 )
                 let delta = positionOscillationDelta(
                     oscillation,
-                    value: value,
+                    blend: blend,
                     mask: mask,
                     age: particles[index].age,
                     lifetime: particles[index].lifetime,
@@ -346,6 +353,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             let minimumSpeed = max(rawMinimumSpeed, 0)
             let maximumSpeed = max(rawMaximumSpeed, minimumSpeed)
             let speedOverride = overrideScalar(activeInstanceOverride?.speed)
+            let blend = SceneParticleOperatorBlendPlan(value)
             for index in particles.indices {
                 let phase = turbulenceRandom(
                     value.phaseMinimum ?? 0, value.phaseMaximum ?? 0,
@@ -363,7 +371,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     mask: mask
                 )
                 let delta = direction * speed * duration
-                    * operatorBlend(value, normalizedLives[index])
+                    * operatorBlend(blend, normalizedLives[index])
                 SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
             }
         case .controlPointAttract:

@@ -11,6 +11,7 @@ nonisolated extension SceneParticleSimulator {
               let target = controlPointPosition(plan.controlPoint, offset: plan.origin),
               normalizedLives.count == particles.count
         else { return }
+        let blend = SceneParticleOperatorBlendPlan(value)
         for index in particles.indices {
             let delta = target - particles[index].position
             let distance = SceneParticleSimulationMath.length(delta)
@@ -18,7 +19,7 @@ nonisolated extension SceneParticleSimulator {
                   distance <= plan.maximumDistance else { continue }
             SceneParticleSimulationMath.addFinite(
                 delta / distance * plan.acceleration * duration
-                    * operatorBlend(value, normalizedLives[index]),
+                    * operatorBlend(blend, normalizedLives[index]),
                 to: &particles[index].velocity
             )
         }
