@@ -14,9 +14,6 @@ extension SceneMetalRenderer {
             resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
                 .runtimeDispositionSubjects ?? []
         )
-        imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
-            dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
-        )
         let dispositionLines = dispositionCatalog.reportLines
             + (imageCompositor.resolvedMaterialRuntime?.executionEvidenceReportLines ?? [])
         return SceneLayerVisibility.reportLines(in: renderDescriptor)

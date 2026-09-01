@@ -26,6 +26,7 @@ enum SceneTextTextureLoader {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
+        recordsDiagnostics: Bool = true,
         effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -40,17 +41,29 @@ enum SceneTextTextureLoader {
                 cacheDirectory: cacheDirectory,
                 device: device
             ) else {
-                messages.append("text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": render failed")
+                if recordsDiagnostics {
+                    messages.append(
+                        "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\":"
+                            + " render failed"
+                    )
+                }
                 continue
             }
             textures[layer.id] = rendered.texture
-            var message = "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\": OK \(rendered.texture.width)×\(rendered.texture.height); \(rendered.font.summary)"
-            if let summary = effectSummary(layer) {
-                message += "; \(summary)"
+            if recordsDiagnostics {
+                var message = "text layer \(layer.id)"
+                    + " \"\(layer.name ?? "(unnamed)")\": OK"
+                    + " \(rendered.texture.width)×\(rendered.texture.height);"
+                    + " \(rendered.font.summary)"
+                if let summary = effectSummary(layer) {
+                    message += "; \(summary)"
+                }
+                messages.append(message)
             }
-            messages.append(message)
         }
-        messages.append("text loaded: \(textures.count) / \(candidates.count)")
+        if recordsDiagnostics {
+            messages.append("text loaded: \(textures.count) / \(candidates.count)")
+        }
         return SceneTextTextureLoadResult(textures: textures, messages: messages)
     }
 

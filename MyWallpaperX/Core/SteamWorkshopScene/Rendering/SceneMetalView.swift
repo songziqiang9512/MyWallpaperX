@@ -1,6 +1,38 @@
 import AppKit
 import Metal
 import QuartzCore
+
+private struct SceneStartupReportBuffer {
+    private var lines: [String]?
+
+    init(enabled: Bool) {
+        lines = enabled ? [] : nil
+    }
+
+    var isEnabled: Bool { lines != nil }
+
+    mutating func append(_ line: @autoclosure () -> String) {
+        guard lines != nil else { return }
+        lines?.append(line())
+    }
+
+    mutating func append(contentsOf newLines: @autoclosure () -> [String]) {
+        guard lines != nil else { return }
+        lines?.append(contentsOf: newLines())
+    }
+
+    var layerEntryCount: Int {
+        lines?.filter { $0.starts(with: "layer ") }.count ?? 0
+    }
+
+    func write(to url: URL?) {
+        guard let url, let lines else { return }
+        try? lines.joined(separator: "\n").write(
+            to: url, atomically: true, encoding: .utf8
+        )
+    }
+}
+
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
     let renderer: SceneMetalRenderer
@@ -96,13 +128,14 @@ class SceneMetalView: NSView {
             resourceView: resourceView,
             descriptor: renderer.renderDescriptor
         )
-        var report: [String] = []
+        var report = SceneStartupReportBuffer(enabled: logURL != nil)
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var puppetRecomposeBytes = 0
         var preparedBaseImageHitCount = 0
+        renderer.installResolvedMaterialExecutionEvidence()
         self.preparedBaseImages = preparedBaseImages
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
         report.append("Scene preview texture load report")
@@ -116,24 +149,27 @@ class SceneMetalView: NSView {
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
         for layer in imageLayers {
-            let name = layer.name ?? "(unnamed)"
-            let placementSummary = renderer.debugPlacementSummary(for: layer)
+            let name = report.isEnabled ? (layer.name ?? "(unnamed)") : ""
+            let placementSummary = report.isEnabled
+                ? renderer.debugPlacementSummary(for: layer) : ""
             if layer.contentKind == "solid" {
                 guard let texture = solidLayerTexture else {
                     report.append("layer \(layer.id) \"\(name)\": procedural solid texture unavailable; \(placementSummary)")
                     continue
                 }
                 loaded.set(texture, candidate: nil, layerID: layer.id)
-                let color = SIMD3(layer.colorRGB ?? [], fill: 1)
-                var message = String(
-                    format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
-                    layer.id, name, color.x, color.y, color.z
-                )
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
-                    message += "; \(effectSummary)"
+                if report.isEnabled {
+                    let color = SIMD3(layer.colorRGB ?? [], fill: 1)
+                    var message = String(
+                        format: "layer %d \"%@\": OK procedural solid tint=(%.5f, %.5f, %.5f)",
+                        layer.id, name, color.x, color.y, color.z
+                    )
+                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                        message += "; \(effectSummary)"
+                    }
+                    message += "; \(placementSummary)"
+                    report.append(message)
                 }
-                message += "; \(placementSummary)"
-                report.append(message)
                 continue
             }
             guard let url = resolver.resolvePrimaryTexture(for: layer) else {
@@ -162,13 +198,16 @@ class SceneMetalView: NSView {
                 loader: loader
             ) {
                 loadedVideoSources[layer.id] = videoSource
-                var message = "layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent))"
-                message += " [\(resourceView.displayPath(for: url))]"
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
-                    message += "; \(effectSummary)"
+                if report.isEnabled {
+                    var message = "layer \(layer.id) \"\(name)\":"
+                        + " mp4 payload video source ready (\(url.lastPathComponent))"
+                    message += " [\(resourceView.displayPath(for: url))]"
+                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                        message += "; \(effectSummary)"
+                    }
+                    message += "; \(placementSummary)"
+                    report.append(message)
                 }
-                message += "; \(placementSummary)"
-                report.append(message)
                 continue
             }
             let baseImage = preparedBaseImage ?? SceneBaseImageTextureLoad.load(
@@ -185,7 +224,7 @@ class SceneMetalView: NSView {
             case .loaded(let baseLoad):
                 let texture = baseLoad.texture
                 var effectiveTexture = texture
-                var puppetMessage = ""
+                var puppetMessage: String?
                 if let imagePipeline,
                    let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
                        for: layer,
@@ -204,39 +243,49 @@ class SceneMetalView: NSView {
                     if let playback = puppetOutcome.playback {
                         loadedPuppetPlaybackStates[layer.id] = playback
                     }
-                    puppetMessage = "; \(puppetOutcome.message)"
+                    if report.isEnabled {
+                        puppetMessage = "; \(puppetOutcome.message)"
+                    }
                 }
                 loaded.set(
                     effectiveTexture,
                     candidate: baseLoad.candidate,
                     layerID: layer.id
                 )
-                var message = "layer \(layer.id) \"\(name)\": OK \(url.lastPathComponent) → \(texture.width)×\(texture.height) [\(resourceView.displayPath(for: url))]"
-                message += baseLoad.message
-                if preparedBaseImage != nil {
-                    message += "; launch-prepared-static-base"
-                }
-                message += puppetMessage
                 if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
-                    message += animation.reportSummary
                 }
-                if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
-                    message += "; \(effectSummary)"
+                if report.isEnabled {
+                    var message = "layer \(layer.id) \"\(name)\": OK"
+                        + " \(url.lastPathComponent) → \(texture.width)×\(texture.height)"
+                        + " [\(resourceView.displayPath(for: url))]"
+                    message += baseLoad.message
+                    if preparedBaseImage != nil {
+                        message += "; launch-prepared-static-base"
+                    }
+                    message += puppetMessage ?? ""
+                    if let animation = baseLoad.animation {
+                        message += animation.reportSummary
+                    }
+                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
+                        message += "; \(effectSummary)"
+                    }
+                    message += "; \(placementSummary)"
+                    report.append(message)
                 }
-                message += "; \(placementSummary)"
-                report.append(message)
             case .failed(let failure):
-                var message = SceneBaseImageTextureLoad.failureReportLine(
-                    failure,
-                    layer: .init(id: layer.id, name: name),
-                    url: url,
-                    placementSummary: placementSummary
-                )
-                if preparedBaseImage != nil {
-                    message += "; launch-prepared-static-base"
+                if report.isEnabled {
+                    var message = SceneBaseImageTextureLoad.failureReportLine(
+                        failure,
+                        layer: .init(id: layer.id, name: name),
+                        url: url,
+                        placementSummary: placementSummary
+                    )
+                    if preparedBaseImage != nil {
+                        message += "; launch-prepared-static-base"
+                    }
+                    report.append(message)
                 }
-                report.append(message)
             }
         }
         imageTextures = loaded
@@ -245,6 +294,7 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
+            recordsDiagnostics: report.isEnabled,
             effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }
         )
         imageTextures.merge(textLoad.textures)
@@ -279,11 +329,13 @@ class SceneMetalView: NSView {
         report.append(
             "prepared static base resource usage: hits=\(preparedBaseImageHitCount)"
         )
-        let loadedLayerCount = Set(loaded.textures.keys).union(loadedVideoSources.keys).count
-        report.append("loaded: \(loadedLayerCount) / \(report.filter { $0.starts(with: "layer ") }.count)")
-        if let logURL {
-            try? report.joined(separator: "\n").write(to: logURL, atomically: true, encoding: .utf8)
+        if report.isEnabled {
+            let loadedLayerCount = Set(loaded.textures.keys)
+                .union(loadedVideoSources.keys).count
+            let reportedLayerCount = report.layerEntryCount
+            report.append("loaded: \(loadedLayerCount) / \(reportedLayerCount)")
         }
+        report.write(to: logURL)
     }
 
     func adoptPreparedDeferredBaseImage(layerID: Int) -> Bool {

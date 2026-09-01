@@ -80,6 +80,18 @@ struct SceneMetalRenderer {
         self.parallaxByLayerID = SceneLayerParallax.resolveAll(layersByID: byID)
     }
 
+    func installResolvedMaterialExecutionEvidence() {
+        let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
+            descriptor: renderDescriptor,
+            admissionCatalog: effectAdmissionCatalog,
+            resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
+                .runtimeDispositionSubjects ?? []
+        )
+        imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
+            dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
+        )
+    }
+
     func renderFrame(
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,

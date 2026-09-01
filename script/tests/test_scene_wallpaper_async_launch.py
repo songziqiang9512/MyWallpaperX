@@ -57,6 +57,30 @@ METAL_VIEW = (
     / "Rendering"
     / "SceneMetalView.swift"
 )
+METAL_RENDERER = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Rendering"
+    / "SceneMetalRenderer.swift"
+)
+RENDERER_DIAGNOSTICS = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Rendering"
+    / "SceneMetalRenderer+Diagnostics.swift"
+)
+TEXT_LOADER = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Text"
+    / "SceneTextTextureLoader.swift"
+)
 DEFERRED_BASE_IMAGES = (
     ROOT
     / "MyWallpaperX"
@@ -92,6 +116,9 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             encoding="utf-8"
         )
         cls.metal_view = METAL_VIEW.read_text(encoding="utf-8")
+        cls.metal_renderer = METAL_RENDERER.read_text(encoding="utf-8")
+        cls.renderer_diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
+        cls.text_loader = TEXT_LOADER.read_text(encoding="utf-8")
         cls.deferred_base_images = DEFERRED_BASE_IMAGES.read_text(
             encoding="utf-8"
         )
@@ -258,6 +285,30 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             "self.pipeline = plansByLayerID.isEmpty ? nil : pipeline()",
             self.spot_light_runtime,
         )
+
+    def test_product_launch_does_not_construct_startup_diagnostics(self) -> None:
+        load = function_body(self.metal_view, "func loadImageLayers(")
+        install = function_body(
+            self.metal_renderer,
+            "func installResolvedMaterialExecutionEvidence()",
+        )
+        runtime_report = function_body(
+            self.renderer_diagnostics,
+            "func runtimeReportLines()",
+        )
+
+        self.assertIn(
+            "SceneStartupReportBuffer(enabled: logURL != nil)",
+            load,
+        )
+        self.assertIn("@autoclosure () -> String", self.metal_view)
+        self.assertIn("@autoclosure () -> [String]", self.metal_view)
+        self.assertIn("if report.isEnabled", load)
+        self.assertIn("recordsDiagnostics: report.isEnabled", load)
+        self.assertGreaterEqual(self.text_loader.count("if recordsDiagnostics"), 2)
+        self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", load)
+        self.assertIn("installExecutionEvidence(", install)
+        self.assertNotIn("installExecutionEvidence(", runtime_report)
 
     def test_existing_output_is_not_switched_before_preparation_succeeds(self) -> None:
         request = function_body(self.launch, "func requestLaunch(")

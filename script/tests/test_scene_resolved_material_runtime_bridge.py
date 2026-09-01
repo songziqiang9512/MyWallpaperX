@@ -4365,16 +4365,16 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             composition,
         )
         self.assertIn("let dispositionCatalog =", diagnostics)
-        self.assertEqual(
-            diagnostics.count("SceneEffectRuntimeDispositionCatalog("),
-            1,
-        )
-        self.assertIn("installExecutionEvidence(", diagnostics)
+        self.assertEqual(diagnostics.count("SceneEffectRuntimeDispositionCatalog("), 1)
+        self.assertNotIn("installExecutionEvidence(", diagnostics)
         self.assertIn("resolvedMaterialSubjects:", diagnostics)
+        self.assertIn("let dispositionCatalog =", metal_renderer)
+        self.assertIn("installExecutionEvidence(", metal_renderer)
+        self.assertIn("resolvedMaterialSubjects:", metal_renderer)
         self.assertIn("runtimeDispositionSubjects", diagnostics)
         self.assertIn(
             "dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects",
-            diagnostics,
+            metal_renderer,
         )
         self.assertIn('backend: "resolved-material-graph"', composition)
         self.assertNotIn("authored-effect-graph", composition)
@@ -4597,6 +4597,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
 
         self.assertIn("renderer.runtimeReportLines()", view)
+        self.assertIn("renderer.installResolvedMaterialExecutionEvidence()", view)
+        self.assertLess(
+            view.index("renderer.installResolvedMaterialExecutionEvidence()"),
+            view.index("renderer.runtimeReportLines()"),
+        )
         self.assertNotIn("runtimeReportLines(effectTextures:", view)
 
         load = host.index("metalView.loadImageLayers(")
