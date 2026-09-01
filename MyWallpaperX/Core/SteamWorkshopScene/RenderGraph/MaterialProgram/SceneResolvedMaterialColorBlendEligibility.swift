@@ -247,13 +247,27 @@ nonisolated extension SceneResolvedMaterialVariantCache {
               declaration.index == slot,
               let selected = declaration.candidates.last,
               case .provider(.system) = selected.reference,
-              declaration.candidates.dropLast().allSatisfy({ candidate in
-                  if case .asset = candidate.reference { return true }
-                  return false
-              }),
               !snapshot.template.graphRole.bindings.contains(where: {
                   $0.slot == slot
               }) else {
+            return false
+        }
+        let lowerCandidatesAreStaticAssets = declaration.candidates.dropLast()
+            .allSatisfy { candidate in
+                  if case .asset = candidate.reference { return true }
+                  return false
+            }
+        let mixedProviderFacts = reachableSamplers.compactMap {
+            SceneResolvedMaterialMixedProviderSlotFact.resolve(
+                in: declaration,
+                sampler: $0
+            )
+        }
+        let hasExactMixedProviderEnvelope =
+            mixedProviderFacts.count == reachableSamplers.count
+                && Set(mixedProviderFacts).count == 1
+        guard lowerCandidatesAreStaticAssets
+                || hasExactMixedProviderEnvelope else {
             return false
         }
         let selectedOrdinal = declaration.candidates.index(
@@ -284,6 +298,15 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                   return bindings.isEmpty
               }) else {
             return false
+        }
+        if hasExactMixedProviderEnvelope {
+            guard snapshot.variants.contains(where: {
+                $0.activeSamplers[slot] != nil
+                    && $0.premultipliedColorInputSlots.contains(slot)
+            }), snapshot.variants.contains(where: {
+                $0.activeSamplers[slot] != nil
+                    && !$0.premultipliedColorInputSlots.contains(slot)
+            }) else { return false }
         }
         return snapshot.variants.contains {
             $0.activeSamplers[slot] != nil

@@ -64,6 +64,13 @@ struct SceneRenderDescriptor {
 }
 
 struct SceneDependencyRenderPlan {
+    struct Reference: Hashable {
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let variant: SceneNamedTextureReference.Variant
+    }
+
     struct Binding: Hashable {
         enum Kind: Hashable {
             case resolvedMaterial
@@ -91,12 +98,12 @@ struct SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey>,
-        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil
+        admittedResolvedMaterialReferences: Set<Reference> = []
     ) {
         _ = visibleLayerIDs
         _ = executableUtilityConsumerLayerIDs
         _ = verifiedXRayStageKeys
-        _ = resolvedMaterialConsumerLayerIDs
+        _ = admittedResolvedMaterialReferences
         bindingsByConsumerLayerID = descriptor.bindings
         requiredProviderLayerIDs = Set(descriptor.bindings.values.map(
             \.providerLayerID

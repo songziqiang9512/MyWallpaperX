@@ -172,6 +172,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         activeTextureSlots: Set<Int> = [],
         activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
+        preservedChannelsExternalProviderTextureSlots: Set<Int> = [],
         premultipliedColorAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -205,6 +206,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            preservedChannelsExternalProviderTextureSlots:
+                preservedChannelsExternalProviderTextureSlots,
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
@@ -337,6 +340,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            preservedChannelsExternalProviderTextureSlots:
+                preservedChannelsExternalProviderTextureSlots,
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:

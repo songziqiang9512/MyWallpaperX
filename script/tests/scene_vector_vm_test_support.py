@@ -204,20 +204,31 @@ struct SceneRenderDescriptor {
         }
     }
 
+    struct SceneEffectTextureInput: ExpressibleByBooleanLiteral {
+        enum Kind { case asset, system }
+        let kind: Kind
+        let value: String
+
+        init(booleanLiteral value: Bool) {
+            kind = .asset
+            self.value = value ? "fixture-user-texture" : ""
+        }
+    }
+
     struct EffectDescriptor {
         struct PassDescriptor {
             let passIndex: Int
             let id: Int?
             let constantShaderValues: [String: ShaderValue]
             let textureSlots: [String?]
-            let userTextureInputs: [Bool?]
+            let userTextureInputs: [SceneEffectTextureInput?]
 
             init(
                 passIndex: Int,
                 id: Int?,
                 constantShaderValues: [String: ShaderValue],
                 textureSlots: [String?] = [],
-                userTextureInputs: [Bool?] = []
+                userTextureInputs: [SceneEffectTextureInput?] = []
             ) {
                 self.passIndex = passIndex
                 self.id = id

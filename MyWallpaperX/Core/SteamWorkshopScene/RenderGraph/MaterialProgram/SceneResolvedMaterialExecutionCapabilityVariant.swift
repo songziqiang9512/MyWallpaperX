@@ -294,32 +294,51 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 case let .failure(failure):
                     return .failure(.material(failure))
                 }
+                let purposeProfiles: [[SceneTextureLoadPurpose?]]
+                do {
+                    purposeProfiles = try SceneResolvedMaterialTextureResolver
+                        .launchSelectedTexturePurposeProfiles(
+                            template: template,
+                            samplers: samplers
+                        )
+                } catch let failure as Failure {
+                    return .failure(.material(failure))
+                } catch {
+                    return .failure(.material(Self.failure(
+                        .identityInvariant,
+                        phase: .invariant
+                    )))
+                }
                 var variants: [Variant] = []
                 var keys: [SceneResolvedMaterialVariantKey] = []
                 do {
                     for profile in profiles {
-                        guard let key = SceneResolvedMaterialVariantKey(
-                            readinessMask: mask,
-                            textureFormats: profile
-                        ) else {
-                            throw Self.failure(
-                                .identityInvariant,
-                                phase: .invariant
-                            )
+                        for purposeProfile in purposeProfiles {
+                            guard let key = SceneResolvedMaterialVariantKey(
+                                readinessMask: mask,
+                                textureFormats: profile,
+                                selectedTexturePurposes: purposeProfile
+                            ) else {
+                                throw Self.failure(
+                                    .identityInvariant,
+                                    phase: .invariant
+                                )
+                            }
+                            guard entries[key] != nil
+                                    || entries.count < maximumVariantCount else {
+                                capacityRejections += 1
+                                return .failure(.capacity)
+                            }
+                            keys.append(key)
+                            variants.append(try entry(
+                                for: key,
+                                outputStorage: outputStorage,
+                                outputIsRGBA8Unorm: outputIsRGBA8Unorm,
+                                implicitFramebufferIdentity:
+                                    implicitFramebufferIdentity,
+                                graphTextureFormatFacts: graphTextureFormatFacts
+                            ))
                         }
-                        guard entries[key] != nil
-                                || entries.count < maximumVariantCount else {
-                            capacityRejections += 1
-                            return .failure(.capacity)
-                        }
-                        keys.append(key)
-                        variants.append(try entry(
-                            for: key,
-                            outputStorage: outputStorage,
-                            outputIsRGBA8Unorm: outputIsRGBA8Unorm,
-                            implicitFramebufferIdentity: implicitFramebufferIdentity,
-                            graphTextureFormatFacts: graphTextureFormatFacts
-                        ))
                     }
                 } catch let failure as Failure {
                     return .failure(.material(failure))
@@ -535,8 +554,15 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         let activeMask = activeSamplerSlots.reduce(UInt8(0)) { partial, slot in
             partial | (UInt8(1) << UInt8(slot))
         }
+        let differingPurposes = (0 ..< 8).compactMap { slot -> String? in
+            guard expected.selectedTexturePurposes[slot]
+                    != resolved.selectedTexturePurposes[slot] else { return nil }
+            return "s\(slot)-\(String(describing: expected.selectedTexturePurposes[slot]))"
+                + "-\(String(describing: resolved.selectedTexturePurposes[slot]))"
+        }.joined(separator: "_")
         return "key-e\(expected.readinessMask)-r\(resolved.readinessMask)"
             + "-a\(activeMask)-f\(differingFormats.isEmpty ? "none" : differingFormats)"
+            + (differingPurposes.isEmpty ? "" : "-p\(differingPurposes)")
     }
 
     private func entry(

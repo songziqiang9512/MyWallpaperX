@@ -3,11 +3,25 @@ import Foundation
 nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
     let readinessMask: UInt8
     let textureFormats: [SceneShaderTextureFormat?]
+    /// Only slots whose authored candidate chain can select more than one
+    /// proven texture representation participate here. Static slots retain
+    /// their existing launch contract, while a mixed provider slot cannot
+    /// accidentally reuse the ABI compiled for another selected candidate.
+    let selectedTexturePurposes: [SceneTextureLoadPurpose?]
 
-    init?(readinessMask: UInt8, textureFormats: [SceneShaderTextureFormat?]) {
-        guard textureFormats.count == 8 else { return nil }
+    init?(
+        readinessMask: UInt8,
+        textureFormats: [SceneShaderTextureFormat?],
+        selectedTexturePurposes: [SceneTextureLoadPurpose?] = Array(
+            repeating: nil,
+            count: 8
+        )
+    ) {
+        guard textureFormats.count == 8,
+              selectedTexturePurposes.count == 8 else { return nil }
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
+        self.selectedTexturePurposes = selectedTexturePurposes
     }
 
     var resolvedTextureFormats: [Int: SceneShaderTextureFormat] {

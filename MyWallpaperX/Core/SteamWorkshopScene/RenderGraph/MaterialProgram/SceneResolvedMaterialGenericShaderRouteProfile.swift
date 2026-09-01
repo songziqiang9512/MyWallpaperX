@@ -156,6 +156,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         activeTextureSlots: Set<Int> = [],
         activeOpacityMaskSlots: Set<Int> = [],
         typedStaticDataAuxiliarySlots: Set<Int> = [],
+        preservedChannelsExternalProviderTextureSlots: Set<Int> = [],
         premultipliedColorAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendSourceSlot: Int? = nil,
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
@@ -479,9 +480,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   overlaySlot != sourceSlot,
                   activeTextureSlots == Set([sourceSlot, overlaySlot]),
                   ((typedStaticDataAuxiliarySlots == Set([overlaySlot])
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
                       && premultipliedColorAuxiliarySlots.isEmpty
                       && !hasExternalProviderTexture)
                     || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots
+                        == Set([overlaySlot])
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
                       && premultipliedColorAuxiliarySlots == Set([overlaySlot])
                       && hasExternalProviderTexture)),
                   !producesScalarRedOutput,
@@ -494,9 +502,16 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   overlaySlot != sourceSlot,
                   activeTextureSlots == Set([sourceSlot, overlaySlot]),
                   ((typedStaticDataAuxiliarySlots == Set([overlaySlot])
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
                       && premultipliedColorAuxiliarySlots.isEmpty
                       && !hasExternalProviderTexture)
                     || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots
+                        == Set([overlaySlot])
+                      && premultipliedColorAuxiliarySlots.isEmpty
+                      && hasExternalProviderTexture)
+                    || (typedStaticDataAuxiliarySlots.isEmpty
+                      && preservedChannelsExternalProviderTextureSlots.isEmpty
                       && premultipliedColorAuxiliarySlots == Set([overlaySlot])
                       && hasExternalProviderTexture)),
                   !producesScalarRedOutput,

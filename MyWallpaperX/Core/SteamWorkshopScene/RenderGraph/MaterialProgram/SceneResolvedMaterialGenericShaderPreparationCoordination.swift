@@ -24,6 +24,7 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let activeTextureSlots: Set<Int>
         let activeOpacityMaskSlots: Set<Int>
         let typedStaticDataAuxiliarySlots: Set<Int>
+        let preservedChannelsExternalProviderTextureSlots: Set<Int>
         let premultipliedColorAuxiliarySlots: Set<Int>
         let spatialWeightedColorBlendSourceSlot: Int?
         let spatialWeightedColorBlendActiveSlots: Set<Int>

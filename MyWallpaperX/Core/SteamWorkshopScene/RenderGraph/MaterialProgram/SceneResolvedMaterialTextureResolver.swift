@@ -97,6 +97,10 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
         )
         var mask: UInt8 = 0
         var formats = Array<SceneShaderTextureFormat?>(repeating: nil, count: 8)
+        var selectedPurposes = Array<SceneTextureLoadPurpose?>(
+            repeating: nil,
+            count: 8
+        )
         for (slot, selection) in selections.enumerated() {
             switch selection {
             case .absent: break
@@ -153,11 +157,29 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
                         slot: slot
                     )
                 }
+                if let sampler = samplers[slot],
+                   input.template.textureSlots.indices.contains(slot),
+                   let textureSlot = input.template.textureSlots[slot],
+                   let mixed = SceneResolvedMaterialMixedProviderSlotFact.resolve(
+                       in: textureSlot,
+                       sampler: sampler
+                   ) {
+                    guard let purpose,
+                          mixed.purpose(for: reference) == purpose else {
+                        throw failure(
+                            .textureVariantKeyIdentityInvariant,
+                            phase: .invariant,
+                            slot: slot
+                        )
+                    }
+                    selectedPurposes[slot] = purpose
+                }
             }
         }
         guard let key = SceneResolvedMaterialVariantKey(
             readinessMask: mask,
-            textureFormats: formats
+            textureFormats: formats,
+            selectedTexturePurposes: selectedPurposes
         ) else {
             throw failure(.textureVariantKeyIdentityInvariant, phase: .invariant)
         }

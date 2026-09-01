@@ -178,16 +178,31 @@ nonisolated struct SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = [],
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
-        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil
+        admittedResolvedMaterialReferences: Set<Reference> = []
     ) {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         let order = Dictionary(uniqueKeysWithValues: descriptor.renderOrderLayerIDs.enumerated().map {
             ($0.element, $0.offset)
         })
-        let references = SceneDependencyGraphAnalysis.references(in: descriptor.layers)
-        let dependencyEdges = SceneDependencyGraphAnalysis.dependencyEdges(
+        let productReferences = SceneDependencyGraphAnalysis.references(
+            in: descriptor.layers
+        )
+        let potentialReferences = Set(
+            SceneDependencyGraphAnalysis
+                .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+        )
+        let admittedPotentialReferences = potentialReferences.intersection(
+            admittedResolvedMaterialReferences
+        )
+        let references = productReferences + admittedPotentialReferences.filter {
+            !productReferences.contains($0)
+        }
+        let dependencyEdges = Self.productDependencyEdges(
             layers: descriptor.layers,
-            references: references
+            references: references,
+            productReferences: productReferences,
+            potentialReferences: potentialReferences,
+            admittedPotentialReferences: admittedPotentialReferences
         )
         let availableLayerIDs = Set(layersByID.keys)
         let xRayExemptConsumerLayerIDs = Set(visibleLayerIDs.filter { layerID in
@@ -280,8 +295,8 @@ nonisolated struct SceneDependencyRenderPlan {
                 visibleLayerIDs: visibleLayerIDs,
                 cyclicLayerIDs: cyclicLayerIDs,
                 executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-                resolvedMaterialConsumerLayerIDs:
-                    resolvedMaterialConsumerLayerIDs,
+                admittedResolvedMaterialReferences:
+                    admittedResolvedMaterialReferences,
                 namedProviderRouteDisabled: namedProviderRouteDisabled,
                 issues: &issues
             ) else {
@@ -389,7 +404,7 @@ nonisolated struct SceneDependencyRenderPlan {
         }
     }
 
-    private nonisolated static func executableBinding(
+    nonisolated static func executableBinding(
         for layer: SceneRenderDescriptor.Layer,
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer],
@@ -397,7 +412,7 @@ nonisolated struct SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>,
         cyclicLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
-        resolvedMaterialConsumerLayerIDs: Set<Int>?,
+        admittedResolvedMaterialReferences: Set<Reference>,
         namedProviderRouteDisabled: Bool,
         issues: inout [Issue]
     ) -> Binding? {
@@ -478,8 +493,7 @@ nonisolated struct SceneDependencyRenderPlan {
             return nil
         }
         if contract.requiresResolvedMaterialProgram,
-           let resolvedMaterialConsumerLayerIDs,
-           !resolvedMaterialConsumerLayerIDs.contains(layer.id) {
+           !admittedResolvedMaterialReferences.contains(contract.reference) {
             issues.append(Issue(
                 kind: .unsupportedConsumer,
                 layerID: layer.id,
@@ -705,9 +719,12 @@ nonisolated struct SceneDependencyRenderPlan {
                 $0.passIndex == candidate.slot.passIndex
             }
             guard passes.count == 1, let pass = passes.first else { return nil }
-            let hasNoUserTextureOverride =
-                !pass.userTextureInputs.indices.contains(candidate.slot.slotIndex)
-                || pass.userTextureInputs[candidate.slot.slotIndex] == nil
+            let userTextureAllowsNamedFallback =
+                SceneNamedTextureDependencyReferenceAnalysis
+                    .userTextureAllowsNamedFallback(
+                        slotIndex: candidate.slot.slotIndex,
+                        pass: pass
+                    )
             let hasOnlyNeutralAuthoredConstants = pass.constantShaderValues.values
                 .allSatisfy { value in
                     guard let components = value.components,
@@ -720,7 +737,7 @@ nonisolated struct SceneDependencyRenderPlan {
                       providerLayerID: candidate.providerLayerID,
                       variant: candidate.variant
                   ),
-                  hasNoUserTextureOverride,
+                  userTextureAllowsNamedFallback,
                   hasOnlyNeutralAuthoredConstants else {
                 return nil
             }

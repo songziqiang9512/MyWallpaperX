@@ -14,14 +14,37 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
     nonisolated static func references(
         in layers: [SceneRenderDescriptor.Layer]
     ) -> [Reference] {
+        references(in: layers) { slotIndex, pass in
+            !hasUserTexture(slotIndex: slotIndex, pass: pass)
+        }
+    }
+
+    /// A system texture may explicitly publish `absent`, allowing the frame
+    /// selector to continue to a lower authored named target. These references
+    /// are only admission candidates: they acquire capture/publication
+    /// authority after an exact MaterialProgram variant proves the mixed slot.
+    nonisolated static func potentialSystemNamedFallbackReferences(
+        in layers: [SceneRenderDescriptor.Layer]
+    ) -> [Reference] {
+        references(in: layers) { slotIndex, pass in
+            hasSystemUserTexture(slotIndex: slotIndex, pass: pass)
+        }
+    }
+
+    private nonisolated static func references(
+        in layers: [SceneRenderDescriptor.Layer],
+        acceptsSlot: (
+            Int,
+            SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+        ) -> Bool
+    ) -> [Reference] {
         layers.flatMap { layer in
             layer.effects.filter { $0.visible != false }.flatMap { effect in
                 effect.passes.flatMap { pass in
                     pass.textureSlots.enumerated().compactMap { slotIndex, path in
-                        guard !isShadowedByUserTexture(
-                            slotIndex: slotIndex,
-                            pass: pass
-                        ), let reference = SceneNamedTextureReference.parse(path) else {
+                        guard acceptsSlot(slotIndex, pass),
+                              let reference = SceneNamedTextureReference.parse(path)
+                        else {
                             return nil
                         }
                         return Reference(
@@ -49,14 +72,36 @@ nonisolated enum SceneNamedTextureDependencyReferenceAnalysis {
         }
     }
 
-    /// Instance user textures are appended after instance asset paths by the
-    /// shared material resolver. A named path at the same slot remains
-    /// provenance, but it is not the selected cross-layer execution input.
-    private nonisolated static func isShadowedByUserTexture(
+    /// An exact system producer may publish `absent`, which authorizes the
+    /// shared frame selector to continue to a lower authored named target.
+    /// Other user-texture kinds retain their old terminal-shadowing contract.
+    nonisolated static func userTextureAllowsNamedFallback(
+        slotIndex: Int,
+        pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        guard pass.userTextureInputs.indices.contains(slotIndex),
+              let input = pass.userTextureInputs[slotIndex] else { return true }
+        return input.kind == .system && !input.value.isEmpty
+    }
+
+    private nonisolated static func hasUserTexture(
         slotIndex: Int,
         pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
     ) -> Bool {
         pass.userTextureInputs.indices.contains(slotIndex)
             && pass.userTextureInputs[slotIndex] != nil
+    }
+
+    /// Descriptor-only potential used while compiling MaterialProgram
+    /// ownership. It must never by itself grant runtime capture or block a
+    /// safe layer-source passthrough; the runtime plan intersects it with the
+    /// admitted external-primary capability set.
+    nonisolated static func hasSystemUserTexture(
+        slotIndex: Int,
+        pass: SceneRenderDescriptor.EffectDescriptor.PassDescriptor
+    ) -> Bool {
+        guard pass.userTextureInputs.indices.contains(slotIndex),
+              let input = pass.userTextureInputs[slotIndex] else { return false }
+        return input.kind == .system && !input.value.isEmpty
     }
 }

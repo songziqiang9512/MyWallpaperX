@@ -13,6 +13,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
     let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
+    let potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding]
     let unavailableDependencyStageReasons: [Graph.EffectKey: String]
     let initiallyInactiveEffectKeys: Set<Graph.EffectKey>
     let sourceRoute: SourceRoute
@@ -25,6 +26,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         products: [SceneGraphAdmissionProduct],
         pairPlan: SceneLayerFullFramePairPlan,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding] = [],
         unavailableDependencyStageReasons: [Graph.EffectKey: String] = [:],
         initiallyInactiveEffectKeys: Set<Graph.EffectKey> = [],
         sourceRoute: SourceRoute,
@@ -36,6 +38,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         self.products = products
         self.pairPlan = pairPlan
         self.dependencyOwnership = dependencyOwnership
+        self.potentialExternalPrimaryBindings = potentialExternalPrimaryBindings
         self.unavailableDependencyStageReasons = unavailableDependencyStageReasons
         self.initiallyInactiveEffectKeys = initiallyInactiveEffectKeys
         self.sourceRoute = sourceRoute
@@ -57,11 +60,15 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         let structuralUtilityConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
                 .structuralUtilityConsumerLayerIDs(in: descriptor)
+        let productReferences = Set(
+            SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+        )
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs:
-                structuralUtilityConsumerLayerIDs
+                structuralUtilityConsumerLayerIDs,
+            admittedResolvedMaterialReferences: productReferences
         )
         return startupInactiveTargets(
             in: descriptor,
@@ -94,11 +101,15 @@ nonisolated enum SceneDirectBoolEffectVisibilityRouteAdmission {
         let structuralUtilityConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
                 .structuralUtilityConsumerLayerIDs(in: descriptor)
+        let productReferences = Set(
+            SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+        )
         let dependencyPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs:
-                structuralUtilityConsumerLayerIDs
+                structuralUtilityConsumerLayerIDs,
+            admittedResolvedMaterialReferences: productReferences
         )
         return targets(
             in: descriptor,
@@ -243,7 +254,22 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         let structuralUtilityDependencyConsumerLayerIDs =
             SceneResolvedMaterialDependencyOwnershipCompiler
                 .structuralUtilityConsumerLayerIDs(in: descriptor)
+        let productDependencyReferences = Set(
+            SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+        )
         let dependencyPlan = SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: executableVisibleRootLayerIDs,
+            executableUtilityConsumerLayerIDs:
+                structuralUtilityDependencyConsumerLayerIDs,
+            admittedResolvedMaterialReferences: productDependencyReferences
+        )
+        let potentialDependencyReferences = Set(
+            SceneDependencyGraphAnalysis
+                .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+        )
+        let potentialBindingsByConsumerLayerID = SceneDependencyRenderPlan
+            .potentialSystemNamedFallbackBindings(
             descriptor: descriptor,
             visibleLayerIDs: executableVisibleRootLayerIDs,
             executableUtilityConsumerLayerIDs:
@@ -277,6 +303,18 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 $0.consumerLayerID == layerID
             }
             let binding = dependencyPlan.bindingsByConsumerLayerID[layerID]
+            let layerPotentialReferences = potentialDependencyReferences.filter {
+                $0.consumerLayerID == layerID
+            }
+            let hasPotentialOnlyDependencyMetadata = layerReferences.isEmpty
+                && !layerPotentialReferences.isEmpty
+                && layer.authoredDependencies.isEmpty
+                && Set(layer.dependencyLayerIDs) == Set(
+                    layerPotentialReferences.map(\.providerLayerID)
+                )
+            let potentialExternalPrimaryBindings = binding == nil
+                && layerReferences.isEmpty
+                ? potentialBindingsByConsumerLayerID[layerID] ?? [] : []
             let compiledDependencyOwnership =
                 SceneResolvedMaterialDependencyOwnershipCompiler
                 .compile(
@@ -322,8 +360,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 unavailableDependencyStageReasons = [:]
             }
             let dependencyOwnership = compiledDependencyOwnership
-                ?? (unavailableDependencyStageReasons.isEmpty
-                    ? nil : SceneResolvedMaterialDependencyOwnership.none)
+                ?? ((layerReferences.isEmpty
+                        && (!potentialExternalPrimaryBindings.isEmpty
+                            || hasPotentialOnlyDependencyMetadata))
+                    || !unavailableDependencyStageReasons.isEmpty
+                    ? SceneResolvedMaterialDependencyOwnership.none : nil)
             let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
             switch executionSourceRoute(
                 layer,
@@ -396,6 +437,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     plannedEffects: plannedEffects,
                     descriptor: descriptor,
                     dependencyOwnership: dependencyOwnership,
+                    potentialExternalPrimaryBindings:
+                        potentialExternalPrimaryBindings,
                     unavailableDependencyStageReasons:
                         unavailableDependencyStageReasons,
                     initiallyInactiveEffectKeys:
@@ -479,6 +522,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         plannedEffects: [(offset: Int, element: SceneRenderDescriptor.EffectDescriptor)],
         descriptor: SceneRenderDescriptor,
         dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
+        potentialExternalPrimaryBindings: [SceneDependencyRenderPlan.Binding],
         unavailableDependencyStageReasons: [Graph.EffectKey: String],
         initiallyInactiveEffectKeys: Set<Graph.EffectKey>,
         sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
@@ -542,6 +586,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 products: products,
                 pairPlan: pair,
                 dependencyOwnership: dependencyOwnership,
+                potentialExternalPrimaryBindings:
+                    potentialExternalPrimaryBindings,
                 unavailableDependencyStageReasons:
                     unavailableDependencyStageReasons,
                 initiallyInactiveEffectKeys: initiallyInactiveEffectKeys,

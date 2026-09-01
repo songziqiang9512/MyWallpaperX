@@ -79,7 +79,9 @@ struct SceneRenderDescriptor {
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [String] = []
         var namedReferences: [SceneDependencyRenderPlan.Reference] = []
+        var potentialNamedReferences: [SceneDependencyRenderPlan.Reference] = []
         var namedBindings: [SceneDependencyRenderPlan.Binding] = []
+        var potentialNamedBindings: [SceneDependencyRenderPlan.Binding] = []
     }
 
     struct MaterialPassDescriptor {
@@ -120,6 +122,20 @@ enum SceneLayerVisibility {
     }
 }
 
+enum SceneDependencyGraphAnalysis {
+    static func references(
+        in layers: [SceneRenderDescriptor.Layer]
+    ) -> [SceneDependencyRenderPlan.Reference] {
+        layers.flatMap(\.namedReferences)
+    }
+
+    static func potentialSystemNamedFallbackReferences(
+        in layers: [SceneRenderDescriptor.Layer]
+    ) -> [SceneDependencyRenderPlan.Reference] {
+        layers.flatMap(\.potentialNamedReferences)
+    }
+}
+
 struct SceneDependencyRenderPlan {
     struct Reference: Hashable {
         let consumerLayerID: Int
@@ -136,12 +152,34 @@ struct SceneDependencyRenderPlan {
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
 
-    init(
+    static func potentialSystemNamedFallbackBindings(
         descriptor: SceneRenderDescriptor,
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int> = []
+    ) -> [Int: [Binding]] {
+        _ = executableUtilityConsumerLayerIDs
+        return Dictionary(uniqueKeysWithValues: descriptor.layers.compactMap {
+            layer in
+            guard visibleLayerIDs.contains(layer.id),
+                  !layer.potentialNamedBindings.isEmpty else { return nil }
+            return (layer.id, layer.potentialNamedBindings)
+        })
+    }
+
+    init(
+        descriptor: SceneRenderDescriptor,
+        visibleLayerIDs: Set<Int>,
+        executableUtilityConsumerLayerIDs: Set<Int> = [],
+        admittedResolvedMaterialReferences: Set<Reference> = []
     ) {
-        references = descriptor.layers.flatMap(\.namedReferences)
+        let products = SceneDependencyGraphAnalysis.references(
+            in: descriptor.layers
+        )
+        let potentials = Set(
+            SceneDependencyGraphAnalysis
+                .potentialSystemNamedFallbackReferences(in: descriptor.layers)
+        ).intersection(admittedResolvedMaterialReferences)
+        references = products + potentials.filter { !products.contains($0) }
         namedReferenceConsumerLayerIDs = Set(references.compactMap {
             visibleLayerIDs.contains($0.consumerLayerID) ? $0.consumerLayerID : nil
         })
@@ -152,10 +190,21 @@ struct SceneDependencyRenderPlan {
                     || executableUtilityConsumerLayerIDs.contains(layer.id) else {
                 continue
             }
-            let matches = layer.namedBindings.filter {
+            let matches = (
+                layer.namedBindings + layer.potentialNamedBindings
+            ).filter {
                 $0.consumerLayerID == layer.id
             }
-            if matches.count == 1 {
+            if matches.count == 1,
+               !matches[0].requiresResolvedMaterialProgram
+                || matches[0].referenceSlots.allSatisfy({ slot in
+                    admittedResolvedMaterialReferences.contains(.init(
+                        consumerLayerID: matches[0].consumerLayerID,
+                        providerLayerID: matches[0].providerLayerID,
+                        slot: slot,
+                        variant: .primary
+                    ))
+                }) {
                 bindings[layer.id] = matches[0]
             }
         }
@@ -604,6 +653,7 @@ private func fragmentSource(
     repeatProbe: Bool = false,
     crossLayerMix: Bool = false,
     systemProviderMix: Bool = false,
+    mixedSystemNamedBlend: Bool = false,
     colorBlend: Bool = false
 ) -> String {
     if colorBlend {
@@ -646,7 +696,9 @@ private func fragmentSource(
             : "uniform sampler2D g_Texture0;"
     let samplers = crossLayerMix || systemProviderMix
         ? primarySampler + (systemProviderMix
-            ? "\nuniform sampler2D g_Texture1; // {\"mode\":\"rgbmask\"}"
+            ? mixedSystemNamedBlend
+                ? "\nuniform sampler2D g_Texture1; // {\"mode\":\"rgbmask\",\"default\":\"util/white\"}"
+                : "\nuniform sampler2D g_Texture1; // {\"mode\":\"rgbmask\"}"
             : "\nuniform sampler2D g_Texture1;")
         : primarySampler
     let varying = frontendInvalid
@@ -665,7 +717,25 @@ private func fragmentSource(
                         : ""
     let sampleCoordinate = repeatProbe
         ? "v_TexCoord + vec2(1.0)" : "v_TexCoord"
-    let expression = if systemProviderMix {
+    let blendHelper = mixedSystemNamedBlend ? """
+    uniform float g_Multiply; // {"material":"multiply","default":0.5}
+    uniform float g_AlphaMultiply; // {"material":"alpha","default":0.5}
+    vec3 ApplyBlending(
+        const int mode,
+        in vec3 base,
+        in vec3 blend,
+        in float opacity
+    ) {
+        return mix(base, blend, opacity);
+    }
+    """ : ""
+    let expression = if mixedSystemNamedBlend {
+        "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
+            + " vec4 overlay = texSample2D(g_Texture1, v_TexCoord);"
+            + " float weight = g_Multiply * overlay.a;"
+            + " color.rgb = ApplyBlending(0, color.rgb, overlay.rgb, weight);"
+            + " color.a = overlay.a * g_AlphaMultiply; gl_FragColor = color;"
+    } else if systemProviderMix {
         "vec4 color = texSample2D(g_Texture0, v_TexCoord);"
             + " float auxiliary = texSample2D(g_Texture1, v_TexCoord).r;"
             + " color.rgb *= auxiliary; gl_FragColor = color;"
@@ -737,6 +807,7 @@ private func fragmentSource(
     \(varying)
     \(samplers)
     \(uniform)
+    \(blendHelper)
     void main() {
         \(expression)
     }
@@ -1098,6 +1169,7 @@ private func shaderContract(
     repeatProbe: Bool = false,
     crossLayerMix: Bool = false,
     systemProviderMix: Bool = false,
+    mixedSystemNamedBlend: Bool = false,
     colorBlend: Bool = false
 ) -> SceneShaderContract {
     func stage(
@@ -1170,6 +1242,7 @@ private func shaderContract(
         repeatProbe: repeatProbe,
         crossLayerMix: crossLayerMix,
         systemProviderMix: systemProviderMix,
+        mixedSystemNamedBlend: mixedSystemNamedBlend,
         colorBlend: colorBlend
     ))
     let stages = [
@@ -1323,6 +1396,7 @@ private func template(
     systemProvider: String? = nil,
     systemProviderHighest: Bool = true,
     systemProviderLowerReference: Template.TextureReference? = nil,
+    mixedSystemNamedBlendOverride: Bool? = nil,
     colorBlendMaskPath: SceneVFSAssetPath? = nil
 ) -> Template {
     guard let target = node.target,
@@ -1359,6 +1433,13 @@ private func template(
         repeatProbe: repeatProbe,
         crossLayerMix: namedProvider != nil,
         systemProviderMix: systemProvider != nil,
+        mixedSystemNamedBlend: mixedSystemNamedBlendOverride ?? {
+            guard let lower = systemProviderLowerReference else {
+                return false
+            }
+            if case .provider(.namedLayerTarget) = lower { return true }
+            return false
+        }(),
         colorBlend: colorBlendMaskPath != nil
     )
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
@@ -1377,6 +1458,13 @@ private func template(
         ])
     }
     if let systemProvider {
+        let hasNamedLowerCandidate: Bool = {
+            guard let lower = systemProviderLowerReference else {
+                return false
+            }
+            if case .provider(.namedLayerTarget) = lower { return true }
+            return false
+        }()
         let lower = Template.TextureCandidate(
                 reference: systemProviderLowerReference
                     ?? .asset(systemProviderFallbackPath),
@@ -1384,7 +1472,7 @@ private func template(
             )
         let provider = Template.TextureCandidate(
                 reference: .provider(.system(systemProvider)),
-                provenance: .instance
+                provenance: hasNamedLowerCandidate ? .userTexture : .instance
             )
         slots[1] = .init(
             index: 1,
@@ -1532,6 +1620,7 @@ private func catalog(
     systemProviderBelowAssetNodes: Set<Int> = [],
     systemProviderLowerReferencesByNode:
         [Int: Template.TextureReference] = [:],
+    nonMixedSystemNamedNodes: Set<Int> = [],
     colorBlendNodes: Set<Int> = []
 ) -> SceneResolvedMaterialRuntimeCatalog {
     var entries: [
@@ -1583,6 +1672,9 @@ private func catalog(
                     !systemProviderBelowAssetNodes.contains(node.nodeIndex),
                 systemProviderLowerReference:
                     systemProviderLowerReferencesByNode[node.nodeIndex],
+                mixedSystemNamedBlendOverride:
+                    nonMixedSystemNamedNodes.contains(node.nodeIndex)
+                        ? false : nil,
                 colorBlendMaskPath: colorBlendNodes.contains(node.nodeIndex)
                     ? colorBlendMaskPath : nil
             )
@@ -2925,6 +3017,9 @@ private func capabilities(
     dynamicProducers: Capabilities.DynamicProducerCatalog = .empty,
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
+    potentialSystemNamedFallback: Bool = false,
+    additionalNamedProvider: SceneNamedTextureReference? = nil,
+    additionalDependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
     forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
     secondarySelfUnavailableReference:
         SceneDependencyRenderPlan.Reference? = nil,
@@ -2965,17 +3060,37 @@ private func capabilities(
     var layers: [SceneRenderDescriptor.Layer] = [consumer]
     if let namedProvider, let dependencyBinding {
         consumer.dependencyLayerIDs = [dependencyBinding.providerLayerID]
-        consumer.namedReferences = [.init(
+        let reference = SceneDependencyRenderPlan.Reference(
             consumerLayerID: graph.layerID,
             providerLayerID: namedProvider.providerLayerID,
             slot: dependencyBinding.slot,
             variant: namedProvider.variant
-        )]
-        consumer.namedBindings = [dependencyBinding]
-        layers = [
-            .init(id: dependencyBinding.providerLayerID, effects: []),
-            consumer,
-        ]
+        )
+        if potentialSystemNamedFallback {
+            consumer.potentialNamedReferences = [reference]
+            consumer.potentialNamedBindings = [dependencyBinding]
+        } else {
+            consumer.namedReferences = [reference]
+            consumer.namedBindings = [dependencyBinding]
+        }
+        var providerLayerIDs: Set<Int> = [dependencyBinding.providerLayerID]
+        if let additionalNamedProvider,
+           let additionalDependencyBinding {
+            consumer.dependencyLayerIDs.append(
+                additionalDependencyBinding.providerLayerID
+            )
+            consumer.namedReferences.append(.init(
+                consumerLayerID: graph.layerID,
+                providerLayerID: additionalNamedProvider.providerLayerID,
+                slot: additionalDependencyBinding.slot,
+                variant: additionalNamedProvider.variant
+            ))
+            consumer.namedBindings.append(additionalDependencyBinding)
+            providerLayerIDs.insert(additionalDependencyBinding.providerLayerID)
+        }
+        layers = providerLayerIDs.sorted().map {
+            .init(id: $0, effects: [])
+        } + [consumer]
     } else if let secondarySelfUnavailableReference {
         consumer.namedReferences = [secondarySelfUnavailableReference]
         layers = [consumer]
@@ -3317,6 +3432,14 @@ private enum Harness {
             blendMode: 0,
             kind: .resolvedMaterial
         )
+        let mixedExternalBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: namedReference.providerLayerID,
+            slot: externalBinding.slot,
+            blendMode: 0,
+            kind: .imageLayerBlend,
+            requiresResolvedMaterialProgram: true
+        )
         let crossLayerCapabilities = capabilities(
             crossLayerChain,
             catalog: catalog(
@@ -3330,6 +3453,93 @@ private enum Harness {
         let crossLayerCapability = crossLayerClaim.flatMap {
             crossLayerCapabilities.resolve($0.token, for: crossLayerChain)
         }
+        let mixedSystemNamedCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                systemProvidersByNode: [0: "$mediaThumbnail"],
+                systemProviderLowerReferencesByNode: [
+                    0: .provider(.namedLayerTarget(namedReference)),
+                ]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: mixedExternalBinding,
+            potentialSystemNamedFallback: true
+        )
+        let mixedSystemNamedClaim = mixedSystemNamedCapabilities.claim(
+            crossLayerChain
+        )
+        let mixedSystemNamedCapability = mixedSystemNamedClaim.flatMap {
+            mixedSystemNamedCapabilities.resolve($0.token, for: crossLayerChain)
+        }
+        let systemOnlyWithPotentialCapabilities = capabilities(
+            crossLayerChain,
+            catalog: catalog(
+                for: crossLayerGraph,
+                systemProvidersByNode: [0: "$mediaThumbnail"],
+                systemProviderLowerReferencesByNode: [
+                    0: .provider(.namedLayerTarget(namedReference)),
+                ],
+                nonMixedSystemNamedNodes: [0]
+            ),
+            namedProvider: namedReference,
+            dependencyBinding: mixedExternalBinding,
+            potentialSystemNamedFallback: true
+        )
+        let systemOnlyWithPotentialCapability =
+            systemOnlyWithPotentialCapabilities.claim(crossLayerChain).flatMap {
+                systemOnlyWithPotentialCapabilities.resolve(
+                    $0.token,
+                    for: crossLayerChain
+                )
+            }
+        let conflictingNamedReference = SceneNamedTextureReference(
+            providerLayerID: 880,
+            variant: .primary
+        )
+        let conflictingGraph = graph(
+            targets: [rawTarget(first)],
+            nodes: [
+                material(0, ordinal: 0, target: first, read: input),
+                material(1, ordinal: 1, target: output, read: first),
+            ]
+        )
+        let conflictingChain = admittedGraph(conflictingGraph)
+        let conflictingBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: conflictingNamedReference.providerLayerID,
+            slot: .init(
+                effectID: effect.descriptorID,
+                passIndex: 1,
+                slotIndex: 1
+            ),
+            blendMode: 0,
+            kind: .resolvedMaterial
+        )
+        let conflictingCatalog = catalog(
+            for: conflictingGraph,
+            namedProvidersByNode: [1: conflictingNamedReference],
+            systemProvidersByNode: [0: "$mediaThumbnail"],
+            systemProviderLowerReferencesByNode: [
+                0: .provider(.namedLayerTarget(namedReference)),
+            ]
+        )
+        let potentialCannotMaskOrdinaryDependency = capabilities(
+            conflictingChain,
+            catalog: conflictingCatalog,
+            namedProvider: namedReference,
+            dependencyBinding: mixedExternalBinding,
+            potentialSystemNamedFallback: true,
+            additionalNamedProvider: conflictingNamedReference,
+            additionalDependencyBinding: conflictingBinding
+        ).claim(conflictingChain) == nil
+        let invalidProgramDependencyRejected = capabilities(
+            conflictingChain,
+            catalog: conflictingCatalog,
+            namedProvider: namedReference,
+            dependencyBinding: mixedExternalBinding,
+            potentialSystemNamedFallback: true
+        ).claim(conflictingChain) == nil
         var crossLayerPrepared = false
         var crossLayerEncoded = false
         var crossLayerGPUCompleted = false
@@ -7129,6 +7339,29 @@ private enum Harness {
                         capability.dependencyOwnership else { return false }
                 return binding == externalBinding
             }(),
+            "mixedSystemNamedFallbackConservesExternalDependency": {
+                guard let capability = mixedSystemNamedCapability,
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership,
+                      let material = capability.material(
+                          effect: effect,
+                          nodeIndex: 0
+                      ) else { return false }
+                return binding == mixedExternalBinding
+                    && material.variants
+                        .provesEffectLocalSystemProviderTextureFailure(slot: 1)
+            }(),
+            "unselectedPotentialDoesNotRevokeSystemOnlyProgram": {
+                guard let capability = systemOnlyWithPotentialCapability,
+                      case .none = capability.dependencyOwnership else {
+                    return false
+                }
+                return true
+            }(),
+            "potentialCannotMaskOrdinaryDependency":
+                potentialCannotMaskOrdinaryDependency,
+            "invalidProgramDependencyRejected":
+                invalidProgramDependencyRejected,
             "crossLayerPreparedUnifiedProgram": crossLayerFailure == "success"
                 && crossLayerPrepared,
             "crossLayerEncodedAndGPUCompleted": crossLayerEncoded

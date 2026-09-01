@@ -717,6 +717,12 @@ enum SceneNamedTextureReference {
     }
 }
 struct SceneDependencyRenderPlan {
+    struct Reference: Hashable {
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let variant: SceneNamedTextureReference.Variant
+    }
 }
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case none
@@ -814,6 +820,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
     }
     var executionLayerIDs: Set<Int> { Set(capabilitiesByLayerID.keys) }
+    var admittedResolvedMaterialReferences:
+        Set<SceneDependencyRenderPlan.Reference> { [] }
     var sceneBackgroundLayerIDs: Set<Int> {
         Set(capabilitiesByLayerID.values.compactMap {
             $0.sceneBackgroundRequirement?.layerID

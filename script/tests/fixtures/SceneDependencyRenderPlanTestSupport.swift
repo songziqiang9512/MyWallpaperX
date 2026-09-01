@@ -31,13 +31,19 @@ struct SceneAuthoredEffectRenderPlan {
     }
 }
 
+struct SceneEffectTextureInput {
+    enum Kind: Equatable { case path, system, property, unknown }
+    let kind: Kind
+    let value: String
+}
+
 struct SceneRenderDescriptor {
     struct EffectDescriptor {
         struct PassDescriptor {
             let passIndex: Int
             let texturePaths: [String]
             let textureSlots: [String?]
-            let userTextureInputs: [Int?]
+            let userTextureInputs: [SceneEffectTextureInput?]
             let combos: [String: Int]
             let constantShaderValues: [String: SceneDocument.ShaderValue]
 
@@ -45,7 +51,7 @@ struct SceneRenderDescriptor {
                 passIndex: Int,
                 texturePaths: [String] = [],
                 textureSlots: [String?],
-                userTextureInputs: [Int?] = [],
+                userTextureInputs: [SceneEffectTextureInput?] = [],
                 combos: [String: Int],
                 constantShaderValues: [String: SceneDocument.ShaderValue]
             ) {

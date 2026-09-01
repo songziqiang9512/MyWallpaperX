@@ -1,5 +1,7 @@
 # Scene 官方 Effect 执行覆盖表
 
+现役 mixed-provider Blend 更正：共享准入不再把 descriptor 中所有可能的 named/system candidate 提前变成产品 dependency；MaterialProgram finalization 只提升实际选择的 exact slot/provider/purpose，未选择的 potential reference 不形成 graph edge、capture、cycle 或 liveness。固定8槽 representation purpose 已进入variant/cache ABI。隔离真实派生 `2938612768:1509#effect#961` 在 `$mediaThumbnail` absent 时消费低优先级 named premultiplied provider，在合法 preserved provider ready 后消费同一槽的 system representation；pending/unavailable只撤回该effect，后缀`#976`持续GPU/publication/terminal compositor。只开放 source-proven overlay-alpha/associated-over 的 exact two-candidate envelope，没有按Blend、样本、layer、path或hash增加视觉实现，也没有放宽OPACITYMASK、多overlay、冲突identity或非法provider。两份selection严格NON-PASS，故不声称Blend ROI/fidelity、完整样本或官方parity；见[E-V4-EXACT-MIXED-SYSTEM-NAMED-PROVIDER](runtime-evidence-index.md#e-v4-exact-mixed-system-named-provider)。
+
 现役 VHS sampled-alpha RGBA 更正：共享frontend/compiler现在把同一graph-input color slot的snapshot、作者坐标`.ga/.yw`初始化与其余RGB reconstruction证明为straight RGBA；noise/mask slot继续是typed static data。真实`2241938645:68#effect#114`默认/恢复由新增identity-free `source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter / generic-only / fallbackOwner=none` Program执行，profile disable只对该effect发布previous-current，后续effects 4...9与唯一compositor继续。没有新增VHS planner/pipeline/renderer/texture loader或输出owner；strict selection因旧matrix期待保持NON-PASS，且无独立ROI/官方golden。现役route census为**44/1/1**；见[E-V1-VHS-SAMPLED-ALPHA-RGBA-RECONSTRUCTION](runtime-evidence-index.md#e-v1-vhs-sampled-alpha-rgba-reconstruction)。
 
 > 状态：现役专项能力表

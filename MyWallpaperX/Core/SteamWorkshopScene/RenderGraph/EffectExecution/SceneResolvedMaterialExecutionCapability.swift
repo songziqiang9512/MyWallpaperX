@@ -238,6 +238,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             admitted: SceneResolvedMaterialAdmittedLayer,
             stages: [StageCapability],
             materials: [MaterialKey: MaterialCapability],
+            dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sceneBackgroundRequirement: SceneBackgroundRequirement?
         ) {
             layerID = admitted.layerID
@@ -246,7 +247,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             pairPlan = admitted.pairPlan
             self.materials = materials
             fullFrameExtentPolicy = .standard
-            dependencyOwnership = admitted.dependencyOwnership
+            self.dependencyOwnership = dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
             var graphColorRepresentations: [
@@ -371,6 +372,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                         admitted: admitted,
                         stages: compiled.stages,
                         materials: compiled.materials,
+                        dependencyOwnership: compiled.dependencyOwnership,
                         sceneBackgroundRequirement:
                             compiled.sceneBackgroundRequirement
                     )
@@ -529,6 +531,21 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     var executionLayerIDs: Set<Int> {
         Set(capabilitiesByLayerID.keys)
+    }
+
+    var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
+        capabilitiesByLayerID.values.reduce(into: []) { result, capability in
+            guard case let .externalPrimary(binding) =
+                    capability.dependencyOwnership else { return }
+            for slot in binding.referenceSlots {
+                result.insert(.init(
+                    consumerLayerID: binding.consumerLayerID,
+                    providerLayerID: binding.providerLayerID,
+                    slot: slot,
+                    variant: .primary
+                ))
+            }
+        }
     }
 
     var sceneBackgroundLayerIDs: Set<Int> {

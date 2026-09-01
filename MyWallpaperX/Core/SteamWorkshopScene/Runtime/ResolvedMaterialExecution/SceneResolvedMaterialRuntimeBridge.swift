@@ -221,6 +221,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         capabilities.executionLayerIDs
     }
 
+    var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
+        capabilities.admittedResolvedMaterialReferences
+    }
+
     var sceneBackgroundLayerIDs: Set<Int> {
         capabilities.sceneBackgroundLayerIDs
     }

@@ -144,15 +144,42 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sampler.sourceProvenPurpose == nil ? nil : slot
             }
         )
+        let mixedProviderFacts = mixedProviderSlotFacts(
+            in: template,
+            samplers: sourceActiveSamplers
+        )
+        let mixedProviderSlots = Set(mixedProviderFacts.keys)
+        let selectedMixedDataSlots = Set(mixedProviderFacts.compactMap {
+            slot, _ in variantKey.selectedTexturePurposes[slot]
+                == .preservedChannels ? slot : nil
+        })
+        let selectedMixedPremultipliedSlots = Set(
+            mixedProviderFacts.compactMap { slot, _ in
+                variantKey.selectedTexturePurposes[slot]
+                    == .premultipliedColor ? slot : nil
+            }
+        )
+        guard selectedMixedDataSlots.union(selectedMixedPremultipliedSlots)
+                == mixedProviderSlots else {
+            throw failure(
+                .textureVariantKeyIdentityInvariant,
+                phase: .invariant,
+                details: ["mixed-provider-purpose-profile"]
+            )
+        }
         let activeExternalProviderTextureSlots = externalProviderTextureSlots(
             in: template,
             activeTextureSlots: Set(sourceActiveSamplers.keys)
         )
-        let activeTerminalNamedLayerProviderTextureSlots =
+        let staticallyTerminalNamedLayerProviderTextureSlots =
             terminalNamedLayerProviderTextureSlots(
-            in: template,
-            activeTextureSlots: Set(sourceActiveSamplers.keys)
-        )
+                in: template,
+                activeTextureSlots: Set(sourceActiveSamplers.keys)
+            ).subtracting(mixedProviderSlots)
+        let activeTerminalNamedLayerProviderTextureSlots =
+            staticallyTerminalNamedLayerProviderTextureSlots.union(
+                selectedMixedPremultipliedSlots
+            )
         let premultipliedColorAuxiliarySlots =
             activeExternalProviderTextureSlots
                 == activeTerminalNamedLayerProviderTextureSlots
@@ -230,7 +257,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             template: template,
             samplers: sourceActiveSamplers,
             graphInputSlots: graphInputTextureSlots
-        )
+        ).subtracting(mixedProviderSlots)
         let graphR8TextureSlots = Set(activeGraphTextureIdentities.compactMap {
             graphTextureFormatFacts[$0.value] == .r8 ? $0.key : nil
         })
@@ -290,10 +317,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             unitCompositePreviousSlot: unitCompositeSlots?.previous,
             unitCompositeMaskSlot: unitCompositeSlots?.mask,
             hasExternalProviderTexture:
-                SceneResolvedMaterialVariantCache.hasExternalProviderTexture(
-                    in: template,
-                    activeTextureSlots: activeTextureSlots
-                ),
+                !activeExternalProviderTextureSlots.isEmpty,
             producesScalarRedOutput: outputStorage == .scalarRedUnorm
                 || outputStorage == .scalarRedFloat16,
             producesRedGreenUnormOutput: outputStorage == .redGreenUnorm,
@@ -313,6 +337,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeTextureSlots: activeTextureSlots,
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
+            preservedChannelsExternalProviderTextureSlots:
+                selectedMixedDataSlots,
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:

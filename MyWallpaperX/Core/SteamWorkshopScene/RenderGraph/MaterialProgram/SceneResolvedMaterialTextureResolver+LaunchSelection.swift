@@ -10,6 +10,44 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         case deferred
     }
 
+    /// Enumerates only representation choices that can be selected by the
+    /// exact mixed-provider contract. This is combined with readiness and
+    /// format profiles before launch so frame finalization never compiles.
+    static func launchSelectedTexturePurposeProfiles(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
+    ) throws -> [[SceneTextureLoadPurpose?]] {
+        let facts = SceneResolvedMaterialVariantCache.mixedProviderSlotFacts(
+            in: template,
+            samplers: samplers
+        )
+        var profiles = [Array<SceneTextureLoadPurpose?>(
+            repeating: nil,
+            count: 8
+        )]
+        for slot in facts.keys.sorted() {
+            var expanded: [[SceneTextureLoadPurpose?]] = []
+            for profile in profiles {
+                for purpose in [
+                    SceneTextureLoadPurpose.preservedChannels,
+                    .premultipliedColor,
+                ] {
+                    var next = profile
+                    next[slot] = purpose
+                    expanded.append(next)
+                    guard expanded.count <= 256 else {
+                        throw launchSelectionFailure(
+                            .shaderPreparationFailed,
+                            slot: slot
+                        )
+                    }
+                }
+            }
+            profiles = expanded
+        }
+        return profiles
+    }
+
     /// Mirrors frame precedence for immutable asset candidates. Only an exact
     /// absent state may expose a lower-priority candidate; all other unready
     /// states fail launch admission instead of becoming a fallback.

@@ -3129,6 +3129,150 @@ private func sameSlotMappedCoordinateTokens(
     ]
 }
 
+private func mixedSystemNamedProviderTokens(
+    _ device: MTLDevice
+) -> [String: Any] {
+    let shader = contract(
+        revision: "mixed-system-named-overlay",
+        secondSamplerMetadata: #"{"mode":"rgbmask","default":"util/white"}"#,
+        overlayAlphaBlend: true
+    )
+    let namedReference = SceneNamedTextureReference(
+        providerLayerID: 879,
+        variant: .primary
+    )
+    let systemName = "$mediaThumbnail"
+    let candidates: [Template.TextureCandidate] = [
+        .init(
+            reference: .provider(.namedLayerTarget(namedReference)),
+            provenance: .material
+        ),
+        .init(
+            reference: .provider(.system(systemName)),
+            provenance: .userTexture
+        ),
+    ]
+    let admitted = template(
+        shader,
+        includePrimaryCandidate: false,
+        secondCandidates: candidates
+    )
+    let cache: SceneResolvedMaterialVariantCache
+    switch SceneResolvedMaterialVariantCache.launchValidated(
+        template: admitted,
+        maximumVariantCount: 16
+    ) {
+    case let .success(value): cache = value
+    case let .failure(failure):
+        return ["setup": "cache:\(failure.phase.rawValue)/\(failure.code.rawValue)"]
+    }
+    switch cache.precompileLaunchEnvelope(
+        implicitFramebufferIdentity: graphTexture()
+    ) {
+    case .success: break
+    case .failure(.capacity): return ["setup": "launch:capacity"]
+    case let .failure(.material(failure)):
+        return [
+            "setup": "launch:\(failure.phase.rawValue)/\(failure.code.rawValue)",
+            "details": failure.boundedDetails.joined(separator: ","),
+        ]
+    }
+    let namedDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm,
+        width: 2,
+        height: 2,
+        mipmapped: false
+    )
+    namedDescriptor.storageMode = .shared
+    namedDescriptor.usage = [.shaderRead, .renderTarget]
+    guard let namedResource = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: namedReference,
+                frameEpoch: 1,
+                texture: device.makeTexture(descriptor: namedDescriptor)!
+            ) else { return ["setup": "named-resource"] }
+
+    let namedIdentity = SceneFrameTextureIdentity.namedLayerTarget(
+        namedReference
+    )
+    let systemIdentity = SceneFrameTextureIdentity.system(.init(
+        name: systemName,
+        purpose: .preservedChannels
+    ))
+    let namedEntry = SceneFrameTextureLookupStatus.ready(namedResource)
+    let systemReady = SceneFrameTextureLookupStatus.ready(.init(
+        publication: publication(
+            device,
+            requestIdentity: systemIdentity,
+            purpose: .preservedChannels,
+            content: .data,
+            candidateGeneration: 7,
+            contentGeneration: 7,
+            candidateIdentity: .provider(.mediaThumbnailCurrent)
+        ),
+        resourceGeneration: 7
+    ))
+    func finalized(
+        systemStatus: SceneFrameTextureLookupStatus
+    ) -> Result<Program, SceneResolvedMaterialFailure> {
+        finalize(
+            shader: shader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondCandidates: candidates,
+            additionalEntries: [
+                namedIdentity: namedEntry,
+                systemIdentity: systemStatus,
+            ],
+            implicitFramebufferIdentity: graphTexture(),
+            variantCache: cache
+        )
+    }
+    func selectionToken(
+        _ result: Result<Program, SceneResolvedMaterialFailure>
+    ) -> String {
+        guard case let .success(program) = result,
+              let slot = program.textureSlots[1] else {
+            return failureToken(result)
+        }
+        let source: String = switch slot.reference {
+        case .provider(.system): "system"
+        case .provider(.namedLayerTarget): "named"
+        default: "other"
+        }
+        return "\(source):\(slot.expectedPurpose.reportToken)"
+    }
+
+    let countersBefore = cache.counters
+    let ready = finalized(systemStatus: systemReady)
+    let absent = finalized(systemStatus: .absent)
+    let readyAgain = finalized(systemStatus: systemReady)
+    let pending = finalized(systemStatus: .pending)
+    let countersAfter = cache.counters
+    let snapshot = cache.launchEnvelopeCapabilitySnapshot()
+    return [
+        "variantCount": snapshot.variants.count,
+        "allReady": snapshot.allEntriesReady,
+        "abiSlots": snapshot.variants.map {
+            $0.premultipliedColorInputSlots.sorted()
+        }.sorted { $0.lexicographicallyPrecedes($1) },
+        "profiles": Array(Set(snapshot.variants.map {
+            $0.routeDecision.profile
+        })).sorted(),
+        "ready": selectionToken(ready),
+        "absent": selectionToken(absent),
+        "readyAgain": selectionToken(readyAgain),
+        "pending": failureToken(pending),
+        "pendingVisualFallback": visualFallbackToken(pending),
+        "cacheStable": countersBefore.cachedVariantCount
+            == countersAfter.cachedVariantCount
+            && countersBefore.shaderPreparationCount
+                == countersAfter.shaderPreparationCount
+            && countersBefore.frontendCompilationCount
+                == countersAfter.frontendCompilationCount,
+    ]
+}
+
 @main
 private enum Harness {
     static func float(_ data: Data, at offset: Int) -> Float {
@@ -5175,9 +5319,11 @@ private enum Harness {
             neutralTextureResolutionFinalizerFailures(device)
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
         let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
+        let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
         let result: [String: Any] = [
             "metalAvailable": true,
             "sameSlotMappedCoordinate": sameSlotMappedCoordinate,
+            "mixedSystemNamedProvider": mixedSystemNamedProvider,
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
             "exactCrossStageUniformCases": exactCrossStageUniformCases,
@@ -5759,6 +5905,30 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         self.assertEqual(
             {name: self.result["failures"][name] for name in expected},
             expected,
+        )
+
+    def test_mixed_system_and_named_provider_selects_precompiled_typed_abi(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["mixedSystemNamedProvider"],
+            {
+                "variantCount": 2,
+                "allReady": True,
+                "abiSlots": [[], [1]],
+                "profiles": [
+                    "source-proven-graph-input-overlay-alpha-blend",
+                ],
+                "ready": "system:preserved-channels",
+                "absent": "named:premultiplied-color",
+                "readyAgain": "system:preserved-channels",
+                "pending": "texture/resourceSnapshotUnresolved",
+                "pendingVisualFallback": (
+                    "material-finalizer-system-provider-pending"
+                ),
+                "cacheStable": True,
+            },
+            self.result,
         )
 
     def test_official_sampler_modes_are_typed_without_custom_purpose(self) -> None:

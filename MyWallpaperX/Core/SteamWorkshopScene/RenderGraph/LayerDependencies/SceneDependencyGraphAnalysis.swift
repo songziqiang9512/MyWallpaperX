@@ -19,6 +19,20 @@ nonisolated enum SceneDependencyGraphAnalysis {
         }
     }
 
+    nonisolated static func potentialSystemNamedFallbackReferences(
+        in layers: [SceneRenderDescriptor.Layer]
+    ) -> [Reference] {
+        SceneNamedTextureDependencyReferenceAnalysis
+            .potentialSystemNamedFallbackReferences(in: layers).map {
+                Reference(
+                    consumerLayerID: $0.consumerLayerID,
+                    providerLayerID: $0.providerLayerID,
+                    slot: $0.slot,
+                    variant: $0.variant
+                )
+            }
+    }
+
     nonisolated static func dependencyEdges(
         layers: [SceneRenderDescriptor.Layer],
         references: [Reference]

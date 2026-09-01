@@ -39,7 +39,7 @@ final class SceneDependencyFrameRuntime {
         visibleLayerIDs: Set<Int>,
         executableUtilityConsumerLayerIDs: Set<Int>,
         verifiedXRayStageKeys: Set<SceneAuthoredEffectRenderPlan.EffectKey> = [],
-        resolvedMaterialConsumerLayerIDs: Set<Int>? = nil,
+        admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> = [],
         device: MTLDevice
     ) {
         self.plan = SceneDependencyRenderPlan(
@@ -47,7 +47,8 @@ final class SceneDependencyFrameRuntime {
             visibleLayerIDs: visibleLayerIDs,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: verifiedXRayStageKeys,
-            resolvedMaterialConsumerLayerIDs: resolvedMaterialConsumerLayerIDs
+            admittedResolvedMaterialReferences:
+                admittedResolvedMaterialReferences
         )
         self.targetPool = SceneNamedRenderTargetPool(device: device)
     }

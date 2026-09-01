@@ -236,6 +236,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     struct CompiledStages {
         let stages: [StageCapability]
         let materials: [MaterialKey: MaterialCapability]
+        let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
     }
 
@@ -298,6 +299,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(.init(
             stages: stages,
             materials: allMaterials,
+            dependencyOwnership: admitted.dependencyOwnership,
             sceneBackgroundRequirement: nil
         ))
     }

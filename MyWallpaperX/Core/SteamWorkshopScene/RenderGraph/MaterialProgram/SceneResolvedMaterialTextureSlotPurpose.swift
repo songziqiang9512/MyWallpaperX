@@ -22,6 +22,18 @@ nonisolated enum SceneResolvedMaterialTextureSlotPurpose {
             return nil
         }
         let candidate = slot.candidates[candidateOrdinal]
+        if let mixed = SceneResolvedMaterialMixedProviderSlotFact.resolve(
+            in: slot,
+            sampler: sampler
+        ), let purpose = mixed.purpose(for: candidate.reference) {
+            return Fact(
+                slot: slot.index,
+                ordinal: candidateOrdinal,
+                reference: candidate.reference,
+                provenance: candidate.provenance,
+                purpose: purpose
+            )
+        }
         let directPurpose = sampler.purpose(for: candidate.reference)
         if case .provider(.namedLayerTarget) = candidate.reference {
             // The registry atom is the compositor's premultiplied publication.

@@ -59,7 +59,8 @@ struct SceneMetalRenderer {
                 visibleLayerIDs.union(resolvedMaterialVisibleRootLayerIDs),
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
             verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys,
-            resolvedMaterialConsumerLayerIDs: resolvedMaterialLayerIDs,
+            admittedResolvedMaterialReferences: resolvedMaterialRuntime?
+                .admittedResolvedMaterialReferences ?? [],
             device: device
         )
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })

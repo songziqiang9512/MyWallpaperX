@@ -137,14 +137,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         }
 
         guard !stages.isEmpty,
-              stages.count == admitted.products.count,
-              dependencyOwnershipMatches(
-                  admitted.dependencyOwnership,
-                  layerID: admitted.layerID,
-                  stages: stages
-              ) else {
+              stages.count == admitted.products.count else {
             return .failure(rejection("execution-stage-conservation"))
         }
+        guard let dependencyOwnership = finalizeDependencyOwnership(
+            admitted.dependencyOwnership,
+            potentialBindings: admitted.potentialExternalPrimaryBindings,
+            layerID: admitted.layerID,
+            stages: stages
+        ) else { return .failure(rejection("execution-stage-conservation")) }
         let background: SceneBackgroundRequirement?
         switch sceneBackgroundRequirement(
             admitted: admitted,
@@ -158,6 +159,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return .success(.init(
             stages: stages,
             materials: allMaterials,
+            dependencyOwnership: dependencyOwnership,
             sceneBackgroundRequirement: background
         ))
     }
@@ -435,69 +437,124 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return producerType == expected
     }
 
-    private static func dependencyOwnershipMatches(
+    private static func finalizeDependencyOwnership(
         _ ownership: SceneResolvedMaterialDependencyOwnership,
+        potentialBindings: [SceneDependencyRenderPlan.Binding],
         layerID: Int,
         stages: [StageCapability]
-    ) -> Bool {
-        let resolvedDependencyStages = stages.flatMap {
-            resolvedExternalDependencies(in: $0)
+    ) -> SceneResolvedMaterialDependencyOwnership? {
+        var resolvedDependencyStages: [ResolvedExternalDependency] = []
+        for stage in stages {
+            switch resolvedExternalDependencies(in: stage) {
+            case .none:
+                continue
+            case let .exact(dependencies):
+                resolvedDependencyStages.append(contentsOf: dependencies)
+            case .invalid:
+                return nil
+            }
         }
+        let resolvedBindings = resolvedDependencyStages.map(\.bindingDependency)
         switch ownership {
-        case .none, .graphInternal:
-            return resolvedDependencyStages.isEmpty
+        case .none:
+            guard !potentialBindings.isEmpty else {
+                return resolvedDependencyStages.isEmpty ? ownership : nil
+            }
+            if resolvedDependencyStages.isEmpty {
+                return ownership
+            }
+            guard resolvedDependencyStages.allSatisfy({
+                      $0.origin == .exactMixedSystemFallback
+                  }) else { return nil }
+            let matchingBindings = potentialBindings.filter {
+                $0.consumerLayerID == layerID
+                    && matches(resolvedBindings, binding: $0)
+            }
+            guard matchingBindings.count == 1,
+                  let binding = matchingBindings.first else {
+                return nil
+            }
+            return .externalPrimary(binding)
+
+        case .graphInternal:
+            guard potentialBindings.isEmpty,
+                  resolvedDependencyStages.isEmpty else { return nil }
+            return ownership
 
         case let .externalPrimary(binding):
-            guard binding.consumerLayerID == layerID else { return false }
+            guard potentialBindings.isEmpty,
+                  binding.consumerLayerID == layerID else { return nil }
             let passthroughDependencyStages = stages.flatMap {
                 visualFailureExternalDependencies(in: $0, binding: binding)
             }
-            let ordinaryDependencyStages = resolvedDependencyStages
+            let ordinaryDependencyStages = resolvedBindings
                 + passthroughDependencyStages
-            if !ordinaryDependencyStages.isEmpty {
-                let expected = Set(binding.referenceSlots.map { slot in
-                    ResolvedExternalDependency(
-                        consumerLayerID: binding.consumerLayerID,
-                        providerLayerID: binding.providerLayerID,
-                        slot: slot
-                    )
-                })
-                guard expected.count == binding.referenceSlots.count,
-                      ordinaryDependencyStages.count == expected.count,
-                      Set(ordinaryDependencyStages) == expected else { return false }
-                return true
-            }
-            guard resolvedDependencyStages.isEmpty else { return false }
-            switch binding.kind {
-            case .resolvedMaterial:
-                return false
-
-            case .solidLayer:
-                return false
-            case .imageLayerBlend:
-                return false
-            case .visibleImageGraphOutput:
-                return false
-            }
+            return matches(ordinaryDependencyStages, binding: binding)
+                ? ownership : nil
         }
     }
 
-    private struct ResolvedExternalDependency: Hashable {
+    private static func matches(
+        _ dependencies: [BindingDependency],
+        binding: SceneDependencyRenderPlan.Binding
+    ) -> Bool {
+        let expected = Set(binding.referenceSlots.map { slot in
+            BindingDependency(
+                consumerLayerID: binding.consumerLayerID,
+                providerLayerID: binding.providerLayerID,
+                slot: slot
+            )
+        })
+        return !dependencies.isEmpty
+            && expected.count == binding.referenceSlots.count
+            && dependencies.count == expected.count
+            && Set(dependencies) == expected
+    }
+
+    private struct BindingDependency: Hashable {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+    }
+
+    private struct ResolvedExternalDependency: Hashable {
+        enum Origin: Hashable {
+            case terminalNamed
+            case exactMixedSystemFallback
+        }
+
+        let materialKey: MaterialKey
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let slot: SceneEffectPassSlot
+        let origin: Origin
+
+        var bindingDependency: BindingDependency {
+            .init(
+                consumerLayerID: consumerLayerID,
+                providerLayerID: providerLayerID,
+                slot: slot
+            )
+        }
     }
 
     private struct ResolvedNamedCandidate {
         let key: MaterialKey
         let slot: Int
         let reference: SceneNamedTextureReference
+        let origin: ResolvedExternalDependency.Origin
+    }
+
+    private enum ResolvedExternalDependencyAnalysis {
+        case none
+        case exact([ResolvedExternalDependency])
+        case invalid
     }
 
     private static func visualFailureExternalDependencies(
         in stage: StageCapability,
         binding: SceneDependencyRenderPlan.Binding
-    ) -> [ResolvedExternalDependency] {
+    ) -> [BindingDependency] {
         guard case let .visualFailurePassthrough(product, _) = stage,
               let slots = SceneResolvedMaterialDependencyOwnership
                 .externalPrimary(binding)
@@ -505,7 +562,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return []
         }
         return slots.map {
-            ResolvedExternalDependency(
+            BindingDependency(
                 consumerLayerID: binding.consumerLayerID,
                 providerLayerID: binding.providerLayerID,
                 slot: $0
@@ -515,21 +572,50 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
     private static func resolvedExternalDependencies(
         in stage: StageCapability
-    ) -> [ResolvedExternalDependency] {
-        guard case let .resolved(product, materials, _) = stage else { return [] }
+    ) -> ResolvedExternalDependencyAnalysis {
+        guard case let .resolved(product, materials, _) = stage else {
+            return .none
+        }
         var namedCandidates: [ResolvedNamedCandidate] = []
         for material in materials.values {
             for slot in material.template.textureSlots.compactMap({ $0 }) {
-                guard let selected = slot.candidates.last,
-                      case let .provider(.namedLayerTarget(reference)) =
-                        selected.reference else { continue }
+                let reference: SceneNamedTextureReference?
+                let origin: ResolvedExternalDependency.Origin?
+                if let selected = slot.candidates.last,
+                   case let .provider(.namedLayerTarget(value)) =
+                    selected.reference {
+                    reference = value
+                    origin = .terminalNamed
+                } else if material.variants
+                    .provesEffectLocalSystemProviderTextureFailure(
+                        slot: slot.index
+                    ), slot.candidates.count == 2,
+                    case let .provider(.namedLayerTarget(value)) =
+                        slot.candidates[0].reference {
+                    // The highest-precedence system provider may be absent at
+                    // a concrete frame. The exact precompiled mixed-provider
+                    // envelope then selects this lower compositor color
+                    // publication, so dependency conservation must retain its
+                    // provider edge even though it is not the static last
+                    // candidate.
+                    reference = value
+                    origin = .exactMixedSystemFallback
+                } else {
+                    reference = nil
+                    origin = nil
+                }
+                guard let reference, let origin else {
+                    continue
+                }
                 namedCandidates.append(.init(
                     key: material.key,
                     slot: slot.index,
-                    reference: reference
+                    reference: reference,
+                    origin: origin
                 ))
             }
         }
+        guard !namedCandidates.isEmpty else { return .none }
         guard let candidate = namedCandidates.first,
               candidate.reference.variant == SceneNamedTextureReference.Variant.primary,
               candidate.key.effect.layerID == product.graph.layerID,
@@ -537,7 +623,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   item.reference.variant == .primary
                       && item.reference.providerLayerID
                           == candidate.reference.providerLayerID
-              }) else { return [] }
+              }) else { return .invalid }
         var result: [ResolvedExternalDependency] = []
         for item in namedCandidates {
             let nodeMatches = product.graph.nodes.filter {
@@ -549,19 +635,23 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             }
             guard nodeMatches.count == 1,
                   effectMatches.count == 1,
-                  let passIndex = nodeMatches.first?.instancePassIndex else { return [] }
+                  let passIndex = nodeMatches.first?.instancePassIndex else {
+                return .invalid
+            }
             result.append(.init(
+                materialKey: item.key,
                 consumerLayerID: item.key.effect.layerID,
                 providerLayerID: item.reference.providerLayerID,
                 slot: .init(
                     effectID: item.key.effect.descriptorID,
                     passIndex: passIndex,
                     slotIndex: item.slot
-                )
+                ),
+                origin: item.origin
             ))
         }
-        guard Set(result).count == result.count else { return [] }
-        return result
+        guard Set(result).count == result.count else { return .invalid }
+        return .exact(result)
     }
 }
 
