@@ -556,84 +556,106 @@ extension SceneDesktopWallpaperHost {
                 )
             }
         }
-        commonSceneScriptValues.merge(
-            sceneScriptStringResult.values,
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
-        commonSceneScriptValues.merge(
-            sceneScriptResult.values,
-            uniquingKeysWith: { _, genericValue in genericValue }
-        )
-        let layerMutations = coordinatedSceneScript.layerMutations
-            + cursorResult.layerMutations
         let layerTopology = layerMutationSnapshot
-        let animationMutations = cursorResult.animationMutations
-            + coordinatedSceneScript.animationMutations
-        var admittedSceneScriptVectorValues = sceneScriptVectorResult.values
-        if !coordinatedSceneScript.videoCommands.isEmpty {
-            switch videoTextureSourceRegistry?.apply(
-                coordinatedSceneScript.videoCommands,
-                timing: timing
-            ) {
-            case .success:
-                NSLog(
-                    "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
-                    coordinatedSceneScript.videoCommands.count,
-                    timing.frameIndex
-                )
-            case let .failure(failure):
-                admittedSceneScriptVectorValues = admittedSceneScriptVectorValues
-                    .filter {
-                        !sceneScriptVectorResult.videoCommandTargets.contains($0.key)
-                    }
-                launchContext.propertyVectorScriptProgram
-                    .rejectVideoCommandTargets(
-                        sceneScriptVectorResult.videoCommandTargets
+        let ownerEffects = coordinatedSceneScript.ownerEffects
+            + cursorResult.ownerEffects
+        let layerMutationCount = ownerEffects.reduce(0) {
+            $0 + $1.layerMutations.count
+        }
+        var runtimeValidationFailures:
+            [SceneScriptOwnerEffectsRuntimeFailure] = []
+        let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
+            .preflightOwnerEffectsToFixedPoint(ownerEffects) { admitted in
+                let failures = SceneScriptOwnerEffectsRuntimeValidation
+                    .failures(
+                        for: admitted,
+                        timelineRuntime: launchContext.timelinePlaybackRuntime,
+                        videoRegistry: videoTextureSourceRegistry,
+                        timing: timing
                     )
-                NSLog(
-                    "MWX SceneScript VM: videoCommands=%d owners=%d callback=rejected failure=%@ fallback=previous-current",
-                    coordinatedSceneScript.videoCommands.count,
-                    sceneScriptVectorResult.videoCommandTargets.count,
-                    String(describing: failure)
-                )
-            case nil:
-                admittedSceneScriptVectorValues = admittedSceneScriptVectorValues
-                    .filter {
-                        !sceneScriptVectorResult.videoCommandTargets.contains($0.key)
-                    }
-                launchContext.propertyVectorScriptProgram
-                    .rejectVideoCommandTargets(
-                        sceneScriptVectorResult.videoCommandTargets
-                    )
-                NSLog(
-                    "MWX SceneScript VM: videoCommands=%d owners=%d callback=rejected failure=registry-unavailable fallback=previous-current",
-                    coordinatedSceneScript.videoCommands.count,
-                    sceneScriptVectorResult.videoCommandTargets.count
-                )
+                runtimeValidationFailures.append(contentsOf: failures)
+                return Set(failures.map(\.ownerTarget))
             }
+        let admission = fixedPoint.admission
+        let admittedOwnerEffects = admission.admittedEffects
+        var rejectedOwnerTargets = fixedPoint.externallyRejectedOwners
+        rejectedOwnerTargets.formUnion(admission.rejectedOwners.compactMap(
+            \.ownerTarget
+        ))
+        for rejected in admission.rejectedOwners {
+            NSLog(
+                "MWX SceneScript VM: layerMutations=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
+                layerMutationCount,
+                rejected.ownerTarget.map(String.init(describing:))
+                    ?? "frame-integrity",
+                String(describing: rejected.failure)
+            )
+        }
+        var rejectedVideoTargets = Set<SceneDynamicTarget>()
+        for failure in runtimeValidationFailures {
+            let subsystem: String
+            switch failure.subsystem {
+            case .animation:
+                subsystem = "animationCommands"
+            case .video:
+                subsystem = "videoCommands"
+                rejectedVideoTargets.insert(failure.ownerTarget)
+            }
+            NSLog(
+                "MWX SceneScript VM: %@=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
+                subsystem,
+                failure.commandCount,
+                String(describing: failure.ownerTarget),
+                failure.reason
+            )
+        }
+        if !rejectedVideoTargets.isEmpty {
+            launchContext.propertyVectorScriptProgram
+                .rejectVideoCommandTargets(rejectedVideoTargets)
+        }
+        let animationMutations = admittedOwnerEffects.flatMap(
+            \.animationMutations
+        )
+        let videoCommands = admittedOwnerEffects.flatMap(\.videoCommands)
+        if !animationMutations.isEmpty,
+           case .success = launchContext.timelinePlaybackRuntime.apply(
+               animationMutations, sceneTime: timing.sceneTime
+           ) {
+            NSLog(
+                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
+                animationMutations.count
+            )
+        }
+        if !videoCommands.isEmpty,
+           case .success? = videoTextureSourceRegistry?.apply(
+               videoCommands, timing: timing
+           ) {
+            NSLog(
+                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
+                videoCommands.count,
+                timing.frameIndex
+            )
+        }
+        func admittedValues(
+            _ values: [SceneDynamicTarget: SceneDynamicValue]
+        ) -> [SceneDynamicTarget: SceneDynamicValue] {
+            values.filter { !rejectedOwnerTargets.contains($0.key) }
         }
         commonSceneScriptValues.merge(
-            admittedSceneScriptVectorValues,
+            admittedValues(sceneScriptStringResult.values),
             uniquingKeysWith: { _, genericValue in genericValue }
         )
-        if !animationMutations.isEmpty {
-            switch launchContext.timelinePlaybackRuntime.apply(
-                animationMutations,
-                sceneTime: timing.sceneTime
-            ) {
-            case .success:
-                NSLog(
-                    "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
-                    animationMutations.count
-                )
-            case let .failure(failure):
-                NSLog(
-                    "MWX SceneScript VM: animationCommands=%d callback=rejected failure=%@ fallback=previous-current",
-                    animationMutations.count,
-                    String(describing: failure)
-                )
-            }
-        }
+        commonSceneScriptValues.merge(
+            admittedValues(sceneScriptResult.values),
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
+        commonSceneScriptValues.merge(
+            admittedValues(sceneScriptVectorResult.values),
+            uniquingKeysWith: { _, genericValue in genericValue }
+        )
+        let materialFunctionMutations = admittedOwnerEffects.flatMap(
+            \.materialFunctionMutations
+        )
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else { continue }
@@ -693,9 +715,7 @@ extension SceneDesktopWallpaperHost {
                 layerTopology: layerTopology.resolvingDynamicMaterialColors(
                     from: dynamicValues
                 ),
-                materialFunctionMutations:
-                    cursorResult.materialFunctionMutations
-                    + coordinatedSceneScript.materialFunctionMutations,
+                materialFunctionMutations: materialFunctionMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
@@ -709,18 +729,7 @@ extension SceneDesktopWallpaperHost {
             }
 #endif
         }
-        if !layerMutations.isEmpty {
-            switch launchContext.sceneScriptDynamicLayerRuntime.apply(layerMutations) {
-            case .success:
-                break
-            case let .failure(failure):
-                NSLog(
-                    "MWX SceneScript VM: layerMutations=%d callback=rejected failure=%@ fallback=previous-current",
-                    layerMutations.count,
-                    String(describing: failure)
-                )
-            }
-        }
+        launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)
         return .rendered
     }
 

@@ -8,6 +8,27 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
     let videoCommands: [SceneScriptVideoCommand]
+    let ownerEffects: [SceneScriptOwnerEffects]
+
+    init(
+        vector: SceneScriptVectorFrameResult,
+        string: SceneScriptStringFrameResult,
+        scalar: SceneScriptScalarFrameResult,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        videoCommands: [SceneScriptVideoCommand],
+        ownerEffects: [SceneScriptOwnerEffects] = []
+    ) {
+        self.vector = vector
+        self.string = string
+        self.scalar = scalar
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.videoCommands = videoCommands
+        self.ownerEffects = ownerEffects
+    }
 }
 
 /// Executes media-bearing owners through one authored-order view of the
@@ -55,14 +76,17 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var videoCommands: [SceneScriptVideoCommand] = []
+        var ownerEffects: [SceneScriptOwnerEffects] = []
         func appendSideEffects(
             materialFunctions: [SceneScriptMaterialFunctionMutation],
             animations: [SceneTimelinePlaybackMutation],
-            layers: [SceneScriptLayerMutation]
+            layers: [SceneScriptLayerMutation],
+            ownedBy effects: [SceneScriptOwnerEffects]
         ) {
             materialFunctionMutations.append(contentsOf: materialFunctions)
             animationMutations.append(contentsOf: animations)
             layerMutations.append(contentsOf: layers)
+            ownerEffects.append(contentsOf: effects)
         }
         for registration in registrations {
             switch registration.family {
@@ -80,7 +104,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
                 appendSideEffects(
                     materialFunctions: frameResult.materialFunctionMutations,
                     animations: frameResult.animationMutations,
-                    layers: frameResult.layerMutations
+                    layers: frameResult.layerMutations,
+                    ownedBy: frameResult.ownerEffects
                 )
                 videoCommands.append(contentsOf: frameResult.videoCommands)
                 vector.merge(frameResult)
@@ -98,7 +123,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
                 appendSideEffects(
                     materialFunctions: frameResult.materialFunctionMutations,
                     animations: frameResult.animationMutations,
-                    layers: frameResult.layerMutations
+                    layers: frameResult.layerMutations,
+                    ownedBy: frameResult.ownerEffects
                 )
                 string.merge(frameResult)
             case .scalar:
@@ -116,7 +142,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
                 appendSideEffects(
                     materialFunctions: frameResult.materialFunctionMutations,
                     animations: frameResult.animationMutations,
-                    layers: frameResult.layerMutations
+                    layers: frameResult.layerMutations,
+                    ownedBy: frameResult.ownerEffects
                 )
                 scalar.merge(frameResult)
             }
@@ -131,7 +158,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         appendSideEffects(
             materialFunctions: remainingVector.materialFunctionMutations,
             animations: remainingVector.animationMutations,
-            layers: remainingVector.layerMutations
+            layers: remainingVector.layerMutations,
+            ownedBy: remainingVector.ownerEffects
         )
         videoCommands.append(contentsOf: remainingVector.videoCommands)
         vector.merge(remainingVector)
@@ -144,7 +172,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         appendSideEffects(
             materialFunctions: remainingString.materialFunctionMutations,
             animations: remainingString.animationMutations,
-            layers: remainingString.layerMutations
+            layers: remainingString.layerMutations,
+            ownedBy: remainingString.ownerEffects
         )
         string.merge(remainingString)
         let remainingScalar = scalarProgram.evaluate(
@@ -157,7 +186,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         appendSideEffects(
             materialFunctions: remainingScalar.materialFunctionMutations,
             animations: remainingScalar.animationMutations,
-            layers: remainingScalar.layerMutations
+            layers: remainingScalar.layerMutations,
+            ownedBy: remainingScalar.ownerEffects
         )
         scalar.merge(remainingScalar)
         return .init(
@@ -167,7 +197,8 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
             layerMutations: layerMutations,
-            videoCommands: videoCommands
+            videoCommands: videoCommands,
+            ownerEffects: ownerEffects
         )
     }
 
@@ -187,6 +218,7 @@ private nonisolated struct VectorAccumulator {
     var layers: [SceneScriptLayerMutation] = []
     var videoCommands: [SceneScriptVideoCommand] = []
     var videoCommandTargets: Set<SceneDynamicTarget> = []
+    var ownerEffects: [SceneScriptOwnerEffects] = []
 
     mutating func merge(_ frame: SceneScriptVectorFrameResult) {
         values.merge(frame.values) { _, new in new }
@@ -196,6 +228,7 @@ private nonisolated struct VectorAccumulator {
         layers.append(contentsOf: frame.layerMutations)
         videoCommands.append(contentsOf: frame.videoCommands)
         videoCommandTargets.formUnion(frame.videoCommandTargets)
+        ownerEffects.append(contentsOf: frame.ownerEffects)
     }
 
     var result: SceneScriptVectorFrameResult {
@@ -206,7 +239,8 @@ private nonisolated struct VectorAccumulator {
             animationMutations: animations,
             layerMutations: layers,
             videoCommands: videoCommands,
-            videoCommandTargets: videoCommandTargets
+            videoCommandTargets: videoCommandTargets,
+            ownerEffects: ownerEffects
         )
     }
 }
@@ -217,6 +251,7 @@ private nonisolated struct StringAccumulator {
     var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
     var animations: [SceneTimelinePlaybackMutation] = []
     var layers: [SceneScriptLayerMutation] = []
+    var ownerEffects: [SceneScriptOwnerEffects] = []
 
     mutating func merge(_ frame: SceneScriptStringFrameResult) {
         values.merge(frame.values) { _, new in new }
@@ -224,6 +259,7 @@ private nonisolated struct StringAccumulator {
         materialFunctions.append(contentsOf: frame.materialFunctionMutations)
         animations.append(contentsOf: frame.animationMutations)
         layers.append(contentsOf: frame.layerMutations)
+        ownerEffects.append(contentsOf: frame.ownerEffects)
     }
 
     var result: SceneScriptStringFrameResult {
@@ -232,7 +268,8 @@ private nonisolated struct StringAccumulator {
             failures: failures,
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layers
+            layerMutations: layers,
+            ownerEffects: ownerEffects
         )
     }
 }
@@ -243,6 +280,7 @@ private nonisolated struct ScalarAccumulator {
     var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
     var animations: [SceneTimelinePlaybackMutation] = []
     var layers: [SceneScriptLayerMutation] = []
+    var ownerEffects: [SceneScriptOwnerEffects] = []
 
     mutating func merge(_ frame: SceneScriptScalarFrameResult) {
         values.merge(frame.values) { _, new in new }
@@ -250,6 +288,7 @@ private nonisolated struct ScalarAccumulator {
         materialFunctions.append(contentsOf: frame.materialFunctionMutations)
         animations.append(contentsOf: frame.animationMutations)
         layers.append(contentsOf: frame.layerMutations)
+        ownerEffects.append(contentsOf: frame.ownerEffects)
     }
 
     var result: SceneScriptScalarFrameResult {
@@ -258,7 +297,8 @@ private nonisolated struct ScalarAccumulator {
             failures: failures,
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layers
+            layerMutations: layers,
+            ownerEffects: ownerEffects
         )
     }
 }

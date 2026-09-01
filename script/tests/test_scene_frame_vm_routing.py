@@ -26,6 +26,9 @@ SCALAR_RUNTIME_SOURCE = SCRIPT / "SceneScriptScalarRuntime.swift"
 CURSOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptCursorProgram.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = SCRIPT / "SceneScriptMediaEventBridge.swift"
 MEDIA_FRAME_COORDINATOR_SOURCE = SCRIPT / "SceneScriptMediaFrameCoordinator.swift"
+OWNER_EFFECTS_VALIDATION_SOURCE = (
+    SCRIPT / "SceneScriptOwnerEffectsRuntimeValidation.swift"
+)
 LAUNCH_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+Launch.swift"
 STARTUP_REPORT_SOURCE = (
     RUNTIME / "SceneDesktopWallpaperLaunchContext+StartupReport.swift"
@@ -140,14 +143,35 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
         media_frame = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
+        owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
+            encoding="utf-8"
+        )
         render = swift_body(frame, "private func renderFrame()")
         publication = render.index(".publishLayerSnapshot(")
         cursor_batch = render.index("let cursorBatch:")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
         media_callback = render.index("SceneScriptMediaFrameCoordinator.evaluate(")
+        owner_preflight = render.index(
+            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
+        )
+        surface_render = render.index("surface.metalView.renderFrame(")
+        layer_commit = render.index(".commit(admission.layerPlan)")
         self.assertLess(publication, cursor_batch)
         self.assertLess(publication, cursor)
         self.assertLess(publication, media_callback)
+        self.assertLess(media_callback, owner_preflight)
+        self.assertLess(owner_preflight, surface_render)
+        self.assertLess(surface_render, layer_commit)
+        self.assertIn("rejectedOwnerTargets.contains($0.key)", render)
+        self.assertIn("admittedOwnerEffects.flatMap(", render)
+        self.assertEqual(
+            render.count(".preflightOwnerEffectsToFixedPoint(ownerEffects)"),
+            1,
+        )
+        self.assertNotIn(".preflightOwnerEffects(admittedOwnerEffects)", render)
+        self.assertIn("timelineRuntime.validate(", owner_validation)
+        self.assertIn("videoRegistry.validate(", owner_validation)
+        self.assertNotIn(".applyIsolatingOwners(layerMutations)", render)
         self.assertIn("if sceneScriptLayerSnapshotFailure != nil", render)
         self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 3)
         self.assertIn("cursorBatch = .init(samples: [], overflowed: false)", render)
@@ -275,7 +299,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             cursor_program,
         )
         self.assertIn("Self.mergingAuthoredMutation(", cursor_program)
-        self.assertIn("authoredTransformBaseline:", cursor_program)
+        self.assertIn("authoredLayerBaselines:", cursor_program)
         self.assertIn("discardCandidates(ownerLayerID:", cursor_program)
         self.assertIn("owner.exportedCursorEvents", cursor_program)
         self.assertIn('case .move: "cursorMove"', event_bridge)

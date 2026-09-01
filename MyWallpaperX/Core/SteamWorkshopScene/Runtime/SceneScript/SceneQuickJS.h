@@ -74,6 +74,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE = 1u << 1,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES = 1u << 2,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY = 1u << 3,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT = 1u << 4,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -93,6 +94,9 @@ typedef struct MWXSceneQuickJSLayerMutation {
     const char *font;
     const char *asset_path;
 } MWXSceneQuickJSLayerMutation;
+// text/font/asset_path are borrowed from the owner/domain. Callers must copy
+// them before the next layer-mutation begin/discard, snapshot replacement, or
+// owner/domain destruction.
 
 typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_PLAY = 1,
@@ -286,6 +290,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     size_t diagnostic_capacity
 );
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    uint32_t text_mutable,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
@@ -426,6 +438,25 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_authored_layer_baseline(
 );
 
 void mwx_scene_quickjs_owner_clear_authored_layer_baseline(
+    MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    int64_t layer_id,
+    uint32_t fields,
+    const double origin[3],
+    const double scale[3],
+    const double angles[3],
+    uint32_t visible,
+    const char *text,
+    size_t text_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+void mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(
     MWXSceneQuickJSOwner *owner
 );
 

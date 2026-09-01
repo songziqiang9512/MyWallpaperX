@@ -90,13 +90,24 @@ private func namedReferenceDescriptor(
 }
 
 private func dynamicImageDescriptor() -> SceneRenderDescriptor {
-    SceneRenderDescriptor(
+    var peer = SceneRenderDescriptor.Layer(
+        id: 8, layerIndex: 1, name: "peer", visible: true,
+        originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+        scaleHasScript: nil, alpha: 1, effects: []
+    )
+    peer.contentKind = "text"
+    peer.text = "authored"
+    peer.textStyle = .init(
+        fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32
+    )
+    return SceneRenderDescriptor(
         layers: [
             .init(
                 id: 7, layerIndex: 0, name: "bars", visible: true,
                 originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
                 scaleHasScript: nil, alpha: 1, effects: []
             ),
+            peer,
         ],
         modelMaterialLinks: [
             .init(modelPath: "models/workshop/2727665642/bar.json"),
@@ -373,6 +384,10 @@ enum Harness {
             }
             export function update(value) {
                 thisLayer.scale = new Vec3(2, 3, 1);
+                const peer = thisScene.getLayer('peer');
+                peer.scale = new Vec3(4, 5, 1);
+                peer.visible = false;
+                peer.text = 'changed';
                 for (let i = 0; i < bars.length; ++i) {
                     bars[i].origin = new Vec3(i * 10, 0, 0);
                     bars[i].scale = new Vec3(1, audio.average[i] * 10, 1);
@@ -428,7 +443,17 @@ enum Harness {
             "dynamicHasAudio": dynamicProgram.hasAudioConsumers,
             "dynamicValue": boolValue(dynamic, target: target) as Any,
             "dynamicLayerCount": dynamic.layerMutations.count,
+            "dynamicOwnerEffectsCount": dynamic.ownerEffects.count,
+            "dynamicOwnerEffectsTarget": dynamic.ownerEffects.first?
+                .ownerTarget == target,
+            "dynamicOwnerEffectsLayerCount": dynamic.ownerEffects.first?
+                .layerMutations.count ?? -1,
             "dynamicModelPaths": dynamic.layerMutations.compactMap(\.assetPath),
+            "dynamicPeerMutation": dynamic.layerMutations.contains {
+                $0.layerID == 8 && $0.fields == [.scale, .visibility, .text]
+                    && $0.scale == .init(4, 5, 1)
+                    && !$0.visible && $0.text == "changed"
+            },
             "teardownDestroyInvoked": teardown?.destroyCallbackInvoked as Any,
             "teardownQuiescent": teardown?.snapshot.isQuiescent as Any,
             "teardownFailed": teardown?.failure != nil,
@@ -504,7 +529,11 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["dynamicDefinitions"], 1)
         self.assertTrue(self.value["dynamicHasAudio"])
         self.assertTrue(self.value["dynamicValue"])
-        self.assertEqual(self.value["dynamicLayerCount"], 3)
+        self.assertEqual(self.value["dynamicLayerCount"], 4)
+        self.assertEqual(self.value["dynamicOwnerEffectsCount"], 1)
+        self.assertTrue(self.value["dynamicOwnerEffectsTarget"])
+        self.assertEqual(self.value["dynamicOwnerEffectsLayerCount"], 4)
+        self.assertTrue(self.value["dynamicPeerMutation"])
         self.assertEqual(
             self.value["dynamicModelPaths"],
             [

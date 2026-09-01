@@ -24,6 +24,11 @@ HOST_FRAME_DRIVER_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
     / "SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+OWNER_EFFECTS_VALIDATION_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+    / "SceneScriptOwnerEffectsRuntimeValidation.swift"
+)
 VIEW_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
@@ -436,20 +441,29 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
 
     def test_video_command_failure_withholds_its_visibility_owner(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("videoRegistry.validate(", owner_validation)
+        validation = frame_driver.index(
+            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
+        )
         application = frame_driver.index("videoTextureSourceRegistry?.apply(")
         rejection = frame_driver.index(
-            ".rejectVideoCommandTargets(", application
+            ".rejectVideoCommandTargets(rejectedVideoTargets)", validation
         )
         publication = frame_driver.index(
             "commonSceneScriptValues.merge(\n"
-            "            admittedSceneScriptVectorValues,",
+            "            admittedValues(sceneScriptVectorResult.values),",
             application,
         )
-        self.assertLess(application, rejection)
+        self.assertLess(validation, rejection)
+        self.assertLess(rejection, application)
         self.assertLess(rejection, publication)
+        self.assertLess(application, publication)
         self.assertIn(
-            "sceneScriptVectorResult.videoCommandTargets.contains($0.key)",
-            frame_driver[application:publication],
+            "rejectedOwnerTargets.contains($0.key)",
+            frame_driver[rejection:publication],
         )
 
 

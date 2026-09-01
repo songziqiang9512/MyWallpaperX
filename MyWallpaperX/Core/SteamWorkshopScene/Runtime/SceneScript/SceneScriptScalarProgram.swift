@@ -6,6 +6,23 @@ nonisolated struct SceneScriptScalarFrameResult: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let ownerEffects: [SceneScriptOwnerEffects]
+
+    init(
+        values: [SceneDynamicTarget: SceneDynamicValue],
+        failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        ownerEffects: [SceneScriptOwnerEffects] = []
+    ) {
+        self.values = values
+        self.failures = failures
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.ownerEffects = ownerEffects
+    }
 }
 
 nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
@@ -359,6 +376,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
+        var ownerEffects: [SceneScriptOwnerEffects] = []
         for binding in bindings {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
@@ -625,12 +643,21 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                let coalescedLayers = SceneScriptLayerMutation.coalescing(
+                    callbackLayerMutations
+                )
+                let effects = SceneScriptOwnerEffects(
+                    ownerTarget: binding.target,
+                    materialFunctionMutations: callbackMaterialMutations,
+                    animationMutations: callbackAnimationMutations,
+                    layerMutations: coalescedLayers,
+                    videoCommands: []
+                )
+                if !effects.isEmpty { ownerEffects.append(effects) }
                 values[binding.target] = evaluation.value
                 materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
                 animationMutations.append(contentsOf: callbackAnimationMutations)
-                layerMutations.append(contentsOf:
-                    SceneScriptLayerMutation.coalescing(callbackLayerMutations)
-                )
+                layerMutations.append(contentsOf: coalescedLayers)
                 if changedUserPropertiesJSON != nil,
                    case let .scalar(outputValue) = evaluation.value {
                     NSLog(
@@ -710,7 +737,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             failures: failures,
             materialFunctionMutations: materialFunctionMutations,
             animationMutations: animationMutations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            ownerEffects: ownerEffects
         )
     }
 

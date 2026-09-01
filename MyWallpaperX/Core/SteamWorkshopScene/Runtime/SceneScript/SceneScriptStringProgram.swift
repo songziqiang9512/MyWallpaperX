@@ -6,6 +6,23 @@ nonisolated struct SceneScriptStringFrameResult: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let ownerEffects: [SceneScriptOwnerEffects]
+
+    init(
+        values: [SceneDynamicTarget: SceneDynamicValue],
+        failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        ownerEffects: [SceneScriptOwnerEffects] = []
+    ) {
+        self.values = values
+        self.failures = failures
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.ownerEffects = ownerEffects
+    }
 }
 
 nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
@@ -257,6 +274,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
         var animations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
+        var ownerEffects: [SceneScriptOwnerEffects] = []
         for binding in bindings {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
@@ -416,12 +434,21 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 )
                 ownerAnimations.append(contentsOf: evaluation.animationMutations)
                 ownerLayerMutations.append(contentsOf: evaluation.layerMutations)
+                let coalescedLayers = SceneScriptLayerMutation.coalescing(
+                    ownerLayerMutations
+                )
+                let effects = SceneScriptOwnerEffects(
+                    ownerTarget: binding.target,
+                    materialFunctionMutations: ownerMaterialFunctions,
+                    animationMutations: ownerAnimations,
+                    layerMutations: coalescedLayers,
+                    videoCommands: []
+                )
+                if !effects.isEmpty { ownerEffects.append(effects) }
                 values[binding.target] = evaluation.value
                 materialFunctions.append(contentsOf: ownerMaterialFunctions)
                 animations.append(contentsOf: ownerAnimations)
-                layerMutations.append(contentsOf:
-                    SceneScriptLayerMutation.coalescing(ownerLayerMutations)
-                )
+                layerMutations.append(contentsOf: coalescedLayers)
                 if let properties,
                    case let .string(output) = evaluation.value {
                     NSLog(
@@ -462,7 +489,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             failures: failures,
             materialFunctionMutations: materialFunctions,
             animationMutations: animations,
-            layerMutations: layerMutations
+            layerMutations: layerMutations,
+            ownerEffects: ownerEffects
         )
     }
 

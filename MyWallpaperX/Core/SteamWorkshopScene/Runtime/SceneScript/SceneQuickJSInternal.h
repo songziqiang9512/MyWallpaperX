@@ -57,6 +57,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool destroyed;
     bool dirty;
     bool configured;
+    bool text_mutable;
     bool video_available;
     bool video_loop;
     bool video_is_playing;
@@ -85,6 +86,16 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double video_current_time;
     uint64_t video_ended_generation;
 } MWXSceneQuickJSStagedLayerSnapshot;
+
+typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
+    uint32_t layer_index;
+    uint32_t fields;
+    double origin[3];
+    double scale[3];
+    double angles[3];
+    bool visible;
+    char *text;
+} MWXSceneQuickJSAuthoredLayerMutationRecord;
 
 typedef struct MWXSceneQuickJSVideoEndedCallbackRecord {
     int64_t layer_id;
@@ -208,11 +219,14 @@ struct MWXSceneQuickJSOwner {
     double authored_layer_baseline_origin[3];
     double authored_layer_baseline_scale[3];
     double authored_layer_baseline_angles[3];
-    uint32_t authored_layer_mutation_fields;
-    double authored_layer_mutation_origin[3];
-    double authored_layer_mutation_scale[3];
-    double authored_layer_mutation_angles[3];
-    bool authored_layer_mutation_visible;
+    size_t authored_layer_mutation_count;
+    MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutations[
+        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+    ];
+    size_t authored_layer_mutation_baseline_count;
+    MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutation_baselines[
+        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+    ];
     MWXSceneQuickJSRejectionRecord rejections[
         MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS
     ];
@@ -277,6 +291,7 @@ bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain)
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner

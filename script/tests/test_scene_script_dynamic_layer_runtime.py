@@ -33,7 +33,10 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let scale = Self(rawValue: 1 << 1)
         static let angles = Self(rawValue: 1 << 2)
         static let visibility = Self(rawValue: 1 << 3)
-        static let authoredFields: Self = [.origin, .scale, .angles, .visibility]
+        static let text = Self(rawValue: 1 << 4)
+        static let authoredFields: Self = [
+            .origin, .scale, .angles, .visibility, .text,
+        ]
     }
     let kind: Kind
     let isDynamic: Bool
@@ -50,11 +53,13 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let text: String
     let font: String
     let assetPath: String?
+    let ownerTarget: SceneDynamicTarget?
 }
 
-nonisolated enum SceneDynamicValueType: Sendable { case bool, vector3 }
+nonisolated enum SceneDynamicValueType: Sendable { case bool, string, vector3 }
 nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case bool(Bool)
+    case string(String)
     case vector3(Double, Double, Double)
 }
 nonisolated enum SceneDynamicSource: Sendable { case sceneScript }
@@ -71,8 +76,14 @@ nonisolated struct SceneDynamicSnapshot: Sendable {
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color
 }
+nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
+    case text(layerID: Int, field: SceneDynamicTextField)
+}
+nonisolated struct SceneScriptOwnerEffects: Sendable {
+    let ownerTarget: SceneDynamicTarget
+    let layerMutations: [SceneScriptLayerMutation]
 }
 nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget
@@ -82,11 +93,15 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
 
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Layer: Sendable {
+        struct TextStyle: Sendable { let fontPath: String? }
         let id: Int
         let visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
+        let contentKind: String
+        let text: String?
+        let textStyle: TextStyle?
         let imagePath: String?
         var colorRGB: [Float]?
 
@@ -95,7 +110,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             return .init(
                 id: mutation.layerID,
                 visible: mutation.visible,
-                originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil
+                originXYZ: nil, scaleXYZ: nil, anglesXYZ: nil,
+                contentKind: "text", text: mutation.text,
+                textStyle: .init(fontPath: mutation.font)
             )
         }
 
@@ -111,6 +128,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
                 originXYZ: nil,
                 scaleXYZ: nil,
                 anglesXYZ: nil,
+                contentKind: "image",
+                text: nil,
+                textStyle: nil,
                 imagePath: template.modelPath,
                 colorRGB: [
                     Float(mutation.color.x),
@@ -126,6 +146,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             originXYZ: [Float]?,
             scaleXYZ: [Float]?,
             anglesXYZ: [Float]?,
+            contentKind: String = "image",
+            text: String? = nil,
+            textStyle: TextStyle? = nil,
             imagePath: String? = nil,
             colorRGB: [Float]? = nil
         ) {
@@ -134,6 +157,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             self.originXYZ = originXYZ
             self.scaleXYZ = scaleXYZ
             self.anglesXYZ = anglesXYZ
+            self.contentKind = contentKind
+            self.text = text
+            self.textStyle = textStyle
             self.imagePath = imagePath
             self.colorRGB = colorRGB
         }
@@ -151,17 +177,19 @@ func mutation(
     alpha: Double = 1,
     text: String = "text",
     fields: SceneScriptLayerMutation.Fields = [],
+    scale: SIMD3<Double> = .init(repeating: 1),
     angles: SIMD3<Double> = .zero,
     visible: Bool = true,
-    assetPath: String? = nil
+    assetPath: String? = nil,
+    ownerTarget: SceneDynamicTarget? = nil
 ) -> SceneScriptLayerMutation {
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
         layerID: id, orderIndex: order,
         visible: visible, alpha: alpha, origin: .zero,
-        scale: .init(repeating: 1), angles: angles,
+        scale: scale, angles: angles,
         color: .init(repeating: 1), pointSize: 32, text: text, font: "",
-        assetPath: assetPath
+        assetPath: assetPath, ownerTarget: ownerTarget
     )
 }
 
@@ -178,7 +206,12 @@ enum Harness {
         let descriptor = SceneRenderDescriptor(
             layers: [
                 .init(id: 10, visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
-                .init(id: 20, visible: true, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0]),
+                .init(
+                    id: 20, visible: true, originXYZ: [0, 0, 0],
+                    scaleXYZ: [1, 1, 1], anglesXYZ: [0, 0, 0],
+                    contentKind: "text", text: "authored",
+                    textStyle: .init(fontPath: nil)
+                ),
             ],
             renderOrderLayerIDs: [10, 20]
         )
@@ -199,11 +232,98 @@ enum Harness {
             )
         ])
         let afterStatic = runtime.snapshot()
+        let peerUpdate = runtime.apply([
+            mutation(
+                20, dynamic: false, text: "~",
+                fields: [.scale, .text]
+            )
+        ])
+        let afterPeer = runtime.snapshot()
         let rejected = runtime.apply([
-            mutation(10, dynamic: false, fields: [.origin]),
-            mutation(10, dynamic: false, fields: [.origin]),
+            mutation(20, dynamic: false, text: "must-not-publish", fields: [.text]),
+            mutation(10, dynamic: false, text: "invalid-image-text", fields: [.text]),
         ])
         let afterRejected = runtime.snapshot()
+        let isolatedRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: []
+        )
+        let ownerA = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+        let ownerB = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let ownerC = SceneDynamicTarget.layer(layerID: 10, field: .angles)
+        let ownerEffects = [
+            SceneScriptOwnerEffects(ownerTarget: ownerA, layerMutations: [
+                mutation(
+                    20, dynamic: false, fields: [.scale],
+                    scale: .init(2, 3, 4), ownerTarget: ownerA
+                ),
+            ]),
+            SceneScriptOwnerEffects(ownerTarget: ownerB, layerMutations: [
+                mutation(
+                    10, dynamic: false, text: "invalid-image-text",
+                    fields: [.text], ownerTarget: ownerB
+                ),
+            ]),
+            SceneScriptOwnerEffects(ownerTarget: ownerC, layerMutations: [
+                mutation(
+                    10, dynamic: false, fields: [.angles],
+                    angles: .init(5, 6, 7), ownerTarget: ownerC
+                ),
+            ]),
+        ]
+        let admission = isolatedRuntime.preflightOwnerEffects(ownerEffects)
+        let preflightSnapshot = isolatedRuntime.snapshot()
+        let isolated = admission.layerPlan.outcome
+        isolatedRuntime.commit(admission.layerPlan)
+        let afterIsolated = isolatedRuntime.snapshot()
+        let budgetRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: [10]
+        )
+        let seededFirstHalf = succeeded(budgetRuntime.apply((1...128).map {
+            mutation(-$0, order: $0)
+        }))
+        let seededSecondHalf = succeeded(budgetRuntime.apply((129...256).map {
+            mutation(-$0, order: $0)
+        }))
+        let budgetOwnerA = SceneDynamicTarget.layer(
+            layerID: 10, field: .origin
+        )
+        let budgetOwnerB = SceneDynamicTarget.layer(
+            layerID: 20, field: .origin
+        )
+        let budgetOwnerC = SceneDynamicTarget.layer(
+            layerID: 10, field: .angles
+        )
+        let budgetEffects = [
+            SceneScriptOwnerEffects(
+                ownerTarget: budgetOwnerA,
+                layerMutations: [mutation(
+                    -1, kind: .destroy, ownerTarget: budgetOwnerA
+                )]
+            ),
+            SceneScriptOwnerEffects(
+                ownerTarget: budgetOwnerB,
+                layerMutations: [mutation(
+                    -257, order: 1, ownerTarget: budgetOwnerB
+                )]
+            ),
+            SceneScriptOwnerEffects(
+                ownerTarget: budgetOwnerC,
+                layerMutations: [mutation(
+                    10, dynamic: false, fields: [.angles],
+                    angles: .init(9, 8, 7), ownerTarget: budgetOwnerC
+                )]
+            ),
+        ]
+        let fixedPoint = budgetRuntime.preflightOwnerEffectsToFixedPoint(
+            budgetEffects
+        ) { admitted in
+            admitted.contains { $0.ownerTarget == budgetOwnerA }
+                ? [budgetOwnerA] : []
+        }
+        budgetRuntime.commit(fixedPoint.admission.layerPlan)
+        let afterFixedPoint = budgetRuntime.snapshot()
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
         let afterDestroy = runtime.snapshot()
         let colorTarget = SceneDynamicTarget.layer(layerID: 20, field: .color)
@@ -244,10 +364,53 @@ enum Harness {
             "staticVisibilityPublished": afterStatic.authoredLayerValues[
                 .layer(layerID: 10, field: .visibility)
             ] == .bool(false),
+            "peerUpdateAccepted": succeeded(peerUpdate),
+            "peerScalePublished": afterPeer.authoredLayerValues[
+                .layer(layerID: 20, field: .scale)
+            ] == .vector3(1, 1, 1),
+            "peerTextPublished": afterPeer.authoredLayerValues[
+                .text(layerID: 20, field: .content)
+            ] == .string("~"),
             "authoredDefinitionCount": runtime.authoredLayerDefinitions.count,
             "rejected": !succeeded(rejected),
+            "failedBatchTextRolledBack": afterRejected.authoredLayerValues[
+                .text(layerID: 20, field: .content)
+            ] == .string("~"),
             "rollbackLayers": afterRejected.dynamicLayers.map(\.id),
             "rollbackOrder": afterRejected.renderOrderLayerIDs,
+            "isolatedCommittedMutationCount": isolated.committedMutationCount,
+            "isolatedFailureCount": admission.rejectedOwners.count,
+            "isolatedFailureOwnerIsB": admission.rejectedOwners.first?
+                .ownerTarget == ownerB,
+            "isolatedAdmittedOwnerCount": admission.admittedEffects.count,
+            "isolatedPreflightWasReadOnly": preflightSnapshot.authoredLayerValues.isEmpty,
+            "isolatedPeerScalePublished": afterIsolated.authoredLayerValues[
+                .layer(layerID: 20, field: .scale)
+            ] == .vector3(2, 3, 4),
+            "isolatedDisjointAnglesPublished": afterIsolated.authoredLayerValues[
+                .layer(layerID: 10, field: .angles)
+            ] == .vector3(5, 6, 7),
+            "isolatedBadTextAbsent": afterIsolated.authoredLayerValues[
+                .text(layerID: 10, field: .content)
+            ] == nil,
+            "fixedPointSeeded": seededFirstHalf && seededSecondHalf,
+            "fixedPointExternalRejectsA":
+                fixedPoint.externallyRejectedOwners == [budgetOwnerA],
+            "fixedPointLayerRejectsB":
+                fixedPoint.admission.rejectedOwners.contains {
+                    $0.ownerTarget == budgetOwnerB
+                },
+            "fixedPointAdmitsOnlyC":
+                fixedPoint.admission.admittedEffects.map(\.ownerTarget)
+                    == [budgetOwnerC],
+            "fixedPointPreservesFullTopology":
+                afterFixedPoint.dynamicLayers.count == 256
+                    && !afterFixedPoint.dynamicLayers.contains {
+                        $0.id == -257
+                    },
+            "fixedPointCommitsDisjointC": afterFixedPoint.authoredLayerValues[
+                .layer(layerID: 10, field: .angles)
+            ] == .vector3(9, 8, 7),
             "destroySucceeded": succeeded(destroy),
             "destroyedIDs": afterDestroy.dynamicLayers.map(\.id),
             "destroyedOrder": afterDestroy.renderOrderLayerIDs,
@@ -306,8 +469,12 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["staticAccepted"])
         self.assertTrue(self.result["staticAnglesPublished"])
         self.assertTrue(self.result["staticVisibilityPublished"])
-        self.assertEqual(self.result["authoredDefinitionCount"], 4)
+        self.assertTrue(self.result["peerUpdateAccepted"])
+        self.assertTrue(self.result["peerScalePublished"])
+        self.assertTrue(self.result["peerTextPublished"])
+        self.assertEqual(self.result["authoredDefinitionCount"], 6)
         self.assertTrue(self.result["rejected"])
+        self.assertTrue(self.result["failedBatchTextRolledBack"])
         self.assertEqual(self.result["rollbackLayers"], [-1])
         self.assertEqual(self.result["rollbackOrder"], [10, 20, -1])
 
@@ -315,6 +482,24 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["destroySucceeded"])
         self.assertEqual(self.result["destroyedIDs"], [])
         self.assertEqual(self.result["destroyedOrder"], [10, 20])
+
+    def test_bad_owner_does_not_reject_disjoint_owner_mutations(self) -> None:
+        self.assertEqual(self.result["isolatedCommittedMutationCount"], 2)
+        self.assertEqual(self.result["isolatedFailureCount"], 1)
+        self.assertTrue(self.result["isolatedFailureOwnerIsB"])
+        self.assertEqual(self.result["isolatedAdmittedOwnerCount"], 2)
+        self.assertTrue(self.result["isolatedPreflightWasReadOnly"])
+        self.assertTrue(self.result["isolatedPeerScalePublished"])
+        self.assertTrue(self.result["isolatedDisjointAnglesPublished"])
+        self.assertTrue(self.result["isolatedBadTextAbsent"])
+
+    def test_external_rejection_reaches_layer_admission_fixed_point(self) -> None:
+        self.assertTrue(self.result["fixedPointSeeded"])
+        self.assertTrue(self.result["fixedPointExternalRejectsA"])
+        self.assertTrue(self.result["fixedPointLayerRejectsB"])
+        self.assertTrue(self.result["fixedPointAdmitsOnlyC"])
+        self.assertTrue(self.result["fixedPointPreservesFullTopology"])
+        self.assertTrue(self.result["fixedPointCommitsDisjointC"])
 
     def test_dynamic_image_inherits_typed_material_color(self) -> None:
         self.assertTrue(self.result["dynamicImageSucceeded"])

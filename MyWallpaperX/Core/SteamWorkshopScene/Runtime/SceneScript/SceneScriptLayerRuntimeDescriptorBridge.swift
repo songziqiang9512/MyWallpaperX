@@ -25,7 +25,14 @@ nonisolated extension SceneScriptQuickJSDomain {
                 authored: layer.anglesXYZ, fallback: [0, 0, 0],
                 snapshot: snapshot
             )
-            let text = layer.text ?? ""
+            let text: String
+            if let resolved = snapshot[
+                .text(layerID: layer.id, field: .content)
+            ], case let .string(value) = resolved.value {
+                text = value
+            } else {
+                text = layer.text ?? ""
+            }
             let font = layer.textStyle?.fontPath ?? ""
             let colorTarget: SceneDynamicTarget = layer.contentKind == "text"
                 ? .text(layerID: layer.id, field: .color)

@@ -305,6 +305,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var layerMutations: [SceneScriptLayerMutation] = []
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
+        var ownerEffects: [SceneScriptOwnerEffects] = []
         for binding in bindings {
             let target = binding.definition.target
             if disabledTargets.contains(target) { continue }
@@ -608,6 +609,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     callbackLayerMutations
                 )
                 callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
+                let effects = SceneScriptOwnerEffects(
+                    ownerTarget: target,
+                    materialFunctionMutations: callbackMaterialMutations,
+                    animationMutations: callbackAnimationMutations,
+                    layerMutations: callbackLayerMutations,
+                    videoCommands: callbackVideoCommands
+                )
+                if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value
                 materialFunctionMutations.append(
                     contentsOf: callbackMaterialMutations
@@ -702,7 +711,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             animationMutations: animationMutations,
             layerMutations: layerMutations,
             videoCommands: videoCommands,
-            videoCommandTargets: videoCommandTargets
+            videoCommandTargets: videoCommandTargets,
+            ownerEffects: ownerEffects
         )
     }
 

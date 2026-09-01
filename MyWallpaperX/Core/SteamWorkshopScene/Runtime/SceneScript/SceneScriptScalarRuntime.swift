@@ -427,7 +427,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         case let .failure(failure): return .failure(failure)
         }
         let layerMutations: [SceneScriptLayerMutation]
-        switch SceneScriptLayerMutationBridge.mutations(owner: handle) {
+        switch SceneScriptLayerMutationBridge.mutations(
+            owner: handle, ownerTarget: target
+        ) {
         case let .success(value): layerMutations = value
         case let .failure(failure): return .failure(failure)
         }

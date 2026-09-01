@@ -50,7 +50,8 @@ enum Harness {
             descriptor: descriptor,
             authoredMutationLayerIDs: [10]
         )
-        let dragApplied = success(runtime.apply(drag.layerMutations))
+        let dragOutcome = runtime.applyIsolatingOwners(drag.layerMutations)
+        let dragApplied = success(dragOutcome, expectedCount: 1)
         let committed = runtime.snapshot().authoredLayerValues[
             .layer(layerID: 10, field: .origin)
         ]
@@ -138,6 +139,77 @@ enum Harness {
         let conflict = conflictRuntime.apply([
             authoredOrigin(x: 1), authoredOrigin(x: 2),
         ])
+        let crossDescriptor = SceneRenderDescriptor(layers: [
+            layer(id: 10, index: 0), textLayer(id: 20, index: 1),
+        ])
+        let peerDomain = try SceneScriptQuickJSDomain()
+        let peerProgram = SceneScriptCursorProgram.compile(
+            domain: peerDomain,
+            descriptor: crossDescriptor,
+            scriptBindings: [
+                binding(layerID: 10, index: 0, source: peerMutationSource),
+            ],
+            generation: 50
+        )
+        let peerResult = peerProgram.dispatch(
+            batch: .init(samples: [
+                sample(position: .zero, localX: 0, hits: [10], down: false),
+                sample(position: .zero, localX: 0, hits: [10], down: true),
+                sample(position: .init(0.5, 0), localX: 0.5, hits: [10], down: true),
+                sample(position: .init(0.5, 0), localX: 0.5, hits: [10], down: false),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
+        let peerRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: crossDescriptor,
+            authoredMutationLayerIDs: [10]
+        )
+        let peerOutcome = peerRuntime.applyIsolatingOwners(
+            peerResult.layerMutations
+        )
+        let peerApplied = success(peerOutcome, expectedCount: 1)
+        let peerTopology = peerRuntime.snapshot()
+        let peerSnapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 1,
+            definitions: peerRuntime.authoredLayerDefinitions,
+            sceneScriptValues: peerTopology.authoredLayerValues
+        ).snapshot
+        try peerDomain.publishLayerSnapshot(peerSnapshot, descriptor: crossDescriptor)
+        let verificationProgram = SceneScriptCursorProgram.compile(
+            domain: peerDomain,
+            descriptor: crossDescriptor,
+            scriptBindings: [
+                binding(layerID: 10, index: 0, source: peerVerificationSource),
+            ],
+            generation: 51
+        )
+        let verification = verificationProgram.dispatch(
+            batch: .init(samples: [
+                sample(position: .zero, localX: 0, hits: [10], down: false),
+                sample(position: .zero, localX: 0, hits: [10], down: true),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
+        let rollbackProgram = SceneScriptCursorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: crossDescriptor,
+            scriptBindings: [
+                binding(layerID: 10, index: 0, source: peerRollbackSource),
+            ],
+            generation: 52
+        )
+        let rollback = rollbackProgram.dispatch(
+            batch: .init(samples: [
+                sample(position: .zero, localX: 0, hits: [10], down: false),
+                sample(position: .zero, localX: 0, hits: [10], down: true),
+                sample(position: .init(0.5, 0), localX: 0.5, hits: [10], down: true),
+            ], overflowed: false),
+            frame: frame,
+            userPropertiesJSON: "{}"
+        )
         let final = drag.layerMutations.first
         let reverted = revert.layerMutations.first
         let peer = failure.layerMutations.first { $0.layerID == 20 }
@@ -161,13 +233,44 @@ enum Harness {
             "failedOwnerOutputLeaked": failure.layerMutations.contains {
                 $0.layerID == 10
             },
-            "peerMutationCount": failure.layerMutations.filter {
+            "failurePeerMutationCount": failure.layerMutations.filter {
                 $0.layerID == 20
             }.count,
             "peerFinalX": peer?.origin.x ?? -1,
             "failureMaterialMutations": failure.materialFunctionMutations.count,
             "failureAnimationMutations": failure.animationMutations.count,
             "crossOwnerConflictPreserved": conflictFailure(conflict),
+            "peerFailures": peerResult.failures.count,
+            "peerFailureCode": peerResult.failures[10]?.code ?? "",
+            "peerFailure": peerResult.failures[10].map(String.init(describing:)) ?? "",
+            "crossPeerMutationCount": peerResult.layerMutations.count,
+            "peerOwnerEffectsCount": peerResult.ownerEffects.count,
+            "peerOwnerEffectsLayerCount": peerResult.ownerEffects.first?
+                .layerMutations.count ?? -1,
+            "peerOwnerTargetPreserved": peerResult.layerMutations.first?
+                .ownerTarget == .layer(layerID: 10, field: .visibility),
+            "peerTextRestoredAcrossCallbacks": peerResult.layerMutations.first?.text == "authored",
+            "peerScaleAccumulatedAcrossCallbacks": peerResult.layerMutations.first?.scale == .init(3, 3, 4),
+            "peerVisibilityRetainedAcrossCallbacks": peerResult.layerMutations.first?.visible == false,
+            "peerFieldsRetainedAcrossCallbacks": peerResult.layerMutations.first?.fields == [.scale, .visibility, .text],
+            "peerApplied": peerApplied,
+            "peerTextPublished": peerTopology.authoredLayerValues[
+                .text(layerID: 20, field: .content)
+            ] == .string("authored"),
+            "peerScalePublished": peerTopology.authoredLayerValues[
+                .layer(layerID: 20, field: .scale)
+            ] == .vector3(3, 3, 4),
+            "peerVisibilityPublished": peerTopology.authoredLayerValues[
+                .layer(layerID: 20, field: .visibility)
+            ] == .bool(false),
+            "nextFrameProjectionFailures": verification.failures.count,
+            "nextFrameProjectionFailureCode": verification.failures[10]?.code ?? "",
+            "nextFrameProjectionFailure": verification.failures[10].map(
+                String.init(describing:)
+            ) ?? "",
+            "nextFrameProjectionMutationCount": verification.layerMutations.count,
+            "rollbackFailedOwners": rollback.failures.keys.sorted(),
+            "rollbackLeakedMutations": rollback.layerMutations.count,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -211,6 +314,16 @@ enum Harness {
         )
     }
 
+    static func textLayer(id: Int, index: Int) -> SceneRenderDescriptor.Layer {
+        var result = layer(id: id, index: index)
+        result.contentKind = "text"
+        result.text = "authored"
+        result.textStyle = .init(
+            fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32
+        )
+        return result
+    }
+
     static func binding(
         layerID: Int,
         index: Int,
@@ -239,10 +352,11 @@ enum Harness {
     }
 
     static func success(
-        _ result: Result<Void, SceneScriptScalarRuntimeFailure>
+        _ outcome: SceneScriptLayerMutationApplyOutcome,
+        expectedCount: Int
     ) -> Bool {
-        if case .success = result { return true }
-        return false
+        outcome.failures.isEmpty
+            && outcome.committedMutationCount == expectedCount
     }
 
     static func conflictFailure(
@@ -307,6 +421,50 @@ enum Harness {
         thisLayer.origin = new Vec3(previous.x + 1, 0, 0);
     }
     """
+
+    static let peerMutationSource = """
+    export function cursorDown(event) {
+        const peer = thisScene.getLayer("owner-20");
+        peer.text = "~";
+        peer.visible = false;
+        peer.scale = peer.scale.add(new Vec3(1, 0, 0));
+        if (peer.text !== "~") throw new Error("staged text unavailable");
+    }
+    export function cursorMove(event) {
+        const peer = thisScene.getLayer("owner-20");
+        peer.scale = peer.scale.add(new Vec3(1, 2, 3));
+        if (peer.scale.y !== 3) throw new Error("staged scale unavailable");
+        if (peer.visible !== false) throw new Error("staged visibility unavailable");
+    }
+    export function cursorUp(event) {
+        const peer = thisScene.getLayer("owner-20");
+        if (peer.text !== "~" || peer.scale.x !== 3 || peer.visible !== false) {
+            throw new Error("cross-callback peer baseline unavailable");
+        }
+        peer.text = "authored";
+    }
+    """
+
+    static let peerVerificationSource = """
+    export function cursorDown(event) {
+        const peer = thisScene.getLayer("owner-20");
+        if (peer.text !== "authored") throw new Error("committed text unavailable");
+        if (peer.scale.x !== 3 || peer.scale.y !== 3 || peer.scale.z !== 4) {
+            throw new Error("committed scale unavailable");
+        }
+        if (peer.visible !== false) throw new Error("committed visibility unavailable");
+        thisLayer.origin = new Vec3(5, 0, 0);
+    }
+    """
+
+    static let peerRollbackSource = """
+    export function cursorDown(event) {
+        thisScene.getLayer("owner-20").text = "must-not-publish";
+    }
+    export function cursorMove(event) {
+        thisScene.getLayer("missing-layer").scale = new Vec3(9, 9, 9);
+    }
+    """
 }
 '''
 
@@ -347,7 +505,7 @@ class SceneCursorCaptureContinuityTests(unittest.TestCase):
     def test_late_owner_failure_rolls_back_prior_callbacks_only(self) -> None:
         self.assertEqual(self.result["failedOwners"], [10])
         self.assertFalse(self.result["failedOwnerOutputLeaked"])
-        self.assertEqual(self.result["peerMutationCount"], 1)
+        self.assertEqual(self.result["failurePeerMutationCount"], 1)
         self.assertEqual(self.result["peerFinalX"], 2)
         self.assertEqual(self.result["failureMaterialMutations"], 0)
         self.assertEqual(self.result["failureAnimationMutations"], 0)
@@ -361,6 +519,27 @@ class SceneCursorCaptureContinuityTests(unittest.TestCase):
 
     def test_raw_cross_owner_conflict_guard_remains_hard(self) -> None:
         self.assertTrue(self.result["crossOwnerConflictPreserved"])
+
+    def test_exact_peer_writes_commit_together_and_project_next_frame(self) -> None:
+        self.assertEqual(self.result["peerFailures"], 0)
+        self.assertEqual(self.result["crossPeerMutationCount"], 1)
+        self.assertEqual(self.result["peerOwnerEffectsCount"], 1)
+        self.assertEqual(self.result["peerOwnerEffectsLayerCount"], 1)
+        self.assertTrue(self.result["peerOwnerTargetPreserved"])
+        self.assertTrue(self.result["peerTextRestoredAcrossCallbacks"])
+        self.assertTrue(self.result["peerScaleAccumulatedAcrossCallbacks"])
+        self.assertTrue(self.result["peerVisibilityRetainedAcrossCallbacks"])
+        self.assertTrue(self.result["peerFieldsRetainedAcrossCallbacks"])
+        self.assertTrue(self.result["peerApplied"])
+        self.assertTrue(self.result["peerTextPublished"])
+        self.assertTrue(self.result["peerScalePublished"])
+        self.assertTrue(self.result["peerVisibilityPublished"])
+        self.assertEqual(self.result["nextFrameProjectionFailures"], 0)
+        self.assertEqual(self.result["nextFrameProjectionMutationCount"], 1)
+
+    def test_missing_peer_rolls_back_prior_peer_write(self) -> None:
+        self.assertEqual(self.result["rollbackFailedOwners"], [10])
+        self.assertEqual(self.result["rollbackLeakedMutations"], 0)
 
 
 if __name__ == "__main__":

@@ -113,6 +113,33 @@ final class SceneVideoTextureSourceRegistry {
         _ commands: [SceneScriptVideoCommand],
         timing: SceneFrameTiming
     ) -> Result<Void, SceneVideoCommandApplicationFailure> {
+        switch validatedSources(for: commands, timing: timing) {
+        case let .success(sourcesByLayer):
+            for command in commands {
+                sourcesByLayer[command.layerID]?.forEach {
+                    $0.apply(command, timing: timing)
+                }
+            }
+            return .success(())
+        case let .failure(failure):
+            return .failure(failure)
+        }
+    }
+
+    func validate(
+        _ commands: [SceneScriptVideoCommand],
+        timing: SceneFrameTiming
+    ) -> Result<Void, SceneVideoCommandApplicationFailure> {
+        switch validatedSources(for: commands, timing: timing) {
+        case .success: .success(())
+        case let .failure(failure): .failure(failure)
+        }
+    }
+
+    private func validatedSources(
+        for commands: [SceneScriptVideoCommand],
+        timing: SceneFrameTiming
+    ) -> Result<[Int: [SceneVideoTextureSource]], SceneVideoCommandApplicationFailure> {
         guard commands.count <= 64 else {
             return .failure(.commandBudgetExceeded)
         }
@@ -128,12 +155,7 @@ final class SceneVideoTextureSourceRegistry {
                 return .failure(.invalidCommand(index))
             }
         }
-        for command in commands {
-            sourcesByLayer[command.layerID]?.forEach {
-                $0.apply(command, timing: timing)
-            }
-        }
-        return .success(())
+        return .success(sourcesByLayer)
     }
 
     func resume(sceneTime: TimeInterval, hostTime: TimeInterval) {

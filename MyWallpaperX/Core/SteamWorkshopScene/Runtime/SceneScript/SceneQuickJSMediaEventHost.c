@@ -46,6 +46,7 @@ static MWXSceneQuickJSResult callback_failure(
         );
         result = MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
     }
+    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     owner->disabled = true;
     return result;
 }
@@ -350,6 +351,7 @@ static MWXSceneQuickJSResult dispatch_event(
             diagnostic, diagnostic_capacity,
             "SceneScript properties unavailable"
         );
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
@@ -367,6 +369,7 @@ static MWXSceneQuickJSResult dispatch_event(
         diagnostic, diagnostic_capacity
     );
     if (timer_result != MWX_SCENE_QUICKJS_OK) {
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
         return timer_result;
     }
@@ -397,6 +400,7 @@ static MWXSceneQuickJSResult dispatch_event(
             "SceneScript typed handle host unavailable"
         );
         owner->disabled = true;
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     JSValue previous_engine = JS_UNDEFINED;
@@ -414,6 +418,7 @@ static MWXSceneQuickJSResult dispatch_event(
             "SceneScript frame engine host unavailable"
         );
         owner->disabled = true;
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     if (!mwx_scene_quickjs_dispatch_video_ended_callbacks(owner)) {
@@ -454,11 +459,13 @@ static MWXSceneQuickJSResult dispatch_event(
             diagnostic, diagnostic_capacity, "SceneScript host restore failed"
         );
         owner->disabled = true;
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     if (job_result != MWX_SCENE_QUICKJS_OK) {
         JS_FreeValue(context, result);
         owner->disabled = true;
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         return job_result;
     }
     if (JS_IsException(result)) {

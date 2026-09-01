@@ -71,10 +71,34 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     }
 
     /// 一帧产生的命令先在副本上完整校验，全部合法才提交，避免同帧局部 mutation。
+    func validate(
+        _ mutations: [SceneTimelinePlaybackMutation],
+        sceneTime: Double
+    ) -> Result<Void, SceneTimelinePlaybackFailure> {
+        switch candidateStates(for: mutations, sceneTime: sceneTime) {
+        case .success: .success(())
+        case let .failure(failure): .failure(failure)
+        }
+    }
+
     func apply(
         _ mutations: [SceneTimelinePlaybackMutation],
         sceneTime: Double
     ) -> Result<Void, SceneTimelinePlaybackFailure> {
+        switch candidateStates(for: mutations, sceneTime: sceneTime) {
+        case let .success(candidate):
+            states = candidate
+            pendingNextFrameObservations.formUnion(mutations.map(\.target))
+            return .success(())
+        case let .failure(failure):
+            return .failure(failure)
+        }
+    }
+
+    private func candidateStates(
+        for mutations: [SceneTimelinePlaybackMutation],
+        sceneTime: Double
+    ) -> Result<[SceneDynamicTarget: State], SceneTimelinePlaybackFailure> {
         guard sceneTime.isFinite, sceneTime >= 0 else {
             return .failure(.invalidSceneTime)
         }
@@ -101,9 +125,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 candidate[mutation.target] = .paused(elapsedFrames: 0)
             }
         }
-        states = candidate
-        pendingNextFrameObservations.formUnion(mutations.map(\.target))
-        return .success(())
+        return .success(candidate)
     }
 
     private func elapsedFrames(

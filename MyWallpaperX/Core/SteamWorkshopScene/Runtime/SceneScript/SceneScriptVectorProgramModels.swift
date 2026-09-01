@@ -8,6 +8,27 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let layerMutations: [SceneScriptLayerMutation]
     let videoCommands: [SceneScriptVideoCommand]
     let videoCommandTargets: Set<SceneDynamicTarget>
+    let ownerEffects: [SceneScriptOwnerEffects]
+
+    init(
+        values: [SceneDynamicTarget: SceneDynamicValue],
+        failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        videoCommands: [SceneScriptVideoCommand],
+        videoCommandTargets: Set<SceneDynamicTarget>,
+        ownerEffects: [SceneScriptOwnerEffects] = []
+    ) {
+        self.values = values
+        self.failures = failures
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.videoCommands = videoCommands
+        self.videoCommandTargets = videoCommandTargets
+        self.ownerEffects = ownerEffects
+    }
 }
 
 nonisolated struct SceneScriptVectorBinding: @unchecked Sendable {

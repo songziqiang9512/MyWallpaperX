@@ -463,10 +463,16 @@ class SceneFrameContextTests(unittest.TestCase):
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn(
-            "coordinatedSceneScript.materialFunctionMutations", frame_driver
+            "coordinatedSceneScript.ownerEffects", frame_driver
+        )
+        self.assertIn(
+            "admittedOwnerEffects.flatMap(", frame_driver
+        )
+        self.assertIn(
+            "materialFunctionMutations: materialFunctionMutations", frame_driver
         )
         self.assertNotIn(
-            "+ sceneScriptResult.materialFunctionMutations", frame_driver
+            "coordinatedSceneScript.materialFunctionMutations,", frame_driver
         )
         self.assertIn(
             "materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []",

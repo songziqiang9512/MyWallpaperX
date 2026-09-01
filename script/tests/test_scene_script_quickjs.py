@@ -510,6 +510,11 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
+            domain, 0, 1, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_begin_layer_snapshot(
             domain, 1, diagnostic, sizeof(diagnostic)
         );
@@ -580,6 +585,59 @@ int main(void) {
             diagnostic
         );
         mwx_scene_quickjs_domain_destroy(invalid_parent_domain);
+    }
+    MWXSceneQuickJSDomain *authored_budget_domain = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        authored_budget_domain != NULL, "authored mutation budget domain", diagnostic
+    );
+    if (authored_budget_domain != NULL) {
+        MWXSceneQuickJSResult budget_catalog_result =
+            mwx_scene_quickjs_domain_configure_layer_catalog(
+                authored_budget_domain, 65, diagnostic, sizeof(diagnostic)
+            );
+        for (uint32_t index = 0;
+             index < 65 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
+             ++index) {
+            char name[32] = {0};
+            snprintf(name, sizeof(name), "authored-%u", index);
+            const double origin[3] = {(double)index, 0, 0};
+            budget_catalog_result = mwx_scene_quickjs_domain_set_layer_descriptor(
+                authored_budget_domain, index, 1000 + index, 0, 0,
+                name, strlen(name), origin, diagnostic, sizeof(diagnostic)
+            );
+        }
+        failures += check(
+            budget_catalog_result == MWX_SCENE_QUICKJS_OK,
+            "authored mutation budget catalog", diagnostic
+        );
+        const char *authored_budget_source =
+            "export function update(value){for(let i=0;i<65;i+=1)"
+            "thisScene.getLayerByID(1000+i).visible=false;return value;}";
+        MWXSceneQuickJSOwner *authored_budget = mwx_scene_quickjs_owner_create(
+            authored_budget_domain, authored_budget_source,
+            strlen(authored_budget_source), 61, diagnostic, sizeof(diagnostic)
+        );
+        failures += check(
+            authored_budget != NULL, "authored mutation budget compile", diagnostic
+        );
+        if (authored_budget != NULL) {
+            failures += configure_owner_layer(
+                authored_budget, 1000, "authored mutation budget owner identity"
+            );
+            failures += update(
+                authored_budget, 61, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+                "authored mutation budget rejects target 65"
+            );
+            failures += check(
+                mwx_scene_quickjs_owner_layer_mutation_count(authored_budget) == 0,
+                "authored mutation overflow rolls back 64 staged targets", diagnostic
+            );
+            mwx_scene_quickjs_owner_destroy(authored_budget);
+        }
+        mwx_scene_quickjs_domain_destroy(authored_budget_domain);
     }
     MWXSceneQuickJSOwner *positive = mwx_scene_quickjs_owner_create(
         domain,
@@ -1207,8 +1265,17 @@ int main(void) {
         "const listed=thisScene.enumerateLayers();"
         "if(listed.length!==2||listed[1].getParent().id!==17)"
         "throw new Error('value-only enumeration');"
-        "let rejected=false;try{listed[0].visible=false;}catch(error){rejected=true;}"
-        "if(!rejected||listed[0].visible!==true)throw new Error('writable peer');"
+        "const writes=["
+        "()=>{listed[0].origin=new Vec3(7,8,9);},"
+        "()=>{listed[0].scale=new Vec3(2,3,4);},"
+        "()=>{listed[0].angles=new Vec3(1,2,3);},"
+        "()=>{listed[0].visible=false;},"
+        "()=>{listed[0].text='peer';}];"
+        "for(const write of writes){let rejected=false;"
+        "try{write();}catch(error){rejected=true;}"
+        "if(!rejected)throw new Error('writable peer');}"
+        "if(listed[0].visible!==true||listed[0].text!=='')"
+        "throw new Error('value-only peer residue');"
         "listed[1].visible=value;"
         "if(listed[1].visible!==true)throw new Error('readonly owner target');"
         "return value;}";
@@ -1424,7 +1491,9 @@ int main(void) {
     );
 
     const char *playback_error_source =
-        "export function mediaPlaybackChanged(){throw new Error('playback');}"
+        "export function mediaPlaybackChanged(){"
+        "thisScene.getLayerByID(17).text='pending';"
+        "throw new Error('playback');}"
         "export function update(value){return value;}";
     MWXSceneQuickJSOwner *playback_error = mwx_scene_quickjs_owner_create(
         domain, playback_error_source, strlen(playback_error_source),
@@ -1433,9 +1502,16 @@ int main(void) {
     failures += check(
         playback_error != NULL, "media playback error compile", diagnostic
     );
+    failures += configure_owner_layer(
+        playback_error, 42, "media playback error owner identity"
+    );
     failures += media_playback(
         playback_error, 22, 1, MWX_SCENE_QUICKJS_EXCEPTION,
         "media playback callback exception"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(playback_error) == 0,
+        "media playback exception releases authored text staging", diagnostic
     );
     failures += update(
         playback_error, 22, 1, MWX_SCENE_QUICKJS_DISABLED, 0,
@@ -1444,6 +1520,66 @@ int main(void) {
     failures += update(
         isolated, 2, 3, MWX_SCENE_QUICKJS_OK, 13,
         "media playback failure preserves peer owner"
+    );
+
+    const char *media_assign_failure_source =
+        "export var scriptProperties=createScriptProperties()"
+        ".addSlider({name:'factor',value:1}).finish();"
+        "export function update(value){"
+        "thisScene.getLayerByID(17).text='previous-callback';return value;}"
+        "export function mediaPlaybackChanged(){}";
+    MWXSceneQuickJSOwner *media_assign_failure = mwx_scene_quickjs_owner_create(
+        domain, media_assign_failure_source, strlen(media_assign_failure_source),
+        62, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        media_assign_failure != NULL,
+        "media properties assignment failure compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        media_assign_failure, 42,
+        "media properties assignment failure owner identity"
+    );
+    failures += update(
+        media_assign_failure, 62, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "media properties failure prerequisite stages authored text"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(media_assign_failure) == 1,
+        "media properties failure prerequisite mutation", diagnostic
+    );
+    MWXSceneQuickJSFrameInput media_assign_frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSMediaPlaybackEvent media_assign_event = {
+        .state = 1,
+    };
+    failures += check(
+        mwx_scene_quickjs_owner_dispatch_media_playback(
+            media_assign_failure, 62, &media_assign_event,
+            &media_assign_frame, "{", 1,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_EXCEPTION,
+        "media properties assignment failure", diagnostic
+    );
+    MWXSceneQuickJSLifecycleSnapshot media_assign_lifecycle = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(media_assign_failure) == 0 &&
+            mwx_scene_quickjs_owner_lifecycle_snapshot(
+                media_assign_failure, &media_assign_lifecycle
+            ) == MWX_SCENE_QUICKJS_OK &&
+            media_assign_lifecycle.pending_layer_mutation_count == 0 &&
+            media_assign_lifecycle.active_timer_count == 0 &&
+            media_assign_lifecycle.has_job_residue == 0 &&
+            media_assign_lifecycle.callback_active == 0,
+        "media properties failure releases prior text and is quiescent",
+        diagnostic
+    );
+    failures += update(
+        media_assign_failure, 62, 1, MWX_SCENE_QUICKJS_DISABLED, 0,
+        "media properties assignment failure disables owner"
     );
 
     const char *media_properties_source =
@@ -2128,6 +2264,219 @@ int main(void) {
         42, 2, "clock", "static layer transform snapshot"
     );
 
+    const char *authored_peer_source =
+        "export function update(value){"
+        "const layer=thisScene.getLayerByID(17);"
+        "layer.origin=new Vec3(7,8,9);"
+        "layer.scale=new Vec3(2,4,6);"
+        "layer.angles=new Vec3(10,20,30);"
+        "layer.visible=false;layer.text='~';"
+        "if(layer.origin.x!==7||layer.origin.y!==8||layer.origin.z!==9||"
+        "layer.scale.x!==2||layer.scale.y!==4||layer.scale.z!==6||"
+        "layer.angles.x!==10||layer.angles.y!==20||layer.angles.z!==30||"
+        "layer.visible!==false||layer.text!=='~')"
+        "throw new Error('authored peer read-your-writes');"
+        "let fontRejected=false,pointSizeRejected=false;"
+        "try{layer.font='replacement';}catch(error){fontRejected=true;}"
+        "try{layer.pointsize=99;}catch(error){pointSizeRejected=true;}"
+        "if(!fontRejected||!pointSizeRejected||"
+        "layer.alpha!==undefined||layer.solid!==undefined)"
+        "throw new Error('unsupported authored fields opened');"
+        "return value;}";
+    MWXSceneQuickJSOwner *authored_peer = mwx_scene_quickjs_owner_create(
+        domain, authored_peer_source, strlen(authored_peer_source),
+        56, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(authored_peer != NULL, "authored peer compile", diagnostic);
+    failures += configure_owner_layer(
+        authored_peer, 42, "authored peer owner identity"
+    );
+    failures += update(
+        authored_peer, 56, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "authored peer target-indexed staging"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(authored_peer) == 1,
+        "authored peer mutation coalesced by target", ""
+    );
+    const uint32_t authored_peer_fields =
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ORIGIN |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT;
+    failures += layer_mutation(
+        authored_peer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+        0, authored_peer_fields, 17, 0, "~",
+        "authored peer staged snapshot"
+    );
+    MWXSceneQuickJSLayerMutation authored_peer_mutation = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_at(
+            authored_peer, 0, &authored_peer_mutation,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK &&
+            authored_peer_mutation.origin[0] == 7 &&
+            authored_peer_mutation.origin[1] == 8 &&
+            authored_peer_mutation.origin[2] == 9 &&
+            authored_peer_mutation.scale[0] == 2 &&
+            authored_peer_mutation.scale[1] == 4 &&
+            authored_peer_mutation.scale[2] == 6 &&
+            authored_peer_mutation.angles[0] == 10 &&
+            authored_peer_mutation.angles[1] == 20 &&
+            authored_peer_mutation.angles[2] == 30 &&
+            authored_peer_mutation.visible == 0,
+        "authored peer staged values", diagnostic
+    );
+
+    const char *authored_observer_source =
+        "export function update(value){const layer=thisScene.getLayerByID(17);"
+        "return layer.origin.x===1&&layer.origin.y===2&&layer.origin.z===3&&"
+        "layer.scale.x===1&&layer.scale.y===1&&layer.scale.z===1&&"
+        "layer.angles.x===0&&layer.angles.y===0&&layer.angles.z===0&&"
+        "layer.visible===true&&layer.text===''?1:0;}";
+    MWXSceneQuickJSOwner *authored_observer = mwx_scene_quickjs_owner_create(
+        domain, authored_observer_source, strlen(authored_observer_source),
+        57, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        authored_observer != NULL, "authored observer compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        authored_observer, 42, "authored observer owner identity"
+    );
+    failures += update(
+        authored_observer, 57, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "authored staging leaves shared record unchanged"
+    );
+
+    const char *missing_target_rollback_source =
+        "export function update(value){const layer=thisScene.getLayerByID(17);"
+        "layer.origin=new Vec3(30,31,32);layer.text='pending';"
+        "thisScene.getLayer('missing-authored-target');return value;}";
+    MWXSceneQuickJSOwner *missing_target_rollback = mwx_scene_quickjs_owner_create(
+        domain, missing_target_rollback_source,
+        strlen(missing_target_rollback_source),
+        58, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        missing_target_rollback != NULL,
+        "missing authored target rollback compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        missing_target_rollback, 42,
+        "missing authored target rollback owner identity"
+    );
+    failures += update(
+        missing_target_rollback, 58, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "missing authored target rolls back whole callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(missing_target_rollback) == 0,
+        "missing authored target exposes no staged mutation", diagnostic
+    );
+    failures += update(
+        authored_observer, 57, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "missing authored target leaves shared record unchanged"
+    );
+
+    const char *oversized_authored_text_source =
+        "export function update(value){"
+        "thisScene.getLayerByID(17).text='x'.repeat(4097);return value;}";
+    MWXSceneQuickJSOwner *oversized_authored_text = mwx_scene_quickjs_owner_create(
+        domain, oversized_authored_text_source,
+        strlen(oversized_authored_text_source),
+        59, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        oversized_authored_text != NULL,
+        "oversized authored text compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        oversized_authored_text, 42, "oversized authored text owner identity"
+    );
+    failures += update(
+        oversized_authored_text, 59, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "oversized authored text rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(oversized_authored_text) == 0,
+        "oversized authored text leaves no staged mutation", diagnostic
+    );
+
+    const char *nul_authored_text_source =
+        "export function update(value){thisScene.getLayerByID(17).text="
+        "String.fromCharCode(97,0,98);return value;}";
+    MWXSceneQuickJSOwner *nul_authored_text = mwx_scene_quickjs_owner_create(
+        domain, nul_authored_text_source, strlen(nul_authored_text_source),
+        64, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        nul_authored_text != NULL, "NUL authored text compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        nul_authored_text, 42, "NUL authored text owner identity"
+    );
+    failures += update(
+        nul_authored_text, 64, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "NUL authored text rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(nul_authored_text) == 0,
+        "NUL authored text leaves no staged mutation", diagnostic
+    );
+
+    const char *nontext_authored_text_source =
+        "export function update(value){"
+        "thisScene.getLayerByID(42).text='invalid';return value;}";
+    MWXSceneQuickJSOwner *nontext_authored_text = mwx_scene_quickjs_owner_create(
+        domain, nontext_authored_text_source,
+        strlen(nontext_authored_text_source),
+        65, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        nontext_authored_text != NULL,
+        "non-text authored text compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        nontext_authored_text, 17, "non-text authored text owner identity"
+    );
+    failures += update(
+        nontext_authored_text, 65, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "non-text authored text rejected before Swift transaction"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(nontext_authored_text) == 0
+            && mwx_scene_quickjs_owner_layer_mutation_count(authored_peer) == 1,
+        "bad authored text owner preserves disjoint valid owner", diagnostic
+    );
+
+    const char *nonfinite_authored_source =
+        "export function update(value){const layer=thisScene.getLayerByID(17);"
+        "layer.text='pending';layer.scale=new Vec3(1,NaN,1);return value;}";
+    MWXSceneQuickJSOwner *nonfinite_authored = mwx_scene_quickjs_owner_create(
+        domain, nonfinite_authored_source, strlen(nonfinite_authored_source),
+        60, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        nonfinite_authored != NULL, "nonfinite authored compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        nonfinite_authored, 42, "nonfinite authored owner identity"
+    );
+    failures += update(
+        nonfinite_authored, 60, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "nonfinite authored transform rolls back callback"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(nonfinite_authored) == 0,
+        "nonfinite authored transform leaves no staged mutation", diagnostic
+    );
+    failures += update(
+        authored_observer, 57, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "invalid authored mutations leave shared record unchanged"
+    );
+
     MWXSceneQuickJSOwner *static_visible = mwx_scene_quickjs_owner_create(
         domain,
         "export function update(value){thisLayer.visible=false;return value;}",
@@ -2329,6 +2678,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(media_animation);
     mwx_scene_quickjs_owner_destroy(immutable_media_playback);
     mwx_scene_quickjs_owner_destroy(playback_error);
+    mwx_scene_quickjs_owner_destroy(media_assign_failure);
     mwx_scene_quickjs_owner_destroy(media_playback_owner);
     mwx_scene_quickjs_owner_destroy(media_properties_owner);
     mwx_scene_quickjs_owner_destroy(media_timeline_owner);
@@ -2356,6 +2706,13 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(static_setter);
+    mwx_scene_quickjs_owner_destroy(authored_peer);
+    mwx_scene_quickjs_owner_destroy(authored_observer);
+    mwx_scene_quickjs_owner_destroy(missing_target_rollback);
+    mwx_scene_quickjs_owner_destroy(oversized_authored_text);
+    mwx_scene_quickjs_owner_destroy(nul_authored_text);
+    mwx_scene_quickjs_owner_destroy(nontext_authored_text);
+    mwx_scene_quickjs_owner_destroy(nonfinite_authored);
     mwx_scene_quickjs_owner_destroy(static_visible);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);

@@ -24,6 +24,23 @@ nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
     let action: Action
 }
 
+/// Keeps one callback owner's heterogeneous side effects together until the
+/// frame transaction has admitted or rejected that owner. Destination layer,
+/// effect, animation and video identities are not owner identities and must
+/// never be used to reconstruct this relationship after flattening.
+nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
+    let ownerTarget: SceneDynamicTarget
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
+    let videoCommands: [SceneScriptVideoCommand]
+
+    var isEmpty: Bool {
+        materialFunctionMutations.isEmpty && animationMutations.isEmpty
+            && layerMutations.isEmpty && videoCommands.isEmpty
+    }
+}
+
 nonisolated enum SceneScriptVideoCommandBridge {
     static func commands(
         owner: OpaquePointer
@@ -88,8 +105,11 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let visibility = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY.rawValue
         ))
+        static let text = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT.rawValue
+        ))
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility,
+            .origin, .scale, .angles, .visibility, .text,
         ]
     }
 
@@ -108,6 +128,53 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let text: String
     let font: String
     let assetPath: String?
+    let ownerTarget: SceneDynamicTarget?
+
+    init(
+        kind: Kind,
+        isDynamic: Bool,
+        fields: Fields,
+        layerID: Int,
+        orderIndex: Int,
+        visible: Bool,
+        alpha: Double,
+        origin: SIMD3<Double>,
+        scale: SIMD3<Double>,
+        angles: SIMD3<Double>,
+        color: SIMD3<Double>,
+        pointSize: Double,
+        text: String,
+        font: String,
+        assetPath: String?,
+        ownerTarget: SceneDynamicTarget? = nil
+    ) {
+        self.kind = kind
+        self.isDynamic = isDynamic
+        self.fields = fields
+        self.layerID = layerID
+        self.orderIndex = orderIndex
+        self.visible = visible
+        self.alpha = alpha
+        self.origin = origin
+        self.scale = scale
+        self.angles = angles
+        self.color = color
+        self.pointSize = pointSize
+        self.text = text
+        self.font = font
+        self.assetPath = assetPath
+        self.ownerTarget = ownerTarget
+    }
+
+    func owned(by target: SceneDynamicTarget) -> Self {
+        .init(
+            kind: kind, isDynamic: isDynamic, fields: fields,
+            layerID: layerID, orderIndex: orderIndex, visible: visible,
+            alpha: alpha, origin: origin, scale: scale, angles: angles,
+            color: color, pointSize: pointSize, text: text, font: font,
+            assetPath: assetPath, ownerTarget: target
+        )
+    }
 
     func resolvingAssetPath(to resolved: String) -> Self {
         .init(
@@ -115,7 +182,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: resolved
+            assetPath: resolved, ownerTarget: ownerTarget
         )
     }
 
@@ -125,7 +192,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: layerID, orderIndex: orderIndex, visible: visible,
             alpha: alpha, origin: origin, scale: scale, angles: angles,
             color: color, pointSize: pointSize, text: text, font: font,
-            assetPath: assetPath
+            assetPath: assetPath, ownerTarget: ownerTarget
         )
     }
 
@@ -166,9 +233,10 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             angles: newer.fields.contains(.angles) ? newer.angles : angles,
             color: newer.color,
             pointSize: newer.pointSize,
-            text: newer.text,
+            text: newer.fields.contains(.text) ? newer.text : text,
             font: newer.font,
-            assetPath: newer.assetPath ?? assetPath
+            assetPath: newer.assetPath ?? assetPath,
+            ownerTarget: newer.ownerTarget ?? ownerTarget
         )
     }
 }
@@ -199,7 +267,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
     }
 
     static func mutations(
-        owner: OpaquePointer
+        owner: OpaquePointer,
+        ownerTarget: SceneDynamicTarget
     ) -> Result<[SceneScriptLayerMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_layer_mutation_count(owner)
         guard count <= 64 else { return .failure(.mutationOverflow("layer mutation buffer exceeded")) }
@@ -240,7 +309,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 color: .init(raw.color.0, raw.color.1, raw.color.2),
                 pointSize: raw.point_size,
                 text: String(cString: textPointer), font: String(cString: fontPointer),
-                assetPath: String(cString: assetPathPointer).nilIfEmpty
+                assetPath: String(cString: assetPathPointer).nilIfEmpty,
+                ownerTarget: ownerTarget
             ))
         }
         return .success(output)
@@ -283,7 +353,9 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
         let signature = descriptor.layers.enumerated().map { index, layer in
             let origin = layer.originXYZ ?? [0, 0, 0]
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin)"
+            let textMutable = layer.contentKind == "text"
+                && layer.text != nil && layer.textStyle != nil
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):text=\(textMutable)"
         }.joined(separator: "|")
         if let configured = layerCatalogSignature {
             guard configured == signature else {
@@ -322,6 +394,20 @@ nonisolated extension SceneScriptQuickJSDomain {
                 }
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    Self.layerDiagnostic(diagnostic)
+                )
+            }
+            let capabilityResult =
+                mwx_scene_quickjs_domain_set_layer_mutation_capabilities(
+                    handle,
+                    UInt32(index),
+                    layer.contentKind == "text" && layer.text != nil
+                        && layer.textStyle != nil ? 1 : 0,
+                    &diagnostic,
+                    diagnostic.count
+                )
+            guard capabilityResult == MWX_SCENE_QUICKJS_OK else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     Self.layerDiagnostic(diagnostic)
                 )

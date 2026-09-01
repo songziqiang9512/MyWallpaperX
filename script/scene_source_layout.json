@@ -196,6 +196,7 @@
           "SceneScriptLayerTopologyProjection.swift",
           "SceneScriptMediaEventBridge.swift",
           "SceneScriptMediaFrameCoordinator.swift",
+          "SceneScriptOwnerEffectsRuntimeValidation.swift",
           "SceneScriptOwnerLifecycleBridge.swift",
           "SceneScriptParticleProjection.swift",
           "SceneScriptPropertyInput.swift",

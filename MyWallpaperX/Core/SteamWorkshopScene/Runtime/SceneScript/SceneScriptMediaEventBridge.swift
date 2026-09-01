@@ -675,7 +675,9 @@ nonisolated enum SceneScriptMediaEventBridge {
         case let .failure(failure): return .failure(failure)
         }
         let layers: [SceneScriptLayerMutation]
-        switch SceneScriptLayerMutationBridge.mutations(owner: owner) {
+        switch SceneScriptLayerMutationBridge.mutations(
+            owner: owner, ownerTarget: target
+        ) {
         case let .success(value): layers = value
         case let .failure(failure): return .failure(failure)
         }

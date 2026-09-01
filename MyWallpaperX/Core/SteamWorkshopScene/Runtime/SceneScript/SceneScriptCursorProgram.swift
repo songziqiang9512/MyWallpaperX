@@ -39,6 +39,23 @@ nonisolated struct SceneScriptCursorFrameResult: Equatable, Sendable {
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
     let inputBatchOverflowed: Bool
+    let ownerEffects: [SceneScriptOwnerEffects]
+
+    init(
+        failures: [Int: SceneScriptScalarRuntimeFailure],
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        inputBatchOverflowed: Bool,
+        ownerEffects: [SceneScriptOwnerEffects] = []
+    ) {
+        self.failures = failures
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.inputBatchOverflowed = inputBatchOverflowed
+        self.ownerEffects = ownerEffects
+    }
 }
 
 nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
@@ -261,7 +278,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     ) -> SceneScriptCursorFrameResult {
         defer {
             bindings.forEach {
-                $0.owner.clearCursorAuthoredTransformBaseline()
+                $0.owner.clearCursorAuthoredLayerBaselines()
             }
         }
         if batch.overflowed {
@@ -296,7 +313,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerLayerID: Int,
             mutation: SceneScriptLayerMutation
         )] = []
-        var authoredBaselines: [Int: SceneScriptLayerMutation] = [:]
         var authoredMutationIndices: [
             SceneScriptCursorAuthoredMutationKey: Int
         ] = [:]
@@ -304,7 +320,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             materialFunctions.removeAll { $0.ownerLayerID == ownerLayerID }
             animations.removeAll { $0.ownerLayerID == ownerLayerID }
             layers.removeAll { $0.ownerLayerID == ownerLayerID }
-            authoredBaselines.removeValue(forKey: ownerLayerID)
             authoredMutationIndices = [:]
             for (index, candidate) in layers.enumerated()
                 where !candidate.mutation.isDynamic
@@ -334,7 +349,12 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             switch binding.owner.dispatchCursor(
                 event, frame: callbackFrame,
                 userPropertiesJSON: userPropertiesJSON,
-                authoredTransformBaseline: authoredBaselines[binding.layerID],
+                authoredLayerBaselines: layers.compactMap { candidate in
+                    guard candidate.ownerLayerID == binding.layerID,
+                          !candidate.mutation.isDynamic,
+                          candidate.mutation.kind == .upsert else { return nil }
+                    return candidate.mutation
+                },
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
@@ -361,11 +381,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                         authoredMutationIndices[key] = layers.count
                         layers.append((binding.layerID, mutation))
                     }
-                    authoredBaselines[binding.layerID] = authoredBaselines[
-                        binding.layerID
-                    ].map {
-                        Self.mergingAuthoredMutation($0, with: mutation)
-                    } ?? mutation
                 }
                 for mutation in mutations.layers
                     where mutation.fields.contains(.origin) {
@@ -491,12 +506,29 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         for binding in bindings where failures[binding.layerID] != nil {
             binding.owner.discardStorage()
         }
+        let ownerEffects = bindings.compactMap { binding in
+            let effects = SceneScriptOwnerEffects(
+                ownerTarget: binding.owner.target,
+                materialFunctionMutations: materialFunctions.compactMap {
+                    $0.ownerLayerID == binding.layerID ? $0.mutation : nil
+                },
+                animationMutations: animations.compactMap {
+                    $0.ownerLayerID == binding.layerID ? $0.mutation : nil
+                },
+                layerMutations: layers.compactMap {
+                    $0.ownerLayerID == binding.layerID ? $0.mutation : nil
+                },
+                videoCommands: []
+            )
+            return effects.isEmpty ? nil : effects
+        }
         return .init(
             failures: failures,
             materialFunctionMutations: materialFunctions.map { $0.mutation },
             animationMutations: animations.map { $0.mutation },
             layerMutations: layers.map { $0.mutation },
-            inputBatchOverflowed: false
+            inputBatchOverflowed: false,
+            ownerEffects: ownerEffects
         )
     }
 
@@ -510,7 +542,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             fields: previous.fields.union(current.fields),
             layerID: current.layerID,
             orderIndex: current.orderIndex,
-            visible: current.visible,
+            visible: current.fields.contains(.visibility)
+                ? current.visible : previous.visible,
             alpha: current.alpha,
             origin: current.fields.contains(.origin)
                 ? current.origin : previous.origin,
@@ -520,9 +553,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 ? current.angles : previous.angles,
             color: current.color,
             pointSize: current.pointSize,
-            text: current.text,
+            text: current.fields.contains(.text)
+                ? current.text : previous.text,
             font: current.font,
-            assetPath: current.assetPath
+            assetPath: current.assetPath,
+            ownerTarget: current.ownerTarget ?? previous.ownerTarget
         )
     }
 
