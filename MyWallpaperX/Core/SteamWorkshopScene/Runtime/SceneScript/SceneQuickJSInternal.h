@@ -25,6 +25,9 @@
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
+#define MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS 64
+#define MWX_SCENE_QUICKJS_MAX_STORAGE_KEY_BYTES 256
+#define MWX_SCENE_QUICKJS_MAX_STORAGE_VALUE_BYTES (64u * 1024u)
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -113,6 +116,15 @@ typedef struct MWXSceneQuickJSRejectionRecord {
     bool active;
 } MWXSceneQuickJSRejectionRecord;
 
+typedef struct MWXSceneQuickJSStorageMutationRecord {
+    uint32_t kind;
+    bool global_scope;
+    char *key;
+    size_t key_length;
+    char *json;
+    size_t json_length;
+} MWXSceneQuickJSStorageMutationRecord;
+
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
@@ -149,6 +161,9 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSFrameInput active_frame_input;
     MWXSceneQuickJSOwner *active_owner;
     MWXSceneQuickJSOwner *module_owner;
+    MWXSceneQuickJSStorageRead storage_read;
+    void *storage_opaque;
+    char *storage_screen_identity;
 };
 
 struct MWXSceneQuickJSOwner {
@@ -184,6 +199,11 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     bool rejection_overflow;
     size_t layer_mutation_count;
+    size_t storage_mutation_count;
+    size_t storage_mutation_bytes;
+    bool storage_mutation_overflow;
+    bool storage_transaction_active;
+    char *storage_screen_identity;
     bool authored_layer_baseline_available;
     double authored_layer_baseline_origin[3];
     double authored_layer_baseline_scale[3];
@@ -211,6 +231,9 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSVideoEndedCallbackRecord video_ended_callbacks[
         MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS
     ];
+    MWXSceneQuickJSStorageMutationRecord storage_mutations[
+        MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS
+    ];
 };
 
 void mwx_scene_quickjs_write_diagnostic(
@@ -225,6 +248,9 @@ void mwx_scene_quickjs_write_exception(
 );
 
 bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain);
+bool mwx_scene_quickjs_install_storage_host(MWXSceneQuickJSDomain *domain);
+void mwx_scene_quickjs_owner_discard_storage_transaction(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_destroy_storage_owner(MWXSceneQuickJSOwner *owner);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_primitive_with_properties(
     MWXSceneQuickJSOwner *owner,
     uint64_t expected_generation,

@@ -598,15 +598,17 @@ static MWXSceneQuickJSResult call_primitive(
         );
         JS_FreeValue(domain->context, result);
         if (owner->material_function_overflow || owner->animation_command_overflow ||
-            owner->video_command_overflow) {
+            owner->video_command_overflow || owner->storage_mutation_overflow) {
             write_diagnostic(
                 diagnostic,
                 diagnostic_capacity,
-                owner->video_command_overflow
+                owner->storage_mutation_overflow
+                    ? "localStorage mutation buffer exceeded"
+                    : (owner->video_command_overflow
                     ? "video command buffer exceeded"
                     : (owner->animation_command_overflow
                         ? "animation command buffer exceeded"
-                        : "material function mutation buffer exceeded")
+                        : "material function mutation buffer exceeded"))
             );
             return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
         }
@@ -727,7 +729,7 @@ static MWXSceneQuickJSResult call_string(
         );
         JS_FreeValue(domain->context, result);
         return owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow
+                owner->video_command_overflow || owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
     }
     if (JS_IsUndefined(result)) {
@@ -934,7 +936,7 @@ static MWXSceneQuickJSResult call_vec3(
         );
         JS_FreeValue(domain->context, result);
         return owner->material_function_overflow || owner->animation_command_overflow ||
-                owner->video_command_overflow
+                owner->video_command_overflow || owner->storage_mutation_overflow
             ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : failure;
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
@@ -1005,6 +1007,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
         !mwx_scene_quickjs_install_owner_handle_globals(domain) ||
         !mwx_scene_quickjs_install_value_host(domain) ||
         !install_input_host(domain) ||
+        !mwx_scene_quickjs_install_storage_host(domain) ||
         !mwx_scene_quickjs_install_layer_handle_class(domain)) {
         JS_FreeContext(domain->context);
         JS_FreeRuntime(domain->runtime);
@@ -1032,6 +1035,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         JS_FreeValue(domain->context, domain->shared_value);
         JS_FreeValue(domain->context, domain->user_properties_snapshot);
         free(domain->user_properties_json);
+        free(domain->storage_screen_identity);
         if (domain->layers != NULL) {
             for (uint32_t index = 0; index < domain->layer_count; ++index) {
                 free(domain->layers[index].name);
@@ -1431,6 +1435,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
         JS_FreeValue(owner->domain->context, owner->module);
     }
     mwx_scene_quickjs_destroy_audio_host(owner);
+    mwx_scene_quickjs_destroy_storage_owner(owner);
     mwx_scene_quickjs_destroy_owner_handles(owner);
     free(owner);
 }

@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
     VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptAudioHost.swift",
@@ -46,6 +47,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptVectorMediaRouteCandidate.swift",
     VM / "SceneScriptVectorProgramModels.swift",
     VM / "SceneScriptVectorProgram.swift",
+    VM / "SceneScriptVectorProgram+Registrations.swift",
     VM / "SceneScriptVectorRuntime.swift",
     VM / "SceneScriptQuickJSProgramCandidate.swift",
 ]
@@ -60,6 +62,7 @@ C_SOURCES = [
     VM / "SceneQuickJSHandleHost.c",
     VM / "SceneQuickJSLayerHost.c",
     VM / "SceneQuickJSLayerSnapshotHost.c",
+    VM / "SceneQuickJSStorageHost.c",
     VM / "SceneQuickJSJobHost.c",
     VM / "SceneQuickJSTimerHost.c",
     QUICKJS / "quickjs.c",

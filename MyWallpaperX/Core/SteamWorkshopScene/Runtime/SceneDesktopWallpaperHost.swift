@@ -530,12 +530,34 @@ final class SceneDesktopWallpaperHost {
         }
         updateAudioSpectrumDemand(launchContext, hasParticleAudioConsumer: surfaces.values.contains { $0.metalView.hasParticleAudioConsumer })
         screenTopology = SceneScreenTopology.capture()
+        let storageScreenIdentity = surfaces.count == 1
+            ? surfaces.keys.first.flatMap(Self.sceneScriptStorageScreenIdentity)
+            : nil
+        do {
+            try launchContext.propertyVectorScriptProgram.domain?
+                .setStorageScreenIdentity(storageScreenIdentity)
+        } catch {
+            NSLog(
+                "MWX SceneScript VM: localStorage screen identity unavailable failure=%@ fallback=global-only",
+                String(describing: error)
+            )
+        }
         startFrameDriver()
         return true
     }
 
     private static func screenID(for screen: NSScreen) -> CGDirectDisplayID? {
         (screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber)?.uint32Value
+    }
+
+    private static func sceneScriptStorageScreenIdentity(
+        _ displayID: CGDirectDisplayID
+    ) -> String? {
+        let vendor = CGDisplayVendorNumber(displayID)
+        let model = CGDisplayModelNumber(displayID)
+        let serial = CGDisplaySerialNumber(displayID)
+        guard vendor != 0, model != 0, serial != 0 else { return nil }
+        return "display-v1-\(vendor)-\(model)-\(serial)"
     }
 
     private static var wallpaperWindowLevel: NSWindow.Level {

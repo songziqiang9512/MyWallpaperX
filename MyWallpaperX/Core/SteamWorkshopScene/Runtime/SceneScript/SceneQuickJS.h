@@ -7,6 +7,25 @@
 typedef struct MWXSceneQuickJSDomain MWXSceneQuickJSDomain;
 typedef struct MWXSceneQuickJSOwner MWXSceneQuickJSOwner;
 typedef int (*MWXSceneQuickJSCancellationCheck)(void *opaque);
+typedef enum MWXSceneQuickJSStorageReadResult {
+    MWX_SCENE_QUICKJS_STORAGE_READ_ERROR = -1,
+    MWX_SCENE_QUICKJS_STORAGE_READ_MISSING = 0,
+    MWX_SCENE_QUICKJS_STORAGE_READ_FOUND = 1,
+    MWX_SCENE_QUICKJS_STORAGE_READ_BUFFER_TOO_SMALL = 2
+} MWXSceneQuickJSStorageReadResult;
+// All input pointers are borrowed for the duration of this call. The callback
+// must copy any bytes it retains and must report the required JSON byte count.
+typedef MWXSceneQuickJSStorageReadResult (*MWXSceneQuickJSStorageRead)(
+    void *opaque,
+    const char *screen_identity,
+    size_t screen_identity_length,
+    uint32_t global_scope,
+    const char *key,
+    size_t key_length,
+    char *json,
+    size_t json_capacity,
+    size_t *json_length
+);
 
 typedef enum MWXSceneQuickJSResult {
     MWX_SCENE_QUICKJS_OK = 0,
@@ -25,6 +44,25 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutation {
     uint32_t effect_index;
     const char *function_name;
 } MWXSceneQuickJSMaterialFunctionMutation;
+
+typedef enum MWXSceneQuickJSStorageMutationKind {
+    MWX_SCENE_QUICKJS_STORAGE_SET = 1,
+    MWX_SCENE_QUICKJS_STORAGE_DELETE = 2,
+    MWX_SCENE_QUICKJS_STORAGE_CLEAR = 3
+} MWXSceneQuickJSStorageMutationKind;
+
+typedef struct MWXSceneQuickJSStorageMutation {
+    uint32_t kind;
+    uint32_t global_scope;
+    const char *screen_identity;
+    size_t screen_identity_length;
+    const char *key;
+    size_t key_length;
+    const char *json;
+    size_t json_length;
+} MWXSceneQuickJSStorageMutation;
+// Pointers returned in this DTO remain borrowed from the owner until its
+// storage transaction is discarded or the owner is destroyed.
 
 typedef enum MWXSceneQuickJSLayerMutationKind {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT = 1,
@@ -172,6 +210,22 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     size_t heap_limit,
     size_t stack_limit,
     uint64_t interrupt_budget,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_storage(
+    MWXSceneQuickJSDomain *domain,
+    MWXSceneQuickJSStorageRead read_callback,
+    void *opaque,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_storage_screen_identity(
+    MWXSceneQuickJSDomain *domain,
+    const char *identity,
+    size_t identity_length,
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -672,6 +726,22 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_dispatch_cursor(
 
 size_t mwx_scene_quickjs_owner_material_function_count(
     const MWXSceneQuickJSOwner *owner
+);
+
+size_t mwx_scene_quickjs_owner_storage_mutation_count(
+    const MWXSceneQuickJSOwner *owner
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_storage_mutation_at(
+    const MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSStorageMutation *mutation,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+void mwx_scene_quickjs_owner_discard_storage_transaction(
+    MWXSceneQuickJSOwner *owner
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(

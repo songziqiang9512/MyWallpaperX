@@ -8,7 +8,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private(set) var bindings: [SceneScriptVectorBinding]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
-    private let descriptor: SceneRenderDescriptor
+    let descriptor: SceneRenderDescriptor
     private let userPropertyKinds: [String: SceneUserPropertyKind]
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
@@ -62,65 +62,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         userPropertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
         )
-    }
-
-    var admittedScaleLayerIDs: Set<Int> {
-        Set(bindings.compactMap { binding in
-            guard case let .layer(layerID, .scale) = binding.definition.target else {
-                return nil
-            }
-            return layerID
-        })
-    }
-
-    var animationTargets: Set<SceneDynamicTarget> {
-        Set(bindings.compactMap { binding in
-            binding.hasCurrentAnimation ? binding.definition.target : nil
-        })
-    }
-
-    var mediaThumbnailTargets: Set<SceneDynamicTarget> {
-        Set(bindings.compactMap { binding in
-            binding.handlesMediaThumbnail ? binding.definition.target : nil
-        })
-    }
-
-    var mediaOwnerTargets: Set<SceneDynamicTarget> {
-        Set(mediaOwnerRegistrations.map(\.target))
-    }
-
-    var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
-        bindings.compactMap { binding in
-            guard binding.handlesMediaPlayback
-                    || binding.handlesMediaProperties
-                    || binding.handlesMediaThumbnail
-                    || binding.handlesMediaTimeline else { return nil }
-            return .init(
-                authoredOrdinal: binding.authoredOrdinal,
-                target: binding.definition.target,
-                family: .vector
-            )
-        }
-    }
-
-    var cursorOwnerRegistrations: [SceneScriptCursorOwnerRegistration] {
-        bindings.compactMap { binding in
-            let layerID: Int
-            switch binding.definition.target {
-            case let .layer(value, _), let .text(value, _):
-                layerID = value
-            default:
-                return nil
-            }
-            guard let authoredOrder = descriptor.layers.firstIndex(where: {
-                      $0.id == layerID
-                  }) else { return nil }
-            return .init(
-                layerID: layerID,
-                authoredOrder: authoredOrder,
-                owner: binding.owner
-            )
-        }
     }
 
     static func compile(
@@ -634,6 +575,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: initializationLayerMutations,
                     at: callbackLayerMutations.startIndex
                 )
+                if case let .failure(failure) = binding.owner.commitStorage() {
+                    failures[target] = failure
+                    disabledTargets.insert(target)
+                    continue
+                }
                 if let pendingPlaybackEvent {
                     consumedMediaPlaybackGenerations[target] =
                         pendingPlaybackEvent.generation
@@ -658,6 +604,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackLayerMutations = SceneScriptLayerMutation.coalescing(
+                    callbackLayerMutations
+                )
                 callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
                 values[target] = value
                 materialFunctionMutations.append(
@@ -742,6 +691,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 failures[target] = failure
                 disabledTargets.insert(target)
             }
+        }
+        for binding in bindings where failures[binding.definition.target] != nil {
+            binding.owner.discardStorage()
         }
         return .init(
             values: values,

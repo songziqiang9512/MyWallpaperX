@@ -32,15 +32,17 @@ static MWXSceneQuickJSResult callback_failure(
         owner->domain, diagnostic, diagnostic_capacity
     );
     if (owner->material_function_overflow || owner->animation_command_overflow ||
-        owner->video_command_overflow) {
+        owner->video_command_overflow || owner->storage_mutation_overflow) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic,
             diagnostic_capacity,
-            owner->video_command_overflow
+            owner->storage_mutation_overflow
+                ? "localStorage mutation buffer exceeded"
+                : (owner->video_command_overflow
                 ? "video command buffer exceeded"
                 : (owner->animation_command_overflow
                     ? "animation command buffer exceeded"
-                    : "material function mutation buffer exceeded")
+                    : "material function mutation buffer exceeded"))
         );
         result = MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
     }

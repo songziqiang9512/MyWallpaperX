@@ -563,7 +563,16 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     }
 
     func invalidate() {
+        domain.discardStorage(owner: handle)
         mwx_scene_quickjs_owner_invalidate(handle)
+    }
+
+    func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        domain.commitStorage(owner: handle)
+    }
+
+    func discardStorage() {
+        domain.discardStorage(owner: handle)
     }
 
     func teardown(
@@ -617,6 +626,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
 nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     let handle: OpaquePointer
     let budget: SceneScriptScalarBudget
+    var storageSession: SceneScriptLocalStorageSession? = nil
     var layerCatalogSignature: String?
     var layerSnapshotGeneration: UInt64 = 0
     private var constructionBoundaryCheck: (@Sendable () throws -> Void)?
@@ -641,6 +651,10 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
 
     deinit {
         clearConstructionBoundaryCheck()
+        var diagnostic = [CChar](repeating: 0, count: 1)
+        _ = mwx_scene_quickjs_domain_configure_storage(
+            handle, nil, nil, &diagnostic, diagnostic.count
+        )
         mwx_scene_quickjs_domain_destroy(handle)
     }
 

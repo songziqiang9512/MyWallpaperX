@@ -593,6 +593,11 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
+                if case let .failure(failure) = binding.commitStorage() {
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
                 if hasUserPropertyInput {
                     appliedUserPropertiesByTarget[binding.target] =
                         effectivePropertyValues
@@ -623,7 +628,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 values[binding.target] = evaluation.value
                 materialFunctionMutations.append(contentsOf: callbackMaterialMutations)
                 animationMutations.append(contentsOf: callbackAnimationMutations)
-                layerMutations.append(contentsOf: callbackLayerMutations)
+                layerMutations.append(contentsOf:
+                    SceneScriptLayerMutation.coalescing(callbackLayerMutations)
+                )
                 if changedUserPropertiesJSON != nil,
                    case let .scalar(outputValue) = evaluation.value {
                     NSLog(
@@ -694,6 +701,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 failures[binding.target] = failure
                 disabledTargets.insert(binding.target)
             }
+        }
+        for binding in bindings where failures[binding.target] != nil {
+            binding.discardStorage()
         }
         return .init(
             values: values,

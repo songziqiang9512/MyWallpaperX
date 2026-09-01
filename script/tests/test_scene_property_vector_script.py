@@ -34,6 +34,7 @@ SOURCES = [
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
     VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptAudioHost.swift",
@@ -49,6 +50,7 @@ SOURCES = [
     VM / "SceneScriptVectorCandidateCatalog.swift",
     VM / "SceneScriptVectorProgramModels.swift",
     VM / "SceneScriptVectorProgram.swift",
+    VM / "SceneScriptVectorProgram+Registrations.swift",
     VM / "SceneScriptVectorRuntime.swift",
 ]
 
@@ -1938,6 +1940,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
             VM / "SceneQuickJSHandleHost.c",
             VM / "SceneQuickJSLayerHost.c",
             VM / "SceneQuickJSLayerSnapshotHost.c",
+            VM / "SceneQuickJSStorageHost.c",
             VM / "SceneQuickJSJobHost.c",
             VM / "SceneQuickJSTimerHost.c",
             QUICKJS / "quickjs.c", QUICKJS / "dtoa.c",

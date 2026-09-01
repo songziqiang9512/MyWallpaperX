@@ -28,6 +28,40 @@ static int check(int condition, const char *label, const char *diagnostic) {
     return 1;
 }
 
+static MWXSceneQuickJSStorageReadResult storage_read(
+    void *opaque,
+    const char *screen_identity,
+    size_t screen_identity_length,
+    uint32_t global_scope,
+    const char *key,
+    size_t key_length,
+    char *json,
+    size_t json_capacity,
+    size_t *json_length
+) {
+    int *reads = opaque;
+    *reads += 1;
+    if (key_length == 4 && memcmp(key, "fail", 4) == 0) {
+        return MWX_SCENE_QUICKJS_STORAGE_READ_ERROR;
+    }
+    const char *value = NULL;
+    if (!global_scope && screen_identity_length == 8 &&
+        memcmp(screen_identity, "screen-a", 8) == 0 &&
+        key_length == 4 && memcmp(key, "base", 4) == 0) {
+        value = "5";
+    } else if (key_length == 7 && memcmp(key, "corrupt", 7) == 0) {
+        value = "{";
+    }
+    if (value == NULL) return MWX_SCENE_QUICKJS_STORAGE_READ_MISSING;
+    const size_t length = strlen(value);
+    *json_length = length;
+    if (json == NULL || json_capacity <= length) {
+        return MWX_SCENE_QUICKJS_STORAGE_READ_BUFFER_TOO_SMALL;
+    }
+    memcpy(json, value, length + 1);
+    return MWX_SCENE_QUICKJS_STORAGE_READ_FOUND;
+}
+
 static int update_at(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -2154,6 +2188,134 @@ int main(void) {
         "dynamic layer budget rejected"
     );
 
+    int storage_reads = 0;
+    failures += check(
+        mwx_scene_quickjs_domain_configure_storage(
+            domain, storage_read, &storage_reads,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "localStorage provider configured", diagnostic
+    );
+    failures += check(
+        mwx_scene_quickjs_domain_set_storage_screen_identity(
+            domain, "screen-a", 8, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "localStorage screen configured", diagnostic
+    );
+    const char *storage_source =
+        "export function update(value){"
+        "if(localStorage.get('base')!==5)throw new Error('baseline');"
+        "if(localStorage.get('corrupt')!==undefined)throw new Error('corrupt');"
+        "if(localStorage.delete('missing'))throw new Error('missing delete');"
+        "localStorage.set('vec',{x:1,y:2,z:3});"
+        "if(localStorage.get('vec').z!==3)throw new Error('staged read');"
+        "localStorage.set('drop',9);localStorage.set('drop',undefined);"
+        "if(localStorage.get('drop')!==undefined)throw new Error('undefined delete');"
+        "localStorage.set('g',7,LOCATION_GLOBAL);"
+        "if(!localStorage.delete('g',LOCATION_GLOBAL))throw new Error('global delete');"
+        "localStorage.set('a',1);localStorage.clear();localStorage.set('b',2);"
+        "if(localStorage.get('base')!==undefined)throw new Error('clear ordering');"
+        "return localStorage.get('b');}";
+    MWXSceneQuickJSOwner *storage_owner = mwx_scene_quickjs_owner_create(
+        domain, storage_source, strlen(storage_source),
+        47, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(storage_owner != NULL, "localStorage owner compile", diagnostic);
+    failures += update(
+        storage_owner, 47, 0, MWX_SCENE_QUICKJS_OK, 2,
+        "localStorage screen/global staged execution"
+    );
+    failures += check(
+        storage_reads >= 3 &&
+            mwx_scene_quickjs_owner_storage_mutation_count(storage_owner) == 8,
+        "localStorage baseline and ordered mutation count", ""
+    );
+    MWXSceneQuickJSStorageMutation storage_mutation = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_storage_mutation_at(
+            storage_owner, 0, &storage_mutation,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK &&
+            storage_mutation.kind == MWX_SCENE_QUICKJS_STORAGE_SET &&
+            storage_mutation.global_scope == 0 &&
+            storage_mutation.screen_identity_length == 8 &&
+            storage_mutation.key_length == 3 &&
+            storage_mutation.json_length == 19,
+        "localStorage typed mutation DTO", diagnostic
+    );
+    mwx_scene_quickjs_owner_discard_storage_transaction(storage_owner);
+    failures += check(
+        mwx_scene_quickjs_owner_storage_mutation_count(storage_owner) == 0,
+        "localStorage transaction discarded", ""
+    );
+
+    const char *storage_throw_source =
+        "export function update(value){localStorage.set('x',1);throw new Error('rollback');}";
+    MWXSceneQuickJSOwner *storage_throw = mwx_scene_quickjs_owner_create(
+        domain, storage_throw_source, strlen(storage_throw_source),
+        48, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(storage_throw != NULL, "localStorage throw compile", diagnostic);
+    failures += update(
+        storage_throw, 48, 0, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "localStorage callback failure remains staged"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_storage_mutation_count(storage_throw) == 1,
+        "localStorage failed callback did not publish", ""
+    );
+    mwx_scene_quickjs_owner_discard_storage_transaction(storage_throw);
+
+    const char *value_storage_source =
+        "export function update(value){localStorage.set('x',1,LOCATION_GLOBAL);return value;}";
+    MWXSceneQuickJSOwner *value_storage =
+        mwx_scene_quickjs_owner_create_value_only_with_budget(
+            domain, value_storage_source, strlen(value_storage_source),
+            49, 1000000, &value_only_create_result,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(value_storage != NULL, "value localStorage compile", diagnostic);
+    failures += update_bool(
+        value_storage, 49, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "value-only localStorage write rejected"
+    );
+
+    failures += check(
+        mwx_scene_quickjs_domain_set_storage_screen_identity(
+            domain, NULL, 0, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "localStorage screen cleared", diagnostic
+    );
+    const char *missing_screen_source =
+        "export function update(value){return localStorage.get('base')||value;}";
+    MWXSceneQuickJSOwner *missing_screen_storage = mwx_scene_quickjs_owner_create(
+        domain, missing_screen_source, strlen(missing_screen_source),
+        50, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        missing_screen_storage != NULL, "missing screen localStorage compile", diagnostic
+    );
+    failures += update(
+        missing_screen_storage, 50, 3, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "screen localStorage rejects ambiguous surface"
+    );
+
+    const char *storage_budget_source =
+        "export function update(value){for(let i=0;i<65;i++)"
+        "localStorage.set(String(i),i,LOCATION_GLOBAL);return value;}";
+    MWXSceneQuickJSOwner *storage_budget = mwx_scene_quickjs_owner_create(
+        domain, storage_budget_source, strlen(storage_budget_source),
+        51, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        storage_budget != NULL, "localStorage budget compile", diagnostic
+    );
+    failures += update(
+        storage_budget, 51, 3, MWX_SCENE_QUICKJS_MUTATION_OVERFLOW, 0,
+        "localStorage mutation budget is sticky"
+    );
+    mwx_scene_quickjs_owner_discard_storage_transaction(storage_budget);
+
     mwx_scene_quickjs_owner_invalidate(positive);
     failures += update(
         positive, 1, 3, MWX_SCENE_QUICKJS_STALE_OWNER, 0, "stale owner"
@@ -2197,6 +2359,11 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(static_visible);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
+    mwx_scene_quickjs_owner_destroy(storage_owner);
+    mwx_scene_quickjs_owner_destroy(storage_throw);
+    mwx_scene_quickjs_owner_destroy(value_storage);
+    mwx_scene_quickjs_owner_destroy(missing_screen_storage);
+    mwx_scene_quickjs_owner_destroy(storage_budget);
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(persistent_layer);
@@ -2223,6 +2390,12 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(wecolor_invalid);
     mwx_scene_quickjs_owner_destroy(immutable_user);
     mwx_scene_quickjs_owner_destroy(scalar_user);
+    failures += check(
+        mwx_scene_quickjs_domain_configure_storage(
+            domain, NULL, NULL, diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK,
+        "localStorage provider detached", diagnostic
+    );
     mwx_scene_quickjs_domain_destroy(domain);
     return failures == 0 ? 0 : 1;
 }
@@ -2259,6 +2432,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSStorageHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),

@@ -547,6 +547,9 @@ extension SceneDesktopWallpaperHost {
             _ = try? firstSurfaceRuntimePreparation.value()
         }
         try cancellation?.check()
+        let sceneScriptStorageSession = recordID.map {
+            SceneScriptLocalStorageSession(recordID: $0)
+        }
         let compileSceneScriptPrograms: (
             Set<SceneDynamicTarget>, Set<SceneDynamicTarget>
         ) throws -> SceneScriptQuickJSProgramCandidate = {
@@ -564,6 +567,7 @@ extension SceneDesktopWallpaperHost {
                 stringExcludedTargets: sceneScriptStringExcludedTargets,
                 admittedVectorPassTargets: vectorPassTargets,
                 generation: sceneScriptGeneration,
+                storageSession: sceneScriptStorageSession,
                 cancellationCheck: { try cancellation?.check() }
             )
         }

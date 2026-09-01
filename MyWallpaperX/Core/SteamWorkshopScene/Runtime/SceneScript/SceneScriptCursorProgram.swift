@@ -480,6 +480,17 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 !disabledLayerIDs.contains($0.key)
             }
         }
+        for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
+            if case let .failure(failure) = binding.owner.commitStorage() {
+                discardCandidates(ownerLayerID: binding.layerID)
+                failures[binding.layerID] = failure
+                disabledLayerIDs.insert(binding.layerID)
+                capturedHits.removeValue(forKey: binding.layerID)
+            }
+        }
+        for binding in bindings where failures[binding.layerID] != nil {
+            binding.owner.discardStorage()
+        }
         return .init(
             failures: failures,
             materialFunctionMutations: materialFunctions.map { $0.mutation },

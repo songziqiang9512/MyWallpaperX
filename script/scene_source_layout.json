@@ -191,6 +191,7 @@
           "SceneScriptDynamicLayerRuntime.swift",
           "SceneScriptEffectHandleBridge.swift",
           "SceneScriptLayerHandleBridge.swift",
+          "SceneScriptLocalStorage.swift",
           "SceneScriptLayerRuntimeDescriptorBridge.swift",
           "SceneScriptLayerTopologyProjection.swift",
           "SceneScriptMediaEventBridge.swift",
@@ -201,6 +202,7 @@
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorProgram.swift",
+          "SceneScriptVectorProgram+Registrations.swift",
           "SceneScriptVectorProgramModels.swift",
           "SceneScriptVectorRuntime.swift"
         ],

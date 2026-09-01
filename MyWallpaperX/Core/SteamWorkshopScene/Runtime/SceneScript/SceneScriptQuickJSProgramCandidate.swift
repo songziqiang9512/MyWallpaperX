@@ -100,6 +100,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
         admittedVectorPassTargets: Set<SceneDynamicTarget>,
         generation: UInt64,
         budget: SceneScriptScalarBudget = .default,
+        storageSession: SceneScriptLocalStorageSession? = nil,
         cancellationCheck: @escaping @Sendable () throws -> Void = {}
     ) throws -> Self {
         let expectedVectorTargets = vectorProjection.nonPassTargets.union(
@@ -619,6 +620,16 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 )
             }
             domain.clearConstructionBoundaryCheck()
+            if let storageSession {
+                do {
+                    try domain.configureStorage(storageSession)
+                } catch {
+                    NSLog(
+                        "MWX SceneScript VM: localStorage provider unavailable failure=%@ fallback=owner-local",
+                        String(describing: error)
+                    )
+                }
+            }
             return .init(
                 domain: domain,
                 vectorProgram: vectorConstruction.program,

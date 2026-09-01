@@ -157,7 +157,7 @@ static MWXSceneQuickJSResult timer_exception(
         owner->domain, diagnostic, diagnostic_capacity
     );
     return owner->material_function_overflow || owner->animation_command_overflow ||
-            owner->video_command_overflow
+            owner->video_command_overflow || owner->storage_mutation_overflow
         ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : result;
 }
 

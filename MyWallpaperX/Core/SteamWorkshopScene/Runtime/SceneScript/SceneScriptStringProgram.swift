@@ -390,6 +390,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
+                if case let .failure(failure) = binding.commitStorage() {
+                    failures[binding.target] = failure
+                    disabledTargets.insert(binding.target)
+                    continue
+                }
                 if let playback {
                     consumedMediaPlaybackGenerations[binding.target] =
                         playback.generation
@@ -414,7 +419,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 values[binding.target] = evaluation.value
                 materialFunctions.append(contentsOf: ownerMaterialFunctions)
                 animations.append(contentsOf: ownerAnimations)
-                layerMutations.append(contentsOf: ownerLayerMutations)
+                layerMutations.append(contentsOf:
+                    SceneScriptLayerMutation.coalescing(ownerLayerMutations)
+                )
                 if let properties,
                    case let .string(output) = evaluation.value {
                     NSLog(
@@ -446,6 +453,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 failures[binding.target] = failure
                 disabledTargets.insert(binding.target)
             }
+        }
+        for binding in bindings where failures[binding.target] != nil {
+            binding.discardStorage()
         }
         return .init(
             values: values,

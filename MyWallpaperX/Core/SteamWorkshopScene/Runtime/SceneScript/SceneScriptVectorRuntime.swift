@@ -603,7 +603,18 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         return nil
     }
 
-    func invalidate() { mwx_scene_quickjs_owner_invalidate(handle) }
+    func invalidate() {
+        domain.discardStorage(owner: handle)
+        mwx_scene_quickjs_owner_invalidate(handle)
+    }
+
+    func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        domain.commitStorage(owner: handle)
+    }
+
+    func discardStorage() {
+        domain.discardStorage(owner: handle)
+    }
 
     func teardown(
         frame: SceneScriptFrameInput,

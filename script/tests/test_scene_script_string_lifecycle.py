@@ -23,6 +23,7 @@ SOURCES = [
     SCENE / "Properties/SceneUserProperty.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
     VM / "SceneScriptAnimationHandleBridge.swift",
     VM / "SceneScriptAudioHost.swift",
@@ -203,6 +204,71 @@ enum Harness {
             sceneScriptValues: disabled.values,
             frameIndex: 3
         )
+        let storageRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: storageRoot) }
+        let storage = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        try storage.apply([.init(
+            kind: .set,
+            globalScope: true,
+            screenIdentity: nil,
+            key: "counter",
+            json: "7"
+        )])
+        Thread.sleep(forTimeInterval: 0.8)
+        let reloaded = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        let persistedValue: String
+        switch reloaded.read(
+            screenIdentity: nil,
+            globalScope: true,
+            key: "counter"
+        ) {
+        case let .success(value): persistedValue = value ?? "missing"
+        case .failure: persistedValue = "failure"
+        }
+        let storedFile = try FileManager.default.contentsOfDirectory(
+            at: storageRoot,
+            includingPropertiesForKeys: nil
+        ).first!
+        let futureEnvelope = Data(
+            "{\"version\":2,\"global\":{\"counter\":\"8\"},\"screens\":{}}".utf8
+        )
+        try futureEnvelope.write(to: storedFile, options: .atomic)
+        let futureSession = SceneScriptLocalStorageSession(
+            recordID: "storage-fixture",
+            rootDirectory: storageRoot
+        )
+        let futureReadRejected: Bool
+        if case .failure = futureSession.read(
+            screenIdentity: nil,
+            globalScope: true,
+            key: "counter"
+        ) {
+            futureReadRejected = true
+        } else {
+            futureReadRejected = false
+        }
+        let futureWriteRejected: Bool
+        do {
+            try futureSession.apply([.init(
+                kind: .set,
+                globalScope: true,
+                screenIdentity: nil,
+                key: "counter",
+                json: "9"
+            )])
+            futureWriteRejected = false
+        } catch {
+            futureWriteRejected = true
+        }
+        let futureEnvelopePreserved = try Data(contentsOf: storedFile)
+            == futureEnvelope
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "warmedFailures": warmed.failures.count,
@@ -213,6 +279,10 @@ enum Harness {
             "disabledFailures": disabled.failures.count,
             "disabledPublished": disabled.values[target] != nil,
             "disabledResolution": disabledResolution,
+            "persistedStorageValue": persistedValue,
+            "futureStorageReadRejected": futureReadRejected,
+            "futureStorageWriteRejected": futureWriteRejected,
+            "futureStoragePreserved": futureEnvelopePreserved,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -293,6 +363,7 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
             VM / "SceneQuickJSHandleHost.c",
             VM / "SceneQuickJSLayerHost.c",
             VM / "SceneQuickJSLayerSnapshotHost.c",
+            VM / "SceneQuickJSStorageHost.c",
             VM / "SceneQuickJSJobHost.c",
             VM / "SceneQuickJSTimerHost.c",
             QUICKJS / "quickjs.c",
@@ -378,6 +449,10 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
             result["disabledResolution"],
             {"source": "timeline", "value": "lower-3"},
         )
+        self.assertEqual(result["persistedStorageValue"], "7")
+        self.assertTrue(result["futureStorageReadRejected"])
+        self.assertTrue(result["futureStorageWriteRejected"])
+        self.assertTrue(result["futureStoragePreserved"])
 
 
 if __name__ == "__main__":

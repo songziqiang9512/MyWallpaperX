@@ -128,6 +128,49 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             assetPath: assetPath
         )
     }
+
+    /// Coalesces repeated writes emitted by init/events/update for one owner.
+    /// Dynamic upserts carry a complete current record, while authored writes
+    /// retain untouched fields from the earlier mutation.
+    static func coalescing(_ mutations: [Self]) -> [Self] {
+        var indices: [Int: Int] = [:]
+        var output: [Self] = []
+        output.reserveCapacity(mutations.count)
+        for mutation in mutations {
+            if let index = indices[mutation.layerID] {
+                output[index] = output[index].merging(with: mutation)
+            } else {
+                indices[mutation.layerID] = output.count
+                output.append(mutation)
+            }
+        }
+        return output
+    }
+
+    private func merging(with newer: Self) -> Self {
+        guard kind == .upsert, newer.kind == .upsert,
+              !isDynamic, !newer.isDynamic else {
+            return newer
+        }
+        let mergedFields = fields.union(newer.fields)
+        return .init(
+            kind: .upsert,
+            isDynamic: false,
+            fields: mergedFields,
+            layerID: newer.layerID,
+            orderIndex: newer.orderIndex,
+            visible: newer.fields.contains(.visibility) ? newer.visible : visible,
+            alpha: newer.alpha,
+            origin: newer.fields.contains(.origin) ? newer.origin : origin,
+            scale: newer.fields.contains(.scale) ? newer.scale : scale,
+            angles: newer.fields.contains(.angles) ? newer.angles : angles,
+            color: newer.color,
+            pointSize: newer.pointSize,
+            text: newer.text,
+            font: newer.font,
+            assetPath: newer.assetPath ?? assetPath
+        )
+    }
 }
 
 nonisolated enum SceneScriptLayerMutationBridge {

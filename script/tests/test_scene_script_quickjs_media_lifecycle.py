@@ -418,6 +418,7 @@ class SceneScriptQuickJSMediaLifecycleTest(unittest.TestCase):
             str(SCENE_SCRIPT / "SceneQuickJSHandleHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSLayerHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSLayerSnapshotHost.c"),
+            str(SCENE_SCRIPT / "SceneQuickJSStorageHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSJobHost.c"),
             str(SCENE_SCRIPT / "SceneQuickJSTimerHost.c"),
             str(QUICKJS / "quickjs.c"),
