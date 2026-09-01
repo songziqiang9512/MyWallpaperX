@@ -54,7 +54,9 @@ enum SceneUtilityLayerRenderer {
                     offscreenTexturePool: offscreenTexturePool,
                     resolvedMaterialFrameTargetPlan:
                         resolvedMaterialFrameTargetPlan,
-                    offscreenSize: geometry.pixelSize,
+                    effectSourceExtent: SceneLayerEffectSourceExtent(
+                        pixelSize: geometry.pixelSize
+                    ),
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: dependencyEffect,

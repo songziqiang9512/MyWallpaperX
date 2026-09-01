@@ -100,12 +100,16 @@ struct SceneImageLayerUniformValues {
     let tint: SIMD3<Float>
 }
 
+struct SceneLayerEffectSourceExtent {
+    let pixelSize: CGSize
+}
+
 struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
     let uniforms: SceneImageLayerUniformValues
     let dependencyEffect: SceneDependencyEffectInput?
-    let offscreenSize: CGSize?
+    let effectSourceExtent: SceneLayerEffectSourceExtent?
     let sourceSample: SceneBaseImageTextureSample?
 
     func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
@@ -781,7 +785,7 @@ enum Harness {
                 texture: baseDirect.texture,
                 uniforms: values,
                 dependencyEffect: nil,
-                offscreenSize: nil,
+                effectSourceExtent: nil,
                 sourceSample: mappedNearestSample
             ),
             routesOffscreen: true

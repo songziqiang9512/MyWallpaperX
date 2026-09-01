@@ -7,6 +7,47 @@ struct SceneCaptureGeometry {
     let pixelSize: CGSize
 }
 
+/// The semantic pixel extent of one layer-local effect source. This is kept
+/// separate from the Metal texture allocation: padded TEX resources can have
+/// a square physical texture while the authored layer and mapped image are a
+/// wide or narrow logical surface.
+nonisolated struct SceneLayerEffectSourceExtent: Equatable {
+    let pixelSize: CGSize
+
+    init?(pixelSize: CGSize) {
+        guard pixelSize.width.isFinite, pixelSize.width > 0,
+              pixelSize.height.isFinite, pixelSize.height > 0 else {
+            return nil
+        }
+        self.pixelSize = pixelSize
+    }
+
+    static func resolve(
+        publishedRenderSizeWH: [Float]?,
+        authoredRenderSizeWH: [Float]?,
+        candidateMappedSize: CGSize?
+    ) -> SceneLayerEffectSourceExtent? {
+        if let publishedRenderSizeWH {
+            return extent(renderSizeWH: publishedRenderSizeWH)
+        }
+        if let authoredRenderSizeWH {
+            return extent(renderSizeWH: authoredRenderSizeWH)
+        }
+        guard let candidateMappedSize else { return nil }
+        return SceneLayerEffectSourceExtent(pixelSize: candidateMappedSize)
+    }
+
+    private static func extent(
+        renderSizeWH: [Float]
+    ) -> SceneLayerEffectSourceExtent? {
+        guard renderSizeWH.count == 2 else { return nil }
+        return SceneLayerEffectSourceExtent(pixelSize: CGSize(
+            width: CGFloat(renderSizeWH[0]),
+            height: CGFloat(renderSizeWH[1])
+        ))
+    }
+}
+
 enum SceneCaptureGeometryResolver {
     nonisolated static func projectedPixelSize(
         layerMVP: simd_float4x4,

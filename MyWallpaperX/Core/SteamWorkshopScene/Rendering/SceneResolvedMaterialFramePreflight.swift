@@ -210,10 +210,17 @@ extension SceneMetalRenderer {
                     return .rejected(reasonCode: reasonCode)
                 }
                 if layer.contentKind != "solid" {
-                    desiredSize = CGSize(
-                        width: selectedSource.texture.width,
-                        height: selectedSource.texture.height
-                    )
+                    guard let extent = SceneLayerEffectSourceExtent.resolve(
+                        publishedRenderSizeWH:
+                            imageTextures.layerSourceRenderSize(for: layer.id),
+                        authoredRenderSizeWH: layer.renderSizeWH,
+                        candidateMappedSize: selectedSource.candidate?.mappedSize
+                    ) else {
+                        return .rejected(
+                            reasonCode: "layer-effect-source-extent-unavailable"
+                        )
+                    }
+                    desiredSize = extent.pixelSize
                     break
                 }
                 let model = imageModelMatrix(
@@ -473,6 +480,7 @@ extension SceneMetalRenderer {
             let sourceUsesAuthoredLayerColor: Bool
             let textureFrame: SceneTextureUVTransform
             let capturesMainTarget: Bool
+            let effectSourceExtent: SceneLayerEffectSourceExtent?
             var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
@@ -501,6 +509,17 @@ extension SceneMetalRenderer {
                 sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
                 textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
                 capturesMainTarget = false
+                guard let extent = SceneLayerEffectSourceExtent.resolve(
+                    publishedRenderSizeWH:
+                        imageTextures.layerSourceRenderSize(for: layerID),
+                    authoredRenderSizeWH: layer.renderSizeWH,
+                    candidateMappedSize: source.candidate?.mappedSize
+                ) else {
+                    return invalid(
+                        "layer-\(layerID)-effect-source-extent-unavailable"
+                    )
+                }
+                effectSourceExtent = extent
             case .capturedMainTargetTexture:
                 guard let utility = layer.utilityLayer,
                       layer.contentKind == utility.kind.rawValue,
@@ -524,6 +543,9 @@ extension SceneMetalRenderer {
                 sourceUsesAuthoredLayerColor = false
                 textureFrame = geometry.sourceUV
                 capturesMainTarget = true
+                effectSourceExtent = SceneLayerEffectSourceExtent(
+                    pixelSize: geometry.pixelSize
+                )
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
                       let directDrawModel = lightShaftsModelMatrix(
@@ -542,6 +564,7 @@ extension SceneMetalRenderer {
                 sourceUsesAuthoredLayerColor = false
                 textureFrame = .identity
                 capturesMainTarget = false
+                effectSourceExtent = nil
             }
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectProjectionInverse(
@@ -591,7 +614,7 @@ extension SceneMetalRenderer {
                         )
                     ),
                     offscreenTexturePool: nil,
-                    offscreenSize: nil,
+                    effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: nil

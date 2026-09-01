@@ -237,7 +237,7 @@ struct SceneImageLayerDrawRequest {
     let uniforms: SceneImageLayerUniformValues
     let offscreenTexturePool: SceneOffscreenTexturePool?
     var resolvedMaterialFrameTargetPlan: SceneResolvedMaterialFrameTargetPlan? = nil
-    let offscreenSize: CGSize?
+    let effectSourceExtent: SceneLayerEffectSourceExtent?
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
     let dependencyEffect: SceneDependencyEffectInput?

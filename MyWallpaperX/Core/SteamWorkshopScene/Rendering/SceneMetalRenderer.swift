@@ -359,6 +359,22 @@ struct SceneMetalRenderer {
                     mouseNormalized: frameContext.pointer.previous,
                     modelViewProjection: mvp
                 )
+                let effectSourceExtent: SceneLayerEffectSourceExtent?
+                if layer.contentKind == "solid" {
+                    effectSourceExtent = SceneCaptureGeometryResolver
+                        .projectedPixelSize(
+                            layerMVP: mvp,
+                            viewportSize: viewportSize
+                        )
+                        .flatMap(SceneLayerEffectSourceExtent.init(pixelSize:))
+                } else {
+                    effectSourceExtent = SceneLayerEffectSourceExtent.resolve(
+                        publishedRenderSizeWH:
+                            imageTextures.layerSourceRenderSize(for: layer.id),
+                        authoredRenderSizeWH: layer.renderSizeWH,
+                        candidateMappedSize: baseSource.candidate?.mappedSize
+                    )
+                }
                 let request = SceneImageLayerDrawRequest(
                     layer: layer,
                     texture: texture,
@@ -387,7 +403,7 @@ struct SceneMetalRenderer {
                     offscreenTexturePool: offscreenTexturePool,
                     resolvedMaterialFrameTargetPlan:
                         resolvedFramePlan,
-                    offscreenSize: layer.contentKind == "solid" ? SceneCaptureGeometryResolver.projectedPixelSize(layerMVP: mvp, viewportSize: viewportSize) : nil,
+                    effectSourceExtent: effectSourceExtent,
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,

@@ -173,11 +173,9 @@ struct SceneImageLayerCompositor {
         let routesOffscreen = request.requiresSourceCopy
             || resolvedMaterialClaim != nil
             || layerColorBlendMode > 0
-        guard !routesOffscreen
-            || request.layer.contentKind != "solid"
-            || request.offscreenSize != nil else {
+        guard !routesOffscreen || request.effectSourceExtent != nil else {
             _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
-                reasonCode: "solid-offscreen-size-unavailable")
+                reasonCode: "layer-effect-source-extent-unavailable")
             return .failed
         }
         guard let directUniforms = sourceFragmentUniforms(
@@ -216,7 +214,9 @@ struct SceneImageLayerCompositor {
                     return .failed
                 }
             } else {
-                let dimensions = offscreenDimensions(for: request)
+                guard let dimensions = offscreenDimensions(for: request) else {
+                    return .failed
+                }
                 guard let target = pool.compositionTarget(
                     width: dimensions.width,
                     height: dimensions.height

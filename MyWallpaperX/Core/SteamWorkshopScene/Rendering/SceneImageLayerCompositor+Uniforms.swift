@@ -58,11 +58,10 @@ extension SceneImageLayerCompositor {
 
     func offscreenDimensions(
         for request: SceneImageLayerDrawRequest
-    ) -> (width: Int, height: Int) {
-        let desired = request.offscreenSize ?? CGSize(
-            width: CGFloat(request.texture.width),
-            height: CGFloat(request.texture.height)
-        )
+    ) -> (width: Int, height: Int)? {
+        guard let desired = request.effectSourceExtent?.pixelSize else {
+            return nil
+        }
         return (
             max(1, Int(desired.width.rounded(.up))),
             max(1, Int(desired.height.rounded(.up)))

@@ -72,6 +72,26 @@ enum Harness {
                     * SceneMatrix.scale(SIMD3<Float>(3, 3, 1)),
                 viewportSize: viewport
             )
+        let authoredExtent = SceneLayerEffectSourceExtent.resolve(
+            publishedRenderSizeWH: nil,
+            authoredRenderSizeWH: [1920, 1080],
+            candidateMappedSize: CGSize(width: 2048, height: 2048)
+        )
+        let publishedExtent = SceneLayerEffectSourceExtent.resolve(
+            publishedRenderSizeWH: [861, 1366],
+            authoredRenderSizeWH: [1920, 1080],
+            candidateMappedSize: CGSize(width: 1024, height: 2048)
+        )
+        let mappedExtent = SceneLayerEffectSourceExtent.resolve(
+            publishedRenderSizeWH: nil,
+            authoredRenderSizeWH: nil,
+            candidateMappedSize: CGSize(width: 1415, height: 2047)
+        )
+        let invalidAuthoredExtent = SceneLayerEffectSourceExtent.resolve(
+            publishedRenderSizeWH: nil,
+            authoredRenderSizeWH: [0, 1080],
+            candidateMappedSize: CGSize(width: 2048, height: 2048)
+        )
         let result: [String: Any] = [
             "localOrigin": vector(local.sourceUV.origin),
             "localXAxis": vector(local.sourceUV.xAxis),
@@ -95,6 +115,16 @@ enum Harness {
             "fullCoverage": fullCoverage,
             "sparseCoverage": sparseCoverage,
             "rotatedCoverage": rotatedCoverage,
+            "authoredExtent": authoredExtent.map {
+                [$0.pixelSize.width, $0.pixelSize.height]
+            } ?? [],
+            "publishedExtent": publishedExtent.map {
+                [$0.pixelSize.width, $0.pixelSize.height]
+            } ?? [],
+            "mappedExtent": mappedExtent.map {
+                [$0.pixelSize.width, $0.pixelSize.height]
+            } ?? [],
+            "invalidAuthoredExtentIsNil": invalidAuthoredExtent == nil,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -175,6 +205,14 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertTrue(self.result["fullCoverage"])
         self.assertFalse(self.result["sparseCoverage"])
         self.assertFalse(self.result["rotatedCoverage"])
+
+    def test_layer_effect_source_extent_prefers_semantic_sizes(self) -> None:
+        self.assertEqual(self.result["authoredExtent"], [1920, 1080])
+        self.assertEqual(self.result["publishedExtent"], [861, 1366])
+        self.assertEqual(self.result["mappedExtent"], [1415, 2047])
+
+    def test_invalid_explicit_extent_does_not_fall_back_to_allocation_size(self) -> None:
+        self.assertTrue(self.result["invalidAuthoredExtentIsNil"])
 
 
 if __name__ == "__main__":

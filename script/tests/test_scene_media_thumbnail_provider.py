@@ -1322,8 +1322,14 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         )
         self.assertLess(begin, target_preflight)
         self.assertIn('if layer.contentKind != "solid" {', preflight)
-        self.assertIn("width: selectedSource.texture.width", preflight)
-        self.assertIn("height: selectedSource.texture.height", preflight)
+        self.assertIn("SceneLayerEffectSourceExtent.resolve(", preflight)
+        self.assertIn("authoredRenderSizeWH: layer.renderSizeWH", preflight)
+        self.assertIn(
+            "candidateMappedSize: selectedSource.candidate?.mappedSize",
+            preflight,
+        )
+        self.assertNotIn("width: selectedSource.texture.width", preflight)
+        self.assertNotIn("height: selectedSource.texture.height", preflight)
         deferred = preflight.index("case .deferred:", target_preflight)
         defer_frame = preflight.index(
             "imageCompositor.deferResolvedMaterialFrame()", deferred
