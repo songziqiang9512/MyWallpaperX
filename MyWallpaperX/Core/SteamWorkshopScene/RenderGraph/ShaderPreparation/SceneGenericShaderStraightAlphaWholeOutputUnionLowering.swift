@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneGenericShaderStraightAlphaPreservingLowering {
+nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
     /// Conserves a source-proven straight-alpha program whose compiler output
     /// assigns one of several complete colors before one terminal return. The
     /// semantic analyzer owns branch meaning; this pass only accepts a single

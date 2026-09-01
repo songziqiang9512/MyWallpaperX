@@ -39,7 +39,11 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
               let outputRange = Range(outputs[0].range, in: source),
               let indent = capture(outputs[0], 1, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
-        else { return lowerWholeOutputUnion(source, expectedSlot: expectedSlot) }
+        else {
+            return SceneGenericShaderScalarizedRGBPreservedAlphaLowering
+                .lower(source, expectedSlot: expectedSlot)
+                ?? lowerWholeOutputUnion(source, expectedSlot: expectedSlot)
+        }
 
         var transformed = source
         transformed.replaceSubrange(

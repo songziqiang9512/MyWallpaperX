@@ -912,6 +912,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 真实`2241938645:68#effect#114`默认与恢复进程命中新增`source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter / generic-only / fallbackOwner=none`及同一Program；frame0/next-frame均1 authored / 1 material / 0 rejected、GPU completed与exact publication，effect 9后缀由唯一compositor消费。profile-local disable只把effect 3回退为typed previous-current，effects 4...9、GPU/publication/compositor/next-frame继续；未复活bounded frontend或专用VHS owner。三次strict selection因陈旧effect-count期待以及负门预期的局部passthrough保持NON-PASS，未放宽matrix。截图只排除黑屏、整层/整帧丢失与全局红绿交替，不证明VHS独立ROI/fidelity、其他revision、完整corpus或官方parity。上一段43/1/1的route census由本批更正为现役**44/1/1**；见[E-V1-VHS-SAMPLED-ALPHA-RGBA-RECONSTRUCTION](runtime-evidence-index.md#e-v1-vhs-sampled-alpha-rgba-reconstruction)。
 
+### 2026-09-01 V4 scalarized RGB / preserved-alpha static auxiliary纠正
+
+新入库只读样本`3792400801`暴露的首断点不是Nitro专用视觉算法，而是现役generic-only straight-alpha profile缺少一种SPIRV-Cross conservation：作者对graph-input carrier只改RGB并保留alpha，compiler把一次RGB写回拆成x/y/z三个分量；同一Program还读取static noise texture的标量通道。现役ShaderPreparation新增identity-free compiler-shape lowering，只解预乘graph-input color、保留auxiliary data原值并在唯一terminal重新预乘；alpha/whole carrier写入、隐藏source sample、vector auxiliary、缺/错分量和非terminal output继续失败关闭。route/profile、resource/provider、property state、GraphTargets、GraphExecutor与唯一compositor owner均未变化。
+
+同一`eyesnitroeffect=true`严格隔离运行由修复前`admitted-fallback / visual-failure-passthrough / 0/1 NON-PASS`变为`admitted-generic / program / 1/1 PASS`；目标effect首帧与next-frame均GPU completed并发布，后缀进入terminal compositor，GraphExecutor 28/28/28且0 failure。截图只作眼部局部发光方向与整构图安全旁证，没有预登记ROI或官方golden，因此最高仍为`S3 real effect execution + whole-composition safety`，不升级Nitro family、149 corpus或视觉parity。精确代码、负门、App身份与hash见[E-V4-SCALARIZED-RGB-PRESERVED-ALPHA](runtime-evidence-index.md#e-v4-scalarized-rgb-preserved-alpha)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

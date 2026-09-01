@@ -217,6 +217,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalCompositingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderConditionalGeneratedRGBLowering.swift",
