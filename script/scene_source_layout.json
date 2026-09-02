@@ -145,6 +145,7 @@
         "file_globs": [
           "SceneAuthoredShader*Admission.swift",
           "SceneAuthoredShader*Analyzer*.swift",
+          "SceneAuthoredShaderBuiltIn*.swift",
           "SceneAuthoredShader*VectorConversion.swift",
           "SceneAuthoredShaderFrontend*.swift",
           "SceneAuthoredShaderFunctionSemantics.swift",

@@ -173,6 +173,8 @@ func effect(
 let visibilitySource = """
 // comments do not change the exact stock event contract
 'use strict';
+// Workshop exports may carry inert package provenance before the handler.
+export let __workshopId = '9876543210';
 export function mediaThumbnailChanged(event) {
     thisObject.visible = event.hasThumbnail;
 }
@@ -186,6 +188,7 @@ let directBinding = SceneScriptBindingIR(
 )
 let timedBinding = SceneScriptBindingIR(
     source: """
+    export let __workshopId = '2468135790';
     var lastHideEvent;
     export function mediaThumbnailChanged(event) {
         if (lastHideEvent) {

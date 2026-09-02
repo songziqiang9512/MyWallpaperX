@@ -78,6 +78,10 @@ nonisolated enum SceneInitialMediaEffectVisibilityProjection {
             of: #"^['\"]usestrict['\"];?"#,
             with: "",
             options: .regularExpression
+        ).replacingOccurrences(
+            of: #"^exportlet__workshopId=['\"][^'\"]+['\"];?"#,
+            with: "",
+            options: .regularExpression
         )
         let direct = #"^exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{thisObject\.visible=\1\.hasThumbnail;?\}$"#
         let timed = #"^varlastHideEvent;?exportfunctionmediaThumbnailChanged\(([A-Za-z_$][A-Za-z0-9_$]*)\)\{if\(lastHideEvent\)\{lastHideEvent\(\);lastHideEvent=undefined;?\}thisObject\.visible=\1\.hasThumbnail;if\(\1\.hasThumbnail\)\{lastHideEvent=engine\.setTimeout\(\(\)=>\{thisObject\.visible=false;?\},1000\);?\}\}$"#
