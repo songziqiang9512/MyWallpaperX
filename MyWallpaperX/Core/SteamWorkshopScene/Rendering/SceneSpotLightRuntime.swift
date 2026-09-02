@@ -15,7 +15,9 @@ final class SceneSpotLightRuntime {
             commandBuffer: MTLCommandBuffer
         ) {
             sceneTime = frameContext.sceneTime
-            viewProjection = cameraFrame.orthographicViewProjection
+            viewProjection = cameraFrame.viewProjection(
+                usesPerspective: cameraFrame.defaultsToPerspective
+            )
             self.mainPass = mainPass
             self.commandBuffer = commandBuffer
         }

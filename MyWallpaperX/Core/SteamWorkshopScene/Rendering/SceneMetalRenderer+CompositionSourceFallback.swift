@@ -95,7 +95,7 @@ extension SceneMetalRenderer {
         )
         let encoded = SceneImageLayerMainPassRenderer.draw(
             texture: source.texture,
-            mvp: cameraFrame.orthographicViewProjection * model,
+            mvp: cameraFrame.viewProjection(for: provider) * model,
             uniforms: uniforms,
             dependencyTexture: nil,
             layer: provider,

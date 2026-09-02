@@ -235,7 +235,7 @@ extension SceneMetalRenderer {
                 )
                 guard let projectedSize =
                     SceneCaptureGeometryResolver.projectedPixelSize(
-                    layerMVP: cameraFrame.orthographicViewProjection * model,
+                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
                     viewportSize: viewportSize
                     ) else {
                     return .rejected(
@@ -295,7 +295,8 @@ extension SceneMetalRenderer {
                           configuration: parallaxConfiguration
                       ), let projectedSize =
                         SceneCaptureGeometryResolver.projectedPixelSize(
-                            layerMVP: cameraFrame.orthographicViewProjection * model,
+                            layerMVP: cameraFrame.viewProjection(for: layer)
+                                * model,
                             viewportSize: viewportSize
                         ) else {
                     return .rejected(
@@ -360,7 +361,7 @@ extension SceneMetalRenderer {
         let time = Float(frameContext.sceneTime)
         let imageMVP: (SceneRenderDescriptor.Layer, [Float]?) -> simd_float4x4 = {
             layer, renderSizeOverride in
-            cameraFrame.orthographicViewProjection * self.imageModelMatrix(
+            cameraFrame.viewProjection(for: layer) * self.imageModelMatrix(
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 renderSizeOverride: renderSizeOverride,
@@ -557,7 +558,8 @@ extension SceneMetalRenderer {
                       ) else {
                     return invalid("layer-\(layerID)-direct-draw-model-invalid")
                 }
-                sourceMVP = cameraFrame.orthographicViewProjection * directDrawModel
+                sourceMVP = cameraFrame.viewProjection(for: layer)
+                    * directDrawModel
                 outputMVP = sourceMVP
                 sourceTexture = nil
                 sourceCandidate = nil

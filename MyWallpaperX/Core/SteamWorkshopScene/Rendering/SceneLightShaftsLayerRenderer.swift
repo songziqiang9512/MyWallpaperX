@@ -51,7 +51,7 @@ extension SceneMetalRenderer {
         }
         return imageCompositor.drawResolvedDirectDrawQuad(
             layer: layer,
-            modelViewProjection: cameraFrame.orthographicViewProjection * model,
+            modelViewProjection: cameraFrame.viewProjection(for: layer) * model,
             alpha: SceneDynamicLayerValues.alpha(
                 layerID: layer.id,
                 authoredValue: layer.alpha,

@@ -23,6 +23,7 @@ struct SceneRenderDescriptor: Codable {
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         let nearZ: Float
         let farZ: Float
@@ -304,6 +305,7 @@ struct SceneRenderDescriptorBuilder {
             up: cam.up,
             orthoWidth: gen.orthoWidth,
             orthoHeight: gen.orthoHeight,
+            fovDegrees: gen.fovDegrees,
             perspectiveOverrideFOVDegrees:
                 gen.perspectiveOverrideFOVDegrees,
             nearZ: gen.nearZ ?? 0.01,

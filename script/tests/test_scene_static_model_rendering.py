@@ -45,6 +45,12 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("textureLoader.loadCandidate(", resources)
         self.assertIn("purpose: .straightAlbedo", resources)
         self.assertIn("purpose: .mask", resources)
+        self.assertIn(
+            "candidate.sampling.isResolvedForMaterialProgram", resources
+        )
+        self.assertIn(
+            "!candidate.sampling.usesClampBorderFallback", resources
+        )
         self.assertIn('named: "emissivebrightness"', resources)
         self.assertIn('named: "emissivecolor"', resources)
         self.assertIn(")?.first ?? 0", resources)
@@ -80,7 +86,8 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("staticModelDepthPlan.target(", model_case)
         self.assertIn("case .isolated:", model_case)
         self.assertIn("frameWorldFrames[layer.id]", model_case)
-        self.assertIn("layer.usesPerspective == true", model_case)
+        self.assertIn("cameraFrame.resolvesPerspective(", model_case)
+        self.assertIn("layerOverride: layer.usesPerspective", model_case)
         self.assertIn("cameraFrame.reverseDepthViewProjection(", model_case)
         self.assertIn("clearDepth: 0", model_case)
         self.assertNotIn("makeCommandQueue", model_case)

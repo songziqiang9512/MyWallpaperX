@@ -202,7 +202,8 @@ extension SceneMetalView {
                 configuration: parallax,
                 visibleHalfExtents: cameraFrame.coverHalfExtents
             )
-            let modelViewProjection = cameraFrame.orthographicViewProjection * model
+            let modelViewProjection = cameraFrame.viewProjection(for: layer)
+                * model
             guard let local = SceneLayerCursorGeometry.layerPoint(
                 mouseNormalized: pointer.normalizedPosition,
                 modelViewProjection: modelViewProjection

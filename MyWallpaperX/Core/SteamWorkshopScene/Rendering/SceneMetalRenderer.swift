@@ -312,7 +312,8 @@ struct SceneMetalRenderer {
                     sourceCandidate: baseSource?.candidate,
                     usesAuthoredLayerColor:
                         baseSource?.usesAuthoredLayerColor ?? true,
-                    layerMVP: cameraFrame.orthographicViewProjection * providerModel,
+                    layerMVP: cameraFrame.viewProjection(for: layer)
+                        * providerModel,
                     viewportSize: viewportSize,
                     pipeline: imagePipeline,
                     textureRegistry: textureRegistry,
@@ -378,7 +379,7 @@ struct SceneMetalRenderer {
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents
                 )
-                let mvp = cameraFrame.orthographicViewProjection * model
+                let mvp = cameraFrame.viewProjection(for: layer) * model
                 let cursorUV = SceneLayerCursorGeometry.layerUV(
                     mouseNormalized: frameContext.pointer.current,
                     modelViewProjection: mvp
@@ -619,7 +620,9 @@ struct SceneMetalRenderer {
                     emissiveMaskSampling: prepared.emissiveMask?.sampling,
                     modelMatrix: modelMatrix,
                     viewProjection: cameraFrame.reverseDepthViewProjection(
-                        usesPerspective: layer.usesPerspective == true
+                        usesPerspective: cameraFrame.resolvesPerspective(
+                            layerOverride: layer.usesPerspective
+                        )
                     ),
                     cameraPosition: cameraFrame.perspectiveEyePosition,
                     textureFrame: prepared.albedo.uvTransform,

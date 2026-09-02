@@ -887,7 +887,7 @@ class SceneFrameContextTests(unittest.TestCase):
             "targets.insert(.layer(layerID: layer.id, field: .alpha))", derivation
         )
         layer_color = ".layer(layerID: layer.id, field: .color)"
-        self.assertEqual(derivation.count(layer_color), 2)
+        self.assertEqual(derivation.count(layer_color), 3)
         image_case = derivation[
             derivation.index('case "image":') : derivation.index('case "text":')
         ]
@@ -900,6 +900,13 @@ class SceneFrameContextTests(unittest.TestCase):
             )
         ]
         self.assertIn(layer_color, solid_case)
+        light_case = derivation[
+            derivation.index('case "spotLight", "directionalLight":') : derivation.index(
+                'case "particle":'
+            )
+        ]
+        self.assertIn("visibleLayerIDs.contains(layer.id)", light_case)
+        self.assertIn(layer_color, light_case)
         self.assertIn('case "particle"', derivation)
         self.assertIn(".particle(layerID: layer.id, field: $0)", derivation)
         self.assertIn("visibleLayerIDs.contains(layer.id)", derivation)

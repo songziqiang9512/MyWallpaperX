@@ -286,9 +286,9 @@ extension SceneDocument {
         let angles: String?
         let parallaxDepth: String?
         let disablesParallaxPropagation: Bool
-        /// Direct static models opt into the existing perspective camera path.
-        /// Defaulting keeps non-model layer construction source-compatible.
-        var usesPerspective: Bool = false
+        /// Explicit layer projection override. Omission inherits the scene's
+        /// authored projection instead of being collapsed into `false`.
+        var usesPerspective: Bool? = nil
         let text: String?
         let textStyle: SceneTextDescriptor?
         let textScript: SceneTextScriptDefinition?

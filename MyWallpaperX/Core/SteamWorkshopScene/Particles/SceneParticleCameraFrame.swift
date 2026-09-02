@@ -14,6 +14,7 @@ struct SceneParticleCameraFrame: Sendable {
     let cameraForward: SIMD3<Float>
     let cameraOrigin: SIMD3<Float>
     let perspectiveEyePosition: SIMD3<Float>
+    let defaultsToPerspective: Bool
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
@@ -34,9 +35,44 @@ struct SceneParticleCameraFrame: Sendable {
             orthographicViewProjection
         )
 
+        let hasValidViewport = viewportSize.width > 0 && viewportSize.height > 0
+        if hasValidViewport,
+           let native = Self.nativePerspectiveCamera(camera) {
+            let origin = safeOrigin
+            let eye = native.eye + origin
+            let center = native.center + origin
+            let safeZoom = cameraZoom.isFinite && cameraZoom > 0
+                ? cameraZoom : 1
+            let fovY = 2 * atan(tan(native.fovY * 0.5) / safeZoom)
+            let aspect = Float(viewportSize.width / viewportSize.height)
+            let view = SceneMatrix.lookAt(
+                eye: eye,
+                center: center,
+                up: native.up
+            )
+            let projection = SceneMatrix.perspectiveRHMetal(
+                fovYRadians: fovY,
+                aspect: aspect,
+                near: camera.nearZ,
+                far: camera.farZ
+            )
+            perspectiveViewProjection = projection * view
+            reverseDepthPerspectiveViewProjection = SceneMatrix.reversingDepth(
+                perspectiveViewProjection
+            )
+            let focusDistance = simd_distance(eye, center)
+            let halfHeight = focusDistance * tan(fovY * 0.5)
+            coverHalfExtents = SIMD2(halfHeight * aspect, halfHeight)
+            cameraForward = native.forward
+            cameraRight = native.right
+            cameraUp = native.cameraUp
+            perspectiveEyePosition = eye
+            defaultsToPerspective = true
+            return
+        }
+
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
-        let hasValidViewport = viewportSize.width > 0 && viewportSize.height > 0
         let hasValidScene = orthoWidth.isFinite && orthoHeight.isFinite
             && orthoWidth > 0 && orthoHeight > 0
 
@@ -48,6 +84,7 @@ struct SceneParticleCameraFrame: Sendable {
             cameraUp = SIMD3(0, 1, 0)
             cameraForward = SIMD3(0, 0, -1)
             perspectiveEyePosition = safeOrigin
+            defaultsToPerspective = false
             return
         }
 
@@ -115,6 +152,7 @@ struct SceneParticleCameraFrame: Sendable {
         reverseDepthPerspectiveViewProjection = SceneMatrix.reversingDepth(
             perspectiveViewProjection
         )
+        defaultsToPerspective = false
     }
 
     func viewProjection(usesPerspective: Bool) -> simd_float4x4 {
@@ -127,6 +165,21 @@ struct SceneParticleCameraFrame: Sendable {
         usesPerspective
             ? reverseDepthPerspectiveViewProjection
             : reverseDepthOrthographicViewProjection
+    }
+
+    func resolvesPerspective(layerOverride: Bool?) -> Bool {
+        layerOverride ?? defaultsToPerspective
+    }
+
+    func viewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
+        guard layer.utilityLayer == nil else {
+            return orthographicViewProjection
+        }
+        return viewProjection(
+            usesPerspective: resolvesPerspective(
+                layerOverride: layer.usesPerspective
+            )
+        )
     }
 
     func basis(
@@ -182,5 +235,59 @@ struct SceneParticleCameraFrame: Sendable {
         guard let degrees, degrees.isFinite,
               degrees > 0, degrees < 180 else { return nil }
         return degrees * .pi / 180
+    }
+
+    private struct NativePerspectiveCamera {
+        let eye: SIMD3<Float>
+        let center: SIMD3<Float>
+        let up: SIMD3<Float>
+        let forward: SIMD3<Float>
+        let right: SIMD3<Float>
+        let cameraUp: SIMD3<Float>
+        let fovY: Float
+    }
+
+    private static func nativePerspectiveCamera(
+        _ camera: SceneRenderDescriptor.CameraDescriptor
+    ) -> NativePerspectiveCamera? {
+        guard camera.orthoWidth == nil, camera.orthoHeight == nil,
+              let fovY = authoredFOVRadians(camera.fovDegrees),
+              camera.nearZ.isFinite, camera.nearZ > 0,
+              camera.farZ.isFinite, camera.farZ > camera.nearZ,
+              let eye = vector3(camera.eye),
+              let center = vector3(camera.center),
+              let authoredUp = vector3(camera.up) else {
+            return nil
+        }
+        let forward = normalized(center - eye, fallback: .zero)
+        let right = normalized(
+            simd_cross(forward, authoredUp),
+            fallback: .zero
+        )
+        guard simd_length_squared(forward) > 0,
+              simd_length_squared(right) > 0 else {
+            return nil
+        }
+        let cameraUp = normalized(
+            simd_cross(right, forward),
+            fallback: .zero
+        )
+        guard simd_length_squared(cameraUp) > 0 else { return nil }
+        return NativePerspectiveCamera(
+            eye: eye,
+            center: center,
+            up: cameraUp,
+            forward: forward,
+            right: right,
+            cameraUp: cameraUp,
+            fovY: fovY
+        )
+    }
+
+    private static func vector3(_ values: [Float]) -> SIMD3<Float>? {
+        guard values.count >= 3,
+              values[0].isFinite, values[1].isFinite,
+              values[2].isFinite else { return nil }
+        return SIMD3(values[0], values[1], values[2])
     }
 }

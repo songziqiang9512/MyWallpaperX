@@ -26,12 +26,18 @@ import Foundation
 import simd
 
 struct SceneRenderDescriptor {
+    struct Layer {
+        let utilityLayer: Bool?
+        let usesPerspective: Bool?
+    }
+
     struct CameraDescriptor {
         let eye: [Float]
         let center: [Float]
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        let fovDegrees: Float?
         let perspectiveOverrideFOVDegrees: Float?
         let nearZ: Float
         let farZ: Float
@@ -44,6 +50,7 @@ enum Harness {
         let camera = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: 1920, orthoHeight: 1080,
+            fovDegrees: nil,
             perspectiveOverrideFOVDegrees: nil,
             nearZ: 0.01, farZ: 10_000
         )
@@ -52,6 +59,7 @@ enum Harness {
         let authoredFOVCamera = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: 1920, orthoHeight: 1080,
+            fovDegrees: nil,
             perspectiveOverrideFOVDegrees: 21,
             nearZ: 0.01, farZ: 10_000
         )
@@ -146,8 +154,35 @@ enum Harness {
         let fixedBasis = frame.basis(for: .fixed)
         let sceneCenter = SIMD3<Float>(960, 540, 0)
 
+        let nativeCamera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [-2.05772, 0.85240, 10.07242],
+            center: [-1.83970, 0.51670, 9.15603],
+            up: [0, 1, 0],
+            orthoWidth: nil, orthoHeight: nil,
+            fovDegrees: 50,
+            perspectiveOverrideFOVDegrees: nil,
+            nearZ: 0.01, farZ: 10_000
+        )
+        let nativeFrame = SceneParticleCameraFrame(
+            camera: nativeCamera,
+            viewportSize: viewport
+        )
+        let inheritedNativeLayer = SceneRenderDescriptor.Layer(
+            utilityLayer: nil,
+            usesPerspective: nil
+        )
+        let nativeUtilityLayer = SceneRenderDescriptor.Layer(
+            utilityLayer: true,
+            usesPerspective: nil
+        )
+        let nativeCenter = SIMD4<Float>(
+            nativeCamera.center[0], nativeCamera.center[1],
+            nativeCamera.center[2], 1
+        )
+
         let invalidCamera = SceneRenderDescriptor.CameraDescriptor(
             eye: [], center: [], up: [], orthoWidth: 0, orthoHeight: 0,
+            fovDegrees: nil,
             perspectiveOverrideFOVDegrees: nil,
             nearZ: 0, farZ: 0
         )
@@ -199,6 +234,24 @@ enum Harness {
                 == frame.orthographicViewProjection,
             "selectedPerspective": frame.viewProjection(usesPerspective: true)
                 == frame.perspectiveViewProjection,
+            "nativeCenterNDC": ndc(
+                nativeFrame.perspectiveViewProjection, nativeCenter
+            ),
+            "nativeEye": vector3(nativeFrame.perspectiveEyePosition),
+            "nativeDefaultsToPerspective": nativeFrame.defaultsToPerspective,
+            "nativeOmittedLayerPerspective": nativeFrame.resolvesPerspective(
+                layerOverride: nil
+            ),
+            "nativeLayerUsesPerspectiveProjection": nativeFrame.viewProjection(
+                for: inheritedNativeLayer
+            ) == nativeFrame.perspectiveViewProjection,
+            "nativeUtilityUsesOrthoProjection": nativeFrame.viewProjection(
+                for: nativeUtilityLayer
+            ) == nativeFrame.orthographicViewProjection,
+            "nativeExplicitOrtho": nativeFrame.resolvesPerspective(
+                layerOverride: false
+            ),
+            "orthoDefaultsToPerspective": frame.defaultsToPerspective,
             "cameraRight": vector3(frame.cameraRight),
             "cameraUp": vector3(frame.cameraUp),
             "cameraForward": vector3(frame.cameraForward),
@@ -358,6 +411,20 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][0], 1, places=5)
         self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][1], -1, places=5)
         self.assertAlmostEqual(self.result["authoredFOVFarNDC"][2], 1, places=4)
+
+    def test_native_scene_uses_authored_camera_and_inherits_projection(self) -> None:
+        self.assertAlmostEqual(self.result["nativeCenterNDC"][0], 0, places=5)
+        self.assertAlmostEqual(self.result["nativeCenterNDC"][1], 0, places=5)
+        for actual, expected in zip(
+            self.result["nativeEye"], [-2.05772, 0.85240, 10.07242]
+        ):
+            self.assertAlmostEqual(actual, expected, places=5)
+        self.assertTrue(self.result["nativeDefaultsToPerspective"])
+        self.assertTrue(self.result["nativeOmittedLayerPerspective"])
+        self.assertTrue(self.result["nativeLayerUsesPerspectiveProjection"])
+        self.assertTrue(self.result["nativeUtilityUsesOrthoProjection"])
+        self.assertFalse(self.result["nativeExplicitOrtho"])
+        self.assertFalse(self.result["orthoDefaultsToPerspective"])
 
     def test_dynamic_2d_camera_origin_and_zoom_share_the_projection(self) -> None:
         self.assertAlmostEqual(

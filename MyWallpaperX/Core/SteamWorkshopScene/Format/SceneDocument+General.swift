@@ -13,6 +13,7 @@ extension SceneDocument {
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
         let orthoHeight: Float?    // general.orthogonalprojection.height
+        var fovDegrees: Float? = nil
         var perspectiveOverrideFOVDegrees: Float? = nil
         var ambientColorRGB: [Float]? = nil
         var skylightColorRGB: [Float]? = nil
@@ -38,6 +39,7 @@ extension SceneDocumentLoader {
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
+            fovDegrees: root?["fov"].flatMap(Self.floatValue),
             perspectiveOverrideFOVDegrees: root?["perspectiveoverridefov"]
                 .flatMap(Self.floatValue),
             ambientColorRGB: floatVector(root?["ambientcolor"]),

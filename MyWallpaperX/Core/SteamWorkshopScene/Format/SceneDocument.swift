@@ -210,7 +210,7 @@ struct SceneDocumentLoader {
             angles: stringValue(root["angles"]),
             parallaxDepth: stringValue(root["parallaxDepth"]),
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
-            usesPerspective: root["perspective"] as? Bool ?? false,
+            usesPerspective: root["perspective"] as? Bool,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
             textScript: SceneTextScriptDefinition.parse(root["text"]),

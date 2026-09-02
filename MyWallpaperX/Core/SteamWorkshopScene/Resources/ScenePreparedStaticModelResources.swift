@@ -260,7 +260,9 @@ struct ScenePreparedStaticModelResources {
                   from: url,
                   purpose: purpose,
                   device: device
-              ) else {
+              ),
+              candidate.sampling.isResolvedForMaterialProgram,
+              !candidate.sampling.usesClampBorderFallback else {
             return nil
         }
         return candidate

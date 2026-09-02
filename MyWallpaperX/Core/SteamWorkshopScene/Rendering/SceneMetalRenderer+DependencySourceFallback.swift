@@ -41,7 +41,7 @@ extension SceneMetalRenderer {
             sourceCandidate: baseSource?.candidate,
             usesAuthoredLayerColor:
                 baseSource?.usesAuthoredLayerColor ?? true,
-            layerMVP: cameraFrame.orthographicViewProjection * model,
+            layerMVP: cameraFrame.viewProjection(for: provider) * model,
             viewportSize: viewportSize,
             pipeline: imagePipeline,
             textureRegistry: textureRegistry,

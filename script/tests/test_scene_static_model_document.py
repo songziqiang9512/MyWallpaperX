@@ -46,6 +46,12 @@ SWIFT_SOURCES = [
 
 SCENE_FIXTURE = {
     "version": 3,
+    "camera": {
+        "eye": "-2 0.5 10",
+        "center": "-1.8 0.5 9",
+        "up": "0 1 0",
+    },
+    "general": {"fov": 50, "nearz": 0.01, "farz": 10000},
     "objects": [
         {
             "id": 10,
@@ -140,12 +146,13 @@ enum Harness {
             [
                 "id": object.id,
                 "model": object.staticModelPath ?? "-",
-                "perspective": object.usesPerspective,
+                "perspective": object.usesPerspective as Any? ?? NSNull(),
             ] as [String: Any]
         }
         let payload: [String: Any] = [
             "objects": objects,
             "referenced": document.referencedResourcePaths,
+            "fov": document.general.fovDegrees as Any? ?? NSNull(),
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -205,13 +212,16 @@ class SceneStaticModelDocumentTests(unittest.TestCase):
             ["models/Earth/Earth.mdl", "models/user/card.json"],
         )
 
-    def test_perspective_requires_an_authored_boolean_true(self) -> None:
+    def test_projection_override_preserves_authored_presence(self) -> None:
         objects = {entry["id"]: entry for entry in self.result["objects"]}
         self.assertTrue(objects[10]["perspective"])
-        self.assertFalse(objects[20]["perspective"])
-        self.assertFalse(objects[30]["perspective"])
-        self.assertFalse(objects[40]["perspective"])
+        self.assertIsNone(objects[20]["perspective"])
+        self.assertIsNone(objects[30]["perspective"])
+        self.assertIsNone(objects[40]["perspective"])
         self.assertFalse(objects[50]["perspective"])
+
+    def test_native_perspective_fov_is_retained(self) -> None:
+        self.assertEqual(self.result["fov"], 50)
 
 
 if __name__ == "__main__":
