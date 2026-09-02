@@ -24,12 +24,13 @@ final class SceneMainPassEncoder {
     }
 
     func encoder() -> MTLRenderCommandEncoder? {
-        encoder(depthTexture: nil, clearsDepth: false)
+        encoder(depthTexture: nil, clearsDepth: false, clearDepth: 1)
     }
 
     func encoder(
         depthTexture: MTLTexture?,
-        clearsDepth: Bool
+        clearsDepth: Bool,
+        clearDepth: Double = 1
     ) -> MTLRenderCommandEncoder? {
         guard !isFinished else { return nil }
         if let activeEncoder,
@@ -47,7 +48,7 @@ final class SceneMainPassEncoder {
         if let depthTexture {
             descriptor.depthAttachment.texture = depthTexture
             descriptor.depthAttachment.loadAction = clearsDepth ? .clear : .load
-            descriptor.depthAttachment.clearDepth = 1
+            descriptor.depthAttachment.clearDepth = clearDepth
             descriptor.depthAttachment.storeAction = .store
         }
         guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor) else {

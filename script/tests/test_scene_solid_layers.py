@@ -21,6 +21,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+Timeline.swift",
     SOURCE_ROOT / "Format/SceneDocumentObject.swift",
     SOURCE_ROOT / "Format/SceneObjectDependency.swift",
+    SOURCE_ROOT / "Format/SceneDirectionalLightDefinition.swift",
     SOURCE_ROOT / "Format/SceneSpotLightDefinition.swift",
     SOURCE_ROOT / "Text/SceneTextScriptDefinition.swift",
     SOURCE_ROOT / "Format/SceneTimelineAnimation.swift",
@@ -609,9 +610,9 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertRegex(
             compositor_uniforms,
             re.compile(
-                r"usesAuthoredColor[^=]{0,40}=\s*request\.layer\.contentKind\s*==\s*\"image\""
-                r'[\s\S]{0,120}request\.layer\.contentKind\s*==\s*"solid"'
-                r"[\s\S]{0,160}request\.uniforms\.tint"
+                r"usesAuthoredColor[^=]{0,40}=\s*layer\.contentKind\s*==\s*\"image\""
+                r'[\s\S]{0,120}layer\.contentKind\s*==\s*"solid"'
+                r"[\s\S]{0,160}values\.tint"
             ),
         )
         renderer = (SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
@@ -637,8 +638,8 @@ class SceneSolidLayerTests(unittest.TestCase):
         self.assertRegex(
             compositor_uniforms,
             re.compile(
-                r'request\.layer\.contentKind == "text"'
-                r"[\s\S]{0,160}request\.layer\.brightness \?\? 1"
+                r'layer\.contentKind == "text"'
+                r"[\s\S]{0,160}layer\.brightness \?\? 1"
             ),
         )
         self.assertRegex(

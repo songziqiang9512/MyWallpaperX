@@ -411,6 +411,7 @@ struct ScenePreparedDeviceResources {
     let imageLayerPipeline: SceneImageLayerPipeline
     let spriteTextureLoader: SceneMultiImageSpriteTextureLoader
     let baseImages: ScenePreparedBaseImageResources
+    let staticModels: ScenePreparedStaticModelResources
 
     var device: MTLDevice { pipelineRepository.device }
 }
@@ -478,11 +479,19 @@ final class ScenePreparedDeviceResourcesTask {
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     cancellationCheck: checkCancellation
                 )
+                let staticModels = try ScenePreparedStaticModelResources.prepare(
+                    descriptor: descriptor,
+                    resourceView: resourceView,
+                    device: device,
+                    textureLoader: baseImages.textureLoader,
+                    cancellationCheck: checkCancellation
+                )
                 return ScenePreparedDeviceResources(
                     pipelineRepository: pipelineRepository,
                     imageLayerPipeline: imageLayerPipeline,
                     spriteTextureLoader: spriteTextureLoader,
-                    baseImages: baseImages
+                    baseImages: baseImages,
+                    staticModels: staticModels
                 )
             }
             condition.lock()

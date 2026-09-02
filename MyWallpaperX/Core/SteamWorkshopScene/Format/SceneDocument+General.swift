@@ -13,6 +13,9 @@ extension SceneDocument {
 
         let orthoWidth: Float?     // general.orthogonalprojection.width
         let orthoHeight: Float?    // general.orthogonalprojection.height
+        var perspectiveOverrideFOVDegrees: Float? = nil
+        var ambientColorRGB: [Float]? = nil
+        var skylightColorRGB: [Float]? = nil
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
         let clearEnabled: Bool
         let nearZ: Float?
@@ -35,6 +38,10 @@ extension SceneDocumentLoader {
         return SceneDocument.GeneralDescriptor(
             orthoWidth: width,
             orthoHeight: height,
+            perspectiveOverrideFOVDegrees: root?["perspectiveoverridefov"]
+                .flatMap(Self.floatValue),
+            ambientColorRGB: floatVector(root?["ambientcolor"]),
+            skylightColorRGB: floatVector(root?["skylightcolor"]),
             clearColor: floatVector(root?["clearcolor"]),
             clearEnabled: (root?["clearenabled"] as? Bool) ?? true,
             nearZ: root?["nearz"].flatMap(Self.floatValue),

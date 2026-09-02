@@ -1,6 +1,11 @@
 import Foundation
 
 struct SceneRenderDescriptor: Codable {
+    struct LightingDescriptor: Codable {
+        let ambientColorRGB: [Float]?
+        let skylightColorRGB: [Float]?
+    }
+
     // Scene camera + ortho box derived from scene.json `camera` and
     // `general.orthogonalprojection`. eye/center/up are in world coords.
     // ortho dimensions define the view volume (centered on the camera in
@@ -18,6 +23,7 @@ struct SceneRenderDescriptor: Codable {
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        var perspectiveOverrideFOVDegrees: Float? = nil
         let nearZ: Float
         let farZ: Float
         let clearColor: [Float]   // [r, g, b]
@@ -31,6 +37,7 @@ struct SceneRenderDescriptor: Codable {
 
     let entryPath: String
     let camera: CameraDescriptor
+    var lighting: LightingDescriptor? = nil
     var layers: [Layer]
     let rootLayerIDs: [Int]
     let renderOrderLayerIDs: [Int]
@@ -97,6 +104,10 @@ struct SceneRenderDescriptorBuilder {
         return SceneRenderDescriptor(
             entryPath: project.entryPath,
             camera: cameraDescriptor(from: sceneDocument),
+            lighting: .init(
+                ambientColorRGB: sceneDocument.general.ambientColorRGB,
+                skylightColorRGB: sceneDocument.general.skylightColorRGB
+            ),
             layers: sceneDocument.objects.enumerated().map { index, object in
                 let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
                 return SceneRenderDescriptor.Layer(
@@ -106,8 +117,11 @@ struct SceneRenderDescriptorBuilder {
                     cameraPath: object.cameraPath,
                     contentKind: contentKind,
                     imagePath: object.imagePath,
+                    staticModelPath: object.staticModelPath,
+                    usesPerspective: object.usesPerspective,
                     particlePath: object.particlePath,
                     spotLight: object.spotLight,
+                    directionalLight: object.directionalLight,
                     particleInstanceOverride: object.particleInstanceOverride,
                     utilityLayer: object.utilityLayer,
                     dependencyLayerIDs: object.dependencyLayerIDs,
@@ -237,6 +251,9 @@ struct SceneRenderDescriptorBuilder {
         if object.imagePath != nil {
             return "image"
         }
+        if object.staticModelPath != nil {
+            return "model"
+        }
         if object.particlePath != nil {
             return "particle"
         }
@@ -264,6 +281,8 @@ struct SceneRenderDescriptorBuilder {
             up: cam.up,
             orthoWidth: gen.orthoWidth,
             orthoHeight: gen.orthoHeight,
+            perspectiveOverrideFOVDegrees:
+                gen.perspectiveOverrideFOVDegrees,
             nearZ: gen.nearZ ?? 0.01,
             farZ: gen.farZ ?? 10_000,
             clearColor: clear,

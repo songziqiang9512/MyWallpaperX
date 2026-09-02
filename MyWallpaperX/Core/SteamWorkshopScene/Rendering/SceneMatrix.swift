@@ -124,6 +124,21 @@ nonisolated enum SceneMatrix {
             SIMD4(0, 0, depth * near, 0)
         ))
     }
+
+    /// Remaps an existing Metal [0, 1] depth projection to reverse-Z while
+    /// preserving its X/Y clip coordinates. Static-model depth uses this to
+    /// retain precision for near=0.01 scenes with large authored world depth.
+    static func reversingDepth(
+        _ viewProjection: simd_float4x4
+    ) -> simd_float4x4 {
+        let remap = simd_float4x4(columns: (
+            SIMD4<Float>(1, 0, 0, 0),
+            SIMD4<Float>(0, 1, 0, 0),
+            SIMD4<Float>(0, 0, -1, 0),
+            SIMD4<Float>(0, 0, 1, 1)
+        ))
+        return remap * viewProjection
+    }
 }
 
 extension SIMD3 where Scalar == Float {

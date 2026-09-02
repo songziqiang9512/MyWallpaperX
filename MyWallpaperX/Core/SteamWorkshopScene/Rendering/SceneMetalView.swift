@@ -61,6 +61,7 @@ class SceneMetalView: NSView {
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
+        staticModelResources: ScenePreparedStaticModelResources = .empty,
         pipelineRepository: SceneImageEffectPipelineRepository,
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
@@ -71,6 +72,7 @@ class SceneMetalView: NSView {
             renderDescriptor: renderDescriptor,
             effectAdmissionCatalog: effectAdmissionCatalog,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
+            staticModelResources: staticModelResources,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         self.metalDevice = renderer.device
@@ -358,6 +360,9 @@ class SceneMetalView: NSView {
         report.append("")
         report.append(
             "prepared static base resource usage: hits=\(preparedBaseImageHitCount)"
+        )
+        report.append(
+            "prepared static model layers: \(renderer.staticModelResources.preparedLayerIDs)"
         )
         if report.isEnabled {
             let loadedLayerCount = Set(loaded.textures.keys)

@@ -8,8 +8,11 @@ extension SceneRenderDescriptor {
         var cameraPath: SceneDocument.Scene2DCameraPathDefinition? = nil
         let contentKind: String
         let imagePath: String?
+        var staticModelPath: String? = nil
+        var usesPerspective: Bool? = nil
         let particlePath: String?
         var spotLight: SceneSpotLightDefinition? = nil
+        var directionalLight: SceneDirectionalLightDefinition? = nil
         var particleInstanceOverride: SceneParticleInstanceOverride?
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]

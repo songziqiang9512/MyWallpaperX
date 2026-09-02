@@ -52,6 +52,7 @@ enum Harness {
         let missing = missingGeneral.cameraShake
         let literalGeneral = SceneDocumentLoader.parseGeneral([
             "orthogonalprojection": ["width": 2_560, "height": 1_440],
+            "perspectiveoverridefov": 21.0,
             "camerashake": true,
             "camerashakeamplitude": 0.23,
             "camerashakeroughness": 1.0,
@@ -94,6 +95,8 @@ enum Harness {
         let result: [String: Any] = [
             "missing": fields(missing),
             "literal": fields(literal),
+            "literalPerspectiveFOV":
+                literalGeneral.perspectiveOverrideFOVDegrees as Any? ?? NSNull(),
             "wrapped": fields(wrapped),
             "malformed": fields(malformed),
             "missingAdmission": SceneCameraShake.admission(
@@ -252,6 +255,7 @@ class SceneCameraShakeTests(unittest.TestCase):
             self.assertAlmostEqual(actual_value, expected_value, places=places)
 
     def test_general_defaults_wrappers_and_malformed_values(self) -> None:
+        self.assertEqual(self.result["literalPerspectiveFOV"], 21)
         self.assertEqual(self.result["missing"], [False, 0.5, 1, 3])
         self.assertTrue(self.result["literal"][0])
         self.assert_vector_almost_equal(

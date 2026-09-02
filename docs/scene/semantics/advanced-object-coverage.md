@@ -2,7 +2,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-08-25
+> 最近核对：2026-09-03
 >
 > 实现基线见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 >
@@ -25,8 +25,8 @@
 | container/parent hierarchy | `L3` | source order、parent transform/visibility/parallax propagation、[E-BASE](runtime-evidence-index.md#e-base) | composition、动态 reparent、复杂 component |
 | sound layer | `L0` | 无 sound content IR/player | asset/stream、volume、loop、pause/stop、property/script target |
 | Puppet layer | `L3 executed-degraded` | MDLV0016/0017/0023 bind-pose/full-TRS LBS、静态 MDAT attachment（仍限0023）、严格单 clip、bounded disjoint-bone additive clips 与 typed visibility；0016静态结果以typed Puppet publication进入现役graph/compositor并按exact source/atlas/size复用；[E-PUPPET-BC](runtime-evidence-index.md#e-puppet-bc) | 插值、冲突 mixing/权重、非 1 blend、多 clip independent-rate、MDLA0003 auxiliary scalar消费、动画 attachment follow、constraints/IK/physics/channels/clipping、更多版本与 Windows golden |
-| 3D model layer | `L0` | model/material link 不等于 3D runtime | loader/scene graph/camera/PBR/animation |
-| light object | `L0` | 无 light IR | 类型、坐标、排序、shadow 和 lifecycle |
+| 3D model layer | `L3 bounded / S4 one real static composition` | bounded MDLV0023 format15/u16单mesh进入launch-prepared geometry、straight-albedo、authored transform/perspective、reverse-Z depth与现役main pass/compositor；真实`3437487219`的Earth/Cloud双壳可见；[E-V4-STATIC-MODEL-BASE-COMPOSITION](runtime-evidence-index.md#e-v4-static-model-base-composition) | node hierarchy、多mesh/material、normal/PBR/emissive、stock model shader、model camera/skeleton/animation/physics与官方pixel golden |
+| light object | `L3 bounded direct-model directional + existing standalone spot` | scene ambient/skylight与最多4个bounded directional light可被direct static-model diffuse consumer读取；既有standalone spot仍保持自身窄合同 | point/tube、lit 2D material、shadow/volume、live target、排序与完整lifecycle；不得把两个bounded consumer外推为通用lighting |
 
 “某资源被 catalog 发现”最多是 `L1`；只有对象类型进入 IR 和 renderer 路由才是 `L2`，有受控执行和门才是 `L3`。
 
@@ -114,16 +114,16 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 
 ## 4. 3D Models 官方页面覆盖（8）
 
-现有 `modelMaterialLinks` 只保存资源关系，不能把 3D model 记为 routed 或 rendered。官方 stock model shader 与任意 Workshop custom shader 是两类能力：本节只记录官方页面公开的 Fur、Vegetation、Chroma material 行为，不把它们写成 custom shader，也不推测其私有 shader source、参数序列化或数值算法。
+现役direct static-model子集已经把bounded MDLV0023单mesh从资源关系推进到真实GPU执行，但仍不是完整3D runtime。它只接受format15/u16、一个material pass与straight albedo，使用作者layer transform、scene perspective override、reverse-Z self-depth和最多4个directional diffuse light；同几何、同位置、尺度差不超过2%的近重合材质外壳按结构取得独立depth lease，避免破坏普通模型互相遮挡。官方 stock model shader 与任意 Workshop custom shader 是两类能力：本节只记录官方页面公开的 Fur、Vegetation、Chroma material 行为，不把它们写成 custom shader，也不推测其私有 shader source、参数序列化或数值算法。
 
 | 官方页面 | 分类 | 官方合同与分类边界 | 当前等级 / 最小升级门 |
 |---|---|---|---|
-| <a id="op-model-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/models/introduction.html) | `runtime-required` + `editor-import` | FBX 支持 model/animation/texture，OBJ 只适合基础静态模型；2D/3D Scene 都能放 model，但 camera/perspective/editor mode 不同。导入约定为 `-Z` forward、`+Y` up，scale 会尝试 normalize；material 可有 albedo、normal（X/Y flip）、metallic、roughness、reflection、emissive（红通道）、tint mask、rim/toon。 | `L0`：asset link 不是 model IR；需 axis/handedness、mesh/index/node、material channel/color space、2D/3D scene mode 和 malformed asset fixture。 |
-| <a id="op-model-camera"></a>[Camera](https://docs.wallpaperengine.io/en/scene/models/camera.html) | `runtime-required` | asset list 中最底部的 visible camera 生效；可用 visibility/property/script 切 camera。path 可 random/sequential；Single 完成后进入下一 path，Loop/Mirror 不结束。camera path 使用 `Center/Eye/Up` 与 FOV，而非普通 origin/angles/scale。 | `L0`：2D camera 不等价；需 visible-camera selection、Center/Eye/Up interpolation、path queue/modes、resize 和 invalid vector 门。 |
+| <a id="op-model-introduction"></a>[Introduction](https://docs.wallpaperengine.io/en/scene/models/introduction.html) | `runtime-required` + `editor-import` | FBX 支持 model/animation/texture，OBJ 只适合基础静态模型；2D/3D Scene 都能放 model，但 camera/perspective/editor mode 不同。导入约定为 `-Z` forward、`+Y` up，scale 会尝试 normalize；material 可有 albedo、normal（X/Y flip）、metallic、roughness、reflection、emissive（红通道）、tint mask、rim/toon。 | `L3 bounded`：已执行一个MDLV0023 format15/u16单mesh、single-pass straight-albedo子集并有malformed/index/ABI反门；node/multi-mesh、多material channel、完整axis/scene mode与官方golden仍缺。 |
+| <a id="op-model-camera"></a>[Camera](https://docs.wallpaperengine.io/en/scene/models/camera.html) | `runtime-required` | asset list 中最底部的 visible camera 生效；可用 visibility/property/script 切 camera。path 可 random/sequential；Single 完成后进入下一 path，Loop/Mirror 不结束。camera path 使用 `Center/Eye/Up` 与 FOV，而非普通 origin/angles/scale。 | 整体仍`L0`：现役只让scene-level perspective override FOV进入direct model projection，不等于asset camera；仍需visible-camera selection、Center/Eye/Up interpolation、path queue/modes、resize和invalid vector门。 |
 | <a id="op-model-animation"></a>[Animation](https://docs.wallpaperengine.io/en/scene/models/animation.html) | `runtime-required` + `editor-import` | imported animation 可按 start/end frame 切 clips并设 frame offset；额外 FBX 必须与 base 共用相同 bone hierarchy。Motion root 可把 clip 位移应用到 model，长时间循环可能 drift。 | `L0`：无 skeleton/clip evaluator；需 clip/hierarchy validation、offset/loop/rate、root motion accumulation/reset、mix 与 SceneScript bridge。 |
 | <a id="op-model-attachment"></a>[Attachment](https://docs.wallpaperengine.io/en/scene/models/attachment.html) | `runtime-required` | named attachment 绑定 model bone，并带 local origin；作为 model child 的任意 asset 跟随 model animation/movement。 | `L0`：无 model attachment；需 bone-local/world matrix、child order、missing bone、animation follow 和 teardown 门。 |
 | <a id="op-model-fog"></a>[Fog](https://docs.wallpaperengine.io/en/scene/models/fog.html) | `runtime-required` | distance fog 相对 camera，用 start/end distance 与 start/end density；height fog 相对 scene global height 0，用同类参数；二者可同时启用，material 可 opt out。具体插值/颜色空间未公开。 | `L0`：无 fog IR/post；需 distance/height simultaneous、per-material disable、camera/depth/order 和 Windows pixel golden。 |
-| <a id="op-model-lighting"></a>[Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) | `runtime-required` | model 与 light 两侧分别控制 shadow；官方页面列出 point/spot/directional shadow。Volumetric 只对 point/spot，Bloom/Ultra HDR 可增强但不是启用前提；官方明确 volumetric 昂贵。 | `L0`：无 light/depth/volume pass；需 per-model/per-light gates、shadow map/bias、point/spot volume、author-off 和 performance budget。 |
+| <a id="op-model-lighting"></a>[Lighting](https://docs.wallpaperengine.io/en/scene/models/lighting.html) | `runtime-required` | model 与 light 两侧分别控制 shadow；官方页面列出 point/spot/directional shadow。Volumetric 只对 point/spot，Bloom/Ultra HDR 可增强但不是启用前提；官方明确 volumetric 昂贵。 | 整体仍`L0`：现役只有scene ambient/skylight + 最多4个directional的bounded direct-model diffuse consumer，无shadow/specular/PBR/point/spot interaction；需per-model/per-light gates、shadow map/bias、point/spot volume、author-off与性能门。 |
 | <a id="op-model-shader"></a>[Stock Model Shaders](https://docs.wallpaperengine.io/en/scene/models/shader.html) | `runtime-required` + `stock-only` + `research-boundary` | **Fur**：albedo alpha mask、alpha-to-coverage、quality/detail/distance/occlusion。**Vegetation**：叶/干 material 分离、alpha-to-coverage、可选 no-cull/double-sided light、UV direction/mapping、wind/phase/speed/strength/tree size debug。**Chroma**：metallic/roughness、specular tint、front/back tint、pigmentation/exponent，可用 albedo alpha 排除 tint。页面未公开三个 stock shader 的算法/source/schema。 | `L0`：不得映射成 arbitrary custom shader；需三个独立 typed stock profile、完整 parameter/state/texture contract、unknown profile fail-closed 和合法 Windows pixel golden。 |
 | <a id="op-model-simulation"></a>[Simulation](https://docs.wallpaperengine.io/en/scene/models/simulation.html) | `runtime-required` + `research-boundary` | model bone 可用 presets 或 advanced constraints；示例 Bouncy Position 让 bone 跟随 animation motion 后回到 initial position，官方确认 simulation 与 animation 混合。solver、step、sleep 和混合顺序细节未公开。 | `L0`：无 3D solver；需 typed constraints、animation interaction、fixed/variable step、pause/reset、collision/sleep 和 deterministic fixture。 |
 

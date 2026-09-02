@@ -441,6 +441,8 @@ final class SceneDesktopWallpaperHost {
                 effectAdmissionCatalog: launchContext.effectAdmissionCatalog,
                 baseMaterialProviderBindings:
                     launchContext.baseMaterialProviderBindings,
+                staticModelResources:
+                    launchContext.preparedDeviceResources.staticModels,
                 pipelineRepository:
                     launchContext.preparedDeviceResources.pipelineRepository,
                 imageLayerPipeline:

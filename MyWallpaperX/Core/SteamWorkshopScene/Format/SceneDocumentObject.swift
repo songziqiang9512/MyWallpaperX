@@ -252,9 +252,13 @@ extension SceneDocument {
         let name: String?
         var cameraPath: Scene2DCameraPathDefinition? = nil
         let imagePath: String?
+        /// Direct static 3D model authored at `objects[].model`. Puppet image
+        /// meshes remain owned by the image/animation path and do not use this.
+        var staticModelPath: String? = nil
         let particlePath: String?
         let sound: SceneSoundLayerDefinition?
         var spotLight: SceneSpotLightDefinition? = nil
+        var directionalLight: SceneDirectionalLightDefinition? = nil
         let particleInstanceOverride: SceneParticleInstanceOverride?
         let materialInstance: SceneLayerMaterialInstance?
         let utilityLayer: SceneUtilityLayer?
@@ -282,6 +286,9 @@ extension SceneDocument {
         let angles: String?
         let parallaxDepth: String?
         let disablesParallaxPropagation: Bool
+        /// Direct static models opt into the existing perspective camera path.
+        /// Defaulting keeps non-model layer construction source-compatible.
+        var usesPerspective: Bool = false
         let text: String?
         let textStyle: SceneTextDescriptor?
         let textScript: SceneTextScriptDefinition?

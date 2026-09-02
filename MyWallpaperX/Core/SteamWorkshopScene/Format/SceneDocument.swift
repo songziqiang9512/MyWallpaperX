@@ -122,7 +122,8 @@ struct SceneDocumentLoader {
             throw LoadError.duplicateObjectIDs(sourceURL, duplicateObjectIDs)
         }
         let referencedPaths = Set(objects.flatMap { object in
-            [object.imagePath, object.particlePath].compactMap { $0 }
+            [object.imagePath, object.staticModelPath, object.particlePath]
+                .compactMap { $0 }
                 + (object.sound?.paths ?? [])
                 + object.effectFiles + object.texturePaths
         })
@@ -172,12 +173,14 @@ struct SceneDocumentLoader {
             name: root["name"] as? String,
             cameraPath: SceneDocument.Scene2DCameraPathDefinition.parse(root),
             imagePath: imagePath,
+            staticModelPath: normalizedPath(root["model"] as? String),
             particlePath: normalizedPath(root["particle"] as? String),
             sound: SceneDocument.SceneSoundLayerDefinition.parse(
                 resolvedObject: root,
                 authoredObject: authoredRoot
             ),
             spotLight: SceneSpotLightDefinition.parse(root),
+            directionalLight: SceneDirectionalLightDefinition.parse(root),
             particleInstanceOverride: SceneParticleDefinitionParser().parseInstanceOverride(
                 root["instanceoverride"]
             ),
@@ -207,6 +210,7 @@ struct SceneDocumentLoader {
             angles: stringValue(root["angles"]),
             parallaxDepth: stringValue(root["parallaxDepth"]),
             disablesParallaxPropagation: visibleValue(root["disablepropagation"]) ?? false,
+            usesPerspective: root["perspective"] as? Bool ?? false,
             text: text,
             textStyle: text == nil ? nil : SceneTextDescriptor.parse(root),
             textScript: SceneTextScriptDefinition.parse(root["text"]),

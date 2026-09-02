@@ -32,6 +32,7 @@ struct SceneRenderDescriptor {
         let up: [Float]
         let orthoWidth: Float?
         let orthoHeight: Float?
+        let perspectiveOverrideFOVDegrees: Float?
         let nearZ: Float
         let farZ: Float
     }
@@ -43,10 +44,21 @@ enum Harness {
         let camera = SceneRenderDescriptor.CameraDescriptor(
             eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
             orthoWidth: 1920, orthoHeight: 1080,
+            perspectiveOverrideFOVDegrees: nil,
             nearZ: 0.01, farZ: 10_000
         )
         let viewport = CGSize(width: 1280, height: 832)
         let frame = SceneParticleCameraFrame(camera: camera, viewportSize: viewport)
+        let authoredFOVCamera = SceneRenderDescriptor.CameraDescriptor(
+            eye: [0, 0, 0], center: [0, 0, -1], up: [0, 1, 0],
+            orthoWidth: 1920, orthoHeight: 1080,
+            perspectiveOverrideFOVDegrees: 21,
+            nearZ: 0.01, farZ: 10_000
+        )
+        let authoredFOVFrame = SceneParticleCameraFrame(
+            camera: authoredFOVCamera,
+            viewportSize: viewport
+        )
         let dynamicOrigin = SIMD3<Float>(-100, 682, 500)
         let dynamicFrame = SceneParticleCameraFrame(
             camera: camera,
@@ -136,6 +148,7 @@ enum Harness {
 
         let invalidCamera = SceneRenderDescriptor.CameraDescriptor(
             eye: [], center: [], up: [], orthoWidth: 0, orthoHeight: 0,
+            perspectiveOverrideFOVDegrees: nil,
             nearZ: 0, farZ: 0
         )
         let invalidFrame = SceneParticleCameraFrame(
@@ -166,6 +179,22 @@ enum Harness {
             "nonfiniteCameraOrigin": vector3(nonfiniteOriginFrame.cameraOrigin),
             "perspectiveCenterNDC": ndc(frame.perspectiveViewProjection, center),
             "perspectiveEdgeNDC": ndc(frame.perspectiveViewProjection, edge),
+            "reversePerspectiveCenterNDC": ndc(
+                frame.reverseDepthPerspectiveViewProjection, center
+            ),
+            "reversePerspectiveEdgeNDC": ndc(
+                frame.reverseDepthPerspectiveViewProjection, edge
+            ),
+            "authoredFOVCenterNDC": ndc(
+                authoredFOVFrame.perspectiveViewProjection, center
+            ),
+            "authoredFOVEdgeNDC": ndc(
+                authoredFOVFrame.perspectiveViewProjection, edge
+            ),
+            "authoredFOVFarNDC": ndc(
+                authoredFOVFrame.perspectiveViewProjection,
+                SIMD4<Float>(960, 540, -10_000, 1)
+            ),
             "selectedOrtho": frame.viewProjection(usesPerspective: false)
                 == frame.orthographicViewProjection,
             "selectedPerspective": frame.viewProjection(usesPerspective: true)
@@ -305,6 +334,30 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
             self.assertAlmostEqual(self.result[key][1], -1, places=5)
         self.assertTrue(self.result["selectedOrtho"])
         self.assertTrue(self.result["selectedPerspective"])
+
+    def test_reverse_depth_preserves_xy_and_reverses_metal_depth(self) -> None:
+        for standard, reverse in (
+            ("perspectiveCenterNDC", "reversePerspectiveCenterNDC"),
+            ("perspectiveEdgeNDC", "reversePerspectiveEdgeNDC"),
+        ):
+            self.assertAlmostEqual(
+                self.result[standard][0], self.result[reverse][0], places=5
+            )
+            self.assertAlmostEqual(
+                self.result[standard][1], self.result[reverse][1], places=5
+            )
+            self.assertAlmostEqual(
+                self.result[standard][2] + self.result[reverse][2], 1, places=5
+            )
+
+    def test_authored_fov_preserves_canvas_extent_and_world_far_reach(self) -> None:
+        for key in ("authoredFOVCenterNDC", "authoredFOVEdgeNDC"):
+            self.assertTrue(all(value == value for value in self.result[key]))
+        self.assertAlmostEqual(self.result["authoredFOVCenterNDC"][0], 0, places=5)
+        self.assertAlmostEqual(self.result["authoredFOVCenterNDC"][1], 0, places=5)
+        self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][0], 1, places=5)
+        self.assertAlmostEqual(self.result["authoredFOVEdgeNDC"][1], -1, places=5)
+        self.assertAlmostEqual(self.result["authoredFOVFarNDC"][2], 1, places=4)
 
     def test_dynamic_2d_camera_origin_and_zoom_share_the_projection(self) -> None:
         self.assertAlmostEqual(
