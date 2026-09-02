@@ -32,6 +32,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyGraphAnalysis.swift",
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ForwardPreparation.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
 
@@ -586,8 +588,21 @@ enum Harness {
             multiply: 1.5
         )
         let nestedImageBlend = nestedImageBlendPlan()
+        let forwardNestedImageBlend = nestedImageBlendPlan(
+            forwardToConsumer: true
+        )
+        let forwardNestedPreparationOrder = forwardNestedImageBlend
+            .resolvedMaterialPreparationOrder(
+                authoredLayerIDs: [399, 402, 400, 401]
+            )
+        let forwardNestedProviders = forwardNestedImageBlend
+            .forwardDependencyPreparationOrder(
+                authoredLayerIDs: [399, 402, 400, 401],
+                activeExecutionLayerIDs: [400, 401, 402]
+            )
         let brokenNestedImageBlend = nestedImageBlendPlan(
-            middleDependencyMismatch: true
+            middleDependencyMismatch: true,
+            forwardToConsumer: true
         )
         let forwardPreparation = forwardPreparationPlan()
         let forwardPreparationOrder = forwardPreparation.plan
@@ -988,6 +1003,19 @@ enum Harness {
                     nestedImageBlend.blocksStaticLayerSourcePassthrough(for: $0)
                 },
                 "issues": nestedImageBlend.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "forwardNestedImageBlend": [
+                "bindings": forwardNestedImageBlend
+                    .bindingsByConsumerLayerID.keys.sorted(),
+                "providers": forwardNestedImageBlend
+                    .requiredProviderLayerIDs.sorted(),
+                "graphProviders": forwardNestedImageBlend
+                    .requiredGraphOutputProviderLayerIDs.sorted(),
+                "forwardProviders": forwardNestedProviders ?? [],
+                "prepared": forwardNestedPreparationOrder ?? [],
+                "issues": forwardNestedImageBlend.issues.map {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },
             ],
@@ -1505,7 +1533,8 @@ enum Harness {
     }
 
     static func nestedImageBlendPlan(
-        middleDependencyMismatch: Bool = false
+        middleDependencyMismatch: Bool = false,
+        forwardToConsumer: Bool = false
     ) -> SceneDependencyRenderPlan {
         func blend(_ id: Int, provider: Int) ->
             SceneRenderDescriptor.EffectDescriptor {
@@ -1558,9 +1587,19 @@ enum Harness {
             visible: true,
             effects: [blend(402, provider: 401)]
         )
+        let independent = SceneRenderDescriptor.Layer(
+            id: 399,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: true,
+            effects: []
+        )
         let descriptor = SceneRenderDescriptor(
-            layers: [rootProvider, middleProvider, consumer],
-            renderOrderLayerIDs: [400, 401, 402]
+            layers: [independent, rootProvider, middleProvider, consumer],
+            renderOrderLayerIDs: forwardToConsumer
+                ? [399, 402, 400, 401] : [399, 400, 401, 402]
         )
         return SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -2035,9 +2074,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         prepass = renderer[forward_preparation:authored_loop]
         self.assertIn("framePlans: resolvedMaterialFrameTargetPlans", prepass)
         self.assertIn(
-            ".requiresForwardCapture(\n"
-            "                for: provider.id,\n"
-            "                activeExecutionLayerIDs: activeExecutionLayerIDs",
+            ".forwardDependencyPreparationOrder(\n"
+            "                    authoredLayerIDs: orderedLayers.map(\\.id),\n"
+            "                    activeExecutionLayerIDs: activeExecutionLayerIDs",
             renderer,
         )
         self.assertIn(
@@ -2150,6 +2189,17 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "graphProviders": [400, 401],
                 "effectConsumers": [401, 402],
                 "passthroughBlocked": [400, 401, 402],
+                "issues": [],
+            },
+        )
+        self.assertEqual(
+            self.result["forwardNestedImageBlend"],
+            {
+                "bindings": [401, 402],
+                "providers": [400, 401],
+                "graphProviders": [400, 401],
+                "forwardProviders": [400, 401],
+                "prepared": [400, 401, 399, 402],
                 "issues": [],
             },
         )

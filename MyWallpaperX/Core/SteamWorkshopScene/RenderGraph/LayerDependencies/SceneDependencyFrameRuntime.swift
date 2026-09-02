@@ -106,15 +106,14 @@ final class SceneDependencyFrameRuntime {
         return reachable
     }
 
-    func requiresForwardCapture(
-        for providerLayerID: Int,
+    func forwardDependencyPreparationOrder(
+        authoredLayerIDs: [Int],
         activeExecutionLayerIDs: Set<Int>
-    ) -> Bool {
-        plan.bindingsByConsumerLayerID.values.contains {
-            $0.providerLayerID == providerLayerID
-                && $0.requiresForwardCapture
-                && activeExecutionLayerIDs.contains($0.consumerLayerID)
-        }
+    ) -> [Int]? {
+        plan.forwardDependencyPreparationOrder(
+            authoredLayerIDs: authoredLayerIDs,
+            activeExecutionLayerIDs: activeExecutionLayerIDs
+        )
     }
 
     /// Verifies that every prepared provider output can be copied into its

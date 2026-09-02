@@ -696,16 +696,6 @@ struct SceneMetalRenderer {
         ) && published
     }
 
-    func baseMaterialReadyProviderUsesAuthoredLayerColor(
-        for layer: SceneRenderDescriptor.Layer,
-        dynamicValues: SceneDynamicSnapshot
-    ) -> Bool {
-        guard layer.contentKind == "solid" else { return true }
-        return dynamicValues[
-            .layer(layerID: layer.id, field: .color)
-        ] != nil
-    }
-
     /// Publishes the plan-proven image providers whose authored position is
     /// later than their consumer. Static providers use the existing source
     /// capture; effectful providers consume their prepared graph claim. Both
@@ -726,11 +716,21 @@ struct SceneMetalRenderer {
     ) -> Set<Int>? {
         var graphProviderLayerIDs: Set<Int> = []
         let activeExecutionLayerIDs = Set(framePlans.keys)
-        for provider in orderedLayers where dependencyRuntime
-            .requiresForwardCapture(
-                for: provider.id,
-                activeExecutionLayerIDs: activeExecutionLayerIDs
-        ) {
+        guard let preparationLayerIDs = dependencyRuntime
+                .forwardDependencyPreparationOrder(
+                    authoredLayerIDs: orderedLayers.map(\.id),
+                    activeExecutionLayerIDs: activeExecutionLayerIDs
+                ) else { return nil }
+        let layersByID = Dictionary(uniqueKeysWithValues: orderedLayers.map {
+            ($0.id, $0)
+        })
+        let preparationLayers = preparationLayerIDs.compactMap {
+            layersByID[$0]
+        }
+        guard preparationLayers.count == preparationLayerIDs.count else {
+            return nil
+        }
+        for provider in preparationLayers {
             if dependencyRuntime.requiresGraphOutputCapture(for: provider.id) {
                 if framePlans[provider.id] == nil {
                     guard captureForwardGraphSourceFallback(

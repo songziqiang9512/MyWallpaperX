@@ -76,6 +76,8 @@ V1-B 的后继现已把这两个 exact Blur 的 startup lifecycle 也纳入同�
 
 当前又闭合一个更窄的 primary nested/effectful provider 原子：只对从可见 image consumer 反向可达的 hidden image provider closure 建 route，要求每一层都是 primary `_a`、backward、acyclic、单 dependency 且同一 binding compiler 成功；最终 capability catalog 再级联撤销任何缺失上游的 orphan graph。隐藏 provider 的普通 Program/GraphExecutor 输出不直接占用 compositor，而是在 GPU command order 内 blit 到独立 named reservation 后发布；这样避免后续 transaction 复用 graph-pool final 时形成跨层读写 alias。最终可见 consumer 才持有唯一 terminal compositor。缺失末端 provider 与 `MWX_SCENE_NAMED_PROVIDER_ROUTE=disable-generic` 均使整条不可满足 closure 零 claim/encode/GPU并保留安全 previous/current；见[E-V1-NESTED-EFFECTFUL-NAMED-PROVIDER](runtime-evidence-index.md#e-v1-nested-effectful-named-provider)。
 
+同一原子现继续覆盖单上游 nested forward：provider graph只可读取plan已验证并先发布的一个primary `_a`，transaction preparation与renderer prepass使用同一dependency-first闭包，最终compositor仍按authored order。真实`2419444134`的`92→104→27`依次完成Program、named publication/binding、GPU与next-frame，hidden `92/104`不取得compositor；scene background、secondary、未声明named target、多依赖/reference仍关闭。见[E-V4-NESTED-FORWARD-NAMED-PROVIDER](runtime-evidence-index.md#e-v4-nested-forward-named-provider)。
+
 ## 1. 等级与执行通道
 
 | 等级 | 本表唯一含义 |

@@ -87,62 +87,6 @@ nonisolated struct SceneDependencyRenderPlan {
         staticLayerSourcePassthroughBlockedLayerIDs.contains(layerID)
     }
 
-    /// Stable dependency-first transaction order for the shared graph
-    /// submission. Final compositor order remains authored and is not changed.
-    nonisolated func resolvedMaterialPreparationOrder(
-        authoredLayerIDs: [Int]
-    ) -> [Int]? {
-        guard Set(authoredLayerIDs).count == authoredLayerIDs.count else {
-            return nil
-        }
-        let available = Set(authoredLayerIDs)
-        let authoredIndex = Dictionary(uniqueKeysWithValues:
-            authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
-        )
-        var indegree = Dictionary(uniqueKeysWithValues:
-            authoredLayerIDs.map { ($0, 0) }
-        )
-        var successors: [Int: Set<Int>] = [:]
-        for binding in bindingsByConsumerLayerID.values
-        where available.contains(binding.providerLayerID)
-            && available.contains(binding.consumerLayerID)
-            && binding.providerLayerID != binding.consumerLayerID
-            && requiredGraphOutputProviderLayerIDs.contains(
-                binding.providerLayerID
-            ) {
-            // Only an effectful provider owns an earlier graph transaction.
-            // A static forward provider is captured by the renderer prepass;
-            // moving its consumer in this ledger would diverge from authored
-            // compositor consumption order and make safe predecessors appear
-            // unconsumed.
-            if successors[binding.providerLayerID, default: []]
-                .insert(binding.consumerLayerID).inserted {
-                indegree[binding.consumerLayerID, default: 0] += 1
-            }
-        }
-        var remaining = available
-        var result: [Int] = []
-        result.reserveCapacity(authoredLayerIDs.count)
-        let forwardGraphProviders = Set(bindingsByConsumerLayerID.values
-            .filter(\.requiresForwardCapture)
-            .map(\.providerLayerID))
-            .intersection(requiredGraphOutputProviderLayerIDs)
-        while let next = remaining.filter({ indegree[$0] == 0 }).min(by: {
-            let lhsForward = forwardGraphProviders.contains($0)
-            let rhsForward = forwardGraphProviders.contains($1)
-            if lhsForward != rhsForward { return lhsForward }
-            return authoredIndex[$0, default: .max]
-                < authoredIndex[$1, default: .max]
-        }) {
-            remaining.remove(next)
-            result.append(next)
-            for successor in successors[next] ?? [] {
-                indegree[successor, default: 0] -= 1
-            }
-        }
-        return result.count == authoredLayerIDs.count ? result : nil
-    }
-
     /// Restricts prepared graph work to roots that are visible in the current
     /// committed frame plus the effectful provider closure they actually use.
     /// Static image providers are captured through this plan's named target
@@ -570,7 +514,6 @@ nonisolated struct SceneDependencyRenderPlan {
         let supportsForwardGraphExecution = requiresForwardCapture
             && contract.kind == .imageLayerBlend
             && providerHasVisibleEffects
-            && provider.dependencyLayerIDs.isEmpty
             && providerGraphIsAuthoredOrderIndependent(provider)
         let supportsForwardCapture = supportsForwardSourceCapture
             || supportsForwardGraphExecution
@@ -635,21 +578,36 @@ nonisolated struct SceneDependencyRenderPlan {
     }
 
     /// A forward graph runs before any authored compositor layer. It may use
-    /// its own layer source, static assets and frame inputs, but not the main
-    /// target or another named layer target whose content is order-dependent.
+    /// its own layer source, static assets, frame inputs and one exact primary
+    /// named input that the same dependency plan validates and schedules
+    /// first. The main target, secondary targets and undeclared named inputs
+    /// remain authored-order-dependent and are rejected.
     private nonisolated static func providerGraphIsAuthoredOrderIndependent(
         _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
-        guard SceneDependencyGraphAnalysis.references(in: [layer]).isEmpty
-        else { return false }
+        let references = SceneDependencyGraphAnalysis.references(in: [layer])
+        if layer.dependencyLayerIDs.isEmpty {
+            guard references.isEmpty else { return false }
+        } else {
+            guard layer.dependencyLayerIDs.count == 1,
+                  let dependencyLayerID = layer.dependencyLayerIDs.first,
+                  references.count == 1,
+                  let reference = references.first,
+                  reference.consumerLayerID == layer.id,
+                  reference.providerLayerID == dependencyLayerID,
+                  reference.variant == .primary else { return false }
+        }
         return layer.effects.filter { $0.visible != false }.allSatisfy { effect in
             effect.passes.allSatisfy { pass in
                 let authoredPaths = pass.texturePaths
                     + pass.textureSlots.compactMap { $0 }
                 return authoredPaths.allSatisfy { path in
-                    SceneNamedTextureReference.parse(path) == nil
-                        && path.caseInsensitiveCompare("_rt_FullFrameBuffer")
-                            != .orderedSame
+                    guard path.caseInsensitiveCompare("_rt_FullFrameBuffer")
+                        != .orderedSame else { return false }
+                    guard let named = SceneNamedTextureReference.parse(path)
+                    else { return true }
+                    return layer.dependencyLayerIDs == [named.providerLayerID]
+                        && named.variant == .primary
                 }
             }
         }

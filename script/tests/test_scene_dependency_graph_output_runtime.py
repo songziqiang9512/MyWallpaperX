@@ -123,6 +123,15 @@ struct SceneDependencyRenderPlan {
     ) -> [Int]? {
         authoredLayerIDs
     }
+
+    func forwardDependencyPreparationOrder(
+        authoredLayerIDs: [Int],
+        activeExecutionLayerIDs: Set<Int>
+    ) -> [Int]? {
+        _ = authoredLayerIDs
+        _ = activeExecutionLayerIDs
+        return []
+    }
 }
 
 struct SceneDependencyEffectInput {
