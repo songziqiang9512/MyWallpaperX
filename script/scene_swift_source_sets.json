@@ -129,6 +129,8 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer+Syntax.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalInlineAccumulatorAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSourceCarriedRGBAAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderSourceCarriedRGBAAnalyzer+SeparatedOutput.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPremultipliedOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFrontend.swift"
       ]

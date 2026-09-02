@@ -1,12 +1,14 @@
 # Scene 官方 Effect 执行覆盖表
 
+现役 source-carried straight RGBA 更正：共享source proof现接受三类同合同结构——保留唯一source alpha且只改RGB的carrier、作者生成RGB并以source/typed scalar形成terminal alpha、以及exact `ApplyBlending` RGB + scalar alpha；Pulse的canonical mode 8 Color Dodge继续复用同一严格helper proof。标量`distance(float,float)`在内建Metal frontend精确降为`abs(lhs-rhs)`，preserving profile的external compiler失败只在同一共享compiler owner内回退bounded frontend。真实`2134765860:484#effect#448`、`2824109832:877#effect#1042`、`2837223712:53#effect#167`、`2902406982:414#effect#378`均为普通Program/encoded-output并完成GPU与next-frame，其中三个terminal layer到达唯一compositor；282的Pulse作为中间输出继续进入后续链，整景仍因无关text layer 712 route严格NON-PASS。四个不同颜色/多源结构的真实反例保持局部拒绝；没有新增effect/sample专用profile、renderer或输出owner，也不声称完整样本或官方像素parity。见[E-V4-SOURCE-CARRIED-STRAIGHT-RGBA](runtime-evidence-index.md#e-v4-source-carried-straight-rgba)。
+
 现役 mixed-provider Blend 更正：共享准入不再把 descriptor 中所有可能的 named/system/user-property candidate 提前变成产品 dependency；MaterialProgram finalization 只提升实际选择的 exact slot/provider/purpose，未选择的 potential reference 不形成 graph edge、capture、cycle 或 liveness。固定8槽 representation purpose 已进入variant/cache ABI。system+named 的 `2938612768:1509#effect#961` 已证明 absent/ready/pending 的局部切换；后继 user-property+named 切片又补齐不写 alpha 的双纹理 Blend：identity-free `source-proven-graph-input-overlay-color-blend-alpha-preserving / generic-only`要求唯一base/overlay sample、normal blend、overlay-alpha weight、RGB-only写回与base-alpha守恒，property texture保持preserved channels，named target variant才按premultiplied color解码。真实`775/875`两条四effect链与`890/1174` provider在frame0/next-frame闭合GPU/publication/terminal compositor，且同一profile被`239/657`复用；定向合同1/1 PASS，正式full-matrix selection因陈旧统计继续NON-PASS，未放宽matrix。OPACITYMASK、多overlay、冲突identity、alpha mutation、额外sample/output与非法provider继续失败关闭；不声称Blend ROI/fidelity、完整样本或官方parity。见[E-V4-EXACT-MIXED-SYSTEM-NAMED-PROVIDER](runtime-evidence-index.md#e-v4-exact-mixed-system-named-provider)与[E-V4-EXACT-MIXED-USER-PROPERTY-NAMED-PROVIDER](runtime-evidence-index.md#e-v4-exact-mixed-user-property-named-provider)。
 
 现役 VHS sampled-alpha RGBA 更正：共享frontend/compiler现在把同一graph-input color slot的snapshot、作者坐标`.ga/.yw`初始化与其余RGB reconstruction证明为straight RGBA；noise/mask slot继续是typed static data。真实`2241938645:68#effect#114`默认/恢复由新增identity-free `source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter / generic-only / fallbackOwner=none` Program执行，profile disable只对该effect发布previous-current，后续effects 4...9与唯一compositor继续。没有新增VHS planner/pipeline/renderer/texture loader或输出owner；strict selection因旧matrix期待保持NON-PASS，且无独立ROI/官方golden。现役route census为**44/1/1**；见[E-V1-VHS-SAMPLED-ALPHA-RGBA-RECONSTRUCTION](runtime-evidence-index.md#e-v1-vhs-sampled-alpha-rgba-reconstruction)。
 
 > 状态：现役专项能力表
 >
-> 最近核对：2026-08-31
+> 最近核对：2026-09-02
 >
 > 实现基线、当前 tracked matrix 状态、历史 fixed13、签名 App 身份及聚合缺口统一见 [运行证据索引](runtime-evidence-index.md)；本表不复制基线 commit，文内 commit 号是各能力的历史落地提交。
 

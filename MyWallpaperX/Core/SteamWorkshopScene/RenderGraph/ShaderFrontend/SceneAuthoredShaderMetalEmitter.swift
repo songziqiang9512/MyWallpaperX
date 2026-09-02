@@ -331,6 +331,40 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
                 ))
                 break
             }
+            if token.text == "distance",
+               !context.functionNames.contains(token.text),
+               index + 1 < tokens.count,
+               tokens[index + 1].text == "(",
+               let close = SceneAuthoredShaderVectorConversion.matchingParenthesis(
+                   tokens: tokens,
+                   opening: index + 1
+               ),
+               let arguments = scalarDistanceArguments(
+                   tokens: tokens,
+                   opening: index + 1,
+                   closing: close,
+                   unit: context.unit
+               ) {
+                let lhs = emitTokens(
+                    Array(tokens[arguments[0]]),
+                    context: context,
+                    textures: textures,
+                    insertsContextIntoCalls: true
+                )
+                let rhs = emitTokens(
+                    Array(tokens[arguments[1]]),
+                    context: context,
+                    textures: textures,
+                    insertsContextIntoCalls: true
+                )
+                guard lhs.diagnostics.isEmpty, rhs.diagnostics.isEmpty else {
+                    diagnostics.append(contentsOf: lhs.diagnostics + rhs.diagnostics)
+                    break
+                }
+                output.append("abs((\(lhs.source)) - (\(rhs.source)))")
+                index = close + 1
+                continue
+            }
             if let moduloTarget = SceneAuthoredShaderVectorConversion
                 .floatingModuloTarget(
                     at: index,

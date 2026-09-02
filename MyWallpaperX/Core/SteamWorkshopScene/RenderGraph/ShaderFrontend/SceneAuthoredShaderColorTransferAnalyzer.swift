@@ -419,6 +419,9 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return transfer
         }
+        if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer.analyzeSourceCarried(fragment) {
+            return fact.colorTransfer
+        }
         return isOpaqueVectorConstruction(expression) ? .opaque : .unresolved
     }
 

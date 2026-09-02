@@ -65,6 +65,27 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
         return types == [.float]
     }
 
+    /// Metal has vector `distance` overloads but no scalar overload. The
+    /// authored dialect accepts two statically scalar operands, whose exact
+    /// meaning is `abs(lhs - rhs)`.
+    static func scalarDistanceArguments(
+        tokens: [SceneAuthoredShaderToken],
+        opening: Int,
+        closing: Int,
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> [Range<Int>]? {
+        guard let arguments = textureSampleArguments(
+                  tokens: tokens,
+                  opening: opening,
+                  closing: closing
+              ),
+              arguments.count == 2,
+              arguments.allSatisfy({
+                  isStaticFloatLevel($0, tokens: tokens, unit: unit)
+              }) else { return nil }
+        return arguments
+    }
+
     static func translatedToken(
         _ token: SceneAuthoredShaderToken,
         context: Context

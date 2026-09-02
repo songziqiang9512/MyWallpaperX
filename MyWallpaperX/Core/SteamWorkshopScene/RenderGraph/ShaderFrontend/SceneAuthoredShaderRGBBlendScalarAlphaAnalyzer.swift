@@ -442,6 +442,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
               returns.count == 2 else { return false }
         let selectedModeIsProven = switch mode {
         case 3: modeThreeColorBurnBlend(returns[0], names: names)
+        case 8: modeEightColorDodgeBlend(returns[0], names: names)
         case 9: modeNineAddBlend(returns[0], names: names)
         case 31: modeThirtyOneAdditiveBlend(returns[0], names: names)
         default: false
@@ -506,6 +507,63 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
                 inner.right, name: baseName, component: component
               ), SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
                 division.right, name: blendName, component: component
+              ) else { return false }
+        return true
+    }
+
+    private static func modeEightColorDodgeBlend(
+        _ expression: ArraySlice<Token>,
+        names: [String]
+    ) -> Bool {
+        guard let mix = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(expression),
+              ["mix", "lerp"].contains(mix.name),
+              mix.arguments.count == 3,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(mix.arguments[0]) == names[1],
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(mix.arguments[2]) == names[3],
+              let colorDodge = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(mix.arguments[1]),
+              ["CAST3", "vec3", "float3"].contains(colorDodge.name),
+              colorDodge.arguments.count == 3 else { return false }
+        return zip(colorDodge.arguments, ["r", "g", "b"]).allSatisfy {
+            colorDodgeComponent(
+                $0.0,
+                baseName: names[1],
+                blendName: names[2],
+                component: $0.1
+            )
+        }
+    }
+
+    private static func colorDodgeComponent(
+        _ expression: ArraySlice<Token>,
+        baseName: String,
+        blendName: String,
+        component: String
+    ) -> Bool {
+        guard let branches = rootTernary(expression),
+              let equality = binary(branches.condition, operator: "=="),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                equality.left, name: blendName, component: component
+              ), SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(equality.right) == 1,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                branches.trueValue, name: blendName, component: component
+              ), let minimum = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(branches.falseValue),
+              minimum.name == "min", minimum.arguments.count == 2,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(minimum.arguments[1]) == 1,
+              let division = binary(minimum.arguments[0], operator: "/"),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                division.left, name: baseName, component: component
+              ), let denominator = binary(division.right, operator: "-"),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .number(denominator.left) == 1,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
+                denominator.right, name: blendName, component: component
               ) else { return false }
         return true
     }

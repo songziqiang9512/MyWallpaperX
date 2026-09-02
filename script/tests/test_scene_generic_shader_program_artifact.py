@@ -6634,7 +6634,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ),
         ]
         for fragment, facts, profile in cases:
-            shared_backend = profile.endswith("-no-auxiliary")
+            shared_backend = profile in {
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary",
+            }
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
                 root = Path(directory)
                 rejected, _, _, rejected_log = self.run_harness(
@@ -7195,7 +7198,10 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             ),
         ]
         for fragment, facts, transfer, profile, needs_aux in cases:
-            shared_backend = profile.endswith("-no-auxiliary")
+            shared_backend = profile in {
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving",
+                "source-proven-graph-input-stage-uniform-straight-alpha-preserving-no-auxiliary",
+            }
             with self.subTest(profile=profile), tempfile.TemporaryDirectory(prefix="mwx-generic-artifact-test-") as directory:
                 root = Path(directory)
                 observed, _, cache, _ = self.run_harness(

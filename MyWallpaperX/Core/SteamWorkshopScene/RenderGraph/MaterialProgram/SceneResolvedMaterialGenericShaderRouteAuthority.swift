@@ -115,6 +115,8 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
             || routeState != .genericOnly
             || self
                 == .sourceProvenGraphInputStageUniformStraightAlphaPreservingNoAuxiliary
+            || self
+                == .sourceProvenGraphInputStageUniformStraightAlphaPreserving
             || self == .sourceProvenGraphInputOverlayAlphaBlend
             || self
                 == .sourceProvenGraphInputOverlayColorBlendAlphaPreserving
