@@ -6,6 +6,7 @@ import Foundation
 nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
     private enum Projection {
         case fullVector
+        case rgb
         case red
         case redGreen
     }
@@ -31,6 +32,7 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
               calls.count == fact.totalSampleCallCount else { return nil }
         var sourceCount = 0
         var fullVector: [Int: Int] = [:]
+        var rgb: [Int: Int] = [:]
         var red: [Int: Int] = [:]
         var redGreen: [Int: Int] = [:]
         for call in calls {
@@ -41,16 +43,25 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
             }
             switch call.projection {
             case .fullVector: fullVector[call.slot, default: 0] += 1
+            case .rgb: rgb[call.slot, default: 0] += 1
             case .red: red[call.slot, default: 0] += 1
             case .redGreen: redGreen[call.slot, default: 0] += 1
             }
         }
         guard sourceCount == 1,
               fullVector == fact.fullVectorDataSampleCallCounts,
+              rgb == fact.rgbDataSampleCallCounts,
               red == fact.redDataSampleCallCounts,
               redGreen == fact.redGreenDataSampleCallCounts else { return nil }
         switch fact.terminalTransform {
         case .identity:
+            if !fact.rgbDataSampleCallCounts.isEmpty {
+                return lowerGeneratedRGBPreservedAlpha(
+                    source,
+                    sourceSlot: fact.sourceSlot,
+                    calls: calls
+                )
+            }
             return SceneGenericShaderStraightAlphaPreservingLowering
                 .lowerPreserving(source, expectedSlot: fact.sourceSlot)
         case .saturateRGBA, .nonNegativeRGBPreservedAlpha:
@@ -61,6 +72,99 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
                 terminalTransform: fact.terminalTransform
             )
         }
+    }
+
+    private static func lowerGeneratedRGBPreservedAlpha(
+        _ source: String,
+        sourceSlot: Int,
+        calls: [SampleCall]
+    ) -> String? {
+        guard matches(#"\bmwxGenericUnpremultiply\b"#, in: source).isEmpty,
+              matches(#"\bmwxGenericPremultiply\b"#, in: source).isEmpty,
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              let sourceCall = calls.first(where: { $0.slot == sourceSlot }),
+              sourceCall.projection == .fullVector,
+              let sourceRange = Range(sourceCall.range, in: source)
+        else { return nil }
+        let sampled = NSRegularExpression.escapedPattern(
+            for: String(source[sourceRange])
+        )
+        let declarations = matches(
+            #"(?m)^[ \t]*(?:const[ \t]+)?float4[ \t]+([A-Za-z_]\w*)\s*=\s*"#
+                + sampled + #"\s*;[ \t]*$"#,
+            in: source
+        )
+        guard declarations.count == 1,
+              let declaration = declarations.first,
+              let carrier = capture(declaration, 1, in: source),
+              let terminal = generatedTerminalOutput(
+                  in: source,
+                  carrier: carrier
+              ),
+              declaration.range.location < terminal.match.range.location,
+              matches(
+                #"(?m)^[ \t]*"#
+                    + NSRegularExpression.escapedPattern(for: carrier)
+                    + #"\s*\.\s*(?:w|a)\s*(?:=|\+=|-=|\*=|\/=)"#,
+                in: source
+              ).isEmpty,
+              matches(#"(?m)^[ \t]*return\s+out\s*;[ \t]*$"#, in: source)
+                .count == 1,
+              let outputRange = Range(terminal.match.range, in: source)
+        else { return nil }
+
+        var transformed = source
+        transformed.replaceSubrange(
+            outputRange,
+            with: "\(terminal.indent)out.mwxFragColor = "
+                + "mwxGenericPremultiply(\(terminal.expression));"
+        )
+        guard let adjustedSourceRange = Range(sourceCall.range, in: transformed)
+        else { return nil }
+        transformed.replaceSubrange(
+            adjustedSourceRange,
+            with: "mwxGenericUnpremultiply(\(source[sourceRange]))"
+        )
+        return SceneGenericShaderStraightAlphaPreservingLowering
+            .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func generatedTerminalOutput(
+        in source: String,
+        carrier: String
+    ) -> (match: NSTextCheckingResult, indent: String, expression: String)? {
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*(float4\(.+\))\s*;[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1,
+              let output = outputs.first,
+              let indent = capture(output, 1, in: source),
+              let expression = capture(output, 2, in: source),
+              expression.hasPrefix("float4("),
+              expression.hasSuffix(")") else { return nil }
+        let inner = expression.dropFirst("float4(".count).dropLast()
+        var depth = 0
+        var comma: String.Index?
+        for index in inner.indices {
+            switch inner[index] {
+            case "(", "[": depth += 1
+            case ")", "]": depth -= 1
+            case "," where depth == 0:
+                guard comma == nil else { return nil }
+                comma = index
+            default: break
+            }
+            guard depth >= 0 else { return nil }
+        }
+        guard depth == 0, let comma else { return nil }
+        let alpha = inner[inner.index(after: comma)...]
+            .filter { !$0.isWhitespace }
+        guard alpha == "\(carrier).w" || alpha == "\(carrier).a" else {
+            return nil
+        }
+        return (output, indent, expression)
     }
 
     private static func lowerSnapshotCarrier(
@@ -432,7 +536,9 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
             let range = startRange.lowerBound..<source.index(after: close)
             let suffix = String(source[range.upperBound...])
             let projection: Projection
-            if matches(#"^\s*\.(?:x|r)\b"#, in: suffix).count == 1 {
+            if matches(#"^\s*\.(?:xyz|rgb)\b"#, in: suffix).count == 1 {
+                projection = .rgb
+            } else if matches(#"^\s*\.(?:x|r)\b"#, in: suffix).count == 1 {
                 projection = .red
             } else if matches(#"^\s*\.(?:xy|rg)\b"#, in: suffix).count == 1 {
                 projection = .redGreen

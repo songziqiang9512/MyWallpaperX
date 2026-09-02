@@ -16,17 +16,20 @@ nonisolated struct SceneAuthoredShaderTypedDataRGBFilterFact: Equatable, Sendabl
     let terminalTransform:
         SceneAuthoredShaderTypedDataRGBFilterTerminalTransform
     let fullVectorDataSampleCallCounts: [Int: Int]
+    let rgbDataSampleCallCounts: [Int: Int]
     let redDataSampleCallCounts: [Int: Int]
     let redGreenDataSampleCallCounts: [Int: Int]
 
     var auxiliarySlots: Set<Int> {
         Set(fullVectorDataSampleCallCounts.keys)
+            .union(rgbDataSampleCallCounts.keys)
             .union(redDataSampleCallCounts.keys)
             .union(redGreenDataSampleCallCounts.keys)
     }
 
     var totalSampleCallCount: Int {
         1 + fullVectorDataSampleCallCounts.values.reduce(0, +)
+            + rgbDataSampleCallCounts.values.reduce(0, +)
             + redDataSampleCallCounts.values.reduce(0, +)
             + redGreenDataSampleCallCounts.values.reduce(0, +)
     }
@@ -73,7 +76,10 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
     }
 
     static func analyze(_ fragment: Unit) -> Fact? {
-        analyzeDirectCarrier(fragment) ?? analyzeMaskedSnapshotCarrier(fragment)
+        analyzeDirectCarrier(fragment)
+            ?? analyzeMaskedSnapshotCarrier(fragment)
+            ?? SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer
+                .analyze(fragment)
     }
 
     private static func analyzeDirectCarrier(_ fragment: Unit) -> Fact? {
@@ -185,6 +191,7 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
             sourceSlot: sourceSlot,
             terminalTransform: .identity,
             fullVectorDataSampleCallCounts: fullVector,
+            rgbDataSampleCallCounts: [:],
             redDataSampleCallCounts: red,
             redGreenDataSampleCallCounts: redGreen
         )
@@ -391,6 +398,7 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
             sourceSlot: sourceSlot,
             terminalTransform: terminal.transform,
             fullVectorDataSampleCallCounts: fullVector,
+            rgbDataSampleCallCounts: [:],
             redDataSampleCallCounts: red,
             redGreenDataSampleCallCounts: redGreen
         )

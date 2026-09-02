@@ -104,6 +104,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderTypedDataRGBFilterAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderGeneratedAuxiliaryRGBPreservedAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer.swift",
