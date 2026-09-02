@@ -588,6 +588,10 @@ enum Harness {
             multiply: 1.5
         )
         let nestedImageBlend = nestedImageBlendPlan()
+        let nestedProgramReference = nestedProgramReferencePlan()
+        let unexplainedProgramDependency = nestedProgramReferencePlan(
+            includeInactiveAlternative: false
+        )
         let forwardNestedImageBlend = nestedImageBlendPlan(
             forwardToConsumer: true
         )
@@ -1006,6 +1010,22 @@ enum Harness {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },
             ],
+            "nestedProgramReference": [
+                "bindings": nestedProgramReference
+                    .bindingsByConsumerLayerID.keys.sorted(),
+                "providers": nestedProgramReference
+                    .requiredProviderLayerIDs.sorted(),
+                "graphProviders": nestedProgramReference
+                    .requiredGraphOutputProviderLayerIDs.sorted(),
+                "effectConsumers": nestedProgramReference
+                    .requiredEffectConsumerLayerIDs.sorted(),
+                "issues": nestedProgramReference.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "unexplainedProgramDependencyRejected":
+                unexplainedProgramDependency.bindingsByConsumerLayerID[502]
+                    == nil,
             "forwardNestedImageBlend": [
                 "bindings": forwardNestedImageBlend
                     .bindingsByConsumerLayerID.keys.sorted(),
@@ -1607,6 +1627,114 @@ enum Harness {
         )
     }
 
+    static func nestedProgramReferencePlan(
+        includeInactiveAlternative: Bool = true
+    ) -> SceneDependencyRenderPlan {
+        func programEffect(_ id: Int, provider: Int) ->
+            SceneRenderDescriptor.EffectDescriptor {
+            let path = "_rt_imageLayerComposite_\(provider)_a"
+            return .init(
+                id: "program-reference-\(id)",
+                file: "effects/workshop/unseen/program/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [path, "util/white"],
+                    textureSlots: [nil, path, "util/white"],
+                    combos: ["UNSEEN": 7],
+                    constantShaderValues: [
+                        "amount": .init(components: [0.375]),
+                    ]
+                )]
+            )
+        }
+        let root = SceneRenderDescriptor.Layer(
+            id: 500,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: [.init(
+                id: "root-effect",
+                file: "effects/workshop/unseen/root/effect.json",
+                visible: true,
+                passes: []
+            )]
+        )
+        let middle = SceneRenderDescriptor.Layer(
+            id: 501,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [root.id],
+            childLayerIDs: [],
+            visible: false,
+            effects: [
+                .init(
+                    id: "middle-prefix",
+                    file: "effects/workshop/unseen/prefix/effect.json",
+                    visible: true,
+                    passes: []
+                ),
+                programEffect(501, provider: root.id),
+            ]
+        )
+        let consumer = SceneRenderDescriptor.Layer(
+            id: 502,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [middle.id, 503],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                .init(
+                    id: "consumer-prefix",
+                    file: "effects/workshop/unseen/prefix/effect.json",
+                    visible: true,
+                    passes: []
+                ),
+                programEffect(502, provider: middle.id),
+            ] + (includeInactiveAlternative ? [
+                .init(
+                    id: "inactive-alternative",
+                    file: "effects/workshop/unseen/alternate/effect.json",
+                    visible: false,
+                    passes: [.init(
+                        passIndex: 0,
+                        texturePaths: ["_rt_imageLayerComposite_503_a"],
+                        textureSlots: [
+                            nil, "_rt_imageLayerComposite_503_a",
+                        ],
+                        combos: [:],
+                        constantShaderValues: [:]
+                    )]
+                ),
+            ] : [])
+        )
+        let inactiveAlternative = SceneRenderDescriptor.Layer(
+            id: 503,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [root, middle, inactiveAlternative, consumer],
+            renderOrderLayerIDs: [
+                root.id, middle.id, inactiveAlternative.id, consumer.id,
+            ]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [consumer.id],
+            admittedResolvedMaterialReferences: Set(
+                SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+            )
+        )
+    }
+
     static func forwardPreparationPlan(
         providerEffectful: Bool = true
     ) -> (
@@ -2191,6 +2319,19 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "passthroughBlocked": [400, 401, 402],
                 "issues": [],
             },
+        )
+        self.assertEqual(
+            self.result["nestedProgramReference"],
+            {
+                "bindings": [501, 502],
+                "providers": [500, 501],
+                "graphProviders": [500, 501],
+                "effectConsumers": [501, 502],
+                "issues": [],
+            },
+        )
+        self.assertTrue(
+            self.result["unexplainedProgramDependencyRejected"]
         )
         self.assertEqual(
             self.result["forwardNestedImageBlend"],

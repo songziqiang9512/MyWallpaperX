@@ -1,6 +1,34 @@
 import Foundation
 
 extension SceneDependencyRenderPlan {
+    /// Separates the current product dependency from author-disabled named
+    /// alternatives without dropping any unexplained descriptor metadata.
+    /// If an inactive effect becomes executable later, its own frame-stage
+    /// admission must acquire that provider; this plan never aliases it to the
+    /// currently active publication.
+    nonisolated static func activeDependencyProviderLayerIDs(
+        layer: SceneRenderDescriptor.Layer,
+        references: [Reference]
+    ) -> Set<Int>? {
+        let active: Set<Int> = Set(references.compactMap { reference in
+            guard reference.consumerLayerID == layer.id,
+                  reference.providerLayerID != layer.id else { return nil }
+            return reference.providerLayerID
+        })
+        let inactive = Set(layer.effects.filter { $0.visible == false }
+            .flatMap(\.passes)
+            .flatMap(\.textureSlots)
+            .compactMap { path in
+                path.flatMap(SceneNamedTextureReference.parse)?
+                    .providerLayerID
+            }
+            .filter { $0 != layer.id })
+        let declared = Set(layer.dependencyLayerIDs.filter { $0 != layer.id })
+        guard layer.authoredDependencies.isEmpty,
+              declared == active.union(inactive) else { return nil }
+        return active
+    }
+
     /// Builds descriptor-only carriers one exact slot at a time. They never
     /// enter product edges or targets here; Program finalization may promote
     /// one carrier after proving the selected mixed-provider envelope.
@@ -108,10 +136,20 @@ extension SceneDependencyRenderPlan {
                 $0.consumerLayerID == layer.id
                 }.map(\.providerLayerID)
             )
-            if !potentialProviderIDs.isEmpty,
-               layer.authoredDependencies.isEmpty,
-               declaredProviderIDs
-                == productProviderIDs.union(potentialProviderIDs) {
+            let inactiveProviderIDs = Set(layer.effects
+                .filter { $0.visible == false }
+                .flatMap(\.passes)
+                .flatMap(\.textureSlots)
+                .compactMap { path in
+                    path.flatMap(SceneNamedTextureReference.parse)?
+                        .providerLayerID
+                }
+                .filter { $0 != layer.id })
+            if layer.authoredDependencies.isEmpty,
+               declaredProviderIDs == productProviderIDs
+                .union(potentialProviderIDs)
+                .union(inactiveProviderIDs),
+               !potentialProviderIDs.isEmpty || !inactiveProviderIDs.isEmpty {
                 edges[layer.id] = productProviderIDs.union(
                     admittedPotentialProviderIDs
                 )
@@ -143,7 +181,10 @@ extension SceneDependencyRenderPlan {
               reference.variant == .primary,
               reference.slot.passIndex == 0,
               reference.slot.slotIndex == 1,
-              layer.dependencyLayerIDs == [reference.providerLayerID],
+              activeDependencyProviderLayerIDs(
+                  layer: layer,
+                  references: references
+              ) == [reference.providerLayerID],
               let provider = layersByID[reference.providerLayerID],
               provider.contentKind == "image",
               hasNoUtilityLayer(provider),
@@ -186,9 +227,11 @@ extension SceneDependencyRenderPlan {
         return declarations.count == 1 ? declarations[0] : nil
     }
 
-    /// Generic external-primary carrier for one hidden image source consumed
+    /// Generic external-primary carrier for one hidden image graph consumed
     /// by a single admitted Program sampler. Effect identity and authored
-    /// scalar values deliberately do not select this resource route.
+    /// scalar values deliberately do not select this resource route. A static
+    /// provider must be dependency-free; an effectful provider may carry the
+    /// single dependency closed later by the shared dependency-plan compiler.
     nonisolated static func materialProgramImageLayerReference(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
@@ -204,14 +247,17 @@ extension SceneDependencyRenderPlan {
               reference.variant == .primary,
               reference.slot.passIndex == 0,
               reference.slot.slotIndex == 1,
-              layer.dependencyLayerIDs == [reference.providerLayerID],
+              activeDependencyProviderLayerIDs(
+                  layer: layer,
+                  references: references
+              ) == [reference.providerLayerID],
               let provider = layersByID[reference.providerLayerID],
               provider.contentKind == "image",
               hasNoUtilityLayer(provider),
               provider.visible == false,
               provider.childLayerIDs.isEmpty,
-              provider.dependencyLayerIDs.isEmpty,
-              !provider.effects.contains(where: { $0.visible != false }) else {
+              provider.dependencyLayerIDs.isEmpty
+                || provider.effects.contains(where: { $0.visible != false }) else {
             return nil
         }
         let effects = visibleEffects.filter { $0.id == reference.slot.effectID }

@@ -89,7 +89,11 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             guard supportedBinding,
                   binding.consumerLayerID == layer.id,
                   layer.authoredDependencies.isEmpty,
-                  layer.dependencyLayerIDs == [binding.providerLayerID],
+                  // The dependency plan has already source-proved inactive
+                  // alternatives and selected the one active publication.
+                  // Ownership consumes that binding instead of re-reading the
+                  // descriptor's all-variant dependency superset.
+                  layer.dependencyLayerIDs.contains(binding.providerLayerID),
                   (binding.kind == .resolvedMaterial
                     || effectiveReferences.count == 1),
                   effectiveReferences.first != nil,

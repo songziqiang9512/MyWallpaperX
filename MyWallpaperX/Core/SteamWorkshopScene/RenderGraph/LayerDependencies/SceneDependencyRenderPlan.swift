@@ -265,17 +265,29 @@ nonisolated struct SceneDependencyRenderPlan {
                 if let consumer = layersByID[consumerLayerID],
                    consumer.effects.contains(where: { $0.visible != false }),
                    consumer.visible == false,
-                   consumer.dependencyLayerIDs != [binding.providerLayerID] {
+                   Self.activeDependencyProviderLayerIDs(
+                       layer: consumer,
+                       references: references.filter {
+                           $0.consumerLayerID == consumer.id
+                       }
+                   ) != [binding.providerLayerID] {
                     consumerLayerIDsToRemove.insert(consumerLayerID)
                     continue
                 }
                 guard let provider = layersByID[binding.providerLayerID],
                       provider.effects.contains(where: { $0.visible != false }),
-                      !provider.dependencyLayerIDs.isEmpty else { continue }
-                guard provider.dependencyLayerIDs.count == 1,
+                      let activeProviderDependencies =
+                        Self.activeDependencyProviderLayerIDs(
+                            layer: provider,
+                            references: references.filter {
+                                $0.consumerLayerID == provider.id
+                            }
+                        ),
+                      !activeProviderDependencies.isEmpty else { continue }
+                guard activeProviderDependencies.count == 1,
                       let providerBinding = bindings[provider.id],
-                      providerBinding.providerLayerID
-                        == provider.dependencyLayerIDs.first else {
+                      activeProviderDependencies
+                        == [providerBinding.providerLayerID] else {
                     consumerLayerIDsToRemove.insert(consumerLayerID)
                     issues.append(Issue(
                         kind: .dependencyMismatch,
@@ -496,6 +508,20 @@ nonisolated struct SceneDependencyRenderPlan {
         let providerHasVisibleEffects = provider.effects.contains {
             $0.visible != false
         }
+        guard let providerActiveDependencies =
+                activeDependencyProviderLayerIDs(
+                    layer: provider,
+                    references: SceneDependencyGraphAnalysis.references(
+                        in: [provider]
+                    )
+                ) else {
+            issues.append(Issue(
+                kind: .dependencyMismatch,
+                layerID: layer.id,
+                providerLayerID: provider.id
+            ))
+            return nil
+        }
         guard let providerOrder = order[provider.id],
               let consumerOrder = order[layer.id],
               providerOrder != consumerOrder else {
@@ -542,7 +568,7 @@ nonisolated struct SceneDependencyRenderPlan {
                     || contract.kind == .visibleImageGraphOutput
               )),
               provider.childLayerIDs.isEmpty,
-              (provider.dependencyLayerIDs.isEmpty || providerHasVisibleEffects),
+              (providerActiveDependencies.isEmpty || providerHasVisibleEffects),
               providerOrder < consumerOrder || supportsForwardCapture else {
             issues.append(Issue(
                 kind: .forwardUtilityProvider,
@@ -586,11 +612,15 @@ nonisolated struct SceneDependencyRenderPlan {
         _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
         let references = SceneDependencyGraphAnalysis.references(in: [layer])
-        if layer.dependencyLayerIDs.isEmpty {
+        guard let activeDependencies = activeDependencyProviderLayerIDs(
+            layer: layer,
+            references: references
+        ) else { return false }
+        if activeDependencies.isEmpty {
             guard references.isEmpty else { return false }
         } else {
-            guard layer.dependencyLayerIDs.count == 1,
-                  let dependencyLayerID = layer.dependencyLayerIDs.first,
+            guard activeDependencies.count == 1,
+                  let dependencyLayerID = activeDependencies.first,
                   references.count == 1,
                   let reference = references.first,
                   reference.consumerLayerID == layer.id,
@@ -606,7 +636,7 @@ nonisolated struct SceneDependencyRenderPlan {
                         != .orderedSame else { return false }
                     guard let named = SceneNamedTextureReference.parse(path)
                     else { return true }
-                    return layer.dependencyLayerIDs == [named.providerLayerID]
+                    return activeDependencies == [named.providerLayerID]
                         && named.variant == .primary
                 }
             }
@@ -653,6 +683,14 @@ nonisolated struct SceneDependencyRenderPlan {
             references: references,
             layersByID: layersByID,
             visibleLayerIDs: visibleLayerIDs
+        ) != nil {
+            return true
+        }
+        if materialProgramImageLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID
         ) != nil {
             return true
         }
