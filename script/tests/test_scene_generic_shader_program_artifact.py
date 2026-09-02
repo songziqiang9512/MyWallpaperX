@@ -178,6 +178,20 @@ private struct StraightPreservingBuilderOutput: Codable {
     let directHiddenSampleRejected: Bool
     let directWrongSlotRejected: Bool
     let nonAudioVectorArrayRejected: Bool
+    let singleSampleComputedRGBAAccepted: Bool
+    let singleSampleScalarizedRGBAAccepted: Bool
+    let singleSampleBuilderAccepted: Bool
+    let singleSampleBuilderFailure: String?
+    let singleSampleSourceTransfer: String
+    let singleSampleUnpremultiplied: Bool
+    let singleSampleOutputPremultiplied: Bool
+    let singleSampleExtraReadRejected: Bool
+    let singleSampleDuplicateSampleRejected: Bool
+    let singleSampleConstantAlphaRejected: Bool
+    let singleSampleRGBAlphaRejected: Bool
+    let singleSampleDetachedSampleRejected: Bool
+    let singleSampleSpacedSampleRejected: Bool
+    let singleSampleTextureReadRejected: Bool
 }
 
 private struct StraightAttenuationBuilderOutput: Codable {
@@ -2262,6 +2276,67 @@ private struct GenericShaderArtifactHarness {
                     of: "uniform float g_AudioSpectrum16Left[16];",
                     with: "uniform vec4 g_ColorArray[16];"
                 )
+            let singleSampleComputedRGBA = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct MWXUniforms { float2 mwxRenderSize; };",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output mwxGenericFragment() {",
+                "    Output out = {};",
+                "    float4 sample = g_Texture0.sample(sourceSampler, uv);",
+                "    float4 albedo = sample;",
+                "    albedo.xyz = ApplyBlending(9, albedo.xyz * tint0, albedo.xyz * tint1, pulse);",
+                "    out.mwxFragColor = float4(fast::max(float3(0.0), albedo.xyz), albedo.w);",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            let singleSampleAuthored = [
+                "uniform sampler2D g_Texture0;",
+                "uniform vec3 tint0;",
+                "uniform vec3 tint1;",
+                "uniform float pulse;",
+                "varying vec2 v_TexCoord;",
+                "vec3 ApplyBlending(int mode, vec3 a, vec3 b, float factor) {",
+                "    return mix(a, min(a + b, CAST3(1)), factor);",
+                "}",
+                "void main() {",
+                "    vec4 sample = texSample2D(g_Texture0, v_TexCoord);",
+                "    vec4 albedo = sample;",
+                "    albedo.rgb = ApplyBlending(9, albedo.rgb * tint0, albedo.rgb * tint1, pulse);",
+                "    gl_FragColor = vec4(max(CAST3(0), albedo.rgb), albedo.a);",
+                "}",
+            ].joined(separator: "\n")
+            let singleSampleScalarizedRGBA = singleSampleComputedRGBA
+                .replacingOccurrences(
+                    of: "    albedo.xyz = ApplyBlending(9, albedo.xyz * tint0, albedo.xyz * tint1, pulse);",
+                    with: "    float3 param0 = albedo.xyz * tint0;\n"
+                        + "    float3 param1 = albedo.xyz * tint1;\n"
+                        + "    float3 next = ApplyBlending(9, param0, param1, pulse);\n"
+                        + "    albedo.x = next.x;\n"
+                        + "    albedo.y = next.y;\n"
+                        + "    albedo.z = next.z;"
+                )
+            let singleSampleLowered =
+                SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerPreserving(
+                        singleSampleComputedRGBA,
+                        expectedSlot: 0
+                    )
+            let singleSampleArtifact: SceneGenericShaderProgramArtifact?
+            let singleSampleBuilderFailure: String?
+            switch build(
+                singleSampleScalarizedRGBA,
+                authoredSource: singleSampleAuthored,
+                reflection: directReflection,
+                vertexReflectionValue: directVertexReflection
+            ) {
+            case let .success(artifact):
+                singleSampleArtifact = artifact
+                singleSampleBuilderFailure = nil
+            case let .failure(failure):
+                singleSampleArtifact = nil
+                singleSampleBuilderFailure = String(describing: failure)
+            }
             let output = StraightPreservingBuilderOutput(
                 positiveKind: positive?.program.colorTransfer.kind,
                 positiveSlot: positive?.program.colorTransfer.slot,
@@ -2335,7 +2410,96 @@ private struct GenericShaderArtifactHarness {
                     nonAudioVectorMetal,
                     authoredSource: nonAudioVectorAuthored,
                     reflection: nonAudioVectorReflection
-                ))
+                )),
+                singleSampleComputedRGBAAccepted: singleSampleLowered != nil,
+                singleSampleScalarizedRGBAAccepted:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleScalarizedRGBA,
+                            expectedSlot: 0
+                        ) != nil,
+                singleSampleBuilderAccepted:
+                    singleSampleArtifact?.program.colorTransfer.kind
+                        == "straight-alpha-preserving",
+                singleSampleBuilderFailure: singleSampleBuilderFailure,
+                singleSampleSourceTransfer: String(describing:
+                    SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                        fragmentSource: singleSampleAuthored
+                    )
+                ),
+                singleSampleUnpremultiplied: singleSampleLowered?.contains(
+                    "float4 sample = mwxGenericUnpremultiply(g_Texture0.sample(sourceSampler, uv));"
+                ) == true,
+                singleSampleOutputPremultiplied: singleSampleLowered?.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(fast::max(float3(0.0), albedo.xyz), albedo.w));"
+                ) == true,
+                singleSampleExtraReadRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: "    return out;",
+                                with: "    float4 unexpected = out.mwxFragColor;\n"
+                                    + "    return out;"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleDuplicateSampleRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: "    float4 albedo = sample;",
+                                with: "    float4 hidden = g_Texture0.sample(sourceSampler, uv);\n"
+                                    + "    float4 albedo = sample;"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleConstantAlphaRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: ", albedo.w);",
+                                with: ", 1.0);"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleRGBAlphaRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: ", albedo.w);",
+                                with: ", albedo.x);"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleDetachedSampleRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: "    float4 albedo = sample;",
+                                with: "    float4 albedo = float4(1.0);"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleSpacedSampleRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: "    float4 albedo = sample;",
+                                with: "    float4 hidden = g_Texture0 .sample (sourceSampler, uv);\n"
+                                    + "    float4 albedo = sample;"
+                            ),
+                            expectedSlot: 0
+                        ) == nil,
+                singleSampleTextureReadRejected:
+                    SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerPreserving(
+                            singleSampleComputedRGBA.replacingOccurrences(
+                                of: "    float4 albedo = sample;",
+                                with: "    float4 hidden = g_Texture0.read(uint2(0));\n"
+                                    + "    float4 albedo = sample;"
+                            ),
+                            expectedSlot: 0
+                        ) == nil
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4487,6 +4651,20 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         self.assertTrue(output["directAlphaWriteRejected"])
         self.assertTrue(output["directHiddenSampleRejected"])
         self.assertTrue(output["directWrongSlotRejected"])
+        self.assertTrue(output["singleSampleComputedRGBAAccepted"])
+        self.assertTrue(output["singleSampleScalarizedRGBAAccepted"])
+        self.assertEqual(output["singleSampleSourceTransfer"], "straightAlphaPreserving(textureSlot: 0)")
+        self.assertIsNone(output.get("singleSampleBuilderFailure"))
+        self.assertTrue(output["singleSampleBuilderAccepted"])
+        self.assertTrue(output["singleSampleUnpremultiplied"])
+        self.assertTrue(output["singleSampleOutputPremultiplied"])
+        self.assertTrue(output["singleSampleExtraReadRejected"])
+        self.assertTrue(output["singleSampleDuplicateSampleRejected"])
+        self.assertTrue(output["singleSampleConstantAlphaRejected"])
+        self.assertTrue(output["singleSampleRGBAlphaRejected"])
+        self.assertTrue(output["singleSampleDetachedSampleRejected"])
+        self.assertTrue(output["singleSampleSpacedSampleRejected"])
+        self.assertTrue(output["singleSampleTextureReadRejected"])
 
     def test_audio_scalar_array_swizzle_is_removed_from_metal_abi(self):
         completed = subprocess.run(

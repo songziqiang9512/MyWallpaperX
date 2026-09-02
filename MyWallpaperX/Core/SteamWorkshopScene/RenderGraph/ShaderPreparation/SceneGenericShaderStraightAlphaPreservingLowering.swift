@@ -43,6 +43,7 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
             return SceneGenericShaderScalarizedRGBPreservedAlphaLowering
                 .lower(source, expectedSlot: expectedSlot)
                 ?? lowerWholeOutputUnion(source, expectedSlot: expectedSlot)
+                ?? lowerSingleSample(source, expectedSlot: expectedSlot)
         }
 
         var transformed = source

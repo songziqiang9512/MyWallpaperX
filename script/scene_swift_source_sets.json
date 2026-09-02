@@ -223,6 +223,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderGeneratedRGBPreservedAlphaLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderOpaqueFromStraightColorLowering.swift",
