@@ -189,11 +189,15 @@ struct ScenePreparedStaticModelResources {
     private static func material(
         _ pass: SceneRenderDescriptor.MaterialPassDescriptor
     ) -> SceneStaticModelMaterial {
-        let color = components(named: "Color", in: pass)
-            ?? components(named: "color", in: pass)
+        // Shader symbols are case-sensitive. Stock model materials commonly
+        // carry both the editor's `Color`/`Alpha` defaults and the authored
+        // `color`/`alpha` inputs, so a folded lookup can nondeterministically
+        // replace the authored value with its neutral editor default.
+        let color = components(named: "color", in: pass)
+            ?? components(named: "Color", in: pass)
             ?? [1, 1, 1]
-        let opacity = components(named: "Alpha", in: pass)?.first
-            ?? components(named: "alpha", in: pass)?.first
+        let opacity = components(named: "alpha", in: pass)?.first
+            ?? components(named: "Alpha", in: pass)?.first
             ?? 1
         let emissiveColor = components(named: "emissivecolor", in: pass)
             ?? [1, 1, 1]
@@ -231,6 +235,7 @@ struct ScenePreparedStaticModelResources {
                 component(color, at: 2, default: 1)
             ),
             opacity: Float(opacity),
+            receivesLighting: pass.combos["LIGHTING"] != 0,
             textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1,
             textureAlphaIsTintMask: pass.combos["TINTMASKALPHA"] == 1,
             emissiveColor: SIMD3(
@@ -279,9 +284,7 @@ struct ScenePreparedStaticModelResources {
         named name: String,
         in pass: SceneRenderDescriptor.MaterialPassDescriptor
     ) -> SceneDocument.ShaderValue? {
-        pass.constantShaderValues.first(where: {
-            $0.key.localizedCaseInsensitiveCompare(name) == .orderedSame
-        })?.value
+        pass.constantShaderValues[name]
     }
 
     private static func component(

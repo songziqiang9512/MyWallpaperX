@@ -30,6 +30,7 @@ struct SceneStaticModelViewTint {
 struct SceneStaticModelMaterial {
     let color: SIMD3<Float>
     let opacity: Float
+    let receivesLighting: Bool
     let textureAlphaIsOpacity: Bool
     let textureAlphaIsTintMask: Bool
     let emissiveColor: SIMD3<Float>
@@ -40,6 +41,7 @@ struct SceneStaticModelMaterial {
         .init(
             color: self.color,
             opacity: opacity,
+            receivesLighting: receivesLighting,
             textureAlphaIsOpacity: textureAlphaIsOpacity,
             textureAlphaIsTintMask: textureAlphaIsTintMask,
             emissiveColor: emissiveColor,
@@ -281,7 +283,8 @@ struct SceneStaticModelPipeline {
             ),
             materialFlags: SIMD4(
                 material.textureAlphaIsOpacity ? 1 : 0,
-                emissiveMask == nil ? 0 : 1,
+                (emissiveMask == nil ? 0 : 1)
+                    | (material.receivesLighting ? 0 : 2),
                 UInt32(lighting.spot.count),
                 material.textureAlphaIsTintMask ? 1 : 0
             ),

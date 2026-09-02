@@ -74,14 +74,19 @@ fragment half4 sceneStaticModelFragment(
     float3 normal = normalLengthSquared > 1e-12
         ? in.normal * rsqrt(normalLengthSquared)
         : float3(0.0, 0.0, 1.0);
-    float3 lighting = uniforms.ambientAndCount.xyz;
+    bool receivesLighting = (uniforms.materialFlags.y & 2u) == 0u;
+    float3 lighting = receivesLighting
+        ? uniforms.ambientAndCount.xyz
+        : float3(1.0);
     uint lightCount = uint(uniforms.ambientAndCount.w);
-    for (uint lightIndex = 0; lightIndex < min(lightCount, 4u); ++lightIndex) {
+    for (uint lightIndex = 0;
+         receivesLighting && lightIndex < min(lightCount, 4u);
+         ++lightIndex) {
         float4 light = uniforms.lightDirectionIntensity[lightIndex];
         float diffuse = max(dot(normal, light.xyz), 0.0);
         lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse;
     }
-    uint spotCount = uniforms.materialFlags.z;
+    uint spotCount = receivesLighting ? uniforms.materialFlags.z : 0u;
     for (uint lightIndex = 0; lightIndex < min(spotCount, 4u); ++lightIndex) {
         float4 positionRadius = uniforms.spotPositionRadius[lightIndex];
         float3 toLight = positionRadius.xyz - in.worldPosition;
@@ -141,7 +146,7 @@ fragment half4 sceneStaticModelFragment(
         surfaceColor *= viewTint;
     }
     half3 litColor = surfaceColor * half3(lighting);
-    if (uniforms.materialFlags.y != 0) {
+    if ((uniforms.materialFlags.y & 1u) != 0u) {
         half emissive = clamp(
             componentTexture.sample(componentSampler, in.componentUV).a
                 * half(uniforms.emissiveColorAndBrightness.w),

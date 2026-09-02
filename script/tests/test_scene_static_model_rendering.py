@@ -56,6 +56,17 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn(")?.first ?? 0", resources)
         self.assertIn('pass.combos["TINTMASKALPHA"] != 1', resources)
         self.assertIn('pass.combos["TINTMASKALPHA"] == 1', resources)
+        self.assertIn('receivesLighting: pass.combos["LIGHTING"] != 0', resources)
+        self.assertLess(
+            resources.index('named: "color"'),
+            resources.index('named: "Color"'),
+        )
+        self.assertLess(
+            resources.index('named: "alpha"'),
+            resources.index('named: "Alpha"'),
+        )
+        self.assertIn("pass.constantShaderValues[name]", resources)
+        self.assertNotIn("localizedCaseInsensitiveCompare", resources)
         self.assertIn('named: "tintback"', resources)
         self.assertIn("let viewTint: SceneStaticModelViewTint?", resources)
         self.assertIn("textureLoader: baseImages.textureLoader", preparation)
