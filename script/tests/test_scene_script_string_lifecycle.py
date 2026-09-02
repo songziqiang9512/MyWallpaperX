@@ -42,6 +42,7 @@ import Foundation
 struct SceneScriptUserPropertyInputDefinition {
     let userPropertyKey: String
     let fallback: SceneJSONValue
+    let condition: SceneUserPropertyValue?
 }
 
 enum SceneScriptUserPropertyInputContract {
@@ -55,9 +56,13 @@ enum SceneScriptUserPropertyInputContract {
               let fallback = wrapper["value"] else { return nil }
         switch fallback {
         case let .number(number) where number.isFinite:
-            return .init(userPropertyKey: key, fallback: fallback)
+            return .init(
+                userPropertyKey: key, fallback: fallback, condition: nil
+            )
         case .bool, .string:
-            return .init(userPropertyKey: key, fallback: fallback)
+            return .init(
+                userPropertyKey: key, fallback: fallback, condition: nil
+            )
         default:
             return nil
         }

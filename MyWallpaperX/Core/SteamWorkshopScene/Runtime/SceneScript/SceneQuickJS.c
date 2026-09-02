@@ -332,8 +332,14 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
             frame->canvas_width,
             frame->canvas_height
         );
-        if (JS_IsException(canvas_size)) {
+        JSValue screen_resolution = new_vec2_snapshot(
+            owner->domain,
+            frame->screen_width,
+            frame->screen_height
+        );
+        if (JS_IsException(canvas_size) || JS_IsException(screen_resolution)) {
             JS_FreeValue(context, canvas_size);
+            JS_FreeValue(context, screen_resolution);
             JS_FreeValue(context, user_properties);
             JS_FreeValue(context, engine);
             return false;
@@ -343,6 +349,18 @@ bool mwx_scene_quickjs_bind_frame_engine_host(
                 engine,
                 "canvasSize",
                 canvas_size,
+                read_only
+            ) < 0) {
+            JS_FreeValue(context, screen_resolution);
+            JS_FreeValue(context, user_properties);
+            JS_FreeValue(context, engine);
+            return false;
+        }
+        if (JS_DefinePropertyValueStr(
+                context,
+                engine,
+                "screenResolution",
+                screen_resolution,
                 read_only
             ) < 0) {
             JS_FreeValue(context, user_properties);

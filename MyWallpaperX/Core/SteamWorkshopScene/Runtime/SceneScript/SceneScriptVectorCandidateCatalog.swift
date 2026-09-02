@@ -533,6 +533,9 @@ nonisolated extension SceneScriptVectorProgram {
                 descriptor: descriptor
             ) ?? []
         let isIndependent = independentBooleanValueSource(binding.source)
+        let supportedContentKinds = isIndependent
+            ? ["image", "solid", "text"]
+            : ["image", "solid", "text", "container"]
         guard isIndependent || !dynamicImageReferences.isEmpty,
               layer.id == layerID,
               layer.layerIndex == objectIndex,
@@ -540,9 +543,7 @@ nonisolated extension SceneScriptVectorProgram {
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              (isIndependent
-                ? ["image", "solid", "text"].contains(layer.contentKind)
-                : layer.contentKind == "image"),
+              supportedContentKinds.contains(layer.contentKind),
               layer.parentID == nil,
               layer.childLayerIDs.isEmpty,
               case nil = layer.utilityLayer else { return nil }

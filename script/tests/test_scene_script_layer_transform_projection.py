@@ -113,6 +113,19 @@ nonisolated struct SceneScriptBindingIR: Sendable {
 nonisolated struct SceneScriptPropertyInput: Sendable {}
 
 nonisolated enum SceneScriptPropertyInputCodec {
+    static func inputs(
+        _ properties: [String: SceneJSONValue]
+    ) -> [String: SceneScriptPropertyInput]? {
+        var result: [String: SceneScriptPropertyInput] = [:]
+        for (key, value) in properties {
+            guard validName(key), let input = propertyInput(value) else {
+                return nil
+            }
+            result[key] = input
+        }
+        return result
+    }
+
     static func propertyInput(
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
@@ -195,6 +208,10 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        var bindingKeys: [String] = []
+        var timeline: Int? = nil
+        var timelineDiagnostics: [String] = []
+        var scriptProperties: [String: SceneJSONValue]? = nil
     }
 
     struct EffectDescriptor: Sendable {
@@ -220,6 +237,9 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
         var colorRGB: [Float]? = nil
+        var staticModelPath: String? = nil
+        var spotLight: Int? = nil
+        var directionalLight: Int? = nil
         var effects: [EffectDescriptor]
         var visible: Bool? = true
         var contentKind = "image"
@@ -238,7 +258,20 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         }
     }
 
+    struct ModelMaterialLink: Sendable {
+        let modelPath: String
+        let materialPath: String?
+    }
+
+    struct MaterialPassDescriptor: Sendable {
+        let materialPath: String
+        let passIndex: Int
+        let constantShaderValues: [String: ShaderValue]
+    }
+
     var layers: [Layer]
+    var modelMaterialLinks: [ModelMaterialLink] = []
+    var materialPasses: [MaterialPassDescriptor] = []
 }
 
 nonisolated enum SceneScriptVectorProgram {}

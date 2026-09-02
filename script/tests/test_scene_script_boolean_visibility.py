@@ -105,7 +105,8 @@ private func dynamicImageDescriptor() -> SceneRenderDescriptor {
             .init(
                 id: 7, layerIndex: 0, name: "bars", visible: true,
                 originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
-                scaleHasScript: nil, alpha: 1, effects: []
+                scaleHasScript: nil, alpha: 1, effects: [],
+                contentKind: "container"
             ),
             peer,
         ],
@@ -377,7 +378,14 @@ enum Harness {
             export function init() {
                 const index = thisScene.getLayerIndex(thisLayer);
                 for (let i = 0; i < 2; ++i) {
-                    const bar = thisScene.createLayer('models/bar.json');
+                    const bar = thisScene.createLayer({
+                        image: 'models/bar.json',
+                        origin: new Vec3(i * 10, 0, 0),
+                        scale: new Vec3(1, 2, 1),
+                        color: new Vec3(0.2, 0.4, 0.6),
+                        alpha: 0.5,
+                        visible: false
+                    });
                     thisScene.sortLayer(bar, index);
                     bars.push(bar);
                 }

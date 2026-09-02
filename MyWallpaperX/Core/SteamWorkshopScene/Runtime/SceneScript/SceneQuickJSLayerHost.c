@@ -50,6 +50,8 @@ enum LayerProperty {
     LAYER_SCALE,
     LAYER_ANGLES,
     LAYER_VISIBLE,
+    LAYER_ALPHA,
+    LAYER_COLOR,
     LAYER_TEXT,
     LAYER_POINT_SIZE,
     LAYER_FONT,
@@ -297,6 +299,10 @@ static JSValue layer_get(
                 : record->visible
                   )
         );
+    case LAYER_ALPHA:
+        return JS_NewFloat64(context, record->alpha);
+    case LAYER_COLOR:
+        return make_vec3(context, handle->domain, record->color);
     case LAYER_TEXT:
         return JS_NewString(
             context,
@@ -468,6 +474,33 @@ static JSValue layer_set(
         if (!mark_dirty(owner, record))
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         record->visible = value != 0;
+        break;
+    }
+    case LAYER_ALPHA: {
+        double value = 0;
+        if (!dynamic_target || JS_ToFloat64(context, &value, argv[0]) < 0 ||
+            !isfinite(value) || value < 0 || value > 1)
+            return JS_ThrowRangeError(
+                context, "dynamic layer alpha expects a value from 0 to 1"
+            );
+        if (record->alpha == value) break;
+        if (!mark_dirty(owner, record))
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        record->alpha = value;
+        break;
+    }
+    case LAYER_COLOR: {
+        double value[3];
+        if (!dynamic_target || !read_vec3(context, argv[0], value) ||
+            value[0] < 0 || value[0] > 1 || value[1] < 0 || value[1] > 1 ||
+            value[2] < 0 || value[2] > 1)
+            return JS_ThrowRangeError(
+                context, "dynamic layer color expects a normalized finite Vec3"
+            );
+        if (memcmp(value, record->color, sizeof(value)) == 0) break;
+        if (!mark_dirty(owner, record))
+            return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+        memcpy(record->color, value, sizeof(value));
         break;
     }
     case LAYER_TEXT: {
@@ -917,6 +950,17 @@ static JSValue make_layer_handle(
             JS_FreeValue(context, layer); return JS_EXCEPTION;
         }
     }
+    if (owner->domain->layers[index].dynamic &&
+        (!define_property(
+            context, layer, owner, index, owner_target, persistent,
+            "alpha", LAYER_ALPHA, true
+        ) || !define_property(
+            context, layer, owner, index, owner_target, persistent,
+            "color", LAYER_COLOR, true
+        ))) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
+    }
     if (!define_get_video_texture(
             context, layer, owner, index, owner_target, persistent
         )) {
@@ -1036,10 +1080,102 @@ static double optional_number(JSContext *context, JSValueConst object, const cha
     JS_FreeValue(context, value); return result;
 }
 
+static bool read_optional_bool(
+    JSContext *context, JSValueConst object, const char *key,
+    bool fallback, bool *output
+) {
+    JSValue value = JS_GetPropertyStr(context, object, key);
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value);
+        *output = fallback;
+        return true;
+    }
+    if (!JS_IsBool(value)) {
+        JS_FreeValue(context, value);
+        return false;
+    }
+    int result = JS_ToBool(context, value);
+    JS_FreeValue(context, value);
+    if (result < 0) return false;
+    *output = result != 0;
+    return true;
+}
+
+static bool read_optional_vec3(
+    JSContext *context, JSValueConst object, const char *key,
+    const double fallback[3], double output[3]
+) {
+    JSValue value = JS_GetPropertyStr(context, object, key);
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value);
+        if (output != fallback)
+            memcpy(output, fallback, sizeof(double) * 3);
+        return true;
+    }
+    const bool valid = JS_IsObject(value) && read_vec3(context, value, output);
+    JS_FreeValue(context, value);
+    return valid;
+}
+
 static bool parse_color(const char *text, double color[3]) {
-    if (text == NULL || sscanf(text, " %lf %lf %lf ", &color[0], &color[1], &color[2]) != 3)
+    if (text == NULL ||
+        sscanf(text, " %lf %lf %lf ", &color[0], &color[1], &color[2]) != 3)
         return false;
     return isfinite(color[0]) && isfinite(color[1]) && isfinite(color[2]);
+}
+
+static bool read_optional_color(
+    JSContext *context, JSValueConst object,
+    const double fallback[3], double output[3]
+) {
+    JSValue value = JS_GetPropertyStr(context, object, "color");
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value);
+        if (output != fallback)
+            memcpy(output, fallback, sizeof(double) * 3);
+        return true;
+    }
+    bool valid = false;
+    if (JS_IsString(value)) {
+        const char *text = JS_ToCString(context, value);
+        valid = text != NULL && parse_color(text, output);
+        if (text != NULL) JS_FreeCString(context, text);
+    } else if (JS_IsObject(value)) {
+        valid = read_vec3(context, value, output);
+    }
+    JS_FreeValue(context, value);
+    return valid;
+}
+
+static bool read_optional_asset_path(
+    JSContext *context, JSValueConst object, char **output
+) {
+    JSValue value = JS_GetPropertyStr(context, object, "image");
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value);
+        *output = calloc(1, 1);
+        return *output != NULL;
+    }
+    if (!JS_IsString(value)) {
+        JS_FreeValue(context, value);
+        return false;
+    }
+    size_t length = 0;
+    const char *path = JS_ToCStringLen(context, &length, value);
+    JS_FreeValue(context, value);
+    if (path == NULL || length == 0 ||
+        length > MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH ||
+        memchr(path, '\0', length) != NULL) {
+        if (path != NULL) JS_FreeCString(context, path);
+        return false;
+    }
+    *output = malloc(length + 1);
+    if (*output != NULL) {
+        memcpy(*output, path, length);
+        (*output)[length] = '\0';
+    }
+    JS_FreeCString(context, path);
+    return *output != NULL;
 }
 
 static JSValue create_layer(
@@ -1063,12 +1199,16 @@ static JSValue create_layer(
         }
     if (owned >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS ||
         scene_dynamic >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS ||
-        domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS)
-        return JS_ThrowInternalError(context, "dynamic layer budget exceeded");
-    char *text = NULL, *font = NULL, *name = NULL, *color_text = NULL;
+        domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS)
+        return JS_NULL;
+    char *text = NULL, *font = NULL, *name = NULL;
     char *asset_path = NULL;
     double point_size = 32, alpha = 1;
+    double origin[3] = {0, 0, 0};
+    double scale[3] = {1, 1, 1};
     double color[3] = {1, 1, 1};
+    bool visible = true;
     if (JS_IsString(argv[0])) {
         size_t length = 0;
         const char *path = JS_ToCStringLen(context, &length, argv[0]);
@@ -1092,19 +1232,23 @@ static JSValue create_layer(
         if (!read_optional_string(context, argv[0], "text", MWX_SCENE_QUICKJS_MAX_LAYER_TEXT, &text) ||
             !read_optional_string(context, argv[0], "font", MWX_SCENE_QUICKJS_MAX_LAYER_FONT, &font) ||
             !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
-            !read_optional_string(context, argv[0], "color", 128, &color_text)) {
-            free(text); free(font); free(name); free(color_text);
-            return JS_ThrowTypeError(context, "dynamic layer string field is invalid");
+            !read_optional_asset_path(context, argv[0], &asset_path) ||
+            !read_optional_vec3(context, argv[0], "origin", origin, origin) ||
+            !read_optional_vec3(context, argv[0], "scale", scale, scale) ||
+            !read_optional_color(context, argv[0], color, color) ||
+            !read_optional_bool(context, argv[0], "visible", true, &visible)) {
+            free(text); free(font); free(name); free(asset_path);
+            return JS_ThrowTypeError(context, "dynamic layer configuration field is invalid");
         }
         point_size = optional_number(context, argv[0], "pointsize", 32);
         alpha = optional_number(context, argv[0], "alpha", 1);
         if (!isfinite(point_size) || point_size < 1 || point_size > 1024 ||
             !isfinite(alpha) || alpha < 0 || alpha > 1 ||
-            (color_text[0] != '\0' && !parse_color(color_text, color))) {
-            free(text); free(font); free(name); free(color_text);
+            color[0] < 0 || color[0] > 1 || color[1] < 0 || color[1] > 1 ||
+            color[2] < 0 || color[2] > 1) {
+            free(text); free(font); free(name); free(asset_path);
             return JS_ThrowRangeError(context, "dynamic layer configuration is invalid");
         }
-        free(color_text);
     }
     int64_t identity = -1;
     for (;;) {
@@ -1123,10 +1267,12 @@ static JSValue create_layer(
     *record = (MWXSceneQuickJSLayerRecord){
         .layer_id = identity, .name = name, .text = text, .font = font,
         .asset_path = asset_path,
-        .scale = {1, 1, 1}, .color = {color[0], color[1], color[2]},
+        .current_origin = {origin[0], origin[1], origin[2]},
+        .scale = {scale[0], scale[1], scale[2]},
+        .color = {color[0], color[1], color[2]},
         .alpha = alpha, .point_size = point_size,
         .order_index = active_count(domain), .owner_identity = owner->identity,
-        .visible = true, .dynamic = true, .configured = true,
+        .visible = visible, .dynamic = true, .configured = true,
     };
     if (!mark_dirty(owner, record)) return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     return make_layer_handle(context, owner, index, true);

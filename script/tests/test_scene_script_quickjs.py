@@ -783,9 +783,12 @@ int main(void) {
         "  const world = input.cursorWorldPosition;\n"
         "  const screen = input.cursorScreenPosition;\n"
         "  const canvas = engine.canvasSize;\n"
+        "  const resolution = engine.screenResolution;\n"
         "  if (!(screen instanceof Vec2) || !(canvas instanceof Vec2) ||\n"
+        "      !(resolution instanceof Vec2) ||\n"
         "      !Object.isFrozen(input) || !Object.isFrozen(world) ||\n"
-        "      !Object.isFrozen(screen) || !Object.isFrozen(canvas)) {\n"
+        "      !Object.isFrozen(screen) || !Object.isFrozen(canvas) ||\n"
+        "      !Object.isFrozen(resolution)) {\n"
         "    throw new Error('mutable surface snapshot');\n"
         "  }\n"
         "  const divisor = new Vec3(canvas, 1).divide(new Vec3(10, 5, 1));\n"
@@ -793,6 +796,7 @@ int main(void) {
         "  const pair = new Vec2('2 3').add(new Vec2(4)).multiply(2);\n"
         "  return value + world.x + world.y + world.z +\n"
         "    screen.x + screen.y + canvas.x + canvas.y +\n"
+        "    resolution.x + resolution.y +\n"
         "    (input.cursorLeftDown ? 1 : 0) +\n"
         "    arithmetic.x + arithmetic.y + arithmetic.z + pair.x + pair.y;\n"
         "}";
@@ -804,7 +808,7 @@ int main(void) {
         surface_input != NULL, "surface input compile", diagnostic
     );
     failures += update(
-        surface_input, 48, 1, MWX_SCENE_QUICKJS_OK, 289,
+        surface_input, 48, 1, MWX_SCENE_QUICKJS_OK, 589,
         "callback surface input and Vec2/Vec3 arithmetic"
     );
     MWXSceneQuickJSFrameInput refreshed_surface_frame = {
@@ -828,7 +832,7 @@ int main(void) {
         mwx_scene_quickjs_owner_update_scalar(
             surface_input, 48, 1, &refreshed_surface_frame,
             &refreshed_surface_output, diagnostic, sizeof(diagnostic)
-        ) == MWX_SCENE_QUICKJS_OK && refreshed_surface_output == 333,
+        ) == MWX_SCENE_QUICKJS_OK && refreshed_surface_output == 933,
         "surface input refreshes per callback",
         diagnostic
     );
@@ -2226,6 +2230,56 @@ int main(void) {
         "unchanged dynamic layer setters are deduplicated", ""
     );
 
+    const char *dynamic_image_configuration_source =
+        "let image;export function init(value){image=thisScene.createLayer({"
+        "image:'models/trail.json',origin:new Vec3(3,4,5),"
+        "scale:new Vec3(6,7,8),color:new Vec3(0.1,0.2,0.3),"
+        "alpha:0.4,visible:false});return value;}"
+        "export function update(value){image.color=new Vec3(0.7,0.8,0.9);"
+        "image.alpha=0.6;image.visible=true;return value;}";
+    MWXSceneQuickJSOwner *dynamic_image_configuration =
+        mwx_scene_quickjs_owner_create(
+            domain, dynamic_image_configuration_source,
+            strlen(dynamic_image_configuration_source),
+            61, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        dynamic_image_configuration != NULL,
+        "dynamic image configuration compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        dynamic_image_configuration, 17,
+        "dynamic image configuration owner identity"
+    );
+    failures += update(
+        dynamic_image_configuration, 61, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "dynamic image configuration update"
+    );
+    MWXSceneQuickJSLayerMutation dynamic_image_configuration_mutation = {0};
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_at(
+            dynamic_image_configuration, 0,
+            &dynamic_image_configuration_mutation,
+            diagnostic, sizeof(diagnostic)
+        ) == MWX_SCENE_QUICKJS_OK &&
+            strcmp(
+                dynamic_image_configuration_mutation.asset_path,
+                "models/trail.json"
+            ) == 0 &&
+            dynamic_image_configuration_mutation.origin[0] == 3 &&
+            dynamic_image_configuration_mutation.origin[1] == 4 &&
+            dynamic_image_configuration_mutation.origin[2] == 5 &&
+            dynamic_image_configuration_mutation.scale[0] == 6 &&
+            dynamic_image_configuration_mutation.scale[1] == 7 &&
+            dynamic_image_configuration_mutation.scale[2] == 8 &&
+            dynamic_image_configuration_mutation.color[0] == 0.7 &&
+            dynamic_image_configuration_mutation.color[1] == 0.8 &&
+            dynamic_image_configuration_mutation.color[2] == 0.9 &&
+            dynamic_image_configuration_mutation.alpha == 0.6 &&
+            dynamic_image_configuration_mutation.visible == 1,
+        "dynamic image configuration fields published", diagnostic
+    );
+
     const char *destroyed_enumerated_source =
         "export function update(value){"
         "const created=thisScene.createLayer({text:'temporary'});"
@@ -2565,8 +2619,8 @@ int main(void) {
     );
 
     const char *dynamic_budget_source =
-        "export function update(value){for(let i=0;i<65;i+=1)"
-        "thisScene.createLayer({text:'x'});return value;}";
+        "export function update(value){let created=0;for(let i=0;i<65;i+=1)"
+        "if(thisScene.createLayer({text:'x'}))created+=1;return created;}";
     MWXSceneQuickJSOwner *dynamic_budget = mwx_scene_quickjs_owner_create(
         domain, dynamic_budget_source, strlen(dynamic_budget_source),
         42, diagnostic, sizeof(diagnostic)
@@ -2574,8 +2628,12 @@ int main(void) {
     failures += check(dynamic_budget != NULL, "dynamic budget compile", diagnostic);
     failures += configure_owner_layer(dynamic_budget, 17, "dynamic budget identity");
     failures += update(
-        dynamic_budget, 42, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-        "dynamic layer budget rejected"
+        dynamic_budget, 42, 1, MWX_SCENE_QUICKJS_OK, 64,
+        "dynamic layer budget returns optional absence"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(dynamic_budget) == 64,
+        "dynamic layer budget remains bounded", diagnostic
     );
 
     int storage_reads = 0;
@@ -2743,6 +2801,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(timer_budget);
     mwx_scene_quickjs_owner_destroy(timer_exception);
     mwx_scene_quickjs_owner_destroy(dynamic_layer);
+    mwx_scene_quickjs_owner_destroy(dynamic_image_configuration);
     mwx_scene_quickjs_owner_destroy(destroyed_enumerated);
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
