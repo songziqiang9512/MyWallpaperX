@@ -96,7 +96,7 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
                 fragment: fragment
                ) {
                 guard scalarDependencies[candidate.factorName] != nil,
-                      validBlendHelper(fragment, blend: candidate)
+                      validBlendHelper(fragment, mode: candidate.mode)
                 else { return nil }
                 blend = candidate
                 continue
@@ -429,9 +429,9 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
         }
     }
 
-    private static func validBlendHelper(
+    static func validBlendHelper(
         _ fragment: Unit,
-        blend: RGBBlend
+        mode: Int
     ) -> Bool {
         let helpers = fragment.functions.filter { $0.name == "ApplyBlending" }
         guard helpers.count == 1, let helper = helpers.first,
@@ -440,9 +440,10 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
               let returns = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .rootReturnExpressions(helper, fragment: fragment),
               returns.count == 2 else { return false }
-        let selectedModeIsProven = switch blend.mode {
+        let selectedModeIsProven = switch mode {
         case 3: modeThreeColorBurnBlend(returns[0], names: names)
         case 9: modeNineAddBlend(returns[0], names: names)
+        case 31: modeThirtyOneAdditiveBlend(returns[0], names: names)
         default: false
         }
         return selectedModeIsProven
@@ -578,6 +579,22 @@ nonisolated enum SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer {
               ) == [names[1], "+", names[2]],
               oneVector(minimum.arguments[1]) else { return false }
         return true
+    }
+
+    private static func modeThirtyOneAdditiveBlend(
+        _ expression: ArraySlice<Token>,
+        names: [String]
+    ) -> Bool {
+        guard let addition = binary(expression, operator: "+"),
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(addition.left) == names[1],
+              let product = binary(addition.right, operator: "*") else {
+            return false
+        }
+        return SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            .identifier(product.left) == names[2]
+            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .identifier(product.right) == names[3]
     }
 
     private static func normalFallback(

@@ -82,6 +82,8 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotCarrierBlendLowering.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderSameSlotColorBlendAlphaUnionLowering.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",

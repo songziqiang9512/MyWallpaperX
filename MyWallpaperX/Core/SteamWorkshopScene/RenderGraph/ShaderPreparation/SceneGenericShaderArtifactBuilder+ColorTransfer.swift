@@ -98,6 +98,12 @@ extension SceneGenericShaderArtifactBuilder {
         case .premultipliedAlpha:
             return (source, artifactTransfer(kind: "premultiplied"))
         case let .straightAlpha(textureSlot: expectedSlot):
+            if let prepared = try prepareSameSlotColorBlendAlphaUnion(
+                msl: source, authoredSource: authoredSource,
+                expectedSlot: expectedSlot
+            ) {
+                return prepared
+            }
             if let fact =
                 SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
                     .analyze(fragmentSource: authoredSource),
