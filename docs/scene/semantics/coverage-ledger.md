@@ -958,6 +958,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 同一真实纵向结果的下一断点`g_Texture7Resolution`由共享shader数据流补齐：只有独立`vec2`坐标精确取自authored UV、由缺席resolution slot归一化，并唯一供另一active texture sample消费时，才复用既有`.neutralMissingTextureResolution`；source XY覆写、target额外使用、非恒等UV、错purpose/publication仍拒绝。目标effect随后完成CPU encode、GPU、exact publication与next-frame，其Opacity后缀进入唯一compositor。严格selection仍因启动provider恢复和独立Audio Bars color-contract保持NON-PASS；没有把非黑或整窗截图冒充Blend Gradient ROI/完整样本/官方parity。见[E-V4-SCENESCRIPT-PASS-TIMELINE-ANIMATION](runtime-evidence-index.md#e-v4-scenescript-pass-timeline-animation)。
 
+### 2026-09-02 V4 same-slot carrier RGB blend 纠正
+
+现役共享 color proof 与 ShaderPreparation 已补齐一种 identity-free split-anchor 结构：同一 graph-input slot 初始化唯一 RGBA carrier，1...3 个同槽直接采样只覆写匹配的 RGB 分量，随后另一同槽 RGB 采样与 carrier 经唯一`ApplyBlending`写回 RGB，alpha 始终来自 carrier。外部 compiler artifact 必须独立重证每个 sample、blend 参数、x/y/z 写回和唯一 terminal；所有 color sample 各解预乘一次，最终只重新预乘一次。错槽、错分量、alpha write、隐藏 sample、blend 角色交换、控制流和 compiler shape 漂移继续失败关闭；没有新增 effect renderer、route/profile、resource registry、graph/history 或 output owner。
+
+真实`3585875739:17#effect#98`的 Lens Distortion 已从`colorContractUnproven / effect-local previous-current`恢复为既有`source-proven-graph-input-same-slot-channel-reconstruction / generic-only / genericCompilerArtifact`；frame 16/17 均为 1 authored / 1 material / 0 rejected、GPU completed 与 exact effect-output publication，后继 effect 和唯一 compositor 继续。ready/after 只证明正常底色、眼部局部动态和整构图安全，不证明 Lens 独立 ROI 或官方 parity；整份 selection 仍因独立 effect 2 的`material-variant-envelope-frontend`局部 fallback 保持 NON-PASS。精确实现、负门、运行身份和 hash 见[E-V4-SAME-SLOT-CARRIER-RGB-BLEND](runtime-evidence-index.md#e-v4-same-slot-carrier-rgb-blend)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

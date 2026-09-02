@@ -93,6 +93,21 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         )
     }
 
+    /// Returns the source slot only for the linear carrier variant whose RGB
+    /// combines same-slot projected channel reads with one same-slot blend.
+    static func sameSlotCarrierBlendSourceSlot(
+        fragmentSource source: String
+    ) -> Int? {
+        guard let (fragment, main, outputUses) = analyzedMain(source) else {
+            return nil
+        }
+        return SceneAuthoredShaderSameSlotCarrierBlendAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        )
+    }
+
     /// Returns the carrier and direct scalar-data slots only when RGB remains
     /// unchanged and one bounded scalar graph multiplies the carrier alpha.
     static func straightRGBScalarAlphaFact(

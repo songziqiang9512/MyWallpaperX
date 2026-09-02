@@ -18,6 +18,13 @@ nonisolated enum SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> Int? {
+        if let slot = SceneAuthoredShaderSameSlotCarrierBlendAnalyzer.analyze(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return slot
+        }
         let tokens = fragment.tokens
         guard outputUses.count == 1,
               let output = outputUses.first,
