@@ -70,6 +70,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotChannelReconstructionAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderMetalSource.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderBuiltInVectorConversion.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderBuiltInPowBroadcast.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderVectorConversion.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderFunctionSemantics.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderVaryingPrefixLink.swift",

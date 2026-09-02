@@ -1,12 +1,12 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
-    private struct Conversion: Hashable {
+    struct Conversion: Hashable {
         let range: Range<Int>
         let suffix: String
     }
 
-    private struct Expression {
+    struct Expression {
         let range: Range<Int>
         let type: SceneAuthoredShaderValueType
         let conversions: [Conversion]
@@ -20,7 +20,10 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
     ) -> String {
         rewriteScalarMinMaxIntegerLiterals(
             rewriteZeroLowerBoundBroadcasts(
-                rewriteScalarMixBroadcasts(source, stage: stage),
+                rewriteScalarPowBroadcasts(
+                    rewriteScalarMixBroadcasts(source, stage: stage),
+                    stage: stage
+                ),
                 stage: stage
             ),
             stage: stage
@@ -390,7 +393,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
     }
 
-    private static func componentExpression(
+    static func componentExpression(
         _ range: Range<Int>,
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
@@ -671,7 +674,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         return types.count == 1 ? types.first : nil
     }
 
-    private static func argumentRanges(
+    static func argumentRanges(
         opening: Int,
         closing: Int,
         tokens: [SceneAuthoredShaderToken]
@@ -707,7 +710,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         return nil
     }
 
-    private static func matchingParenthesis(
+    static func matchingParenthesis(
         tokens: [SceneAuthoredShaderToken],
         opening: Int
     ) -> Int? {
@@ -753,7 +756,7 @@ nonisolated enum SceneAuthoredShaderBuiltInVectorConversion {
         }
     }
 
-    private static func floatVectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {
+    static func floatVectorWidth(_ type: SceneAuthoredShaderValueType) -> Int? {
         switch type {
         case .float2: 2
         case .float3: 3

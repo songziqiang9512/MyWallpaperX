@@ -217,6 +217,26 @@ private struct ScalarVectorBuiltInHarness {
                 "vec3 max(int lower, vec3 value) { return value; }",
             ]
         )
+        let powScalarExponent = canonical(
+            "albedo.rgb = pow(albedo.rgb, 2.2 / 2.2); gl_FragColor = albedo;"
+        )
+        let powUniformExponent = canonical(
+            "albedo.rgb = pow(albedo.rgb, 1.0 / g_Exponent); gl_FragColor = albedo;",
+            declarations: ["uniform float g_Exponent;"]
+        )
+        let powVectorExponent = canonical(
+            "albedo.rgb = pow(albedo.rgb, g_Exponent); gl_FragColor = albedo;",
+            declarations: ["uniform vec3 g_Exponent;"]
+        )
+        let scalarPow = canonical(
+            "float value = pow(albedo.r, 2.2); gl_FragColor = vec4(value);"
+        )
+        let userDefinedPow = canonical(
+            "albedo.rgb = pow(albedo.rgb, 2.2); gl_FragColor = albedo;",
+            helpers: [
+                "vec3 pow(vec3 value, float exponent) { return value; }",
+            ]
+        )
 
         let compileVertex = vertex
             .replacingOccurrences(
@@ -243,6 +263,7 @@ private struct ScalarVectorBuiltInHarness {
                 + "    float weight = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y));\n"
                 + "    vec2 broadcast = g_Ratio.x * g_Ratio.y;\n"
                 + "    broadcast *= 1.0 / g_Ratio4;\n"
+                + "    albedo.rgb = pow(albedo.rgb, 2.2 / 2.2);\n"
                 + "    gl_FragColor = vec4(max(0, albedo.rgb) + vec3(broadcast, weight) * float(mask), albedo.a);",
             declarations: [
                 "uniform int lower;",
@@ -354,6 +375,21 @@ private struct ScalarVectorBuiltInHarness {
                 "userDefinedPreserved": userDefined.contains(
                     "max(0, albedo.rgb)"
                 ) && !userDefined.contains("max(vec3(0.0), albedo.rgb)"),
+                "powScalarExponent": powScalarExponent.contains(
+                    "pow(albedo.rgb, vec3(2.2 / 2.2))"
+                ),
+                "powUniformExponent": powUniformExponent.contains(
+                    "pow(albedo.rgb, vec3(1.0 / g_Exponent))"
+                ),
+                "powVectorExponentPreserved": powVectorExponent.contains(
+                    "pow(albedo.rgb, g_Exponent)"
+                ) && !powVectorExponent.contains("vec3(g_Exponent)"),
+                "scalarPowPreserved": scalarPow.contains(
+                    "pow(albedo.r, 2.2)"
+                ) && !scalarPow.contains("pow(albedo.r, vec"),
+                "userDefinedPowPreserved": userDefinedPow.contains(
+                    "pow(albedo.rgb, 2.2)"
+                ) && !userDefinedPow.contains("pow(albedo.rgb, vec3(2.2))"),
                 "idempotent": firstPair == secondPair,
                 "normalized": normalized != nil,
                 "normalizedScalarFloatMax": normalized?.vertex.contains(
@@ -376,6 +412,9 @@ private struct ScalarVectorBuiltInHarness {
                 ) == true,
                 "normalizedCompoundVectorNarrowing": normalized?.fragment.contains(
                     "broadcast *= (1.0 / g_Ratio4).xy;"
+                ) == true,
+                "normalizedPowScalarExponent": normalized?.fragment.contains(
+                    "pow(albedo.rgb, vec3(2.2 / 2.2))"
                 ) == true,
             ],
             normalizedVertex: normalized?.vertex,
