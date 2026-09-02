@@ -13,6 +13,7 @@ struct SceneParticleCameraFrame: Sendable {
     let cameraUp: SIMD3<Float>
     let cameraForward: SIMD3<Float>
     let cameraOrigin: SIMD3<Float>
+    let perspectiveEyePosition: SIMD3<Float>
 
     init(
         camera: SceneRenderDescriptor.CameraDescriptor,
@@ -46,6 +47,7 @@ struct SceneParticleCameraFrame: Sendable {
             cameraRight = SIMD3(1, 0, 0)
             cameraUp = SIMD3(0, 1, 0)
             cameraForward = SIMD3(0, 0, -1)
+            perspectiveEyePosition = safeOrigin
             return
         }
 
@@ -74,6 +76,7 @@ struct SceneParticleCameraFrame: Sendable {
             ? safeOrigin.z
             : fittedEyeDistance ?? Self.perspectiveEyeDistance
         let eye = sceneCenter + SIMD3<Float>(0, 0, eyeDistance)
+        perspectiveEyePosition = eye
         cameraForward = Self.normalized(sceneCenter - eye, fallback: SIMD3(0, 0, -1))
         cameraRight = Self.normalized(
             simd_cross(cameraForward, SIMD3(0, 1, 0)),

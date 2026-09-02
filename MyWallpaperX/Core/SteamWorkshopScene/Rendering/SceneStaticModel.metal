@@ -18,6 +18,9 @@ struct SceneStaticModelUniforms {
     float4 componentTextureFrame1;
     float4 materialColorAndOpacity;
     float4 emissiveColorAndBrightness;
+    float4 viewTintFrontAndExponent;
+    float4 viewTintBackAndEnabled;
+    float4 cameraPosition;
     uint4 materialFlags;
     float4 ambientAndCount;
     float4 lightDirectionIntensity[4];
@@ -105,14 +108,38 @@ fragment half4 sceneStaticModelFragment(
         lighting += colorIntensity.xyz * colorIntensity.w
             * radial * cone * diffuse;
     }
-    lighting = lighting / (float3(1.0) + lighting);
-
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
     half outputAlpha = authoredOpacity * (
         uniforms.materialFlags.x != 0 ? albedo.a : half(1.0)
     );
-    half3 surfaceColor = albedo.rgb
-        * half3(uniforms.materialColorAndOpacity.xyz);
+    half3 surfaceColor;
+    if (uniforms.materialFlags.w != 0) {
+        half luminancePeak = max(albedo.r, max(albedo.g, albedo.b));
+        half3 tinted = luminancePeak
+            * half3(uniforms.materialColorAndOpacity.xyz);
+        surfaceColor = mix(albedo.rgb, tinted, albedo.a);
+    } else {
+        surfaceColor = albedo.rgb
+            * half3(uniforms.materialColorAndOpacity.xyz);
+    }
+    if (uniforms.viewTintBackAndEnabled.w > 0.5) {
+        float3 towardCamera = uniforms.cameraPosition.xyz - in.worldPosition;
+        float viewLengthSquared = dot(towardCamera, towardCamera);
+        float3 viewDirection = viewLengthSquared > 1e-8
+            ? towardCamera * rsqrt(viewLengthSquared)
+            : float3(0.0, 0.0, 1.0);
+        float facing = clamp(dot(viewDirection, normal), 0.0, 1.0);
+        float frontWeight = pow(
+            facing,
+            max(uniforms.viewTintFrontAndExponent.w, 0.01)
+        );
+        half3 viewTint = mix(
+            half3(uniforms.viewTintBackAndEnabled.xyz),
+            half3(uniforms.viewTintFrontAndExponent.xyz),
+            half(frontWeight)
+        );
+        surfaceColor *= viewTint;
+    }
     half3 litColor = surfaceColor * half3(lighting);
     if (uniforms.materialFlags.y != 0) {
         half emissive = clamp(

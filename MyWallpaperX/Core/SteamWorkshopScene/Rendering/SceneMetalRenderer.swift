@@ -602,6 +602,15 @@ struct SceneMetalRenderer {
                     authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 ))
+                let material = prepared.material.resolvingDynamicViewTintBack(
+                    SceneDynamicLayerValues.color(
+                        layerID: layer.id,
+                        authoredValue: prepared.material.viewTint.map {
+                            [$0.back.x, $0.back.y, $0.back.z]
+                        },
+                        snapshot: frameContext.dynamicValues
+                    )
+                )
                 _ = pipeline.draw(
                     mesh: prepared.mesh,
                     texture: prepared.albedo.texture,
@@ -612,10 +621,11 @@ struct SceneMetalRenderer {
                     viewProjection: cameraFrame.reverseDepthViewProjection(
                         usesPerspective: layer.usesPerspective == true
                     ),
+                    cameraPosition: cameraFrame.perspectiveEyePosition,
                     textureFrame: prepared.albedo.uvTransform,
                     sampling: prepared.albedo.sampling,
                     layerAlpha: alpha,
-                    material: prepared.material,
+                    material: material,
                     lighting: frameLightSnapshot,
                     writesDepth: prepared.writesDepth,
                     encoder: encoder

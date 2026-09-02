@@ -76,32 +76,23 @@ nonisolated enum SceneMdlStaticModelReader {
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
     private static let maximumAbsoluteValue: Float = 1_000_000
 
+    /// Reads only the validated identity header used to publish a direct
+    /// static model's material dependency before GPU resource preparation.
+    /// Full geometry validation remains the responsibility of `read(data:)`.
+    static func readMaterialPathMetadata(data rawData: Data) throws -> String {
+        let data = rawData.startIndex == 0 ? rawData : Data(rawData)
+        var cursor = Cursor(data: data)
+        return try readHeader(cursor: &cursor).materialPath
+    }
+
     static func read(data rawData: Data) throws -> SceneMdlStaticModel {
         let data = rawData.startIndex == 0 ? rawData : Data(rawData)
         var cursor = Cursor(data: data)
+        let header = try readHeader(cursor: &cursor)
 
-        let magicBytes = try cursor.readBytes(
-            count: magicByteCount,
-            section: "magic"
-        )
-        let version = String(decoding: magicBytes.prefix(8), as: UTF8.self)
-        guard version == magic, magicBytes.last == 0 else {
-            throw SceneMdlStaticModelReadError.unsupportedMagic(version)
-        }
-
-        let headerFormat = try cursor.readUInt32(section: "header format")
-        guard headerFormat == supportedFormat else {
-            throw SceneMdlStaticModelReadError.unsupportedHeaderFormat(headerFormat)
-        }
-        let meshCount = try cursor.readUInt32(section: "mesh count")
-        guard meshCount == 1 else {
-            throw SceneMdlStaticModelReadError.unsupportedMeshCount(meshCount)
-        }
-        let materialCount = try cursor.readUInt32(section: "material count")
-        guard materialCount == 1 else {
-            throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
-        }
-        let materialPath = try readMaterialPath(cursor: &cursor)
+        let version = header.version
+        let headerFormat = header.headerFormat
+        let materialPath = header.materialPath
 
         let indexFlag = try cursor.readUInt32(section: "index flag")
         guard indexFlag == 0 else {
@@ -158,6 +149,34 @@ nonisolated enum SceneMdlStaticModelReader {
             vertices: vertices,
             indices: indices
         )
+    }
+
+    private static func readHeader(
+        cursor: inout Cursor
+    ) throws -> (version: String, headerFormat: UInt32, materialPath: String) {
+        let magicBytes = try cursor.readBytes(
+            count: magicByteCount,
+            section: "magic"
+        )
+        let version = String(decoding: magicBytes.prefix(8), as: UTF8.self)
+        guard version == magic, magicBytes.last == 0 else {
+            throw SceneMdlStaticModelReadError.unsupportedMagic(version)
+        }
+
+        let headerFormat = try cursor.readUInt32(section: "header format")
+        guard headerFormat == supportedFormat else {
+            throw SceneMdlStaticModelReadError.unsupportedHeaderFormat(headerFormat)
+        }
+        let meshCount = try cursor.readUInt32(section: "mesh count")
+        guard meshCount == 1 else {
+            throw SceneMdlStaticModelReadError.unsupportedMeshCount(meshCount)
+        }
+        let materialCount = try cursor.readUInt32(section: "material count")
+        guard materialCount == 1 else {
+            throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
+        }
+        let materialPath = try readMaterialPath(cursor: &cursor)
+        return (version, headerFormat, materialPath)
     }
 
     private static func readMaterialPath(cursor: inout Cursor) throws -> String {

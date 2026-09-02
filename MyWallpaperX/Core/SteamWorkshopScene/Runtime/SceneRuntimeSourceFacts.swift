@@ -82,7 +82,11 @@ struct SceneRuntimeSourceFactsBuilder {
                 sceneDocument: sceneDocument,
                 assetCatalog: assetCatalog,
                 resourceReferences: resourceReferences,
-                capabilityProfile: capabilityProfile
+                capabilityProfile: capabilityProfile,
+                directStaticModelMaterialLinks: directStaticModelMaterialLinks(
+                    document: sceneDocument,
+                    resourceView: resourceView
+                )
             )
         }()
 
@@ -99,5 +103,33 @@ struct SceneRuntimeSourceFactsBuilder {
             capabilityProfile: capabilityProfile,
             renderDescriptor: renderDescriptor
         )
+    }
+
+    private func directStaticModelMaterialLinks(
+        document: SceneDocument,
+        resourceView: SceneResourceView
+    ) -> [SceneRenderDescriptor.ModelMaterialLink] {
+        var seen: Set<String> = []
+        return document.objects.compactMap { object in
+            guard let modelPath = object.staticModelPath else { return nil }
+            let identity = modelPath.replacingOccurrences(of: "\\", with: "/")
+                .localizedLowercase
+            guard seen.insert(identity).inserted,
+                  let modelURL = resourceView.resource(
+                    relativePath: modelPath
+                  )?.url,
+                  let data = try? Data(
+                    contentsOf: modelURL,
+                    options: .mappedIfSafe
+                  ),
+                  let materialPath = try? SceneMdlStaticModelReader
+                    .readMaterialPathMetadata(data: data) else {
+                return nil
+            }
+            return .init(
+                modelPath: modelPath,
+                materialPath: materialPath
+            )
+        }
     }
 }

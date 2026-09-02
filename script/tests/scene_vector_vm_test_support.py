@@ -176,6 +176,7 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 struct SceneRenderDescriptor {
     struct ModelMaterialLink {
         let modelPath: String
+        let materialPath: String? = nil
     }
     enum SceneShaderUserValueKind {
         case null
@@ -192,16 +193,34 @@ struct SceneRenderDescriptor {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        let bindingKeys: [String]
+        let timeline: Bool?
+        let timelineDiagnostics: [String]
+        let scriptProperties: [String: SceneJSONValue]?
 
         init(
             scriptSource: String?,
             components: [Double]?,
-            userValueKind: SceneShaderUserValueKind? = nil
+            userValueKind: SceneShaderUserValueKind? = nil,
+            bindingKeys: [String] = [],
+            timeline: Bool? = nil,
+            timelineDiagnostics: [String] = [],
+            scriptProperties: [String: SceneJSONValue]? = nil
         ) {
             self.scriptSource = scriptSource
             self.components = components
             self.userValueKind = userValueKind
+            self.bindingKeys = bindingKeys
+            self.timeline = timeline
+            self.timelineDiagnostics = timelineDiagnostics
+            self.scriptProperties = scriptProperties
         }
+    }
+
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let passIndex: Int
+        let constantShaderValues: [String: ShaderValue]
     }
 
     struct SceneEffectTextureInput: ExpressibleByBooleanLiteral {
@@ -288,6 +307,9 @@ struct SceneRenderDescriptor {
         var textStyle: TextStyle? = nil
         var sizeWH: [Float]? = nil
         var imagePath: String? = nil
+        var staticModelPath: String? = nil
+        var spotLight: Int? = nil
+        var directionalLight: Int? = nil
         var utilityLayer: UtilityLayer? = nil
         var parentID: Int? = nil
         var childLayerIDs: [Int] = []
@@ -299,6 +321,7 @@ struct SceneRenderDescriptor {
 
     var layers: [Layer]
     var modelMaterialLinks: [ModelMaterialLink] = []
+    var materialPasses: [MaterialPassDescriptor] = []
     var renderOrderLayerIDs: [Int] { layers.map(\.id) }
 }
 

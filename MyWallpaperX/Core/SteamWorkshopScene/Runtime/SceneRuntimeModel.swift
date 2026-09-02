@@ -167,6 +167,7 @@ struct SceneRuntimeModelBuilder {
         let sceneScriptColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
                 let hasConsumer = layer.supportsDirectLayerColorConsumer
+                    || layer.staticModelPath != nil
                     || (layer.contentKind == "text"
                         && layer.text != nil
                         && layer.textStyle != nil)

@@ -201,6 +201,29 @@ struct ScenePreparedStaticModelResources {
             named: "emissivebrightness",
             in: pass
         )?.first ?? 0
+        let tintFront = components(named: "tintfront", in: pass)
+        let tintBack = components(named: "tintback", in: pass)
+        let tintExponent = components(named: "tintwexponent", in: pass)?
+            .first ?? 1.5
+        let viewTint: SceneStaticModelViewTint? = if let tintFront, let tintBack {
+            .init(
+                front: SIMD3(
+                    component(tintFront, at: 0, default: 1),
+                    component(tintFront, at: 1, default: 1),
+                    component(tintFront, at: 2, default: 1)
+                ),
+                back: SIMD3(
+                    component(tintBack, at: 0, default: 1),
+                    component(tintBack, at: 1, default: 1),
+                    component(tintBack, at: 2, default: 1)
+                ),
+                exponent: Float(tintExponent),
+                usesDynamicBackColor:
+                    shaderValue(named: "tintback", in: pass)?.scriptSource != nil
+            )
+        } else {
+            nil
+        }
         return SceneStaticModelMaterial(
             color: SIMD3(
                 component(color, at: 0, default: 1),
@@ -209,12 +232,14 @@ struct ScenePreparedStaticModelResources {
             ),
             opacity: Float(opacity),
             textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1,
+            textureAlphaIsTintMask: pass.combos["TINTMASKALPHA"] == 1,
             emissiveColor: SIMD3(
                 component(emissiveColor, at: 0, default: 1),
                 component(emissiveColor, at: 1, default: 1),
                 component(emissiveColor, at: 2, default: 1)
             ),
-            emissiveBrightness: Float(emissiveBrightness)
+            emissiveBrightness: Float(emissiveBrightness),
+            viewTint: viewTint
         )
     }
 
@@ -245,7 +270,16 @@ struct ScenePreparedStaticModelResources {
         named name: String,
         in pass: SceneRenderDescriptor.MaterialPassDescriptor
     ) -> [Double]? {
-        pass.constantShaderValues[name]?.components
+        shaderValue(named: name, in: pass)?.components
+    }
+
+    private static func shaderValue(
+        named name: String,
+        in pass: SceneRenderDescriptor.MaterialPassDescriptor
+    ) -> SceneDocument.ShaderValue? {
+        pass.constantShaderValues.first(where: {
+            $0.key.localizedCaseInsensitiveCompare(name) == .orderedSame
+        })?.value
     }
 
     private static func component(

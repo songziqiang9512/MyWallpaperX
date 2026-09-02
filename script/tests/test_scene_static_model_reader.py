@@ -30,9 +30,10 @@ enum Harness {
             let url = URL(fileURLWithPath: path)
             var entry: [String: Any] = ["file": url.lastPathComponent]
             do {
-                let model = try SceneMdlStaticModelReader.read(
-                    data: Data(contentsOf: url)
-                )
+                let data = try Data(contentsOf: url)
+                entry["metadataMaterialPath"] = try? SceneMdlStaticModelReader
+                    .readMaterialPathMetadata(data: data)
+                let model = try SceneMdlStaticModelReader.read(data: data)
                 entry["ok"] = true
                 entry["version"] = model.version
                 entry["headerFormat"] = model.headerFormat
@@ -269,6 +270,10 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
     def test_valid_profile_preserves_all_geometry_channels(self) -> None:
         result = self.results["valid.mdl"]
         self.assertTrue(result["ok"], result)
+        self.assertEqual(
+            result["metadataMaterialPath"],
+            "materials/models/fixture/default.json",
+        )
         self.assertEqual(result["version"], "MDLV0023")
         self.assertEqual((result["headerFormat"], result["vertexFormat"]), (15, 15))
         self.assertEqual((result["vertexStride"], result["indexElementSize"]), (48, 2))

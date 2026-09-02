@@ -7,6 +7,23 @@ struct SceneStaticModelMesh {
     let indexCount: Int
 }
 
+struct SceneStaticModelViewTint {
+    let front: SIMD3<Float>
+    let back: SIMD3<Float>
+    let exponent: Float
+    let usesDynamicBackColor: Bool
+
+    func resolvingBackColor(_ color: SIMD3<Float>) -> Self {
+        guard usesDynamicBackColor else { return self }
+        return .init(
+            front: front,
+            back: color,
+            exponent: exponent,
+            usesDynamicBackColor: true
+        )
+    }
+}
+
 /// Small material contract shared by direct static-model shader families.
 /// Authored alpha meaning is kept separate from storage alpha so tint masks
 /// cannot accidentally punch holes through otherwise opaque geometry.
@@ -14,8 +31,22 @@ struct SceneStaticModelMaterial {
     let color: SIMD3<Float>
     let opacity: Float
     let textureAlphaIsOpacity: Bool
+    let textureAlphaIsTintMask: Bool
     let emissiveColor: SIMD3<Float>
     let emissiveBrightness: Float
+    let viewTint: SceneStaticModelViewTint?
+
+    func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
+        .init(
+            color: self.color,
+            opacity: opacity,
+            textureAlphaIsOpacity: textureAlphaIsOpacity,
+            textureAlphaIsTintMask: textureAlphaIsTintMask,
+            emissiveColor: emissiveColor,
+            emissiveBrightness: emissiveBrightness,
+            viewTint: viewTint?.resolvingBackColor(color)
+        )
+    }
 }
 
 private struct SceneStaticModelUniforms {
@@ -28,6 +59,9 @@ private struct SceneStaticModelUniforms {
     var componentTextureFrame1: SIMD4<Float>
     var materialColorAndOpacity: SIMD4<Float>
     var emissiveColorAndBrightness: SIMD4<Float>
+    var viewTintFrontAndExponent: SIMD4<Float>
+    var viewTintBackAndEnabled: SIMD4<Float>
+    var cameraPosition: SIMD4<Float>
     var materialFlags: SIMD4<UInt32>
     var ambientAndCount: SIMD4<Float>
     var lightDirectionIntensity0: SIMD4<Float>
@@ -169,6 +203,7 @@ struct SceneStaticModelPipeline {
         emissiveMaskSampling: SceneTextureSampling?,
         modelMatrix: simd_float4x4,
         viewProjection: simd_float4x4,
+        cameraPosition: SIMD3<Float>,
         textureFrame: SceneTextureUVTransform,
         sampling: SceneTextureSampling,
         layerAlpha: Float,
@@ -196,6 +231,10 @@ struct SceneStaticModelPipeline {
               material.emissiveColor.x.isFinite,
               material.emissiveColor.y.isFinite,
               material.emissiveColor.z.isFinite,
+              cameraPosition.x.isFinite,
+              cameraPosition.y.isFinite,
+              cameraPosition.z.isFinite,
+              Self.isValid(material.viewTint),
               let normalMatrix = Self.normalMatrix(for: modelMatrix) else {
             return false
         }
@@ -225,10 +264,26 @@ struct SceneStaticModelPipeline {
                 max(material.emissiveColor.z, 0),
                 max(material.emissiveBrightness, 0)
             ),
+            viewTintFrontAndExponent: SIMD4(
+                material.viewTint?.front.x ?? 1,
+                material.viewTint?.front.y ?? 1,
+                material.viewTint?.front.z ?? 1,
+                max(material.viewTint?.exponent ?? 1, 0.01)
+            ),
+            viewTintBackAndEnabled: SIMD4(
+                material.viewTint?.back.x ?? 1,
+                material.viewTint?.back.y ?? 1,
+                material.viewTint?.back.z ?? 1,
+                material.viewTint == nil ? 0 : 1
+            ),
+            cameraPosition: SIMD4(
+                cameraPosition.x, cameraPosition.y, cameraPosition.z, 1
+            ),
             materialFlags: SIMD4(
                 material.textureAlphaIsOpacity ? 1 : 0,
                 emissiveMask == nil ? 0 : 1,
-                UInt32(lighting.spot.count), 0
+                UInt32(lighting.spot.count),
+                material.textureAlphaIsTintMask ? 1 : 0
             ),
             ambientAndCount: SIMD4(
                 lighting.ambient.x,
@@ -320,6 +375,14 @@ struct SceneStaticModelPipeline {
         guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
         let result = simd_transpose(simd_inverse(linear))
         return isFinite(result) ? result : nil
+    }
+
+    private static func isValid(_ viewTint: SceneStaticModelViewTint?) -> Bool {
+        guard let viewTint else { return true }
+        return viewTint.front.x.isFinite && viewTint.front.y.isFinite
+            && viewTint.front.z.isFinite && viewTint.back.x.isFinite
+            && viewTint.back.y.isFinite && viewTint.back.z.isFinite
+            && viewTint.exponent.isFinite && viewTint.exponent > 0
     }
 
     private static let hasExpectedVertexABI =

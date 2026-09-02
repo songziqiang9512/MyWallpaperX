@@ -94,6 +94,11 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
         self.assertIn("uniforms.spotColorIntensity[lightIndex]", source)
         self.assertIn("out.worldPosition = worldPosition.xyz", source)
         self.assertIn("radial * cone * diffuse", source)
+        self.assertNotIn("lighting / (float3(1.0) + lighting)", source)
+        self.assertIn("uniforms.materialFlags.w != 0", source)
+        self.assertIn("surfaceColor = mix(albedo.rgb, tinted, albedo.a)", source)
+        self.assertIn("uniforms.viewTintBackAndEnabled.w > 0.5", source)
+        self.assertIn("uniforms.cameraPosition.xyz - in.worldPosition", source)
         self.assertIn("litColor * outputAlpha", source)
 
     def test_pipeline_typechecks_against_decoded_vertex_contract(self) -> None:

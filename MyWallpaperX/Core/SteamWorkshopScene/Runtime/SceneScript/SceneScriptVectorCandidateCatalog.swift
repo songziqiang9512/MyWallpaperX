@@ -170,9 +170,105 @@ nonisolated extension SceneScriptVectorProgram {
                 authoredOrdinal: scriptBindings.count + offset
             )
         }
-        return .init(candidates: (authoredCandidates + materialCandidates).filter {
+        let occupiedTargets = Set(
+            (authoredCandidates + materialCandidates).map {
+                $0.definition.target
+            }
+        )
+        let staticModelMaterialCandidates = staticModelViewTintProjections(
+            descriptor: descriptor,
+            admittedLayerColorConsumerIDs: admittedLayerColorConsumerIDs,
+            excluding: occupiedTargets,
+            authoredOrdinalOffset:
+                scriptBindings.count + materialCandidates.count
+        )
+        return .init(candidates: (
+            authoredCandidates + materialCandidates
+                + staticModelMaterialCandidates
+        ).filter {
             !excludedTargets.contains($0.definition.target)
         })
+    }
+
+    /// A direct model's scripted back-facing tint is lowered into the existing
+    /// layer-color dynamic slot only when that slot has no authored owner.
+    /// The material field name selects the shared view-tint primitive; model,
+    /// sample, path, and shader identity never select a visual algorithm.
+    private static func staticModelViewTintProjections(
+        descriptor: SceneRenderDescriptor,
+        admittedLayerColorConsumerIDs: Set<Int>,
+        excluding occupiedTargets: Set<SceneDynamicTarget>,
+        authoredOrdinalOffset: Int
+    ) -> [SceneScriptVectorCandidate] {
+        let linksByModel = Dictionary(grouping: descriptor.modelMaterialLinks) {
+            normalizedMaterialPath($0.modelPath)
+        }
+        let passesByMaterial = Dictionary(grouping: descriptor.materialPasses) {
+            normalizedMaterialPath($0.materialPath)
+        }
+        var candidates: [SceneScriptVectorCandidate] = []
+        for layer in descriptor.layers where layer.staticModelPath != nil {
+            let target = SceneDynamicTarget.layer(
+                layerID: layer.id,
+                field: .color
+            )
+            guard admittedLayerColorConsumerIDs.contains(layer.id),
+                  !occupiedTargets.contains(target),
+                  layer.visible != false,
+                  let modelPath = layer.staticModelPath,
+                  let links = linksByModel[normalizedMaterialPath(modelPath)],
+                  links.count == 1,
+                  let materialPath = links[0].materialPath,
+                  let materialPasses = passesByMaterial[
+                    normalizedMaterialPath(materialPath)
+                  ],
+                  case let firstPasses = materialPasses.filter({
+                    $0.passIndex == 0
+                  }),
+                  firstPasses.count == 1,
+                  let pass = firstPasses.first,
+                  let entry = pass.constantShaderValues.first(where: {
+                    $0.key.localizedCaseInsensitiveCompare("tintback")
+                        == .orderedSame
+                  }),
+                  entry.value.bindingKeys
+                    == ["script", "scriptproperties", "value"],
+                  entry.value.userValueKind == nil,
+                  entry.value.timeline == nil,
+                  entry.value.timelineDiagnostics.isEmpty,
+                  let source = entry.value.scriptSource,
+                  materialValueSource(source),
+                  let properties = entry.value.scriptProperties,
+                  let inputs = SceneScriptPropertyInputCodec.inputs(properties),
+                  let components = entry.value.components,
+                  components.count == 3,
+                  components.allSatisfy({
+                    $0.isFinite && (0 ... 1).contains($0)
+                  }) else { continue }
+            candidates.append(.init(
+                authoredOrdinal: authoredOrdinalOffset + candidates.count,
+                source: source,
+                definition: .init(
+                    target: target,
+                    valueType: .vector3,
+                    authoredValue: .vector3(
+                        components[0], components[1], components[2]
+                    )
+                ),
+                properties: inputs,
+                livePropertyInputTargets: [],
+                hasCurrentAnimation: false,
+                dynamicImageReferences: [],
+                dynamicMaterialModelPath: nil
+            ))
+        }
+        return candidates
+    }
+
+    private static func normalizedMaterialPath(_ path: String) -> String {
+        path.replacingOccurrences(of: "\\", with: "/")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .localizedLowercase
     }
 
     private static func dynamicMaterialColorProjection(

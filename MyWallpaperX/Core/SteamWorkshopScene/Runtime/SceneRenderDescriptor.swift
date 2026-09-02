@@ -65,7 +65,10 @@ struct SceneRenderDescriptorBuilder {
         sceneDocument: SceneDocument,
         assetCatalog: SceneAssetCatalog,
         resourceReferences: SceneResourceReferenceIndex,
-        capabilityProfile: SceneCapabilityProfile
+        capabilityProfile: SceneCapabilityProfile,
+        directStaticModelMaterialLinks: [
+            SceneRenderDescriptor.ModelMaterialLink
+        ] = []
     ) -> SceneRenderDescriptor? {
         guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count else {
             return nil
@@ -173,12 +176,10 @@ struct SceneRenderDescriptorBuilder {
             rootLayerIDs: sceneDocument.objects.filter { $0.parentID == nil }.map(\.id),
             renderOrderLayerIDs: sceneDocument.objects.map(\.id),
             renderOrderPolicy: "source-order",
-            modelMaterialLinks: assetCatalog.models.map { model in
-                SceneRenderDescriptor.ModelMaterialLink(
-                    modelPath: model.relativePath,
-                    materialPath: model.materialPath
-                )
-            },
+            modelMaterialLinks: modelMaterialLinks(
+                from: assetCatalog,
+                directStaticModelMaterialLinks: directStaticModelMaterialLinks
+            ),
             materialPasses: materialPassDescriptors(from: assetCatalog),
             effectDefinitions: assetCatalog.effectDefinitions,
             effectDefinitionDiagnostics: effectDefinitionDiagnostics(
@@ -195,6 +196,25 @@ struct SceneRenderDescriptorBuilder {
             },
             firstStageRendererGaps: capabilityProfile.firstStageRendererGaps
         )
+    }
+
+    nonisolated private func modelMaterialLinks(
+        from assetCatalog: SceneAssetCatalog,
+        directStaticModelMaterialLinks: [
+            SceneRenderDescriptor.ModelMaterialLink
+        ]
+    ) -> [SceneRenderDescriptor.ModelMaterialLink] {
+        var seen: Set<String> = []
+        return (assetCatalog.models.map { model in
+            SceneRenderDescriptor.ModelMaterialLink(
+                modelPath: model.relativePath,
+                materialPath: model.materialPath
+            )
+        } + directStaticModelMaterialLinks).filter { link in
+            let identity = link.modelPath.replacingOccurrences(of: "\\", with: "/")
+                .localizedLowercase
+            return seen.insert(identity).inserted
+        }
     }
 
     nonisolated private func attachmentBindFrame(

@@ -179,15 +179,36 @@ struct SceneRenderDescriptor {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        let bindingKeys: [String]
+        let timeline: Bool?
+        let timelineDiagnostics: [String]
+        let scriptProperties: [String: SceneJSONValue]?
 
         init(
             scriptSource: String?, components: [Double]?,
-            userValueKind: SceneShaderUserValueKind? = nil
+            userValueKind: SceneShaderUserValueKind? = nil,
+            bindingKeys: [String] = [],
+            timeline: Bool? = nil,
+            timelineDiagnostics: [String] = [],
+            scriptProperties: [String: SceneJSONValue]? = nil
         ) {
             self.scriptSource = scriptSource
             self.components = components
             self.userValueKind = userValueKind
+            self.bindingKeys = bindingKeys
+            self.timeline = timeline
+            self.timelineDiagnostics = timelineDiagnostics
+            self.scriptProperties = scriptProperties
         }
+    }
+    struct ModelMaterialLink {
+        let modelPath: String
+        let materialPath: String?
+    }
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let passIndex: Int
+        let constantShaderValues: [String: ShaderValue]
     }
     struct EffectDescriptor {
         struct PassDescriptor {
@@ -257,8 +278,11 @@ struct SceneRenderDescriptor {
         var dependencyLayerIDs: [Int] = []
         var authoredDependencies: [Int] = []
         var utilityLayer: Int? = nil
+        var staticModelPath: String? = nil
     }
     var layers: [Layer]
+    var modelMaterialLinks: [ModelMaterialLink] = []
+    var materialPasses: [MaterialPassDescriptor] = []
 }
 
 @main
@@ -1352,6 +1376,55 @@ enum Harness {
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
+        var modelDescriptor = SceneRenderDescriptor(layers: [
+            .init(
+                id: 600, layerIndex: 0, name: "Unseen model",
+                visible: true, originXYZ: [0, 0, 0],
+                scaleXYZ: [1, 1, 1], scaleHasScript: false,
+                alpha: 1, effects: [], contentKind: "model",
+                staticModelPath: "models/unseen.mdl"
+            ),
+        ])
+        modelDescriptor.modelMaterialLinks = [.init(
+            modelPath: "models/unseen.mdl",
+            materialPath: "materials/unseen.json"
+        )]
+        modelDescriptor.materialPasses = [.init(
+            materialPath: "materials/unseen.json",
+            passIndex: 0,
+            constantShaderValues: [
+                "tintback": .init(
+                    scriptSource: modelTintSource,
+                    components: [1, 1, 1],
+                    bindingKeys: ["script", "scriptproperties", "value"],
+                    scriptProperties: [
+                        "useBlue": .object([
+                            "user": .object([
+                                "condition": .string("2"),
+                                "name": .string("colour"),
+                            ]),
+                            "value": .bool(false),
+                        ]),
+                    ]
+                ),
+            ]
+        )]
+        let modelTintTarget = SceneDynamicTarget.layer(
+            layerID: 600, field: .color
+        )
+        let modelTintProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: modelDescriptor,
+            scriptBindings: [],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [600],
+            generation: 33
+        )
+        let modelTintResult = modelTintProgram.evaluate(
+            inputs: [modelTintTarget: .vector3(1, 1, 1)],
+            effectivePropertyValues: ["colour": .number(2)],
+            frame: frame
+        )
         let payload: [String: Any] = [
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
@@ -1559,6 +1632,9 @@ enum Harness {
             "propertyEventFailures": propertyEventFirst.failures.count
                 + propertyEventStable.failures.count
                 + propertyEventChanged.failures.count,
+            "modelTintBindings": modelTintProgram.bindings.count,
+            "modelTintValue": vector(modelTintResult.values[modelTintTarget]),
+            "modelTintFailures": modelTintResult.failures.count,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -1852,6 +1928,17 @@ enum Harness {
     export function update(value) {
       return scriptProperties.useColor2
         ? WEColor.normalizeColor(new Vec3(200, 200, 255))
+        : value;
+    }
+    """
+
+    static let modelTintSource = """
+    import * as WEColor from 'WEColor';
+    export var scriptProperties = createScriptProperties()
+      .addCheckbox({name:'useBlue',value:false}).finish();
+    export function update(value) {
+      return scriptProperties.useBlue
+        ? WEColor.normalizeColor(new Vec3(215, 235, 255))
         : value;
     }
     """
@@ -2161,6 +2248,14 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertAlmostEqual(value["spotColorValue"][1], 200 / 255)
         self.assertEqual(value["spotColorValue"][2], 1, value)
         self.assertEqual(value["spotColorFailures"], 0, value)
+
+    def test_static_model_material_tint_uses_shared_vec3_vm(self) -> None:
+        value = self.result()
+        self.assertEqual(value["modelTintBindings"], 1, value)
+        self.assertAlmostEqual(value["modelTintValue"][0], 215 / 255)
+        self.assertAlmostEqual(value["modelTintValue"][1], 235 / 255)
+        self.assertEqual(value["modelTintValue"][2], 1, value)
+        self.assertEqual(value["modelTintFailures"], 0, value)
 
     def test_generic_pass_vec2_uses_typed_scene_script_publication(self) -> None:
         value = self.result()

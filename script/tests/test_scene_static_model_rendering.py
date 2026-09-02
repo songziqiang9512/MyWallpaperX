@@ -16,6 +16,8 @@ RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
 VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
 TOPOLOGY = SCENE_ROOT / "Runtime/SceneScript/SceneScriptLayerTopologyProjection.swift"
+SOURCE_FACTS = SCENE_ROOT / "Runtime/SceneRuntimeSourceFacts.swift"
+MODEL_READER = SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift"
 
 
 class SceneStaticModelRenderingTests(unittest.TestCase):
@@ -47,6 +49,9 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn('named: "emissivecolor"', resources)
         self.assertIn(")?.first ?? 0", resources)
         self.assertIn('pass.combos["TINTMASKALPHA"] != 1', resources)
+        self.assertIn('pass.combos["TINTMASKALPHA"] == 1', resources)
+        self.assertIn('named: "tintback"', resources)
+        self.assertIn("let viewTint: SceneStaticModelViewTint?", resources)
         self.assertIn("textureLoader: baseImages.textureLoader", preparation)
         self.assertIn("let staticModels: ScenePreparedStaticModelResources", preparation)
         self.assertIn("var preparedLayerIDs: [Int]", resources)
@@ -64,7 +69,9 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("emissiveMask: prepared.emissiveMask?.texture", model_case)
         self.assertIn("emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform", model_case)
         self.assertIn("emissiveMaskSampling: prepared.emissiveMask?.sampling", model_case)
-        self.assertIn("material: prepared.material", model_case)
+        self.assertIn("prepared.material.resolvingDynamicViewTintBack(", model_case)
+        self.assertIn("material: material", model_case)
+        self.assertIn("cameraPosition: cameraFrame.perspectiveEyePosition", model_case)
         self.assertIn("lighting: frameLightSnapshot", model_case)
         self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
         self.assertIn("worldFramesByLayerID: frameWorldFrames", renderer)
@@ -81,6 +88,16 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("staticModelResources: staticModelResources", view)
         self.assertIn("prepared static model layers:", view)
         self.assertIn("launchContext.preparedDeviceResources.staticModels", host)
+
+    def test_mdl_material_dependency_is_published_before_vm_projection(self) -> None:
+        source_facts = SOURCE_FACTS.read_text(encoding="utf-8")
+        reader = MODEL_READER.read_text(encoding="utf-8")
+        descriptor = DESCRIPTOR.read_text(encoding="utf-8")
+        self.assertIn("directStaticModelMaterialLinks(", source_facts)
+        self.assertIn("readMaterialPathMetadata(data: data)", source_facts)
+        self.assertIn("private static func readHeader(", reader)
+        self.assertIn("directStaticModelMaterialLinks:", descriptor)
+        self.assertIn("+ directStaticModelMaterialLinks", descriptor)
 
 
 if __name__ == "__main__":
