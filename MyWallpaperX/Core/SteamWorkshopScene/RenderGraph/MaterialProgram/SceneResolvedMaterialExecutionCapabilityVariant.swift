@@ -388,6 +388,23 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             graphTextureContentFacts: graphTextureContentFacts,
                             assetStates: assetStates
                         ) {
+                        // A readiness combo cannot make an unconditionally
+                        // sampled slot executable when its optional asset is
+                        // absent. Keep that hypothetical mask out of the
+                        // launch envelope; the ready mask remains the owner,
+                        // while a later missing publication still fails the
+                        // smallest effect at frame selection.
+                        if failure.phase == .texture,
+                           failure.code == .textureBindingInvalid,
+                           let slot = failure.slot,
+                           (0 ..< 8).contains(slot),
+                           nextProjection.requiredMask
+                            & (UInt8(1) << UInt8(slot)) == 0,
+                           nextProjection.optionalMask
+                            & (UInt8(1) << UInt8(slot)) != 0 {
+                            stable = true
+                            break
+                        }
                         return .failure(.material(failure))
                     }
                     reached.insert(mask)

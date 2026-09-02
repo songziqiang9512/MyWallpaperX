@@ -204,6 +204,12 @@ enum Harness {
         let normalizedStraightAlbedoJPEGURL = directory.appendingPathComponent(
             "normalized-straight-albedo-jpeg.tex"
         )
+        let normalizedStraightAlbedoPNGURL = directory.appendingPathComponent(
+            "normalized-straight-albedo-png.tex"
+        )
+        let transparentStraightAlbedoPNGURL = directory.appendingPathComponent(
+            "transparent-straight-albedo-png.tex"
+        )
         let paddedStraightAlbedoJPEGURL = directory.appendingPathComponent(
             "padded-straight-albedo-jpeg.tex"
         )
@@ -382,6 +388,28 @@ enum Harness {
             mipWidth: 4097,
             mipHeight: 2
         ).write(to: normalizedStraightAlbedoJPEGURL)
+        try embeddedImageTex(
+            textureWidth: 4097,
+            textureHeight: 2,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try opaquePNGData(width: 4097, height: 2),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 13,
+            mipWidth: 4097,
+            mipHeight: 2
+        ).write(to: normalizedStraightAlbedoPNGURL)
+        try embeddedImageTex(
+            textureWidth: 4097,
+            textureHeight: 2,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try pngData(width: 4097, height: 2),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 13,
+            mipWidth: 4097,
+            mipHeight: 2
+        ).write(to: transparentStraightAlbedoPNGURL)
         try embeddedImageTex(
             textureWidth: 8192,
             textureHeight: 4,
@@ -568,6 +596,22 @@ enum Harness {
             purpose: .straightAlbedo,
             device: device
         ))
+        let normalizedStraightAlbedoPNG = try candidate(loader.loadCandidate(
+            from: normalizedStraightAlbedoPNGURL,
+            purpose: .straightAlbedo,
+            device: device
+        ))
+        let transparentStraightAlbedoPNGRejected: Bool
+        switch loader.loadCandidate(
+            from: transparentStraightAlbedoPNGURL,
+            purpose: .straightAlbedo,
+            device: device
+        ) {
+        case .loaded:
+            transparentStraightAlbedoPNGRejected = false
+        case .failed:
+            transparentStraightAlbedoPNGRejected = true
+        }
         let paddedStraightAlbedoJPEGRejected = rejectedDimensions(
             loader.loadCandidate(
                 from: paddedStraightAlbedoJPEGURL,
@@ -1268,6 +1312,14 @@ enum Harness {
                 ) == SIMD2(repeating: 1)
                     && normalizedStraightAlbedoJPEG.texture.width == 4096
                     && normalizedStraightAlbedoJPEG.texture.height == 1,
+            "normalizedStraightAlbedoPNGIdentity":
+                normalizedStraightAlbedoPNG.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo
+                ) == SIMD2(repeating: 1)
+                    && normalizedStraightAlbedoPNG.texture.width == 4096
+                    && normalizedStraightAlbedoPNG.texture.height == 1,
+            "transparentStraightAlbedoPNGRejected":
+                transparentStraightAlbedoPNGRejected,
             "paddedStraightAlbedoJPEGRejected":
                 paddedStraightAlbedoJPEGRejected,
             "mislabeledTexb4StraightAlbedoPNGRejected":
@@ -2043,6 +2095,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "mappedTexb3JPEGOpaque": True,
                 "mappedTexb3PNGPreservesAlphaContract": True,
                 "normalizedStraightAlbedoJPEGIdentity": True,
+                "normalizedStraightAlbedoPNGIdentity": True,
                 "paddedStraightAlbedoJPEGRejected": True,
                 "mislabeledTexb4StraightAlbedoPNGRejected": True,
                 "normalizedColorMapped": [4096, 1],
@@ -2076,6 +2129,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "textureChangedAfterRewrite": True,
                 "textureChangedAfterAtomicReplace": True,
                 "textureChangedWithRestoredSizeAndMTime": True,
+                "transparentStraightAlbedoPNGRejected": True,
                 "atomicReplaceMetadataPreconditions": True,
                 "clampBorderBaseSampleRejected": True,
                 "clampBorderBaseLoadRejected": True,

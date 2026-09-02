@@ -4681,6 +4681,17 @@ private enum Harness {
             return program.frontendProgram.textureBindings.map(\.slot) == [0, 1]
                 && contract.fragmentOutput == .premultipliedAlpha
         }()
+        let activeAuthoredMaskProgram = finalize(
+            shader: activeDefaultMaskShader,
+            device: device,
+            includePrimaryCandidate: false,
+            secondReference: .asset(optionalDefaultPath),
+            additionalEntries: [
+                optionalDefaultIdentity: optionalDefaultEntry,
+            ],
+            uniformDeclarations: activeDefaultUniforms,
+            implicitFramebufferIdentity: graphTexture()
+        )
         let activeDefaultMaskMissing = finalize(
             shader: activeDefaultMaskShader,
             device: device,
@@ -5515,6 +5526,8 @@ private enum Harness {
                 "optionalMaskWithResourceAccepted":
                     optionalMaskWithResourceAccepted,
                 "activeDefaultMaskAccepted": activeDefaultMaskAccepted,
+                "activeAuthoredPresenceMaskAccepted":
+                    failureToken(activeAuthoredMaskProgram) == "success",
                 "implicitFramebufferTyped": implicitFramebufferTyped,
                 "previousMaterialAliasTyped": previousAliasTyped,
                 "historicalFramebufferMaterialAliasTyped":

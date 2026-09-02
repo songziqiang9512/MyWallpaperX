@@ -359,13 +359,15 @@ extension SceneTextureLoader {
         if output == sourcePhysicalSize {
             return (sourcePhysicalSize, sourceMapped)
         }
-        let sourceProvenOpaqueJPEG = container.format == 0
+        let sourceProvenOpaqueEmbeddedImage = container.format == 0
             && container.containerVersion == .texb0003
-            && container.freeImageFormat == 2
+            && [2, 13].contains(container.freeImageFormat)
             && sourcePhysicalSize == sourceMapped
             && hasValidTexb3EmbeddedMipChain(container)
+            && firstEmbeddedImageIsOpaque(container)
         let mayNormalizeMappedColor = purpose == .premultipliedColor
-            || (purpose == .straightAlbedo && sourceProvenOpaqueJPEG)
+            || (purpose == .straightAlbedo
+                && sourceProvenOpaqueEmbeddedImage)
         guard mayNormalizeMappedColor else {
             return nil
         }
@@ -378,11 +380,25 @@ extension SceneTextureLoader {
         }
         // Color uploads may crop authored padding or proportionally normalize
         // the mapped image to the loader budget. A source-proven opaque JPEG
-        // straight-albedo is also safe when it has no authored padding; padded
-        // straight/data roles continue to require the exact physical extent.
+        // or RGB PNG straight-albedo is also safe without authored padding;
+        // padded straight/data roles still require the exact physical extent.
         // In every accepted case the resulting texture contains only mapped
         // pixels, so its consumer UV is identity.
         return (output, output)
+    }
+
+    private func firstEmbeddedImageIsOpaque(
+        _ container: SceneTexContainer
+    ) -> Bool {
+        guard let first = container.mips.first,
+              let source = CGImageSourceCreateWithData(
+                  first.data as CFData,
+                  nil
+              ),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil),
+              image.width == first.width,
+              image.height == first.height else { return false }
+        return SceneImageTextureUploader.imageHasNoAlpha(image)
     }
 
     private func embeddedImagePixelSize(_ data: Data) -> CGSize? {
