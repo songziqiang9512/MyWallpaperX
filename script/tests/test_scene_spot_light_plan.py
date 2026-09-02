@@ -132,8 +132,8 @@ enum Harness {
         let second = SceneSpotLightPlan(layer: layer(id: 999))
         let parsed = SceneSpotLightDefinition.parse([
             "light": "lspot",
-            "color": "0.1 0.2 0.3",
-            "intensity": 80,
+            "color": ["script": "color.js", "value": "0.1 0.2 0.3"],
+            "intensity": ["user": "strength", "value": 80],
             "radius": 1437.12,
             "innercone": 1.87,
             "outercone": 2.91,
@@ -141,7 +141,7 @@ enum Harness {
             "exponent": 2.68,
             "volumetricsexponent": 2.82,
             "castvolumetrics": true,
-            "castshadow": true,
+            "castshadow": ["user": "shadow", "value": true],
             "solid": true,
         ])
         let angles = [0.0, 3.5, 7.0, 10.5, 14.0].compactMap {
@@ -150,7 +150,9 @@ enum Harness {
         let result: [String: Any] = [
             "parsed": parsed?.kind == "lspot"
                 && parsed?.colorRGB == [0.1, 0.2, 0.3]
-                && parsed?.outerConeDegrees == 2.91,
+                && parsed?.intensity == 80
+                && parsed?.outerConeDegrees == 2.91
+                && parsed?.castsShadow == true,
             "sharedIDsAccepted": first != nil && second != nil,
             "mirrorAngles": angles,
             "loopRejected": SceneSpotLightPlan(

@@ -17,7 +17,6 @@ struct SceneMetalRenderer {
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let staticModelResources: ScenePreparedStaticModelResources
-    let lightSnapshot: SceneLightSnapshot
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
     let textureRegistry = SceneFrameTextureRegistry()
@@ -84,10 +83,6 @@ struct SceneMetalRenderer {
             descriptor: renderDescriptor, byID: byID
         )
         self.worldFramesByLayerID = worldFramesByLayerID
-        self.lightSnapshot = SceneLightSnapshot.make(
-            descriptor: renderDescriptor,
-            worldFramesByLayerID: worldFramesByLayerID
-        )
         self.parallaxByLayerID = SceneLayerParallax.resolveAll(layersByID: byID)
     }
 
@@ -167,6 +162,26 @@ struct SceneMetalRenderer {
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: frameDescriptor,
             snapshot: frameContext.dynamicValues
+        )
+        let dynamicLightColors = Dictionary(uniqueKeysWithValues:
+            frameDescriptor.layers.compactMap { layer -> (Int, SIMD3<Float>)? in
+                guard layer.spotLight != nil || layer.directionalLight != nil else {
+                    return nil
+                }
+                return (
+                    layer.id,
+                    SceneDynamicLayerValues.color(
+                        layerID: layer.id,
+                        authoredValue: layer.colorRGB,
+                        snapshot: frameContext.dynamicValues
+                    )
+                )
+            }
+        )
+        let frameLightSnapshot = SceneLightSnapshot.make(
+            descriptor: frameDescriptor,
+            worldFramesByLayerID: frameWorldFrames,
+            dynamicLayerColors: dynamicLightColors
         )
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
@@ -590,6 +605,9 @@ struct SceneMetalRenderer {
                 _ = pipeline.draw(
                     mesh: prepared.mesh,
                     texture: prepared.albedo.texture,
+                    emissiveMask: prepared.emissiveMask?.texture,
+                    emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform,
+                    emissiveMaskSampling: prepared.emissiveMask?.sampling,
                     modelMatrix: modelMatrix,
                     viewProjection: cameraFrame.reverseDepthViewProjection(
                         usesPerspective: layer.usesPerspective == true
@@ -598,7 +616,7 @@ struct SceneMetalRenderer {
                     sampling: prepared.albedo.sampling,
                     layerAlpha: alpha,
                     material: prepared.material,
-                    lighting: lightSnapshot,
+                    lighting: frameLightSnapshot,
                     writesDepth: prepared.writesDepth,
                     encoder: encoder
                 )

@@ -260,6 +260,9 @@ struct SceneRenderDescriptorBuilder {
         if object.spotLight != nil {
             return "spotLight"
         }
+        if object.directionalLight != nil {
+            return "directionalLight"
+        }
         if object.text != nil {
             return "text"
         }

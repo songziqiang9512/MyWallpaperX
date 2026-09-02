@@ -15,6 +15,7 @@ LAYER = SCENE_ROOT / "Runtime/SceneRenderDescriptor+Layer.swift"
 RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
 VIEW = SCENE_ROOT / "Rendering/SceneMetalView.swift"
 HOST = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost.swift"
+TOPOLOGY = SCENE_ROOT / "Runtime/SceneScript/SceneScriptLayerTopologyProjection.swift"
 
 
 class SceneStaticModelRenderingTests(unittest.TestCase):
@@ -34,12 +35,17 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         resources = RESOURCES.read_text(encoding="utf-8")
         preparation = PREPARATION.read_text(encoding="utf-8")
         self.assertIn("let albedo: SceneTextureCandidate", resources)
+        self.assertIn("let emissiveMask: SceneTextureCandidate?", resources)
         self.assertIn("let material: SceneStaticModelMaterial", resources)
         self.assertIn("let geometryIdentity: String", resources)
         self.assertIn("pass.textureSlots.first.flatMap", resources)
         self.assertNotIn("pass.texturePaths.first", resources)
         self.assertIn("textureLoader.loadCandidate(", resources)
         self.assertIn("purpose: .straightAlbedo", resources)
+        self.assertIn("purpose: .mask", resources)
+        self.assertIn('named: "emissivebrightness"', resources)
+        self.assertIn('named: "emissivecolor"', resources)
+        self.assertIn(")?.first ?? 0", resources)
         self.assertIn('pass.combos["TINTMASKALPHA"] != 1', resources)
         self.assertIn("textureLoader: baseImages.textureLoader", preparation)
         self.assertIn("let staticModels: ScenePreparedStaticModelResources", preparation)
@@ -49,13 +55,21 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         renderer = RENDERER.read_text(encoding="utf-8")
         view = VIEW.read_text(encoding="utf-8")
         host = HOST.read_text(encoding="utf-8")
+        topology = TOPOLOGY.read_text(encoding="utf-8")
         model_case = renderer.split('case "model":', 1)[1].split(
             'case "quad":', 1
         )[0]
         self.assertIn("mainPass.encoder(", model_case)
         self.assertIn("pipeline.draw(", model_case)
+        self.assertIn("emissiveMask: prepared.emissiveMask?.texture", model_case)
+        self.assertIn("emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform", model_case)
+        self.assertIn("emissiveMaskSampling: prepared.emissiveMask?.sampling", model_case)
         self.assertIn("material: prepared.material", model_case)
-        self.assertIn("lighting: lightSnapshot", model_case)
+        self.assertIn("lighting: frameLightSnapshot", model_case)
+        self.assertIn("let frameLightSnapshot = SceneLightSnapshot.make(", renderer)
+        self.assertIn("worldFramesByLayerID: frameWorldFrames", renderer)
+        self.assertIn("dynamicLayerColors: dynamicLightColors", renderer)
+        self.assertIn("entryPath: entryPath, camera: camera, lighting: lighting", topology)
         self.assertIn("staticModelDepthPlan.target(", model_case)
         self.assertIn("case .isolated:", model_case)
         self.assertIn("frameWorldFrames[layer.id]", model_case)

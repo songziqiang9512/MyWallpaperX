@@ -186,13 +186,14 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed initialization input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        let scriptInput = sceneScriptInput(input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var didInitialize: UInt32 = 0
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
-        switch input {
+        switch scriptInput {
         case let .bool(value):
             var output = 0.0
             result = scriptPropertiesJSON.withCString { properties in
@@ -208,7 +209,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             publishedValue = .bool(output != 0)
         case .vector2, .vector3:
             let source: [Double]
-            switch input {
+            switch scriptInput {
             case let .vector2(x, y): source = [x, y, 0]
             case let .vector3(x, y, z): source = [x, y, z]
             default: preconditionFailure("typed initialization input changed")
@@ -233,9 +234,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             guard output.allSatisfy(\.isFinite) else {
                 return .failure(.badReturn("invalid initialized Vec3 output"))
             }
-            publishedValue = valueType == .vector2
-                ? .vector2(output[0], output[1])
-                : .vector3(output[0], output[1], output[2])
+            publishedValue = runtimeValue(
+                valueType == .vector2
+                    ? .vector2(output[0], output[1])
+                    : .vector3(output[0], output[1], output[2])
+            )
         default:
             return .failure(.invalidArgument("invalid typed initialization input"))
         }
@@ -272,12 +275,13 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed vector input"))
         }
         guard expectedGeneration == generation else { return .failure(.staleOwner) }
+        let scriptInput = sceneScriptInput(input)
         domain.resetBudget(interruptBudget ?? budget.interruptBudget)
         var frameInput = frame.quickJSValue
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
-        switch input {
+        switch scriptInput {
         case let .bool(value):
             var output: UInt32 = 0
             result = scriptPropertiesJSON.withCString { properties in
@@ -302,7 +306,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             publishedValue = .bool(output != 0)
         case .vector2, .vector3:
             let source: [Double]
-            switch input {
+            switch scriptInput {
             case let .vector2(x, y): source = [x, y, 0]
             case let .vector3(x, y, z): source = [x, y, z]
             default: preconditionFailure("typed vector input changed")
@@ -327,9 +331,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             guard output.allSatisfy(\.isFinite) else {
                 return .failure(.badReturn("non-finite Vec3 output"))
             }
-            publishedValue = valueType == .vector2
-                ? .vector2(output[0], output[1])
-                : .vector3(output[0], output[1], output[2])
+            publishedValue = runtimeValue(
+                valueType == .vector2
+                    ? .vector2(output[0], output[1])
+                    : .vector3(output[0], output[1], output[2])
+            )
         default:
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }
@@ -430,6 +436,30 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             layerMutations: publishedLayerMutations,
             videoCommands: mutations.videoCommands
         ))
+    }
+
+    private func sceneScriptInput(
+        _ value: SceneDynamicValue
+    ) -> SceneDynamicValue {
+        guard case .layer(_, .angles) = target,
+              case let .vector3(x, y, z) = value else { return value }
+        return .vector3(
+            SceneScriptAngleUnits.degrees(fromRadians: x),
+            SceneScriptAngleUnits.degrees(fromRadians: y),
+            SceneScriptAngleUnits.degrees(fromRadians: z)
+        )
+    }
+
+    private func runtimeValue(
+        _ value: SceneDynamicValue
+    ) -> SceneDynamicValue {
+        guard case .layer(_, .angles) = target,
+              case let .vector3(x, y, z) = value else { return value }
+        return .vector3(
+            SceneScriptAngleUnits.radians(fromDegrees: x),
+            SceneScriptAngleUnits.radians(fromDegrees: y),
+            SceneScriptAngleUnits.radians(fromDegrees: z)
+        )
     }
 
     func dispatchMediaThumbnail(

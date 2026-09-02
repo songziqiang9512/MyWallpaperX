@@ -24,18 +24,24 @@ struct SceneSpotLightDefinition: Codable, Equatable {
         }
         return SceneSpotLightDefinition(
             kind: kind.lowercased(),
-            colorRGB: vector(root["color"]),
-            intensity: number(root["intensity"]),
-            radius: number(root["radius"]),
-            innerConeDegrees: number(root["innercone"]),
-            outerConeDegrees: number(root["outercone"]),
-            density: number(root["density"]),
-            exponent: number(root["exponent"]),
-            volumetricsExponent: number(root["volumetricsexponent"]),
-            castsVolumetrics: root["castvolumetrics"] as? Bool,
-            castsShadow: root["castshadow"] as? Bool,
-            isSolid: root["solid"] as? Bool
+            colorRGB: vector(resolvedValue(root["color"])),
+            intensity: number(resolvedValue(root["intensity"])),
+            radius: number(resolvedValue(root["radius"])),
+            innerConeDegrees: number(resolvedValue(root["innercone"])),
+            outerConeDegrees: number(resolvedValue(root["outercone"])),
+            density: number(resolvedValue(root["density"])),
+            exponent: number(resolvedValue(root["exponent"])),
+            volumetricsExponent: number(resolvedValue(root["volumetricsexponent"])),
+            castsVolumetrics: resolvedValue(root["castvolumetrics"]) as? Bool,
+            castsShadow: resolvedValue(root["castshadow"]) as? Bool,
+            isSolid: resolvedValue(root["solid"]) as? Bool
         )
+    }
+
+    /// Script/user-property wrappers retain an authored value that remains the
+    /// safe light input until the typed runtime publishes a newer value.
+    private nonisolated static func resolvedValue(_ value: Any?) -> Any? {
+        (value as? [String: Any])?["value"] ?? value
     }
 
     private nonisolated static func string(_ value: Any?) -> String? {

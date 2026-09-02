@@ -21,12 +21,17 @@ nonisolated enum SceneScriptHostValue: Equatable, Sendable {
 nonisolated struct SceneScriptPropertyInput: Equatable, Sendable {
     let fallback: SceneScriptHostValue
     let userPropertyKey: String?
+    let condition: SceneUserPropertyValue?
 
     func resolve(
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> SceneScriptHostValue? {
         guard let userPropertyKey,
               let live = effectiveValues[userPropertyKey] else { return fallback }
+        if let condition {
+            guard case .bool = fallback else { return nil }
+            return .bool(live.matches(condition))
+        }
         switch (fallback, live) {
         case (_, .number(let value)) where !value.isFinite:
             return nil
@@ -60,14 +65,17 @@ nonisolated enum SceneScriptPropertyInputCodec {
         _ value: SceneJSONValue
     ) -> SceneScriptPropertyInput? {
         if let fallback = hostValue(value) {
-            return .init(fallback: fallback, userPropertyKey: nil)
+            return .init(
+                fallback: fallback, userPropertyKey: nil, condition: nil
+            )
         }
         guard let definition =
                 SceneScriptUserPropertyInputContract.dynamicInput(value),
               let fallback = hostValue(definition.fallback) else { return nil }
         return .init(
             fallback: fallback,
-            userPropertyKey: definition.userPropertyKey
+            userPropertyKey: definition.userPropertyKey,
+            condition: definition.condition
         )
     }
 

@@ -14,17 +14,26 @@ struct SceneStaticModelUniforms {
     float3x3 normalMatrix;
     float4 textureFrame0;
     float4 textureFrame1;
+    float4 componentTextureFrame0;
+    float4 componentTextureFrame1;
     float4 materialColorAndOpacity;
+    float4 emissiveColorAndBrightness;
     uint4 materialFlags;
     float4 ambientAndCount;
     float4 lightDirectionIntensity[4];
     float4 lightColor[4];
+    float4 spotPositionRadius[4];
+    float4 spotDirectionInnerCosine[4];
+    float4 spotColorIntensity[4];
+    float4 spotOuterCosines;
 };
 
 struct SceneStaticModelRasterVertex {
     float4 position [[position]];
+    float3 worldPosition;
     float3 normal;
     float2 uv;
+    float2 componentUV;
 };
 
 vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
@@ -35,6 +44,7 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     SceneStaticModelRasterVertex out;
     float4 worldPosition = uniforms.modelMatrix * float4(modelVertex.position, 1.0);
     out.position = uniforms.viewProjectionMatrix * worldPosition;
+    out.worldPosition = worldPosition.xyz;
     float3 transformedNormal = uniforms.normalMatrix * modelVertex.normal;
     float transformedLengthSquared = dot(transformedNormal, transformedNormal);
     out.normal = transformedLengthSquared > 1e-12
@@ -43,13 +53,18 @@ vertex SceneStaticModelRasterVertex sceneStaticModelVertex(
     out.uv = uniforms.textureFrame0.xy
         + modelVertex.uv.x * uniforms.textureFrame0.zw
         + modelVertex.uv.y * uniforms.textureFrame1.xy;
+    out.componentUV = uniforms.componentTextureFrame0.xy
+        + modelVertex.uv.x * uniforms.componentTextureFrame0.zw
+        + modelVertex.uv.y * uniforms.componentTextureFrame1.xy;
     return out;
 }
 
 fragment half4 sceneStaticModelFragment(
     SceneStaticModelRasterVertex in [[stage_in]],
     texture2d<half> colorTexture [[texture(0)]],
+    texture2d<half> componentTexture [[texture(1)]],
     sampler colorSampler [[sampler(0)]],
+    sampler componentSampler [[sampler(1)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     half4 albedo = colorTexture.sample(colorSampler, in.uv);
     float normalLengthSquared = dot(in.normal, in.normal);
@@ -63,15 +78,53 @@ fragment half4 sceneStaticModelFragment(
         float diffuse = max(dot(normal, light.xyz), 0.0);
         lighting += uniforms.lightColor[lightIndex].xyz * light.w * diffuse;
     }
+    uint spotCount = uniforms.materialFlags.z;
+    for (uint lightIndex = 0; lightIndex < min(spotCount, 4u); ++lightIndex) {
+        float4 positionRadius = uniforms.spotPositionRadius[lightIndex];
+        float3 toLight = positionRadius.xyz - in.worldPosition;
+        float distanceSquared = dot(toLight, toLight);
+        if (distanceSquared <= 1e-8) {
+            continue;
+        }
+        float distanceToLight = sqrt(distanceSquared);
+        float3 directionTowardLight = toLight / distanceToLight;
+        float radial = clamp(
+            1.0 - distanceToLight / max(positionRadius.w, 1e-4),
+            0.0,
+            1.0
+        );
+        radial *= radial;
+        float4 directionInner = uniforms.spotDirectionInnerCosine[lightIndex];
+        float coneDot = dot(directionInner.xyz, -directionTowardLight);
+        float outerCosine = uniforms.spotOuterCosines[lightIndex];
+        float cone = directionInner.w > outerCosine + 1e-5
+            ? smoothstep(outerCosine, directionInner.w, coneDot)
+            : step(outerCosine, coneDot);
+        float diffuse = max(dot(normal, directionTowardLight), 0.0);
+        float4 colorIntensity = uniforms.spotColorIntensity[lightIndex];
+        lighting += colorIntensity.xyz * colorIntensity.w
+            * radial * cone * diffuse;
+    }
     lighting = lighting / (float3(1.0) + lighting);
 
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
     half outputAlpha = authoredOpacity * (
         uniforms.materialFlags.x != 0 ? albedo.a : half(1.0)
     );
-    half3 litColor = albedo.rgb
-        * half3(uniforms.materialColorAndOpacity.xyz)
-        * half3(lighting);
+    half3 surfaceColor = albedo.rgb
+        * half3(uniforms.materialColorAndOpacity.xyz);
+    half3 litColor = surfaceColor * half3(lighting);
+    if (uniforms.materialFlags.y != 0) {
+        half emissive = clamp(
+            componentTexture.sample(componentSampler, in.componentUV).a
+                * half(uniforms.emissiveColorAndBrightness.w),
+            half(0.0),
+            half(1.0)
+        );
+        half3 emittedColor = surfaceColor
+            * half3(uniforms.emissiveColorAndBrightness.xyz);
+        litColor = mix(litColor, emittedColor, emissive);
+    }
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.
     return half4(litColor * outputAlpha, outputAlpha);

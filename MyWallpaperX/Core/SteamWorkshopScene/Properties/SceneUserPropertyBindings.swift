@@ -114,6 +114,7 @@ nonisolated struct SceneUserPropertyBindingReport {
 nonisolated struct SceneScriptUserPropertyInputDefinition: Equatable, Sendable {
     let userPropertyKey: String
     let fallback: SceneJSONValue
+    let condition: SceneUserPropertyValue?
 }
 
 nonisolated enum SceneScriptUserPropertyInputContract {
@@ -122,11 +123,30 @@ nonisolated enum SceneScriptUserPropertyInputContract {
     ) -> SceneScriptUserPropertyInputDefinition? {
         guard case let .object(wrapper) = value,
               wrapper.keys.sorted() == ["user", "value"],
-              case let .string(key)? = wrapper["user"],
-              validName(key),
               let fallback = wrapper["value"],
-              isPrimitive(fallback) else { return nil }
-        return .init(userPropertyKey: key, fallback: fallback)
+              isPrimitive(fallback),
+              let user = wrapper["user"] else { return nil }
+        switch user {
+        case let .string(key):
+            guard validName(key) else { return nil }
+            return .init(
+                userPropertyKey: key, fallback: fallback, condition: nil
+            )
+        case let .object(reference):
+            guard reference.keys.sorted() == ["condition", "name"],
+                  case let .string(key)? = reference["name"],
+                  validName(key),
+                  let conditionValue = reference["condition"],
+                  let condition = userPropertyValue(conditionValue),
+                  case .bool = fallback else { return nil }
+            return .init(
+                userPropertyKey: key,
+                fallback: fallback,
+                condition: condition
+            )
+        default:
+            return nil
+        }
     }
 
     static func validName(_ value: String) -> Bool {
@@ -138,6 +158,17 @@ nonisolated enum SceneScriptUserPropertyInputContract {
         case let .number(number): number.isFinite
         case .bool, .string: true
         default: false
+        }
+    }
+
+    private static func userPropertyValue(
+        _ value: SceneJSONValue
+    ) -> SceneUserPropertyValue? {
+        switch value {
+        case let .number(number) where number.isFinite: .number(number)
+        case let .bool(value): .bool(value)
+        case let .string(value): .string(value)
+        default: nil
         }
     }
 }

@@ -239,8 +239,10 @@ struct SceneRenderDescriptor {
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
-        let anglesXYZ: [Float]? = nil
+        var anglesXYZ: [Float]? = nil
         var colorRGB: [Float]? = nil
+        var spotLight: Bool? = nil
+        var directionalLight: Bool? = nil
         let scaleHasScript: Bool?
         let alpha: Double?
         let effects: [EffectDescriptor]
@@ -266,6 +268,7 @@ enum Harness {
             .init(
                 id: 10, layerIndex: 0, name: "anchor", visible: true,
                 originXYZ: [20, 2250, 0], scaleXYZ: [1.5, 1.5, 1.5],
+                anglesXYZ: [0, 0, Float.pi / 2],
                 scaleHasScript: true, alpha: 0.75,
                 effects: [.init(
                     name: "history", effectID: 100,
@@ -363,6 +366,14 @@ enum Harness {
                     fontPath: nil, colorRGB: [0, 0, 0], pointSize: 32
                 )
             ),
+            .init(
+                id: 502, layerIndex: 6, name: "Authored spot color",
+                visible: true,
+                originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                colorRGB: [1, 1, 1], spotLight: true,
+                scaleHasScript: false, alpha: 1, effects: [],
+                contentKind: "spotLight"
+            ),
         ])
         let domain = try SceneScriptQuickJSDomain()
         let program = SceneScriptVectorProgram.compile(
@@ -376,6 +387,10 @@ enum Harness {
                 binding(key: "scale", source: scaleSource, value: "1.5 1.5 1.5", properties: [
                     "size": .object(["user": .string("size"), "value": .number(1.5)]),
                 ]),
+                binding(
+                    key: "angles", source: angleSource,
+                    value: "0 0 1.5707963", properties: [:]
+                ),
             ],
             userPropertyDefinitions: [],
             generation: 7
@@ -385,10 +400,14 @@ enum Harness {
             simulationFrameTime: 1.0 / 60.0,
             sceneTime: 2
         ), timeZone: TimeZone(secondsFromGMT: 0)!)
+        let angleTarget = SceneDynamicTarget.layer(
+            layerID: 10, field: .angles
+        )
         let result = program.evaluate(
             inputs: [
                 .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
                 .layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5),
+                angleTarget: .vector3(0, 0, Double(Float.pi / 2)),
             ],
             effectivePropertyValues: [
                 "x1": .number(40), "y1": .number(2100), "size": .number(1.25),
@@ -862,6 +881,35 @@ enum Harness {
                 generation: 1
             )
         )
+        let spotColorTarget = SceneDynamicTarget.layer(
+            layerID: 502, field: .color
+        )
+        let spotColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [colorBinding(
+                source: spotColorSource,
+                value: "1 1 1",
+                objectIndex: 6,
+                objectID: 502,
+                properties: [
+                    "useColor2": .object([
+                        "user": .object([
+                            "condition": .string("2"),
+                            "name": .string("colour"),
+                        ]),
+                        "value": .bool(false),
+                    ]),
+                ]
+            )],
+            userPropertyDefinitions: [],
+            admittedLayerColorConsumerIDs: [502],
+            generation: 106
+        )
+        let spotColorResult = spotColorProgram.evaluate(
+            inputs: [spotColorTarget: .vector3(1, 1, 1)],
+            effectivePropertyValues: ["colour": .number(2)], frame: frame
+        )
         let currentColorProgram = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -1308,6 +1356,8 @@ enum Harness {
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
             "scale": vector(result.values[.layer(layerID: 10, field: .scale)]),
+            "angleValue": vector(result.values[angleTarget]),
+            "angleFailure": result.failures[angleTarget]?.code ?? "",
             "failures": result.failures.count,
             "mutations": result.materialFunctionMutations.map {
                 ["layerID": $0.layerID, "effectIndex": $0.effectIndex,
@@ -1388,6 +1438,9 @@ enum Harness {
                 == [colorTarget],
             "layerColorValue": vector(colorResult.values[colorTarget]),
             "layerColorFailures": colorResult.failures.count,
+            "spotColorBindings": spotColorProgram.bindings.count,
+            "spotColorValue": vector(spotColorResult.values[spotColorTarget]),
+            "spotColorFailures": spotColorResult.failures.count,
             "layerColorCurrent": vector(currentColorResult.values[colorTarget]),
             "layerColorUndefined": vector(
                 undefinedColorResult.values[colorTarget]
@@ -1735,6 +1788,13 @@ enum Harness {
     }
     """
 
+    static let angleSource = """
+    export function update(value) {
+      value.y = 0.15;
+      return value;
+    }
+    """
+
     static let propertyEventSource = """
     export var scriptProperties = createScriptProperties()
       .addSlider({name:'step',value:1}).finish();
@@ -1783,6 +1843,17 @@ enum Harness {
       color.z = event.primaryColor.z;
     }
     export function update(value) { return color.copy(); }
+    """
+
+    static let spotColorSource = """
+    import * as WEColor from 'WEColor';
+    export var scriptProperties = createScriptProperties()
+      .addCheckbox({name:'useColor2',value:false}).finish();
+    export function update(value) {
+      return scriptProperties.useColor2
+        ? WEColor.normalizeColor(new Vec3(200, 200, 255))
+        : value;
+    }
     """
 
     static let scriptPropertyColorSource = """
@@ -2061,7 +2132,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
 
     def test_generic_vec3_executes_script_properties_and_scalar_splat(self) -> None:
         value = self.result()
-        self.assertEqual(value["bindings"], 2)
+        self.assertEqual(value["bindings"], 3)
         self.assertEqual(value["origin"], [40, 2100, 0])
         self.assertEqual(value["scale"], [1.25, 1.25, 1.25])
         self.assertEqual(value["failures"], 0)
@@ -2070,6 +2141,26 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         ])
         self.assertEqual(value["layerOrigin"], [4, 5, 6])
         self.assertEqual(value["layerFailures"], 0)
+
+    def test_layer_angle_vm_boundary_uses_degrees_and_publishes_radians(self) -> None:
+        value = self.result()
+        self.assertEqual(value["angleFailure"], "", value)
+        angles = value["angleValue"]
+        self.assertAlmostEqual(angles[0], 0, delta=1e-6)
+        self.assertAlmostEqual(
+            angles[1], 0.15 * 3.141592653589793 / 180, delta=1e-6
+        )
+        self.assertAlmostEqual(
+            angles[2], 3.141592653589793 / 2, delta=1e-6
+        )
+
+    def test_spot_light_color_is_a_typed_model_light_consumer(self) -> None:
+        value = self.result()
+        self.assertEqual(value["spotColorBindings"], 1, value)
+        self.assertAlmostEqual(value["spotColorValue"][0], 200 / 255)
+        self.assertAlmostEqual(value["spotColorValue"][1], 200 / 255)
+        self.assertEqual(value["spotColorValue"][2], 1, value)
+        self.assertEqual(value["spotColorFailures"], 0, value)
 
     def test_generic_pass_vec2_uses_typed_scene_script_publication(self) -> None:
         value = self.result()

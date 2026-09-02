@@ -5,7 +5,8 @@ nonisolated extension SceneRenderDescriptor {
         var merged = layers
         merged.append(contentsOf: topology.dynamicLayers)
         return .init(
-            entryPath: entryPath, camera: camera, layers: merged,
+            entryPath: entryPath, camera: camera, lighting: lighting,
+            layers: merged,
             rootLayerIDs: rootLayerIDs + topology.dynamicLayers.map { $0.id },
             renderOrderLayerIDs: topology.renderOrderLayerIDs,
             renderOrderPolicy: renderOrderPolicy,

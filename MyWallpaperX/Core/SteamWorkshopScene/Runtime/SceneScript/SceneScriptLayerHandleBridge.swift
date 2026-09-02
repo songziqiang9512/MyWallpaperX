@@ -1,5 +1,18 @@
 import Foundation
 
+/// Scene JSON and the renderer keep Euler angles in radians, while the public
+/// SceneScript layer API exposes degrees. Convert only at the VM boundary so
+/// authored storage, dynamic publication and world-frame math stay canonical.
+nonisolated enum SceneScriptAngleUnits {
+    static func degrees(fromRadians value: Double) -> Double {
+        value * 180 / .pi
+    }
+
+    static func radians(fromDegrees value: Double) -> Double {
+        value * .pi / 180
+    }
+}
+
 nonisolated struct SceneScriptVideoPlaybackSnapshot: Equatable, Sendable {
     let layerID: Int
     let duration: TimeInterval
@@ -305,7 +318,11 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 visible: raw.visible != 0, alpha: raw.alpha,
                 origin: .init(raw.origin.0, raw.origin.1, raw.origin.2),
                 scale: .init(raw.scale.0, raw.scale.1, raw.scale.2),
-                angles: .init(raw.angles.0, raw.angles.1, raw.angles.2),
+                angles: .init(
+                    SceneScriptAngleUnits.radians(fromDegrees: raw.angles.0),
+                    SceneScriptAngleUnits.radians(fromDegrees: raw.angles.1),
+                    SceneScriptAngleUnits.radians(fromDegrees: raw.angles.2)
+                ),
                 color: .init(raw.color.0, raw.color.1, raw.color.2),
                 pointSize: raw.point_size,
                 text: String(cString: textPointer), font: String(cString: fontPointer),

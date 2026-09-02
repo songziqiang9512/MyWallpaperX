@@ -161,12 +161,18 @@ struct SceneRuntimeModelBuilder {
                 return layerID
             }
         )
+        let hasVisibleStaticModelConsumer = runtimeDescriptor.layers.contains {
+            $0.staticModelPath != nil && visibleLayerIDs.contains($0.id)
+        }
         let sceneScriptColorConsumerLayerIDs: Set<Int> = Set(
             runtimeDescriptor.layers.compactMap { layer in
                 let hasConsumer = layer.supportsDirectLayerColorConsumer
                     || (layer.contentKind == "text"
                         && layer.text != nil
                         && layer.textStyle != nil)
+                    || (hasVisibleStaticModelConsumer
+                        && (layer.spotLight != nil
+                            || layer.directionalLight != nil))
                 guard hasConsumer,
                       visibleLayerIDs.contains(layer.id)
                         || typedVisibilityOwnerLayerIDs.contains(layer.id)

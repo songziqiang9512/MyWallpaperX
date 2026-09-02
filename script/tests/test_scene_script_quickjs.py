@@ -1067,6 +1067,46 @@ int main(void) {
         "WEColor rejects non-normalized saturation"
     );
 
+    const char *wecolor_normalize_source =
+        "import * as WEColor from 'WEColor';\n"
+        "export function update(value) {\n"
+        "  return WEColor.normalizeColor(new Vec3(200,200,255));\n"
+        "}";
+    MWXSceneQuickJSOwner *wecolor_normalize = mwx_scene_quickjs_owner_create(
+        domain, wecolor_normalize_source, strlen(wecolor_normalize_source),
+        55, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        wecolor_normalize != NULL, "WEColor.normalizeColor compile", diagnostic
+    );
+    const double normalized_blue[3] = {200.0 / 255.0, 200.0 / 255.0, 1};
+    failures += update_vec3(
+        wecolor_normalize, 55, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, normalized_blue,
+        "WEColor.normalizeColor maps byte RGB to normalized Vec3"
+    );
+
+    const char *wecolor_normalize_invalid_source =
+        "import * as WEColor from 'WEColor';\n"
+        "export function update(value) {\n"
+        "  return WEColor.normalizeColor(new Vec3(300,0,0));\n"
+        "}";
+    MWXSceneQuickJSOwner *wecolor_normalize_invalid =
+        mwx_scene_quickjs_owner_create(
+            domain, wecolor_normalize_invalid_source,
+            strlen(wecolor_normalize_invalid_source),
+            56, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        wecolor_normalize_invalid != NULL,
+        "invalid WEColor.normalizeColor compile", diagnostic
+    );
+    failures += update_vec3(
+        wecolor_normalize_invalid, 56, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_EXCEPTION, vec3_input,
+        "WEColor.normalizeColor rejects components outside byte RGB"
+    );
+
     const char *immutable_user_source =
         "'use strict'; export function update(value) {"
         "engine.userProperties.live = 9; return value; }";
@@ -2746,6 +2786,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(wecolor);
     mwx_scene_quickjs_owner_destroy(wecolor_wrap);
     mwx_scene_quickjs_owner_destroy(wecolor_invalid);
+    mwx_scene_quickjs_owner_destroy(wecolor_normalize);
+    mwx_scene_quickjs_owner_destroy(wecolor_normalize_invalid);
     mwx_scene_quickjs_owner_destroy(immutable_user);
     mwx_scene_quickjs_owner_destroy(scalar_user);
     failures += check(

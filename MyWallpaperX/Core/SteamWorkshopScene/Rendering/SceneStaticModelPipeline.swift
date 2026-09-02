@@ -14,6 +14,8 @@ struct SceneStaticModelMaterial {
     let color: SIMD3<Float>
     let opacity: Float
     let textureAlphaIsOpacity: Bool
+    let emissiveColor: SIMD3<Float>
+    let emissiveBrightness: Float
 }
 
 private struct SceneStaticModelUniforms {
@@ -22,7 +24,10 @@ private struct SceneStaticModelUniforms {
     var normalMatrix: simd_float3x3
     var textureFrame0: SIMD4<Float>
     var textureFrame1: SIMD4<Float>
+    var componentTextureFrame0: SIMD4<Float>
+    var componentTextureFrame1: SIMD4<Float>
     var materialColorAndOpacity: SIMD4<Float>
+    var emissiveColorAndBrightness: SIMD4<Float>
     var materialFlags: SIMD4<UInt32>
     var ambientAndCount: SIMD4<Float>
     var lightDirectionIntensity0: SIMD4<Float>
@@ -33,6 +38,19 @@ private struct SceneStaticModelUniforms {
     var lightColor1: SIMD4<Float>
     var lightColor2: SIMD4<Float>
     var lightColor3: SIMD4<Float>
+    var spotPositionRadius0: SIMD4<Float>
+    var spotPositionRadius1: SIMD4<Float>
+    var spotPositionRadius2: SIMD4<Float>
+    var spotPositionRadius3: SIMD4<Float>
+    var spotDirectionInnerCosine0: SIMD4<Float>
+    var spotDirectionInnerCosine1: SIMD4<Float>
+    var spotDirectionInnerCosine2: SIMD4<Float>
+    var spotDirectionInnerCosine3: SIMD4<Float>
+    var spotColorIntensity0: SIMD4<Float>
+    var spotColorIntensity1: SIMD4<Float>
+    var spotColorIntensity2: SIMD4<Float>
+    var spotColorIntensity3: SIMD4<Float>
+    var spotOuterCosines: SIMD4<Float>
 }
 
 /// Fixed, bounded pipeline for decoded static-model triangles. It consumes the
@@ -146,6 +164,9 @@ struct SceneStaticModelPipeline {
     func draw(
         mesh: SceneStaticModelMesh,
         texture: MTLTexture,
+        emissiveMask: MTLTexture?,
+        emissiveMaskTextureFrame: SceneTextureUVTransform?,
+        emissiveMaskSampling: SceneTextureSampling?,
         modelMatrix: simd_float4x4,
         viewProjection: simd_float4x4,
         textureFrame: SceneTextureUVTransform,
@@ -159,32 +180,55 @@ struct SceneStaticModelPipeline {
         guard Self.isFinite(modelMatrix),
               Self.isFinite(viewProjection),
               Self.isValid(textureFrame),
+              emissiveMask == nil || (
+                  emissiveMaskTextureFrame.map(Self.isValid) == true
+                      && emissiveMaskSampling?.isResolvedForMaterialProgram == true
+                      && emissiveMaskSampling?.usesClampBorderFallback == false
+              ),
               sampling.isResolvedForMaterialProgram,
               !sampling.usesClampBorderFallback,
               layerAlpha.isFinite,
               material.opacity.isFinite,
+              material.emissiveBrightness.isFinite,
               material.color.x.isFinite,
               material.color.y.isFinite,
               material.color.z.isFinite,
+              material.emissiveColor.x.isFinite,
+              material.emissiveColor.y.isFinite,
+              material.emissiveColor.z.isFinite,
               let normalMatrix = Self.normalMatrix(for: modelMatrix) else {
             return false
         }
         let lights = Self.encodedLights(lighting.directional)
+        let spots = Self.encodedSpots(lighting.spot)
         var uniforms = SceneStaticModelUniforms(
             modelMatrix: modelMatrix,
             viewProjectionMatrix: viewProjection,
             normalMatrix: normalMatrix,
             textureFrame0: textureFrame.uniform0,
             textureFrame1: textureFrame.uniform1,
+            componentTextureFrame0: (
+                emissiveMaskTextureFrame ?? textureFrame
+            ).uniform0,
+            componentTextureFrame1: (
+                emissiveMaskTextureFrame ?? textureFrame
+            ).uniform1,
             materialColorAndOpacity: SIMD4(
                 max(material.color.x, 0),
                 max(material.color.y, 0),
                 max(material.color.z, 0),
                 min(max(material.opacity * layerAlpha, 0), 1)
             ),
+            emissiveColorAndBrightness: SIMD4(
+                max(material.emissiveColor.x, 0),
+                max(material.emissiveColor.y, 0),
+                max(material.emissiveColor.z, 0),
+                max(material.emissiveBrightness, 0)
+            ),
             materialFlags: SIMD4(
                 material.textureAlphaIsOpacity ? 1 : 0,
-                0, 0, 0
+                emissiveMask == nil ? 0 : 1,
+                UInt32(lighting.spot.count), 0
             ),
             ambientAndCount: SIMD4(
                 lighting.ambient.x,
@@ -199,7 +243,25 @@ struct SceneStaticModelPipeline {
             lightColor0: lights[0].color,
             lightColor1: lights[1].color,
             lightColor2: lights[2].color,
-            lightColor3: lights[3].color
+            lightColor3: lights[3].color,
+            spotPositionRadius0: spots[0].positionRadius,
+            spotPositionRadius1: spots[1].positionRadius,
+            spotPositionRadius2: spots[2].positionRadius,
+            spotPositionRadius3: spots[3].positionRadius,
+            spotDirectionInnerCosine0: spots[0].directionInnerCosine,
+            spotDirectionInnerCosine1: spots[1].directionInnerCosine,
+            spotDirectionInnerCosine2: spots[2].directionInnerCosine,
+            spotDirectionInnerCosine3: spots[3].directionInnerCosine,
+            spotColorIntensity0: spots[0].colorIntensity,
+            spotColorIntensity1: spots[1].colorIntensity,
+            spotColorIntensity2: spots[2].colorIntensity,
+            spotColorIntensity3: spots[3].colorIntensity,
+            spotOuterCosines: SIMD4(
+                spots[0].outerCosine,
+                spots[1].outerCosine,
+                spots[2].outerCosine,
+                spots[3].outerCosine
+            )
         )
 
         encoder.setRenderPipelineState(state)
@@ -219,9 +281,16 @@ struct SceneStaticModelPipeline {
             index: 1
         )
         encoder.setFragmentTexture(texture, index: 0)
+        // Keep the fixed Metal ABI bound even when this optional channel is
+        // absent; the material flag prevents the placeholder from sampling.
+        encoder.setFragmentTexture(emissiveMask ?? texture, index: 1)
         encoder.setFragmentSamplerState(
             samplerStates.state(for: sampling),
             index: 0
+        )
+        encoder.setFragmentSamplerState(
+            samplerStates.state(for: emissiveMaskSampling ?? sampling),
+            index: 1
         )
         encoder.setFragmentBytes(
             &uniforms,
@@ -280,6 +349,39 @@ struct SceneStaticModelPipeline {
         }
     }
 
+    private static func encodedSpots(
+        _ lights: [SceneLightSnapshot.Spot]
+    ) -> [(
+        positionRadius: SIMD4<Float>,
+        directionInnerCosine: SIMD4<Float>,
+        colorIntensity: SIMD4<Float>,
+        outerCosine: Float
+    )] {
+        (0..<4).map { index in
+            guard lights.indices.contains(index) else {
+                return (.zero, .zero, .zero, 0)
+            }
+            let light = lights[index]
+            return (
+                SIMD4(
+                    light.position.x, light.position.y, light.position.z,
+                    light.radius
+                ),
+                SIMD4(
+                    light.directionFromLight.x,
+                    light.directionFromLight.y,
+                    light.directionFromLight.z,
+                    light.innerConeCosine
+                ),
+                SIMD4(
+                    light.color.x, light.color.y, light.color.z,
+                    light.intensity
+                ),
+                light.outerConeCosine
+            )
+        }
+    }
+
     private static func isFinite(_ matrix: simd_float4x4) -> Bool {
         matrix.columns.0.x.isFinite && matrix.columns.0.y.isFinite
             && matrix.columns.0.z.isFinite && matrix.columns.0.w.isFinite
@@ -299,7 +401,9 @@ struct SceneStaticModelPipeline {
             && matrix.columns.2.z.isFinite
     }
 
-    private static func isValid(_ transform: SceneTextureUVTransform) -> Bool {
+    private nonisolated static func isValid(
+        _ transform: SceneTextureUVTransform
+    ) -> Bool {
         let determinant = transform.xAxis.x * transform.yAxis.y
             - transform.xAxis.y * transform.yAxis.x
         return transform.origin.x.isFinite && transform.origin.y.isFinite

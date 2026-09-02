@@ -102,12 +102,14 @@ nonisolated extension SceneScriptQuickJSDomain {
         fallback: [Double],
         snapshot: SceneDynamicSnapshot
     ) -> [Double] {
-        vector3(
+        let value = vector3(
             target: .layer(layerID: layerID, field: field),
             authored: authored,
             fallback: fallback,
             snapshot: snapshot
         )
+        guard field == .angles else { return value }
+        return value.map(SceneScriptAngleUnits.degrees)
     }
 
     private func vector3(

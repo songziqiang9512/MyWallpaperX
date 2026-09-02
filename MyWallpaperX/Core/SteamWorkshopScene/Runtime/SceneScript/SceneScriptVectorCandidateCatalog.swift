@@ -366,6 +366,12 @@ nonisolated extension SceneScriptVectorProgram {
         case "text":
             guard layer.text != nil, layer.textStyle != nil else { return nil }
             target = .text(layerID: layerID, field: .color)
+        case "spotLight":
+            guard layer.spotLight != nil else { return nil }
+            target = .layer(layerID: layerID, field: .color)
+        case "directionalLight":
+            guard layer.directionalLight != nil else { return nil }
+            target = .layer(layerID: layerID, field: .color)
         default:
             return nil
         }

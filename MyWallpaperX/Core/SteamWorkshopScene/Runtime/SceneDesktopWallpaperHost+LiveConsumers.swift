@@ -203,6 +203,10 @@ extension SceneDesktopWallpaperHost {
             case "solid":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))
                 targets.insert(.layer(layerID: layer.id, field: .color))
+            case "spotLight", "directionalLight":
+                if visibleLayerIDs.contains(layer.id) {
+                    targets.insert(.layer(layerID: layer.id, field: .color))
+                }
             case "particle":
                 let fields: [SceneDynamicParticleField] = [
                     .alpha, .size, .lifetime, .rate, .speed, .count,

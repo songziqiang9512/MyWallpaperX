@@ -12,6 +12,7 @@ struct ScenePreparedStaticModelResources {
         let geometryIdentity: String
         let mesh: SceneStaticModelMesh
         let albedo: SceneTextureCandidate
+        let emissiveMask: SceneTextureCandidate?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
     }
@@ -112,13 +113,25 @@ struct ScenePreparedStaticModelResources {
                   ) else {
                 continue
             }
+            let modelMaterial = material(pass)
+            let emissiveMask = modelMaterial.emissiveBrightness > 0
+                ? optionalTexture(
+                    at: 2,
+                    in: pass,
+                    purpose: .mask,
+                    resolver: textureResolver,
+                    textureLoader: textureLoader,
+                    device: device
+                )
+                : nil
             entries[layer.id] = Entry(
                 modelPath: modelPath,
                 materialPath: preparedGeometry.materialPath,
                 geometryIdentity: preparedGeometry.geometryIdentity,
                 mesh: preparedGeometry.mesh,
                 albedo: albedo,
-                material: material(pass),
+                emissiveMask: emissiveMask,
+                material: modelMaterial,
                 writesDepth: writesDepth(pass.depthWrite)
             )
             try cancellationCheck()
@@ -182,6 +195,12 @@ struct ScenePreparedStaticModelResources {
         let opacity = components(named: "Alpha", in: pass)?.first
             ?? components(named: "alpha", in: pass)?.first
             ?? 1
+        let emissiveColor = components(named: "emissivecolor", in: pass)
+            ?? [1, 1, 1]
+        let emissiveBrightness = components(
+            named: "emissivebrightness",
+            in: pass
+        )?.first ?? 0
         return SceneStaticModelMaterial(
             color: SIMD3(
                 component(color, at: 0, default: 1),
@@ -189,8 +208,37 @@ struct ScenePreparedStaticModelResources {
                 component(color, at: 2, default: 1)
             ),
             opacity: Float(opacity),
-            textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1
+            textureAlphaIsOpacity: pass.combos["TINTMASKALPHA"] != 1,
+            emissiveColor: SIMD3(
+                component(emissiveColor, at: 0, default: 1),
+                component(emissiveColor, at: 1, default: 1),
+                component(emissiveColor, at: 2, default: 1)
+            ),
+            emissiveBrightness: Float(emissiveBrightness)
         )
+    }
+
+    /// Optional packed material data fails soft, leaving the ordinary lit
+    /// albedo intact. It is loaded as a typed mask rather than color.
+    private static func optionalTexture(
+        at slotIndex: Int,
+        in pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        purpose: SceneTextureLoadPurpose,
+        resolver: SceneTexturePathResolver,
+        textureLoader: SceneTextureLoader,
+        device: MTLDevice
+    ) -> SceneTextureCandidate? {
+        guard pass.textureSlots.indices.contains(slotIndex),
+              let path = pass.textureSlots[slotIndex],
+              let url = resolver.resolveTextureFile(named: path),
+              case let .loaded(candidate) = textureLoader.loadCandidate(
+                  from: url,
+                  purpose: purpose,
+                  device: device
+              ) else {
+            return nil
+        }
+        return candidate
     }
 
     private static func components(

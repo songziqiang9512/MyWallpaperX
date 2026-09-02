@@ -157,6 +157,36 @@ static JSValue wecolor_hsv_to_rgb(
     }
 }
 
+static JSValue wecolor_normalize_color(
+    JSContext *context,
+    JSValueConst this_value,
+    int argc,
+    JSValueConst *argv
+) {
+    (void)this_value;
+    double rgb[3] = {0};
+    if (argc != 1 || !wecolor_read_vec3(context, argv[0], rgb)) {
+        return JS_ThrowTypeError(
+            context,
+            "WEColor.normalizeColor expects one finite RGB Vec3"
+        );
+    }
+    for (size_t index = 0; index < 3; ++index) {
+        if (rgb[index] < 0 || rgb[index] > 255) {
+            return JS_ThrowRangeError(
+                context,
+                "WEColor.normalizeColor components must be in [0, 255]"
+            );
+        }
+    }
+    return wecolor_new_vec3(
+        context,
+        rgb[0] / 255,
+        rgb[1] / 255,
+        rgb[2] / 255
+    );
+}
+
 static int initialize_wecolor_module(JSContext *context, JSModuleDef *module) {
     JSValue hsv_to_rgb = JS_NewCFunction(
         context,
@@ -167,7 +197,21 @@ static int initialize_wecolor_module(JSContext *context, JSModuleDef *module) {
     if (JS_IsException(hsv_to_rgb)) {
         return -1;
     }
-    return JS_SetModuleExport(context, module, "hsv2rgb", hsv_to_rgb);
+    if (JS_SetModuleExport(context, module, "hsv2rgb", hsv_to_rgb) < 0) {
+        return -1;
+    }
+    JSValue normalize_color = JS_NewCFunction(
+        context,
+        wecolor_normalize_color,
+        "normalizeColor",
+        1
+    );
+    if (JS_IsException(normalize_color)) {
+        return -1;
+    }
+    return JS_SetModuleExport(
+        context, module, "normalizeColor", normalize_color
+    );
 }
 
 JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
@@ -184,7 +228,7 @@ JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
         return NULL;
     }
     JSModuleInitFunc *initializer = NULL;
-    const char *exports[2] = {NULL, NULL};
+    const char *exports[3] = {NULL, NULL, NULL};
     if (strcmp(module_name, "WEMath") == 0) {
         initializer = initialize_wemath_module;
         exports[0] = "smoothStep";
@@ -192,6 +236,7 @@ JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
     } else if (strcmp(module_name, "WEColor") == 0) {
         initializer = initialize_wecolor_module;
         exports[0] = "hsv2rgb";
+        exports[1] = "normalizeColor";
     } else {
         JS_ThrowReferenceError(
             context,
@@ -204,7 +249,7 @@ JSModuleDef *mwx_scene_quickjs_load_allowlisted_module(
     if (module == NULL) {
         return NULL;
     }
-    for (size_t index = 0; index < 2 && exports[index] != NULL; ++index) {
+    for (size_t index = 0; index < 3 && exports[index] != NULL; ++index) {
         if (JS_AddModuleExport(context, module, exports[index]) < 0) {
             return NULL;
         }
