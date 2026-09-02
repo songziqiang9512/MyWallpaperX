@@ -253,11 +253,46 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 )
             )
         }
-        return sourceTypedSpatialWeightedColorBlendSamplers(
+        let sourceTyped = sourceTypedAuxiliarySamplers(
             projected,
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource
+        )
+        return sourceTypedSpatialWeightedColorBlendSamplers(
+            sourceTyped,
             fragmentSource: fragmentSource,
             normalBlendModeIdentifiers: normalBlendModeIdentifiers
         )
+    }
+
+    private static func sourceTypedAuxiliarySamplers(
+        _ samplers: [Int: Sampler],
+        vertexSource: String,
+        fragmentSource: String
+    ) -> [Int: Sampler] {
+        let facts = SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.analyze(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource
+        )
+        guard !facts.isEmpty, facts.allSatisfy({ fact in
+            guard let sampler = samplers[fact.slot],
+                  sampler.mode == .regular,
+                  sampler.materialKey == nil,
+                  !sampler.isHidden,
+                  sampler.defaultTexture == nil,
+                  sampler.sourceProvenPurpose == nil else { return false }
+            if fact.role == .phase { return sampler.channelUse == .redOnly }
+            return true
+        }) else { return samplers }
+
+        var result = samplers
+        for fact in facts {
+            let purpose: SceneTextureLoadPurpose = fact.role == .phase
+                ? .phase : .normal
+            result[fact.slot] = result[fact.slot]?
+                .withSourceProvenPurpose(purpose)
+        }
+        return result
     }
 
     private static func sourceTypedSpatialWeightedColorBlendSamplers(

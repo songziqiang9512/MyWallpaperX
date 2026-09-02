@@ -65,6 +65,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderNeutralTextureTintAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderTextureChannelAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderAuxiliaryTexturePurposeAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderAlphaAttenuationAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGraphInputColorBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderSameSlotCarrierBlendAnalyzer.swift",

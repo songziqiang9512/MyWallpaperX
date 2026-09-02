@@ -373,6 +373,7 @@
         "test_scene_standard_blur_dedicated_family_retirement",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_sampler_default_purpose",
+        "test_scene_source_proven_auxiliary_texture_purpose",
         "test_scene_source_proven_noise_purpose",
         "test_scene_resolved_material_template"
       ]
@@ -453,6 +454,7 @@
         "test_scene_rgb_blend_scalar_alpha",
         "test_scene_associated_over_blend",
         "test_scene_rgb_difference_enhancement",
+        "test_scene_source_proven_auxiliary_texture_purpose",
         "test_scene_source_proven_noise_purpose",
         "test_scene_standard_alpha_composite_generic_contract",
         "test_scene_generic_shader_typed_input_lowering",
