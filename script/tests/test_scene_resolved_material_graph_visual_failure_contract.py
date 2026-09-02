@@ -162,11 +162,17 @@ class SceneResolvedMaterialGraphVisualFailureContractTests(unittest.TestCase):
             ):
                 self.assertNotIn(f'"{reason}"', text)
         visual_text = VISUAL_FAILURE_PASSTHROUGH_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            'reasonCode != "material-finalizer-color-contract"',
+            visual_text,
+        )
+        self.assertIn("graph.renderTargets.isEmpty", visual_text)
         for reason in (
             "material-finalizer-dynamic-uniform-binding",
             "material-finalizer-static-uniform-binding",
             "material-finalizer-host-uniform-declaration-conflict",
             "material-finalizer-uniform-declaration-conflict",
+            "material-finalizer-color-contract",
             "material-finalizer-optional-texture-unavailable",
             "material-finalizer-optional-texture-purpose-mismatch",
             "material-finalizer-optional-texture-content-mismatch",

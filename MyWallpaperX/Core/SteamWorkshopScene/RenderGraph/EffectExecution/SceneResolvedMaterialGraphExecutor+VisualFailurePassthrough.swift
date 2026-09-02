@@ -84,6 +84,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "material-finalizer-static-uniform-binding",
             "material-finalizer-host-uniform-declaration-conflict",
             "material-finalizer-uniform-declaration-conflict",
+            "material-finalizer-color-contract",
             "material-finalizer-optional-texture-unavailable",
             "material-finalizer-optional-texture-purpose-mismatch",
             "material-finalizer-optional-texture-content-mismatch",
@@ -101,8 +102,12 @@ extension SceneResolvedMaterialGraphExecutor {
         let framebufferPreparationLimitation =
             reasonCode == "material-variant-envelope-invariant"
                 && !graph.renderTargets.isEmpty
+        let ordinaryColorContractLimitation =
+            reasonCode != "material-finalizer-color-contract"
+                || graph.renderTargets.isEmpty
         guard dependencyOwnership.preEncodeVisualFailureSlots(in: graph) != nil,
               ordinaryReason || framebufferPreparationLimitation,
+              ordinaryColorContractLimitation,
               visualFailureTopologyIsSupported(
                   reasonCode: reasonCode,
                   transition: transition,

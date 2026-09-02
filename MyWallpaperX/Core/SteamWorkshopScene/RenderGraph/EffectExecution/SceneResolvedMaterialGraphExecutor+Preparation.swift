@@ -254,6 +254,9 @@ extension SceneResolvedMaterialGraphExecutor {
                     let reasonCode: String
                     if let visualFallbackReasonCode {
                         reasonCode = visualFallbackReasonCode
+                    } else if failure.phase == .color,
+                              failure.code == .colorContractUnproven {
+                        reasonCode = "material-finalizer-color-contract"
                     } else {
                         guard failure.phase == .uniform else {
                             return rejection
