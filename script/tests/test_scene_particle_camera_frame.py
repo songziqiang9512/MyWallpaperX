@@ -167,6 +167,16 @@ enum Harness {
             camera: nativeCamera,
             viewportSize: viewport
         )
+        let activeCameraWorld = SceneMatrix.translation(SIMD3(0, 0, 6))
+        let activeCameraOverride = SceneParticleCameraFrame.NativePerspectiveOverride(
+            worldFrame: activeCameraWorld,
+            fovDegrees: 50
+        )!
+        let activeCameraFrame = SceneParticleCameraFrame(
+            camera: nativeCamera,
+            viewportSize: viewport,
+            nativePerspectiveOverride: activeCameraOverride
+        )
         let inheritedNativeLayer = SceneRenderDescriptor.Layer(
             utilityLayer: nil,
             usesPerspective: nil
@@ -178,6 +188,16 @@ enum Harness {
         let nativeCenter = SIMD4<Float>(
             nativeCamera.center[0], nativeCamera.center[1],
             nativeCamera.center[2], 1
+        )
+        let nativeWorldUp = SIMD4<Float>(
+            SIMD3(nativeCenter.x, nativeCenter.y, nativeCenter.z)
+                + nativeFrame.cameraUp * 0.1,
+            1
+        )
+        let nativeWorldDown = SIMD4<Float>(
+            SIMD3(nativeCenter.x, nativeCenter.y, nativeCenter.z)
+                - nativeFrame.cameraUp * 0.1,
+            1
         )
 
         let invalidCamera = SceneRenderDescriptor.CameraDescriptor(
@@ -237,7 +257,26 @@ enum Harness {
             "nativeCenterNDC": ndc(
                 nativeFrame.perspectiveViewProjection, nativeCenter
             ),
+            "nativeWorldUpNDC": ndc(
+                nativeFrame.perspectiveViewProjection, nativeWorldUp
+            ),
+            "nativeWorldDownNDC": ndc(
+                nativeFrame.perspectiveViewProjection, nativeWorldDown
+            ),
+            "nativeReverseWorldUpNDC": ndc(
+                nativeFrame.reverseDepthPerspectiveViewProjection,
+                nativeWorldUp
+            ),
             "nativeEye": vector3(nativeFrame.perspectiveEyePosition),
+            "activeCameraEye": vector3(activeCameraFrame.perspectiveEyePosition),
+            "activeCameraOriginNDC": ndc(
+                activeCameraFrame.perspectiveViewProjection,
+                SIMD4<Float>(0, 0, 0, 1)
+            ),
+            "activeCameraWorldUpNDC": ndc(
+                activeCameraFrame.perspectiveViewProjection,
+                SIMD4<Float>(0, 1, 0, 1)
+            ),
             "nativeDefaultsToPerspective": nativeFrame.defaultsToPerspective,
             "nativeOmittedLayerPerspective": nativeFrame.resolvesPerspective(
                 layerOverride: nil
@@ -425,6 +464,21 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertTrue(self.result["nativeUtilityUsesOrthoProjection"])
         self.assertFalse(self.result["nativeExplicitOrtho"])
         self.assertFalse(self.result["orthoDefaultsToPerspective"])
+
+    def test_native_camera_preserves_world_up_through_metal_clip_space(self) -> None:
+        world_up = self.result["nativeWorldUpNDC"]
+        world_down = self.result["nativeWorldDownNDC"]
+        reverse_up = self.result["nativeReverseWorldUpNDC"]
+        self.assertGreater(world_up[1], world_down[1])
+        self.assertAlmostEqual(world_up[0], reverse_up[0], places=5)
+        self.assertAlmostEqual(world_up[1], reverse_up[1], places=5)
+        self.assertAlmostEqual(world_up[2] + reverse_up[2], 1, places=5)
+
+    def test_native_camera_layer_overrides_saved_editor_view(self) -> None:
+        self.assertEqual(self.result["activeCameraEye"], [0, 0, 6])
+        self.assertAlmostEqual(self.result["activeCameraOriginNDC"][0], 0, places=5)
+        self.assertAlmostEqual(self.result["activeCameraOriginNDC"][1], 0, places=5)
+        self.assertGreater(self.result["activeCameraWorldUpNDC"][1], 0)
 
     def test_dynamic_2d_camera_origin_and_zoom_share_the_projection(self) -> None:
         self.assertAlmostEqual(

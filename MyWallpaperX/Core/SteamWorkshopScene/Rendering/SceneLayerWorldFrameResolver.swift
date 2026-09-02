@@ -44,14 +44,14 @@ nonisolated enum SceneLayerWorldFrameResolver {
             var origin = transform?.origin ?? SIMD3(layer.originXYZ ?? [], fill: 0)
             let scale = transform?.scale ?? SIMD3(layer.scaleXYZ ?? [], fill: 1)
             var angles = transform?.angles ?? SIMD3(layer.anglesXYZ ?? [], fill: 0)
-            if layer.parentID == nil {
-                if let sceneOrthoHeight, sceneOrthoHeight > 0 {
+            if let sceneOrthoHeight, sceneOrthoHeight > 0 {
+                if layer.parentID == nil {
                     origin.y = sceneOrthoHeight - origin.y
+                } else {
+                    origin.y = -origin.y
                 }
-            } else {
-                origin.y = -origin.y
+                angles.z = -angles.z
             }
-            angles.z = -angles.z
             return SceneMatrix.translation(origin)
                 * SceneMatrix.eulerXYZ(angles)
                 * SceneMatrix.scale(scale)

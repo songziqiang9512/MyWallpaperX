@@ -427,7 +427,7 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
             r"let shift = parallax \+ screenAnchor"
             r"[\s\S]{0,400}SceneMatrix\.translation\(SIMD3\(shift\.x, shift\.y, 0\)\)"
         ))
-        # 四个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
+        # 三个 imageModelMatrix 调用点都要喂真实的 cover 半宽高。
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
         effect_execution = EFFECT_EXECUTION_SOURCE.read_text(encoding="utf-8")
         utility_frame_renderer = UTILITY_FRAME_RENDERER_SOURCE.read_text(
@@ -435,10 +435,10 @@ class SceneLayerScreenAnchorTests(unittest.TestCase):
         )
         self.assertIn("renderUtilityPlans(", renderer)
         self.assertIn("SceneUtilityPlanFrameRenderer.render(", effect_execution)
-        self.assertEqual(renderer.count("imageModelMatrix("), 3)
+        self.assertEqual(renderer.count("imageModelMatrix("), 2)
         self.assertEqual(utility_frame_renderer.count("imageModelMatrix("), 1)
         self.assertEqual(
-            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 3
+            renderer.count("visibleHalfExtents: cameraFrame.coverHalfExtents"), 2
         )
         self.assertEqual(
             utility_frame_renderer.count(

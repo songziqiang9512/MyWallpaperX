@@ -231,7 +231,10 @@ extension SceneMetalRenderer {
                     ),
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                    visibleHalfExtents: cameraFrame.coverHalfExtents,
+                    usesPerspective: cameraFrame.resolvesPerspective(
+                        layerOverride: layer.usesPerspective
+                    )
                 )
                 guard let projectedSize =
                     SceneCaptureGeometryResolver.projectedPixelSize(
@@ -273,7 +276,10 @@ extension SceneMetalRenderer {
                     worldFramesByLayerID: worldFramesByLayerID,
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
-                    visibleHalfExtents: cameraFrame.coverHalfExtents
+                    visibleHalfExtents: cameraFrame.coverHalfExtents,
+                    usesPerspective: cameraFrame.resolvesPerspective(
+                        layerOverride: layer.usesPerspective
+                    )
                 )
                 guard let geometry = SceneCaptureGeometryResolver.resolve(
                     kind: utility.kind,
@@ -367,7 +373,10 @@ extension SceneMetalRenderer {
                 renderSizeOverride: renderSizeOverride,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(
+                    layerOverride: layer.usesPerspective
+                )
             )
         }
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []

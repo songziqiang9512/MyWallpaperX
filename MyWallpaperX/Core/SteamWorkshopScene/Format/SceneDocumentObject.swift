@@ -143,13 +143,15 @@ extension SceneDocument {
         }
     }
 
-    /// 编辑器生成的 2D camera path record。它没有可绘制内容，`path` 是作者路径身份；
-    /// Timeline consumer 只在单一 default-camera record 上准入 bounded origin/zoom 组。
+    /// 编辑器生成的 camera path record。它没有可绘制内容，`path` 是作者路径身份；
+    /// 2D Timeline consumer 只在单一 default-camera record 上准入 bounded origin/zoom 组，
+    /// native perspective scene 还会把同一 record 的 FOV 和 layer world frame 交给共享相机。
     struct Scene2DCameraPathDefinition: Codable, Equatable {
         let camera: String
         let path: String
         let queueMode: String?
         let zoom: Double?
+        let fov: Double?
 
         nonisolated static func parse(
             _ root: [String: Any]
@@ -160,7 +162,8 @@ extension SceneDocument {
                 camera: camera,
                 path: path,
                 queueMode: nonEmptyString(root["queuemode"])?.lowercased(),
-                zoom: number(root["zoom"])
+                zoom: number(root["zoom"]),
+                fov: number(root["fov"])
             )
         }
 

@@ -265,6 +265,7 @@ final class SceneTextureLoader {
                 ? SceneTextureMipUploader.uploadEmbeddedDataImages(
                     container.mips,
                     purpose: purpose,
+                    maximumDimension: Self.maxTextureDimension,
                     device: device
                 )
                 : SceneTextureMipUploader.uploadEmbeddedImages(

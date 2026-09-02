@@ -31,7 +31,8 @@ enum SceneUtilityPlanFrameRenderer {
                 worldFramesByLayerID: worldFramesByLayerID,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: false
             )
             let mvp = cameraFrame.orthographicViewProjection * model
             let cursorUV = SceneLayerCursorGeometry.layerUV(

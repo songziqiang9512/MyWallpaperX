@@ -210,6 +210,9 @@ enum Harness {
         let transparentStraightAlbedoPNGURL = directory.appendingPathComponent(
             "transparent-straight-albedo-png.tex"
         )
+        let mipNormalizedStraightAlbedoPNGURL = directory.appendingPathComponent(
+            "mip-normalized-straight-albedo-png.tex"
+        )
         let paddedStraightAlbedoJPEGURL = directory.appendingPathComponent(
             "padded-straight-albedo-jpeg.tex"
         )
@@ -412,6 +415,20 @@ enum Harness {
         ).write(to: transparentStraightAlbedoPNGURL)
         try embeddedImageTex(
             textureWidth: 8192,
+            textureHeight: 2,
+            imageWidth: 8192,
+            imageHeight: 2,
+            payload: try pngData(width: 8192, height: 2),
+            containerVersion: "TEXB0003",
+            freeImageFormat: 13,
+            mipWidth: 8192,
+            mipHeight: 2,
+            additionalMips: [
+                (4096, 1, try pngData(width: 4096, height: 1)),
+            ]
+        ).write(to: mipNormalizedStraightAlbedoPNGURL)
+        try embeddedImageTex(
+            textureWidth: 8192,
             textureHeight: 4,
             imageWidth: 4096,
             imageHeight: 2,
@@ -612,6 +629,17 @@ enum Harness {
         case .failed:
             transparentStraightAlbedoPNGRejected = true
         }
+        let mipNormalizedStraightAlbedoPNG = try candidate(
+            loader.loadCandidate(
+                from: mipNormalizedStraightAlbedoPNGURL,
+                purpose: .straightAlbedo,
+                device: device
+            )
+        )
+        let mipNormalizedStraightAlbedoPixel = try readFirstPixel(
+            texture: mipNormalizedStraightAlbedoPNG.texture,
+            device: device
+        )
         let paddedStraightAlbedoJPEGRejected = rejectedDimensions(
             loader.loadCandidate(
                 from: paddedStraightAlbedoJPEGURL,
@@ -1320,6 +1348,17 @@ enum Harness {
                     && normalizedStraightAlbedoPNG.texture.height == 1,
             "transparentStraightAlbedoPNGRejected":
                 transparentStraightAlbedoPNGRejected,
+            "mipNormalizedStraightAlbedoPNG":
+                mipNormalizedStraightAlbedoPNG.axisAlignedMappedUVScale(
+                    expectedPurpose: .straightAlbedo
+                ) == SIMD2(repeating: 1)
+                    && mipNormalizedStraightAlbedoPNG.texture.width == 4096
+                    && mipNormalizedStraightAlbedoPNG.texture.height == 1
+                    && mipNormalizedStraightAlbedoPNG.texture.mipmapLevelCount == 1
+                    && mipNormalizedStraightAlbedoPNG.content
+                        == .color(.resolved(.straightAlpha)),
+            "mipNormalizedStraightAlbedoPixel":
+                mipNormalizedStraightAlbedoPixel,
             "paddedStraightAlbedoJPEGRejected":
                 paddedStraightAlbedoJPEGRejected,
             "mislabeledTexb4StraightAlbedoPNGRejected":
@@ -2098,6 +2137,8 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "normalizedStraightAlbedoPNGIdentity": True,
                 "paddedStraightAlbedoJPEGRejected": True,
                 "mislabeledTexb4StraightAlbedoPNGRejected": True,
+                "mipNormalizedStraightAlbedoPNG": True,
+                "mipNormalizedStraightAlbedoPixel": [127, 127, 127, 127],
                 "normalizedColorMapped": [4096, 1],
                 "normalizedColorPhysical": [4096, 1],
                 "normalizedColorScale": [1, 1],

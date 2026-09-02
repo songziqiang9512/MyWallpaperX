@@ -7,10 +7,18 @@ extension SceneMetalRenderer {
         renderSizeOverride: [Float]? = nil,
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration,
-        visibleHalfExtents: SIMD2<Float>
+        visibleHalfExtents: SIMD2<Float>,
+        usesPerspective: Bool
     ) -> simd_float4x4 {
         let size = SIMD2(renderSizeOverride ?? layer.renderSizeWH ?? [], fill: 0)
-        let sizeScale = SceneMatrix.scale(SIMD3(size.x, -size.y, 1))
+        // Orthographic scene coordinates are Y-down, while native perspective
+        // layers are authored in a Y-up world. Keep the shared quad/UV layout
+        // unchanged and select only the world-space card orientation here.
+        let sizeScale = SceneMatrix.scale(SIMD3(
+            size.x,
+            usesPerspective ? size.y : -size.y,
+            1
+        ))
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()
         let parallax = parallaxOffset(
             for: layer,

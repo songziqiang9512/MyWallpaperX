@@ -31,7 +31,10 @@ extension SceneMetalRenderer {
                 parallaxMouseNormalized:
                     frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(
+                    layerOverride: layer.usesPerspective
+                )
             )
             return (
                 layerID,

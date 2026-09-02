@@ -20,7 +20,39 @@ extension SceneMetalRenderer {
                 orthographicShake.y,
                 0
             ),
-            cameraZoom: dynamic.zoom
+            cameraZoom: dynamic.zoom,
+            nativePerspectiveOverride: activeNativePerspectiveCamera(
+                dynamicValues: frameContext.dynamicValues
+            )
+        )
+    }
+
+    /// A camera layer owns the working native-perspective view when present;
+    /// the scene-level Eye/Center/Up remains the no-camera fallback. Camera-path
+    /// origin/zoom is already published through the shared dynamic camera target.
+    private func activeNativePerspectiveCamera(
+        dynamicValues: SceneDynamicSnapshot
+    ) -> SceneParticleCameraFrame.NativePerspectiveOverride? {
+        let fallbackCamera = renderDescriptor.camera
+        guard fallbackCamera.orthoWidth == nil,
+              fallbackCamera.orthoHeight == nil else { return nil }
+        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
+            in: renderDescriptor,
+            snapshot: dynamicValues
+        )
+        guard let layer = renderDescriptor.renderOrderLayerIDs.reversed()
+            .compactMap({ layersByID[$0] })
+            .first(where: {
+                visibleLayerIDs.contains($0.id)
+                    && $0.cameraPath?.camera.lowercased() == "default"
+            }),
+              let cameraPath = layer.cameraPath,
+              let worldFrame = worldFramesByLayerID[layer.id] else { return nil }
+        let fov = cameraPath.fov.map(Float.init) ?? fallbackCamera.fovDegrees
+        guard let fov else { return nil }
+        return SceneParticleCameraFrame.NativePerspectiveOverride(
+            worldFrame: worldFrame,
+            fovDegrees: fov
         )
     }
 

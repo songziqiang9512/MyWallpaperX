@@ -4,6 +4,52 @@ import simd
 struct SceneParticleCameraFrame: Sendable {
     static let perspectiveEyeDistance: Float = 1_000
 
+    struct NativePerspectiveOverride: Sendable {
+        let eye: SIMD3<Float>
+        let center: SIMD3<Float>
+        let up: SIMD3<Float>
+        let fovDegrees: Float
+
+        init?(
+            worldFrame: simd_float4x4,
+            fovDegrees: Float
+        ) {
+            let eye = SIMD3(
+                worldFrame.columns.3.x,
+                worldFrame.columns.3.y,
+                worldFrame.columns.3.z
+            )
+            let localForward = -SIMD3(
+                worldFrame.columns.2.x,
+                worldFrame.columns.2.y,
+                worldFrame.columns.2.z
+            )
+            let localUp = SIMD3(
+                worldFrame.columns.1.x,
+                worldFrame.columns.1.y,
+                worldFrame.columns.1.z
+            )
+            guard eye.x.isFinite, eye.y.isFinite, eye.z.isFinite,
+                  fovDegrees.isFinite, fovDegrees > 0, fovDegrees < 180 else {
+                return nil
+            }
+            let forward = SceneParticleCameraFrame.normalized(
+                localForward,
+                fallback: .zero
+            )
+            let up = SceneParticleCameraFrame.normalized(
+                localUp,
+                fallback: .zero
+            )
+            guard simd_length_squared(forward) > 0,
+                  simd_length_squared(up) > 0 else { return nil }
+            self.eye = eye
+            self.center = eye + forward
+            self.up = up
+            self.fovDegrees = fovDegrees
+        }
+    }
+
     let orthographicViewProjection: simd_float4x4
     let perspectiveViewProjection: simd_float4x4
     let reverseDepthOrthographicViewProjection: simd_float4x4
@@ -20,7 +66,8 @@ struct SceneParticleCameraFrame: Sendable {
         camera: SceneRenderDescriptor.CameraDescriptor,
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
-        cameraZoom: Float = 1
+        cameraZoom: Float = 1,
+        nativePerspectiveOverride: NativePerspectiveOverride? = nil
     ) {
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
@@ -37,7 +84,10 @@ struct SceneParticleCameraFrame: Sendable {
 
         let hasValidViewport = viewportSize.width > 0 && viewportSize.height > 0
         if hasValidViewport,
-           let native = Self.nativePerspectiveCamera(camera) {
+           let native = Self.nativePerspectiveCamera(
+               camera,
+               override: nativePerspectiveOverride
+           ) {
             let origin = safeOrigin
             let eye = native.eye + origin
             let center = native.center + origin
@@ -56,6 +106,10 @@ struct SceneParticleCameraFrame: Sendable {
                 near: camera.nearZ,
                 far: camera.farZ
             )
+            // Native perspective scenes are authored in a Y-up world. Metal's
+            // viewport already maps positive clip Y to the visual top, so an
+            // additional clip-space reflection would mirror every world-space
+            // layer around the camera center.
             perspectiveViewProjection = projection * view
             reverseDepthPerspectiveViewProjection = SceneMatrix.reversingDepth(
                 perspectiveViewProjection
@@ -248,17 +302,33 @@ struct SceneParticleCameraFrame: Sendable {
     }
 
     private static func nativePerspectiveCamera(
-        _ camera: SceneRenderDescriptor.CameraDescriptor
+        _ camera: SceneRenderDescriptor.CameraDescriptor,
+        override: NativePerspectiveOverride?
     ) -> NativePerspectiveCamera? {
         guard camera.orthoWidth == nil, camera.orthoHeight == nil,
-              let fovY = authoredFOVRadians(camera.fovDegrees),
               camera.nearZ.isFinite, camera.nearZ > 0,
-              camera.farZ.isFinite, camera.farZ > camera.nearZ,
-              let eye = vector3(camera.eye),
-              let center = vector3(camera.center),
-              let authoredUp = vector3(camera.up) else {
+              camera.farZ.isFinite, camera.farZ > camera.nearZ else {
             return nil
         }
+        let eye: SIMD3<Float>
+        let center: SIMD3<Float>
+        let authoredUp: SIMD3<Float>
+        let fovDegrees: Float?
+        if let override {
+            eye = override.eye
+            center = override.center
+            authoredUp = override.up
+            fovDegrees = override.fovDegrees
+        } else {
+            guard let fallbackEye = vector3(camera.eye),
+                  let fallbackCenter = vector3(camera.center),
+                  let fallbackUp = vector3(camera.up) else { return nil }
+            eye = fallbackEye
+            center = fallbackCenter
+            authoredUp = fallbackUp
+            fovDegrees = camera.fovDegrees
+        }
+        guard let fovY = authoredFOVRadians(fovDegrees) else { return nil }
         let forward = normalized(center - eye, fallback: .zero)
         let right = normalized(
             simd_cross(forward, authoredUp),

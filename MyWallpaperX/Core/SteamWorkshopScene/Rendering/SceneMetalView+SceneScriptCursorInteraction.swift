@@ -200,7 +200,10 @@ extension SceneMetalView {
                 worldFramesByLayerID: worldFrames,
                 parallaxMouseNormalized: .zero,
                 configuration: parallax,
-                visibleHalfExtents: cameraFrame.coverHalfExtents
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(
+                    layerOverride: layer.usesPerspective
+                )
             )
             let modelViewProjection = cameraFrame.viewProjection(for: layer)
                 * model

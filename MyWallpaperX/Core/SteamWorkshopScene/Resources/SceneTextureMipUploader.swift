@@ -108,9 +108,11 @@ enum SceneTextureMipUploader {
     static func uploadEmbeddedDataImages(
         _ mips: [SceneTexContainer.Mip],
         purpose: SceneTextureLoadPurpose,
+        maximumDimension: Int = 4096,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome? {
-        guard purpose.preservesSourceChannels else { return nil }
+        guard purpose.preservesSourceChannels,
+              maximumDimension > 0 else { return nil }
         let images = mips.compactMap { mip -> CGImage? in
             guard isEmbeddedImage(mip.data),
                   let source = CGImageSourceCreateWithData(mip.data as CFData, nil) else {
@@ -119,22 +121,38 @@ enum SceneTextureMipUploader {
             return CGImageSourceCreateImageAtIndex(source, 0, nil)
         }
         guard images.count == mips.count,
-              let first = images.first,
-              first.width <= 4096,
-              first.height <= 4096,
               validDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
+        let firstEligibleIndex: Int
+        if let first = images.first,
+           first.width <= maximumDimension,
+           first.height <= maximumDimension {
+            firstEligibleIndex = 0
+        } else if purpose == .straightAlbedo,
+                  let index = images.firstIndex(where: {
+                      $0.width <= maximumDimension
+                          && $0.height <= maximumDimension
+                  }) {
+            // A complete authored mip is already a channel-preserving,
+            // filtered representation. Starting the resident chain there
+            // avoids an unsafe premultiplied resize of straight-alpha albedo.
+            firstEligibleIndex = index
+        } else {
+            return nil
+        }
+        let selectedImages = Array(images[firstEligibleIndex...])
+        guard let first = selectedImages.first else { return nil }
         let descriptor = descriptor(
             pixelFormat: .rgba8Unorm,
             width: first.width,
             height: first.height,
-            levelCount: images.count
+            levelCount: selectedImages.count
         )
         guard let texture = device.makeTexture(descriptor: descriptor) else {
             return .textureAllocationFailed(width: first.width, height: first.height)
         }
-        for (level, image) in images.enumerated() {
+        for (level, image) in selectedImages.enumerated() {
             guard let data = SceneImageTextureUploader.rgbaData(
                 image: image,
                 width: image.width,

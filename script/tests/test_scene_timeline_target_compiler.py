@@ -343,6 +343,7 @@ SCENE_FIXTURE = {
             "camera": "default",
             "path": "scripts/camera_path.json",
             "queuemode": "random",
+            "fov": {"value": 50},
             "origin": {
                 "value": "0 0 500",
                 "animation": animation(
@@ -649,6 +650,9 @@ enum Harness {
         let secondVector = second.snapshot[vectorTarget]
         let payload: [String: Any] = [
             "diagnostics": program.diagnostics,
+            "cameraPathFOV": descriptor.layers.first(where: {
+                $0.id == 66
+            })?.cameraPath?.fov ?? -1,
             "vectorRuntime": [
                 "firstValue": firstVector.map { describe($0.value) } ?? "missing",
                 "firstSource": firstVector?.source.rawValue ?? "missing",
@@ -910,6 +914,7 @@ class SceneTimelineTargetCompilerTests(unittest.TestCase):
         )
 
     def test_single_default_camera_path_uses_owner_clock_for_both_members(self) -> None:
+        self.assertEqual(self.result["cameraPathFOV"], 50)
         origin = self.binding("camera:origin")
         zoom = self.binding("camera:zoom")
         self.assertEqual(origin["valueType"], "vector3")

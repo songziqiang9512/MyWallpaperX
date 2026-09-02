@@ -365,9 +365,19 @@ extension SceneTextureLoader {
             && sourcePhysicalSize == sourceMapped
             && hasValidTexb3EmbeddedMipChain(container)
             && firstEmbeddedImageIsOpaque(container)
+        let channelPreservingStraightMip = purpose == .straightAlbedo
+            && container.format == 0
+            && container.containerVersion == .texb0003
+            && [2, 13].contains(container.freeImageFormat)
+            && sourcePhysicalSize == sourceMapped
+            && hasValidTexb3EmbeddedMipChain(container)
+            && container.mips.dropFirst().contains(where: {
+                output == CGSize(width: $0.width, height: $0.height)
+            })
         let mayNormalizeMappedColor = purpose == .premultipliedColor
             || (purpose == .straightAlbedo
-                && sourceProvenOpaqueEmbeddedImage)
+                && (sourceProvenOpaqueEmbeddedImage
+                    || channelPreservingStraightMip))
         guard mayNormalizeMappedColor else {
             return nil
         }
@@ -375,13 +385,16 @@ extension SceneTextureLoader {
             sourceMapped,
             maxDimension: Self.maxTextureDimension
         )
-        guard output == sourceMapped || output == normalizedMapped else {
+        guard output == sourceMapped
+                || output == normalizedMapped
+                || channelPreservingStraightMip else {
             return nil
         }
         // Color uploads may crop authored padding or proportionally normalize
         // the mapped image to the loader budget. A source-proven opaque JPEG
-        // or RGB PNG straight-albedo is also safe without authored padding;
-        // padded straight/data roles still require the exact physical extent.
+        // or RGB PNG resize and a complete authored lower mip are safe
+        // straight-albedo sources without authored padding. Padded
+        // straight/data roles still require the exact physical extent.
         // In every accepted case the resulting texture contains only mapped
         // pixels, so its consumer UV is identity.
         return (output, output)

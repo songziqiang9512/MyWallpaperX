@@ -325,6 +325,7 @@ enum DepthPlanHarness {
             "nonwritingDepthDescriptor.isDepthWriteEnabled = false",
             "attachment.sourceRGBBlendFactor = .one",
             "attachment.destinationRGBBlendFactor = .oneMinusSourceAlpha",
+            "encoder.setFrontFacing(.counterClockwise)",
             "encoder.setCullMode(.back)",
             "encoder.setVertexBuffer(mesh.vertexBuffer, offset: 0, index: 0)",
             "encoder.setFragmentTexture(texture, index: 0)",

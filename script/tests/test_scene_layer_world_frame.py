@@ -114,6 +114,37 @@ func dynamicResult() -> [String: [Double]] {
     })
 }
 
+func nativePerspectiveResult() -> [String: [Double]] {
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1,
+        parentID: nil,
+        originXYZ: [1, 2, 3],
+        scaleXYZ: nil,
+        anglesXYZ: [0, 0, 0.25],
+        parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2,
+        parentID: 1,
+        originXYZ: [0, 4, 0],
+        scaleXYZ: nil,
+        anglesXYZ: nil,
+        parentAttachmentBindFrame: nil
+    )
+    let frames = SceneLayerWorldFrameResolver.compute(
+        layers: [parent, child],
+        byID: [1: parent, 2: child],
+        sceneOrthoHeight: nil
+    )
+    return Dictionary(uniqueKeysWithValues: frames.map { id, frame in
+        (String(id), [
+            Double(frame.columns.0.x), Double(frame.columns.0.y),
+            Double(frame.columns.3.x), Double(frame.columns.3.y),
+            Double(frame.columns.3.z),
+        ])
+    })
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -126,6 +157,7 @@ enum Harness {
             ),
             "invalidFrame": result(attachment: [1, 2, 3]),
             "dynamic": dynamicResult(),
+            "nativePerspective": nativePerspectiveResult(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -187,6 +219,16 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
         self.assertAlmostEqual(parent[1], -1, places=5)
         self.assertAlmostEqual(child[2], 100, places=5)
         self.assertAlmostEqual(child[3], 940, places=5)
+
+    def test_native_perspective_hierarchy_preserves_authored_world_axes(self) -> None:
+        parent = self.result["nativePerspective"]["1"]
+        child = self.result["nativePerspective"]["2"]
+        self.assertAlmostEqual(parent[0], 0.9689124, places=5)
+        self.assertAlmostEqual(parent[1], 0.2474040, places=5)
+        self.assertEqual(parent[2:], [1, 2, 3])
+        self.assertAlmostEqual(child[2], 1 - 4 * 0.2474040, places=5)
+        self.assertAlmostEqual(child[3], 2 + 4 * 0.9689124, places=5)
+        self.assertAlmostEqual(child[4], 3, places=5)
 
 
 if __name__ == "__main__":
