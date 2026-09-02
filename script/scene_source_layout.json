@@ -163,7 +163,9 @@
       "ShaderPreparation": {
         "file_globs": [
           "SceneAuthoredShaderBackendCanonicalizer.swift",
+          "SceneAuthoredShaderConstantNumericExpression.swift",
           "SceneAuthoredShaderPreparation*.swift",
+          "SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
           "SceneGenericShader*.swift",
           "SceneShaderDirective.swift",
           "SceneShaderMacroExpansion.swift",
