@@ -13,11 +13,17 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
     static func lower(
         _ source: String,
         expectedSignalSlot: Int,
-        expectedColorSlot: Int
+        expectedColorSlot: Int,
+        expectedUnderlaySlot: Int? = nil
     ) -> String? {
         guard (0 ..< 8).contains(expectedSignalSlot),
               (0 ..< 8).contains(expectedColorSlot),
               expectedSignalSlot != expectedColorSlot,
+              expectedUnderlaySlot.map({
+                  (0 ..< 8).contains($0)
+                      && $0 != expectedSignalSlot
+                      && $0 != expectedColorSlot
+              }) ?? true,
               !containsWord(unpremultiply, in: source),
               !containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
@@ -28,14 +34,18 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             in: source,
             range: body
         )
-        guard sampleCalls.count == 2 else { return nil }
+        let expectedSlots = Set(
+            [expectedSignalSlot, expectedColorSlot]
+                + (expectedUnderlaySlot.map { [$0] } ?? [])
+        )
+        guard sampleCalls.count == expectedSlots.count else { return nil }
 
         let declarationPattern =
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture([0-7])\.sample\(([^;]+)\)(\s*;[ \t]*)$"#
         let declarations = matches(
             declarationPattern, in: source, range: body
         )
-        guard declarations.count == 2 else { return nil }
+        guard declarations.count == expectedSlots.count else { return nil }
 
         var bySlot: [Int: (match: NSTextCheckingResult, name: String)] = [:]
         for declaration in declarations {
@@ -45,7 +55,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                   bySlot[slot] == nil else { return nil }
             bySlot[slot] = (declaration, name)
         }
-        guard Set(bySlot.keys) == Set([expectedSignalSlot, expectedColorSlot]),
+        guard Set(bySlot.keys) == expectedSlots,
               let signal = bySlot[expectedSignalSlot],
               let color = bySlot[expectedColorSlot],
               signal.name != color.name,
@@ -77,11 +87,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                   #"\breturn\s+out\s*;"#, in: source, range: body
               ).count == 1 else { return nil }
 
-        guard let colorRange = Range(color.match.range, in: source),
-              let prefix = capture(color.match, 1, in: source),
-              let arguments = capture(color.match, 4, in: source),
-              let suffix = capture(color.match, 5, in: source),
-              let outputRange = Range(outputAssignments[0].range, in: source)
+        guard let outputRange = Range(outputAssignments[0].range, in: source)
         else { return nil }
 
         var transformed = source
@@ -89,13 +95,27 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             outputRange,
             with: "out.mwxFragColor = \(premultiply)(\(color.name));"
         )
-        guard let adjustedColorRange = Range(
-            NSRange(colorRange, in: source), in: transformed
-        ) else { return nil }
-        transformed.replaceSubrange(
-            adjustedColorRange,
-            with: "\(prefix)\(unpremultiply)(g_Texture\(expectedColorSlot).sample(\(arguments)))\(suffix)"
+        let straightColorSlots = Set(
+            [expectedColorSlot] + (expectedUnderlaySlot.map { [$0] } ?? [])
         )
+        let straightDeclarations = straightColorSlots.compactMap { slot in
+            bySlot[slot].map { (slot, $0) }
+        }.sorted { $0.1.match.range.location > $1.1.match.range.location }
+        guard straightDeclarations.count == straightColorSlots.count else {
+            return nil
+        }
+        for (slot, declaration) in straightDeclarations {
+            guard let adjustedRange = Range(declaration.match.range, in: transformed),
+                  let prefix = capture(declaration.match, 1, in: source),
+                  let arguments = capture(declaration.match, 4, in: source),
+                  let suffix = capture(declaration.match, 5, in: source) else {
+                return nil
+            }
+            transformed.replaceSubrange(
+                adjustedRange,
+                with: "\(prefix)\(unpremultiply)(g_Texture\(slot).sample(\(arguments)))\(suffix)"
+            )
+        }
 
         let helpers = """
 

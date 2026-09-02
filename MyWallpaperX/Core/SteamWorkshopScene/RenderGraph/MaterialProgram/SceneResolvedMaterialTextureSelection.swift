@@ -114,7 +114,23 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                 ) {
                     result[slot] = selection
                 }
-            case let .internalTarget(name): result[slot] = .internalDefault(name)
+            case let .internalTarget(name):
+                guard let reference = Resolver.sceneBackgroundDefault(
+                    template: input.template,
+                    sampler: sampler,
+                    slot: slot
+                ) else {
+                    result[slot] = .internalDefault(name)
+                    continue
+                }
+                if let selection = try referenceSelection(
+                    reference,
+                    purpose: sampler.purpose(for: reference),
+                    provenance: .shaderDefault,
+                    input: input
+                ) {
+                    result[slot] = selection
+                }
             case nil: break
             }
         }

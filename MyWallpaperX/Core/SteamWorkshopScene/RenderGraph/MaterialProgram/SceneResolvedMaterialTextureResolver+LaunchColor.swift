@@ -316,6 +316,17 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 sampler: sampler,
                 slot: slot
             ) != nil
+        if defaultAllowed,
+           let reference = sceneBackgroundDefault(
+               template: template,
+               sampler: sampler,
+               slot: slot
+           ) {
+            return .selected(
+                reference,
+                purpose: sampler.purpose(for: reference)
+            )
+        }
         if defaultAllowed, case let .asset(path)? = sampler.defaultTexture {
             let reference = Template.TextureReference.asset(path)
             do {

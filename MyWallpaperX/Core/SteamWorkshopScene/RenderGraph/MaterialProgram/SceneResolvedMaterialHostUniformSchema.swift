@@ -13,6 +13,8 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
             .modelViewProjectionInverse
         case ("g_LayerModelMatrix", .float4x4): .layerModelMatrix
+        case ("g_EffectModelViewProjectionMatrix", .float4x4):
+            .effectModelViewProjection
         case ("g_EffectTextureProjectionMatrix", .float4x4):
             .effectTextureProjectionMatrix
         case ("g_EffectTextureProjectionMatrixInverse", .float4x4):

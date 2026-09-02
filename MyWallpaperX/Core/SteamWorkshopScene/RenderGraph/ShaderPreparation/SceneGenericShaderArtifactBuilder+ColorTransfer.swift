@@ -224,6 +224,24 @@ extension SceneGenericShaderArtifactBuilder {
                     slots: [signalSlot, colorSlot]
                 )
             )
+        case let .independentAlphaSignalUnderlayCompositing(
+            signalSlot, colorSlot, underlaySlot
+        ):
+            guard let lowered =
+                    SceneGenericShaderIndependentSignalCompositingLowering.lower(
+                        source,
+                        expectedSignalSlot: signalSlot,
+                        expectedColorSlot: colorSlot,
+                        expectedUnderlaySlot: underlaySlot
+                    ) else { throw Failure.colorTransfer }
+            return (
+                lowered,
+                .init(
+                    kind: "independent-alpha-signal-underlay-compositing",
+                    slot: nil,
+                    slots: [signalSlot, colorSlot, underlaySlot]
+                )
+            )
         case .unresolved:
             // A compiler artifact may prove a form outside the bounded source
             // analyzer. The cache consumer still rejects any artifact that
@@ -341,6 +359,12 @@ extension SceneGenericShaderArtifactBuilder {
         case let ("independent-alpha-signal-compositing", nil, slots?):
             return slots.count == 2
                 && slots[0] != slots[1]
+                && slots.allSatisfy(boundSlots.contains)
+        case let (
+            "independent-alpha-signal-underlay-compositing", nil, slots?
+        ):
+            return slots.count == 3
+                && Set(slots).count == 3
                 && slots.allSatisfy(boundSlots.contains)
         case ("opaque", nil, nil), ("premultiplied", nil, nil),
              ("generated-straight-alpha", nil, nil),

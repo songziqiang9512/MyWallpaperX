@@ -92,6 +92,10 @@ nonisolated enum SceneAuthoredShaderMetalEmitter {
             }
         case let .independentAlphaSignalCompositing(_, colorSlot):
             unpremultipliedTextureSlots = [colorSlot]
+        case let .independentAlphaSignalUnderlayCompositing(
+            _, colorSlot, underlaySlot
+        ):
+            unpremultipliedTextureSlots = [colorSlot, underlaySlot]
         default:
             unpremultipliedTextureSlots = []
         }

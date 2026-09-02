@@ -286,6 +286,15 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     case independentAlphaSignal(textureSlot: Int)
     case independentAlphaSignalPreserving(textureSlot: Int)
     case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+    /// An independent signal is applied to a color carrier after the carrier
+    /// has first been composed over a distinct same-frame color underlay.
+    /// Ordered roles are part of the ABI; the three slots are never treated as
+    /// an unordered sampler set.
+    case independentAlphaSignalUnderlayCompositing(
+        signalSlot: Int,
+        colorSlot: Int,
+        underlaySlot: Int
+    )
     /// Authored source generates straight RGBA without sampling a color
     /// carrier. Both shader backends premultiply the terminal value exactly
     /// once before the shared compositor boundary.

@@ -29,6 +29,7 @@ SWIFT_SOURCES = [
     / "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteProfile.swift",
+    MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteAuthority.swift",
     MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderArtifactCache.swift",
     MATERIAL_PROGRAM_ROOT
     / "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
@@ -38,6 +39,9 @@ SWIFT_SOURCES = [
 ]
 
 ROUTE_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderRouteProfile.swift"
+ROUTE_AUTHORITY_SOURCE = MATERIAL_PROGRAM_ROOT / (
+    "SceneResolvedMaterialGenericShaderRouteAuthority.swift"
+)
 CACHE_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialGenericShaderArtifactCache.swift"
 VARIANT_SOURCE = MATERIAL_PROGRAM_ROOT / (
     "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"

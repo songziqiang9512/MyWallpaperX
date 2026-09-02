@@ -102,6 +102,7 @@
           "SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
           "SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
           "SceneResolvedMaterialGenericShaderRequest.swift",
+          "SceneResolvedMaterialGenericShaderRouteAuthority.swift",
           "SceneResolvedMaterialGenericShaderRouteProfile.swift",
           "SceneResolvedMaterialHostUniformSchema.swift",
           "SceneResolvedMaterialProgram+ColorDerivation.swift",

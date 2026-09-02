@@ -27,6 +27,8 @@ SWIFT_SOURCES = [
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteProfile.swift",
+    SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRouteAuthority.swift",
 ]
 
 

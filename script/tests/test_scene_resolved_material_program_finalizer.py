@@ -193,6 +193,7 @@ private func vertexSource(
     return """
     #if 1
     uniform mat4 g_ModelViewProjectionMatrixInverse;
+    uniform mat4 g_EffectModelViewProjectionMatrix;
     uniform mat4 g_EffectTextureProjectionMatrix;
     uniform mat4 g_EffectTextureProjectionMatrixInverse;
     uniform mat4 g_LayerModelMatrix;
@@ -209,6 +210,7 @@ private func vertexSource(
     void main() {
         \(stageLocalProbe)
         mat4 modelViewProjectionInverseProbe = g_ModelViewProjectionMatrixInverse;
+        mat4 effectModelViewProjectionProbe = g_EffectModelViewProjectionMatrix;
         mat4 forwardProjectionProbe = g_EffectTextureProjectionMatrix;
         mat4 layerModelProbe = g_LayerModelMatrix;
         vec2 parallaxProbe = g_ParallaxPosition;
@@ -5010,6 +5012,10 @@ private enum Harness {
         let forwardProjectionField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "g_EffectTextureProjectionMatrix"
         }!
+        let effectModelViewProjectionField =
+            programA.frontendProgram.uniformLayout.fields.first {
+                $0.name == "g_EffectModelViewProjectionMatrix"
+            }!
         let expectedForwardDiagonal: [Float] = [0.5, 1.0 / 3.0, 0.25, 0.2]
         let forwardProjectionEncoded = [0, 5, 10, 15].enumerated().allSatisfy {
             index, component in
@@ -5018,6 +5024,18 @@ private enum Harness {
                 at: forwardProjectionField.offset + component * 4
             ) - expectedForwardDiagonal[index]) < 0.000_001
         }
+        let effectModelViewProjectionEncoded =
+            [0, 5, 10, 15].enumerated().allSatisfy { index, component in
+                let targetScale: Float = switch component {
+                case 0: 1 / 640
+                case 5: 1 / 360
+                default: 1
+                }
+                return abs(float(
+                    programA.uniformBytes,
+                    at: effectModelViewProjectionField.offset + component * 4
+                ) - expectedForwardDiagonal[index] * targetScale) < 0.000_001
+            }
         let parallaxField = programA.frontendProgram.uniformLayout.fields.first {
             $0.name == "g_ParallaxPosition"
         }!
@@ -5463,6 +5481,8 @@ private enum Harness {
                     modelViewProjectionInverseEncoded,
                 "effectProjectionInverseEncoded": effectProjectionEncoded,
                 "layerModelMatrixEncoded": layerModelEncoded,
+                "effectModelViewProjectionEncoded":
+                    effectModelViewProjectionEncoded,
                 "effectProjectionEncoded": forwardProjectionEncoded,
                 "parallaxPositionEncoded": parallaxPositionEncoded,
                 "shaderUniformDefault": tintDefaultCorrect,

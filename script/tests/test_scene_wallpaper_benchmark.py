@@ -4289,7 +4289,7 @@ utility layer 763: skippedHidden kind=composition
             "dependency=none dependencyReferences=0\n"
             "resolved material scene background: "
             "schema=scene-background-provider-v1 layer=68 effect=0 "
-            "node=0 slot=1 mode=same-frame-main-target\n"
+            "node=0 slot=1 bindings=3 mode=same-frame-main-target\n"
         )
         log_text = "\n".join([
             "resolved material runtime audit: schema=scene-graph-executor-v1 "
@@ -4352,6 +4352,7 @@ utility layer 763: skippedHidden kind=composition
                 "effect_index": 0,
                 "node_index": 0,
                 "slot": 1,
+                "binding_count": 3,
             }],
         })
         self.assertEqual(metrics["executor"]["claimed_count"], 2)

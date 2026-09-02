@@ -187,6 +187,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let effect: Graph.EffectKey
         let nodeIndex: Int
         let slot: Int
+        let bindingCount: Int
     }
 
     struct RuntimeDispositionOwnership {
@@ -668,6 +669,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 + " effect=\(requirement.effect.effectIndex)"
                 + " node=\(requirement.nodeIndex)"
                 + " slot=\(requirement.slot)"
+                + " bindings=\(requirement.bindingCount)"
                 + " mode=same-frame-main-target"
         }
         return result

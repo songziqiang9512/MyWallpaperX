@@ -140,6 +140,10 @@ private func transfer(
         return "signal-preserving-slot:\(slot)"
     case .independentAlphaSignalCompositing(let signal, let color):
         return "signal-composite:\(signal):\(color)"
+    case .independentAlphaSignalUnderlayCompositing(
+        let signal, let color, let underlay
+    ):
+        return "signal-underlay-composite:\(signal):\(color):\(underlay)"
     case .premultipliedAlpha: return "premultiplied-alpha"
     case .generatedStraightAlpha: return "generated-straight-alpha"
     }
@@ -1654,6 +1658,36 @@ enum Harness {
                 "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
                 "color.a += rays.a; gl_FragColor = color;"
             ),
+            "independentSignalUnderlayComposite": transfer(
+                "vec4 rays = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = texSample2D(g_Texture1, v_TexCoord); " +
+                "vec2 screenCoord = v_TexCoord; " +
+                "vec4 background = texSample2D(g_Texture2, screenCoord); " +
+                "color.rgb = mix(background.rgb, color.rgb, color.a); " +
+                "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
+                "color.a = saturate(color.a + rays.a); " +
+                "gl_FragColor = color;"
+            ),
+            "independentSignalUnderlayCompositeMetal": metal(
+                "vec4 rays = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = texSample2D(g_Texture1, v_TexCoord); " +
+                "vec2 screenCoord = v_TexCoord; " +
+                "vec4 background = texSample2D(g_Texture2, screenCoord); " +
+                "color.rgb = mix(background.rgb, color.rgb, color.a); " +
+                "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
+                "color.a = saturate(color.a + rays.a); " +
+                "gl_FragColor = color;"
+            ),
+            "independentSignalUnderlayWrongWeight": transfer(
+                "vec4 rays = texSample2D(g_Texture0, v_TexCoord); " +
+                "vec4 color = texSample2D(g_Texture1, v_TexCoord); " +
+                "vec2 screenCoord = v_TexCoord; " +
+                "vec4 background = texSample2D(g_Texture2, screenCoord); " +
+                "color.rgb = mix(background.rgb, color.rgb, rays.a); " +
+                "color.rgb = ApplyBlending(9, color.rgb, rays.rgb, rays.a); " +
+                "color.a = saturate(color.a + rays.a); " +
+                "gl_FragColor = color;"
+            ),
             "signalCarrierComposite": transfer(
                 "vec4 signal = texSample2D(g_Texture0, v_TexCoord); " +
                 "vec4 gradient = texSample2D(g_Texture3, " +
@@ -2405,6 +2439,14 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["independentSignalComposite"], "signal-composite:0:1"
         )
         self.assertEqual(
+            self.result["independentSignalUnderlayComposite"],
+            "signal-underlay-composite:0:1:2",
+        )
+        self.assertEqual(
+            self.result["independentSignalUnderlayWrongWeight"],
+            "unresolved",
+        )
+        self.assertEqual(
             self.result["signalCarrierComposite"], "signal-composite:0:1"
         )
         self.assertEqual(
@@ -2422,6 +2464,11 @@ class SceneShaderColorContractTests(unittest.TestCase):
         composite = self.result["independentCompositeMetal"]
         self.assertIn("mwxUnpremultiply(mwxTexture1.sample", composite)
         self.assertIn("return mwxPremultiply(mwxFragColor);", composite)
+        underlay = self.result["independentSignalUnderlayCompositeMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture1.sample", underlay)
+        self.assertIn("mwxUnpremultiply(mwxTexture2.sample", underlay)
+        self.assertNotIn("mwxUnpremultiply(mwxTexture0.sample", underlay)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", underlay)
 
     def test_signal_carrier_composite_rejects_unsafe_tail_shapes(self) -> None:
         for key in (

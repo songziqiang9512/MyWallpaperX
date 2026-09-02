@@ -14,6 +14,25 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         }
     }
 
+    static func sceneBackgroundDefault(
+        template: Template,
+        sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int
+    ) -> Template.TextureReference? {
+        guard sampler.slot == slot,
+              sampler.readinessCombo == nil,
+              template.textureSlots.indices.contains(slot),
+              case let .internalTarget(name)? = sampler.defaultTexture,
+              name.caseInsensitiveCompare("_rt_FullFrameBuffer") == .orderedSame,
+              let layerID = template.effectContext?.key.layerID else { return nil }
+        let reference = Template.TextureReference.provider(
+            .sceneBackground(consumerLayerID: layerID)
+        )
+        if let authored = template.textureSlots[slot]?.candidates.last?.reference,
+           authored != reference { return nil }
+        return sampler.purpose(for: reference) == nil ? nil : reference
+    }
+
     /// Presence combos describe an authored binding, not the resource finally
     /// supplied to an active sampler. A prepared combo-off variant without an
     /// authored candidate or graph-input alias may consume its typed asset
@@ -133,6 +152,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         case .pending, .unavailable:
                             throw launchFailure(.textureBindingInvalid, slot: index)
                         }
+                    case .internalTarget where sceneBackgroundDefault(
+                        template: template,
+                        sampler: sampler,
+                        slot: index
+                    ) != nil:
+                        required |= bit
                     case .internalTarget where sampler.readinessCombo == nil:
                         throw launchFailure(.textureBindingInvalid, slot: index)
                     case .asset, .internalTarget, nil:

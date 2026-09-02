@@ -199,7 +199,15 @@ extension SceneResolvedMaterialShaderSchema {
                 case .asset where sampler.readinessCombo == nil:
                     required |= bit
                 case .internalTarget where sampler.readinessCombo == nil:
-                    throw Issue.sampler(sampler.name)
+                    guard SceneResolvedMaterialTextureResolver
+                        .sceneBackgroundDefault(
+                            template: template,
+                            sampler: sampler,
+                            slot: index
+                        ) != nil else {
+                        throw Issue.sampler(sampler.name)
+                    }
+                    required |= bit
                 case .asset, .internalTarget, nil:
                     break
                 }

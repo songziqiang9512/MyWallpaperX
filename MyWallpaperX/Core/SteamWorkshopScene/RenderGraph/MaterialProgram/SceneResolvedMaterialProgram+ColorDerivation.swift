@@ -310,6 +310,28 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             framebufferInput = color
+        } else if case let .independentAlphaSignalUnderlayCompositing(
+            signalSlot,
+            colorSlot,
+            underlaySlot
+        ) = transfer {
+            guard representation(slot: signalSlot, textureFacts: textureFacts)
+                    == .independentAlphaSignal,
+                  let color = representation(
+                      slot: colorSlot, textureFacts: textureFacts
+                  ),
+                  let underlay = representation(
+                      slot: underlaySlot, textureFacts: textureFacts
+                  ),
+                  color == underlay,
+                  color == .opaque || color == .premultipliedAlpha,
+                  auxiliarySlotsAreData(
+                      textureFacts,
+                      excluding: [signalSlot, colorSlot, underlaySlot]
+                  ) else {
+                return nil
+            }
+            framebufferInput = color
         } else {
             guard framebufferRepresentations.count == 1,
                   let representation = framebufferRepresentations.first else {
@@ -413,7 +435,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             guard representation(slot: slot, textureFacts: textureFacts)
                     == .independentAlphaSignal else { return nil }
             fragmentOutput = .independentAlphaSignal
-        case .independentAlphaSignalCompositing:
+        case .independentAlphaSignalCompositing,
+             .independentAlphaSignalUnderlayCompositing:
             fragmentOutput = .premultipliedAlpha
         }
         return .init(

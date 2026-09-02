@@ -29,7 +29,7 @@ PROVIDER_SETUP = r'''
             )
             let fragment = """
             varying vec2 v_TexCoord;
-            uniform sampler2D g_Texture1; // {}
+            uniform sampler2D g_Texture1; // {"hidden":true,"default":"_rt_FullFrameBuffer"}
             void main() {
                 gl_FragColor = texSample2D(g_Texture1, v_TexCoord);
             }
@@ -104,6 +104,14 @@ PROVIDER_SETUP = r'''
         let backgroundReference = Template.TextureReference.provider(
             .sceneBackground(consumerLayerID: fixtureLayerID)
         )
+        let backgroundEffectContext = Template.EffectContext(
+            key: Graph.EffectKey(
+                layerID: fixtureLayerID,
+                effectIndex: 0,
+                descriptorID: "scene-background-provider"
+            ),
+            input: graphTexture()
+        )
         let backgroundProgram = finalize(
             shader: backgroundContract("scene-background-provider"),
             device: device,
@@ -111,13 +119,24 @@ PROVIDER_SETUP = r'''
             secondReference: backgroundReference,
             additionalEntries: backgroundResource.map {
                 [.sceneBackground(fixtureLayerID): .ready($0)]
-            } ?? [:]
+            } ?? [:],
+            effectContext: backgroundEffectContext
         )
         let missingBackgroundProgram = finalize(
             shader: backgroundContract("scene-background-missing"),
             device: device,
             includePrimaryCandidate: false,
-            secondReference: backgroundReference
+            secondReference: backgroundReference,
+            effectContext: backgroundEffectContext
+        )
+        let shaderDefaultBackgroundProgram = finalize(
+            shader: backgroundContract("scene-background-shader-default"),
+            device: device,
+            includePrimaryCandidate: false,
+            additionalEntries: backgroundResource.map {
+                [.sceneBackground(fixtureLayerID): .ready($0)]
+            } ?? [:],
+            effectContext: backgroundEffectContext
         )
         let backgroundProgramIdentity: Bool = {
             guard case let .success(program) = backgroundProgram,
@@ -154,6 +173,7 @@ PROVIDER_SETUP = r'''
         let sceneBackgroundProvider: [String: Any] = [
             "programIdentity": backgroundProgramIdentity,
             "programFailure": failureToken(backgroundProgram),
+            "shaderDefaultFailure": failureToken(shaderDefaultBackgroundProgram),
             "missingFailure": failureToken(missingBackgroundProgram),
             "staleOverlayRejected": staleOverlayRejected,
             "wrongLayerRejected": wrongLayerRejected,
@@ -223,6 +243,7 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
 
     def test_program_consumes_only_complete_same_frame_provider(self) -> None:
         self.assertTrue(self.result["programIdentity"], self.result)
+        self.assertEqual(self.result["shaderDefaultFailure"], "success")
         self.assertEqual(
             self.result["missingFailure"],
             "texture/resourceSnapshotUnresolved",
@@ -245,8 +266,10 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
             SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
         self.assertIn('caseInsensitiveCompare("_rt_FullFrameBuffer")', compiler)
-        self.assertIn("candidate.slot == 1", capability)
-        self.assertIn("nodes.count == 2", capability)
+        self.assertIn("sceneBackgroundCandidateIsOrdered", capability)
+        self.assertIn("candidateNode.nodeIndex == nodes.last?.nodeIndex", capability)
+        self.assertIn("!admitted.isGraphOutputProvider", capability)
+        self.assertIn("case .none, .externalPrimary: true", capability)
         self.assertIn("scene-background-provider-ambiguous", capability)
         self.assertIn("scene-background-compose-shape", capability)
         self.assertIn("schema=scene-background-provider-v1", capability_report)

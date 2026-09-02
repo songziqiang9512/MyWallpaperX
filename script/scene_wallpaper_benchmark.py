@@ -607,6 +607,7 @@ RESOLVED_MATERIAL_SCENE_BACKGROUND_RE = re.compile(
     r"resolved material scene background: "
     r"schema=scene-background-provider-v1 layer=(?P<id>\d+) "
     r"effect=(?P<effect>\d+) node=(?P<node>\d+) slot=(?P<slot>\d+) "
+    r"(?:bindings=(?P<bindings>\d+) )?"
     r"mode=same-frame-main-target"
 )
 RESOLVED_MATERIAL_GRAPH_EXECUTOR_RE = re.compile(
@@ -2808,6 +2809,7 @@ def resolved_material_graph_execution_metrics(
             "effect_index": int(current.group("effect")),
             "node_index": int(current.group("node")),
             "slot": int(current.group("slot")),
+            "binding_count": int(current.group("bindings") or "1"),
         })
     scene_background_layer_ids = sorted({
         value["layer_id"] for value in scene_background_observations

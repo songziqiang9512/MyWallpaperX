@@ -28,6 +28,11 @@ extension SceneResolvedMaterialProgram {
             case independentAlphaSignal(Int)
             case independentAlphaSignalPreserving(Int)
             case independentAlphaSignalCompositing(signalSlot: Int, colorSlot: Int)
+            case independentAlphaSignalUnderlayCompositing(
+                signalSlot: Int,
+                colorSlot: Int,
+                underlaySlot: Int
+            )
             case generatedStraightAlpha
             case premultipliedAlpha
             case opaque
@@ -211,6 +216,10 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             "alpha-signal-preserving-\(slot)"
         case let .independentAlphaSignalCompositing(signal, color):
             "alpha-signal-composite-\(signal)-\(color)"
+        case let .independentAlphaSignalUnderlayCompositing(
+            signal, color, underlay
+        ):
+            "alpha-signal-underlay-composite-\(signal)-\(color)-\(underlay)"
         case .generatedStraightAlpha: "generated-straight-alpha"
         case .premultipliedAlpha: "premultiplied"
         case .opaque: "opaque"
@@ -241,6 +250,14 @@ nonisolated enum SceneResolvedMaterialProgramIdentity {
             transfer = .independentAlphaSignalCompositing(
                 signalSlot: signalSlot,
                 colorSlot: colorSlot
+            )
+        case let .independentAlphaSignalUnderlayCompositing(
+            signalSlot, colorSlot, underlaySlot
+        ):
+            transfer = .independentAlphaSignalUnderlayCompositing(
+                signalSlot: signalSlot,
+                colorSlot: colorSlot,
+                underlaySlot: underlaySlot
             )
         case .generatedStraightAlpha: transfer = .generatedStraightAlpha
         case .premultipliedAlpha: transfer = .premultipliedAlpha

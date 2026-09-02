@@ -51,7 +51,8 @@ extension SceneResolvedMaterialVariantCache {
                     activeTextureSlots: activeSlots
                 ) else { return false }
                 switch host {
-                case .effectTextureProjectionMatrix,
+                case .effectModelViewProjection,
+                     .effectTextureProjectionMatrix,
                      .effectTextureProjectionMatrixInverse:
                     return true
                 default:

@@ -312,7 +312,9 @@ extension SceneResolvedMaterialShaderSchema {
             slot
         case .interpolatedColor, .straightAlpha, .straightAlphaUNorm,
              .independentAlphaSignal, .independentAlphaSignalPreserving,
-             .independentAlphaSignalCompositing, .generatedStraightAlpha,
+             .independentAlphaSignalCompositing,
+             .independentAlphaSignalUnderlayCompositing,
+             .generatedStraightAlpha,
              .premultipliedAlpha,
              .opaque, .unresolved, nil:
             nil

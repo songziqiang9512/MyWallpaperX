@@ -220,6 +220,19 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
                 signalSlot: slots[0],
                 colorSlot: slots[1]
             )
+        case let (
+            "independent-alpha-signal-underlay-compositing", nil, slots?
+        ):
+            guard slots.count == 3,
+                  Set(slots).count == 3,
+                  slots.allSatisfy({ slot in
+                      bindings.contains(where: { $0.slot == slot })
+                  }) else { return nil }
+            colorTransfer = .independentAlphaSignalUnderlayCompositing(
+                signalSlot: slots[0],
+                colorSlot: slots[1],
+                underlaySlot: slots[2]
+            )
         case ("red-green-unorm-data", nil, nil):
             guard outputSemantics == .redGreenUnorm else { return nil }
             colorTransfer = .unresolved
@@ -232,7 +245,8 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let requiresExactExpectedTransfer: Bool = switch colorTransfer {
         case .independentAlphaSignal,
              .independentAlphaSignalPreserving,
-             .independentAlphaSignalCompositing:
+             .independentAlphaSignalCompositing,
+             .independentAlphaSignalUnderlayCompositing:
             true
         default: false
         }

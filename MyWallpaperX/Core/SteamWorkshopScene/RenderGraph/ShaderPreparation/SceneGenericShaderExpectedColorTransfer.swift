@@ -79,6 +79,16 @@ nonisolated struct SceneGenericShaderExpectedColorTransfer: Encodable {
             kind = "independent-alpha-signal-compositing"
             slot = nil
             slots = [signalSlot, colorSlot]
+        case let .independentAlphaSignalUnderlayCompositing(
+            signalSlot, colorSlot, underlaySlot
+        ):
+            guard [signalSlot, colorSlot, underlaySlot].allSatisfy(Self.valid),
+                  Set([signalSlot, colorSlot, underlaySlot]).count == 3,
+                  accumulatorLoopWork == nil,
+                  !usesRGBA8UnormAttachmentBoundary else { return nil }
+            kind = "independent-alpha-signal-underlay-compositing"
+            slot = nil
+            slots = [signalSlot, colorSlot, underlaySlot]
         default:
             return nil
         }

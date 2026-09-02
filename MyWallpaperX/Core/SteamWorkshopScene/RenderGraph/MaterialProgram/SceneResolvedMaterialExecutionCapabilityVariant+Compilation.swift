@@ -167,10 +167,19 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: ["mixed-provider-purpose-profile"]
             )
         }
+        let activeSceneBackgroundTextureSlots = Set(
+            sourceActiveSamplers.compactMap { slot, sampler in
+                SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                    template: template,
+                    sampler: sampler,
+                    slot: slot
+                ) == nil ? nil : slot
+            }
+        )
         let activeExternalProviderTextureSlots = externalProviderTextureSlots(
             in: template,
             activeTextureSlots: Set(sourceActiveSamplers.keys)
-        )
+        ).union(activeSceneBackgroundTextureSlots)
         let staticallyTerminalNamedLayerProviderTextureSlots =
             terminalNamedLayerProviderTextureSlots(
                 in: template,
@@ -498,7 +507,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         }
         let samplers = sourceActiveSamplers
         let bindings = frontend.textureBindings
-        if let internalTarget = internalTarget(in: samplers) {
+        if let internalTarget = unsupportedInternalTarget(in: samplers, template: template) {
             throw failure(
                 .samplerInternalTargetUnsupported,
                 phase: .preparation,
@@ -599,17 +608,6 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             neutralTextureResolution: neutralTextureResolution,
             sameSlotMappedCoordinateFacts: sameSlotMappedCoordinateFacts
         )
-    }
-
-    private static func internalTarget(
-        in samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
-    ) -> (slot: Int, name: String)? {
-        for (slot, sampler) in samplers.sorted(by: { $0.key < $1.key }) {
-            if case let .internalTarget(name)? = sampler.defaultTexture {
-                return (slot, name)
-            }
-        }
-        return nil
     }
 
     static func typedStaticDataAuxiliarySlots(

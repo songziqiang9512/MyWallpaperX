@@ -14,6 +14,13 @@ nonisolated enum SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnal
         main: Unit.Function
     ) -> SceneShaderColorTransfer? {
         let tokens = fragment.tokens
+        if let underlay = underlayComposition(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return underlay
+        }
         guard outputUses.count == 1,
               fragment.functions.allSatisfy({ $0.name != "saturate" }),
               !main.bodyRange.contains(where: {
@@ -57,6 +64,120 @@ nonisolated enum SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnal
             signalSlot: signal.slot,
             colorSlot: color.slot
         )
+    }
+
+    /// Proves the ordered three-input form used by authored same-frame
+    /// background composition: signal, color carrier and color underlay. The
+    /// coordinate expression stays author-controlled, while its statement is
+    /// required to be sample-free and unable to mutate any color carrier.
+    private static func underlayComposition(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> SceneShaderColorTransfer? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 1,
+              fragment.functions.allSatisfy({
+                  !["saturate", "mix", "lerp"].contains($0.name)
+              }),
+              !main.bodyRange.contains(where: {
+                  [
+                      "if", "else", "for", "while", "do", "switch", "case",
+                      "discard", "break", "continue", "return", "?",
+                  ].contains(tokens[$0].text)
+              }),
+              main.bodyRange.filter({
+                  ["texSample2D", "texture2D"].contains(tokens[$0].text)
+              }).count == 3,
+              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer
+                .topLevelStatements(in: main.bodyRange, tokens: tokens),
+              statements.count == 8,
+              let first = directVectorSample(
+                  Array(tokens[statements[0]]), fragment: fragment
+              ),
+              let second = directVectorSample(
+                  Array(tokens[statements[1]]), fragment: fragment
+              ),
+              safeCoordinateDeclaration(
+                  Array(tokens[statements[2]]),
+                  excluding: [first.name, second.name]
+              ),
+              let third = directVectorSample(
+                  Array(tokens[statements[3]]), fragment: fragment
+              ),
+              Set([first.name, second.name, third.name]).count == 3,
+              Set([first.slot, second.slot, third.slot]).count == 3,
+              let tail = exactBlend(Array(tokens[statements[5]])),
+              tail.colorName != tail.signalName,
+              let underlayName = exactUnderlayMix(
+                  Array(tokens[statements[4]]),
+                  colorName: tail.colorName
+              ),
+              underlayName != tail.signalName,
+              exactCombinedAlpha(
+                  Array(tokens[statements[6]]),
+                  colorName: tail.colorName,
+                  signalName: tail.signalName
+              ),
+              exactOutputCarrier(
+                  Array(tokens[statements[7]]), colorName: tail.colorName
+              ),
+              let color = [first, second, third].first(where: {
+                  $0.name == tail.colorName
+              }),
+              let signal = [first, second, third].first(where: {
+                  $0.name == tail.signalName
+              }),
+              let underlay = [first, second, third].first(where: {
+                  $0.name == underlayName
+              }) else { return nil }
+
+        return .independentAlphaSignalUnderlayCompositing(
+            signalSlot: signal.slot,
+            colorSlot: color.slot,
+            underlaySlot: underlay.slot
+        )
+    }
+
+    private static func safeCoordinateDeclaration(
+        _ statement: [Token],
+        excluding colorNames: Set<String>
+    ) -> Bool {
+        guard statement.count >= 4,
+              ["vec2", "float2"].contains(statement[0].text),
+              statement[1].kind == .identifier,
+              statement[2].text == "=",
+              !colorNames.contains(statement[1].text),
+              !statement.dropFirst(3).contains(where: {
+                  colorNames.contains($0.text)
+                      || [
+                          "gl_FragColor", "texSample2D", "texture2D",
+                          "+=", "-=", "*=", "/=", "++", "--",
+                      ].contains($0.text)
+              }) else { return false }
+        return true
+    }
+
+    private static func exactUnderlayMix(
+        _ statement: [Token],
+        colorName: String
+    ) -> String? {
+        guard statement.count >= 16,
+              Array(statement.prefix(4)).map(\.text)
+                == [colorName, ".", "rgb", "="],
+              let arguments = callArguments(
+                  Array(statement.dropFirst(4)),
+                  name: statement.dropFirst(4).first?.text ?? ""
+              ),
+              ["mix", "lerp"].contains(statement[4].text),
+              arguments.count == 3,
+              arguments[0].count == 3,
+              arguments[0][0].kind == .identifier,
+              Array(arguments[0].dropFirst()).map(\.text) == [".", "rgb"],
+              arguments[1].map(\.text) == [colorName, ".", "rgb"],
+              arguments[2].map(\.text) == [colorName, ".", "a"],
+              arguments[0][0].text != colorName else { return nil }
+        return arguments[0][0].text
     }
 
     private static func directVectorSample(

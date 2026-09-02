@@ -45,6 +45,18 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             return encodeMatrix(inputs.modelViewProjection.inverse, type: type)
         case .layerModelMatrix:
             return encodeMatrix(inputs.layerModelMatrix, type: type)
+        case .effectModelViewProjection:
+            guard valid(inputs.renderSize) else { return nil }
+            let targetPixelsToLayer = simd_float4x4(diagonal: SIMD4(
+                1 / Float(inputs.renderSize.width),
+                1 / Float(inputs.renderSize.height),
+                1,
+                1
+            ))
+            return encodeMatrix(
+                inputs.effectTextureProjectionMatrix * targetPixelsToLayer,
+                type: type
+            )
         case .effectTextureProjectionMatrix:
             return encodeMatrix(
                 inputs.effectTextureProjectionMatrix,

@@ -99,6 +99,23 @@ nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
 }
 
 nonisolated extension SceneResolvedMaterialVariantCache {
+    static func unsupportedInternalTarget(
+        in samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        template: Template
+    ) -> (slot: Int, name: String)? {
+        for (slot, sampler) in samplers.sorted(by: { $0.key < $1.key }) {
+            guard case let .internalTarget(name)? = sampler.defaultTexture else {
+                continue
+            }
+            guard SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                template: template,
+                sampler: sampler,
+                slot: slot
+            ) != nil else { return (slot, name) }
+        }
+        return nil
+    }
+
     static func mixedProviderSlotFacts(
         in template: Template,
         samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler]
