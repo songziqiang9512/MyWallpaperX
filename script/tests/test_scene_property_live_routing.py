@@ -297,6 +297,18 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             consumers,
         )
 
+    def test_generic_string_property_inputs_remain_live_without_scene_relaunch(self) -> None:
+        consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")
+        unavailable = method_body(
+            self.live_consumers, "static func unavailableLiveScriptPropertyTargets("
+        )
+        for source in (consumers, unavailable):
+            self.assertIn("sceneScriptStringProgram.livePropertyInputTargets", source)
+        self.assertIn(
+            "sceneScriptStringProgram.activeLivePropertyInputTargets",
+            unavailable,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

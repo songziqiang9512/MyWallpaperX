@@ -107,10 +107,14 @@ extension SceneDesktopWallpaperHost {
     ) -> Set<SceneDynamicTarget> {
         let all = context.propertyVectorScriptProgram.livePropertyInputTargets
             .union(context.sceneScriptScalarProgram.livePropertyInputTargets)
+            .union(context.sceneScriptStringProgram.livePropertyInputTargets)
         let active = context.propertyVectorScriptProgram
             .activeLivePropertyInputTargets
             .union(
                 context.sceneScriptScalarProgram.activeLivePropertyInputTargets
+            )
+            .union(
+                context.sceneScriptStringProgram.activeLivePropertyInputTargets
             )
         return all.subtracting(active)
     }
@@ -121,7 +125,8 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
-        sceneScriptScalarProgram: SceneScriptScalarProgram
+        sceneScriptScalarProgram: SceneScriptScalarProgram,
+        sceneScriptStringProgram: SceneScriptStringProgram
     ) -> ScenePropertyLiveUpdateState {
         ScenePropertyLiveUpdateState(
             program: runtimeInput.propertyBindingProgram,
@@ -133,7 +138,8 @@ extension SceneDesktopWallpaperHost {
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
-                sceneScriptScalarProgram: sceneScriptScalarProgram
+                sceneScriptScalarProgram: sceneScriptScalarProgram,
+                sceneScriptStringProgram: sceneScriptStringProgram
             )
         )
     }
@@ -145,7 +151,8 @@ extension SceneDesktopWallpaperHost {
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
-        sceneScriptScalarProgram: SceneScriptScalarProgram
+        sceneScriptScalarProgram: SceneScriptScalarProgram,
+        sceneScriptStringProgram: SceneScriptStringProgram
     ) -> Set<SceneDynamicTarget> {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: descriptor,
@@ -165,6 +172,7 @@ extension SceneDesktopWallpaperHost {
                 .union(soundPlaybackProgram.liveConsumerTargets)
                 .union(propertyVectorScriptProgram.livePropertyInputTargets)
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)
+                .union(sceneScriptStringProgram.livePropertyInputTargets)
         ) { targets, layer in
             switch layer.contentKind {
             case "image":

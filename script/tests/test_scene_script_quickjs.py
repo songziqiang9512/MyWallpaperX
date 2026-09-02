@@ -317,7 +317,8 @@ static int update_string(
         .runtime = 2.0,
     };
     MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_string(
-        owner, generation, input, strlen(input), &frame, "{}", 2,
+        owner, generation, input, strlen(input), &frame,
+        "", 0, "{}", 2,
         output, sizeof(output), &output_length, diagnostic, sizeof(diagnostic)
     );
     return check(

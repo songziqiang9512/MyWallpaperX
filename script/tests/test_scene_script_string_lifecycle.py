@@ -22,6 +22,7 @@ SOURCES = [
     SCENE / "Properties/SceneDynamicSnapshot.swift",
     SCENE / "Properties/SceneUserProperty.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
+    VM / "SceneScriptPropertyInput.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
@@ -37,6 +38,43 @@ SOURCES = [
 
 HARNESS = r'''
 import Foundation
+
+struct SceneScriptUserPropertyInputDefinition {
+    let userPropertyKey: String
+    let fallback: SceneJSONValue
+}
+
+enum SceneScriptUserPropertyInputContract {
+    static func dynamicInput(
+        _ value: SceneJSONValue
+    ) -> SceneScriptUserPropertyInputDefinition? {
+        guard case let .object(wrapper) = value,
+              wrapper.keys.sorted() == ["user", "value"],
+              case let .string(key)? = wrapper["user"],
+              validName(key),
+              let fallback = wrapper["value"] else { return nil }
+        switch fallback {
+        case let .number(number) where number.isFinite:
+            return .init(userPropertyKey: key, fallback: fallback)
+        case .bool, .string:
+            return .init(userPropertyKey: key, fallback: fallback)
+        default:
+            return nil
+        }
+    }
+
+    static func validName(_ value: String) -> Bool {
+        !value.isEmpty && value != "__proto__" && value.utf8.count <= 256
+    }
+}
+
+enum SceneScriptPropertyTargetPath {
+    static func keyComponent(_ key: String) -> String {
+        "k:\(key.utf8.count):\(key)"
+    }
+
+    static func indexComponent(_ index: Int) -> String { "i:\(index)" }
+}
 
 struct SceneFrameTiming {
     let wallDate: Date
@@ -204,6 +242,49 @@ enum Harness {
             sceneScriptValues: disabled.values,
             frameIndex: 3
         )
+        let propertyDomain = try SceneScriptQuickJSDomain()
+        let propertyDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 88,
+            layerIndex: 0,
+            name: "Generic Clock",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: nil,
+            alpha: 1,
+            effects: [],
+            contentKind: "text",
+            textScript: .init(source: propertySource),
+            text: "placeholder",
+            textStyle: .init(fontPath: nil, colorRGB: [1, 1, 1], pointSize: 32)
+        )])
+        try propertyDomain.configureLayerCatalog(propertyDescriptor)
+        let propertyProgram = SceneScriptStringProgram.compile(
+            domain: propertyDomain,
+            descriptor: propertyDescriptor,
+            scriptBindings: [propertyBinding(source: propertySource)],
+            generation: 2
+        )
+        let propertyTarget = SceneDynamicTarget.text(
+            layerID: 88, field: .content
+        )
+        let propertyResult = propertyProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["clockPrefix": .string("live")],
+            frame: frame
+        )
+        let propertyValue: String
+        if case let .string(value)? = propertyResult.values[propertyTarget] {
+            propertyValue = value
+        } else {
+            propertyValue = "missing"
+        }
+        let propertyTeardown = propertyProgram.teardown(
+            frame: frame,
+            effectivePropertyValues: ["clockPrefix": .string("teardown")],
+            userPropertiesJSON: "{}"
+        )
         let storageRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: storageRoot) }
@@ -279,6 +360,16 @@ enum Harness {
             "disabledFailures": disabled.failures.count,
             "disabledPublished": disabled.values[target] != nil,
             "disabledResolution": disabledResolution,
+            "propertyBindings": propertyProgram.bindings.count,
+            "propertyFailures": propertyResult.failures.count,
+            "propertyValue": propertyValue,
+            "propertyLiveTargets": propertyProgram.livePropertyInputTargets.count,
+            "propertyActiveLiveTargets":
+                propertyProgram.activeLivePropertyInputTargets.count,
+            "propertyTeardownFailures":
+                propertyTeardown.compactMap(\.failure).count,
+            "propertyDestroyCallbacks":
+                propertyTeardown.filter(\.destroyCallbackInvoked).count,
             "persistedStorageValue": persistedValue,
             "futureStorageReadRejected": futureReadRejected,
             "futureStorageWriteRejected": futureWriteRejected,
@@ -311,6 +402,31 @@ enum Harness {
         )
     }
 
+    static func propertyBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 88,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("text")],
+            properties: [
+                "prefix": .object([
+                    "user": .string("clockPrefix"),
+                    "value": .string("fallback"),
+                ]),
+            ],
+            authoredValue: .string("placeholder"),
+            valueType: .string,
+            wrapperKeys: ["script", "scriptproperties", "value"]
+        )
+    }
+
     static func resolution(
         program: SceneScriptStringProgram,
         target: SceneDynamicTarget,
@@ -338,6 +454,22 @@ enum Harness {
         updateCount += 1;
         if (updateCount > 1) { throw new Error('string failure'); }
         return `script:${value}`;
+    }
+    """
+
+    static let propertySource = """
+    export var scriptProperties = createScriptProperties()
+        .addText({ name: 'prefix', value: 'fallback' })
+        .finish();
+    export function update(value) {
+        const labels = ['zero', 'one', 'two'];
+        const now = new Date();
+        return scriptProperties.prefix + ':' + labels[1] + ':' + now.getFullYear();
+    }
+    export function destroy() {
+        if (scriptProperties.prefix !== 'teardown') {
+            throw new Error('stale string properties during destroy');
+        }
     }
     """
 }
@@ -449,6 +581,16 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
             result["disabledResolution"],
             {"source": "timeline", "value": "lower-3"},
         )
+        self.assertEqual(result["propertyBindings"], 1)
+        self.assertEqual(result["propertyFailures"], 0)
+        self.assertEqual(result["propertyLiveTargets"], 1)
+        self.assertEqual(result["propertyActiveLiveTargets"], 1)
+        self.assertEqual(result["propertyTeardownFailures"], 0)
+        self.assertEqual(result["propertyDestroyCallbacks"], 1)
+        prefix, array_value, year = result["propertyValue"].split(":")
+        self.assertEqual(prefix, "live")
+        self.assertEqual(array_value, "one")
+        self.assertGreaterEqual(int(year), 2025)
         self.assertEqual(result["persistedStorageValue"], "7")
         self.assertTrue(result["futureStorageReadRejected"])
         self.assertTrue(result["futureStorageWriteRejected"])

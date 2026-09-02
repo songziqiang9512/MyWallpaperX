@@ -44,6 +44,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let bindings: [SceneScriptStringOwner]
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
+    private let propertyInputsByTarget:
+        [SceneDynamicTarget: [String: SceneScriptPropertyInput]]
+    private let livePropertyInputTargetsByTarget:
+        [SceneDynamicTarget: Set<SceneDynamicTarget>]
+    let livePropertyInputTargets: Set<SceneDynamicTarget>
     private var disabledTargets: Set<SceneDynamicTarget> = []
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var observedMediaThumbnailEvent =
@@ -63,6 +68,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         bindings.contains(where: \.hasAudioRegistration)
     }
 
+    var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
+        livePropertyInputTargetsByTarget.reduce(into: Set<SceneDynamicTarget>()) {
+            if !disabledTargets.contains($1.key) { $0.formUnion($1.value) }
+        }
+    }
+
     static func compile(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -74,7 +85,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     ) -> SceneScriptStringProgram {
         guard let domain else {
             return SceneScriptStringProgram(
-                bindings: [], authoredValues: [:], generation: generation
+                bindings: [], authoredValues: [:], propertyInputsByTarget: [:],
+                livePropertyInputTargetsByTarget: [:], livePropertyInputTargets: [],
+                generation: generation
             )
         }
         return compileCandidate(
@@ -101,13 +114,14 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     ) -> SceneScriptStringProgramConstruction {
         let candidates = scriptBindings.enumerated().compactMap {
             authoredOrdinal, binding -> (
-            Int, SceneScriptBindingIR, SceneDynamicTarget, String, [String?]
+            Int, SceneScriptBindingIR, SceneDynamicTarget, String, [String?],
+            [String: SceneScriptPropertyInput]
         )? in
             guard let projection = projection(binding, descriptor: descriptor),
                   !excludedTargets.contains(projection.target) else { return nil }
             return (
                 authoredOrdinal, binding, projection.target,
-                projection.authored, projection.effects
+                projection.authored, projection.effects, projection.properties
             )
         }
         let counts = Dictionary(grouping: candidates, by: { $0.2 }).mapValues(\.count)
@@ -115,20 +129,42 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             counts[candidate.2] == 1 ? candidate.2 : nil
         }).subtracting(rejectedTargets)
         var owners: [SceneScriptStringOwner] = []
+        var propertyInputsByTarget:
+            [SceneDynamicTarget: [String: SceneScriptPropertyInput]] = [:]
+        var livePropertyInputTargetsByTarget:
+            [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:]
+        var livePropertyInputTargets: Set<SceneDynamicTarget> = []
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         for candidate in candidates {
-            let (_, binding, target, _, effects) = candidate
+            let (_, binding, target, _, effects, properties) = candidate
             guard requestedTargets.contains(target) else { continue }
             do {
+                guard let propertiesJSON =
+                        SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                            properties,
+                            effectiveValues: [:]
+                        ) else {
+                    throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                        "SceneScript properties unavailable"
+                    )
+                }
                 owners.append(try SceneScriptStringOwner(
                     domain: domain,
                     source: binding.source,
                     target: target,
+                    scriptPropertiesJSON: propertiesJSON,
                     effectNames: effects,
                     hasCurrentAnimation: timelineTargets.contains(target),
                     generation: generation,
                     budget: budget
                 ))
+                propertyInputsByTarget[target] = properties
+                let inputTargets = SceneScriptPropertyInputCodec.liveConsumerTargets(
+                    binding: binding,
+                    inputs: properties
+                )
+                livePropertyInputTargetsByTarget[target] = inputTargets
+                livePropertyInputTargets.formUnion(inputTargets)
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[target] = failure
                 break
@@ -153,6 +189,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             bindings: owners,
             authoredValues: authoredValues,
             authoredOrdinals: authoredOrdinals,
+            propertyInputsByTarget: propertyInputsByTarget,
+            livePropertyInputTargetsByTarget: livePropertyInputTargetsByTarget,
+            livePropertyInputTargets: livePropertyInputTargets,
             generation: generation
         )
         return .init(
@@ -217,10 +256,18 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         bindings: [SceneScriptStringOwner],
         authoredValues: [SceneDynamicTarget: String],
         authoredOrdinals: [SceneDynamicTarget: Int] = [:],
+        propertyInputsByTarget:
+            [SceneDynamicTarget: [String: SceneScriptPropertyInput]],
+        livePropertyInputTargetsByTarget:
+            [SceneDynamicTarget: Set<SceneDynamicTarget>] = [:],
+        livePropertyInputTargets: Set<SceneDynamicTarget> = [],
         generation: UInt64
     ) {
         self.bindings = bindings
         self.authoredOrdinals = authoredOrdinals
+        self.propertyInputsByTarget = propertyInputsByTarget
+        self.livePropertyInputTargetsByTarget = livePropertyInputTargetsByTarget
+        self.livePropertyInputTargets = livePropertyInputTargets
         self.generation = generation
         definitions = bindings.compactMap { owner in
             authoredValues[owner.target].map {
@@ -248,6 +295,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
 
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
@@ -279,6 +327,17 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .string(inputString) = input else { continue }
+            guard let propertyInputs = propertyInputsByTarget[binding.target],
+                  let propertiesJSON =
+                    SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                        propertyInputs,
+                        effectiveValues: effectivePropertyValues
+                    ) else {
+                failures[binding.target] = .invalidArgument(
+                    "SceneScript properties unavailable"
+                )
+                continue
+            }
             var current = inputString
             let playback = observedPlayback.flatMap { event in
                 binding.handlesMediaPlayback && event.generation
@@ -317,6 +376,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 switch binding.initializeIfNeeded(
                     input: current,
                     frame: frame,
+                    scriptPropertiesJSON: propertiesJSON,
                     userPropertiesJSON: userPropertiesJSON,
                     expectedGeneration: generation,
                     interruptBudget: interruptBudget
@@ -403,6 +463,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             switch binding.evaluate(
                 input: current,
                 frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
                 userPropertiesJSON: userPropertiesJSON,
                 expectedGeneration: generation,
                 interruptBudget: interruptBudget
@@ -498,10 +559,21 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
 
     func teardown(
         frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         userPropertiesJSON: String
     ) -> [SceneScriptOwnerTeardownOutcome] {
-        bindings.map {
-            $0.teardown(frame: frame, userPropertiesJSON: userPropertiesJSON)
+        bindings.map { binding in
+            let propertiesJSON = propertyInputsByTarget[binding.target].flatMap {
+                SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                    $0,
+                    effectiveValues: effectivePropertyValues
+                )
+            }
+            return binding.teardown(
+                frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
+                userPropertiesJSON: userPropertiesJSON
+            )
         }
     }
 
@@ -529,9 +601,13 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     private static func projection(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor
-    ) -> (target: SceneDynamicTarget, authored: String, effects: [String?])? {
+    ) -> (
+        target: SceneDynamicTarget,
+        authored: String,
+        effects: [String?],
+        properties: [String: SceneScriptPropertyInput]
+    )? {
         guard binding.owner.kind == .object,
-              binding.properties.isEmpty,
               binding.valueType == .string,
               let objectIndex = binding.owner.objectIndex,
               let layerID = binding.owner.objectID,
@@ -548,11 +624,15 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 binding.wrapperKeys == ["script", "scriptproperties", "value"]),
               layer.textScript?.source == binding.source,
               case let .string(authored)? = binding.authoredValue,
-              layer.text == authored else { return nil }
+              layer.text == authored,
+              let properties = SceneScriptPropertyInputCodec.inputs(
+                  binding.properties
+              ) else { return nil }
         return (
             .text(layerID: layerID, field: .content),
             authored,
-            layer.effects.map(\.name)
+            layer.effects.map(\.name),
+            properties
         )
     }
 }

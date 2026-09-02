@@ -112,6 +112,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
             case .string:
                 let frameResult = stringProgram.evaluate(
                     inputs: input(registration.target, from: stringInputs),
+                    effectivePropertyValues: effectivePropertyValues,
                     frame: frame,
                     userPropertiesJSON: userPropertiesJSON,
                     mediaThumbnailEvent: events.thumbnail,
@@ -165,6 +166,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         vector.merge(remainingVector)
         let remainingString = stringProgram.evaluate(
             inputs: stringInputs.filter { !stringMediaTargets.contains($0.key) },
+            effectivePropertyValues: effectivePropertyValues,
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
             audioSpectrum: audioSpectrum

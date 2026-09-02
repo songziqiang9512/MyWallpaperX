@@ -215,11 +215,12 @@ enum SceneTextTextureLoader {
             ),
             nil
         )
-        let padding = max(0, style.padding) * 2
         let baseWidth = baseRenderSize?.first ?? 1
         let baseHeight = baseRenderSize.flatMap {
             $0.indices.contains(1) ? $0[1] : nil
         } ?? 1
+        // Authored padding is the total outer growth, not a per-edge value.
+        let padding = max(0, style.padding)
         return [
             min(maxAutoSizeDimension, max(baseWidth, Float(ceil(measured.width)) + padding)),
             min(maxAutoSizeDimension, max(baseHeight, Float(ceil(measured.height)) + padding)),
@@ -271,11 +272,14 @@ enum SceneTextTextureLoader {
         ]
         // 作者的 Limit width 决定换行宽度，Limit rows / Overflow ellipsis 决定行数与省略号；
         // 三个开关都关闭时 wrapWidth 就是内容宽、文本原样，排版与之前完全一致。
-        let wrapWidth = SceneTextRowLimit.wrapWidth(
+        let limitedWrapWidth = SceneTextRowLimit.wrapWidth(
             contentWidth: contentWidth,
             style: style,
             scale: layout.scale
         )
+        let wrapWidth = style.limitWidth
+            ? limitedWrapWidth
+            : contentWidth + padding * 2
         let limited = SceneTextRowLimit.limitedText(
             text,
             style: style,
@@ -288,7 +292,15 @@ enum SceneTextTextureLoader {
             attributes as CFDictionary
         ) else { return }
         let framesetter = CTFramesetterCreateWithAttributedString(attributed)
-        let constraint = CGSize(width: wrapWidth, height: contentHeight)
+        // Padding narrows the authored content box, but it must not become a
+        // CoreText line-height limit. A font line may be taller than that box
+        // while its glyph ink still fits inside the outer raster geometry.
+        // Measuring against contentHeight makes CTFramesetter reject the whole
+        // line and produces a fully transparent texture for valid HUD text.
+        let constraint = CGSize(
+            width: wrapWidth,
+            height: .greatestFiniteMagnitude
+        )
         let measured = CTFramesetterSuggestFrameSizeWithConstraints(
             framesetter,
             CFRange(location: 0, length: 0),
@@ -296,7 +308,7 @@ enum SceneTextTextureLoader {
             constraint,
             nil
         )
-        let textHeight = min(contentHeight, ceil(measured.height))
+        let textHeight = max(1, ceil(measured.height))
         let y = verticalOrigin(
             alignment: style.verticalAlignment,
             padding: padding,

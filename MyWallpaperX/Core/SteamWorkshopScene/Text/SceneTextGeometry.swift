@@ -30,11 +30,8 @@ nonisolated enum SceneTextGeometry {
         let scale = min(1, Float(maxDimension) / max(sourceWidth, sourceHeight))
         let width = max(1, Int((sourceWidth * scale).rounded()))
         let height = max(1, Int((sourceHeight * scale).rounded()))
-        // Wallpaper Engine's `padding` grows the complete text geometry by the
-        // authored amount. It is not a per-edge inset: a value of 32 contributes
-        // 16 pixels on each side. Treating it as 32 per edge makes the drawable
-        // width 32 pixels too narrow and can change the last accepted row even
-        // when the authored outer size is otherwise exact.
+        // Authored `size` is the complete geometry. `padding` is its total
+        // growth, split evenly between the two edges of each axis.
         let scaledPadding = max(0, padding) * scale * 0.5
         return RasterLayout(
             width: width,

@@ -21,11 +21,13 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
+    private let initialScriptPropertiesJSON: String
 
     init(
         domain: SceneScriptQuickJSDomain,
         source: String,
         target: SceneDynamicTarget,
+        scriptPropertiesJSON: String = "",
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         generation: UInt64,
@@ -39,6 +41,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         self.target = target
         self.generation = generation
         self.budget = budget
+        initialScriptPropertiesJSON = scriptPropertiesJSON
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
@@ -133,6 +136,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     func initializeIfNeeded(
         input: String,
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String = "",
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64?
@@ -148,14 +152,17 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var didInitialize: UInt32 = 0
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = input.withCString { inputPointer in
-            userPropertiesJSON.withCString { userProperties in
-                mwx_scene_quickjs_owner_initialize_string(
-                    handle, expectedGeneration,
-                    inputPointer, input.utf8.count, &rawFrame,
-                    userProperties, userPropertiesJSON.utf8.count,
-                    &output, output.count, &outputLength, &didInitialize,
-                    &diagnostic, diagnostic.count
-                )
+            scriptPropertiesJSON.withCString { scriptProperties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_initialize_string(
+                        handle, expectedGeneration,
+                        inputPointer, input.utf8.count, &rawFrame,
+                        scriptProperties, scriptPropertiesJSON.utf8.count,
+                        userProperties, userPropertiesJSON.utf8.count,
+                        &output, output.count, &outputLength, &didInitialize,
+                        &diagnostic, diagnostic.count
+                    )
+                }
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
@@ -174,6 +181,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     func evaluate(
         input: String,
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String = "",
         userPropertiesJSON: String,
         expectedGeneration: UInt64,
         interruptBudget: UInt64? = nil
@@ -188,21 +196,25 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var outputLength = 0
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = input.withCString { inputPointer in
-            userPropertiesJSON.withCString { userProperties in
-                mwx_scene_quickjs_owner_update_string(
-                    handle,
-                    expectedGeneration,
-                    inputPointer,
-                    input.utf8.count,
-                    &rawFrame,
-                    userProperties,
-                    userPropertiesJSON.utf8.count,
-                    &output,
-                    output.count,
-                    &outputLength,
-                    &diagnostic,
-                    diagnostic.count
-                )
+            scriptPropertiesJSON.withCString { scriptProperties in
+                userPropertiesJSON.withCString { userProperties in
+                    mwx_scene_quickjs_owner_update_string(
+                        handle,
+                        expectedGeneration,
+                        inputPointer,
+                        input.utf8.count,
+                        &rawFrame,
+                        scriptProperties,
+                        scriptPropertiesJSON.utf8.count,
+                        userProperties,
+                        userPropertiesJSON.utf8.count,
+                        &output,
+                        output.count,
+                        &outputLength,
+                        &diagnostic,
+                        diagnostic.count
+                    )
+                }
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
@@ -338,6 +350,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
 
     func teardown(
         frame: SceneScriptFrameInput,
+        scriptPropertiesJSON: String?,
         userPropertiesJSON: String
     ) -> SceneScriptOwnerTeardownOutcome {
         domain.resetBudget(budget.interruptBudget)
@@ -345,7 +358,8 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             owner: handle,
             generation: generation,
             frame: frame,
-            scriptPropertiesJSON: "",
+            scriptPropertiesJSON:
+                scriptPropertiesJSON ?? initialScriptPropertiesJSON,
             userPropertiesJSON: userPropertiesJSON
         )
     }

@@ -735,7 +735,8 @@ extension SceneDesktopWallpaperHost {
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
-                sceneScriptScalarProgram: sceneScriptScalarProgram
+                sceneScriptScalarProgram: sceneScriptScalarProgram,
+                sceneScriptStringProgram: sceneScriptStringProgram
             ),
             userPropertyTextureURLs: userPropertyTextureURLs,
             cacheDirectory: cacheDirectory,

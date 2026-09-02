@@ -126,7 +126,9 @@ extension SceneDesktopWallpaperHost {
             effectivePropertyValues: context.liveState.effectiveValues,
             userPropertiesJSON: userPropertiesJSON
         ) + context.sceneScriptStringProgram.teardown(
-            frame: frame, userPropertiesJSON: userPropertiesJSON
+            frame: frame,
+            effectivePropertyValues: context.liveState.effectiveValues,
+            userPropertiesJSON: userPropertiesJSON
         ) + context.sceneScriptCursorProgram.teardown(
             frame: frame, userPropertiesJSON: userPropertiesJSON
         ) + context.propertyVectorScriptProgram.teardown(

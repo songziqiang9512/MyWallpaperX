@@ -1842,6 +1842,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
     const char *input,
     size_t input_length,
     const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
     char *output,
@@ -1878,6 +1880,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
             diagnostic, diagnostic_capacity, "SceneScript owner is disabled"
         );
         return MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (!mwx_scene_quickjs_assign_script_properties(
+            owner, script_properties_json, script_properties_length
+        )) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript properties unavailable"
+        );
+        owner->disabled = true;
+        return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     if (owner->initialized) {
         if (input_length >= output_capacity) return MWX_SCENE_QUICKJS_BAD_RETURN;
@@ -1922,6 +1934,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
     const char *input,
     size_t input_length,
     const MWXSceneQuickJSFrameInput *frame,
+    const char *script_properties_json,
+    size_t script_properties_length,
     const char *user_properties_json,
     size_t user_properties_length,
     char *output,
@@ -1955,6 +1969,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
             diagnostic, diagnostic_capacity, "SceneScript owner is disabled"
         );
         return MWX_SCENE_QUICKJS_DISABLED;
+    }
+    if (!mwx_scene_quickjs_assign_script_properties(
+            owner, script_properties_json, script_properties_length
+        )) {
+        write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript properties unavailable"
+        );
+        owner->disabled = true;
+        return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     MWXSceneQuickJSDomain *domain = owner->domain;
     domain->interrupted = false;

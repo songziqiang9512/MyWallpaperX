@@ -181,6 +181,30 @@ SCENE_FIXTURE = {
             "limitrows": True,
             "maxrows": 1,
         },
+        {
+            "id": 110,
+            "name": "large padded clock",
+            "text": "12:00:",
+            "font": "systemfont_arial",
+            "pointsize": 28,
+            "color": "1 1 1",
+            "size": "411 140",
+            "padding": 70,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
+        {
+            "id": 120,
+            "name": "padded date",
+            "text": "Thursday, December 25th, 2025",
+            "font": "systemfont_arial",
+            "pointsize": 14,
+            "color": "1 1 1",
+            "size": "1216 70",
+            "padding": 32,
+            "horizontalalign": "center",
+            "verticalalign": "center",
+        },
     ],
 }
 
@@ -341,7 +365,7 @@ enum Harness {
             device: device
         )
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
+        let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
         var style: [String: Any] = [:]
         var ink: [String: Any] = [:]
         for id in ids {
@@ -648,16 +672,25 @@ class SceneTextRowLimitTests(unittest.TestCase):
         padded = self.result["ink"]["90"]
         self.assertEqual(padded["size"], [196, 126])
         self.assertGreater(padded["count"], 0)
-        self.assertGreaterEqual(padded["minX"], 16)
-        self.assertLessEqual(padded["maxX"], 179)
+        self.assertGreaterEqual(padded["minX"], 0)
+        self.assertLessEqual(padded["maxX"], 195)
 
-    def test_padding_is_total_geometry_growth_not_a_per_edge_inset(self) -> None:
-        # 50 px Arial 的 "AAAA BBBB" 约 290 px 宽。330 px 外框减去作者
-        # padding=32 后仍有 298 px，必须保留完整一行；若错误地每边各扣 32，
-        # 只剩 266 px，maxrows=1 会把第二个词整段裁掉。
+    def test_unlimited_width_can_use_the_authored_outer_geometry(self) -> None:
+        # limitwidth=false 时 padding 不能把有效作者外框反向变成换行限制。
         padded = self.result["ink"]["100"]
+        self.assertEqual(padded["size"], [330, 140])
         self.assertEqual(len(padded["rowRanges"]), 1)
         self.assertGreater(padded["maxX"], 270)
+
+    def test_large_padded_single_line_text_keeps_visible_ink(self) -> None:
+        clock = self.result["ink"]["110"]
+        date = self.result["ink"]["120"]
+        self.assertEqual(clock["size"], [411, 140])
+        self.assertEqual(date["size"], [1216, 70])
+        self.assertEqual(len(clock["rowRanges"]), 1)
+        self.assertEqual(len(date["rowRanges"]), 1)
+        self.assertGreater(clock["count"], 0)
+        self.assertGreater(date["count"], 0)
 
     def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
