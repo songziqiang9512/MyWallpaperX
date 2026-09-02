@@ -605,3 +605,34 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         }
     }
 }
+
+nonisolated extension SceneResolvedMaterialVariantCache {
+    static func premultipliedAuxiliaryColorSlots(
+        template: Template,
+        samplers: [Int: SceneResolvedMaterialShaderSchema.Sampler],
+        externalSlots: Set<Int>,
+        terminalNamedSlots: Set<Int>,
+        sceneBackgroundSlots: Set<Int>,
+        conditionalFact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact?
+    ) -> Set<Int> {
+        let terminalNamed = externalSlots == terminalNamedSlots
+            ? terminalNamedSlots
+            : []
+        guard let conditionalFact,
+              !sceneBackgroundSlots.isEmpty,
+              externalSlots == sceneBackgroundSlots,
+              sceneBackgroundSlots.isSubset(
+                  of: conditionalFact.generatedOpaqueColorSlots
+              ), sceneBackgroundSlots.allSatisfy({ slot in
+                  guard let sampler = samplers[slot],
+                        let reference = SceneResolvedMaterialTextureResolver
+                            .sceneBackgroundDefault(
+                                template: template,
+                                sampler: sampler,
+                                slot: slot
+                            ) else { return false }
+                  return sampler.purpose(for: reference) == .premultipliedColor
+              }) else { return terminalNamed }
+        return terminalNamed.union(sceneBackgroundSlots)
+    }
+}

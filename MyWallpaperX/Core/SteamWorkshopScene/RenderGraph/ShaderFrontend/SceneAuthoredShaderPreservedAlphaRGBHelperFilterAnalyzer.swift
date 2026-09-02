@@ -288,9 +288,13 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
         let declarationRanges = [function.parameterRange, function.bodyRange]
         let locals = Set(declarationRanges.flatMap { range in
             range.compactMap { index -> String? in
-                guard index > range.lowerBound,
-                      tokens[index].kind == .identifier,
-                      valueTypes.contains(tokens[index - 1].text) else {
+                guard tokens[index].kind == .identifier,
+                      isLocalDeclarationName(
+                          index,
+                          in: range,
+                          tokens: tokens,
+                          valueTypes: valueTypes
+                      ) else {
                     return nil
                 }
                 return tokens[index].text
@@ -305,6 +309,37 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
             }
         }
         return true
+    }
+
+    private static func isLocalDeclarationName(
+        _ index: Int,
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken],
+        valueTypes: Set<String>
+    ) -> Bool {
+        guard index > range.lowerBound else { return false }
+        if valueTypes.contains(tokens[index - 1].text) { return true }
+        guard tokens[index - 1].text == "," else { return false }
+
+        var start = range.lowerBound
+        var depth = 0
+        for cursor in range.lowerBound..<index {
+            switch tokens[cursor].text {
+            case "(", "[": depth += 1
+            case ")", "]": depth -= 1
+            case ";", "{", "}":
+                if depth == 0 { start = cursor + 1 }
+            default: break
+            }
+            guard depth >= 0 else { return false }
+        }
+        guard depth == 0 else { return false }
+        while start < index,
+              ["const", "highp", "mediump", "lowp"]
+                .contains(tokens[start].text) {
+            start += 1
+        }
+        return start < index && valueTypes.contains(tokens[start].text)
     }
 
     private static func isWriteTarget(

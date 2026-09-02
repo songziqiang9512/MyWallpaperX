@@ -24,6 +24,7 @@ CONTROLS = {"for", "if", "switch", "while"}
 class _Loop:
     name: str
     variable_type: str
+    declaration: range | None
     header_start: int
     header_end: int
     initialization: range
@@ -109,20 +110,37 @@ def _parse_loop(tokens: list[str], for_index: int) -> _Loop | None:
     if len(parts) != 3:
         return None
     initialization = [tokens[index] for index in parts[0]]
+    declaration: range | None = None
     if (
-        len(initialization) != 4
-        or initialization[0] not in ("int", "float")
-        or IDENTIFIER.fullmatch(initialization[1]) is None
-        or initialization[2] != "="
-        or _integer_value(initialization[3]) != 0
+        len(initialization) == 4
+        and initialization[0] in ("int", "float")
+        and IDENTIFIER.fullmatch(initialization[1]) is not None
+        and initialization[2] == "="
+        and _integer_value(initialization[3]) == 0
     ):
+        variable_type = initialization[0]
+        name = initialization[1]
+    elif (
+        len(initialization) == 3
+        and IDENTIFIER.fullmatch(initialization[0]) is not None
+        and initialization[1] == "="
+        and _integer_value(initialization[2]) == 0
+        and for_index >= 3
+        and tokens[for_index - 3 : for_index]
+        == ["int", initialization[0], ";"]
+    ):
+        variable_type = "int"
+        name = initialization[0]
+        declaration = range(for_index - 3, for_index)
+    else:
         return None
     body = _loop_body(tokens, header_end)
     if body is None:
         return None
     return _Loop(
-        name=initialization[1],
-        variable_type=initialization[0],
+        name=name,
+        variable_type=variable_type,
+        declaration=declaration,
         header_start=for_index,
         header_end=header_end,
         initialization=parts[0],
@@ -142,9 +160,14 @@ def _integer_value(token: str) -> int | None:
     return int(value)
 
 
-def _is_increment(tokens: list[str], token_range: range, name: str) -> bool:
+def _increment_step(tokens: list[str], token_range: range, name: str) -> int | None:
     values = [tokens[index] for index in token_range]
-    return values in ([name, "++"], ["++", name])
+    if values in ([name, "++"], ["++", name]):
+        return 1
+    if len(values) == 3 and values[:2] == [name, "+="]:
+        step = _integer_value(values[2])
+        return step if step is not None and step > 0 else None
+    return None
 
 
 def _is_written(tokens: list[str], token_range: range, name: str) -> bool:
@@ -288,8 +311,26 @@ def _bound_value(
 
 
 def _iterations(tokens: list[str], loop: _Loop) -> int | None:
-    if not _is_increment(tokens, loop.increment, loop.name):
+    step = _increment_step(tokens, loop.increment, loop.name)
+    if step is None:
         return None
+    if loop.declaration is not None:
+        function = _enclosing_function(tokens, loop.header_start)
+        if function is None:
+            return None
+        allowed = (
+            loop.declaration,
+            loop.initialization,
+            loop.condition,
+            loop.increment,
+            loop.body,
+        )
+        if any(
+            tokens[index] == loop.name
+            and not any(index in token_range for token_range in allowed)
+            for index in function
+        ):
+            return None
     if _is_written(tokens, loop.body, loop.name) or _is_passed_to_authored_function(
         tokens, loop.body, loop.name
     ):
@@ -318,7 +359,9 @@ def _iterations(tokens: list[str], loop: _Loop) -> int | None:
             bound = candidate
         elif loop.name in values:
             return None
-    return bound
+    if bound is None or bound <= 0:
+        return bound
+    return (bound + step - 1) // step
 
 
 def _loop_call_graph_is_single_shot(

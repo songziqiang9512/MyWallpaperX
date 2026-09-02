@@ -21,7 +21,7 @@ from scene_shader_compiler_artifact import build_program_artifact
 from script.tests.scene_generic_shader_provider_test_support import (
     assert_independent_signal_request_contract,
     assert_provider_backed_spatial_weighted_profile,
-    assert_python_worker_rejects_nonempty_typed_input_color_slots,
+    assert_python_worker_rejects_typed_input_without_compatible_transfer,
     assert_transform_abi_request_and_cache_namespaces,
 )
 
@@ -353,6 +353,14 @@ private struct CanonicalizerOutput: Codable {
     let dynamicBoundPreserved: Bool
     let controlFlowPreserved: Bool
     let outOfPrefixPreserved: Bool
+    let packedAudioArrayCompacted: Bool
+    let packedAudioLoopsUnrolled: Bool
+    let packedAudioFrontendAccepted: Bool
+    let packedAudioGenericNormalizerAccepted: Bool
+    let unresolvedPackedIndexPreserved: Bool
+    let mutatedPackedIndexPreserved: Bool
+    let helperMutatedPackedIndexPreserved: Bool
+    let partialPackedWritePreserved: Bool
 }
 
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
@@ -506,6 +514,81 @@ private struct GenericShaderArtifactHarness {
                 vertex: smallVertex,
                 fragment: smallOutOfBoundsSource
             )
+            let packedVertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    int i;",
+                "    for (i = 0; i < 32; i += 4) {",
+                "        audioValue[uint(i) / uint(4)] = vec4(float(i));",
+                "    }",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let packedFragment = [
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    float f; float amp = 0.0;",
+                "    if (amp >= 0.0) {",
+                "    for (int i = 0; i < 32; i += 1) {",
+                "        f = float(i);",
+                "        amp += audioValue[int(f * 0.25)][i % int(4)];",
+                "    }",
+                "    }",
+                "    gl_FragColor = vec4(amp);",
+                "}",
+            ].joined(separator: "\n")
+            let packed = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: packedVertex,
+                fragment: packedFragment
+            )
+            let packedFrontend = SceneAuthoredShaderFrontend.compile(
+                vertexSource: packed.vertex,
+                fragmentSource: packed.fragment
+            )
+            let packedNormalized: SceneGenericShaderSourceNormalizer.Pair?
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: packed.vertex,
+                fragmentSource: packed.fragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case let .success(pair): packedNormalized = pair
+            case .failure: packedNormalized = nil
+            }
+            let unresolvedPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: packedVertex,
+                fragment: packedFragment.replacingOccurrences(
+                    of: "f = float(i);",
+                    with: "f = float(i) + g_Offset;"
+                ).replacingOccurrences(
+                    of: "varying vec4 audioValue[32];",
+                    with: "uniform float g_Offset;\nvarying vec4 audioValue[32];"
+                )
+            )
+            let mutatedPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: packedVertex,
+                fragment: packedFragment.replacingOccurrences(
+                    of: "f = float(i);",
+                    with: "f = float(i); f += 1.0;"
+                )
+            )
+            let helperMutatedPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: packedVertex,
+                fragment: packedFragment.replacingOccurrences(
+                    of: "void main() {",
+                    with: "void bump(inout float value) { value += 1.0; }\nvoid main() {"
+                ).replacingOccurrences(
+                    of: "f = float(i);",
+                    with: "f = float(i); bump(f);"
+                )
+            )
+            let partialPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: packedVertex.replacingOccurrences(
+                    of: "i < 32", with: "i < 28"
+                ),
+                fragment: packedFragment
+            )
             let output = CanonicalizerOutput(
                 arraysCompacted:
                     canonical.vertex.contains("v_Colors[6]")
@@ -540,7 +623,28 @@ private struct GenericShaderArtifactHarness {
                     && controlled.vertex.contains("v_Settings[24]"),
                 outOfPrefixPreserved:
                     prefix.vertex.contains("v_Colors[24]")
-                    && prefix.vertex.contains("v_Colors[20]")
+                    && prefix.vertex.contains("v_Colors[20]"),
+                packedAudioArrayCompacted:
+                    packed.vertex.contains("audioValue[8]")
+                    && packed.fragment.contains("audioValue[8]"),
+                packedAudioLoopsUnrolled:
+                    !packed.vertex.contains("for (")
+                    && !packed.fragment.contains("for ("),
+                packedAudioFrontendAccepted:
+                    packedFrontend.diagnostics.isEmpty && packedFrontend.program != nil,
+                packedAudioGenericNormalizerAccepted: packedNormalized != nil,
+                unresolvedPackedIndexPreserved:
+                    unresolvedPacked.fragment.contains("audioValue[32]")
+                    && unresolvedPacked.fragment.contains("for ("),
+                mutatedPackedIndexPreserved:
+                    mutatedPacked.fragment.contains("audioValue[32]")
+                    && mutatedPacked.fragment.contains("for ("),
+                helperMutatedPackedIndexPreserved:
+                    helperMutatedPacked.fragment.contains("audioValue[32]")
+                    && helperMutatedPacked.fragment.contains("for ("),
+                partialPackedWritePreserved:
+                    partialPacked.vertex.contains("audioValue[32]")
+                    && partialPacked.fragment.contains("audioValue[32]")
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4590,6 +4694,14 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "dynamicBoundPreserved": True,
             "controlFlowPreserved": True,
             "outOfPrefixPreserved": True,
+            "packedAudioArrayCompacted": True,
+            "packedAudioLoopsUnrolled": True,
+            "packedAudioFrontendAccepted": True,
+            "packedAudioGenericNormalizerAccepted": True,
+            "unresolvedPackedIndexPreserved": True,
+            "mutatedPackedIndexPreserved": True,
+            "helperMutatedPackedIndexPreserved": True,
+            "partialPackedWritePreserved": True,
         })
 
     def test_compilation_coordinator_restarts_for_independent_key(self):
@@ -5372,8 +5484,8 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             )
             self.assertEqual(unseen["routeState"], "generic-only")
 
-    def test_python_worker_rejects_nonempty_typed_input_color_slots(self):
-        assert_python_worker_rejects_nonempty_typed_input_color_slots(self)
+    def test_python_worker_rejects_typed_input_without_compatible_transfer(self):
+        assert_python_worker_rejects_typed_input_without_compatible_transfer(self)
 
     def test_preserved_rgba_builder_requires_definite_whole_output(self):
         completed = subprocess.run(
@@ -6820,22 +6932,40 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "        generated *= 0.4 * g_Tint;",
         )
         positives = [
-            (renamed, (0, 1, 2)),
-            (additional_generated_slot, (0, 1, 2, 3)),
+            (renamed, (0, 1, 2), {}),
+            (additional_generated_slot, (0, 1, 2, 3), {}),
+            (
+                renamed,
+                (0, 1, 2),
+                {
+                    "has_external_provider": True,
+                    "premultiplied_color_auxiliary_slots": (0,),
+                },
+            ),
         ]
-        for fragment, active_slots in positives:
+        for fragment, active_slots, extra_facts in positives:
             with self.subTest(active_slots=active_slots), tempfile.TemporaryDirectory(
                 prefix="mwx-conditional-generated-rgb-unseen-test-"
             ) as directory:
-                result, _, _, log = self.run_harness(
+                result, requests, _, log = self.run_harness(
                     Path(directory),
                     route=None,
                     fragment=fragment,
                     graph_input_slots=(2,),
                     active_slots=active_slots,
+                    **extra_facts,
                 )
                 self.assertEqual(result["routeProfile"], profile)
                 self.assertIn(f"profile={profile}", log)
+                if extra_facts:
+                    request = json.loads(next(requests.glob("*.json")).read_text())
+                    self.assertEqual(
+                        request["premultipliedColorInputSlots"], [0]
+                    )
+                    self.assertEqual(
+                        request["expectedColorTransfer"],
+                        {"kind": "straight-alpha-preserving", "slot": 2},
+                    )
 
         negatives = [
             (

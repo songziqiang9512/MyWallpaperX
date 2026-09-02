@@ -38,6 +38,16 @@ fragment Output mwxGenericFragment(
     return out;
 }
 """
+MULTI_BINDINGS = [*BINDINGS, {"name": "g_Texture2", "slot": 2}]
+MULTI_FRAGMENT_MSL = FRAGMENT_MSL.replace(
+    "texture2d<float> g_Texture0 [[texture(0)]]) {",
+    "texture2d<float> g_Texture0 [[texture(0)]],\n"
+    "    texture2d<float> g_Texture2 [[texture(2)]]) {",
+).replace(
+    "float4 filtered = mix(first, second, 0.5);",
+    "float4 background = g_Texture2.sample(sampler(), uv);\n"
+    "    float4 filtered = mix(background, mix(first, second, 0.5), first.w);",
+)
 VERTEX_MSL = """#include <metal_stdlib>
 using namespace metal;
 struct MWXUniforms { float2 mwxRenderSize; };
@@ -122,6 +132,48 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
         }
         self.assertNotEqual(request_cache_key(request), request_cache_key(independent))
 
+    def test_program_artifact_lowers_exact_typed_provider_color_slot(self) -> None:
+        reflection = {
+            "types": {"_1": {"members": [
+                {"name": "mwxRenderSize", "type": "vec2", "offset": 0},
+            ]}},
+            "ubos": [{
+                "type": "_1", "block_size": 8, "set": 0, "binding": 8,
+            }],
+            "textures": [
+                {"name": "g_Texture0", "binding": 0},
+                {"name": "g_Texture2", "binding": 2},
+            ],
+        }
+        arguments = compiler_support.artifact_arguments(
+            reflection, VERTEX_MSL, MULTI_FRAGMENT_MSL, "s"
+        )
+        arguments["expected_color_transfer"] = EXPECTED
+        arguments["premultiplied_color_input_slots"] = [2]
+
+        artifact = compiler_support.build_program_artifact(**arguments)
+
+        metal = artifact["program"]["metalSource"]
+        self.assertEqual(
+            metal.count("mwxGenericUnpremultiply(g_Texture0.sample"), 2
+        )
+        self.assertEqual(
+            metal.count("mwxGenericUnpremultiply(g_Texture2.sample"), 1
+        )
+        self.assertEqual(
+            metal.count("mwxGenericPremultiply(out.mwxFragColor)"), 1
+        )
+        self.assertEqual(
+            artifact["program"]["premultipliedColorInputSlots"], [2]
+        )
+
+        arguments["premultiplied_color_input_slots"] = [0]
+        with self.assertRaisesRegex(
+            compiler_support.ArtifactFailure,
+            "premultiplied-color-input-double",
+        ):
+            compiler_support.build_program_artifact(**arguments)
+
     def test_malformed_expected_transfer_is_rejected(self) -> None:
         malformed = [
             {"kind": "straight-alpha-preserving", "slot": True},
@@ -153,11 +205,6 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
                     "float4 second = g_Texture1.sample",
                 ),
                 BINDINGS,
-                "straight-alpha-preserving-slot",
-            ),
-            "extra-binding": (
-                FRAGMENT_MSL,
-                [*BINDINGS, {"name": "g_Texture1", "slot": 1}],
                 "straight-alpha-preserving-binding",
             ),
             "extra-sampler": (
@@ -210,6 +257,17 @@ class SceneShaderCompilerStraightAlphaPreservingContractTests(unittest.TestCase)
                     prepare_independent_signal_contract(
                         source, EXPECTED, bindings
                     )
+
+        prepared, _ = prepare_independent_signal_contract(
+            MULTI_FRAGMENT_MSL, EXPECTED, MULTI_BINDINGS
+        )
+        self.assertEqual(
+            prepared.count("mwxGenericUnpremultiply(g_Texture0.sample"), 2
+        )
+        self.assertEqual(prepared.count("g_Texture2.sample"), 1)
+        self.assertNotIn(
+            "mwxGenericUnpremultiply(g_Texture2.sample", prepared
+        )
 
 
 if __name__ == "__main__":

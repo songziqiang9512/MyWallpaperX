@@ -970,6 +970,12 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 真实`3585875739:17#effect#98`的 Lens Distortion 已从`colorContractUnproven / effect-local previous-current`恢复为既有`source-proven-graph-input-same-slot-channel-reconstruction / generic-only / genericCompilerArtifact`；frame 16/17 均为 1 authored / 1 material / 0 rejected、GPU completed 与 exact effect-output publication，后继 effect 和唯一 compositor 继续。ready/after 只证明正常底色、眼部局部动态和整构图安全，不证明 Lens 独立 ROI 或官方 parity；整份 selection 仍因独立 effect 2 的`material-variant-envelope-frontend`局部 fallback 保持 NON-PASS。精确实现、负门、运行身份和 hash 见[E-V4-SAME-SLOT-CARRIER-RGB-BLEND](runtime-evidence-index.md#e-v4-same-slot-carrier-rgb-blend)。
 
+### 2026-09-02 V4 conditional underlay 与 typed scene-background 单 Program 纠正
+
+真实`3585875739:17#effect#44`的 Audio Responsive Oscilloscope 已由共享 source proof、ShaderPreparation、MaterialProgram 与 GraphExecutor 执行：条件生成 RGB 保留主输入 alpha，slot 2 的 same-frame scene background 只按 typed premultiplied-color ABI 解码，并允许 exact 单 material / 无 FBO 的 effect graph 消费；预声明 loop counter、static positive `+=` 步长、常量数值表达式和 live varying-array prefix 都在公共 compiler 合同中有界处理。错 slot/alpha、未分型 external provider、动态或越界 loop、非前缀 varying 使用与非 exact graph shape 继续拒绝；没有新增样本分支、专用 renderer、registry、history 或输出 owner。
+
+fresh 音频 fixture 下 6/6 effect 均进入通用链，目标 effect 在首帧与 next-frame 完成 GPU/publication，作者关闭的末端 Hue 通过既有 activation previous-current 进入唯一 compositor；严格定向 selection 为 **1/1 PASS**，150/150/0 submitted/completed/failed、driver 约 59.98 FPS。人工只确认正常蓝粉底色、边框波形随音频变化，整帧红绿交替已消失；未证明眼部局部发光、独立效果 fidelity、完整样本/149 corpus 或官方 parity。精确边界见[E-V4-CONDITIONAL-UNDERLAY-SCENE-BACKGROUND](runtime-evidence-index.md#e-v4-conditional-underlay-scene-background)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

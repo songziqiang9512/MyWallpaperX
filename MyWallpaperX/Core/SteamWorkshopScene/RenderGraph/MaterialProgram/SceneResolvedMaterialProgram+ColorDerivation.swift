@@ -146,23 +146,32 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
 
     static func hasResolvedConditionalGeneratedRGBInputContract(
         _ contract: ConditionalGeneratedRGBInputContract,
-        textureSlots: [Program.TextureSlot?]
+        textureSlots: [Program.TextureSlot?],
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Bool {
         hasResolvedConditionalGeneratedRGBInputContract(
             contract,
-            textureFacts: textureSlots.map(colorTextureFact)
+            textureFacts: textureSlots.map(colorTextureFact),
+            premultipliedColorInputSlots: premultipliedColorInputSlots
         )
     }
 
     static func hasResolvedConditionalGeneratedRGBInputContract(
         _ contract: ConditionalGeneratedRGBInputContract,
-        textureFacts: [ColorTextureFact?]
+        textureFacts: [ColorTextureFact?],
+        premultipliedColorInputSlots: Set<Int> = []
     ) -> Bool {
         guard textureFacts.count == 8,
-              hasResolvedOpaqueColorSampleContract(
-                colorSlots: contract.generatedOpaqueColorSlots,
-                textureFacts: textureFacts
-              ),
+              premultipliedColorInputSlots.isSubset(
+                  of: contract.generatedOpaqueColorSlots
+              ), contract.generatedOpaqueColorSlots.allSatisfy({ slot in
+                  guard let representation = representation(
+                      slot: slot, textureFacts: textureFacts
+                  ) else { return false }
+                  return premultipliedColorInputSlots.contains(slot)
+                      ? representation == .premultipliedAlpha
+                      : representation == .opaque
+              }),
               contract.scalarRedSlots.allSatisfy({
                   scalarComponentIsResolved(
                     .red,
@@ -258,7 +267,9 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 textureSlot: contract.alphaCarrierSlot
             ), hasResolvedConditionalGeneratedRGBInputContract(
                 contract,
-                textureFacts: textureFacts
+                textureFacts: textureFacts,
+                premultipliedColorInputSlots:
+                    premultipliedColorInputSlots
             ) else { return nil }
         }
         var framebufferRepresentations: Set<SceneShaderColorRepresentation> = []

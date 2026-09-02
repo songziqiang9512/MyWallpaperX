@@ -90,6 +90,16 @@ private struct MatrixCastHarness {
                 }
                 """]
             )
+            let predeclaredIntegerCounter = SceneGenericShaderBoundedLoopWork.evaluate(
+                sources: ["""
+                void main() {
+                    int sampleIndex;
+                    for (sampleIndex = 0; sampleIndex < 32; sampleIndex += 1) {
+                        consume(sampleIndex);
+                    }
+                }
+                """]
+            )
             let rejected = [
                 "uniform float count; void main() { float remaining = 1.0;\n"
                     + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; }}",
@@ -145,6 +155,18 @@ private struct MatrixCastHarness {
                 "uniform float g_Runtime; void main() { float count = 24.0;\n"
                     + "{ float count = g_Runtime; consume(count); } float remaining = 1.0;\n"
                     + "for (float i = 0.0; remaining > 0.0 && i < count; i++) { remaining -= 0.1; } }",
+                "void main() { int i; use(i);\n"
+                    + "for (i = 0; i < 32; i += 1) { consume(i); } }",
+                "void main() { int i;\n"
+                    + "for (i = 0; i < 32; i += 1) { consume(i); } use(i); }",
+                "void main() { float i;\n"
+                    + "for (i = 0; i < 32; i += 1) { consume(i); } }",
+                "void main() { int i; int unrelated;\n"
+                    + "for (i = 0; i < 32; i += 1) { consume(i); } }",
+                "void main() { int i;\n"
+                    + "for (i = 0; i < 32; i += dynamicStep) { consume(i); } }",
+                "void main() { int i;\n"
+                    + "for (i = 0; i < 32; i -= 1) { consume(i); } }",
             ].allSatisfy { source in
                 if case .failure(.unbounded) =
                     SceneGenericShaderBoundedLoopWork.evaluate(sources: [source]) {
@@ -158,6 +180,9 @@ private struct MatrixCastHarness {
                 true
             } else { false }
             let immutableIntegerPassed = if case .success(12) = immutableIntegerBound {
+                true
+            } else { false }
+            let predeclaredIntegerPassed = if case .success(32) = predeclaredIntegerCounter {
                 true
             } else { false }
             let helperMutationRejected = SceneAuthoredShaderColorTransferAnalyzer
@@ -174,6 +199,7 @@ private struct MatrixCastHarness {
             print(
                 passed && positivePassed && unseenPassed && rejected
                     && constantIntegerPassed && immutableIntegerPassed
+                    && predeclaredIntegerPassed
                     && helperMutationRejected
                     ? "PASS" : "FAIL"
             )

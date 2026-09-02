@@ -190,10 +190,14 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 selectedMixedPremultipliedSlots
             )
         let premultipliedColorAuxiliarySlots =
-            activeExternalProviderTextureSlots
-                == activeTerminalNamedLayerProviderTextureSlots
-                ? activeTerminalNamedLayerProviderTextureSlots
-                : []
+            premultipliedAuxiliaryColorSlots(
+                template: template,
+                samplers: sourceActiveSamplers,
+                externalSlots: activeExternalProviderTextureSlots,
+                terminalNamedSlots: activeTerminalNamedLayerProviderTextureSlots,
+                sceneBackgroundSlots: activeSceneBackgroundTextureSlots,
+                conditionalFact: conditionalGeneratedRGBFact
+            )
         let spatialWeightedColorBlendExternalColorSlot: Int?
         if let fact = spatialWeightedColorBlendFact,
            activeExternalProviderTextureSlots == [fact.straightColorSlot],
@@ -387,7 +391,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                  SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputOverlayColorBlendAlphaPreserving.rawValue,
                  SceneGenericShaderCapabilityProfile
-                .sourceProvenGraphInputAssociatedOverBlend.rawValue:
+                .sourceProvenGraphInputAssociatedOverBlend.rawValue,
+                 SceneGenericShaderCapabilityProfile
+                .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha
+                .rawValue:
                 premultipliedColorAuxiliarySlots
             default:
                 []

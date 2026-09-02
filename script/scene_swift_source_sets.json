@@ -119,6 +119,7 @@
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderGeneratedUnderlayBlendAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderStraightBlendOutputAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.swift",
+        "RenderGraph/ShaderFrontend/SceneAuthoredShaderConditionalUnderlayRGBAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentAlphaAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalColorCarrierCompositingAnalyzer.swift",
         "RenderGraph/ShaderFrontend/SceneAuthoredShaderIndependentSignalCompositingAnalyzer.swift",
@@ -199,6 +200,8 @@
       "includes": [],
       "sources": [
         "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
+        "RenderGraph/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+        "RenderGraph/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerBundle.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderCompilerProcess.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",

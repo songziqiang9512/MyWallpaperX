@@ -38,7 +38,9 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
            !SceneResolvedMaterialProgramDerivation
             .hasResolvedConditionalGeneratedRGBInputContract(
                 contract,
-                textureSlots: textureSlots
+                textureSlots: textureSlots,
+                premultipliedColorInputSlots:
+                    variant.premultipliedColorInputSlots
             ) {
             return failure(
                 .color,

@@ -112,6 +112,7 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-straight-rgb-scalar-alpha"
     case sourceProvenGraphInputRGBBlendScalarAlpha =
         "source-proven-graph-input-rgb-blend-scalar-alpha"
+
     case sourceProvenGraphInputSameSlotChannelReconstruction =
         "source-proven-graph-input-same-slot-channel-reconstruction"
     case sourceProvenGraphInputAuxiliaryRGBBlendAlphaPreserving =
@@ -367,7 +368,11 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   fact.alphaCarrierSlot == sourceSlot,
                   !fact.sampleCallCounts.isEmpty,
                   Set(fact.sampleCallCounts.keys) == activeTextureSlots,
-                  !hasExternalProviderTexture,
+                  (!hasExternalProviderTexture
+                    || (!premultipliedColorAuxiliarySlots.isEmpty
+                        && premultipliedColorAuxiliarySlots.isSubset(
+                            of: fact.generatedOpaqueColorSlots
+                        ))),
                   !producesScalarRedOutput,
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputConditionalGeneratedRGBPreservedAlpha

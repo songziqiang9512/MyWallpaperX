@@ -183,6 +183,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let key: MaterialKey
         let slot: Int
         let consumerLayerID: Int
+        let variants: SceneResolvedMaterialVariantCache
     }
 
     private static func sceneBackgroundRequirement(
@@ -226,7 +227,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                         product: product,
                         key: material.key,
                         slot: slot,
-                        consumerLayerID: consumerLayerID
+                        consumerLayerID: consumerLayerID,
+                        variants: material.variants
                     ))
                 }
             }
@@ -294,6 +296,19 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               pairStep.nodes.count == nodes.count else { return false }
 
         if graph.renderTargets.isEmpty {
+            if sceneBackgroundCandidateHasTypedSinglePassColorABI(candidate) {
+                guard nodes.count == 1,
+                      candidateNode.nodeIndex == nodes[0].nodeIndex,
+                      candidateNode.target == effect.output,
+                      candidateNode.compose == nil
+                        || candidateNode.compose == .bool(false),
+                      pairStep.composeTransitionCount == 0,
+                      pairStep.fullFrameOutputWriteCount == 1,
+                      pairStep.inputMember != pairStep.outputMember else {
+                    return false
+                }
+                return true
+            }
             guard nodes.count == 2,
                   candidateNode.nodeIndex == nodes[0].nodeIndex,
                   candidate.slot == 1,
@@ -325,6 +340,23 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               pairStep.inputMember != pairStep.outputMember
         else { return false }
         return true
+    }
+
+    private static func sceneBackgroundCandidateHasTypedSinglePassColorABI(
+        _ candidate: SceneBackgroundCandidate
+    ) -> Bool {
+        let snapshot = candidate.variants.launchEnvelopeCapabilitySnapshot()
+        guard snapshot.allEntriesReady,
+              !snapshot.variants.isEmpty else { return false }
+        return snapshot.variants.allSatisfy { variant in
+            guard variant.activeSamplers[candidate.slot] != nil else {
+                return true
+            }
+            return variant.premultipliedColorInputSlots.contains(candidate.slot)
+        } && snapshot.variants.contains { variant in
+            variant.activeSamplers[candidate.slot] != nil
+                && variant.premultipliedColorInputSlots.contains(candidate.slot)
+        }
     }
 
     /// Only a launch-time visual contract, unproven texture purpose, or

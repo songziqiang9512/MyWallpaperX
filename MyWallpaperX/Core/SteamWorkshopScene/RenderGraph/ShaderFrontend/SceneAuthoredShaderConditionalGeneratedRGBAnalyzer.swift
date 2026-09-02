@@ -38,6 +38,13 @@ nonisolated enum SceneAuthoredShaderConditionalGeneratedRGBAnalyzer {
     }
 
     static func analyze(_ fragment: Unit) -> Fact? {
+        if let fact = analyzeGeneratedReplacement(fragment) {
+            return fact
+        }
+        return SceneAuthoredShaderConditionalUnderlayRGBAnalyzer.analyze(fragment)
+    }
+
+    private static func analyzeGeneratedReplacement(_ fragment: Unit) -> Fact? {
         guard fragment.stage == .fragment,
               let main = fragment.functions.first(where: { $0.name == "main" })
         else { return nil }

@@ -58,12 +58,12 @@ def assert_transform_abi_request_and_cache_namespaces(
         test_case.assertNotIn("artifact-invalid-json", log)
 
 
-def assert_python_worker_rejects_nonempty_typed_input_color_slots(
+def assert_python_worker_rejects_typed_input_without_compatible_transfer(
     test_case: Any,
 ) -> None:
     with test_case.assertRaisesRegex(
         ArtifactFailure,
-        "premultiplied-color-input-lowering-unsupported",
+        "premultiplied-color-input-transfer",
     ):
         test_case.python_artifact(
             "typed-input-color-worker-request",

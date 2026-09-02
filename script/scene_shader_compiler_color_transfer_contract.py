@@ -129,8 +129,6 @@ def _prepare_straight_alpha_preserving(
             "straight-alpha-preserving-source"
         )
     slot = expected["slot"]
-    _validate_exclusive_binding(slot, texture_bindings)
-
     masked = _mask_comments(source)
     if any(
         re.search(rf"\b{re.escape(helper)}\b", masked)
@@ -148,9 +146,11 @@ def _prepare_straight_alpha_preserving(
         int(match.group(1))
         for match in re.finditer(r"\bg_Texture([0-7])\b", masked)
     ]
-    if not texture_slots or set(texture_slots) != {slot}:
+    if slot not in texture_slots or not _validate_required_bindings(
+        set(texture_slots), texture_bindings
+    ):
         raise IndependentSignalContractFailure(
-            "straight-alpha-preserving-slot"
+            "straight-alpha-preserving-binding"
         )
 
     samples: list[tuple[int, int]] = []
@@ -158,9 +158,7 @@ def _prepare_straight_alpha_preserving(
         r"\bg_Texture(?P<slot>[0-7])\s*\.\s*sample\s*\(", masked
     ):
         if int(match.group("slot")) != slot:
-            raise IndependentSignalContractFailure(
-                "straight-alpha-preserving-sample"
-            )
+            continue
         opening = masked.find("(", match.start(), match.end())
         end = sample_end(masked, opening)
         if end is None:
@@ -168,7 +166,9 @@ def _prepare_straight_alpha_preserving(
                 "straight-alpha-preserving-sample"
             )
         samples.append((match.start(), end))
-    if not samples or len(samples) != len(re.findall(r"\.\s*sample\s*\(", masked)):
+    if not samples or len(re.findall(r"\.\s*sample\s*\(", masked)) != len(
+        re.findall(r"\bg_Texture[0-7]\s*\.\s*sample\s*\(", masked)
+    ):
         raise IndependentSignalContractFailure(
             "straight-alpha-preserving-sample"
         )
@@ -312,19 +312,20 @@ def _fragment_body_bounds(source: str) -> tuple[str, int, int]:
     )
 
 
-def _validate_exclusive_binding(
-    slot: int, texture_bindings: list[dict[str, Any]]
-) -> None:
-    if (
-        not isinstance(texture_bindings, list)
-        or len(texture_bindings) != 1
-        or not isinstance(texture_bindings[0], dict)
-        or texture_bindings[0].get("slot") != slot
-        or texture_bindings[0].get("name") != f"g_Texture{slot}"
-    ):
-        raise IndependentSignalContractFailure(
-            "straight-alpha-preserving-binding"
-        )
+def _validate_required_bindings(
+    slots: set[int], texture_bindings: list[dict[str, Any]]
+) -> bool:
+    if not isinstance(texture_bindings, list):
+        return False
+    return all(
+        sum(
+            isinstance(binding, dict)
+            and binding.get("slot") == slot
+            and binding.get("name") == f"g_Texture{slot}"
+            for binding in texture_bindings
+        ) == 1
+        for slot in slots
+    )
 
 
 def _prepare_compositing(

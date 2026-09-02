@@ -44,6 +44,10 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderInactiveBuiltinOverloadCanonicalizer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderMutableFragmentVaryingNormalizer.swift",

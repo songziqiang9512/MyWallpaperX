@@ -46,6 +46,13 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                 }
                 total += work
             }
+            let predeclaredLoops = consumePredeclaredZeroBasedLoops(in: &body)
+            if predeclaredLoops.found {
+                guard let work = predeclaredLoops.work else {
+                    return .failure(.unbounded)
+                }
+                total += work
+            }
             for match in matches(zeroBasedPattern, in: body).reversed() {
                 guard let declared = capture(match, 1, in: body),
                       let compared = capture(match, 2, in: body),
@@ -115,6 +122,103 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             }
         }
         return total <= 256 ? .success(total) : .failure(.budget)
+    }
+
+    /// GLSL also permits a loop counter declared immediately before `for`.
+    /// Accept that spelling only when the counter is root-local, isolated to
+    /// this loop, and still has an exact positive static step and bound.
+    private static func consumePredeclaredZeroBasedLoops(
+        in source: inout String
+    ) -> Consumption {
+        let identifier = #"([A-Za-z_]\w*)"#
+        let pattern = #"\bint\s+"# + identifier
+            + #"\s*;\s*for\s*\(\s*"# + identifier
+            + #"\s*=\s*0\s*;\s*"# + identifier
+            + #"\s*<\s*(\d+|[A-Za-z_]\w*)\s*;\s*(?:(?:\+\+\s*"#
+            + identifier + #")|(?:"# + identifier
+            + #"\s*\+\+)|(?:"# + identifier + #"\s*\+=\s*(\d+)))\s*\)"#
+        let loops = matches(pattern, in: source)
+        guard !loops.isEmpty else { return .init(found: false, work: 0) }
+        var work = 0
+        for loop in loops.reversed() {
+            let step = capture(loop, 8, in: source).flatMap(Int.init) ?? 1
+            guard let declared = capture(loop, 1, in: source),
+                  let initialized = capture(loop, 2, in: source),
+                  let compared = capture(loop, 3, in: source),
+                  let limitText = capture(loop, 4, in: source),
+                  let limit = Int(limitText) ?? rootInvariantInteger(
+                      named: limitText,
+                      source: source,
+                      before: loop.range.location
+                  ),
+                  (1 ... 64).contains(limit),
+                  let stepped = [
+                      capture(loop, 5, in: source),
+                      capture(loop, 6, in: source),
+                      capture(loop, 7, in: source),
+                  ].compactMap({ $0 }).first,
+                  (1 ... 64).contains(step),
+                  declared == initialized,
+                  declared == compared,
+                  declared == stepped,
+                  let bodyRange = loopBodyRange(
+                      in: source,
+                      after: NSMaxRange(loop.range)
+                  ),
+                  predeclaredCounterIsIsolated(
+                      declared,
+                      headerRange: loop.range,
+                      bodyRange: bodyRange,
+                      source: source
+                  ),
+                  !isWritten(declared, in: bodyRange, source: source),
+                  !isPassedToAuthoredFunction(
+                      declared,
+                      in: bodyRange,
+                      source: source
+                  ),
+                  let headerRange = Range(loop.range, in: source) else {
+                return .init(found: true, work: nil)
+            }
+            work += limit / step + (limit % step == 0 ? 0 : 1)
+            source.removeSubrange(headerRange)
+        }
+        return .init(found: true, work: work)
+    }
+
+    private static func predeclaredCounterIsIsolated(
+        _ name: String,
+        headerRange: NSRange,
+        bodyRange: NSRange,
+        source: String
+    ) -> Bool {
+        guard let functionRange = enclosingFunctionBodyRange(
+            in: source,
+            containing: headerRange.location
+        ) else { return false }
+        let functionSource = (source as NSString).substring(with: functionRange)
+        guard braceDepth(
+            in: functionSource,
+            before: headerRange.location - functionRange.location
+        ) == 0 else { return false }
+        let escaped = NSRegularExpression.escapedPattern(for: name)
+        let prefix = NSRange(
+            location: functionRange.location,
+            length: headerRange.location - functionRange.location
+        )
+        let suffixStart = NSMaxRange(bodyRange)
+        let suffix = NSRange(
+            location: suffixStart,
+            length: NSMaxRange(functionRange) - suffixStart
+        )
+        let value = source as NSString
+        return !regexMatches(
+            #"\b"# + escaped + #"\b"#,
+            value.substring(with: prefix)
+        ) && !regexMatches(
+            #"\b"# + escaped + #"\b"#,
+            value.substring(with: suffix)
+        )
     }
 
     /// A dynamic conjunct may only shorten a loop whose float induction

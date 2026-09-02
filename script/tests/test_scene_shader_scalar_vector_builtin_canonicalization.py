@@ -25,6 +25,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderConstantNumericExpression.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderBooleanScalarArithmeticNormalizer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderFloatingModuloNormalizer.swift",

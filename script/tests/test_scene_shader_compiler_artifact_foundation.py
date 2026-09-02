@@ -139,6 +139,41 @@ void main() { unseenBoundedSample(1.0); }
         artifact = build_program_artifact(**arguments)
         self.assertEqual(artifact["program"]["staticLoopWork"], 12)
 
+    def test_predeclared_static_loop_counter_is_bounded(self) -> None:
+        arguments = artifact_arguments(self.direct_fragment)
+        arguments["stage_sources"]["vertex"] = """
+void main() {
+    int sampleIndex;
+    for (sampleIndex = 0; sampleIndex < 32; sampleIndex += 1) {
+        consume(sampleIndex);
+    }
+}
+"""
+        artifact = build_program_artifact(**arguments)
+        self.assertEqual(artifact["program"]["staticLoopWork"], 32)
+
+    def test_predeclared_static_loop_counter_rejects_escaping_or_unsafe_state(self) -> None:
+        arguments = artifact_arguments(self.direct_fragment)
+        fixtures = (
+            """void main() { int i; use(i);
+for (i = 0; i < 32; i += 1) { consume(i); } }""",
+            """void main() { int i;
+for (i = 0; i < 32; i += 1) { consume(i); } use(i); }""",
+            """void main() { float i;
+for (i = 0; i < 32; i += 1) { consume(i); } }""",
+            """void main() { int i; int unrelated;
+for (i = 0; i < 32; i += 1) { consume(i); } }""",
+            """void main() { int i;
+for (i = 0; i < 32; i += dynamicStep) { consume(i); } }""",
+            """void main() { int i;
+for (i = 0; i < 32; i -= 1) { consume(i); } }""",
+        )
+        for source in fixtures:
+            with self.subTest(source=source):
+                arguments["stage_sources"]["vertex"] = source
+                with self.assertRaisesRegex(ArtifactFailure, "loop-unbounded"):
+                    build_program_artifact(**arguments)
+
     def test_dynamic_early_exit_rejects_unproven_or_mutable_bounds(self) -> None:
         arguments = artifact_arguments(self.direct_fragment)
         fixtures = (

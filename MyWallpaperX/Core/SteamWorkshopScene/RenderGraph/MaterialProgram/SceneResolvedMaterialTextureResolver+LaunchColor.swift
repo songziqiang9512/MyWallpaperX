@@ -133,7 +133,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     SceneResolvedMaterialProgramDerivation
                         .hasResolvedConditionalGeneratedRGBInputContract(
                             contract,
-                            textureFacts: $0
+                            textureFacts: $0,
+                            premultipliedColorInputSlots:
+                                variant.premultipliedColorInputSlots
                         )
                 }) else {
                     return failure(

@@ -17,6 +17,7 @@ from scene_shader_compiler_msl_function_contract import (
 from scene_shader_compiler_loop_budget import static_loop_work as _static_loop_work
 from scene_shader_compiler_input_color_contract import (
     InputColorContractFailure,
+    lower_premultiplied_color_inputs,
     premultiplied_color_input_slots as parse_input_color_slots,
 )
 from scene_shader_compiler_passthrough_contract import aliased_texture_passthrough
@@ -686,13 +687,15 @@ def build_program_artifact(
         )
     except InputColorContractFailure as error:
         raise ArtifactFailure(str(error)) from error
-    if input_slots:
-        raise ArtifactFailure("premultiplied-color-input-lowering-unsupported")
     if set(stage_sources) != {"vertex", "fragment"} or set(msl_sources) != set(stage_sources):
         raise ArtifactFailure("stage-pair")
     expected = expected_color_transfer_for_output(
         output_semantics, expected_color_transfer
     )
+    if input_slots and (
+        expected is None or expected.get("kind") != "straight-alpha-preserving"
+    ):
+        raise ArtifactFailure("premultiplied-color-input-transfer")
     stages = {stage.get("stage"): stage for stage in compiled_stages}
     if set(stages) != {"vertex", "fragment"}:
         raise ArtifactFailure("compiled-pair")
@@ -748,6 +751,13 @@ def build_program_artifact(
             )
         except IndependentSignalContractFailure as error:
             raise ArtifactFailure(error.code) from error
+    if input_slots:
+        try:
+            fragment_msl = lower_premultiplied_color_inputs(
+                fragment_msl, input_slots, texture_bindings
+            )
+        except InputColorContractFailure as error:
+            raise ArtifactFailure(str(error)) from error
     if color_transfer is None:
         raise ArtifactFailure("color-transfer")
     metal_source = vertex_msl.rstrip() + "\n\n" + fragment_msl.lstrip()

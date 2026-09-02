@@ -267,6 +267,14 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('caseInsensitiveCompare("_rt_FullFrameBuffer")', compiler)
         self.assertIn("sceneBackgroundCandidateIsOrdered", capability)
+        self.assertIn(
+            "sceneBackgroundCandidateHasTypedSinglePassColorABI",
+            capability,
+        )
+        self.assertIn(
+            "variant.premultipliedColorInputSlots.contains(candidate.slot)",
+            capability,
+        )
         self.assertIn("candidateNode.nodeIndex == nodes.last?.nodeIndex", capability)
         self.assertIn("!admitted.isGraphOutputProvider", capability)
         self.assertIn("case .none, .externalPrimary: true", capability)

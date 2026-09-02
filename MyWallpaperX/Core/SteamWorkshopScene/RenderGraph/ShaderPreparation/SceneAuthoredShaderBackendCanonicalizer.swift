@@ -49,6 +49,11 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
             fragment: SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
                 .rewrite(result.fragment)
         )
+        let livePrefix = SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.rewrite(
+            vertex: result.vertex,
+            fragment: result.fragment
+        )
+        result = Pair(vertex: livePrefix.vertex, fragment: livePrefix.fragment)
         let arrays = linkedVaryingArrays(
             vertex: result.vertex,
             fragment: result.fragment

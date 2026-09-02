@@ -433,6 +433,18 @@ enum Harness {
             "color *= (0.4 + blue) * g_Tint; " +
             "color.rgb = ApplyBlending(0, base.rgb, color, red); } " +
             "gl_FragColor = vec4(color, base.a);"
+        let conditionalUnderlayRGB =
+            "vec4 albedo = texSample2D(g_Texture0, v_TexCoord); " +
+            "float opacity = g_ScalarWeight; " +
+            "if (opacity > 0.001) { " +
+            "vec4 wave = vec4(g_Tint, opacity); " +
+            "vec3 background = texSample2D(g_Texture2, " +
+            "v_TexCoord * 0.5).rgb; " +
+            "albedo.rgb = mix(background, albedo.rgb, albedo.a); " +
+            "albedo.rgb = ApplyBlending(9, albedo.rgb, wave.rgb, " +
+            "opacity * wave.a); " +
+            "albedo.a = PreserveAlpha(albedo.a, wave.a, opacity); } " +
+            "gl_FragColor = albedo;"
         let result: [String: String] = [
             "directTexture0": transfer(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
@@ -873,6 +885,35 @@ enum Harness {
                 conditionalGeneratedRGBFact(
                     conditionalGeneratedRGBComponentScalars
                 ),
+            "conditionalUnderlayRGB": transfer(conditionalUnderlayRGB),
+            "conditionalUnderlayRGBFact": conditionalGeneratedRGBFact(
+                conditionalUnderlayRGB
+            ),
+            "conditionalUnderlayRGBReversed": transfer(
+                conditionalUnderlayRGB.replacingOccurrences(
+                    of: "mix(background, albedo.rgb, albedo.a)",
+                    with: "mix(albedo.rgb, background, albedo.a)"
+                )
+            ),
+            "conditionalUnderlayRGBReplacedAlpha": transfer(
+                conditionalUnderlayRGB.replacingOccurrences(
+                    of: "PreserveAlpha",
+                    with: "ReplaceAlpha"
+                )
+            ),
+            "conditionalUnderlayRGBExtraSample": transfer(
+                conditionalUnderlayRGB.replacingOccurrences(
+                    of: "vec4 wave = vec4(g_Tint, opacity);",
+                    with: "vec4 wave = texSample2D(g_Texture1, v_TexCoord);"
+                )
+            ),
+            "conditionalUnderlayRGBExtraConditional": transfer(
+                conditionalUnderlayRGB.replacingOccurrences(
+                    of: "vec4 wave = vec4(g_Tint, opacity);",
+                    with: "vec4 wave = vec4(g_Tint, opacity); " +
+                        "if (wave.a < 0.0) { wave = vec4(0.0); }"
+                )
+            ),
             "conditionalGeneratedRGBMetal": metal(conditionalGeneratedRGB),
             "conditionalGeneratedRGBCompilerLowering":
                 conditionalGeneratedRGBCompilerLowering(conditionalGeneratedRGB),
@@ -2102,6 +2143,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "conditionalGeneratedRGBCompilerHiddenHelperSample",
         ):
             self.assertEqual(self.result[key], "unresolved", key)
+
         self.assertEqual(
             self.result["conditionalGeneratedRGBMultiReturnHelper"],
             "straight-preserving-slot:2",
@@ -2120,6 +2162,23 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "conditionalGeneratedRGBMainTexelFetch",
             "conditionalGeneratedRGBGlobalWritingHelper",
             "conditionalGeneratedRGBExtraOutput",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+
+    def test_conditional_underlay_rgb_preserves_the_carrier_boundary(self) -> None:
+        self.assertEqual(
+            self.result["conditionalUnderlayRGB"],
+            "straight-preserving-slot:0",
+        )
+        self.assertEqual(
+            self.result["conditionalUnderlayRGBFact"],
+            "carrier:0;generated:2;red:;green:;blue:;alpha:;counts:0:1,2:1",
+        )
+        for key in (
+            "conditionalUnderlayRGBReversed",
+            "conditionalUnderlayRGBReplacedAlpha",
+            "conditionalUnderlayRGBExtraSample",
+            "conditionalUnderlayRGBExtraConditional",
         ):
             self.assertEqual(self.result[key], "unresolved", key)
 
