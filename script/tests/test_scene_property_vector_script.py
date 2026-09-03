@@ -46,6 +46,7 @@ SOURCES = [
     VM / "SceneScriptMediaFrameCoordinator.swift",
     VM / "SceneScriptScalarProgram.swift",
     VM / "SceneScriptScalarProgram+Projection.swift",
+    VM / "SceneScriptParticleProjection.swift",
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorCandidateCatalog.swift",
@@ -155,6 +156,7 @@ struct SceneParticleBoundValue: Equatable, Sendable {
 }
 
 struct SceneParticleInstanceOverride: Equatable, Sendable {
+    let id: Int?
     let alpha: SceneParticleBoundValue?
     let size: SceneParticleBoundValue?
     let lifetime: SceneParticleBoundValue?
@@ -362,7 +364,12 @@ enum Harness {
                 scaleHasScript: false, alpha: nil, effects: [],
                 contentKind: "particle",
                 particleInstanceOverride: .init(
-                    alpha: nil, size: nil, lifetime: nil,
+                    id: nil, alpha: nil,
+                    size: .init(
+                        value: .scalar(1), userPropertyKey: nil,
+                        hasScript: true, hasAnimation: false
+                    ),
+                    lifetime: nil,
                     rate: .init(
                         value: .scalar(2), userPropertyKey: nil,
                         hasScript: true, hasAnimation: false
@@ -858,6 +865,68 @@ enum Harness {
             frame: frame,
             audioSpectrum: audioSnapshot
         )
+        let propertyFreeParticleProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [particleRateBinding(
+                source: particleAudioSource, value: 2,
+                wrapperKeys: ["script", "value"], properties: [:]
+            )],
+            generation: 190
+        )
+        let parsedNullParticle = SceneScriptBindingIRParser.parse(document: [
+            "objects": [
+                ["id": 10], ["id": 42], ["id": 77],
+                [
+                    "id": 139,
+                    "instanceoverride": [
+                        "rate": [
+                            "script": particleAudioSource,
+                            "user": NSNull(),
+                            "value": 2,
+                        ],
+                    ],
+                ],
+            ],
+        ])
+        let nullUserParticleProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: parsedNullParticle.bindings,
+            generation: 191
+        )
+        let conflictingParticle = SceneScriptBindingIRParser.parse(document: [
+            "objects": [
+                ["id": 10], ["id": 42], ["id": 77],
+                [
+                    "id": 139,
+                    "instanceoverride": [
+                        "rate": [
+                            "script": particleAudioSource,
+                            "user": "other-provider",
+                            "value": 2,
+                        ],
+                    ],
+                ],
+            ],
+        ])
+        let unknownParticleWrapperProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [particleRateBinding(
+                source: particleAudioSource, value: 2,
+                wrapperKeys: ["extra", "script", "value"], properties: [:]
+            )],
+            generation: 192
+        )
+        let admittedParticleDescriptor = SceneScriptParticleProjection.apply(
+            admittedRateLayerIDs: [139], to: descriptor
+        )
+        let staticParticleDescriptor = SceneScriptParticleProjection.apply(
+            admittedRateLayerIDs: [], to: descriptor
+        )
+        let admittedParticle = admittedParticleDescriptor.layers[3]
+        let staticParticle = staticParticleDescriptor.layers[3]
         let layerProgram = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -1620,6 +1689,22 @@ enum Harness {
                 particleAudioResult.values[particleAudioTarget]
             ),
             "particleAudioFailures": particleAudioResult.failures.count,
+            "particlePropertyFreeBindings": propertyFreeParticleProgram.bindings.count,
+            "particleNullUserBindings": nullUserParticleProgram.bindings.count,
+            "particleNullUserParseFailures": parsedNullParticle.diagnostics.count,
+            "particleConflictingUserRejected": conflictingParticle.bindings.isEmpty
+                && conflictingParticle.diagnostics.map(\.code) == [.conflictingSources],
+            "particleUnknownWrapperRejected": unknownParticleWrapperProgram.bindings.isEmpty,
+            "particleAdmittedVisible": admittedParticle.visible == true,
+            "particleAdmittedRateScriptRemoved":
+                admittedParticle.particleInstanceOverride?.rate?.hasScript == false,
+            "particleAdmittedSiblingPreserved":
+                admittedParticle.particleInstanceOverride?.size?.hasScript == true,
+            "particleStaticFallbackVisible": staticParticle.visible == true,
+            "particleStaticRatePreserved":
+                staticParticle.particleInstanceOverride?.rate?.hasScript == true,
+            "particleStaticSiblingPreserved":
+                staticParticle.particleInstanceOverride?.size?.hasScript == true,
             "propertyEventFirst": vector(
                 propertyEventFirst.values[propertyEventTarget]
             ),
@@ -1829,7 +1914,11 @@ enum Harness {
 
     static func particleRateBinding(
         source: String,
-        value: Double
+        value: Double,
+        wrapperKeys: [String] = ["script", "scriptproperties", "value"],
+        properties: [String: SceneJSONValue] = [
+            "frequency": .number(0), "minvalue": .number(1),
+        ]
     ) -> SceneScriptBindingIR {
         .init(
             source: source,
@@ -1841,12 +1930,10 @@ enum Harness {
                 .key("objects"), .index(3),
                 .key("instanceoverride"), .key("rate"),
             ],
-            properties: [
-                "frequency": .number(0), "minvalue": .number(1),
-            ],
+            properties: properties,
             authoredValue: .number(value),
             valueType: .number,
-            wrapperKeys: ["script", "scriptproperties", "value"]
+            wrapperKeys: wrapperKeys
         )
     }
 
@@ -2367,6 +2454,17 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertTrue(value["particleAudioDemand"])
         self.assertEqual(value["particleAudioValue"], 3.0)
         self.assertEqual(value["particleAudioFailures"], 0)
+        self.assertEqual(value["particlePropertyFreeBindings"], 1)
+        self.assertEqual(value["particleNullUserBindings"], 1)
+        self.assertEqual(value["particleNullUserParseFailures"], 0)
+        self.assertTrue(value["particleConflictingUserRejected"])
+        self.assertTrue(value["particleUnknownWrapperRejected"])
+        self.assertTrue(value["particleAdmittedVisible"])
+        self.assertTrue(value["particleAdmittedRateScriptRemoved"])
+        self.assertTrue(value["particleAdmittedSiblingPreserved"])
+        self.assertTrue(value["particleStaticFallbackVisible"])
+        self.assertTrue(value["particleStaticRatePreserved"])
+        self.assertTrue(value["particleStaticSiblingPreserved"])
 
     def test_scalar_script_properties_follow_live_typed_user_input(self) -> None:
         value = self.result()

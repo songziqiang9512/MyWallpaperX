@@ -2,7 +2,7 @@ import Foundation
 
 /// Exact outer-wrapper shapes shared by property routing and the SceneScript
 /// scalar/vector candidate catalogs. A non-null outer `user` remains a
-/// conflicting producer and is never admitted as a nested live provider.
+/// conflicting producer and is rejected while the binding IR is parsed.
 nonisolated enum SceneScriptDynamicProviderHostContract {
     enum HostKind: Equatable, Sendable {
         case objectScalar
@@ -13,16 +13,19 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
 
         var acceptsNullOuterUser: Bool {
             switch self {
-            case .objectVector, .passConstant:
+            case .objectVector, .particleRate, .passConstant:
                 return true
-            case .objectScalar, .objectVisibility, .particleRate:
+            case .objectScalar, .objectVisibility:
                 return false
             }
         }
     }
 
     static func supports(keys: [String], host: HostKind) -> Bool {
-        keys == ["script", "scriptproperties", "value"]
+        (host == .particleRate && keys == ["script", "value"])
+            || (host == .particleRate
+                && keys == ["script", "user", "value"])
+            || keys == ["script", "scriptproperties", "value"]
             || (host.acceptsNullOuterUser
                 && keys == ["script", "scriptproperties", "user", "value"])
     }

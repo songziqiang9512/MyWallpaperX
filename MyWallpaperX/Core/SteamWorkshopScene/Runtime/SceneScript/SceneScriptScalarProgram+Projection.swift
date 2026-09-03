@@ -49,8 +49,8 @@ nonisolated extension SceneScriptScalarProgram {
                       ),
                       layer.contentKind == "particle",
                       let override = layer.particleInstanceOverride,
-                      override.hasOnlyGenericRateScript,
                       let rate = override.rate,
+                      rate.hasScript,
                       rate.userPropertyKey == nil,
                       !rate.hasAnimation,
                       rate.value?.scalarValue?.bitPattern == authored.bitPattern else {
@@ -142,18 +142,5 @@ nonisolated extension SceneScriptScalarProgram {
             .key("passes"), .index(passIndex),
             .key("constantshadervalues"), .key(name),
         ]
-    }
-}
-
-private nonisolated extension SceneParticleInstanceOverride {
-    var hasOnlyGenericRateScript: Bool {
-        guard rate?.hasScript == true else { return false }
-        let otherValues = [
-            alpha, size, lifetime, speed, count, brightness,
-            color, normalizedColor,
-        ]
-        return !otherValues.compactMap { $0 }.contains(where: \.hasScript)
-            && !controlPoints.values.contains(where: \.hasScript)
-            && !controlPointAngles.values.contains(where: \.hasScript)
     }
 }
