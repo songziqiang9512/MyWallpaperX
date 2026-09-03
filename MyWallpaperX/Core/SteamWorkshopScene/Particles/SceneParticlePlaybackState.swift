@@ -2,6 +2,8 @@ import Foundation
 import Metal
 
 final class SceneParticlePlaybackState {
+    private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
+
     let lifecycleIdentity = UUID()
     let pipeline: SceneParticleMetalPipeline
     private let runtime: SceneParticleRuntime
@@ -46,7 +48,7 @@ final class SceneParticlePlaybackState {
         guard !didTeardown else { return [] }
         batches.removeAll(keepingCapacity: true)
         batches = runtime.advance(
-            by: simulationFrameDelta.isFinite ? max(simulationFrameDelta, 0) : 0,
+            by: Self.boundedRealtimeSimulationDelta(simulationFrameDelta),
             dynamicValues: dynamicValues,
             pointerLocalPositions: pointerLocalPositions,
             audioInput: SceneParticleAudioInput(
@@ -55,6 +57,15 @@ final class SceneParticlePlaybackState {
             )
         )
         return batches
+    }
+
+    /// Product playback drops overdue wall-clock debt instead of recursively making
+    /// an already slow frame run an unbounded number of fixed simulation steps.
+    nonisolated static func boundedRealtimeSimulationDelta(
+        _ simulationFrameDelta: TimeInterval
+    ) -> TimeInterval {
+        guard simulationFrameDelta.isFinite else { return 0 }
+        return min(max(simulationFrameDelta, 0), maximumRealtimeSimulationDelta)
     }
 
     /// Returns one observation for the only successful active -> terminated

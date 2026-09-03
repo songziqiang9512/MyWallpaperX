@@ -339,6 +339,8 @@ enum Harness {
             try printJSON(syntheticChildPointerControlPoint())
         case "lifecycle-synthetic":
             try printJSON(syntheticLifecycle())
+        case "playback-delta-synthetic":
+            try printJSON(playbackDeltaBounds())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -381,6 +383,16 @@ enum Harness {
             "maximumOnly": velocity(minimum: nil, maximum: [0, 100, 0]),
             "minimumOnly": velocity(minimum: [0, -100, 0], maximum: nil),
             "omitted": velocity(minimum: nil, maximum: nil),
+        ]
+    }
+
+    private static func playbackDeltaBounds() -> [String: Double] {
+        [
+            "sixtyFPS": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(1.0 / 60.0),
+            "thirtyFPS": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(1.0 / 30.0),
+            "slowFrame": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(0.25),
+            "negative": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(-1),
+            "nonFinite": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(.infinity),
         ]
     }
 
@@ -2767,6 +2779,14 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         })
         self.assertEqual(result["postTeardownBatchCount"], 0)
         self.assertFalse(result["repeatedObservation"])
+
+    def test_product_playback_discards_unbounded_fixed_step_debt(self) -> None:
+        result = self.run_harness("playback-delta-synthetic")
+        self.assertAlmostEqual(result["sixtyFPS"], 1 / 60)
+        self.assertAlmostEqual(result["thirtyFPS"], 1 / 30)
+        self.assertAlmostEqual(result["slowFrame"], 1 / 30)
+        self.assertEqual(result["negative"], 0)
+        self.assertEqual(result["nonFinite"], 0)
 
     def test_velocity_random_uses_official_zero_for_each_omitted_endpoint(self) -> None:
         result = self.run_harness("velocity-defaults-synthetic")
