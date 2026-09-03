@@ -99,6 +99,22 @@ Agent 若准备新增第二套 resource registry、property tree、frame clock�
 
 本节是 MyWallpaperX 自有架构策略：它综合官方作者合同、2.8.42 固定客户端观察、当前代码/运行证据和第三方结构对照，但不是 Wallpaper Engine 官方公开的内部实现说明。
 
+### 3.0 最短播放链与复杂度预算
+
+目标不是建设一套覆盖所有异常、诊断和兼容情形的平台，而是保持一条可快速迭代的产品播放链：
+
+```text
+authored document/assets
+  -> prepare once (IR / Program / graph / resources)
+  -> update typed frame values or publications
+  -> execute prepared Metal passes
+  -> unique compositor/output
+```
+
+任何产品层类型或阶段都必须说明自己直接生产上述链上的对象、消费作者输入，或保护会导致 crash、GPU 越界、stale generation/epoch、target hazard、错误 publication/completion 的完整性边界。仅生产报告、hash、诊断、兼容判断、重复 route state 或未来扩展点的机制不得常驻播放链；诊断/benchmark 模式可以旁路观察同一执行结果，但不能反向成为提交或出画面的必要条件。
+
+复杂度按删除方向管理：优先复用和收窄现有 owner；能由不可变 prepared value、直接函数或已有 typed channel 表达时，不新增 protocol、registry、wrapper、planner、profile 或 renderer。实现通用替代并撤权后，旧 owner、旧准入、旧诊断和只验证旧内部结构的测试成族删除。衡量进展以正确画面、布局、首帧和帧时间为主，不以类型数、gate 数、diagnostic 覆盖或拒绝理由数量为正向指标。
+
 ### 3.1 数据选择数据，执行器解释数据
 
 允许以下分派：
@@ -149,7 +165,7 @@ continue
 
 ### 3.3 保留事务安全，不扩大视觉失败半径
 
-现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和 terminal compositor observation 是应保留的底座。快速出效果不等于放弃 GPU 事务安全。
+现有 target pool、resource generation、frame reservation、publication、command-buffer completion、rollback、epoch invalidation 和唯一 terminal compositor owner 是应保留的底座。产品帧只保存提交/消费所需的轻量状态；完整 terminal observation、graph hash 和逐节点证据只在主动诊断或 benchmark 模式构造。快速出效果不等于放弃 GPU 事务安全，也不允许把证据系统变成提交成功的第二授权者。
 
 需要改变的是 admission 粒度：Program/graph 可以按 effect 或依赖子图准备和提交，不能要求一层中所有 authored effect 都先形成完整 capability conservation 才允许任何可见结果。
 
@@ -268,6 +284,8 @@ Particle definition 编译为有序 component ops；system 实例拥有固定步
 ### 5.5 五类变化与最小失效域
 
 通用执行不等于每帧重新解析、编译和建图。所有动态变化必须先归入以下一种失效域，再只更新最小 owner：
+
+`Program`、graph topology、target plan、reflection、pipeline key 和不随帧变化的 ABI 检查必须缓存在对应 generation 的 prepared object 中。正常帧只允许更新 value buffer、真正变化的 resource publication/geometry，以及 command-buffer/epoch/publication 的常数级提交检查。任何逐帧 JSON 编码、整图 hash、全 catalog scan、全 ABI 重验或 evidence object 构造都视为架构回归，除非显式处于诊断/benchmark 模式。
 
 | 变化 | 典型输入 | 允许失效的最小范围 | 默认不做 |
 |---|---|---|---|

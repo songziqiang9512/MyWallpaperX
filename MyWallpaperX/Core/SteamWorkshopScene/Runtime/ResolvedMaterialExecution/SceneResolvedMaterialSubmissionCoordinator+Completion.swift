@@ -256,9 +256,15 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         for identity in ledgerIDs {
             guard let ledger = activeByID[identity],
                   let blueprint = ledger.blueprint,
-                  ledger.phase == .outputConsumed else {
+                  ledger.phase == .outputConsumed,
+                  Set(blueprint.mappingGenerations.keys)
+                    == Set(ledger.prepared.stages.map(\.effect)) else {
                 rejectionReason = "frame-success-ledger-incomplete"
                 return nil
+            }
+            guard capturesExecutionObservations else {
+                result[identity] = []
+                continue
             }
             var observations: [SceneGraphExecutionObservation] = []
             for value in ledger.prepared.stages {
@@ -316,6 +322,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         gpu: SceneGraphExecutionGPUCompletionStatus?
     ) -> Emission {
         var emission = Emission()
+        guard capturesExecutionObservations else { return emission }
         for value in ledger.prepared.stages {
             let base = ledger.committedBaseTails[value.effect]
             do {

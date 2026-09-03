@@ -184,6 +184,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         assets: SceneMaterialAssetTextureCatalog,
         device: MTLDevice,
         visibleExecutionRootLayerIDs: Set<Int> = [],
+        capturesExecutionObservations: Bool = true,
         logSink: @escaping LogSink = { NSLog("%@", $0) }
     ) {
         self.catalog = catalog
@@ -192,6 +193,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         submissions = .init(
             device: device,
             capabilities: capabilities,
+            capturesExecutionObservations: capturesExecutionObservations,
             logSink: logSink
         )
         self.visibleExecutionRootLayerIDs = visibleExecutionRootLayerIDs

@@ -138,6 +138,11 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     let historyLogicalIdentities: Set<Identity>
     let historyClosureIdentities: Set<Identity>
     let lastContentGeneration: UInt64
+    /// Static execution work is compiled once per effect/allocation generation.
+    /// The admitted capability is immutable; callers must advance
+    /// `effectGeneration` before replacing its graph or pair plan.
+    private let compiledOperations: [Operation]?
+    private let materialFunctionTargets: Set<Identity>
     private let topologySignature: Data?
     private let planSignature: Data?
 
@@ -153,6 +158,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         authoredResources: [:], logicalMapping: [:],
         initializedPhysicalTokens: [], historyLogicalIdentities: [],
         historyClosureIdentities: [], lastContentGeneration: 0,
+        compiledOperations: nil, materialFunctionTargets: [],
         topologySignature: nil, planSignature: nil
     )
 
@@ -230,6 +236,9 @@ nonisolated struct SceneGraphExecutionState: Equatable {
                 historyClosureIdentities:
                     candidate.nextState.historyClosureIdentities,
                 lastContentGeneration: lastGeneration,
+                compiledOperations: candidate.nextState.compiledOperations,
+                materialFunctionTargets:
+                    candidate.nextState.materialFunctionTargets,
                 topologySignature: candidate.nextState.topologySignature,
                 planSignature: candidate.nextState.planSignature
             )
@@ -262,6 +271,8 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             historyLogicalIdentities: [],
             historyClosureIdentities: [],
             lastContentGeneration: 0,
+            compiledOperations: nil,
+            materialFunctionTargets: [],
             topologySignature: nil,
             planSignature: nil
         )
@@ -284,24 +295,10 @@ nonisolated struct SceneGraphExecutionState: Equatable {
               targetPlan.logicalTargets.count <= maximumLogicalBindingCount else {
             return .failure(.executionEvidenceCapacityExceeded)
         }
-        let operations: [Operation]
-        switch compile(graph: graph, targetPlan: targetPlan, pairStep: pairStep) {
-        case .failure(let failure): return .failure(failure)
-        case .success(let value): operations = value
-        }
         let materialFunctionTargets = Set(materialFunctionInvocations.flatMap(\.targets))
         let plannedTargets = Set(targetPlan.logicalTargets.map(\.identity))
         guard materialFunctionTargets.isSubset(of: plannedTargets) else {
             return .failure(.functionUnavailable)
-        }
-        switch validateAllocation(
-            graph: graph,
-            plan: targetPlan,
-            allocation: allocation,
-            materialFunctionTargets: materialFunctionTargets
-        ) {
-        case .failure(let failure): return .failure(failure)
-        case .success: break
         }
         guard generationsDoNotRegress(
             effect: effectGeneration,
@@ -309,16 +306,54 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             allocation: allocation.generation,
             from: previous
         ) else { return .failure(.generationRegression) }
-        guard let signatures = executionSignatures(graph: graph, plan: targetPlan),
-              let historyClosure = historyClosure(in: targetPlan) else {
-            return .failure(.stateMismatch)
-        }
 
         let reparsed = previous.effectGeneration != effectGeneration
             || previous.allocationGeneration == nil
         let reset = reparsed || previous.resetGeneration != resetGeneration
         let allocationChanged = previous.allocationGeneration != allocation.generation
         let freshAllocation = !reset && allocationChanged
+        let reusesStaticPlan = !reparsed && !allocationChanged
+            && previous.materialFunctionTargets == materialFunctionTargets
+        let operations: [Operation]
+        let signatures: ExecutionSignatures
+        let historyClosure: Set<Identity>
+        if reusesStaticPlan {
+            guard let cachedOperations = previous.compiledOperations,
+                  let topology = previous.topologySignature,
+                  let complete = previous.planSignature,
+                  allocation.resources == previous.authoredResources else {
+                return .failure(.stateMismatch)
+            }
+            operations = cachedOperations
+            signatures = .init(topology: topology, complete: complete)
+            historyClosure = previous.historyClosureIdentities
+        } else {
+            switch compile(
+                graph: graph,
+                targetPlan: targetPlan,
+                pairStep: pairStep
+            ) {
+            case .failure(let failure): return .failure(failure)
+            case .success(let value): operations = value
+            }
+            switch validateAllocation(
+                graph: graph,
+                plan: targetPlan,
+                allocation: allocation,
+                materialFunctionTargets: materialFunctionTargets
+            ) {
+            case .failure(let failure): return .failure(failure)
+            case .success: break
+            }
+            guard let value = executionSignatures(
+                      graph: graph,
+                      plan: targetPlan
+                  ), let closure = Self.historyClosure(in: targetPlan) else {
+                return .failure(.stateMismatch)
+            }
+            signatures = value
+            historyClosure = closure
+        }
         if allocationChanged,
            freshAllocationReusesToken(previous: previous, allocation: allocation) {
             return .failure(.freshAllocationTokenReuse)
@@ -554,6 +589,8 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             historyLogicalIdentities: history,
             historyClosureIdentities: historyClosure,
             lastContentGeneration: contentGeneration,
+            compiledOperations: operations,
+            materialFunctionTargets: materialFunctionTargets,
             topologySignature: signatures.topology,
             planSignature: signatures.complete
         )

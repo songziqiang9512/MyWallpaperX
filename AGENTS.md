@@ -42,13 +42,21 @@ Scene 资料必须按[Scene 资料来源索引](docs/scene/semantics/source-inde
 
 ## 3. Scene 快速兼容执行
 
+### 3.0 一条最短产品播放链
+
+- Scene 产品运行时只允许一条主链：`authored data -> prepared Program/graph/resources -> typed frame update -> Metal encode -> unique compositor/output`。没有直接产出作者画面、动态状态或上述硬安全边界的 runtime wrapper、registry、observer、hash、report、兼容层和重复 owner 不得进入产品主链；触达时优先合并或删除。
+- 静态解析、graph lowering、shader/reflection、ABI/target 检查和 pipeline preparation 只在 load、generation 或明确 invalidation 边界执行一次。正常帧不得重新解析、编译、建图、序列化/哈希整图、扫描完整 catalog，或为诊断构造完整 observation。
+- 完整诊断、截图、证据 hash、route/fallback 聚合和 corpus instrumentation 只在用户主动诊断、测试或 benchmark 模式启用；普通启动和播放不得为未来可能的诊断付出同等级工作。产品常开部分只保留防止 crash、越界、stale generation/epoch、target hazard、错误 publication/command completion 的最小常数级检查。
+- 新抽象必须至少满足一个条件：直接执行多个合法 authored 输入、消除现有重复 owner、或承载独立且必要的生命周期。仅为了更全面的校验、降级、诊断、兼容或未来扩展不得增加层级。旧机制已无产品 owner 或不再服务可见主链时，成族删除实现与耦合测试是默认动作。
+- 开发优先级按用户可见收益排序：正确出画面与布局 > 稳定帧率和首帧 > 新能力广度 > 诊断/治理便利。若主链性能已妨碍视觉验证，可在当前 V 轨内先修 prepare-once/execute-many 偏差；这不是跳阶段。
+
 ### 3.1 默认执行作者数据，不默认扩张专用准入
 
 - 新内容首先尝试走声明式 definition/material/shader、通用 graph、真实 ECMAScript VM、particle component registry 和统一 Metal executor。
 - definition/material/shader path、component/API name 可以选择作者数据、共享 primitive、缓存、资源和诊断；sample/layer/path/hash/截图身份不得选择特制视觉算法或固定输出。
 - 除非现有 IR 无法表达多个内容都会复用的新 primitive，不新增 effect-specific planner/renderer、固定脚本 profile、完整 particle preset renderer 或样本产品旁路。
 - 现有 bounded frontend、exact planner 和专用 renderer 是迁移 fallback/oracle。通用路径取得相同可见结果并稳定后再精确撤权；不得要求每个前置批次都先删除旧 owner，也不得长期保留静默双路由。
-- 每个迁移 owner 必须显式登记 route state：`observe-only` 只观察/诊断、不持有产品输出；`prefer-generic` 由通用路径优先、旧 owner 仅作带原因的已验证 fallback；`generic-only` 只有通用路径持有产品执行权，旧实现只可作测试 oracle；`disable-generic` 只用于故障回滚并形成待退出偏差债务。每次 fallback 都必须输出 typed reason、影响 identity 和可聚合计数。
+- 每个迁移 owner 必须显式登记 route state：`observe-only` 只观察/诊断、不持有产品输出；`prefer-generic` 由通用路径优先、旧 owner 仅作带原因的已验证 fallback；`generic-only` 只有通用路径持有产品执行权，旧实现只可作测试 oracle；`disable-generic` 只用于故障回滚并形成待退出偏差债务。fallback 必须保留 typed reason 和影响 identity；聚合、逐帧日志与完整 observation 只在主动诊断或验证模式生成。
 - route state 变更必须证明原子切换和回滚演练。进入 `generic-only` 前至少需要目标纵向结果、局部失败反例、新组合/未见 fixture 与 fallback 统计；撤销旧产品 owner 前还须确认产品路径无旧引用并同步权威文档。不得以长期 `disable-generic` 或静默双执行代替修复。
 - 新功能从一个可闭合真实画面的纵向切片开始；不得把完整 compiler、RenderGraph、VM、particle platform 或发行准入作为第一张正确画面的前置工程。
 
@@ -93,6 +101,8 @@ Scene 分类根 `MyWallpaperX/Core/SteamWorkshopScene` 不直接放 Swift。一�
 目录迁移只移动完整类型族和路径引用，不夹带行为变化。新增二级职责需同步布局合同、standalone source lists、导航和迁移测试。
 
 ## 5. 验证与证据
+
+门禁只保护本次改动的真实失败半径，不是产品 runtime 的组成部分，也不是开发前置平台。默认运行最近的 executable unit；Swift 产品变更再 build；可见/GPU 变化再运行一个代表内容。不得因为目录过宽而在 inner 循环自动扩张到全 Scene、full corpus、签名或发行检查，新增静态政策门必须足够轻量并直接阻止热路径重新引入非出画面工作。
 
 统一入口：
 

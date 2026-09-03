@@ -85,15 +85,15 @@
     {
       "id": "runtime",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/Runtime/**"],
-      "keywords": ["runtime", "frame_context", "performance"]
+      "modules": [
+        "test_scene_runtime_input",
+        "test_scene_performance_telemetry"
+      ]
     },
     {
       "id": "scene-script-runtime",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/**",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/**"
       ],
       "modules": [
         "test_scene_cursor_candidate_collision",
@@ -115,6 +115,20 @@
         "test_scene_script_text_pointsize",
         "test_scene_vector_media_events",
         "test_scene_vector_owner_admission"
+      ]
+    },
+    {
+      "id": "scene-launch",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePreparedDeviceResources.swift"
+      ],
+      "modules": [
+        "test_scene_detail_diagnostics_on_demand",
+        "test_scene_resolved_material_runtime_bridge",
+        "test_scene_runtime_input",
+        "test_scene_wallpaper_benchmark"
       ]
     },
     {
@@ -217,7 +231,25 @@
     {
       "id": "render-graph",
       "patterns": ["MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/**"],
-      "keywords": ["authored_effect", "graph", "offscreen", "resolved_material", "shader"]
+      "modules": [
+        "test_scene_effect_render_graph",
+        "test_scene_resolved_material_graph_executor"
+      ]
+    },
+    {
+      "id": "realtime-playback-path",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/SceneGraphExecutionState*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ResolvedMaterialExecution/**",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialPassEncoder*.swift"
+      ],
+      "modules": [
+        "test_scene_realtime_path_policy"
+      ]
     },
     {
       "id": "authored-fallback-owner-revocation",

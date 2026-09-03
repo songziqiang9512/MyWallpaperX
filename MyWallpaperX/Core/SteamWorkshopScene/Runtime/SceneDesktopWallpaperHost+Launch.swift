@@ -87,13 +87,15 @@ struct SceneDesktopWallpaperLaunchContext {
     let resourceView: SceneResourceView
     let logURL: URL?
     let recordID: String?
+    let capturesExecutionObservations: Bool
 
     func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
         preparedFirstSurfaceRuntime.take() ?? .init(
             catalog: resolvedMaterialCatalog,
             capabilities: resolvedMaterialExecutionCapabilities,
             assets: materialAssetCatalog,
-            device: preparedDeviceResources.device
+            device: preparedDeviceResources.device,
+            capturesExecutionObservations: capturesExecutionObservations
         )
     }
 
@@ -539,6 +541,7 @@ extension SceneDesktopWallpaperHost {
                 device: device,
                 visibleExecutionRootLayerIDs:
                     resolvedMaterialVisibleExecutionRootLayerIDs,
+                capturesExecutionObservations: Self.usesDebugEvidenceWindow,
                 cancellationCheck: { try cancellation?.check() }
             )
         firstSurfaceRuntimePreparation.start()
@@ -745,7 +748,8 @@ extension SceneDesktopWallpaperHost {
             cacheDirectory: cacheDirectory,
             resourceView: model.resourceView,
             logURL: logURL,
-            recordID: recordID
+            recordID: recordID,
+            capturesExecutionObservations: Self.usesDebugEvidenceWindow
         )
         try cancellation?.check()
         return PreparedLaunch(model: model, context: context)

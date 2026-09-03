@@ -1,13 +1,13 @@
 import Foundation
 
-nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
+nonisolated struct SceneAuthoredEffectRenderPlan: Codable, Equatable {
     struct EffectKey: Codable, Hashable {
         let layerID: Int
         let effectIndex: Int
         let descriptorID: String
     }
 
-    enum TextureKind: String, Codable {
+    enum TextureKind: String, Codable, Equatable {
         case layerSource
         case effectOutput
         case framebuffer
@@ -167,7 +167,7 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         }
     }
 
-    struct RenderTarget: Codable {
+    struct RenderTarget: Codable, Equatable {
         let texture: TextureIdentity
         let extent: TargetExtent
         let format: String?
@@ -177,21 +177,21 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         let conditions: SceneJSONValue?
     }
 
-    struct Binding: Codable {
+    struct Binding: Codable, Equatable {
         let slot: Int?
         let authoredName: String?
         let texture: TextureIdentity
         let conditions: SceneJSONValue?
     }
 
-    enum NodeKind: String, Codable {
+    enum NodeKind: String, Codable, Equatable {
         case material
         case copy
         case swap
         case unknownCommand
     }
 
-    struct Node: Codable {
+    struct Node: Codable, Equatable {
         let nodeIndex: Int
         let effect: EffectKey
         let definitionPassIndex: Int
@@ -208,7 +208,7 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         let conditions: SceneJSONValue?
     }
 
-    struct Effect: Codable {
+    struct Effect: Codable, Equatable {
         let key: EffectKey
         let definitionPath: String
         let input: TextureIdentity
@@ -216,7 +216,7 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         let nodeIndices: [Int]
     }
 
-    enum BlockerReason: String, Codable {
+    enum BlockerReason: String, Codable, Equatable {
         case missingDefinition
         case ambiguousDefinition
         case instancePassCountMismatch
@@ -241,7 +241,7 @@ nonisolated struct SceneAuthoredEffectRenderPlan: Codable {
         case unknownDefinitionFields
     }
 
-    struct Blocker: Codable {
+    struct Blocker: Codable, Equatable {
         let effect: EffectKey
         let definitionPassIndex: Int?
         let reason: BlockerReason

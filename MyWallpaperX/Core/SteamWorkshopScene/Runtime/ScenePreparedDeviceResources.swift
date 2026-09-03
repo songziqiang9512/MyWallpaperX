@@ -565,6 +565,7 @@ final class ScenePreparedFirstSurfaceRuntimeTask {
     private let assets: SceneMaterialAssetTextureCatalog
     private let device: MTLDevice
     private let visibleExecutionRootLayerIDs: Set<Int>
+    private let capturesExecutionObservations: Bool
     private let externalCancellationCheck: () throws -> Void
     private var result: Result<SceneResolvedMaterialRuntimeBridge, Error>?
     private var cancellationRequested = false
@@ -575,6 +576,7 @@ final class ScenePreparedFirstSurfaceRuntimeTask {
         assets: SceneMaterialAssetTextureCatalog,
         device: MTLDevice,
         visibleExecutionRootLayerIDs: Set<Int>,
+        capturesExecutionObservations: Bool,
         cancellationCheck: @escaping () throws -> Void
     ) {
         self.catalog = catalog
@@ -582,6 +584,7 @@ final class ScenePreparedFirstSurfaceRuntimeTask {
         self.assets = assets
         self.device = device
         self.visibleExecutionRootLayerIDs = visibleExecutionRootLayerIDs
+        self.capturesExecutionObservations = capturesExecutionObservations
         externalCancellationCheck = cancellationCheck
     }
 
@@ -595,7 +598,9 @@ final class ScenePreparedFirstSurfaceRuntimeTask {
                     assets: assets,
                     device: device,
                     visibleExecutionRootLayerIDs:
-                        visibleExecutionRootLayerIDs
+                        visibleExecutionRootLayerIDs,
+                    capturesExecutionObservations:
+                        capturesExecutionObservations
                 )
                 try checkCancellation()
                 return runtime

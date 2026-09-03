@@ -8,7 +8,7 @@ nonisolated private struct SceneGraphObservedLifetime {
 }
 
 nonisolated extension SceneGraphExecutionState {
-    enum Operation {
+    enum Operation: Equatable {
         case material(Graph.Node)
         case copy(Graph.Node, ordinal: Int)
         case swap(Graph.Node, ordinal: Int)

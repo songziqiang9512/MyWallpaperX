@@ -250,14 +250,14 @@ class SceneGovernanceContractTests(unittest.TestCase):
             with self.subTest(deviationClass=deviation_class):
                 self.assertIn(f"`{deviation_class}`", roadmap)
         for correction_field in (
+            "capability_id:",
             "target_contract:",
-            "current_observation_and_evidence:",
-            "deviation_class:",
             "first_breakpoint:",
-            "correctness_atom:",
-            "route_state_before:",
-            "route_state_after:",
-            "remaining_deviation_and_exit_condition:",
+            "shared_backbone_owner:",
+            "visible_result:",
+            "failure_radius:",
+            "smallest_executable_gate:",
+            "old_owner_or_mechanism_to_delete:",
         ):
             with self.subTest(correctionField=correction_field):
                 self.assertIn(correction_field, roadmap)

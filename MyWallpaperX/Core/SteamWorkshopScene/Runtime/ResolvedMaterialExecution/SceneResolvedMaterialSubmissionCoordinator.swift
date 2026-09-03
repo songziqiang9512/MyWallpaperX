@@ -94,6 +94,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     let telemetry: SceneGraphExecutionTelemetry
     let logSink: LogSink
+    let capturesExecutionObservations: Bool
     let lock = NSLock()
     /// Scopes transaction and allocation counters to this coordinator lifetime.
     /// It is deliberately independent from replaceable physical texture pools.
@@ -132,12 +133,14 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     init(
         device: MTLDevice,
         capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        capturesExecutionObservations: Bool = true,
         logSink: @escaping LogSink
     ) {
         self.capabilities = capabilities
         executor = .init(device: device, capabilities: capabilities)
         telemetry = .init(logSink: logSink)
         self.logSink = logSink
+        self.capturesExecutionObservations = capturesExecutionObservations
     }
 
     func installFrameLocalFallbacks(_ fallbacks: [Int: String]) -> Bool {

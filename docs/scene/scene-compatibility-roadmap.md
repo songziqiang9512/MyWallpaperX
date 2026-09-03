@@ -12,6 +12,8 @@
 
 > 路线北极星：在一个共享 Scene 控制与输出主干上，用更少的通用 primitive 执行更多合法 authored 输入，逐步复现有证据约束的官方可观察行为。V0–V3 是对同一主干依次增加 material/shader、graph、ECMAScript VM 和 particle component 语义；V4 是贯穿其间的 typed-input 横切轨；V5 是接入同一 identity/frame/resource/Program/graph/compositor 的独立领域 epic。它们不是多套替代架构，也不允许按 sample/layer/path/hash 增长产品算法。
 
+路线执行采用 `prepare once, execute many` 的最短产品链。若正常帧仍在解析、建图、整图校验/哈希或构造诊断证据，或者首帧准备包含不可见/未使用依赖，这些是当前阶段必须优先消除的共享架构回归；修复它们不算跳入 V5。诊断、fallback 统计、matrix 和文档只服务可见结果、撤权或发行判断，不得成为普通启动、播放或快速编码循环的常驻成本。
+
 每个批次必须能够指出接入的共享 owner、消费的 authored schema、产出的共享运行对象、最小失败半径，以及旧产品 owner 的退出条件。回答不出这些问题时，不得新增 renderer、planner、完整 profile 或第二套资源、状态、graph、clock、history、compositor/output 链。
 
 ## 1. 成功定义
@@ -192,29 +194,17 @@ Scene 开发必须同时维护三个互不替代的轴：
 
 ## 6. 批次工作方式
 
-每批先填写一个最小纠偏卡：
+每批只保留能决定实现和验收的最小纠偏卡：
 
 ```yaml
 capability_id:
-capability_profile:
 target_contract:
-current_observation_and_evidence:
-deviation_class:
 first_breakpoint:
-correctness_atom:
 shared_backbone_owner:
-authored_input_schema:
-shared_runtime_output:
-product_output_owner_before:
-product_output_owner_after:
-route_state_before:
-route_state_after:
-fallback_reason_and_radius:
-old_owner_retirement_condition:
-unseen_composition_fixture:
-positive_negative_and_visible_gate:
-evidence_claim_limit:
-remaining_deviation_and_exit_condition:
+visible_result:
+failure_radius:
+smallest_executable_gate:
+old_owner_or_mechanism_to_delete:
 ```
 
 然后回答：
@@ -232,6 +222,8 @@ remaining_deviation_and_exit_condition:
 - 编码循环必须加入未见 corpus fixture；
 - 更新所有专项表或刷新全 corpus；
 - 运行 fixed/full、签名和公证。
+- 为诊断、fallback 或未来组合新增 runtime 抽象；
+- 在普通产品帧生成完整 observation、hash 或逐节点证据。
 
 迁移中的每个 owner family 只能处于以下显式路由之一：
 
