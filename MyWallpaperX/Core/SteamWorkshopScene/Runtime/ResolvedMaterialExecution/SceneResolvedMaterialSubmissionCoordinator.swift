@@ -92,7 +92,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
     let executor: SceneResolvedMaterialGraphExecutor?
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
-    let telemetry: SceneGraphExecutionTelemetry
+    let telemetry: SceneGraphExecutionTelemetry?
     let logSink: LogSink
     let capturesExecutionObservations: Bool
     let lock = NSLock()
@@ -137,8 +137,14 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         logSink: @escaping LogSink
     ) {
         self.capabilities = capabilities
-        executor = .init(device: device, capabilities: capabilities)
-        telemetry = .init(logSink: logSink)
+        executor = .init(
+            device: device,
+            capabilities: capabilities,
+            capturesExecutionDiagnostics: capturesExecutionObservations
+        )
+        telemetry = capturesExecutionObservations
+            ? .init(logSink: logSink)
+            : nil
         self.logSink = logSink
         self.capturesExecutionObservations = capturesExecutionObservations
     }
@@ -164,13 +170,15 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             return false
         }
         frameLocalFallbacks = fallbacks
-        let entries = fallbacks.keys.sorted().compactMap { layerID in
-            fallbacks[layerID].map { "\(layerID):\($0)" }
-        }.joined(separator: ",")
-        let signature = "count=\(fallbacks.count) entries=\(entries)"
-        if !fallbacks.isEmpty, signature != lastLocalFallbackSignature {
-            lastLocalFallbackSignature = signature
-            diagnostic = "layer-local-fallback \(signature)"
+        if capturesExecutionObservations {
+            let entries = fallbacks.keys.sorted().compactMap { layerID in
+                fallbacks[layerID].map { "\(layerID):\($0)" }
+            }.joined(separator: ",")
+            let signature = "count=\(fallbacks.count) entries=\(entries)"
+            if !fallbacks.isEmpty, signature != lastLocalFallbackSignature {
+                lastLocalFallbackSignature = signature
+                diagnostic = "layer-local-fallback \(signature)"
+            }
         }
         lock.unlock()
         if let diagnostic {
@@ -413,20 +421,22 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                         let fallbackReason =
                             "captured-main-color-contract-unproven"
                         frameLocalFallbacks[claim.layerID] = fallbackReason
-                        let entries = frameLocalFallbacks.keys.sorted()
-                            .compactMap { layerID in
-                                frameLocalFallbacks[layerID].map {
-                                    "\(layerID):\($0)"
-                                }
-                            }.joined(separator: ",")
-                        let signature = "count=\(frameLocalFallbacks.count)"
-                            + " entries=\(entries)"
-                        if signature != lastLocalFallbackSignature {
-                            lastLocalFallbackSignature = signature
-                            emission.diagnostics.append(
-                                "layer-local-fallback \(signature)"
-                                    + " preflight=\(failure.rawValue)"
-                            )
+                        if capturesExecutionObservations {
+                            let entries = frameLocalFallbacks.keys.sorted()
+                                .compactMap { layerID in
+                                    frameLocalFallbacks[layerID].map {
+                                        "\(layerID):\($0)"
+                                    }
+                                }.joined(separator: ",")
+                            let signature = "count=\(frameLocalFallbacks.count)"
+                                + " entries=\(entries)"
+                            if signature != lastLocalFallbackSignature {
+                                lastLocalFallbackSignature = signature
+                                emission.diagnostics.append(
+                                    "layer-local-fallback \(signature)"
+                                        + " preflight=\(failure.rawValue)"
+                                )
+                            }
                         }
                         continue
                     }

@@ -43,6 +43,40 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             2,
         )
 
+    def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
+        coordinator = (
+            SCENE
+            / "Runtime/ResolvedMaterialExecution/"
+            "SceneResolvedMaterialSubmissionCoordinator.swift"
+        ).read_text(encoding="utf-8")
+        lifecycle = (
+            SCENE
+            / "Runtime/ResolvedMaterialExecution/"
+            "SceneResolvedMaterialSubmissionCoordinator+Lifecycle.swift"
+        ).read_text(encoding="utf-8")
+        executor = (
+            SCENE
+            / "RenderGraph/EffectExecution/"
+            "SceneResolvedMaterialGraphExecutor.swift"
+        ).read_text(encoding="utf-8")
+        preparation = (
+            SCENE
+            / "RenderGraph/EffectExecution/"
+            "SceneResolvedMaterialGraphExecutor+Preparation.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "capturesExecutionDiagnostics: capturesExecutionObservations",
+            coordinator,
+        )
+        self.assertIn("guard capturesExecutionObservations else { return }", lifecycle)
+        self.assertIn("if capturesExecutionObservations {", lifecycle)
+        self.assertIn("if capturesExecutionDiagnostics {", executor)
+        self.assertIn("if capturesExecutionDiagnostics {", preparation)
+        self.assertGreaterEqual(
+            executor.count("guard capturesExecutionDiagnostics else { return }"),
+            2,
+        )
+
     def test_top_level_contract_forbids_diagnostic_hot_path_work(self) -> None:
         agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
         architecture = (

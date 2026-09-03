@@ -1089,8 +1089,13 @@ final class SceneResolvedMaterialGraphExecutor {
     static var encodeSucceeds = false
     init?(
         device: MTLDevice,
-        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
-    ) { _ = device; _ = capabilities }
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        capturesExecutionDiagnostics: Bool = true
+    ) {
+        _ = device
+        _ = capabilities
+        _ = capturesExecutionDiagnostics
+    }
     func prepare(
         token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
         leases: [SceneGraphRenderTargetLease],

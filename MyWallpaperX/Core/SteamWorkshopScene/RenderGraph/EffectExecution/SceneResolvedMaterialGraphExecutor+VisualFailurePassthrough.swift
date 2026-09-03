@@ -468,6 +468,7 @@ extension SceneResolvedMaterialGraphExecutor {
         effect: Graph.EffectKey,
         boundedDetail: String?
     ) {
+        guard capturesExecutionDiagnostics else { return }
         let identity = "\(effect.layerID):\(effect.effectIndex):"
             + "\(effect.descriptorID):\(reasonCode)"
         effectLocalFallbackLock.lock()

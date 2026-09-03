@@ -117,6 +117,7 @@ final class SceneResolvedMaterialGraphExecutor {
     let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     let materialEncoder: SceneResolvedMaterialPassEncoder
     let pipelineWarmupReport: SceneResolvedMaterialPassEncoder.WarmupReport
+    let capturesExecutionDiagnostics: Bool
     private let ownerToken = UUID()
     var resourceEncoder: SceneGraphResourcePassEncoder?
     private var queueIdentity: ObjectIdentifier?
@@ -129,7 +130,8 @@ final class SceneResolvedMaterialGraphExecutor {
 
     init?(
         device: MTLDevice,
-        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
+        capabilities: SceneResolvedMaterialExecutionCapabilityCatalog,
+        capturesExecutionDiagnostics: Bool = true
     ) {
         guard let materialEncoder = SceneResolvedMaterialPassEncoder(device: device) else {
             return nil
@@ -137,10 +139,13 @@ final class SceneResolvedMaterialGraphExecutor {
         self.device = device
         self.capabilities = capabilities
         self.materialEncoder = materialEncoder
+        self.capturesExecutionDiagnostics = capturesExecutionDiagnostics
         pipelineWarmupReport = materialEncoder.warmup(
             capabilities.launchPipelineWarmupPlans(device: device)
         )
-        pipelineWarmupReport.reportLines.forEach { NSLog("%@", $0) }
+        if capturesExecutionDiagnostics {
+            pipelineWarmupReport.reportLines.forEach { NSLog("%@", $0) }
+        }
     }
 
     func prepare(
@@ -536,5 +541,129 @@ final class SceneResolvedMaterialGraphExecutor {
         guard pairContentGeneration < UInt64.max else { return nil }
         pairContentGeneration += 1
         return pairContentGeneration
+    }
+
+    func recordTypedUserPropertyUniformPublications(
+        program: SceneResolvedMaterialProgram,
+        effect: Graph.EffectKey,
+        nodeIndex: Int,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) {
+        guard capturesExecutionDiagnostics else { return }
+        for uniform in program.resolvedUniforms {
+            guard uniform.field.arrayCount == nil,
+                  case let .dynamic(
+                      declared: .userProperty(propertyKey),
+                      target: target,
+                      resolvedSource: .userProperty,
+                      scriptAttachments: attachments
+                  ) = uniform.source,
+                  attachments.isEmpty,
+                  case let .effectConstant(
+                      layerID, effectIndex, passIndex, constant
+                  ) = target,
+                  layerID == effect.layerID,
+                  effectIndex == effect.effectIndex else { continue }
+            let values: [Float]
+            let type: String
+            switch uniform.field.type {
+            case .float where uniform.encodedValue.count == MemoryLayout<Float>.size:
+                values = [uniform.encodedValue.withUnsafeBytes {
+                    $0.loadUnaligned(as: Float.self)
+                }]
+                type = "float"
+            case .float2 where uniform.encodedValue.count == 2 * MemoryLayout<Float>.size:
+                guard let resolved = frameInputs.dynamicValues[target],
+                      resolved.source == .userProperty,
+                      case let .scalar(sourceValue) = resolved.value else { continue }
+                values = uniform.encodedValue.withUnsafeBytes { bytes in
+                    [
+                        bytes.loadUnaligned(fromByteOffset: 0, as: Float.self),
+                        bytes.loadUnaligned(
+                            fromByteOffset: MemoryLayout<Float>.size,
+                            as: Float.self
+                        ),
+                    ]
+                }
+                guard values[0].bitPattern == values[1].bitPattern,
+                      values[0].bitPattern == Float(sourceValue).bitPattern else { continue }
+                type = "float2-scalar-splat"
+            default:
+                continue
+            }
+            guard values.allSatisfy(\.isFinite) else { continue }
+            let stage = uniform.field.stage?.rawValue ?? "shared"
+            let identity = [
+                String(layerID), String(effectIndex), String(passIndex),
+                constant, propertyKey, uniform.field.name, stage,
+                type,
+                values.map { String($0.bitPattern) }.joined(separator: ","),
+            ].joined(separator: "\u{1f}")
+            typedUniformPublicationLock.lock()
+            let inserted = typedUniformPublicationIdentities.insert(identity).inserted
+            typedUniformPublicationLock.unlock()
+            guard inserted else { continue }
+            let valueToken = values.map { String(format: "%.9g", $0) }
+                .joined(separator: ",")
+            NSLog(
+                "MWX typed input publication: channel=user-property consumer=material-uniform layer=%d effect=%d descriptor=%@ node=%d property=%@ pass=%d constant=%@ uniform=%@ stage=%@ type=%@ frame=%llu generation=%llu value=%@",
+                layerID,
+                effectIndex,
+                effect.descriptorID,
+                nodeIndex,
+                propertyKey,
+                passIndex,
+                constant,
+                uniform.field.name,
+                stage,
+                type,
+                frameInputs.dynamicValues.frameIndex,
+                frameInputs.dynamicValues.generation,
+                valueToken
+            )
+        }
+    }
+
+    func recordTypedUserPropertyBoolActivationPublication(
+        activation: SceneResolvedMaterialStageActivationPolicy,
+        decision: SceneResolvedMaterialStageActivationPolicy.Decision,
+        graph: Graph,
+        frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs
+    ) {
+        guard capturesExecutionDiagnostics else { return }
+        guard let target = activation.effectVisibilityTarget,
+              let propertyKey = activation.effectVisibilityPropertyKey,
+              case let .effectVisibility(layerID, effectIndex) = target,
+              let effect = graph.effects.first?.key,
+              effect.layerID == layerID,
+              effect.effectIndex == effectIndex,
+              let resolved = frameInputs.dynamicValues[target],
+              resolved.source == .userProperty,
+              case let .bool(value) = resolved.value else { return }
+        let decisionName: String
+        switch decision {
+        case .active: decisionName = "active"
+        case .inactive: decisionName = "inactive"
+        case .rejected: return
+        }
+        let identity = [
+            String(layerID), String(effectIndex), propertyKey,
+            String(value), decisionName,
+        ].joined(separator: "\u{1f}")
+        typedUniformPublicationLock.lock()
+        let inserted = typedUniformPublicationIdentities.insert(identity).inserted
+        typedUniformPublicationLock.unlock()
+        guard inserted else { return }
+        NSLog(
+            "MWX typed input publication: channel=user-property consumer=effect-activation layer=%d effect=%d descriptor=%@ property=%@ type=bool frame=%llu generation=%llu value=%@ decision=%@",
+            layerID,
+            effectIndex,
+            effect.descriptorID,
+            propertyKey,
+            frameInputs.dynamicValues.frameIndex,
+            frameInputs.dynamicValues.generation,
+            value ? "true" : "false",
+            decisionName
+        )
     }
 }

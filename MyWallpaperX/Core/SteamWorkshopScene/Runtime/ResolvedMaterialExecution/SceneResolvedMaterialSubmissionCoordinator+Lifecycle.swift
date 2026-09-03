@@ -153,16 +153,25 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             frameFailures += 1
             emission = failActiveFrameLocked(reason: "frame-ended-before-seal")
         }
-        let pendingCount = pendingSubmissions.reduce(0) {
-            $0 + $1.ledgerIDs.count
+        let reportLine: String?
+        if capturesExecutionObservations {
+            let pendingCount = pendingSubmissions.reduce(0) {
+                $0 + $1.ledgerIDs.count
+            }
+            let line = "resolved material runtime audit: schema=scene-graph-executor-v1"
+                + " claimed=\(frameClaimed) encoded=\(frameEncoded)"
+                + " failures=\(frameFailures) deferred=\(frameDeferred)"
+                + " pending=\(pendingCount) gpuEncoded=\(frameEncoded)"
+                + " localFallbacks=\(frameLocalFallbacks.count)"
+            if line != lastReportSignature {
+                lastReportSignature = line
+                reportLine = line
+            } else {
+                reportLine = nil
+            }
+        } else {
+            reportLine = nil
         }
-        let line = "resolved material runtime audit: schema=scene-graph-executor-v1"
-            + " claimed=\(frameClaimed) encoded=\(frameEncoded)"
-            + " failures=\(frameFailures) deferred=\(frameDeferred)"
-            + " pending=\(pendingCount) gpuEncoded=\(frameEncoded)"
-            + " localFallbacks=\(frameLocalFallbacks.count)"
-        let shouldLog = line != lastReportSignature
-        if shouldLog { lastReportSignature = line }
         frame = nil
         frameFailure = nil
         frameIsActive = false
@@ -174,8 +183,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         frameLocalFallbacks.removeAll(keepingCapacity: true)
         lock.unlock()
         emit(emission)
-        if shouldLog { logSink(line) }
-        return [line]
+        if let reportLine { logSink(reportLine) }
+        return reportLine.map { [$0] } ?? []
     }
 
     func commitIsValid(
@@ -417,7 +426,8 @@ extension SceneResolvedMaterialSubmissionCoordinator {
     }
 
     func emit(_ emission: Emission) {
-        emission.observations.forEach { _ = telemetry.record($0) }
+        guard capturesExecutionObservations else { return }
+        emission.observations.forEach { _ = telemetry?.record($0) }
         emission.diagnostics.forEach {
             logSink("MWX DEBUG SCENE: schema=1 axis=graph-execution diagnostic=\($0)")
         }
