@@ -27,6 +27,10 @@ extension SceneMetalRenderer {
             imageTextures, userPropertyTextures, userPropertyStates,
             mediaThumbnail, frameContext
         )
+        // Source selection is frame-scoped: provider readiness and authored
+        // fallback state are refreshed above, then shared by target sizing and
+        // preparation request construction below.
+        var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             offscreenTexturePool: offscreenTexturePool,
@@ -34,7 +38,8 @@ extension SceneMetalRenderer {
             worldFramesByLayerID: worldFramesByLayerID,
             cameraFrame: cameraFrame,
             parallaxConfiguration: parallaxConfiguration,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            baseMaterialSelections: &baseMaterialSelections
         ) {
         case let .ready(plans, localFallbacks):
             guard imageCompositor.installResolvedMaterialFrameLocalFallbacks(
@@ -58,7 +63,8 @@ extension SceneMetalRenderer {
                 cameraFrame: cameraFrame,
                 parallaxConfiguration: parallaxConfiguration,
                 mainTarget: mainTarget,
-                failureReason: &requestFailureReason
+                failureReason: &requestFailureReason,
+                baseMaterialSelections: &baseMaterialSelections
             ) else {
                 imageCompositor.recordResolvedMaterialFramePreflightFailure(
                     requestFailureReason ?? "frame-preparation-request-invalid"
@@ -107,13 +113,11 @@ extension SceneMetalRenderer {
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         let viewportSize = frameContext.screenSize
-        guard let preparationLayerIDs = dependencyRuntime
-                .resolvedMaterialPreparationOrder(
-                    authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
-                ) else {
+        guard let preparationLayerIDs = resolvedMaterialPreparationLayerIDs else {
             return .rejected(
                 reasonCode: "resolved-material-preparation-order-invalid"
             )
@@ -136,11 +140,14 @@ extension SceneMetalRenderer {
             SceneResolvedMaterialGraphComposition.FrameTargetRequest
         ] = []
         var sourceCoverageFallbacks: [Int: String] = [:]
+        let materialFunctionMutationsByLayerID = Dictionary(
+            grouping: frameContext.materialFunctionMutations,
+            by: \.layerID
+        )
         func materialFunctionInvocations(
             for layer: SceneRenderDescriptor.Layer
         ) -> [SceneGraphMaterialFunctionInvocationRequest] {
-            frameContext.materialFunctionMutations
-                .filter { $0.layerID == layer.id }
+            (materialFunctionMutationsByLayerID[layer.id] ?? [])
                 .map { mutation in
                     let descriptorID: String
                     if layer.effects.indices.contains(mutation.effectIndex) {
@@ -191,14 +198,15 @@ extension SceneMetalRenderer {
             let desiredSize: CGSize
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                let selection = baseMaterialTextureSelection(
+                let selection = cachedBaseMaterialTextureSelection(
                     for: layer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
                         baseMaterialReadyProviderUsesAuthoredLayerColor(
                             for: layer,
                             dynamicValues: frameContext.dynamicValues
-                        )
+                        ),
+                    cache: &baseMaterialSelections
                 )
                 let selectedSource: SceneBaseMaterialTextureSource
                 switch selection {
@@ -352,7 +360,8 @@ extension SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         parallaxConfiguration: SceneLayerParallax.Configuration,
         mainTarget: MTLTexture,
-        failureReason: inout String?
+        failureReason: inout String?,
+        baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
         func invalid(_ reasonCode: String) -> [
             SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
@@ -380,12 +389,13 @@ extension SceneMetalRenderer {
             )
         }
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
-        guard let preparationLayerIDs = dependencyRuntime
-                .resolvedMaterialPreparationOrder(
-                    authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
-                ) else {
+        guard let preparationLayerIDs = resolvedMaterialPreparationLayerIDs else {
             return invalid("resolved-material-preparation-order-invalid")
         }
+        let materialFunctionMutationsByLayerID = Dictionary(
+            grouping: frameContext.materialFunctionMutations,
+            by: \.layerID
+        )
         for layerID in preparationLayerIDs {
             guard let plan = plans[layerID] else { continue }
             guard let layer = layersByID[layerID],
@@ -446,14 +456,15 @@ extension SceneMetalRenderer {
                     dependencyUnavailability = nil
                     break
                 }
-                let providerSelection = baseMaterialTextureSelection(
+                let providerSelection = cachedBaseMaterialTextureSelection(
                     for: providerLayer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
                         baseMaterialReadyProviderUsesAuthoredLayerColor(
                             for: providerLayer,
                             dynamicValues: frameContext.dynamicValues
-                        )
+                        ),
+                    cache: &baseMaterialSelections
                 )
                 guard let providerSource = providerSelection.source else {
                     switch providerSelection {
@@ -494,14 +505,15 @@ extension SceneMetalRenderer {
             var sourceUniforms: SceneLayerFragmentUniforms? = nil
             switch claim.sourceRoute {
             case .capturedLayerTexture:
-                let sourceSelection = baseMaterialTextureSelection(
+                let sourceSelection = cachedBaseMaterialTextureSelection(
                     for: layer,
                     imageTextures: imageTextures,
                     readyProviderUsesAuthoredLayerColor:
                         baseMaterialReadyProviderUsesAuthoredLayerColor(
                             for: layer,
                             dynamicValues: frameContext.dynamicValues
-                        )
+                        ),
+                    cache: &baseMaterialSelections
                 )
                 guard let source = sourceSelection.source else {
                     return invalid(
@@ -673,8 +685,8 @@ extension SceneMetalRenderer {
                 dependencyEffect: dependencyEffect,
                 dependencyUnavailability: dependencyUnavailability
             )
-            let materialFunctionInvocations = frameContext.materialFunctionMutations
-                .filter { $0.layerID == layerID }
+            let materialFunctionInvocations =
+                (materialFunctionMutationsByLayerID[layerID] ?? [])
                 .map { mutation in
                     let descriptorID: String
                     if layer.effects.indices.contains(mutation.effectIndex) {
@@ -708,5 +720,24 @@ extension SceneMetalRenderer {
             return invalid("plan-count-mismatch")
         }
         return result
+    }
+
+    private func cachedBaseMaterialTextureSelection(
+        for layer: SceneRenderDescriptor.Layer,
+        imageTextures: SceneBaseImageTextureSnapshot,
+        readyProviderUsesAuthoredLayerColor: Bool,
+        cache: inout [Int: SceneBaseMaterialTextureSelection]
+    ) -> SceneBaseMaterialTextureSelection {
+        if let cached = cache[layer.id] {
+            return cached
+        }
+        let selection = baseMaterialTextureSelection(
+            for: layer,
+            imageTextures: imageTextures,
+            readyProviderUsesAuthoredLayerColor:
+                readyProviderUsesAuthoredLayerColor
+        )
+        cache[layer.id] = selection
+        return selection
     }
 }

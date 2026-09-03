@@ -488,7 +488,11 @@ class SceneFrameContextTests(unittest.TestCase):
             view_frame_context,
         )
         self.assertIn(
-            "let materialFunctionInvocations = frameContext.materialFunctionMutations",
+            "let materialFunctionMutationsByLayerID = Dictionary(\n            grouping: frameContext.materialFunctionMutations",
+            preflight,
+        )
+        self.assertIn(
+            "(materialFunctionMutationsByLayerID[layerID] ?? [])",
             preflight,
         )
         self.assertIn("frameEpoch: textureRegistry.frameEpoch", preflight)

@@ -22,6 +22,49 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("operations = cachedOperations", state)
         self.assertIn("historyClosure = previous.historyClosureIdentities", state)
 
+    def test_resolved_material_preflight_reuses_launch_topology(self) -> None:
+        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        preflight = (
+            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
+        self.assertIn(
+            "resolvedMaterialPreparationOrder(\n                authoredLayerIDs:",
+            renderer,
+        )
+        self.assertIn(
+            "if let layerTopology,\n           !layerTopology.dynamicLayers.isEmpty",
+            renderer,
+        )
+        self.assertIn(
+            "layerTopology.renderOrderLayerIDs\n                    != renderDescriptor.renderOrderLayerIDs",
+            renderer,
+        )
+        self.assertIn(
+            "var baseMaterialSelections: [Int: SceneBaseMaterialTextureSelection] = [:]",
+            preflight,
+        )
+        self.assertGreaterEqual(
+            preflight.count("cachedBaseMaterialTextureSelection("), 3
+        )
+        self.assertIn(
+            "cache: &baseMaterialSelections",
+            preflight,
+        )
+        self.assertGreaterEqual(
+            preflight.count("resolvedMaterialPreparationLayerIDs else"), 2
+        )
+        self.assertGreaterEqual(
+            preflight.count("materialFunctionMutationsByLayerID"), 2
+        )
+        # The cache is intentionally topology-only. Per-frame visibility,
+        # provider/source readiness, and logical extent remain in preflight.
+        self.assertIn("frameVisibleRootLayerIDs", preflight)
+        self.assertIn("baseMaterialTextureSelection(", preflight)
+        self.assertIn("SceneLayerEffectSourceExtent.resolve(", preflight)
+
     def test_full_graph_observations_are_explicitly_opt_in(self) -> None:
         completion = (
             SCENE

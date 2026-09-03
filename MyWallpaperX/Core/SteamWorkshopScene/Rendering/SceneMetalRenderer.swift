@@ -19,6 +19,10 @@ struct SceneMetalRenderer {
     let staticModelResources: ScenePreparedStaticModelResources
     let spotLightRuntime: SceneSpotLightRuntime
     let dependencyRuntime: SceneDependencyFrameRuntime
+    /// The dependency graph and authored order are launch-scoped facts. Keep
+    /// the validated topological order with the renderer so normal frames do
+    /// not rebuild the same order for admission and request preparation.
+    let resolvedMaterialPreparationLayerIDs: [Int]?
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
@@ -57,7 +61,7 @@ struct SceneMetalRenderer {
                 in: renderDescriptor,
                 resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
             )
-        self.dependencyRuntime = SceneDependencyFrameRuntime(
+        let dependencyRuntime = SceneDependencyFrameRuntime(
             descriptor: renderDescriptor,
             visibleLayerIDs:
                 visibleLayerIDs.union(resolvedMaterialVisibleRootLayerIDs),
@@ -67,6 +71,11 @@ struct SceneMetalRenderer {
                 .admittedResolvedMaterialReferences ?? [],
             device: device
         )
+        self.dependencyRuntime = dependencyRuntime
+        self.resolvedMaterialPreparationLayerIDs = dependencyRuntime
+            .resolvedMaterialPreparationOrder(
+                authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
+            )
         let byID = Dictionary(uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) })
         self.layersByID = byID
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
@@ -137,13 +146,31 @@ struct SceneMetalRenderer {
             frameIndex: frameContext.frameIndex
         )
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
-        let frameDescriptor = layerTopology.map(renderDescriptor.applying) ?? renderDescriptor
-        let frameLayersByID = Dictionary(
-            uniqueKeysWithValues: frameDescriptor.layers.map { ($0.id, $0) }
-        )
-        let frameStaticWorldFrames = SceneLayerWorldFrameResolver.compute(
-            descriptor: frameDescriptor, byID: frameLayersByID
-        )
+        // A normal frame has no topology mutation. Reuse the launch-scoped
+        // descriptor indexes and static world frames; dynamic values are
+        // still resolved below without rebuilding authored topology.
+        let frameDescriptor: SceneRenderDescriptor
+        let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
+        let frameStaticWorldFrames: [Int: simd_float4x4]
+        let authoredLayerIDs: [Int]
+        if let layerTopology,
+           !layerTopology.dynamicLayers.isEmpty
+                || layerTopology.renderOrderLayerIDs
+                    != renderDescriptor.renderOrderLayerIDs {
+            frameDescriptor = renderDescriptor.applying(layerTopology)
+            frameLayersByID = Dictionary(
+                uniqueKeysWithValues: frameDescriptor.layers.map { ($0.id, $0) }
+            )
+            frameStaticWorldFrames = SceneLayerWorldFrameResolver.compute(
+                descriptor: frameDescriptor, byID: frameLayersByID
+            )
+            authoredLayerIDs = frameDescriptor.renderOrderLayerIDs
+        } else {
+            frameDescriptor = renderDescriptor
+            frameLayersByID = layersByID
+            frameStaticWorldFrames = worldFramesByLayerID
+            authoredLayerIDs = renderDescriptor.renderOrderLayerIDs
+        }
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: frameDescriptor, byID: frameLayersByID,
             snapshot: frameContext.dynamicValues,
@@ -156,7 +183,7 @@ struct SceneMetalRenderer {
             cameraFrame: cameraFrame,
             viewportSize: viewportSize
         )
-        let orderedLayers = frameDescriptor.renderOrderLayerIDs.compactMap {
+        let orderedLayers = authoredLayerIDs.compactMap {
             frameLayersByID[$0]
         }
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
