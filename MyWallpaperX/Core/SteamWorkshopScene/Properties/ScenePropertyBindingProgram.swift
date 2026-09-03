@@ -73,7 +73,11 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
                     conversion = .failure(.typeMismatch)
                 }
             } else {
-                conversion = Self.convert(value, as: instruction.valueType)
+                conversion = Self.convert(
+                    value,
+                    for: instruction.target,
+                    as: instruction.valueType
+                )
             }
             switch conversion {
             case let .success(dynamicValue):
@@ -299,6 +303,20 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         }
     }
 
+    fileprivate nonisolated static func convert(
+        _ value: SceneUserPropertyValue,
+        for target: SceneDynamicTarget,
+        as type: SceneDynamicValueType
+    ) -> Result<SceneDynamicValue, ValueError> {
+        if case .layer(_, .scale) = target,
+           type == .vector3,
+           case let .number(component) = value {
+            guard component.isFinite else { return .failure(.nonFinite) }
+            return .success(.vector3(component, component, component))
+        }
+        return convert(value, as: type)
+    }
+
     private nonisolated static func parseColor(
         _ value: String
     ) -> Result<SceneDynamicValue, ValueError> {
@@ -462,6 +480,7 @@ nonisolated struct ScenePropertyBindingCompiler {
                         )
                         : ScenePropertyBindingProgram.convert(
                             defaultValue,
+                            for: mapped.target,
                             as: mapped.valueType
                         ).map { _ in () }
                     if case let .failure(error) = defaultValidation {
@@ -569,7 +588,8 @@ nonisolated struct ScenePropertyBindingCompiler {
         propertyKind: SceneUserPropertyKind,
         valueType: SceneDynamicValueType
     ) -> ClosedRange<Double>? {
-        guard propertyKind == .slider, valueType == .scalar,
+        guard propertyKind == .slider,
+              valueType == .scalar || valueType == .vector3,
               let minimum = property?.minimumValue,
               let maximum = property?.maximumValue,
               minimum.isFinite, maximum.isFinite,
@@ -592,7 +612,28 @@ nonisolated struct ScenePropertyBindingCompiler {
            let value = scalarShaderFallback(rawValue) {
             return .success(.scalar(value))
         }
+        if case .layerScale = target, valueType == .vector3 {
+            guard case let .string(rawValue) = fallback,
+                  let scale = uniformVector3(rawValue) else {
+                return .failure(.invalidFormat)
+            }
+            return .success(.vector3(scale, scale, scale))
+        }
         return ScenePropertyBindingProgram.convert(fallback, as: valueType)
+    }
+
+    private nonisolated static func uniformVector3(
+        _ rawValue: String
+    ) -> Double? {
+        let components = rawValue.split(whereSeparator: \Character.isWhitespace)
+        guard components.count == 3,
+              let first = Double(components[0]),
+              let second = Double(components[1]),
+              let third = Double(components[2]),
+              first.isFinite, second.isFinite, third.isFinite,
+              first.bitPattern == second.bitPattern,
+              first.bitPattern == third.bitPattern else { return nil }
+        return first
     }
 
     private nonisolated static func validateConditionalValue(

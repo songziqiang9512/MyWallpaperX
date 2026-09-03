@@ -14,6 +14,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+RUNTIME_MODEL_SOURCE = SCENE / "Runtime/SceneRuntimeModel.swift"
+REMOVED_SUPPRESSION_SOURCE = (
+    SCENE / "Properties/SceneScriptedLayerTransformProjection.swift"
+)
 SOURCES = [
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE
@@ -494,6 +498,12 @@ class SceneScriptLayerTransformProjectionTests(unittest.TestCase):
 
     def test_effectful_text_color_uses_the_dynamic_text_consumer(self) -> None:
         self.assertTrue(self.result["effectfulTextColorDefinition"])
+
+    def test_unadmitted_scale_script_keeps_the_resolved_layer_current(self) -> None:
+        runtime_model = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
+        self.assertFalse(REMOVED_SUPPRESSION_SOURCE.exists())
+        self.assertNotIn("SceneScriptedLayerTransformProjection.apply", runtime_model)
+        self.assertIn("let runtimeDescriptor = particleProjectedDescriptor", runtime_model)
 
 
 if __name__ == "__main__":

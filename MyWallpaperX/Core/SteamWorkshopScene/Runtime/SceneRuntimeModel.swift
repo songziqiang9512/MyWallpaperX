@@ -152,11 +152,10 @@ struct SceneRuntimeModelBuilder {
             admittedRateLayerIDs: admittedParticleRateLayerIDs,
             to: scalarProjectedDescriptor
         )
-        let runtimeDescriptor = SceneScriptedLayerTransformProjection.apply(
-            admittedSceneScriptScaleLayerIDs:
-                structuralPropertyVectorProjection.admittedScaleLayerIDs,
-            to: particleProjectedDescriptor
-        )
+        // A failed optional scale producer keeps the resolved authored current.
+        // Hiding the whole layer turns a local script/property failure into a
+        // composition regression and violates the shared fail-soft boundary.
+        let runtimeDescriptor = particleProjectedDescriptor
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: runtimeDescriptor
         )

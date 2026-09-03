@@ -137,6 +137,36 @@ enum Harness {
                     "effectPath": effectPath.map { $0 as Any } ?? NSNull(),
                 ]
             }
+        let nestedProvider = SceneScriptUserPropertyInputContract.dynamicInput(
+            .object([
+                "user": .string("sizex"),
+                "value": .object([
+                    "user": .string("x"),
+                    "value": .object([
+                        "user": .string("sizex"),
+                        "value": .number(0.6),
+                    ]),
+                ]),
+            ])
+        )
+        var overBudgetProvider = SceneJSONValue.number(0.6)
+        for index in 0 ... 16 {
+            overBudgetProvider = .object([
+                "user": .string("nested\(index)"),
+                "value": overBudgetProvider,
+            ])
+        }
+        let scaleTargetClassified = SceneUserPropertyBindingParser().parse(
+            root: [
+                "objects": [[
+                    "id": 11,
+                    "scale": ["user": "size", "value": "1 1 1"],
+                ]],
+            ]
+        ).bindings.contains { binding in
+            if case .layerScale(layerID: 11) = binding.target { return true }
+            return false
+        }
         return [
             "definitionCount": catalog.definitions.count,
             "definitionKinds": kinds,
@@ -175,6 +205,13 @@ enum Harness {
                 wrapperValue($0, key: "visible")
             },
             "effectVisibilityOwners": effectVisibilityOwners,
+            "nestedProviderKey": nestedProvider?.userPropertyKey ?? "",
+            "nestedProviderFallback": nestedProvider?.fallback.numberValue ?? -1,
+            "overBudgetProviderRejected":
+                SceneScriptUserPropertyInputContract.dynamicInput(
+                    overBudgetProvider
+                ) == nil,
+            "scaleTargetClassified": scaleTargetClassified,
             "shaderStrength": wrapperValue(shaderValues, key: "strength"),
             "layerAlpha": wrapperValue(object, key: "alpha"),
             "particleCount": wrapperValue(particleOverride, key: "count"),
@@ -259,6 +296,7 @@ enum Harness {
         case .layerVisibility: "layerVisibility"
         case .puppetAnimationVisibility: "puppetAnimationVisibility"
         case .layerAlpha: "layerAlpha"
+        case .layerScale: "layerScale"
         case .layerColor: "layerColor"
         case .effectVisibility: "effectVisibility"
         case .camera: "camera"
@@ -419,6 +457,10 @@ class SceneUserPropertyTests(unittest.TestCase):
         self.assertEqual(result["layerAlpha"], 42)
         self.assertEqual(result["particleCount"], 2.5)
         self.assertEqual(result["particleColor"], "0.3 0.5 0.7")
+        self.assertEqual(result["nestedProviderKey"], "sizex")
+        self.assertEqual(result["nestedProviderFallback"], 0.6)
+        self.assertTrue(result["overBudgetProviderRejected"])
+        self.assertTrue(result["scaleTargetClassified"])
         self.assertEqual(result["unsupportedNestedDirect"], "Hello")
         self.assertEqual(result["missingFallback"], 0.25)
         self.assertEqual(result["unsupportedConditionalFallback"], 0.2)

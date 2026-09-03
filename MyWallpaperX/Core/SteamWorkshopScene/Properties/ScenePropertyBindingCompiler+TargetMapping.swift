@@ -82,6 +82,8 @@ extension ScenePropertyBindingCompiler {
         switch target {
         case let .layerAlpha(layerID):
             (.layer(layerID: layerID, field: .alpha), .scalar, .slider)
+        case let .layerScale(layerID):
+            (.layer(layerID: layerID, field: .scale), .vector3, .slider)
         case let .puppetAnimationVisibility(layerID, animationLayerID):
             (
                 ScenePuppetAnimationPropertyTarget.visibility(

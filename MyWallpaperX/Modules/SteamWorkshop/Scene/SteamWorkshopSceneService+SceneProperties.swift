@@ -226,6 +226,8 @@ extension SteamWorkshopService {
         switch target {
         case .layerVisibility, .layerAlpha, .text, .soundVolume:
             return true
+        case let .layerScale(layerID):
+            return renderDescriptor.layers.contains { $0.id == layerID }
         case let .puppetAnimationVisibility(layerID, animationLayerID):
             return renderDescriptor.layers.contains { layer in
                 layer.id == layerID && layer.puppetAnimationLayers.contains {

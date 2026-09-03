@@ -727,7 +727,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | `relative` 合成 | `L3 bounded` | 9 处 layer transform 均编译为 typed additive binding；5 条 ordinary `origin`/`angles`/`scale` 走共享 hierarchy-aware world-frame，4 条 `lspot` angles 保持 strict spotlight consumer。camera origin 另按相同 additive 合同进入 bounded Combined camera target；非 layer-transform relative 继续 fail closed。公开官方页未定义私有 wire/合成公式，当前“作者基值 + 动画偏移”合同仍是 clean-room 校准，无 Windows golden |
 | Combined Animations | `L3 bounded` | 双向 key 引用已保真；唯一真实 `default` 2D camera `origin` owner + `zoom` child 组共用 owner clock、同帧求值并原子提交。坏引用、多 path、未知 camera/queue、非 reciprocal 组及普通 Combined 整组 fail closed；不代表 generic Combined |
 | Animation Events | `L0` | frame crossing、loop、同 layer script dispatch |
-| Property binding IR | `L1` | 文档级保存 inline source、scene/object/effect/pass owner、完整 target path、properties、authored fallback 与 JSON value type；已证五类 target 有 13-shape 自建门；nested/未知 owner 不提升，`script + user` 冲突 fail-closed |
+| Property binding IR | `L1 general / L3 bounded live targets` | inline source、scene/object/effect/pass owner、完整target path、properties、authored fallback与JSON value type均保真；direct uniform layer scale现映射到共享Vec3 snapshot/world-frame，nested exact `{user,value}`只保留最外层live owner与terminal primitive fallback。畸形/超深provider、nonuniform direct scale及未知owner局部拒绝并保留作者current；其他target仍按各consumer门决定是否live |
 | Fixed native text profile | `L0 product owner / historical` | 七个exact source/property profile已于B18删除；旧报告不代表现役执行，只有语法落入bounded AST的源码才可能建立typed text target |
 | Bounded text `update(value)` subset | `L3 bounded` | 唯一 exported update 的无循环 AST 直接求值 primitive properties、`new Date()` getter、条件与字符串装配；三层预算，未知语法/值失败关闭 |
 | Bounded Blend time-of-day producer | `L3 bounded / exact consumers S4 executable safety` | strict `multiply` / `{script,user:null,value}` / scalar grammar 从 descriptor 直接编译；全 descriptor 与 source work 有界，预算超限只停用该 producer，实际 MaterialProgram consumer 形成后才校验 ownership。当前只证明 `2134765860` 四个 exact target 的 Program/GPU/layer-compositor/next-frame 与 rollback/recovery，不证明通用 `engine`/`WEMath`、完整 Blend、独立 ROI 或 parity |
@@ -743,13 +743,13 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 ### 6.2 User Properties
 
-完整控件和target计数见[运行输入与属性覆盖表](runtime-input-property-coverage.md)。2026-07-22的21样本census为424 definitions、952 bindings、195条conditional bindings；其layer color 73条全部指向solid，其中25条属于纯color key可live，`3122339805:basecolor`的48条因同键还含未支持目标继续重建。fresh只读104 Scene根另观察到33条direct color→ordinary image authored occurrence / 3 samples，其中仅2条位于effectless image；两个快照分母不同，不能相加或冒充当前支持率。layer alpha 73条已编译并由当前image/solid/text consumer live执行；layer color现在还只让当前有效可见、`effects.isEmpty`的ordinary image进入同一snapshot/compositor bounded live cohort，effectful、hidden/no-consumer、dependency/provider或mixed unsupported sibling继续整key重建。exact Local Contrast strength 1条现由共享MaterialProgram live消费，`2902406982`的stock Opacity direct binding继续由其现役bounded consumer执行。SceneScript Opacity candidates继续计入unsupported/fail-closed，不冒充direct binding。
+完整控件和target计数见[运行输入与属性覆盖表](runtime-input-property-coverage.md)。2026-07-22的21样本census为424 definitions、952 bindings、195条conditional bindings；其layer color 73条全部指向solid，其中25条属于纯color key可live，`3122339805:basecolor`的48条因同键还含未支持目标继续重建。fresh只读104 Scene根另观察到33条direct color→ordinary image authored occurrence / 3 samples，其中仅2条位于effectless image；两个快照分母不同，不能相加或冒充当前支持率。fresh 149根另观察13条direct layer-scale user wrapper / 5样本，现役只接纳uniform三分量fallback与slider number，经共享Vec3 snapshot/world-frame live消费。layer alpha 73条已编译并由当前image/solid/text consumer live执行；layer color现在还只让当前有效可见、`effects.isEmpty`的ordinary image进入同一snapshot/compositor bounded live cohort，effectful、hidden/no-consumer、dependency/provider或mixed unsupported sibling继续整key重建。exact Local Contrast strength 1条现由共享MaterialProgram live消费，`2902406982`的stock Opacity direct binding继续由其现役bounded consumer执行。SceneScript Opacity candidates继续计入unsupported/fail-closed，不冒充direct binding。
 
 | 类型/行为 | 当前级别 | 当前边界或升级门 |
 |---|---|---|
 | Catalog/bindings | `L3` | 2026-07-22 的 21 样本专项 census、format 22 binding program 与受控 fallback；direct text content/point-size/color、Local Contrast/Opacity live，mixed/hidden/no-consumer/SceneScript fail closed |
 | `color` | `L3 bounded` | UI/持久化、solid与当前有效可见的effectless ordinary-image live consumer；effectful、hidden/no-consumer、dependency/provider与mixed unsupported sibling继续整key重建；补颜色空间、premultiply golden与其余target |
-| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
+| `slider` | `L3` | min/max/default/step/fraction/precision UI；layer alpha、uniform layer scale、exact Local Contrast strength 与 exact stock Opacity alpha 已 live，其他 target 依 consumer 决定重建 |
 | `bool` | `L3` | 条件/部分 target；不得按名称自动启用 effect |
 | `combo` | `L3` | option value/条件；补全部 authored target |
 | `textinput` | `L3` | 可编辑/持久化；有效可见 direct text consumer 可无重建更新，其他 target 仍重建 |

@@ -214,6 +214,22 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             model,
         )
 
+    def test_uniform_layer_scale_is_live_for_the_shared_world_frame(self) -> None:
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        self.assertIn("case let .layerScale(layerID):", support)
+        self.assertIn(
+            "renderDescriptor.layers.contains { $0.id == layerID }",
+            support,
+        )
+        consumers = method_body(
+            self.live_consumers, "static func activeLiveConsumerTargets("
+        )
+        self.assertIn(
+            "targets.insert(.layer(layerID: layer.id, field: .scale))",
+            consumers,
+        )
+        self.assertNotIn("SceneScriptedLayerTransformProjection.apply", self.runtime_model)
+
     def test_particle_properties_are_actionable_only_for_particle_layers(self) -> None:
         support = method_body(self.service, "private func supportsScenePropertyTarget(")
         self.assertIn("case let .particle(layerID, _):", support)

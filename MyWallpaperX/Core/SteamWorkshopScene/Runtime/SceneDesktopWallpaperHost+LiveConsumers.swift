@@ -188,6 +188,7 @@ extension SceneDesktopWallpaperHost {
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)
                 .union(sceneScriptStringProgram.livePropertyInputTargets)
         ) { targets, layer in
+            targets.insert(.layer(layerID: layer.id, field: .scale))
             switch layer.contentKind {
             case "image":
                 targets.insert(.layer(layerID: layer.id, field: .alpha))

@@ -797,6 +797,57 @@ enum Harness {
             definitions: puppetVisibility.program.definitions,
             userValues: puppetVisibilityEvaluation.userValues
         ).snapshot
+        let layerScaleTarget = SceneDynamicTarget.layer(
+            layerID: 22,
+            field: .scale
+        )
+        let layerScale = compiler.compile(
+            report: .init(bindings: [binding(
+                "layerScale",
+                .string("0.5 0.5 0.5"),
+                22,
+                .layerScale(layerID: 22)
+            )], diagnostics: []),
+            catalog: .init(definitions: [property(
+                "layerScale",
+                .slider,
+                .number(0.5),
+                minimumValue: 0.1,
+                maximumValue: 2
+            )])
+        )
+        let layerScaleAuthored = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 13,
+            generation: 13,
+            definitions: layerScale.program.definitions
+        ).snapshot
+        let layerScaleEvaluation = layerScale.program.evaluate(
+            effectiveValues: ["layerScale": .number(1.25)]
+        )
+        let layerScaleUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 14,
+            generation: 14,
+            definitions: layerScale.program.definitions,
+            userValues: layerScaleEvaluation.userValues
+        ).snapshot
+        let layerScaleOutOfDomain = layerScale.program.evaluate(
+            effectiveValues: ["layerScale": .number(2.1)]
+        )
+        let nonUniformLayerScale = compiler.compile(
+            report: .init(bindings: [binding(
+                "layerScale",
+                .string("0.5 0.6 0.5"),
+                23,
+                .layerScale(layerID: 23)
+            )], diagnostics: []),
+            catalog: .init(definitions: [property(
+                "layerScale",
+                .slider,
+                .number(0.5),
+                minimumValue: 0.1,
+                maximumValue: 2
+            )])
+        )
 
         let alphaDefinition = compilation.program.definitions.first { $0.target == alphaTarget }!
         let alphaInstruction = compilation.program.instructions.first { $0.target == alphaTarget }!
@@ -1040,6 +1091,23 @@ enum Harness {
                 resolved(puppetVisibilityAuthored[puppetVisibilityTarget]),
             "puppetVisibilityUser": resolved(puppetVisibilityUser[puppetVisibilityTarget]),
             "puppetVisibilityRuntimeCodes": codes(puppetVisibilityEvaluation.diagnostics),
+            "layerScaleCount": layerScale.program.instructions.count,
+            "layerScaleCodes": codes(layerScale.diagnostics),
+            "layerScaleRebuild": layerScale.program.rebuildRequiredPropertyKeys,
+            "layerScaleAuthored": resolved(layerScaleAuthored[layerScaleTarget]),
+            "layerScaleUser": resolved(layerScaleUser[layerScaleTarget]),
+            "layerScaleRange": layerScale.program.definitions.first?
+                .userPropertyNumericRange.map {
+                    [$0.lowerBound, $0.upperBound]
+                } ?? [],
+            "layerScaleRuntimeCodes": codes(layerScaleEvaluation.diagnostics),
+            "layerScaleOutOfDomainMissing":
+                layerScaleOutOfDomain.userValues[layerScaleTarget] == nil,
+            "layerScaleOutOfDomainCodes":
+                codes(layerScaleOutOfDomain.diagnostics),
+            "nonUniformLayerScaleCount":
+                nonUniformLayerScale.program.instructions.count,
+            "nonUniformLayerScaleCodes": codes(nonUniformLayerScale.diagnostics),
             "structureCodes": structureCodes,
             "structureInstructionCounts": structureInstructionCounts,
             "structureDecodeRejected": structureDecodeRejected,
@@ -1377,6 +1445,31 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             ["bool(false)", "userProperty"],
         )
         self.assertEqual(self.result["puppetVisibilityRuntimeCodes"], [])
+
+    def test_uniform_layer_scale_reuses_the_shared_vector_snapshot(self) -> None:
+        self.assertEqual(self.result["layerScaleCount"], 1)
+        self.assertEqual(self.result["layerScaleCodes"], [])
+        self.assertEqual(self.result["layerScaleRebuild"], [])
+        self.assertEqual(
+            self.result["layerScaleAuthored"],
+            ["vector3(0.5, 0.5, 0.5)", "authored"],
+        )
+        self.assertEqual(
+            self.result["layerScaleUser"],
+            ["vector3(1.25, 1.25, 1.25)", "userProperty"],
+        )
+        self.assertEqual(self.result["layerScaleRange"], [0.1, 2])
+        self.assertEqual(self.result["layerScaleRuntimeCodes"], [])
+        self.assertTrue(self.result["layerScaleOutOfDomainMissing"])
+        self.assertEqual(
+            self.result["layerScaleOutOfDomainCodes"],
+            ["invalidRuntimeValue"],
+        )
+        self.assertEqual(self.result["nonUniformLayerScaleCount"], 0)
+        self.assertEqual(
+            self.result["nonUniformLayerScaleCodes"],
+            ["invalidAuthoredValue"],
+        )
 
     def test_direct_local_contrast_strength_compiles_as_scalar_target(self) -> None:
         self.assertEqual(self.result["localContrastCount"], 1)

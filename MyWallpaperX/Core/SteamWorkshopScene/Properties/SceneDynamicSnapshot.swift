@@ -203,8 +203,17 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
 
     nonisolated func acceptsUserPropertyValue(_ value: SceneDynamicValue) -> Bool {
         guard let userPropertyNumericRange else { return true }
-        guard case let .scalar(component) = value else { return false }
-        return component.isFinite && userPropertyNumericRange.contains(component)
+        switch value {
+        case let .scalar(component):
+            return component.isFinite && userPropertyNumericRange.contains(component)
+        case let .vector3(x, y, z):
+            return x.isFinite && y.isFinite && z.isFinite
+                && userPropertyNumericRange.contains(x)
+                && userPropertyNumericRange.contains(y)
+                && userPropertyNumericRange.contains(z)
+        default:
+            return false
+        }
     }
 }
 

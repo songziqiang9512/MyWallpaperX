@@ -32,6 +32,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
     case layerVisibility(layerID: Int)
     case puppetAnimationVisibility(layerID: Int, animationLayerID: Int)
     case layerAlpha(layerID: Int)
+    case layerScale(layerID: Int)
     case layerColor(layerID: Int)
     case effectVisibility(layerID: Int, effectIndex: Int, effectPath: String?)
     case camera(field: String)
@@ -60,7 +61,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
             return true
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
-        case .layerAlpha, .layerColor, .text, .particle, .soundVolume,
+        case .layerAlpha, .layerScale, .layerColor, .text, .particle, .soundVolume,
              .shaderValue, .materialShaderValue, .scriptProperty, .unsupported:
             return false
         }
@@ -124,13 +125,23 @@ nonisolated struct SceneScriptUserPropertyInputDefinition: Equatable, Sendable {
 }
 
 nonisolated enum SceneScriptUserPropertyInputContract {
+    private static let maximumProviderDepth = 16
+
     static func dynamicInput(
         _ value: SceneJSONValue
     ) -> SceneScriptUserPropertyInputDefinition? {
+        dynamicInput(value, depth: 0)
+    }
+
+    private static func dynamicInput(
+        _ value: SceneJSONValue,
+        depth: Int
+    ) -> SceneScriptUserPropertyInputDefinition? {
+        guard depth < maximumProviderDepth else { return nil }
         guard case let .object(wrapper) = value,
               wrapper.keys.sorted() == ["user", "value"],
-              let fallback = wrapper["value"],
-              isPrimitive(fallback),
+              let rawFallback = wrapper["value"],
+              let fallback = primitiveFallback(rawFallback, depth: depth),
               let user = wrapper["user"] else { return nil }
         switch user {
         case let .string(key):
@@ -153,6 +164,17 @@ nonisolated enum SceneScriptUserPropertyInputContract {
         default:
             return nil
         }
+    }
+
+    /// Repeated editor rebinding can preserve an older provider wrapper as the
+    /// new wrapper's fallback. The outer provider remains the sole live owner;
+    /// only the terminal primitive is retained as its safe authored fallback.
+    private static func primitiveFallback(
+        _ value: SceneJSONValue,
+        depth: Int
+    ) -> SceneJSONValue? {
+        if isPrimitive(value) { return value }
+        return dynamicInput(value, depth: depth + 1)?.fallback
     }
 
     static func validName(_ value: String) -> Bool {
@@ -264,6 +286,9 @@ nonisolated struct SceneUserPropertyBindingParser {
         }
         if components.count == 3, Self.key(components[2]) == "alpha" {
             return .layerAlpha(layerID: layerID)
+        }
+        if components.count == 3, Self.key(components[2]) == "scale" {
+            return .layerScale(layerID: layerID)
         }
         if components.count == 3,
            Self.key(components[2]) == "volume",
