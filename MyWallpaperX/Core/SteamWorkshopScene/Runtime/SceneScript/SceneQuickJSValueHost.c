@@ -174,7 +174,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "target[key] instanceof Vec3?new Vec3(next):next;}"
         "return target;}"
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
-        "const console=Object.freeze({log(...args){},error(...args){}});"
+        "const console={log(...args){},error(...args){}};"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
         "return {Vec2,Vec3,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
         "})()";
@@ -247,7 +247,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         global,
         "console",
         console,
-        read_only
+        JS_PROP_ENUMERABLE | JS_PROP_WRITABLE
     );
     JSValue shared = JS_NewObject(context);
     JSValue shared_get = JS_NewCFunction(

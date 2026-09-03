@@ -256,7 +256,7 @@ existing inline source/binding IR
 | Global/API | 官方含义 | 等级 | 当前证据 | 缺口与验收门 |
 |---|---|---:|---|---|
 | `thisLayer` / `thisScene` | 当前owner和scene的typed handles | `L3 bounded` | descriptor-bound static lookup已执行；非value-only owner可写同domain/generation exact authored handle的`origin/scale/angles/visible/text`有界子集；owned dynamic text与package-literal image继续支持typed setter/create/destroy/sort。generation/owner/伪造/stale/缺失handle拒绝 | 其余authored setter、static sort、任意asset handle/model config、完整parent/topology、跨scene/screen泄漏负门与官方parity |
-| `console` | `log(...any)`、`error(...any)` | `L0` | `N` | per-script tag、速率限制、值序列化、错误不递归 |
+| `console` | `log(...any)`、`error(...any)` | `L2 compatibility sink / S3 real owner construction` | per-scene QuickJS global提供无I/O的`log/error` sink；binding可重绑定且对象可扩展，使作者的`console = console || {}`与method wrapper安装不阻断module构造。真实`3396722575`的7个原构造失败owner全部进入typed callback；宿主能力与其他只读global未放宽 | 真实日志输出、per-script tag、速率限制、值序列化、错误不递归；当前sink不冒充诊断API或完整官方`IConsole` |
 | `renderContext` | v2.8 声明 `IRenderContext` 为空 | `L0` | `N` | 保留空 host object；未来声明升级前不得自创成员 |
 | `input` | 全局输入快照 | `L3 bounded single-surface` | 同一QuickJS domain安装不可扩展只读getter host；只在callback且存在精确single-surface frame snapshot时取值，global phase与无归属surface拒绝 | 其他input device、multi-surface screen identity、权限降级与官方对照 |
 | `localStorage` | screen/global 两个持久化域 | `L3 bounded / S3 real owners-executed` | 一个scene domain共用wallpaper-scoped存储session；默认/未知location进入screen，只有精确`global`进入wallpaper global。global以record identity隔离；screen只在exact single-surface且可取得vendor/model/serial稳定键时开放，multi-surface不猜归属。真实`3610154602`的4个origin owner已执行缺键读取且不再VM失败 | multi-surface screen scope、显示器序列号缺失/变化、wallpaper复制/迁移、官方namespace与跨重启动态对照 |

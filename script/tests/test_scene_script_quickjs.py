@@ -689,6 +689,26 @@ int main(void) {
     );
     failures += mutation(positive, 0, 2, "clearHistory", "mutation identity");
 
+    const char *console_mutation_source =
+        "console=console||{};"
+        "console.warn=function(){};"
+        "export function update(value){"
+        "return console.warn('author diagnostic')===undefined?value+2:0;}";
+    MWXSceneQuickJSOwner *console_mutation = mwx_scene_quickjs_owner_create(
+        domain, console_mutation_source, strlen(console_mutation_source),
+        66, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        console_mutation != NULL,
+        "author console rebinding and method installation compile", diagnostic
+    );
+    if (console_mutation != NULL) {
+        failures += update(
+            console_mutation, 66, 3, MWX_SCENE_QUICKJS_OK, 5,
+            "author console compatibility sink remains executable"
+        );
+    }
+
     MWXSceneQuickJSOwner *cross_owner = mwx_scene_quickjs_owner_create(
         domain,
         "export function update(value) {\n"
@@ -2831,6 +2851,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(bad_return);
     mwx_scene_quickjs_owner_destroy(callback_error);
     mwx_scene_quickjs_owner_destroy(isolated);
+    mwx_scene_quickjs_owner_destroy(console_mutation);
     mwx_scene_quickjs_owner_destroy(positive);
     mwx_scene_quickjs_owner_destroy(metadata_only);
     mwx_scene_quickjs_owner_destroy(time_of_day);
