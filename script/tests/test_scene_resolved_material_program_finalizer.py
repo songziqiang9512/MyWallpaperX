@@ -1187,7 +1187,8 @@ private func dynamicSnapshot(
     alphaValue: SceneDynamicValue = .scalar(0.25),
     authoredAlphaValue: SceneDynamicValue = .scalar(1),
     scaleValue: SceneDynamicValue = .scalar(0.6),
-    authoredScaleValue: SceneDynamicValue = .scalar(1)
+    authoredScaleValue: SceneDynamicValue = .scalar(1),
+    userPropertyScaleRange: ClosedRange<Double>? = nil
 ) -> SceneDynamicSnapshot {
     let tintTarget = SceneDynamicTarget.effectConstant(
         layerID: fixtureLayerID,
@@ -1242,7 +1243,8 @@ private func dynamicSnapshot(
             .init(
                 target: scaleTarget,
                 valueType: authoredScaleValue.valueType,
-                authoredValue: authoredScaleValue
+                authoredValue: authoredScaleValue,
+                userPropertyNumericRange: userPropertyScaleRange
             ),
         ],
         userValues: user,
@@ -1278,6 +1280,7 @@ private func finalize(
     authoredAlphaValue: SceneDynamicValue = .scalar(1),
     dynamicScaleValue: SceneDynamicValue = .scalar(0.6),
     authoredScaleValue: SceneDynamicValue = .scalar(1),
+    userPropertyScaleRange: ClosedRange<Double>? = nil,
     renderState: SceneMaterialRenderState = state(),
     resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
@@ -1305,7 +1308,8 @@ private func finalize(
             alphaValue: dynamicAlphaValue,
             authoredAlphaValue: authoredAlphaValue,
             scaleValue: dynamicScaleValue,
-            authoredScaleValue: authoredScaleValue
+            authoredScaleValue: authoredScaleValue,
+            userPropertyScaleRange: userPropertyScaleRange
         ),
         frameInputs: frameInputs(
             frameIndex: frameInputIndex,
@@ -4247,6 +4251,41 @@ private enum Harness {
             dynamicScaleValue: .scalar(-0.5),
             authoredScaleValue: .scalar(-0.25)
         )
+        let producerDomainScalarShader = contract(
+            revision: "user-property-scalar-producer-domain",
+            semanticProbes: false,
+            scalarSplatScale: true,
+            scalarSplatType: "float",
+            scalarSplatDefault: "1",
+            scalarSplatRange: "[0.01,2]"
+        )
+        let producerDomainZeroProgram = finalize(
+            shader: producerDomainScalarShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0.05])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(0),
+            authoredScaleValue: .scalar(0.05),
+            userPropertyScaleRange: 0 ... 0.3
+        )
+        let producerDomainFractionProgram = finalize(
+            shader: producerDomainScalarShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0.05])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(0.005),
+            authoredScaleValue: .scalar(0.05),
+            userPropertyScaleRange: 0 ... 0.3
+        )
+        let producerDomainOverflowProgram = finalize(
+            shader: producerDomainScalarShader,
+            device: device,
+            uniformDeclarations: [dynamicScaleDeclaration(fallback: [0.05])],
+            dynamicSource: .userProperty,
+            dynamicScaleValue: .scalar(0.31),
+            authoredScaleValue: .scalar(0.05),
+            userPropertyScaleRange: 0 ... 0.3
+        )
         let staticScalarSplatProgram = finalize(
             shader: scalarSplatShader,
             device: device,
@@ -4285,6 +4324,23 @@ private enum Harness {
                 && float(fallback.uniformBytes, at: fallbackField.offset + 4) == 0
                 && failureToken(mismatchedOutOfRangeAuthoredSentinel)
                     == "uniform/dynamicUniformBindingInvalid"
+        }()
+        let directUserPropertyScalarProducerDomainPreserved: Bool = {
+            guard case let .success(zero) = producerDomainZeroProgram,
+                  case let .success(fraction) = producerDomainFractionProgram,
+                  case let .success(overflow) = producerDomainOverflowProgram,
+                  let zeroField = zero.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ), let fractionField = fraction.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ), let overflowField = overflow.frontendProgram.uniformLayout.fields.first(
+                      where: { $0.name == "u_Scale" }
+                  ) else { return false }
+            return float(zero.uniformBytes, at: zeroField.offset) == 0
+                && float(fraction.uniformBytes, at: fractionField.offset)
+                    == Float(0.005)
+                && float(overflow.uniformBytes, at: overflowField.offset)
+                    == Float(0.05)
         }()
         let staticScalarFloat2SplatEncoded: Bool = {
             guard case let .success(program) = staticScalarSplatProgram,
@@ -5517,6 +5573,8 @@ private enum Harness {
                     userPropertyScalarFloat2SplatEncoded,
                 "authoredOutOfRangeScalarFloat2SentinelPreserved":
                     authoredOutOfRangeScalarFloat2SentinelPreserved,
+                "directUserPropertyScalarProducerDomainPreserved":
+                    directUserPropertyScalarProducerDomainPreserved,
                 "staticScalarFloat2SplatEncoded":
                     staticScalarFloat2SplatEncoded,
                 "exactStaticFloat2Preserved": exactStaticFloat2Preserved,

@@ -26,6 +26,14 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         _ source: String,
         fact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact
     ) -> String? {
+        lowerGeneratedReplacement(source, fact: fact)
+            ?? lowerExhaustiveGeneratedFilter(source, fact: fact)
+    }
+
+    private static func lowerGeneratedReplacement(
+        _ source: String,
+        fact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact
+    ) -> String? {
         guard (0 ..< 8).contains(fact.alphaCarrierSlot),
               !fact.generatedOpaqueColorSlots.isEmpty,
               fact.generatedOpaqueColorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
@@ -87,7 +95,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
               ),
               compilerBodyHasNoExtraAuthority(
                   body,
-                  output: output.range,
+                  outputs: [output.range],
                   source: source
               ),
               let outputText = substring(output.range, in: source),
@@ -115,6 +123,236 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
         )
         return SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func lowerExhaustiveGeneratedFilter(
+        _ source: String,
+        fact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact
+    ) -> String? {
+        guard (0 ..< 8).contains(fact.alphaCarrierSlot),
+              !fact.generatedOpaqueColorSlots.isEmpty,
+              fact.generatedOpaqueColorSlots.allSatisfy({ (0 ..< 8).contains($0) }),
+              fact.sampleCallCounts.values.allSatisfy({ (1 ... 16).contains($0) }),
+              fact.sampleCallCounts.values.reduce(0, +) <= 32,
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              matches(#"\b"# + unpremultiply + #"\b"#, in: source).isEmpty,
+              matches(#"\b"# + premultiply + #"\b"#, in: source).isEmpty,
+              let calls = sampleCalls(in: source) else { return nil }
+
+        let carrierDeclarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(fact.alphaCarrierSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        guard carrierDeclarations.count == 1,
+              let declaration = carrierDeclarations.first,
+              let prefix = capture(declaration, 1, in: source),
+              let carrier = capture(declaration, 2, in: source),
+              let arguments = capture(declaration, 3, in: source),
+              let suffix = capture(declaration, 4, in: source) else { return nil }
+
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 2,
+              let fallback = outputs.first(where: {
+                  capture($0, 2, in: source) == carrier
+              }),
+              let changedOutput = outputs.first(where: {
+                  capture($0, 2, in: source) != carrier
+              }),
+              let changed = capture(changedOutput, 2, in: source),
+              let changedIndent = capture(changedOutput, 1, in: source),
+              let fallbackIndent = capture(fallback, 1, in: source),
+              changedOutput.range.location < fallback.range.location,
+              changed != carrier,
+              let body = fragmentBodyRange(
+                  containing: changedOutput.range.location,
+                  in: source
+              ),
+              contains(body, declaration.range),
+              contains(body, fallback.range),
+              calls.allSatisfy({ contains(body, $0.range) || $0.range.location < body.location }),
+              exhaustiveCompilerBranchesAreProven(
+                  changedOutput: changedOutput.range,
+                  fallbackOutput: fallback.range,
+                  body: body,
+                  source: source
+              ) else { return nil }
+
+        let changedDeclarations = matches(
+            #"(?m)^[ \t]*float4\s+"# + escaped(changed)
+                + #"\s*=\s*[^;]+;[ \t]*$"#,
+            in: source
+        )
+        let alphaRestores = matches(
+            #"(?m)^[ \t]*"# + escaped(changed)
+                + #"\.w\s*=\s*"# + escaped(carrier) + #"\.w\s*;[ \t]*$"#,
+            in: source
+        )
+        guard changedDeclarations.count == 1,
+              let changedDeclaration = changedDeclarations.first,
+              alphaRestores.count == 1,
+              let alphaRestore = alphaRestores.first,
+              declaration.range.location < changedDeclaration.range.location,
+              changedDeclaration.range.location < alphaRestore.range.location,
+              alphaRestore.range.location < changedOutput.range.location,
+              whitespaceOnly(
+                  from: NSMaxRange(alphaRestore.range),
+                  to: changedOutput.range.location,
+                  in: source
+              ),
+              compilerRolesAreProvenForExhaustiveFilter(
+                  calls,
+                  fact: fact,
+                  declaration: declaration.range,
+                  changedOutput: changedOutput.range,
+                  fallbackOutput: fallback.range,
+                  carrier: carrier,
+                  source: source
+              ),
+              compilerBodyHasNoExtraAuthority(
+                  body,
+                  outputs: outputs.map(\.range),
+                  source: source
+              ) else { return nil }
+
+        var transformed = source
+        let replacements: [(NSTextCheckingResult, String)] = [
+            (
+                fallback,
+                "\(fallbackIndent)out.mwxFragColor = \(premultiply)(\(carrier));"
+            ),
+            (
+                changedOutput,
+                "\(changedIndent)out.mwxFragColor = \(premultiply)(\(changed));"
+            ),
+        ].sorted { $0.0.range.location > $1.0.range.location }
+        for (match, replacement) in replacements {
+            guard let range = Range(match.range, in: transformed) else { return nil }
+            transformed.replaceSubrange(range, with: replacement)
+        }
+        guard let declarationRange = Range(declaration.range, in: transformed) else {
+            return nil
+        }
+        transformed.replaceSubrange(
+            declarationRange,
+            with: "\(prefix)\(unpremultiply)(g_Texture\(fact.alphaCarrierSlot).sample(\(arguments)))\(suffix)"
+        )
+        return SceneGenericShaderStraightAlphaPreservingLowering
+            .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func exhaustiveCompilerBranchesAreProven(
+        changedOutput: NSRange,
+        fallbackOutput: NSRange,
+        body: NSRange,
+        source: String
+    ) -> Bool {
+        guard braceDepth(at: changedOutput.location, in: body, source: source) == 1,
+              braceDepth(at: fallbackOutput.location, in: body, source: source) == 1,
+              matches(#"\bif\s*\("#, in: substring(body, in: source) ?? "").count == 1,
+              matches(#"\belse\b"#, in: substring(body, in: source) ?? "").count == 1,
+              let between = substring(
+                  NSRange(
+                      location: NSMaxRange(changedOutput),
+                      length: fallbackOutput.location - NSMaxRange(changedOutput)
+                  ),
+                  in: source
+              ),
+              let tail = substring(
+                  NSRange(
+                      location: NSMaxRange(fallbackOutput),
+                      length: NSMaxRange(body) - NSMaxRange(fallbackOutput)
+                  ),
+                  in: source
+              ) else { return false }
+        return compactSyntax(between) == "}else{"
+            && compactSyntax(tail) == "}returnout;"
+    }
+
+    private static func compilerRolesAreProvenForExhaustiveFilter(
+        _ calls: [SampleCall],
+        fact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact,
+        declaration: NSRange,
+        changedOutput: NSRange,
+        fallbackOutput: NSRange,
+        carrier: String,
+        source: String
+    ) -> Bool {
+        var observedCounts: [Int: Int] = [:]
+        var generated: [Int: Int] = [:]
+        var red: [Int: Int] = [:]
+        var green: [Int: Int] = [:]
+        var blue: [Int: Int] = [:]
+        var alpha: [Int: Int] = [:]
+        var carrierCalls = 0
+        for call in calls {
+            observedCounts[call.slot, default: 0] += 1
+            if contains(declaration, call.range) {
+                guard call.slot == fact.alphaCarrierSlot,
+                      call.projection == .fullVector else { return false }
+                carrierCalls += 1
+                continue
+            }
+            guard call.range.location < changedOutput.location else { return false }
+            switch call.projection {
+            case .rgb:
+                guard sampledProjectionIsAssignedToLocal(call, source: source)
+                else { return false }
+                generated[call.slot, default: 0] += 1
+            case .red:
+                guard sampledProjectionIsAssignedToLocal(call, source: source)
+                else { return false }
+                red[call.slot, default: 0] += 1
+            case .green:
+                guard sampledProjectionIsAssignedToLocal(call, source: source)
+                else { return false }
+                green[call.slot, default: 0] += 1
+            case .blue:
+                guard sampledProjectionIsAssignedToLocal(call, source: source)
+                else { return false }
+                blue[call.slot, default: 0] += 1
+            case .alpha:
+                guard sampledProjectionIsAssignedToLocal(call, source: source)
+                else { return false }
+                alpha[call.slot, default: 0] += 1
+            case .fullVector:
+                return false
+            }
+        }
+        let carrierWrites = matches(
+            #"\b"# + escaped(carrier)
+                + #"\b(?:\s*\.\s*[A-Za-z_]\w*)?\s*"#
+                + assignmentOperatorPattern,
+            in: source
+        )
+        let outputOrderIsValid = changedOutput.location < fallbackOutput.location
+        return carrierCalls == 1
+            && observedCounts == fact.sampleCallCounts
+            && generated == fact.generatedSampleCallCounts
+            && red == fact.scalarRedSampleCallCounts
+            && green == fact.scalarGreenSampleCallCounts
+            && blue == fact.scalarBlueSampleCallCounts
+            && alpha == fact.scalarAlphaSampleCallCounts
+            && carrierWrites.count == 1
+            && carrierWrites.allSatisfy({ contains(declaration, $0.range) })
+            && outputOrderIsValid
+    }
+
+    private static func sampledProjectionIsAssignedToLocal(
+        _ call: SampleCall,
+        source: String
+    ) -> Bool {
+        guard let line = sourceLine(containing: call.range, in: source),
+              sampleCalls(in: line)?.count == 1 else { return false }
+        return matches(
+            #"^\s*(?:(?:const\s+)?(?:float|half)(?:[234])?\s+)?"#
+                + #"[A-Za-z_]\w*\s*=\s*.+\.(?:xyz|rgb|x|r|y|g|z|b|w|a)\s*;\s*$"#,
+            in: line
+        ).count == 1
     }
 
     private static func compilerRolesAreProven(
@@ -251,7 +489,7 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
 
     private static func compilerBodyHasNoExtraAuthority(
         _ body: NSRange,
-        output: NSRange,
+        outputs: [NSRange],
         source: String
     ) -> Bool {
         let text = (source as NSString).substring(with: body)
@@ -284,11 +522,12 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             #"(?:\+\+|--)\s*\bout\s*\.\s*([A-Za-z_]\w*)"#,
             in: source
         )
-        guard outputWrites.count == 1,
+        guard outputWrites.count == outputs.count,
               outputPrefixWrites.isEmpty,
-              let onlyOutput = outputWrites.first,
-              capture(onlyOutput, 1, in: source) == "mwxFragColor",
-              contains(output, onlyOutput.range) else { return false }
+              outputWrites.allSatisfy({ write in
+                  capture(write, 1, in: source) == "mwxFragColor"
+                      && outputs.contains(where: { contains($0, write.range) })
+              }) else { return false }
 
         var locals: Set<String> = ["out"]
         for declaration in matches(
@@ -434,6 +673,55 @@ nonisolated enum SceneGenericShaderConditionalGeneratedRGBLowering {
             guard depth >= 0 else { return false }
         }
         return depth == 0
+    }
+
+    private static func braceDepth(
+        at location: Int,
+        in body: NSRange,
+        source: String
+    ) -> Int? {
+        guard body.location <= location, location <= NSMaxRange(body) else {
+            return nil
+        }
+        let text = source as NSString
+        var depth = 0
+        for cursor in body.location..<location {
+            switch text.character(at: cursor) {
+            case 123: depth += 1
+            case 125: depth -= 1
+            default: break
+            }
+            guard depth >= 0 else { return nil }
+        }
+        return depth
+    }
+
+    private static func whitespaceOnly(
+        from start: Int,
+        to end: Int,
+        in source: String
+    ) -> Bool {
+        guard start <= end,
+              let value = substring(
+                  NSRange(location: start, length: end - start),
+                  in: source
+              ) else { return false }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private static func compactSyntax(_ source: String) -> String {
+        source
+            .replacingOccurrences(
+                of: #"(?s)/\*.*?\*/"#,
+                with: "",
+                options: .regularExpression
+            )
+            .replacingOccurrences(
+                of: #"(?m)//.*$"#,
+                with: "",
+                options: .regularExpression
+            )
+            .filter { !$0.isWhitespace }
     }
 
     private static func contains(_ outer: NSRange, _ inner: NSRange) -> Bool {

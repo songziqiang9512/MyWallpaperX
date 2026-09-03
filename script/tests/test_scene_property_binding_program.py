@@ -34,7 +34,10 @@ enum Harness {
         let alpha = binding("opacity", .number(0.25), 20, .layerAlpha(layerID: 20))
         let color = binding("tint", .string("0.1 0.2 0.3"), 10, .layerColor(layerID: 10))
         let catalog = SceneUserPropertyCatalog(definitions: [
-            property("opacity", .slider, .number(0.5)),
+            property(
+                "opacity", .slider, .number(0.5),
+                minimumValue: 0, maximumValue: 1
+            ),
             property("tint", .color, .string("1 1 1")),
         ])
         let compiler = ScenePropertyBindingCompiler()
@@ -74,6 +77,10 @@ enum Harness {
         let nonFiniteEvaluation = compilation.program.evaluate(effectiveValues: [
             "opacity": .number(.nan),
             "tint": .string("1 NaN 3"),
+        ])
+        let outOfDomainEvaluation = compilation.program.evaluate(effectiveValues: [
+            "opacity": .number(1.01),
+            "tint": .string("0.8 0.7 0.6"),
         ])
         let badSnapshot = SceneDynamicSnapshotResolver().resolve(
             frameIndex: 3,
@@ -841,6 +848,14 @@ enum Harness {
             "badColor": resolved(badSnapshot[colorTarget]),
             "badCodes": codes(badEvaluation.diagnostics),
             "nonFiniteCodes": codes(nonFiniteEvaluation.diagnostics),
+            "opacityNumericRange": compilation.program.definitions.first {
+                $0.target == alphaTarget
+            }?.userPropertyNumericRange.map {
+                [$0.lowerBound, $0.upperBound]
+            } ?? [],
+            "outOfDomainAlphaMissing":
+                outOfDomainEvaluation.userValues[alphaTarget] == nil,
+            "outOfDomainCodes": codes(outOfDomainEvaluation.diagnostics),
             "invalidAuthoredCount": invalidAuthored.program.instructions.count,
             "invalidAuthoredCodes": codes(invalidAuthored.diagnostics),
             "invalidCatalogCounts": [invalidCatalog.program.instructions.count, invalidCatalog.program.definitions.count, invalidCatalog.program.definitions.filter { $0.valueType == .scalar }.count],
@@ -1056,7 +1071,9 @@ enum Harness {
     static func property(
         _ key: String,
         _ kind: SceneUserPropertyKind,
-        _ value: SceneUserPropertyValue?
+        _ value: SceneUserPropertyValue?,
+        minimumValue: Double? = nil,
+        maximumValue: Double? = nil
     ) -> SceneUserPropertyDefinition {
         .init(
             key: key,
@@ -1065,8 +1082,8 @@ enum Harness {
             runtimeType: kind.rawValue,
             order: 0,
             index: nil,
-            minimumValue: nil,
-            maximumValue: nil,
+            minimumValue: minimumValue,
+            maximumValue: maximumValue,
             stepValue: nil,
             allowsFractionalValues: true,
             fractionalPrecision: nil,
@@ -1235,6 +1252,9 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
             self.result["nonFiniteCodes"],
             ["nonFiniteRuntimeValue", "nonFiniteRuntimeValue"],
         )
+        self.assertEqual(self.result["opacityNumericRange"], [0, 1])
+        self.assertTrue(self.result["outOfDomainAlphaMissing"])
+        self.assertEqual(self.result["outOfDomainCodes"], ["invalidRuntimeValue"])
 
     def test_invalid_authored_values_fail_closed(self) -> None:
         self.assertEqual(self.result["invalidAuthoredCount"], 0)

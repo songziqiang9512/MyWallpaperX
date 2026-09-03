@@ -238,10 +238,10 @@ class SceneDynamicLayerValuesTests(unittest.TestCase):
         compositor_uniforms = COMPOSITOR_UNIFORMS_SOURCE.read_text(encoding="utf-8")
         self.assertRegex(
             compositor_uniforms,
-            r'usesAuthoredColor[\s\S]{0,80}request\.layer\.contentKind == "image"'
-            r'[\s\S]{0,100}request\.layer\.contentKind == "solid"'
+            r'usesAuthoredColor[\s\S]{0,80}layer\.contentKind == "image"'
+            r'[\s\S]{0,100}layer\.contentKind == "solid"'
             r"[\s\S]{0,100}tint\s*=\s*usesAuthoredColor"
-            r"\s*\?\s*request\.uniforms\.tint"
+            r"\s*\?\s*values\.tint"
             r"\s*:\s*SIMD3<Float>\(repeating:\s*1\)",
         )
 

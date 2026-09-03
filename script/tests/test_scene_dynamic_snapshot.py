@@ -42,7 +42,17 @@ enum Harness {
             .particle(layerID: 12, field: .controlPoint(3)),
             .scriptInstanceProperty(layerID: 13, path: ["settings", "speed"]),
         ]
-        let coderRoundTrip = try roundTrip(values) == values && roundTrip(targets) == targets
+        let boundedDefinition = SceneDynamicTargetDefinition(
+            target: .effectConstant(
+                layerID: 14, effectIndex: 0, passIndex: 0, name: "scale"
+            ),
+            valueType: .scalar,
+            authoredValue: .scalar(0.05),
+            userPropertyNumericRange: 0 ... 0.3
+        )
+        let coderRoundTrip = try roundTrip(values) == values
+            && roundTrip(targets) == targets
+            && roundTrip(boundedDefinition) == boundedDefinition
 
         let alpha = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
         let text = SceneDynamicTarget.text(layerID: 2, field: .content)
@@ -196,6 +206,18 @@ enum Harness {
                 .camera(.zoom): .scalar(2.4),
             ]
         ).snapshot.cameraTransform()
+        let boundedZero = resolver.resolve(
+            frameIndex: 10,
+            generation: 4,
+            definitions: [boundedDefinition],
+            userValues: [boundedDefinition.target: .scalar(0)]
+        )
+        let boundedOverflow = resolver.resolve(
+            frameIndex: 11,
+            generation: 5,
+            definitions: [boundedDefinition],
+            userValues: [boundedDefinition.target: .scalar(0.31)]
+        )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -226,6 +248,16 @@ enum Harness {
                 cameraSnapshot.origin.x, cameraSnapshot.origin.y, cameraSnapshot.origin.z,
             ],
             "cameraZoom": cameraSnapshot.zoom,
+            "boundedZero": resolved(boundedZero.snapshot[boundedDefinition.target]),
+            "boundedRange": boundedZero.snapshot.userPropertyNumericRange(
+                for: boundedDefinition.target
+            ).map { [$0.lowerBound, $0.upperBound] } ?? [],
+            "boundedOverflow": resolved(
+                boundedOverflow.snapshot[boundedDefinition.target]
+            ),
+            "boundedOverflowDiagnostics": boundedOverflow.diagnostics.map {
+                diagnostic($0)
+            },
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -339,6 +371,15 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
     def test_camera_transform_reads_typed_origin_and_zoom_atomically(self) -> None:
         self.assertEqual(self.result["cameraOrigin"], [-100, 682, 500])
         self.assertAlmostEqual(self.result["cameraZoom"], 2.4, places=5)
+
+    def test_user_property_numeric_domain_is_published_and_enforced(self) -> None:
+        self.assertEqual(self.result["boundedRange"], [0, 0.3])
+        self.assertEqual(self.result["boundedZero"], ["scalar(0.0)", "userProperty"])
+        self.assertEqual(self.result["boundedOverflow"], ["scalar(0.05)", "authored"])
+        self.assertEqual(
+            self.result["boundedOverflowDiagnostics"],
+            [["userProperty", "userPropertyValueOutOfRange"]],
+        )
 
 
 if __name__ == "__main__":

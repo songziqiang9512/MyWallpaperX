@@ -170,6 +170,7 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   ) else { return false }
                   return premultipliedColorInputSlots.contains(slot)
                       ? representation == .premultipliedAlpha
+                          || representation == .opaque
                       : representation == .opaque
               }),
               contract.scalarRedSlots.allSatisfy({

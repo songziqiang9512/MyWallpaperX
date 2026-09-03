@@ -41,6 +41,9 @@ nonisolated enum SceneAuthoredShaderConditionalGeneratedRGBAnalyzer {
         if let fact = analyzeGeneratedReplacement(fragment) {
             return fact
         }
+        if let fact = analyzeExhaustiveGeneratedFilter(fragment) {
+            return fact
+        }
         return SceneAuthoredShaderConditionalUnderlayRGBAnalyzer.analyze(fragment)
     }
 

@@ -54,6 +54,11 @@ CAPABILITY_PROGRAM_FIRST_SOURCE = (
     SOURCE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
+CAPTURED_MAIN_SOURCE_CONSERVATION = (
+    SOURCE_ROOT
+    / "RenderGraph/MaterialProgram"
+    / "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift"
+)
 
 HARNESS_SOURCE = r'''
 import Foundation
@@ -266,6 +271,16 @@ class SceneUtilityLayerTests(unittest.TestCase):
             "($0.slotIndex==3&&$0.blendMode==0)",
             compact_compositor,
         )
+
+    def test_captured_main_accepts_exact_authored_filter_programs(self) -> None:
+        conservation = CAPTURED_MAIN_SOURCE_CONSERVATION.read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("exactGraphReferences(", conservation)
+        self.assertIn("variant.graphInputSourceSlotFacts", conservation)
+        self.assertIn("activeSourceBinding.texture == effect.input", conservation)
+        self.assertIn("return .sourceConsumer(slot: sourceSlot)", conservation)
+        self.assertNotIn("capturedMainColorSourceSlot", conservation)
 
     def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")

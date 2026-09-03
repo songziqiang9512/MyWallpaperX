@@ -48,6 +48,9 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> ScenePropertyBindingEvaluation {
         let validation = ScenePropertyBindingProgramValidator().validate(self)
+        let definitionsByTarget = Dictionary(
+            uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
+        )
         var userValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var diagnostics = validation.diagnostics
 
@@ -74,6 +77,15 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
             }
             switch conversion {
             case let .success(dynamicValue):
+                guard definitionsByTarget[instruction.target]?
+                    .acceptsUserPropertyValue(dynamicValue) == true else {
+                    diagnostics.append(.runtime(
+                        code: .invalidRuntimeValue,
+                        instruction: instruction,
+                        message: "属性值超出作者声明的数值域。"
+                    ))
+                    continue
+                }
                 userValues[instruction.target] = dynamicValue
             case let .failure(error):
                 diagnostics.append(.runtime(
@@ -507,7 +519,12 @@ nonisolated struct ScenePropertyBindingCompiler {
             definitions.append(.init(
                 target: mapped.target,
                 valueType: mapped.valueType,
-                authoredValue: authoredValue
+                authoredValue: authoredValue,
+                userPropertyNumericRange: Self.userPropertyNumericRange(
+                    propertyDefinitions.first,
+                    propertyKind: mapped.propertyKind,
+                    valueType: mapped.valueType
+                )
             ))
             guard isValid else {
                 rebuildRequiredKeys.insert(binding.reference.key)
@@ -545,6 +562,19 @@ nonisolated struct ScenePropertyBindingCompiler {
             ),
             diagnostics: diagnostics
         )
+    }
+
+    private nonisolated static func userPropertyNumericRange(
+        _ property: SceneUserPropertyDefinition?,
+        propertyKind: SceneUserPropertyKind,
+        valueType: SceneDynamicValueType
+    ) -> ClosedRange<Double>? {
+        guard propertyKind == .slider, valueType == .scalar,
+              let minimum = property?.minimumValue,
+              let maximum = property?.maximumValue,
+              minimum.isFinite, maximum.isFinite,
+              minimum <= maximum else { return nil }
+        return minimum ... maximum
     }
 
     /// A slider remains a scalar producer even when an authored shader

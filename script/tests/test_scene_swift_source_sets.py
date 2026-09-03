@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 84)
+        self.assertEqual(len(implementation), 85)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -215,7 +215,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 9)
-        self.assertEqual(len(variant_preparation), 18)
+        self.assertEqual(len(variant_preparation), 19)
         self.assertIn(
             "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
             "SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
@@ -251,6 +251,11 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
             variant_preparation,
         )
+        self.assertIn(
+            "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
+            "SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
+            variant_preparation,
+        )
         self.assertEqual(
             frame_finalization,
             (
@@ -261,7 +266,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 42)
+        self.assertEqual(len(frame_finalization), 43)
         self.assertEqual(len(template_compilation), 2)
         self.assertEqual(
             complete,
@@ -270,7 +275,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 44)
+        self.assertEqual(len(complete), 45)
 
         material_program_directory = (
             REPOSITORY_ROOT

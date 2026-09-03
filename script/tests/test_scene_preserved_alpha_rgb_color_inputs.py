@@ -245,6 +245,19 @@ private enum Harness {
                     framebufferInput: .premultipliedAlpha,
                     fragmentOutput: .premultipliedAlpha
                 ),
+            "conditionalProjectionAcceptsLoweredOpaqueGeneratedRGB":
+                Derivation.resolveColor(
+                    transfer: .straightAlphaPreserving(textureSlot: 2),
+                    textureFacts: facts([
+                        0: opaque,
+                        2: premultiplied,
+                    ]),
+                    conditionalGeneratedRGBInputContract: conditionalContract,
+                    premultipliedColorInputSlots: [0]
+                ) == .init(
+                    framebufferInput: .premultipliedAlpha,
+                    fragmentOutput: .premultipliedAlpha
+                ),
             "conditionalProjectionRejectsLoweredCarrierInsteadOfGeneratedRGB":
                 Derivation.resolveColor(
                     transfer: .straightAlphaPreserving(textureSlot: 2),

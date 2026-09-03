@@ -631,6 +631,8 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         #define OFFSET (1 + 2)
         #define ZERO() 0
         #define TEMP(value) value
+        #define NEGATIVE -1.3
+        #define PLUS +1.3
         #ifdef TEMP
         float functionDefined = 1;
         #endif
@@ -643,6 +645,8 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         float aliased = ALIAS(vec2(1, 2).x, 5);
         float zero = ZERO();
         float offset = OFFSET;
+        float subtractNegative = 2.0-NEGATIVE;
+        float addPositive = 2.0+PLUS;
         float reference = DOUBLE;
         const char* label = "DOUBLE(9)"; // APPLY(8, DOUBLE)
         """,
@@ -661,6 +665,8 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         "float aliased = ((vec2(1, 2).x) + (5));",
         "float zero = 0;",
         "float offset = (1 + 2);",
+        "float subtractNegative = 2.0- -1.3;",
+        "float addPositive = 2.0+ +1.3;",
         "float functionDefined = 1;",
         "float functionUndefined = 1;",
         "float reference = DOUBLE;",

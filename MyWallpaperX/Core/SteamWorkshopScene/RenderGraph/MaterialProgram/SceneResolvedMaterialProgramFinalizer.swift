@@ -424,6 +424,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     authoredValue: input.dynamicSnapshot.authoredValue(
                         for: dynamic.target
                     ),
+                    userPropertyNumericRange:
+                        input.dynamicSnapshot.userPropertyNumericRange(
+                            for: dynamic.target
+                        ),
                     fallback,
                     source: resolved.source,
                     contributor: contributor,
@@ -577,6 +581,7 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         _ liveEncoded: Data?,
         liveValue: SceneDynamicValue,
         authoredValue: SceneDynamicValue?,
+        userPropertyNumericRange: ClosedRange<Double>?,
         _ fallback: Template.StaticUniformValue?,
         source: SceneDynamicSource,
         contributor: Template.DynamicUniformSource,
@@ -600,6 +605,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             return liveEncoded
         }
         if value(liveValue, isWithin: range) { return liveEncoded }
+        if field.type == .float,
+           let userPropertyNumericRange,
+           value(liveValue, isWithin: userPropertyNumericRange) {
+            // A direct user property owns its authored UI domain. Shader
+            // range annotations describe the unbound material editor value
+            // and may intentionally exclude a UI sentinel such as zero.
+            return liveEncoded
+        }
         guard let authoredValue,
               let authoredEncoded = encodeDynamicUniform(
             authoredValue,

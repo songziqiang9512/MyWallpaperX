@@ -630,13 +630,17 @@ nonisolated extension SceneResolvedMaterialVariantCache {
         externalSlots: Set<Int>,
         terminalNamedSlots: Set<Int>,
         sceneBackgroundSlots: Set<Int>,
+        graphSlots: Set<Int>,
         conditionalFact: SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.Fact?
     ) -> Set<Int> {
         let terminalNamed = externalSlots == terminalNamedSlots
             ? terminalNamedSlots
             : []
-        guard let conditionalFact,
-              !sceneBackgroundSlots.isEmpty,
+        guard let conditionalFact else { return terminalNamed }
+        var result = terminalNamed.union(
+            graphSlots.intersection(conditionalFact.generatedOpaqueColorSlots)
+        )
+        guard !sceneBackgroundSlots.isEmpty,
               externalSlots == sceneBackgroundSlots,
               sceneBackgroundSlots.isSubset(
                   of: conditionalFact.generatedOpaqueColorSlots
@@ -649,7 +653,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                                 slot: slot
                             ) else { return false }
                   return sampler.purpose(for: reference) == .premultipliedColor
-              }) else { return terminalNamed }
-        return terminalNamed.union(sceneBackgroundSlots)
+              }) else { return result }
+        result.formUnion(sceneBackgroundSlots)
+        return result
     }
 }

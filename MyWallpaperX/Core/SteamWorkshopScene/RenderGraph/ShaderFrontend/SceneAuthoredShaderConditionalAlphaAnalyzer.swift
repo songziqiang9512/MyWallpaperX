@@ -18,6 +18,13 @@ nonisolated enum SceneAuthoredShaderConditionalAlphaAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> Int? {
+        if let slot = sampledRGBFilterSourceSlot(
+            outputUses: outputUses,
+            fragment: fragment,
+            main: main
+        ) {
+            return slot
+        }
         let tokens = fragment.tokens
         guard outputUses.count == 2,
               !main.bodyRange.contains(where: {
@@ -89,6 +96,152 @@ nonisolated enum SceneAuthoredShaderConditionalAlphaAnalyzer {
             return nil
         }
         return slot
+    }
+
+    /// Proves an exhaustive source/filter branch whose two outputs are full
+    /// samples from one slot and whose changed branch mutates RGB only. This
+    /// covers authored post-process filters that bypass themselves at a zero
+    /// strength while preserving the sampled alpha in either branch.
+    private static func sampledRGBFilterSourceSlot(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Int? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 2,
+              !main.bodyRange.contains(where: {
+                  ["return", "discard"].contains(tokens[$0].text)
+              }),
+              let branches = finalRootIfElse(main: main, tokens: tokens),
+              let changedOutput = uniqueOutput(
+                  in: branches.thenBody,
+                  uses: outputUses
+              ),
+              let fallbackOutput = uniqueOutput(
+                  in: branches.elseBody,
+                  uses: outputUses
+              ),
+              statementEndsRange(
+                  changedOutput,
+                  range: branches.thenBody,
+                  tokens: tokens
+              ),
+              statementEndsRange(
+                  fallbackOutput,
+                  range: branches.elseBody,
+                  tokens: tokens
+              ),
+              isRootStatement(
+                  changedOutput,
+                  in: branches.thenBody,
+                  tokens: tokens
+              ),
+              isRootStatement(
+                  fallbackOutput,
+                  in: branches.elseBody,
+                  tokens: tokens
+              ),
+              let changedExpression =
+                  SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: changedOutput,
+                        in: tokens,
+                        body: main.bodyRange
+                    ),
+              let fallbackExpression =
+                  SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: fallbackOutput,
+                        in: tokens,
+                        body: main.bodyRange
+                    ),
+              let changed = identifier(changedExpression),
+              let source = identifier(fallbackExpression),
+              changed != source,
+              let sourceDefinition = vectorDefinition(
+                  source,
+                  in: main.bodyRange.lowerBound..<branches.thenBody.lowerBound,
+                  before: changedOutput,
+                  tokens: tokens
+              ),
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  sourceDefinition,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let sourceInitializer =
+                  SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: sourceDefinition,
+                        in: tokens,
+                        body: main.bodyRange
+                    ),
+              let sourceSlot = SceneAuthoredShaderColorTransferAnalyzer
+                .directTextureSampleSlot(sourceInitializer),
+              sourceIsReadOnly(
+                  source,
+                  after: sourceDefinition,
+                  changedOutput: changedOutput,
+                  fallbackExpression: fallbackExpression,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let changedDefinition = vectorDefinition(
+                  changed,
+                  in: branches.thenBody,
+                  before: changedOutput,
+                  tokens: tokens
+              ),
+              isRootStatement(
+                  changedDefinition,
+                  in: branches.thenBody,
+                  tokens: tokens
+              ),
+              let changedInitializer =
+                  SceneAuthoredShaderColorTransferAnalyzer
+                    .assignmentExpression(
+                        after: changedDefinition,
+                        in: tokens,
+                        body: main.bodyRange
+                    ),
+              SceneAuthoredShaderColorTransferAnalyzer.directTextureSampleSlot(
+                  changedInitializer
+              ) == sourceSlot,
+              samplesOnlySlot(sourceSlot, in: tokens.indices, tokens: tokens),
+              carrierMutatesRGBAndPreservesAlpha(
+                  changed,
+                  definition: changedDefinition,
+                  output: changedOutput,
+                  tokens: tokens
+              ) else { return nil }
+        return sourceSlot
+    }
+
+    private static func carrierMutatesRGBAndPreservesAlpha(
+        _ name: String,
+        definition: Int,
+        output: Int,
+        tokens: [Token]
+    ) -> Bool {
+        let assignmentOperators: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        var hasRGBWrite = false
+        for index in (definition + 1)..<output where tokens[index].text == name {
+            if index == output + 2 { continue }
+            guard index + 2 < tokens.count,
+                  tokens[index + 1].text == "." else { return false }
+            let member = tokens[index + 2].text
+            let operation = index + 3 < tokens.count
+                ? tokens[index + 3].text : ""
+            if ["rgb", "xyz"].contains(member) {
+                if assignmentOperators.contains(operation) {
+                    hasRGBWrite = true
+                }
+                continue
+            }
+            guard ["a", "w"].contains(member),
+                  !assignmentOperators.contains(operation) else { return false }
+        }
+        return hasRGBWrite
     }
 
     private static func finalRootIfElse(

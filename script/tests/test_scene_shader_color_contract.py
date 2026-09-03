@@ -373,6 +373,67 @@ private func conditionalGeneratedRGBCompilerLowering(
     ) ?? "unresolved"
 }
 
+private func exhaustiveGeneratedFilterCompilerLowering(
+    _ body: String,
+    helpers: String,
+    mutation: String = "valid"
+) -> String {
+    guard let fact = SceneAuthoredShaderConditionalGeneratedRGBAnalyzer.analyze(
+        fragmentSource: fragment(body, helpers: helpers)
+    ) else { return "unresolved" }
+    var source = """
+    using namespace metal;
+    struct CompilerOutput { float4 mwxFragColor; };
+    float3 generatedBloom() {
+        float3 neighbor = g_Texture0.sample(g_Texture0Smplr, coordinates * 0.5).xyz;
+        return neighbor;
+    }
+    fragment CompilerOutput translatedFragment() {
+        CompilerOutput out = {};
+        float4 base = g_Texture1.sample(g_Texture1Smplr, coordinates);
+        float opacity = weight * base.w;
+        if (opacity > 0.001) {
+            float3 seed = g_Texture0.sample(g_Texture0Smplr, coordinates).xyz;
+            float4 albedo = float4(1.0);
+            albedo.x = seed.x + generatedBloom().x;
+            albedo.y = seed.y + generatedBloom().y;
+            albedo.z = seed.z + generatedBloom().z;
+            albedo *= border;
+            albedo.xyz = mix(base.xyz, albedo.xyz, opacity);
+            albedo.w = base.w;
+            out.mwxFragColor = albedo;
+        } else {
+            out.mwxFragColor = base;
+        }
+        return out;
+    }
+    """
+    switch mutation {
+    case "replaced-alpha":
+        source = source.replacingOccurrences(
+            of: "albedo.w = base.w;",
+            with: "albedo.w = opacity;"
+        )
+    case "carrier-resample":
+        source = source.replacingOccurrences(
+            of: "albedo.w = base.w;",
+            with: "base = g_Texture1.sample(g_Texture1Smplr, coordinates);\n" +
+                "            albedo.w = base.w;"
+        )
+    case "extra-output":
+        source = source.replacingOccurrences(
+            of: "return out;",
+            with: "out.mwxFragColor = base;\n        return out;"
+        )
+    default:
+        break
+    }
+    return SceneGenericShaderConditionalGeneratedRGBLowering.lower(
+        source,
+        fact: fact
+    ) ?? "unresolved"
+}
+
 private func conditionalShadowBody(
     mode: Int = 30,
     offsetSample: String = "texSample2D(g_Texture0, " +
@@ -433,6 +494,23 @@ enum Harness {
             "color *= (0.4 + blue) * g_Tint; " +
             "color.rgb = ApplyBlending(0, base.rgb, color, red); } " +
             "gl_FragColor = vec4(color, base.a);"
+        let exhaustiveGeneratedFilter =
+            "vec4 base = texSample2D(g_Texture1, v_TexCoord); " +
+            "float opacity = g_ScalarWeight * base.a; " +
+            "if (opacity > 0.001) { " +
+            "vec4 albedo = vec4(1.0); " +
+            "albedo.rgb = GeneratedBloom(" +
+                "texSample2D(g_Texture0, v_TexCoord).rgb); " +
+            "albedo *= smoothstep(0.51, 0.50, abs(v_TexCoord.x)); " +
+            "vec4 image = albedo; " +
+            "albedo.rgb = mix(base.rgb, albedo.rgb, opacity); " +
+            "albedo.a = base.a; gl_FragColor = albedo; " +
+            "} else gl_FragColor = base;"
+        let exhaustiveGeneratedFilterHelper =
+            "vec3 GeneratedBloom(vec3 color) { " +
+            "vec3 neighbor = texSample2D(g_Texture0, " +
+                "v_TexCoord * 0.5).rgb; " +
+            "return color + neighbor; }"
         let conditionalUnderlayRGB =
             "vec4 albedo = texSample2D(g_Texture0, v_TexCoord); " +
             "float opacity = g_ScalarWeight; " +
@@ -503,6 +581,48 @@ enum Harness {
                 "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
                 "changed.rgb = mix(source.rgb, changed.rgb, g_ScalarWeight); " +
                 "changed.a = PreserveAlpha(source.a, changed.a, g_ScalarWeight); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilter": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.rgb *= g_Tint; changed.rgb += vec3(0.1); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilterMetal": metal(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord * 0.5); " +
+                "changed.rgb *= g_Tint; changed.rgb += vec3(0.1); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilterDifferentSlot": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture1, v_TexCoord); " +
+                "changed.rgb *= g_Tint; gl_FragColor = changed; " +
+                "} else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilterAlphaWrite": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord); " +
+                "changed.rgb *= g_Tint; changed.a *= 0.5; " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilterWholeWrite": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord); " +
+                "changed.rgb *= g_Tint; changed = vec4(1.0); " +
+                "gl_FragColor = changed; } else gl_FragColor = source;"
+            ),
+            "conditionalSampledRGBFilterExtraSample": transfer(
+                "vec4 source = texSample2D(g_Texture0, v_TexCoord); " +
+                "if (g_ScalarWeight > 0.0) { " +
+                "vec4 changed = texSample2D(g_Texture0, v_TexCoord); " +
+                "changed.rgb *= texSample2D(g_Texture1, v_TexCoord).rgb; " +
                 "gl_FragColor = changed; } else gl_FragColor = source;"
             ),
             "conditionalDifferentSlot": transfer(
@@ -885,6 +1005,39 @@ enum Harness {
                 conditionalGeneratedRGBFact(
                     conditionalGeneratedRGBComponentScalars
                 ),
+            "exhaustiveGeneratedFilter": transfer(
+                exhaustiveGeneratedFilter,
+                helpers: exhaustiveGeneratedFilterHelper
+            ),
+            "exhaustiveGeneratedFilterFact": conditionalGeneratedRGBFact(
+                exhaustiveGeneratedFilter,
+                helpers: exhaustiveGeneratedFilterHelper
+            ),
+            "exhaustiveGeneratedFilterReplacedAlpha": transfer(
+                exhaustiveGeneratedFilter.replacingOccurrences(
+                    of: "albedo.a = base.a",
+                    with: "albedo.a = max(opacity, base.a)"
+                ),
+                helpers: exhaustiveGeneratedFilterHelper
+            ),
+            "exhaustiveGeneratedFilterCarrierResample": transfer(
+                exhaustiveGeneratedFilter.replacingOccurrences(
+                    of: "albedo.rgb = mix(base.rgb, albedo.rgb, opacity)",
+                    with: "albedo.rgb = mix(" +
+                        "texSample2D(g_Texture1, v_TexCoord).rgb, " +
+                        "albedo.rgb, opacity)"
+                ),
+                helpers: exhaustiveGeneratedFilterHelper
+            ),
+            "exhaustiveGeneratedFilterSampledScalarHelper": transfer(
+                exhaustiveGeneratedFilter.replacingOccurrences(
+                    of: "float opacity = g_ScalarWeight * base.a",
+                    with: "float opacity = GeneratedOpacity() * base.a"
+                ),
+                helpers: exhaustiveGeneratedFilterHelper +
+                    " float GeneratedOpacity() { return " +
+                    "texSample2D(g_Texture3, v_TexCoord).r; }"
+            ),
             "conditionalUnderlayRGB": transfer(conditionalUnderlayRGB),
             "conditionalUnderlayRGBFact": conditionalGeneratedRGBFact(
                 conditionalUnderlayRGB
@@ -951,6 +1104,29 @@ enum Harness {
                 conditionalGeneratedRGBCompilerLowering(
                     conditionalGeneratedRGB,
                     mutation: "hidden-helper-sample"
+                ),
+            "exhaustiveGeneratedFilterCompilerLowering":
+                exhaustiveGeneratedFilterCompilerLowering(
+                    exhaustiveGeneratedFilter,
+                    helpers: exhaustiveGeneratedFilterHelper
+                ),
+            "exhaustiveGeneratedFilterCompilerReplacedAlpha":
+                exhaustiveGeneratedFilterCompilerLowering(
+                    exhaustiveGeneratedFilter,
+                    helpers: exhaustiveGeneratedFilterHelper,
+                    mutation: "replaced-alpha"
+                ),
+            "exhaustiveGeneratedFilterCompilerCarrierResample":
+                exhaustiveGeneratedFilterCompilerLowering(
+                    exhaustiveGeneratedFilter,
+                    helpers: exhaustiveGeneratedFilterHelper,
+                    mutation: "carrier-resample"
+                ),
+            "exhaustiveGeneratedFilterCompilerExtraOutput":
+                exhaustiveGeneratedFilterCompilerLowering(
+                    exhaustiveGeneratedFilter,
+                    helpers: exhaustiveGeneratedFilterHelper,
+                    mutation: "extra-output"
                 ),
             "conditionalGeneratedRGBMultiReturnHelper": transfer(
                 conditionalGeneratedRGB,
@@ -2067,6 +2243,22 @@ class SceneShaderColorContractTests(unittest.TestCase):
         ):
             self.assertEqual(self.result[key], "unresolved", key)
 
+    def test_conditional_same_slot_rgb_filter_preserves_sampled_alpha(self) -> None:
+        self.assertEqual(
+            self.result["conditionalSampledRGBFilter"],
+            "straight-preserving-slot:0",
+        )
+        source = self.result["conditionalSampledRGBFilterMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        for key in (
+            "conditionalSampledRGBFilterDifferentSlot",
+            "conditionalSampledRGBFilterAlphaWrite",
+            "conditionalSampledRGBFilterWholeWrite",
+            "conditionalSampledRGBFilterExtraSample",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+
     def test_straight_alpha_boundary_is_proven_from_a_single_source(self) -> None:
         self.assertEqual(self.result["straightAlpha"], "straight-slot:0")
         self.assertEqual(
@@ -2162,6 +2354,46 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "conditionalGeneratedRGBMainTexelFetch",
             "conditionalGeneratedRGBGlobalWritingHelper",
             "conditionalGeneratedRGBExtraOutput",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+
+    def test_exhaustive_generated_filter_keeps_carrier_alpha(self) -> None:
+        self.assertEqual(
+            self.result["exhaustiveGeneratedFilter"],
+            "straight-preserving-slot:1",
+        )
+        self.assertEqual(
+            self.result["exhaustiveGeneratedFilterFact"],
+            "carrier:1;generated:0;red:;green:;blue:;alpha:;" +
+            "counts:0:2,1:1",
+        )
+        for key in (
+            "exhaustiveGeneratedFilterReplacedAlpha",
+            "exhaustiveGeneratedFilterCarrierResample",
+            "exhaustiveGeneratedFilterSampledScalarHelper",
+        ):
+            self.assertEqual(self.result[key], "unresolved", key)
+        compiler_source = self.result[
+            "exhaustiveGeneratedFilterCompilerLowering"
+        ]
+        self.assertIn(
+            "mwxGenericUnpremultiply(g_Texture1.sample", compiler_source
+        )
+        self.assertIn(
+            "out.mwxFragColor = mwxGenericPremultiply(albedo);",
+            compiler_source,
+        )
+        self.assertIn(
+            "out.mwxFragColor = mwxGenericPremultiply(base);",
+            compiler_source,
+        )
+        self.assertNotIn(
+            "mwxGenericUnpremultiply(g_Texture0.sample", compiler_source
+        )
+        for key in (
+            "exhaustiveGeneratedFilterCompilerReplacedAlpha",
+            "exhaustiveGeneratedFilterCompilerCarrierResample",
+            "exhaustiveGeneratedFilterCompilerExtraOutput",
         ):
             self.assertEqual(self.result[key], "unresolved", key)
 

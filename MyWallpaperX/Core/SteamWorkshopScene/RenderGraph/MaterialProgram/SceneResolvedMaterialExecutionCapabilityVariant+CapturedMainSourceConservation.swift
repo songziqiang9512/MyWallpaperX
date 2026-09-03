@@ -181,48 +181,14 @@ extension SceneResolvedMaterialVariantCache {
         }
         guard variant.frontendProgram.textureBindings.filter({
                   $0.slot == sourceSlot
-              }).count == 1,
-              capturedMainColorSourceSlot(
-                  variant.frontendProgram.colorTransfer
-              ) == sourceSlot
-                || capturedMainUnitCompositePreviousSlot(
-                    variant: variant,
-                    template: template,
-                    effect: effect,
-                    activeBindings: activeBindings
-                ) == sourceSlot else { return nil }
+              }).count == 1 else { return nil }
+        // A captured-main utility is expressly allowed to transform the
+        // current frame (threshold, blur, distortion, grain, and similar
+        // authored filters). Source admission therefore follows the exact
+        // graph-input identity and active sampler binding above; requiring a
+        // color-preserving transfer would reject the very filters this route
+        // exists to execute.
         return .sourceConsumer(slot: sourceSlot)
-    }
-
-    /// A unit previous/blurred composite deliberately preserves alpha from the
-    /// blurred framebuffer while also consuming the captured-main texture as
-    /// its exact `previous` input. The existing whole-stage eligibility proof
-    /// is the authority for that two-source shape; a general color-transfer
-    /// inference must not broaden captured-main admission.
-    private func capturedMainUnitCompositePreviousSlot(
-        variant: Variant,
-        template: Template,
-        effect: Graph.Effect,
-        activeBindings: [Graph.Binding]
-    ) -> Int? {
-        var identities: [Int: Graph.TextureIdentity] = [:]
-        for binding in activeBindings {
-            guard let slot = binding.slot,
-                  identities.updateValue(binding.texture, forKey: slot) == nil
-            else { return nil }
-        }
-        let sources = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
-            vertex: variant.preparedShader.vertex.source,
-            fragment: variant.preparedShader.fragment.source
-        )
-        return SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
-            fragmentSource: sources.fragment,
-            prepared: variant.preparedShader,
-            samplers: variant.activeSamplers,
-            template: template,
-            implicitFramebufferIdentity: effect.input,
-            activeGraphTextureIdentities: identities
-        )?.previous
     }
 
     private func exactGraphReferences(
@@ -295,24 +261,4 @@ extension SceneResolvedMaterialVariantCache {
             && identity.name?.isEmpty == false
     }
 
-    private func capturedMainColorSourceSlot(
-        _ transfer: SceneShaderColorTransfer
-    ) -> Int? {
-        switch transfer {
-        case let .passthrough(slot),
-             let .straightAlphaPreserving(slot),
-             let .straightAlpha(slot),
-             let .straightAlphaUNorm(slot),
-             let .opaqueFromStraightColor(slot):
-            return slot
-        case let .independentAlphaSignalCompositing(_, colorSlot):
-            return colorSlot
-        case let .independentAlphaSignalUnderlayCompositing(_, colorSlot, _):
-            return colorSlot
-        case .interpolatedColor,
-             .independentAlphaSignal, .independentAlphaSignalPreserving,
-             .generatedStraightAlpha, .premultipliedAlpha, .opaque, .unresolved:
-            return nil
-        }
-    }
 }

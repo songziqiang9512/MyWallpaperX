@@ -156,10 +156,15 @@ private extension SceneShaderLexicalExpander {
                 if let macro = objectMacros[name] {
                     resolved(name)
                     try rejectRecursion(name, active: active)
-                    result += try expandCode(
+                    let replacement = try expandCode(
                         macro.replacement,
                         active: active.union([name]),
                         depth: depth + 1
+                    )
+                    appendReplacement(
+                        replacement,
+                        followedBy: index < code.endIndex ? code[index] : nil,
+                        to: &result
                     )
                     changed = true
                     continue
@@ -195,12 +200,17 @@ private extension SceneShaderLexicalExpander {
                         )
                     }
                     let substituted = substitute(macro.replacement, arguments: arguments)
-                    result += try expandCode(
+                    let replacement = try expandCode(
                         substituted,
                         active: nestedActive,
                         depth: depth + 1
                     )
                     index = invocation.end
+                    appendReplacement(
+                        replacement,
+                        followedBy: index < code.endIndex ? code[index] : nil,
+                        to: &result
+                    )
                     changed = true
                     continue
                 }
@@ -210,6 +220,33 @@ private extension SceneShaderLexicalExpander {
             return changed
                 ? try expandCode(result, active: active, depth: depth + 1)
                 : result
+        }
+
+        func appendReplacement(
+            _ replacement: String,
+            followedBy next: Character?,
+            to result: inout String
+        ) {
+            if let previous = result.last,
+               let first = replacement.first,
+               requiresTokenBoundary(previous, first) {
+                result.append(" ")
+            }
+            result += replacement
+            if let last = replacement.last,
+               let next,
+               requiresTokenBoundary(last, next) {
+                result.append(" ")
+            }
+        }
+
+        func requiresTokenBoundary(_ left: Character, _ right: Character) -> Bool {
+            guard !left.isWhitespace, !right.isWhitespace else { return false }
+            return [
+                "++", "--", "+=", "-=", "*=", "/=", "%=", "==", "!=",
+                "<=", ">=", "&&", "||", "<<", ">>", "&=", "|=", "^=",
+                "//", "/*", "*/", "##",
+            ].contains(String([left, right]))
         }
 
         mutating func invocation(

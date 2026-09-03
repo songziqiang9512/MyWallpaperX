@@ -181,6 +181,28 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
     let target: SceneDynamicTarget
     let valueType: SceneDynamicValueType
     let authoredValue: SceneDynamicValue
+    /// The authored UI domain of a direct scalar user-property producer.
+    /// This is producer metadata, not a shader annotation: a material may
+    /// intentionally expose a wider user range than its editor-time constant.
+    let userPropertyNumericRange: ClosedRange<Double>?
+
+    nonisolated init(
+        target: SceneDynamicTarget,
+        valueType: SceneDynamicValueType,
+        authoredValue: SceneDynamicValue,
+        userPropertyNumericRange: ClosedRange<Double>? = nil
+    ) {
+        self.target = target
+        self.valueType = valueType
+        self.authoredValue = authoredValue
+        self.userPropertyNumericRange = userPropertyNumericRange
+    }
+
+    nonisolated func acceptsUserPropertyValue(_ value: SceneDynamicValue) -> Bool {
+        guard let userPropertyNumericRange else { return true }
+        guard case let .scalar(component) = value else { return false }
+        return component.isFinite && userPropertyNumericRange.contains(component)
+    }
 }
 
 nonisolated struct SceneDynamicResolvedValue: Equatable, Hashable, Sendable {
@@ -204,6 +226,8 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     let generation: UInt64
     private let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
     private let authoredValues: [SceneDynamicTarget: SceneDynamicValue]
+    private let userPropertyNumericRanges:
+        [SceneDynamicTarget: ClosedRange<Double>]
 
     nonisolated var count: Int { values.count }
 
@@ -213,6 +237,12 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
 
     nonisolated func authoredValue(for target: SceneDynamicTarget) -> SceneDynamicValue? {
         authoredValues[target]
+    }
+
+    nonisolated func userPropertyNumericRange(
+        for target: SceneDynamicTarget
+    ) -> ClosedRange<Double>? {
+        userPropertyNumericRanges[target]
     }
 
     nonisolated func particleControlPoints(layerID: Int) -> [Int: SIMD3<Double>] {
@@ -264,7 +294,8 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
             frameIndex: frameIndex,
             generation: generation,
             values: values,
-            authoredValues: authoredValues
+            authoredValues: authoredValues,
+            userPropertyNumericRanges: userPropertyNumericRanges
         )
     }
 
@@ -274,7 +305,7 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     ) -> SceneDynamicSnapshot {
         SceneDynamicSnapshot(
             frameIndex: frameIndex, generation: generation,
-            values: [:], authoredValues: [:]
+            values: [:], authoredValues: [:], userPropertyNumericRanges: [:]
         )
     }
 
@@ -282,12 +313,15 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         frameIndex: UInt64,
         generation: UInt64,
         values: [SceneDynamicTarget: SceneDynamicResolvedValue],
-        authoredValues: [SceneDynamicTarget: SceneDynamicValue]
+        authoredValues: [SceneDynamicTarget: SceneDynamicValue],
+        userPropertyNumericRanges:
+            [SceneDynamicTarget: ClosedRange<Double>]
     ) {
         self.frameIndex = frameIndex
         self.generation = generation
         self.values = values
         self.authoredValues = authoredValues
+        self.userPropertyNumericRanges = userPropertyNumericRanges
     }
 }
 
@@ -298,6 +332,7 @@ nonisolated struct SceneDynamicSnapshotDiagnostic: Equatable, Sendable {
         case unknownTarget
         case valueTypeMismatch
         case nonFiniteValue
+        case userPropertyValueOutOfRange
     }
 
     let code: Code
@@ -397,6 +432,12 @@ nonisolated struct SceneDynamicSnapshotResolver {
                     !duplicateTargets.contains(definition.target)
                         && resolved[definition.target] != nil
                         ? definition.authoredValue : nil
+                },
+                userPropertyNumericRanges: definitionsByTarget.compactMapValues {
+                    definition in
+                    guard !duplicateTargets.contains(definition.target),
+                          resolved[definition.target] != nil else { return nil }
+                    return definition.userPropertyNumericRange
                 }
             ),
             diagnostics: orderedDiagnostics
@@ -422,6 +463,15 @@ nonisolated struct SceneDynamicSnapshotResolver {
             }
             guard value.isFinite else {
                 diagnostics.append(.init(code: .nonFiniteValue, target: target, source: source))
+                continue
+            }
+            guard source != .userProperty
+                    || definition.acceptsUserPropertyValue(value) else {
+                diagnostics.append(.init(
+                    code: .userPropertyValueOutOfRange,
+                    target: target,
+                    source: source
+                ))
                 continue
             }
             resolved[target] = .init(value: value, source: source)
