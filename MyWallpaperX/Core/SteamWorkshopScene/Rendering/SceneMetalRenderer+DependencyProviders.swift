@@ -126,6 +126,7 @@ extension SceneMetalRenderer {
         viewportSize: CGSize,
         mainPass: SceneMainPassEncoder,
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
+        activeStaticModelConsumerLayerIDs: Set<Int>,
         commandBuffer: MTLCommandBuffer,
         executionTrace: SceneEffectExecutionFrameTrace
     ) -> Set<Int>? {
@@ -134,7 +135,9 @@ extension SceneMetalRenderer {
         guard let preparationLayerIDs = dependencyRuntime
                 .forwardDependencyPreparationOrder(
                     authoredLayerIDs: orderedLayers.map(\.id),
-                    activeExecutionLayerIDs: activeExecutionLayerIDs
+                    activeExecutionLayerIDs: activeExecutionLayerIDs,
+                    activeStaticModelConsumerLayerIDs:
+                        activeStaticModelConsumerLayerIDs
                 ) else { return nil }
         let layersByID = Dictionary(uniqueKeysWithValues: orderedLayers.map {
             ($0.id, $0)
@@ -201,6 +204,16 @@ extension SceneMetalRenderer {
                 sourceCandidate: baseSource?.candidate,
                 usesAuthoredLayerColor:
                     baseSource?.usesAuthoredLayerColor ?? true,
+                providerAlpha: Float(SceneDynamicLayerValues.alpha(
+                    layerID: provider.id,
+                    authoredValue: provider.alpha,
+                    snapshot: frameContext.dynamicValues
+                )),
+                providerColor: SceneDynamicLayerValues.color(
+                    layerID: provider.id,
+                    authoredValue: provider.colorRGB,
+                    snapshot: frameContext.dynamicValues
+                ),
                 layerMVP: cameraFrame.viewProjection(for: provider) * model,
                 viewportSize: viewportSize,
                 pipeline: imagePipeline,

@@ -128,7 +128,12 @@ enum SceneUtilityLayerRuntimePlanner {
             visibleLayerIDs: SceneLayerVisibility.visibleLayerIDs(in: descriptor),
             executableUtilityConsumerLayerIDs: executableConsumers
         )
-        let namedTargetProviderIDs = dependencyPlan.requiredProviderLayerIDs
+        // These diagnostics describe utility/effect consumers only. Static
+        // model material inputs share the named target runtime, but are not
+        // utility layers and may be dynamically inactive for the entire run.
+        let namedTargetProviderIDs = Set(
+            dependencyPlan.bindingsByConsumerLayerID.values.map(\.providerLayerID)
+        )
         let namedTargetGaps = ordered.filter {
             $0.requiresNamedTarget && !namedTargetProviderIDs.contains($0.layerID)
         }

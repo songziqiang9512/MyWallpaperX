@@ -76,7 +76,8 @@ extension SceneDependencyRenderPlan {
     /// provider could execute before the named texture it consumes exists.
     nonisolated func forwardDependencyPreparationOrder(
         authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>
+        activeExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int> = []
     ) -> [Int]? {
         guard Set(authoredLayerIDs).count == authoredLayerIDs.count else {
             return nil
@@ -91,6 +92,12 @@ extension SceneDependencyRenderPlan {
                   activeExecutionLayerIDs.contains(binding.consumerLayerID)
             else { return nil }
             return binding.providerLayerID
+        })
+        providers.formUnion(staticModelBindingsByConsumerLayerID.values.compactMap {
+            binding in
+            binding.requiresForwardCapture
+                && activeStaticModelConsumerLayerIDs.contains(binding.consumerLayerID)
+                ? binding.providerLayerID : nil
         })
         var changed = true
         while changed {

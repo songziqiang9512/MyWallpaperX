@@ -38,6 +38,19 @@ struct SceneEffectTextureInput {
 }
 
 struct SceneRenderDescriptor {
+    struct ModelMaterialLink {
+        let modelPath: String
+        let materialPath: String?
+    }
+
+    struct MaterialPassDescriptor {
+        let materialPath: String
+        let passIndex: Int
+        let texturePaths: [String]
+        let textureSlots: [String?]
+        let userTextureInputs: [SceneEffectTextureInput?]
+    }
+
     struct EffectDescriptor {
         struct PassDescriptor {
             let passIndex: Int
@@ -72,6 +85,7 @@ struct SceneRenderDescriptor {
 
     struct Layer {
         let id: Int
+        var staticModelPath: String? = nil
         let contentKind: String
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]
@@ -83,4 +97,6 @@ struct SceneRenderDescriptor {
 
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
+    var modelMaterialLinks: [ModelMaterialLink] = []
+    var materialPasses: [MaterialPassDescriptor] = []
 }

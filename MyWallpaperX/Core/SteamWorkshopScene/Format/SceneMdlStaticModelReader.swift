@@ -61,16 +61,21 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
     }
 }
 
-/// Strict reader for the direct static-model shape observed in bounded authored
-/// MDLV0023 content. This is intentionally separate from Puppet mesh recovery:
-/// older MDLV variants, skinned layouts and uint32 indices do not inherit this
-/// product contract.
+/// Strict reader for the direct static-model shapes observed in bounded authored
+/// MDLV0016/MDLV0023 content. This is intentionally separate from Puppet mesh
+/// recovery: other MDLV variants, skinned layouts and uint32 indices do not
+/// inherit this product contract.
 nonisolated enum SceneMdlStaticModelReader {
-    private static let magic = "MDLV0023"
+    private static let boundsHeaderVersion = "MDLV0023"
+    private static let derivedBoundsVersion = "MDLV0016"
+    private static let supportedVersions: Set<String> = [
+        boundsHeaderVersion, derivedBoundsVersion,
+    ]
     private static let magicByteCount = 9
     private static let supportedFormat: UInt32 = 15
     private static let vertexStride = 48
-    private static let trailerByteCount = 7
+    private static let boundsHeaderTrailerByteCount = 7
+    private static let derivedBoundsTrailerByteCount = 1
     private static let maximumPathByteCount = 4_096
     private static let maximumVertexByteCount: UInt32 = 64 * 1_024 * 1_024
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
@@ -98,7 +103,8 @@ nonisolated enum SceneMdlStaticModelReader {
         guard indexFlag == 0 else {
             throw SceneMdlStaticModelReadError.unsupportedIndexFlag(indexFlag)
         }
-        let bounds = try readBounds(cursor: &cursor)
+        let authoredBounds = header.version == boundsHeaderVersion
+            ? try readBounds(cursor: &cursor) : nil
 
         let vertexFormat = try cursor.readUInt32(section: "vertex format")
         guard vertexFormat == supportedFormat else {
@@ -115,8 +121,9 @@ nonisolated enum SceneMdlStaticModelReader {
         let vertices = try readVertices(
             cursor: &cursor,
             byteCount: vertexByteCount,
-            bounds: bounds
+            authoredBounds: authoredBounds
         )
+        let bounds = authoredBounds ?? derivedBounds(vertices: vertices)
 
         let indexByteCount = try cursor.readUInt32(section: "index byte count")
         guard indexByteCount > 0, indexByteCount % 6 == 0 else {
@@ -132,7 +139,8 @@ nonisolated enum SceneMdlStaticModelReader {
         )
 
         let trailer = try cursor.readBytes(
-            count: trailerByteCount,
+            count: header.version == boundsHeaderVersion
+                ? boundsHeaderTrailerByteCount : derivedBoundsTrailerByteCount,
             section: "trailer"
         )
         guard trailer.allSatisfy({ $0 == 0 }), cursor.isAtEnd else {
@@ -159,7 +167,7 @@ nonisolated enum SceneMdlStaticModelReader {
             section: "magic"
         )
         let version = String(decoding: magicBytes.prefix(8), as: UTF8.self)
-        guard version == magic, magicBytes.last == 0 else {
+        guard supportedVersions.contains(version), magicBytes.last == 0 else {
             throw SceneMdlStaticModelReadError.unsupportedMagic(version)
         }
 
@@ -225,7 +233,7 @@ nonisolated enum SceneMdlStaticModelReader {
     private static func readVertices(
         cursor: inout Cursor,
         byteCount: UInt32,
-        bounds: SceneMdlStaticModel.Bounds
+        authoredBounds: SceneMdlStaticModel.Bounds?
     ) throws -> [SceneMdlStaticModel.Vertex] {
         let count = Int(byteCount) / vertexStride
         try cursor.require(count: Int(byteCount), section: "vertex data")
@@ -241,13 +249,18 @@ nonisolated enum SceneMdlStaticModelReader {
                 )
             }
             let position = SIMD3<Float>(values[0], values[1], values[2])
-            guard values.allSatisfy(isAcceptedFiniteValue),
-                  position.x >= bounds.minimum[0],
-                  position.y >= bounds.minimum[1],
-                  position.z >= bounds.minimum[2],
-                  position.x <= bounds.maximum[0],
-                  position.y <= bounds.maximum[1],
-                  position.z <= bounds.maximum[2] else {
+            guard values.allSatisfy(isAcceptedFiniteValue) else {
+                throw SceneMdlStaticModelReadError.vertexDataOutOfRange(
+                    vertexIndex: index
+                )
+            }
+            if let bounds = authoredBounds,
+               !(position.x >= bounds.minimum[0]
+                   && position.y >= bounds.minimum[1]
+                   && position.z >= bounds.minimum[2]
+                   && position.x <= bounds.maximum[0]
+                   && position.y <= bounds.maximum[1]
+                   && position.z <= bounds.maximum[2]) {
                 throw SceneMdlStaticModelReadError.vertexDataOutOfRange(
                     vertexIndex: index
                 )
@@ -262,6 +275,21 @@ nonisolated enum SceneMdlStaticModelReader {
             ))
         }
         return vertices
+    }
+
+    private static func derivedBounds(
+        vertices: [SceneMdlStaticModel.Vertex]
+    ) -> SceneMdlStaticModel.Bounds {
+        var minimum = vertices[0].position
+        var maximum = minimum
+        for vertex in vertices.dropFirst() {
+            minimum = simd.min(minimum, vertex.position)
+            maximum = simd.max(maximum, vertex.position)
+        }
+        return .init(
+            minimum: [minimum.x, minimum.y, minimum.z],
+            maximum: [maximum.x, maximum.y, maximum.z]
+        )
     }
 
     private static func readIndices(

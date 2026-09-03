@@ -11,7 +11,8 @@ struct ScenePreparedStaticModelResources {
         let materialPath: String
         let geometryIdentity: String
         let mesh: SceneStaticModelMesh
-        let albedo: SceneTextureCandidate
+        let albedo: SceneTextureCandidate?
+        let namedAlbedo: SceneNamedTextureReference?
         let emissiveMask: SceneTextureCandidate?
         let material: SceneStaticModelMaterial
         let writesDepth: Bool
@@ -27,6 +28,9 @@ struct ScenePreparedStaticModelResources {
 
     var isEmpty: Bool { entriesByLayerID.isEmpty }
     var preparedLayerIDs: [Int] { entriesByLayerID.keys.sorted() }
+    var namedAlbedoLayerIDs: Set<Int> {
+        Set(entriesByLayerID.compactMap { $0.value.namedAlbedo == nil ? nil : $0.key })
+    }
 
     subscript(layerID: Int) -> Entry? {
         entriesByLayerID[layerID]
@@ -102,16 +106,22 @@ struct ScenePreparedStaticModelResources {
                 SceneVFSAssetPath($0.materialPath) == materialIdentity
                     && $0.passIndex == 0
             }),
-                  let texturePath = pass.textureSlots.first.flatMap({ $0 }),
-                  let textureURL = textureResolver.resolveTextureFile(
-                      named: texturePath
-                  ),
-                  case let .loaded(albedo) = textureLoader.loadCandidate(
-                      from: textureURL,
-                      purpose: .straightAlbedo,
-                      device: device
-                  ) else {
+                  let texturePath = pass.textureSlots.first.flatMap({ $0 }) else {
                 continue
+            }
+            let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
+            let albedo: SceneTextureCandidate?
+            if namedAlbedo == nil {
+                guard let textureURL = textureResolver.resolveTextureFile(
+                    named: texturePath
+                ), case let .loaded(candidate) = textureLoader.loadCandidate(
+                    from: textureURL,
+                    purpose: .straightAlbedo,
+                    device: device
+                ) else { continue }
+                albedo = candidate
+            } else {
+                albedo = nil
             }
             let modelMaterial = material(
                 pass,
@@ -138,6 +148,7 @@ struct ScenePreparedStaticModelResources {
                 geometryIdentity: preparedGeometry.geometryIdentity,
                 mesh: preparedGeometry.mesh,
                 albedo: albedo,
+                namedAlbedo: namedAlbedo,
                 emissiveMask: emissiveMask,
                 material: modelMaterial,
                 writesDepth: writesDepth(pass.depthWrite)

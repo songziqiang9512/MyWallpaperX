@@ -18,7 +18,7 @@ final class SceneDependencyFrameRuntime {
         let frameEpoch: UInt64
     }
 
-    private let plan: SceneDependencyRenderPlan
+    let plan: SceneDependencyRenderPlan
     private let targetPool: SceneNamedRenderTargetPool
     private let captureTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-capture")
     private let namedGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
@@ -27,7 +27,7 @@ final class SceneDependencyFrameRuntime {
     private let visibleGraphOutputPublicationTelemetry = SceneGPUCompletionTelemetry(
         phase: "visible-graph-output-publication"
     )
-    private let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
+    let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
     private var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
 #if DEBUG
@@ -59,13 +59,6 @@ final class SceneDependencyFrameRuntime {
 
     func requiresCapture(for providerLayerID: Int) -> Bool {
         plan.requiredProviderLayerIDs.contains(providerLayerID)
-    }
-
-    func requiresForwardCapture(for providerLayerID: Int) -> Bool {
-        plan.bindingsByConsumerLayerID.values.contains {
-            $0.providerLayerID == providerLayerID
-                && $0.requiresForwardCapture
-        }
     }
 
     func requiresGraphOutputCapture(for providerLayerID: Int) -> Bool {
@@ -108,11 +101,14 @@ final class SceneDependencyFrameRuntime {
 
     func forwardDependencyPreparationOrder(
         authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>
+        activeExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int> = []
     ) -> [Int]? {
         plan.forwardDependencyPreparationOrder(
             authoredLayerIDs: authoredLayerIDs,
-            activeExecutionLayerIDs: activeExecutionLayerIDs
+            activeExecutionLayerIDs: activeExecutionLayerIDs,
+            activeStaticModelConsumerLayerIDs:
+                activeStaticModelConsumerLayerIDs
         )
     }
 
@@ -320,6 +316,8 @@ final class SceneDependencyFrameRuntime {
         sourceTexture: MTLTexture?,
         sourceCandidate: SceneTextureCandidate?,
         usesAuthoredLayerColor: Bool = true,
+        providerAlpha: Float? = nil,
+        providerColor: SIMD3<Float>? = nil,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
         pipeline: SceneImageLayerPipeline,
@@ -358,26 +356,38 @@ final class SceneDependencyFrameRuntime {
         let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
             $0.providerLayerID == layer.id
         }
+        let staticModelBindings = plan.staticModelBindingsByConsumerLayerID.values
+            .filter { $0.providerLayerID == layer.id }
         var captureFailureReason: String?
-        guard let binding = providerBindings.first,
-              providerBindings.allSatisfy({ $0.kind == binding.kind }),
-              let extent = Self.captureExtent(
-                  binding: binding,
+        guard (providerBindings.isEmpty != staticModelBindings.isEmpty),
+              let extent = providerBindings.first.map({ binding in
+                  Self.captureExtent(
+                      binding: binding,
+                      providerLayer: layer,
+                      providerTexture: sourceTexture,
+                      providerCandidate: sourceCandidate,
+                      layerMVP: layerMVP,
+                      viewportSize: viewportSize,
+                      failureReason: &captureFailureReason
+                  )
+              }) ?? Self.staticModelCaptureExtent(
                   providerLayer: layer,
                   providerTexture: sourceTexture,
                   providerCandidate: sourceCandidate,
-                  layerMVP: layerMVP,
-                  viewportSize: viewportSize,
                   failureReason: &captureFailureReason
               ) else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return false
         }
+        let binding = providerBindings.first
+        guard binding == nil || providerBindings.allSatisfy({
+            $0.kind == binding?.kind
+        }) else { return false }
         let target: MTLTexture
         if let reservation {
             guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == layer.id,
-                  reservation.kind == binding.kind,
+                  binding.map({ reservation.kind == $0.kind }) == true,
                   reservation.width == extent.width,
                   reservation.height == extent.height,
                   reservation.texture.width == extent.width,
@@ -406,7 +416,7 @@ final class SceneDependencyFrameRuntime {
         }
 
         let encoded: Bool
-        switch binding.kind {
+        switch binding?.kind {
         case .imageLayerBlend, .visibleImageGraphOutput:
             guard let sourceTexture,
                   let sourceCandidate,
@@ -478,13 +488,51 @@ final class SceneDependencyFrameRuntime {
                 return false
             }
             var uniforms = SceneLayerFragmentUniforms.neutral()
-            uniforms.alpha = max(0, Float(layer.alpha ?? 1))
+            uniforms.alpha = max(0, providerAlpha ?? Float(layer.alpha ?? 1))
             let color = usesAuthoredLayerColor
-                ? SIMD3(layer.colorRGB ?? [], fill: 1)
+                ? providerColor ?? SIMD3(layer.colorRGB ?? [], fill: 1)
                 : SIMD3(repeating: 1)
             uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
             uniforms.textureFrame0 = SceneTextureUVTransform.identity.uniform0
             uniforms.textureFrame1 = SceneTextureUVTransform.identity.uniform1
+            encoded = mainPass.encodeOffscreen { commandBuffer in
+                let didEncode = SceneOffscreenEffectRenderer.captureSource(
+                    sourceTexture: sourceTexture,
+                    target: target,
+                    sourceUniforms: uniforms,
+                    pipeline: pipeline,
+                    commandBuffer: commandBuffer
+                )
+                captureTelemetry.record(
+                    layerID: layer.id,
+                    encoded: didEncode,
+                    on: commandBuffer
+                )
+                return didEncode
+            }
+        case nil:
+            guard !staticModelBindings.isEmpty,
+                  let sourceTexture,
+                  let providerSource = Self.staticModelProviderSource(
+                      layer: layer,
+                      texture: sourceTexture,
+                      candidate: sourceCandidate
+                  ) else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
+            var uniforms = SceneLayerFragmentUniforms.neutral()
+            uniforms.alpha = max(0, providerAlpha ?? Float(layer.alpha ?? 1))
+            let color = usesAuthoredLayerColor
+                ? providerColor ?? SIMD3(layer.colorRGB ?? [], fill: 1)
+                : SIMD3(repeating: 1)
+            uniforms.tint = SIMD4(color.x, color.y, color.z, 1)
+            uniforms.textureFrame0 = providerSource.textureFrame.uniform0
+            uniforms.textureFrame1 = providerSource.textureFrame.uniform1
+            uniforms.sourceSampling = SIMD2(
+                providerSource.sampling.imageLayerUniformMode,
+                0
+            )
             encoded = mainPass.encodeOffscreen { commandBuffer in
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
                     sourceTexture: sourceTexture,
@@ -652,7 +700,7 @@ final class SceneDependencyFrameRuntime {
         reservationsByProviderLayerID.removeAll(keepingCapacity: true)
     }
 
-    private static func normalizedExtent(
+    static func normalizedExtent(
         width: Int,
         height: Int
     ) -> (width: Int, height: Int)? {
@@ -724,7 +772,7 @@ final class SceneDependencyFrameRuntime {
         }
     }
 
-    private static func isExactImageProviderCandidate(
+    static func isExactImageProviderCandidate(
         _ candidate: SceneTextureCandidate,
         matching texture: MTLTexture
     ) -> Bool {
@@ -743,4 +791,5 @@ final class SceneDependencyFrameRuntime {
         }
         return true
     }
+
 }

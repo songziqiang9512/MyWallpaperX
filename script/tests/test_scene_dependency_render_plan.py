@@ -19,7 +19,16 @@ ADMISSION_CATALOG_SOURCE = (
 DEPENDENCY_RUNTIME_SOURCE = (
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
 )
+STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+StaticModel.swift"
+)
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+DEPENDENCY_PROVIDER_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+DependencyProviders.swift"
+)
+UTILITY_RUNTIME_PLAN_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneUtilityLayerRuntimePlan.swift"
+)
 LAUNCH_SOURCE = SOURCE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 SWIFT_SOURCES = [
     Path(__file__).with_name("fixtures")
@@ -34,6 +43,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ImageProgramReference.swift",
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+ForwardPreparation.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+StaticModel.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
 ]
 
@@ -620,6 +631,91 @@ enum Harness {
             .resolvedMaterialPreparationOrder(
                 authoredLayerIDs: forwardStaticPreparation.authoredLayerIDs
             )
+        let modelProvider = SceneRenderDescriptor.Layer(
+            id: 611,
+            contentKind: "solid",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let modelConsumer = SceneRenderDescriptor.Layer(
+            id: 610,
+            staticModelPath: "models/unseen/shared.mdl",
+            contentKind: "model",
+            utilityLayer: nil,
+            dependencyLayerIDs: [611],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let modelMaterialPath = "materials/unseen/shared.json"
+        let modelNamedPath = "_rt_imageLayerComposite_611_a"
+        let modelDependencyPlan = SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [modelConsumer, modelProvider],
+                renderOrderLayerIDs: [610, 611],
+                modelMaterialLinks: [.init(
+                    modelPath: "models/unseen/shared.mdl",
+                    materialPath: modelMaterialPath
+                )],
+                materialPasses: [.init(
+                    materialPath: modelMaterialPath,
+                    passIndex: 0,
+                    texturePaths: [modelNamedPath],
+                    textureSlots: [modelNamedPath],
+                    userTextureInputs: []
+                )]
+            ),
+            visibleLayerIDs: []
+        )
+        let activeModelForwardProviders = modelDependencyPlan
+            .forwardDependencyPreparationOrder(
+                authoredLayerIDs: [610, 611],
+                activeExecutionLayerIDs: [],
+                activeStaticModelConsumerLayerIDs: [610]
+            )
+        let inactiveModelForwardProviders = modelDependencyPlan
+            .forwardDependencyPreparationOrder(
+                authoredLayerIDs: [610, 611],
+                activeExecutionLayerIDs: [],
+                activeStaticModelConsumerLayerIDs: []
+        )
+        let modelEffectConsumer = consumer(612, provider: 611)
+        let mixedModelProvider = SceneRenderDescriptor.Layer(
+            id: 611,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: false,
+            effects: []
+        )
+        let mixedModelDescriptor = SceneRenderDescriptor(
+            layers: [modelConsumer, modelEffectConsumer, mixedModelProvider],
+            renderOrderLayerIDs: [610, 612, 611],
+            modelMaterialLinks: [.init(
+                modelPath: "models/unseen/shared.mdl",
+                materialPath: modelMaterialPath
+            )],
+            materialPasses: [.init(
+                materialPath: modelMaterialPath,
+                passIndex: 0,
+                texturePaths: [modelNamedPath],
+                textureSlots: [modelNamedPath],
+                userTextureInputs: []
+            )]
+        )
+        let mixedModelDependencyPlan = SceneDependencyRenderPlan(
+            descriptor: mixedModelDescriptor,
+            visibleLayerIDs: [612],
+            admittedResolvedMaterialReferences: Set(
+                SceneDependencyGraphAnalysis.references(
+                    in: mixedModelDescriptor.layers
+                )
+            )
+        )
         let result: [String: Any] = [
             "parsedVariants": parsed,
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
@@ -631,6 +727,34 @@ enum Harness {
             "defaultUtilityBinding": defaultPlan.bindingsByConsumerLayerID[15] != nil,
             "requiredProviders": plan.requiredProviderLayerIDs.sorted(),
             "cycles": plan.cyclicLayerIDs.sorted(),
+            "staticModelNamedProvider": [
+                "binding": modelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610] != nil,
+                "provider": modelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610]?
+                    .providerLayerID ?? -1,
+                "pass": modelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610]?
+                    .passIndex ?? -1,
+                "slot": modelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610]?
+                    .slotIndex ?? -1,
+                "forward": modelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610]?
+                    .requiresForwardCapture ?? false,
+                "required": modelDependencyPlan.requiredProviderLayerIDs
+                    .contains(611),
+                "activeOrder": activeModelForwardProviders ?? [-1],
+                "inactiveOrder": inactiveModelForwardProviders ?? [-1],
+            ],
+            "mixedModelNamedProvider": [
+                "modelBinding": mixedModelDependencyPlan
+                    .staticModelBindingsByConsumerLayerID[610] != nil,
+                "effectBinding": mixedModelDependencyPlan
+                    .bindingsByConsumerLayerID[612] != nil,
+                "required": mixedModelDependencyPlan.requiredProviderLayerIDs
+                    .contains(611),
+            ],
             "issues": plan.issues.map { "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)" },
             "secondaryBinding": secondaryPlan.bindingsByConsumerLayerID[33] != nil,
             "secondaryIssues": secondaryPlan.issues.map {
@@ -2150,7 +2274,11 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         catalog = ADMISSION_CATALOG_SOURCE.read_text(encoding="utf-8")
         renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        dependency_provider = DEPENDENCY_PROVIDER_SOURCE.read_text(encoding="utf-8")
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        static_model_dependency_runtime = (
+            STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        )
 
         self.assertIn(
             "SceneXRayStockIdentityVerifier.verifiedStockIdentityEffectKeys(",
@@ -2189,9 +2317,56 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         draw_outcome = renderer.index("let drawOutcome = imageCompositor.drawOutcome(")
         self.assertLess(visibility_guard, draw_outcome)
 
+    def test_static_model_named_albedo_uses_typed_forward_provider(self) -> None:
+        self.assertEqual(
+            self.result["staticModelNamedProvider"],
+            {
+                "binding": True,
+                "provider": 611,
+                "pass": 0,
+                "slot": 0,
+                "forward": True,
+                "required": True,
+                "activeOrder": [611],
+                "inactiveOrder": [],
+            },
+        )
+        disabled = self.route_disabled_result["staticModelNamedProvider"]
+        self.assertFalse(disabled["binding"])
+        self.assertFalse(disabled["required"])
+        self.assertEqual(disabled["activeOrder"], [])
+
+        utility_plan = UTILITY_RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "dependencyPlan.bindingsByConsumerLayerID.values.map(\\.providerLayerID)",
+            utility_plan,
+        )
+        report_start = utility_plan.index("static func reportLines(")
+        report_end = utility_plan.index("extension SceneRenderDescriptor")
+        self.assertNotIn(
+            "dependencyPlan.requiredProviderLayerIDs",
+            utility_plan[report_start:report_end],
+        )
+
+    def test_mixed_consumer_preserves_existing_effect_provider_route(self) -> None:
+        self.assertEqual(
+            self.result["mixedModelNamedProvider"],
+            {
+                "modelBinding": False,
+                "effectBinding": True,
+                "required": True,
+            },
+        )
+
     def test_forward_image_provider_preparation_precedes_authored_layer_loop(self) -> None:
         renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        dependency_provider = DEPENDENCY_PROVIDER_SOURCE.read_text(
+            encoding="utf-8"
+        )
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        static_model_dependency_runtime = (
+            STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        )
         main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
         forward_preparation = renderer.index(
             "prepareForwardDependencyProviders(", main_pass
@@ -2204,8 +2379,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn(
             ".forwardDependencyPreparationOrder(\n"
             "                    authoredLayerIDs: orderedLayers.map(\\.id),\n"
-            "                    activeExecutionLayerIDs: activeExecutionLayerIDs",
-            renderer,
+            "                    activeExecutionLayerIDs: activeExecutionLayerIDs,\n"
+            "                    activeStaticModelConsumerLayerIDs:",
+            dependency_provider,
         )
         self.assertIn(
             "resolvedMaterialExecutionLayerIDs(",
@@ -2213,7 +2389,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertIn(
             "executeDependencyGraphProviderIfRequired(",
-            renderer[renderer.index("private func prepareForwardDependencyProviders("):],
+            dependency_provider,
         )
         self.assertIn(
             "forwardGraphProviderLayerIDs.contains(layer.id)",
@@ -2221,7 +2397,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertIn(
             "$0.requiresForwardCapture",
-            dependency_runtime,
+            static_model_dependency_runtime,
         )
 
     def test_structural_slot3_hidden_solid_dependency_is_generic_and_fail_closed(

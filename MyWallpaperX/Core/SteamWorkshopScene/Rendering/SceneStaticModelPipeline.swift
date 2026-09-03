@@ -261,6 +261,7 @@ struct SceneStaticModelPipeline {
     func draw(
         mesh: SceneStaticModelMesh,
         texture: MTLTexture,
+        colorTextureIsPremultiplied: Bool,
         emissiveMask: MTLTexture?,
         emissiveMaskTextureFrame: SceneTextureUVTransform?,
         emissiveMaskSampling: SceneTextureSampling?,
@@ -347,7 +348,8 @@ struct SceneStaticModelPipeline {
                 cameraPosition.x, cameraPosition.y, cameraPosition.z, 1
             ),
             materialFlags: SIMD4(
-                material.textureAlphaIsOpacity ? 1 : 0,
+                (material.textureAlphaIsOpacity ? 1 : 0)
+                    | (colorTextureIsPremultiplied ? 2 : 0),
                 (emissiveMask == nil ? 0 : 1)
                     | (material.receivesLighting ? 0 : 2),
                 UInt32(lighting.spot.count),

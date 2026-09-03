@@ -77,6 +77,7 @@ nonisolated struct SceneDependencyRenderPlan {
     let executableUtilityConsumerLayerIDs: Set<Int>
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let staticModelBindingsByConsumerLayerID: [Int: SceneStaticModelNamedTextureBinding]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
@@ -167,6 +168,12 @@ nonisolated struct SceneDependencyRenderPlan {
         var issues = SceneDependencyGraphAnalysis.referenceIssues(
             references: references,
             layersByID: layersByID
+        )
+        let staticModelCompilation = Self.staticModelNamedTextureBindings(
+            descriptor: descriptor,
+            layersByID: layersByID,
+            order: order,
+            routeDisabled: namedProviderRouteDisabled
         )
         var bindings: [Int: Binding] = [:]
 
@@ -315,6 +322,12 @@ nonisolated struct SceneDependencyRenderPlan {
             }
         )
 
+        let staticModelResolution = Self.staticModelBindingsPreservingEffectProviders(
+            staticModelCompilation,
+            effectBindings: bindings
+        )
+        issues.append(contentsOf: staticModelResolution.issues)
+
         self.references = references
         self.namedReferenceConsumerLayerIDs = Set(references.compactMap { reference in
             reachableConsumerLayerIDs.contains(reference.consumerLayerID)
@@ -353,7 +366,9 @@ nonisolated struct SceneDependencyRenderPlan {
             return layer.id
         })
         self.bindingsByConsumerLayerID = bindings
+        self.staticModelBindingsByConsumerLayerID = staticModelResolution.bindings
         self.requiredProviderLayerIDs = Set(bindings.values.map(\.providerLayerID))
+            .union(staticModelResolution.bindings.values.map(\.providerLayerID))
         self.requiredGraphOutputProviderLayerIDs = Set(bindings.values.compactMap { binding in
             guard let provider = layersByID[binding.providerLayerID],
                   provider.effects.contains(where: { $0.visible != false }) else {

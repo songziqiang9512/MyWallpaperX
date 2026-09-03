@@ -226,6 +226,11 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn("layer.authoredDependencies.isEmpty", admission)
         self.assertIn("displayScriptOwnership?.isEmpty != false", admission)
         self.assertIn("liveConditionalLayerVisibilityTargets", admission)
+        self.assertIn(
+            "staticModelNamedTextureProviderLayerIDs(in: descriptor)",
+            admission,
+        )
+        self.assertIn("subtracting(modelProviderLayerIDs)", admission)
         self.assertIn("deferredBaseImageLayerIDs: deferredBaseImageLayerIDs", prepare)
         self.assertLess(
             prepare.index("let deferredBaseImageLayerIDs"),

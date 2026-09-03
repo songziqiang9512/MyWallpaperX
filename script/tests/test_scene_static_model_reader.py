@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Contract tests for the bounded direct MDLV0023 static-model reader."""
+"""Contract tests for the bounded direct MDLV0016/MDLV0023 model reader."""
 
 from __future__ import annotations
 
@@ -163,6 +163,33 @@ def build_model(
     )
 
 
+def build_legacy_model(
+    *,
+    material: bytes = b"materials/models/fixture/legacy.json",
+    vertices=DEFAULT_VERTICES,
+    indices=(0, 1, 2),
+    trailer: bytes = b"\0",
+) -> bytes:
+    vertex_blob = b"".join(
+        struct.pack("<12f", *(position + normal + tangent + uv))
+        for position, normal, tangent, uv in vertices
+    )
+    index_blob = struct.pack(f"<{len(indices)}H", *indices)
+    return b"".join(
+        [
+            b"MDLV0016\0",
+            struct.pack("<III", 15, 1, 1),
+            material,
+            b"\0",
+            struct.pack("<III", 0, 15, len(vertex_blob)),
+            vertex_blob,
+            struct.pack("<I", len(index_blob)),
+            index_blob,
+            trailer,
+        ]
+    )
+
+
 class SceneMdlStaticModelReaderTests(unittest.TestCase):
     maxDiff = None
 
@@ -186,10 +213,11 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
 
         fixtures = {
             "valid.mdl": build_model(),
+            "legacy-valid.mdl": build_legacy_model(),
             "windows-material.mdl": build_model(
                 material=b"materials\\models\\fixture\\default.json"
             ),
-            "old-version.mdl": build_model(magic=b"MDLV0016\0"),
+            "old-version.mdl": build_model(magic=b"MDLV0015\0"),
             "bad-nul.mdl": build_model(magic=b"MDLV0023X"),
             "bad-header-format.mdl": build_model(header_format=14),
             "multi-mesh.mdl": build_model(mesh_count=2),
@@ -247,6 +275,8 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             ),
             "nonzero-trailer.mdl": build_model(trailer=b"\0" * 6 + b"\1"),
             "extra-tail.mdl": build_model(trailer=b"\0" * 8),
+            "legacy-nonzero-trailer.mdl": build_legacy_model(trailer=b"\1"),
+            "legacy-extra-tail.mdl": build_legacy_model(trailer=b"\0\0"),
             "truncated.mdl": build_model()[:-1],
         }
         for name, value in fixtures.items():
@@ -302,9 +332,21 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["materialPath"], "materials/models/fixture/default.json")
 
+    def test_legacy_profile_derives_bounds_from_validated_vertices(self) -> None:
+        result = self.results["legacy-valid.mdl"]
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["version"], "MDLV0016")
+        self.assertEqual(
+            result["metadataMaterialPath"],
+            "materials/models/fixture/legacy.json",
+        )
+        self.assertEqual(result["boundsMinimum"], [-1, -1, 0])
+        self.assertEqual(result["boundsMaximum"], [1, 1, 0])
+        self.assertEqual(result["indices"], [0, 1, 2])
+
     def test_unsupported_versions_flags_and_counts_fail_closed(self) -> None:
         for name, token in (
-            ("old-version.mdl", "magic MDLV0016"),
+            ("old-version.mdl", "magic MDLV0015"),
             ("bad-nul.mdl", "magic MDLV0023"),
             ("bad-header-format.mdl", "header format 14"),
             ("multi-mesh.mdl", "mesh count 2"),
@@ -347,7 +389,13 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
                 self.assertIn(token, result["error"])
 
     def test_truncation_nonzero_trailer_and_extra_tail_fail_closed(self) -> None:
-        for name in ("truncated.mdl", "nonzero-trailer.mdl", "extra-tail.mdl"):
+        for name in (
+            "truncated.mdl",
+            "nonzero-trailer.mdl",
+            "extra-tail.mdl",
+            "legacy-nonzero-trailer.mdl",
+            "legacy-extra-tail.mdl",
+        ):
             with self.subTest(name=name):
                 self.assertFalse(self.results[name]["ok"], self.results[name])
 

@@ -16,6 +16,9 @@ RUNTIME_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/LayerDependencies"
     / "SceneDependencyFrameRuntime.swift"
 )
+STATIC_MODEL_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+StaticModel.swift"
+)
 
 
 HARNESS_SOURCE = r'''
@@ -61,6 +64,7 @@ struct SceneRenderDescriptor {
     let layers: [Layer]
     let bindings: [Int: SceneDependencyRenderPlan.Binding]
     let graphOutputProviderLayerIDs: Set<Int>
+    var staticModelConsumerProviders: [Int: Int] = [:]
 }
 
 struct SceneDependencyRenderPlan {
@@ -88,7 +92,18 @@ struct SceneDependencyRenderPlan {
         let requiresResolvedMaterialProgram = false
     }
 
+    struct StaticModelBinding {
+        let consumerLayerID: Int
+        let providerLayerID: Int
+        let materialPath: String
+        let passIndex: Int
+        let slotIndex: Int
+        let variant: SceneNamedTextureReference.Variant
+        let requiresForwardCapture: Bool
+    }
+
     let bindingsByConsumerLayerID: [Int: Binding]
+    let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let requiredEffectConsumerLayerIDs: Set<Int>
@@ -105,9 +120,23 @@ struct SceneDependencyRenderPlan {
         _ = verifiedXRayStageKeys
         _ = admittedResolvedMaterialReferences
         bindingsByConsumerLayerID = descriptor.bindings
+        staticModelBindingsByConsumerLayerID = Dictionary(
+            uniqueKeysWithValues: descriptor.staticModelConsumerProviders.map {
+                consumer, provider in
+                (consumer, StaticModelBinding(
+                    consumerLayerID: consumer,
+                    providerLayerID: provider,
+                    materialPath: "materials/unseen/runtime.json",
+                    passIndex: 0,
+                    slotIndex: 0,
+                    variant: .primary,
+                    requiresForwardCapture: true
+                ))
+            }
+        )
         requiredProviderLayerIDs = Set(descriptor.bindings.values.map(
             \.providerLayerID
-        ))
+        )).union(descriptor.staticModelConsumerProviders.values)
         requiredGraphOutputProviderLayerIDs =
             descriptor.graphOutputProviderLayerIDs
         requiredEffectConsumerLayerIDs = Set(descriptor.bindings.keys)
@@ -126,10 +155,12 @@ struct SceneDependencyRenderPlan {
 
     func forwardDependencyPreparationOrder(
         authoredLayerIDs: [Int],
-        activeExecutionLayerIDs: Set<Int>
+        activeExecutionLayerIDs: Set<Int>,
+        activeStaticModelConsumerLayerIDs: Set<Int> = []
     ) -> [Int]? {
         _ = authoredLayerIDs
         _ = activeExecutionLayerIDs
+        _ = activeStaticModelConsumerLayerIDs
         return []
     }
 }
@@ -284,6 +315,8 @@ enum SceneOffscreenEffectRenderer {
     static var lastTextureFrame0 = SIMD4<Float>.zero
     static var lastTextureFrame1 = SIMD4<Float>.zero
     static var lastSourceSampling = SIMD2<UInt32>.zero
+    static var lastAlpha: Float = 0
+    static var lastTint = SIMD4<Float>.zero
 
     static func captureSource(
         sourceTexture: MTLTexture,
@@ -297,6 +330,8 @@ enum SceneOffscreenEffectRenderer {
         lastTextureFrame0 = sourceUniforms.textureFrame0
         lastTextureFrame1 = sourceUniforms.textureFrame1
         lastSourceSampling = sourceUniforms.sourceSampling
+        lastAlpha = sourceUniforms.alpha
+        lastTint = sourceUniforms.tint
         _ = pipeline
         _ = commandBuffer
         return true
@@ -611,6 +646,59 @@ enum Harness {
                 == capturedUV.uniform1
             && SceneOffscreenEffectRenderer.lastSourceSampling == SIMD2(3, 0)
             && captureRegistry.readyPublicationCount == 1
+        let modelSolidProvider = SceneRenderDescriptor.Layer(
+            id: 500,
+            contentKind: "solid",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let modelRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [modelSolidProvider],
+                bindings: [:],
+                graphOutputProviderLayerIDs: [],
+                staticModelConsumerProviders: [610: 500]
+            ),
+            visibleLayerIDs: [],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        let modelRegistry = SceneFrameTextureRegistry(frameEpoch: 13)
+        let inactiveModelProviderDoesNotCapture = !modelRuntime.requiresCapture(
+            for: 500,
+            activeStaticModelConsumerLayerIDs: []
+        )
+        let activeModelProviderCaptures = modelRuntime.requiresCapture(
+            for: 500,
+            activeStaticModelConsumerLayerIDs: [610]
+        ) && modelRuntime.captureProviderIfRequired(
+            layer: modelSolidProvider,
+            sourceTexture: source,
+            sourceCandidate: nil,
+            providerAlpha: 0.25,
+            providerColor: SIMD3(0.2, 0.4, 0.6),
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            pipeline: .init(),
+            textureRegistry: modelRegistry,
+            mainPass: .init(texture: source, commandBuffer: commandBuffer)
+        ) == true
+        let modelInput = modelRuntime.staticModelNamedAlbedo(
+            for: 610,
+            materialPath: "materials/unseen/runtime.json",
+            expectedReference: .init(
+                providerLayerID: 500,
+                variant: .primary
+            ),
+            textureRegistry: modelRegistry
+        )
+        let modelProviderCarriesDynamicAppearance = activeModelProviderCaptures
+            && SceneOffscreenEffectRenderer.lastAlpha == 0.25
+            && SceneOffscreenEffectRenderer.lastTint == SIMD4(0.2, 0.4, 0.6, 1)
+            && modelInput?.texture !== source
+            && modelInput?.frameEpoch == 13
+            && modelInput?.isPremultiplied == true
         let wrongSize = texture(
             device,
             width: 3,
@@ -678,6 +766,10 @@ enum Harness {
                 directInput?.texture === provisionalInput?.texture
                 && directInput?.texture !== output,
             "capturedNonDefaultSourceAtom": capturedNonDefaultSourceAtom,
+            "inactiveModelProviderDoesNotCapture":
+                inactiveModelProviderDoesNotCapture,
+            "modelProviderCarriesDynamicAppearance":
+                modelProviderCarriesDynamicAppearance,
             "wrongSizeRejected": wrongSizeRejected,
             "epochAdvanceClearsReservation": epochAdvanceClearsReservation,
         ]
@@ -710,6 +802,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     str(RUNTIME_SOURCE),
+                    str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(harness),
                     "-framework",
                     "Metal",
@@ -751,6 +844,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "readyUsesDistinctNamedTarget": True,
                     "directInputUsesDistinctNamedTarget": True,
                     "capturedNonDefaultSourceAtom": True,
+                    "inactiveModelProviderDoesNotCapture": True,
+                    "modelProviderCarriesDynamicAppearance": True,
                     "wrongSizeRejected": True,
                     "epochAdvanceClearsReservation": True,
                 },

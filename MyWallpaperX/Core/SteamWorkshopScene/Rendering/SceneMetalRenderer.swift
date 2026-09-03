@@ -163,6 +163,8 @@ struct SceneMetalRenderer {
             in: frameDescriptor,
             snapshot: frameContext.dynamicValues
         )
+        let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
+            .intersection(staticModelResources.namedAlbedoLayerIDs)
         let dynamicLightColors = Dictionary(uniqueKeysWithValues:
             frameDescriptor.layers.compactMap { layer -> (Int, SIMD3<Float>)? in
                 guard layer.spotLight != nil || layer.directionalLight != nil else {
@@ -218,6 +220,8 @@ struct SceneMetalRenderer {
                 viewportSize: viewportSize,
                 mainPass: mainPass,
                 framePlans: resolvedMaterialFrameTargetPlans,
+                activeStaticModelConsumerLayerIDs:
+                    activeStaticModelNamedAlbedoLayerIDs,
                 commandBuffer: commandBuffer,
                 executionTrace: effectExecutionTrace
             ) {
@@ -296,7 +300,11 @@ struct SceneMetalRenderer {
                 }
                 continue
             }
-            if let imagePipeline, dependencyRuntime.requiresCapture(for: layer.id) {
+            if let imagePipeline, dependencyRuntime.requiresCapture(
+                for: layer.id,
+                activeStaticModelConsumerLayerIDs:
+                    activeStaticModelNamedAlbedoLayerIDs
+            ) {
                 let providerModel = imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
                     renderSizeOverride: imageTextures.layerSourceRenderSize(
@@ -315,6 +323,16 @@ struct SceneMetalRenderer {
                     sourceCandidate: baseSource?.candidate,
                     usesAuthoredLayerColor:
                         baseSource?.usesAuthoredLayerColor ?? true,
+                    providerAlpha: Float(SceneDynamicLayerValues.alpha(
+                        layerID: layer.id,
+                        authoredValue: layer.alpha,
+                        snapshot: frameContext.dynamicValues
+                    )),
+                    providerColor: SceneDynamicLayerValues.color(
+                        layerID: layer.id,
+                        authoredValue: layer.colorRGB,
+                        snapshot: frameContext.dynamicValues
+                    ),
                     layerMVP: cameraFrame.viewProjection(for: layer)
                         * providerModel,
                     viewportSize: viewportSize,
@@ -558,6 +576,32 @@ struct SceneMetalRenderer {
                       let prepared = staticModelResources[layer.id] else {
                     continue
                 }
+                let albedoTexture: MTLTexture
+                let albedoTextureFrame: SceneTextureUVTransform
+                let albedoSampling: SceneTextureSampling
+                let albedoIsPremultiplied: Bool
+                if let albedo = prepared.albedo {
+                    albedoTexture = albedo.texture
+                    albedoTextureFrame = albedo.uvTransform
+                    albedoSampling = albedo.sampling
+                    albedoIsPremultiplied = false
+                } else if let reference = prepared.namedAlbedo,
+                          let albedo = dependencyRuntime.staticModelNamedAlbedo(
+                              for: layer.id,
+                              materialPath: prepared.materialPath,
+                              expectedReference: reference,
+                              textureRegistry: textureRegistry
+                          ) {
+                    albedoTexture = albedo.texture
+                    albedoTextureFrame = albedo.textureFrame
+                    albedoSampling = albedo.sampling
+                    albedoIsPremultiplied = albedo.isPremultiplied
+                } else {
+                    dependencyRuntime.recordStaticModelBindingFailure(
+                        for: layer.id
+                    )
+                    continue
+                }
                 let modelMatrix = frameWorldFrames[layer.id]
                     ?? SceneMatrix.identity()
                 let depthTarget = staticModelDepthPlan.target(
@@ -621,9 +665,10 @@ struct SceneMetalRenderer {
                         snapshot: frameContext.dynamicValues
                     )
                 )
-                _ = pipeline.draw(
+                let encoded = pipeline.draw(
                     mesh: prepared.mesh,
-                    texture: prepared.albedo.texture,
+                    texture: albedoTexture,
+                    colorTextureIsPremultiplied: albedoIsPremultiplied,
                     emissiveMask: prepared.emissiveMask?.texture,
                     emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform,
                     emissiveMaskSampling: prepared.emissiveMask?.sampling,
@@ -634,13 +679,18 @@ struct SceneMetalRenderer {
                         )
                     ),
                     cameraPosition: cameraFrame.perspectiveEyePosition,
-                    textureFrame: prepared.albedo.uvTransform,
-                    sampling: prepared.albedo.sampling,
+                    textureFrame: albedoTextureFrame,
+                    sampling: albedoSampling,
                     layerAlpha: alpha,
                     material: material,
                     lighting: frameLightSnapshot,
                     writesDepth: prepared.writesDepth,
                     encoder: encoder
+                )
+                dependencyRuntime.recordStaticModelBindingIfRequired(
+                    for: layer.id,
+                    encoded: encoded,
+                    on: commandBuffer
                 )
             case "quad":
                 if !drawQuadLayer(

@@ -36,6 +36,8 @@ extension SceneDesktopWallpaperHost {
             definitions: bindingProgram.definitions,
             userValues: propertyValues
         ).snapshot
+        let modelProviderLayerIDs = SceneDependencyRenderPlan
+            .staticModelNamedTextureProviderLayerIDs(in: descriptor)
         return SceneDynamicLayerVisibilityRouteAdmission.layerIDs(
             in: descriptor,
             candidates: bindingProgram.liveConditionalLayerVisibilityTargets
@@ -44,6 +46,6 @@ extension SceneDesktopWallpaperHost {
                 in: descriptor,
                 snapshot: snapshot
             )
-        )
+        ).subtracting(modelProviderLayerIDs)
     }
 }

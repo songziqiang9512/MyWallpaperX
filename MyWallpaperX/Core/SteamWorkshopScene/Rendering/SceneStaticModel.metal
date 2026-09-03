@@ -70,6 +70,11 @@ fragment half4 sceneStaticModelFragment(
     sampler componentSampler [[sampler(1)]],
     constant SceneStaticModelUniforms &uniforms [[buffer(1)]]) {
     half4 albedo = colorTexture.sample(colorSampler, in.uv);
+    if ((uniforms.materialFlags.x & 2u) != 0u) {
+        albedo.rgb = albedo.a > half(1e-5)
+            ? albedo.rgb / albedo.a
+            : half3(0.0);
+    }
     float normalLengthSquared = dot(in.normal, in.normal);
     float3 normal = normalLengthSquared > 1e-12
         ? in.normal * rsqrt(normalLengthSquared)
@@ -115,7 +120,7 @@ fragment half4 sceneStaticModelFragment(
     }
     half authoredOpacity = half(uniforms.materialColorAndOpacity.w);
     half outputAlpha = authoredOpacity * (
-        uniforms.materialFlags.x != 0 ? albedo.a : half(1.0)
+        (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : half(1.0)
     );
     half3 surfaceColor;
     if (uniforms.materialFlags.w != 0) {
