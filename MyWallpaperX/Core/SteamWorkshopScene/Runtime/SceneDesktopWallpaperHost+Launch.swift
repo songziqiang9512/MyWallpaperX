@@ -734,6 +734,9 @@ extension SceneDesktopWallpaperHost {
                 resolvedMaterialExecutionCapabilities:
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
+                preparedStaticModelLayerIDs: Set(
+                    preparedDeviceResources.staticModels.preparedLayerIDs
+                ),
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram

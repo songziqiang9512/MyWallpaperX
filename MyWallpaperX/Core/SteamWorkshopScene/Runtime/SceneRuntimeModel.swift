@@ -89,8 +89,15 @@ struct SceneRuntimeModelBuilder {
         guard let renderDescriptor = sourceFacts.renderDescriptor else {
             throw BuildError.missingRenderDescriptor
         }
+        let sceneBindings = sceneDocument.userPropertyResolution.bindingReport
+        let materialBindings = SceneStaticModelMaterialPropertyBindingCompiler.compile(
+            descriptor: renderDescriptor
+        )
         let compilation = ScenePropertyBindingCompiler().compile(
-            report: sceneDocument.userPropertyResolution.bindingReport,
+            report: .init(
+                bindings: sceneBindings.bindings + materialBindings,
+                diagnostics: sceneBindings.diagnostics
+            ),
             catalog: project.userProperties
         )
         guard let sharedLayerAlphaProgram =

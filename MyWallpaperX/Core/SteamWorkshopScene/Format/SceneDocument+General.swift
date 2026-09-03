@@ -17,6 +17,7 @@ extension SceneDocument {
         var perspectiveOverrideFOVDegrees: Float? = nil
         var ambientColorRGB: [Float]? = nil
         var skylightColorRGB: [Float]? = nil
+        var hdrEnabled: Bool = false
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
         let clearEnabled: Bool
         let nearZ: Float?
@@ -44,6 +45,7 @@ extension SceneDocumentLoader {
                 .flatMap(Self.floatValue),
             ambientColorRGB: floatVector(root?["ambientcolor"]),
             skylightColorRGB: floatVector(root?["skylightcolor"]),
+            hdrEnabled: visibleValue(root?["hdr"]) ?? false,
             clearColor: floatVector(root?["clearcolor"]),
             clearEnabled: (root?["clearenabled"] as? Bool) ?? true,
             nearZ: root?["nearz"].flatMap(Self.floatValue),

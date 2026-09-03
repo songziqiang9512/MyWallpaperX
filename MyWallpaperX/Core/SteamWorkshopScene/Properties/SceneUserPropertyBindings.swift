@@ -45,6 +45,12 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
         name: String,
         effectPath: String?
     )
+    case materialShaderValue(
+        layerID: Int,
+        passIndex: Int,
+        name: String,
+        materialPath: String?
+    )
     case scriptProperty(layerID: Int, path: [String])
     case unsupported(reason: String)
 
@@ -55,7 +61,7 @@ nonisolated enum SceneUserPropertyBindingTarget: Codable, Equatable, Hashable {
         case let .camera(field):
             return field == "cameraparallax" || field == "camerashake"
         case .layerAlpha, .layerColor, .text, .particle, .soundVolume,
-             .shaderValue, .scriptProperty, .unsupported:
+             .shaderValue, .materialShaderValue, .scriptProperty, .unsupported:
             return false
         }
     }

@@ -609,7 +609,10 @@ struct SceneMetalRenderer {
                     authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 ))
-                let material = prepared.material.resolvingDynamicViewTintBack(
+                let material = prepared.material.resolvingDynamicValues(
+                    layerID: layer.id,
+                    snapshot: frameContext.dynamicValues
+                ).resolvingDynamicViewTintBack(
                     SceneDynamicLayerValues.color(
                         layerID: layer.id,
                         authoredValue: prepared.material.viewTint.map {

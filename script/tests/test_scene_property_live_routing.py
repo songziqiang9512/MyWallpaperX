@@ -278,9 +278,9 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
     def test_actionable_properties_come_from_typed_binding_targets(self) -> None:
         context = method_body(self.service, "func scenePropertyContext(")
         self.assertIn(
-            "document.userPropertyResolution.bindingReport.bindings.compactMap",
-            context,
+            "document.userPropertyResolution.bindingReport.bindings", context
         )
+        self.assertIn("+ materialBindings", context)
         self.assertNotIn("authoredEffectCatalog", context)
         self.assertNotIn("blendPlan", context)
         self.assertNotIn("SceneImageBlendRenderPlan", self.service)
@@ -296,6 +296,24 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             "resolvedMaterialExecutionCapabilities.liveConsumerTargets",
             consumers,
         )
+
+    def test_static_model_material_properties_share_editor_and_live_targets(self) -> None:
+        context = method_body(self.service, "func scenePropertyContext(")
+        support = method_body(self.service, "private func supportsScenePropertyTarget(")
+        consumers = method_body(
+            self.live_consumers, "static func activeLiveConsumerTargets("
+        )
+        self.assertIn(
+            "SceneStaticModelMaterialPropertyBindingCompiler.compile(", context
+        )
+        self.assertIn("+ materialBindings", context)
+        self.assertIn("case .materialShaderValue:", support)
+        self.assertIn(
+            "SceneStaticModelMaterialPropertyBindingCompiler.compile(", support
+        )
+        self.assertIn("preparedStaticModelLayerIDs", consumers)
+        self.assertIn("case let .materialConstant(layerID, _, _)", consumers)
+        self.assertIn(".union(modelMaterialTargets)", consumers)
 
     def test_generic_string_property_inputs_remain_live_without_scene_relaunch(self) -> None:
         consumers = method_body(self.live_consumers, "static func activeLiveConsumerTargets(")

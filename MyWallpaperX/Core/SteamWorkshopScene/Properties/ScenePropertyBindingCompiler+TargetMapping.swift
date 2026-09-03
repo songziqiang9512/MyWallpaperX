@@ -22,10 +22,41 @@ extension ScenePropertyBindingCompiler {
                 break
             }
         }
-        guard case let .shaderValue(
-            layerID, effectIndex, passIndex, name, _
-        ) = binding.target else {
-            if case let .scriptProperty(layerID, path) = binding.target {
+        switch binding.target {
+        case let .shaderValue(layerID, effectIndex, passIndex, name, _):
+            guard layerID >= 0, effectIndex >= 0, passIndex >= 0,
+                  validShaderValueName(name),
+                  let shape = shaderValueShape(
+                      fallback: binding.fallbackValue,
+                      propertyKind: propertyKind
+                  ) else { return nil }
+            return (
+                .effectConstant(
+                    layerID: layerID,
+                    effectIndex: effectIndex,
+                    passIndex: passIndex,
+                    name: name
+                ),
+                shape.valueType,
+                shape.propertyKind
+            )
+        case let .materialShaderValue(layerID, passIndex, name, _):
+            guard layerID >= 0, passIndex >= 0,
+                  validShaderValueName(name),
+                  let shape = shaderValueShape(
+                      fallback: binding.fallbackValue,
+                      propertyKind: propertyKind
+                  ) else { return nil }
+            return (
+                .materialConstant(
+                    layerID: layerID,
+                    passIndex: passIndex,
+                    name: name
+                ),
+                shape.valueType,
+                shape.propertyKind
+            )
+        case let .scriptProperty(layerID, path):
                 guard layerID >= 0, !path.isEmpty,
                       let shape = scriptPropertyShape(
                           fallback: binding.fallbackValue,
@@ -36,26 +67,9 @@ extension ScenePropertyBindingCompiler {
                     shape.valueType,
                     shape.propertyKind
                 )
-            }
+        default:
             return map(binding.target)
         }
-        guard layerID >= 0, effectIndex >= 0, passIndex >= 0,
-              !name.isEmpty,
-              name == name.trimmingCharacters(in: .whitespacesAndNewlines),
-              let shape = shaderValueShape(
-                  fallback: binding.fallbackValue,
-                  propertyKind: propertyKind
-              ) else { return nil }
-        return (
-            .effectConstant(
-                layerID: layerID,
-                effectIndex: effectIndex,
-                passIndex: passIndex,
-                name: name
-            ),
-            shape.valueType,
-            shape.propertyKind
-        )
     }
 
     nonisolated static func map(
@@ -110,7 +124,7 @@ extension ScenePropertyBindingCompiler {
                 .bool,
                 .bool
             )
-        case .scriptProperty:
+        case .scriptProperty, .materialShaderValue:
             nil
         default:
             nil
@@ -154,6 +168,11 @@ extension ScenePropertyBindingCompiler {
         default:
             nil
         }
+    }
+
+    private nonisolated static func validShaderValueName(_ name: String) -> Bool {
+        !name.isEmpty
+            && name == name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     nonisolated static func scalarShaderFallback(

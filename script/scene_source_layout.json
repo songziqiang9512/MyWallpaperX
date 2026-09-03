@@ -94,6 +94,7 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainTarget.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CapturedMainSourceConservation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+          "SceneResolvedMaterialExecutionCapabilityVariant+InputValidation.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+LaunchEnvelope.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+ProviderSlots.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant.swift",

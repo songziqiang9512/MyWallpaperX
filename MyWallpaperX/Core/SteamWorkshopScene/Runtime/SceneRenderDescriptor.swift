@@ -39,6 +39,7 @@ struct SceneRenderDescriptor: Codable {
     let entryPath: String
     let camera: CameraDescriptor
     var lighting: LightingDescriptor? = nil
+    var hdrEnabled: Bool = false
     var layers: [Layer]
     let rootLayerIDs: [Int]
     let renderOrderLayerIDs: [Int]
@@ -112,6 +113,7 @@ struct SceneRenderDescriptorBuilder {
                 ambientColorRGB: sceneDocument.general.ambientColorRGB,
                 skylightColorRGB: sceneDocument.general.skylightColorRGB
             ),
+            hdrEnabled: sceneDocument.general.hdrEnabled,
             layers: sceneDocument.objects.enumerated().map { index, object in
                 let contentKind = contentKind(for: object, solidModelPaths: solidModelPaths)
                 return SceneRenderDescriptor.Layer(

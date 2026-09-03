@@ -586,7 +586,7 @@ nonisolated struct ScenePropertyBindingCompiler {
         target: SceneUserPropertyBindingTarget,
         as valueType: SceneDynamicValueType
     ) -> Result<SceneDynamicValue, ScenePropertyBindingProgram.ValueError> {
-        if case .shaderValue = target,
+        if target.isShaderValue,
            valueType == .scalar,
            case let .string(rawValue) = fallback,
            let value = scalarShaderFallback(rawValue) {
@@ -677,4 +677,13 @@ nonisolated struct ScenePropertyBindingCompiler {
         ].joined(separator: "\u{1f}")
     }
 
+}
+
+private extension SceneUserPropertyBindingTarget {
+    nonisolated var isShaderValue: Bool {
+        switch self {
+        case .shaderValue, .materialShaderValue: true
+        default: false
+        }
+    }
 }

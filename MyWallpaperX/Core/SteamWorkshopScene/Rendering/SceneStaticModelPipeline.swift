@@ -35,6 +35,8 @@ struct SceneStaticModelMaterial {
     let textureAlphaIsTintMask: Bool
     let emissiveColor: SIMD3<Float>
     let emissiveBrightness: Float
+    let brightness: Float
+    let usesHDRBrightness: Bool
     let viewTint: SceneStaticModelViewTint?
 
     func resolvingDynamicViewTintBack(_ color: SIMD3<Float>) -> Self {
@@ -46,7 +48,66 @@ struct SceneStaticModelMaterial {
             textureAlphaIsTintMask: textureAlphaIsTintMask,
             emissiveColor: emissiveColor,
             emissiveBrightness: emissiveBrightness,
+            brightness: brightness,
+            usesHDRBrightness: usesHDRBrightness,
             viewTint: viewTint?.resolvingBackColor(color)
+        )
+    }
+
+    func resolvingDynamicValues(
+        layerID: Int,
+        snapshot: SceneDynamicSnapshot
+    ) -> Self {
+        let color = vector3("color", layerID: layerID, snapshot: snapshot)
+            ?? self.color
+        let emissiveColor = vector3(
+            "emissivecolor", layerID: layerID, snapshot: snapshot
+        ) ?? self.emissiveColor
+        return .init(
+            color: color,
+            opacity: scalar("alpha", layerID: layerID, snapshot: snapshot)
+                .map { min(max($0, 0), 1) } ?? opacity,
+            receivesLighting: receivesLighting,
+            textureAlphaIsOpacity: textureAlphaIsOpacity,
+            textureAlphaIsTintMask: textureAlphaIsTintMask,
+            emissiveColor: emissiveColor,
+            emissiveBrightness: scalar(
+                "emissivebrightness", layerID: layerID, snapshot: snapshot
+            ).map { max($0, 0) } ?? emissiveBrightness,
+            brightness: scalar(
+                "brightness", layerID: layerID, snapshot: snapshot
+            ).map { max($0, 0) } ?? brightness,
+            usesHDRBrightness: usesHDRBrightness,
+            viewTint: viewTint
+        )
+    }
+
+    private func scalar(
+        _ name: String,
+        layerID: Int,
+        snapshot: SceneDynamicSnapshot
+    ) -> Float? {
+        guard let resolved = snapshot[.materialConstant(
+            layerID: layerID, passIndex: 0, name: name
+        )], case let .scalar(value) = resolved.value, value.isFinite else {
+            return nil
+        }
+        return Float(value)
+    }
+
+    private func vector3(
+        _ name: String,
+        layerID: Int,
+        snapshot: SceneDynamicSnapshot
+    ) -> SIMD3<Float>? {
+        guard let resolved = snapshot[.materialConstant(
+            layerID: layerID, passIndex: 0, name: name
+        )], case let .vector3(x, y, z) = resolved.value,
+              x.isFinite, y.isFinite, z.isFinite else { return nil }
+        return SIMD3(
+            Float(min(max(x, 0), 1)),
+            Float(min(max(y, 0), 1)),
+            Float(min(max(z, 0), 1))
         )
     }
 }
@@ -227,6 +288,7 @@ struct SceneStaticModelPipeline {
               layerAlpha.isFinite,
               material.opacity.isFinite,
               material.emissiveBrightness.isFinite,
+              material.brightness.isFinite,
               material.color.x.isFinite,
               material.color.y.isFinite,
               material.color.z.isFinite,
@@ -242,6 +304,9 @@ struct SceneStaticModelPipeline {
         }
         let lights = Self.encodedLights(lighting.directional)
         let spots = Self.encodedSpots(lighting.spot)
+        let brightness = material.usesHDRBrightness
+            ? max(material.brightness, 0)
+            : 1
         var uniforms = SceneStaticModelUniforms(
             modelMatrix: modelMatrix,
             viewProjectionMatrix: viewProjection,
@@ -255,9 +320,9 @@ struct SceneStaticModelPipeline {
                 emissiveMaskTextureFrame ?? textureFrame
             ).uniform1,
             materialColorAndOpacity: SIMD4(
-                max(material.color.x, 0),
-                max(material.color.y, 0),
-                max(material.color.z, 0),
+                max(material.color.x * brightness, 0),
+                max(material.color.y * brightness, 0),
+                max(material.color.z * brightness, 0),
                 min(max(material.opacity * layerAlpha, 0), 1)
             ),
             emissiveColorAndBrightness: SIMD4(

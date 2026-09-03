@@ -266,6 +266,7 @@ enum Harness {
         case .particle: "particle"
         case .soundVolume: "soundVolume"
         case .shaderValue: "shaderValue"
+        case .materialShaderValue: "materialShaderValue"
         case .scriptProperty: "scriptProperty"
         case .unsupported: "unsupported"
         }

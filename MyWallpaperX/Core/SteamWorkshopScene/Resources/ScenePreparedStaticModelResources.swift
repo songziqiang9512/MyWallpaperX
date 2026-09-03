@@ -113,8 +113,16 @@ struct ScenePreparedStaticModelResources {
                   ) else {
                 continue
             }
-            let modelMaterial = material(pass)
+            let modelMaterial = material(
+                pass,
+                hdrEnabled: descriptor.hdrEnabled
+            )
+            let hasDynamicEmissiveBrightness = shaderValue(
+                named: "emissivebrightness",
+                in: pass
+            )?.userBinding != nil
             let emissiveMask = modelMaterial.emissiveBrightness > 0
+                || hasDynamicEmissiveBrightness
                 ? optionalTexture(
                     at: 2,
                     in: pass,
@@ -187,7 +195,8 @@ struct ScenePreparedStaticModelResources {
     }
 
     private static func material(
-        _ pass: SceneRenderDescriptor.MaterialPassDescriptor
+        _ pass: SceneRenderDescriptor.MaterialPassDescriptor,
+        hdrEnabled: Bool
     ) -> SceneStaticModelMaterial {
         // Shader symbols are case-sensitive. Stock model materials commonly
         // carry both the editor's `Color`/`Alpha` defaults and the authored
@@ -205,6 +214,7 @@ struct ScenePreparedStaticModelResources {
             named: "emissivebrightness",
             in: pass
         )?.first ?? 0
+        let brightness = components(named: "brightness", in: pass)?.first ?? 1
         let tintFront = components(named: "tintfront", in: pass)
         let tintBack = components(named: "tintback", in: pass)
         let tintExponent = components(named: "tintwexponent", in: pass)?
@@ -244,6 +254,8 @@ struct ScenePreparedStaticModelResources {
                 component(emissiveColor, at: 2, default: 1)
             ),
             emissiveBrightness: Float(emissiveBrightness),
+            brightness: Float(brightness),
+            usesHDRBrightness: hdrEnabled,
             viewTint: viewTint
         )
     }

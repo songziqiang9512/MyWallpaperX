@@ -14,6 +14,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 METAL_SOURCE = SCENE_ROOT / "Rendering/SceneStaticModel.metal"
 PIPELINE_SOURCE = SCENE_ROOT / "Rendering/SceneStaticModelPipeline.swift"
+DYNAMIC_SNAPSHOT_SOURCE = SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
 SAMPLING_SOURCE = SCENE_ROOT / "Resources/SceneTextureSampling.swift"
 UV_TRANSFORM_SOURCE = SCENE_ROOT / "Resources/SceneTextureUVTransform.swift"
@@ -125,12 +126,141 @@ class SceneStaticModelPipelineTests(unittest.TestCase):
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(PIPELINE_SOURCE),
                 ],
                 capture_output=True,
                 text=True,
                 env=environment,
             )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_material_consumes_layer_scoped_dynamic_values(self) -> None:
+        swiftc = shutil.which("swiftc")
+        if swiftc is None:
+            self.skipTest("swiftc is unavailable")
+        harness_source = r'''
+import simd
+
+@main
+enum MaterialHarness {
+    static func main() {
+        let definitions: [SceneDynamicTargetDefinition] = [
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "color"
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(1, 1, 1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "emissivecolor"
+                ),
+                valueType: .vector3,
+                authoredValue: .vector3(1, 1, 1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "alpha"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0, name: "brightness"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+            .init(
+                target: .materialConstant(
+                    layerID: 7, passIndex: 0,
+                    name: "emissivebrightness"
+                ),
+                valueType: .scalar,
+                authoredValue: .scalar(1)
+            ),
+        ]
+        let snapshot = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 1,
+            generation: 2,
+            definitions: definitions,
+            userValues: [
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "color"
+                ): .vector3(0.2, 0.4, 0.6),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "emissivecolor"
+                ): .vector3(0.9, 0.3, 0.1),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "alpha"
+                ): .scalar(0.4),
+                .materialConstant(
+                    layerID: 7, passIndex: 0, name: "brightness"
+                ): .scalar(1.75),
+                .materialConstant(
+                    layerID: 7, passIndex: 0,
+                    name: "emissivebrightness"
+                ): .scalar(3),
+            ]
+        ).snapshot
+        let base = SceneStaticModelMaterial(
+            color: SIMD3(1, 1, 1), opacity: 1,
+            receivesLighting: true, textureAlphaIsOpacity: true,
+            textureAlphaIsTintMask: false,
+            emissiveColor: SIMD3(1, 1, 1), emissiveBrightness: 1,
+            brightness: 1, usesHDRBrightness: true, viewTint: nil
+        )
+        let resolved = base.resolvingDynamicValues(
+            layerID: 7, snapshot: snapshot
+        )
+        precondition(resolved.color == SIMD3<Float>(0.2, 0.4, 0.6))
+        precondition(resolved.emissiveColor == SIMD3<Float>(0.9, 0.3, 0.1))
+        precondition(resolved.opacity == 0.4)
+        precondition(resolved.brightness == 1.75)
+        precondition(resolved.emissiveBrightness == 3)
+        precondition(base.resolvingDynamicValues(
+            layerID: 8, snapshot: snapshot
+        ).color == base.color)
+    }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix="mwx-model-material-consumer-") as tmp:
+            root = Path(tmp)
+            lighting_stub = root / "LightingStub.swift"
+            harness = root / "MaterialHarness.swift"
+            executable = root / "MaterialHarness"
+            lighting_stub.write_text(LIGHTING_STUB, encoding="utf-8")
+            harness.write_text(harness_source, encoding="utf-8")
+            environment = os.environ.copy()
+            environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-modules")
+            environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-modules")
+            compiled = subprocess.run(
+                [
+                    swiftc,
+                    str(MODEL_SOURCE),
+                    str(SAMPLING_SOURCE),
+                    str(UV_TRANSFORM_SOURCE),
+                    str(DIRECTIONAL_LIGHT_SOURCE),
+                    str(SPOT_LIGHT_SOURCE),
+                    str(lighting_stub),
+                    str(LIGHT_SOURCE),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
+                    str(PIPELINE_SOURCE),
+                    str(harness),
+                    "-framework", "Metal",
+                    "-o", str(executable),
+                ],
+                capture_output=True,
+                text=True,
+                env=environment,
+            )
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            completed = subprocess.run(
+                [str(executable)], capture_output=True, text=True, env=environment
+            ) if compiled.returncode == 0 else compiled
         self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_light_snapshot_publishes_bounded_spot_geometry_and_dynamic_color(self) -> None:
@@ -297,6 +427,7 @@ enum DepthPlanHarness {
                     str(SPOT_LIGHT_SOURCE),
                     str(lighting_stub),
                     str(LIGHT_SOURCE),
+                    str(DYNAMIC_SNAPSHOT_SOURCE),
                     str(PIPELINE_SOURCE),
                     str(harness),
                     "-framework", "Metal",
@@ -317,6 +448,8 @@ enum DepthPlanHarness {
 
     def test_pipeline_uses_fixed_depth_cull_blend_and_slots(self) -> None:
         source = PIPELINE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("material.usesHDRBrightness", source)
+        self.assertIn("material.color.x * brightness", source)
         for contract in (
             "device.makeDefaultLibrary()",
             "writingDepthDescriptor.depthCompareFunction = .greaterEqual",

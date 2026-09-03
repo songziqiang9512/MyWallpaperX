@@ -124,6 +124,7 @@ extension SceneDesktopWallpaperHost {
         resolvedMaterialExecutionCapabilities:
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
+        preparedStaticModelLayerIDs: Set<Int>,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram
@@ -137,6 +138,7 @@ extension SceneDesktopWallpaperHost {
                 resolvedMaterialExecutionCapabilities:
                     resolvedMaterialExecutionCapabilities,
                 soundPlaybackProgram: soundPlaybackProgram,
+                preparedStaticModelLayerIDs: preparedStaticModelLayerIDs,
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram
@@ -150,6 +152,7 @@ extension SceneDesktopWallpaperHost {
         resolvedMaterialExecutionCapabilities:
             SceneResolvedMaterialExecutionCapabilityCatalog,
         soundPlaybackProgram: SceneSoundPlaybackProgram,
+        preparedStaticModelLayerIDs: Set<Int>,
         propertyVectorScriptProgram: SceneScriptVectorProgram,
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram
@@ -166,9 +169,20 @@ extension SceneDesktopWallpaperHost {
                 in: descriptor,
                 candidates: propertyBindingProgram.liveLayerVisibilityTargets
             )
+        let modelMaterialTargets = Set<SceneDynamicTarget>(
+            propertyBindingProgram.instructions.compactMap { instruction in
+                guard case let .materialConstant(layerID, _, _) =
+                        instruction.target,
+                      preparedStaticModelLayerIDs.contains(layerID) else {
+                    return nil
+                }
+                return instruction.target
+            }
+        )
         return descriptor.layers.reduce(
             into: effectTargets
                 .union(layerVisibilityTargets)
+                .union(modelMaterialTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)
                 .union(propertyVectorScriptProgram.livePropertyInputTargets)
                 .union(sceneScriptScalarProgram.livePropertyInputTargets)

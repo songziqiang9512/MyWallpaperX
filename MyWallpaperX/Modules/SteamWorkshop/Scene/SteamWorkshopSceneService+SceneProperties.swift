@@ -98,8 +98,15 @@ extension SteamWorkshopService {
               let renderDescriptor = sourceFacts.renderDescriptor else {
             return nil
         }
+        let materialBindings =
+            SceneStaticModelMaterialPropertyBindingCompiler.compile(
+                descriptor: renderDescriptor
+            )
         let actionableKeys = Set(
-            document.userPropertyResolution.bindingReport.bindings.compactMap { binding in
+            (
+                document.userPropertyResolution.bindingReport.bindings
+                    + materialBindings
+            ).compactMap { binding in
                 supportsScenePropertyTarget(
                     binding.target,
                     in: renderDescriptor
@@ -265,6 +272,10 @@ extension SteamWorkshopService {
                 effectPath: effectPath,
                 in: renderDescriptor
             )
+        case .materialShaderValue:
+            return SceneStaticModelMaterialPropertyBindingCompiler.compile(
+                descriptor: renderDescriptor
+            ).contains { $0.target == target }
         case let .scriptProperty(layerID, _):
             return renderDescriptor.layers.contains { $0.id == layerID }
         case .unsupported:
