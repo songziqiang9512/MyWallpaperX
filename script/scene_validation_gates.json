@@ -652,12 +652,14 @@
       "id": "validation-governance",
       "patterns": [
         "script/scene_fast_suite.json",
+        "script/run_scene_tests.py",
         "script/verify_scene_change.py",
         "script/scene_validation_gates.json",
         ".github/workflows/**"
       ],
       "modules": [
         "test_scene_governance_contract",
+        "test_scene_test_runner",
         "test_verify_scene_change"
       ]
     }

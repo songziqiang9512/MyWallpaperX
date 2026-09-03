@@ -104,6 +104,9 @@ Scene 分类根 `MyWallpaperX/Core/SteamWorkshopScene` 不直接放 Swift。一�
 
 门禁只保护本次改动的真实失败半径，不是产品 runtime 的组成部分，也不是开发前置平台。默认运行最近的 executable unit；Swift 产品变更再 build；可见/GPU 变化再运行一个代表内容。不得因为目录过宽而在 inner 循环自动扩张到全 Scene、full corpus、签名或发行检查，新增静态政策门必须足够轻量并直接阻止热路径重新引入非出画面工作。
 
+- 测试模块选择必须服从本次修改的风险范围。使用 `script/run_scene_tests.py` 时，显式 `--module` 默认只运行列出的模块；只有显式加入 `--keyword` 才扩展到匹配的模块。`--scope scene` 本身不等于“本次改动需要跑全部 Scene”。`verify_scene_change.py` 生成 focused gate 时，若 registry 已有显式模块映射只能传这些模块，关键词只可作为没有模块映射时的明确兜底；不得用隐含的全 scope、无意义的占位关键词或模块并集把 inner/checkpoint 变成全量运行。
+- 全量测试只在风险确实跨越整个测试集合时运行：显式 `--scope all`、删除测试导致的完整回归要求、milestone 的完整 Scene 回归，或经说明的跨模块/发布验证。普通单文件、单 owner、单能力纵向切片不得因为目录名宽泛、共享前缀或工具默认值而触发全量；若映射过宽，应收窄模块映射或直接运行最近 executable unit，并在最终报告说明未运行的相邻门。
+
 统一入口：
 
 ```bash

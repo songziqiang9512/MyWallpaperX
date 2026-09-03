@@ -61,7 +61,7 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             ],
         )
 
-    def test_requested_modules_append_exact_non_scene_dependencies(self) -> None:
+    def test_requested_modules_with_keyword_add_exact_non_scene_dependencies(self) -> None:
         self.assertEqual(
             runner.discover_modules(
                 AVAILABLE_MODULES,
@@ -74,6 +74,22 @@ class RunSceneTestsSelectionTests(unittest.TestCase):
             ),
             [
                 "script.tests.test_scene_particle_runtime",
+                "script.tests.test_system_audio_spectrum",
+            ],
+        )
+
+    def test_requested_modules_without_keyword_are_exact(self) -> None:
+        self.assertEqual(
+            runner.discover_modules(
+                AVAILABLE_MODULES,
+                scope="scene",
+                requested_modules=[
+                    "test_scene_audio_response",
+                    "test_system_audio_spectrum",
+                ],
+            ),
+            [
+                "script.tests.test_scene_audio_response",
                 "script.tests.test_system_audio_spectrum",
             ],
         )

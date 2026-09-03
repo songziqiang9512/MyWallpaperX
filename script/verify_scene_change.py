@@ -144,14 +144,15 @@ def focused_test_command(
     if not modules and not keywords:
         return None
     command = [sys.executable, "-B", "script/run_scene_tests.py", "--scope", "scene"]
-    if modules and not keywords:
-        # --module appends to the scope selection; an impossible keyword first
-        # makes a modules-only plan genuinely focused.
-        command.extend(("-k", "__scene_validation_no_scope_match__"))
-    for keyword in sorted(keywords):
-        command.extend(("--keyword", keyword))
-    for module in sorted(modules):
-        command.extend(("--module", module))
+    # Explicit registry modules are the reviewed risk boundary.  Keywords are
+    # only a fallback for groups that have no executable module mapping; mixing
+    # both would silently widen a focused gate to every name-matched module.
+    if modules:
+        for module in sorted(modules):
+            command.extend(("--module", module))
+    else:
+        for keyword in sorted(keywords):
+            command.extend(("--keyword", keyword))
     return tuple(command)
 
 

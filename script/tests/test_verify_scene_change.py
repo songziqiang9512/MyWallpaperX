@@ -69,7 +69,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("semantics", groups)
         self.assertIn("test_document_role_index", gates[0].command)
         self.assertIn("test_scene_semantics_coverage", gates[0].command)
-        self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
+        self.assertNotIn("__scene_validation_no_scope_match__", gates[0].command)
+        self.assertNotIn("--keyword", gates[0].command)
 
     def test_non_scene_documentation_change_selects_repository_link_contract(self) -> None:
         gates, groups = verify.build_plan(
@@ -588,7 +589,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
             [gate.gate_id for gate in gates],
             ["focused-tests", "code-health", "build-verify", "targeted-sample"],
         )
-        self.assertIn("texture", gates[0].command)
+        self.assertIn("test_scene_frame_texture_registry", gates[0].command)
+        self.assertNotIn("--keyword", gates[0].command)
         self.assertIn("--sample-id", gates[-1].unresolved)
 
     def test_integration_requires_explicit_frozen_staged_app(self) -> None:
@@ -681,7 +683,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertIn("test_scene_wallpaper_benchmark", gates[0].command)
         self.assertIn("test_scene_wallpaper_benchmark_media_event", gates[0].command)
         self.assertIn("test_scene_frame_vm_routing", gates[0].command)
-        self.assertIn("__scene_validation_no_scope_match__", gates[0].command)
+        self.assertNotIn("__scene_validation_no_scope_match__", gates[0].command)
+        self.assertNotIn("--keyword", gates[0].command)
 
     def test_milestone_runs_complete_scene_regression_suite(self) -> None:
         gates, _ = verify.build_plan(

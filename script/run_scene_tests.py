@@ -2,9 +2,9 @@
 """按模块并行运行仓库 Python 测试。
 
 默认保持历史行为，运行 ``script/tests`` 下的全部 ``test_*.py`` 模块。
-``--scope scene`` 只选择 ``test_scene_*.py``；共享的非 Scene 前缀模块可用
-可重复的 ``--module`` 精确追加。可重复的 ``-k`` 对 scope 选择结果执行
-OR 过滤。本入口保持逐模块独立进程的语义（与手工
+``--scope scene`` 只选择 ``test_scene_*.py``；可重复的 ``--module`` 在未给
+关键词时构成精确选择，带 ``--keyword`` 时再把匹配的 scope 模块加入选择。
+可重复的 ``-k`` 对 scope 选择结果执行 OR 过滤。本入口保持逐模块独立进程的语义（与手工
 ``python3 -m unittest script.tests.<mod>`` 一致），只做调度与失败聚合。
 
 用法：
@@ -54,15 +54,25 @@ def discover_modules(
         if scope == "all"
         else [name for name in available if name.startswith("test_scene_")]
     )
+    keyword_matches = scoped
     if keywords:
-        scoped = [
+        keyword_matches = [
             name
             for name in scoped
             if any(keyword in name for keyword in keywords)
         ]
 
-    selected = sorted(set(scoped).union(requested_modules))
-    return [f"script.tests.{name}" for name in selected]
+    # An explicit module list is the narrowest executable contract.  The old
+    # union-with-scope behavior made ``--module a --module b`` run every module
+    # in the selected scope, which turned inner/checkpoint checks into an
+    # accidental full Scene suite.  Keywords remain an explicit opt-in for
+    # adding a name-matched cohort, including non-Scene dependencies.
+    selected = set(requested_modules)
+    if not requested_modules:
+        selected.update(keyword_matches)
+    elif keywords:
+        selected.update(keyword_matches)
+    return [f"script.tests.{name}" for name in sorted(selected)]
 
 
 def positive_job_count(value: str) -> int:
@@ -91,7 +101,10 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--scope",
         choices=("all", "scene"),
         default="all",
-        help="all runs every test_*.py module; scene selects only test_scene_*.py",
+        help=(
+            "all runs every test_*.py module; scene selects only test_scene_*.py; "
+            "explicit --module values stay exact"
+        ),
     )
     parser.add_argument(
         "-j",
@@ -106,14 +119,17 @@ def parse_arguments(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="append",
         default=[],
         type=nonempty_value,
-        help="按模块名子串过滤 scope；可重复，多个值按 OR 匹配",
+        help="按模块名子串将匹配模块加入 scope；可重复，多个值按 OR 匹配",
     )
     parser.add_argument(
         "--module",
         action="append",
         default=[],
         type=nonempty_value,
-        help="精确追加测试模块 basename（例如 test_system_audio_spectrum）；可重复",
+        help=(
+            "精确选择测试模块 basename（例如 test_system_audio_spectrum）；可重复；"
+            "与 --keyword 同用时额外加入匹配模块"
+        ),
     )
     parser.add_argument("--list", action="store_true", help="仅列出模块，不运行")
     return parser.parse_args(argv)
