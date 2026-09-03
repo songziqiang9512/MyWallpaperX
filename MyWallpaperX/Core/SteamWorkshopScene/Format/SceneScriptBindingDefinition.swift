@@ -362,7 +362,17 @@ nonisolated enum SceneScriptBindingIRParser {
     ) {
         guard let wrapper = rawValue as? [String: Any],
               wrapper.keys.contains("script") else { return }
-        if let userValue = wrapper["user"], !(userValue is NSNull) {
+        let directTextPropertyOwner: Bool
+        if owner.kind == .object,
+           let objectIndex = owner.objectIndex {
+            directTextPropertyOwner = path == [
+                .key("objects"), .index(objectIndex), .key("text"),
+            ]
+        } else {
+            directTextPropertyOwner = false
+        }
+        if let userValue = wrapper["user"], !(userValue is NSNull),
+           !directTextPropertyOwner {
             diagnostics.append(.init(code: .conflictingSources, targetPath: path))
             return
         }

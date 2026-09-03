@@ -447,6 +447,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 timelineTargets: timelineTargets,
                 excludedTargets: stringExcludedTargets,
                 rejectedTargets: rejectedStringTargets,
+                userPropertyDefinitions: userPropertyDefinitions,
                 generation: generation,
                 budget: budget
             )
@@ -735,6 +736,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                 scriptBindings: scriptBindings,
                 timelineTargets: timelineTargets,
                 excludedTargets: stringExcludedTargets,
+                userPropertyDefinitions: userPropertyDefinitions,
                 generation: generation,
                 budget: budget
             ),

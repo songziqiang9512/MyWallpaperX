@@ -121,8 +121,11 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let text = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT.rawValue
         ))
+        static let font = Self(rawValue: UInt32(
+            MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT.rawValue
+        ))
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text,
+            .origin, .scale, .angles, .visibility, .text, .font,
         ]
     }
 
@@ -247,7 +250,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             color: newer.color,
             pointSize: newer.pointSize,
             text: newer.fields.contains(.text) ? newer.text : text,
-            font: newer.font,
+            font: newer.fields.contains(.font) ? newer.font : font,
             assetPath: newer.assetPath ?? assetPath,
             ownerTarget: newer.ownerTarget ?? ownerTarget
         )

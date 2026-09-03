@@ -125,7 +125,7 @@ bool mwx_scene_quickjs_bind_module_engine_host(
         JS_DefinePropertyValueStr(
             context, engine, "registerAudioBuffers",
             JS_DupValue(context, registration), read_only
-        ) < 0) {
+        ) < 0 || !mwx_scene_quickjs_install_asset_engine(owner, engine)) {
         JS_FreeValue(context, engine);
         JS_FreeValue(context, registration);
         return false;

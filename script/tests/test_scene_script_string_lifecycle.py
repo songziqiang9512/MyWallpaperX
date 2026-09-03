@@ -290,6 +290,54 @@ enum Harness {
             effectivePropertyValues: ["clockPrefix": .string("teardown")],
             userPropertiesJSON: "{}"
         )
+        let eventSource = """
+        const selectedFont = engine.registerAsset('fonts/selected.ttf');
+        export function applyUserProperties(properties) {
+            if (properties.fontChoice) thisLayer.font = selectedFont;
+        }
+        """
+        let eventDomain = try SceneScriptQuickJSDomain()
+        let eventDescriptor = SceneRenderDescriptor(layers: [.init(
+            id: 88,
+            layerIndex: 0,
+            name: "Font Choice",
+            visible: true,
+            originXYZ: [0, 0, 0],
+            scaleXYZ: [1, 1, 1],
+            anglesXYZ: [0, 0, 0],
+            colorRGB: nil,
+            alpha: 1,
+            effects: [],
+            contentKind: "text",
+            textScript: .init(source: eventSource),
+            text: "placeholder",
+            textStyle: .init(
+                fontPath: "fonts/authored.ttf",
+                colorRGB: [1, 1, 1],
+                pointSize: 32
+            )
+        )])
+        try eventDomain.configureLayerCatalog(eventDescriptor)
+        let eventProgram = SceneScriptStringProgram.compile(
+            domain: eventDomain,
+            descriptor: eventDescriptor,
+            scriptBindings: [eventBinding(source: eventSource)],
+            userPropertyDefinitions: [.init(
+                key: "fontChoice", title: "Font", kind: .combo,
+                runtimeType: "combo", order: 0, index: nil,
+                minimumValue: nil, maximumValue: nil, stepValue: nil,
+                allowsFractionalValues: false, fractionalPrecision: nil,
+                displayCondition: nil, defaultValue: .string("selected"),
+                options: []
+            )],
+            generation: 3
+        )
+        let eventResult = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: frame
+        )
+        let eventFontMutation = eventResult.layerMutations.first
         let storageRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: storageRoot) }
@@ -375,6 +423,11 @@ enum Harness {
                 propertyTeardown.compactMap(\.failure).count,
             "propertyDestroyCallbacks":
                 propertyTeardown.filter(\.destroyCallbackInvoked).count,
+            "eventBindings": eventProgram.bindings.count,
+            "eventFailures": eventResult.failures.count,
+            "eventOutput": eventResult.values[propertyTarget] == .string("placeholder"),
+            "eventFontField": eventFontMutation?.fields.contains(.font) == true,
+            "eventFontPath": eventFontMutation?.font ?? "",
             "persistedStorageValue": persistedValue,
             "futureStorageReadRejected": futureReadRejected,
             "futureStorageWriteRejected": futureWriteRejected,
@@ -429,6 +482,26 @@ enum Harness {
             authoredValue: .string("placeholder"),
             valueType: .string,
             wrapperKeys: ["script", "scriptproperties", "value"]
+        )
+    }
+
+    static func eventBinding(source: String) -> SceneScriptBindingIR {
+        .init(
+            source: source,
+            owner: .init(
+                kind: .object,
+                objectIndex: 0,
+                objectID: 88,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [.key("objects"), .index(0), .key("text")],
+            properties: [:],
+            authoredValue: .string("placeholder"),
+            valueType: .string,
+            wrapperKeys: ["script", "user", "value"]
         )
     }
 
@@ -592,6 +665,11 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
         self.assertEqual(result["propertyActiveLiveTargets"], 1)
         self.assertEqual(result["propertyTeardownFailures"], 0)
         self.assertEqual(result["propertyDestroyCallbacks"], 1)
+        self.assertEqual(result["eventBindings"], 1)
+        self.assertEqual(result["eventFailures"], 0)
+        self.assertTrue(result["eventOutput"])
+        self.assertTrue(result["eventFontField"])
+        self.assertEqual(result["eventFontPath"], "fonts/selected.ttf")
         prefix, array_value, year = result["propertyValue"].split(":")
         self.assertEqual(prefix, "live")
         self.assertEqual(array_value, "one")

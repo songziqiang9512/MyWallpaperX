@@ -232,6 +232,32 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         definitions: &candidateDefinitions
                     )
                 }
+                if mutation.fields.contains(.font) {
+                    guard authoredLayer.contentKind == "text",
+                          authoredLayer.textStyle != nil,
+                          !mutation.font.isEmpty,
+                          mutation.font.utf8.count <= 1_024,
+                          !mutation.font.contains("\0") else {
+                        return .failure(.invalidArgument(
+                            "invalid authored text font mutation"
+                        ))
+                    }
+                    let target = SceneDynamicTarget.text(
+                        layerID: mutation.layerID, field: .font
+                    )
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument(
+                            "conflicting authored layer mutation target"
+                        ))
+                    }
+                    candidateAuthoredValues[target] = .string(mutation.font)
+                    Self.ensureDefinition(
+                        for: target,
+                        layer: authoredLayer,
+                        order: &candidateDefinitionOrder,
+                        definitions: &candidateDefinitions
+                    )
+                }
                 continue
             }
             guard mutation.orderIndex >= 0,
@@ -482,6 +508,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         if mutation.fields.contains(.text) {
             targets.append(.text(layerID: mutation.layerID, field: .content))
         }
+        if mutation.fields.contains(.font) {
+            targets.append(.text(layerID: mutation.layerID, field: .font))
+        }
         return targets
     }
 
@@ -541,6 +570,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             .init(
                 target: target, valueType: .string,
                 authoredValue: .string(layer.text ?? "")
+            )
+        case let .text(layerID, .font)
+            where layerID == layer.id && layer.contentKind == "text"
+                && layer.textStyle != nil:
+            .init(
+                target: target, valueType: .string,
+                authoredValue: .string(layer.textStyle?.fontPath ?? "")
             )
         default:
             nil

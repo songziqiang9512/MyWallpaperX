@@ -142,7 +142,9 @@ extension SceneDesktopWallpaperHost {
                 propertyVectorScriptProgram: propertyVectorScriptProgram,
                 sceneScriptScalarProgram: sceneScriptScalarProgram,
                 sceneScriptStringProgram: sceneScriptStringProgram
-            )
+            ),
+            scriptUserPropertyConsumerTargetsByKey:
+                sceneScriptStringProgram.liveUserPropertyConsumerTargetsByKey
         )
     }
 

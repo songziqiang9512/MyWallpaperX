@@ -33,7 +33,14 @@ nonisolated extension SceneScriptQuickJSDomain {
             } else {
                 text = layer.text ?? ""
             }
-            let font = layer.textStyle?.fontPath ?? ""
+            let font: String
+            if let resolved = snapshot[
+                .text(layerID: layer.id, field: .font)
+            ], case let .string(value) = resolved.value {
+                font = value
+            } else {
+                font = layer.textStyle?.fontPath ?? ""
+            }
             let colorTarget: SceneDynamicTarget = layer.contentKind == "text"
                 ? .text(layerID: layer.id, field: .color)
                 : .layer(layerID: layer.id, field: .color)

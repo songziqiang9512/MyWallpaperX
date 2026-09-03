@@ -616,7 +616,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                   baseline.angles.y.isFinite,
                   baseline.angles.z.isFinite,
                   baseline.text.utf8.count <= 4_096,
-                  !baseline.text.contains("\0") else {
+                  !baseline.text.contains("\0"),
+                  baseline.font.utf8.count <= 1_024,
+                  !baseline.font.contains("\0") else {
                 clearCursorAuthoredLayerBaselines()
                 return .invalidArgument("invalid cursor authored layer baseline")
             }
@@ -631,23 +633,27 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             ]
             var diagnostic = [CChar](repeating: 0, count: 512)
             let raw = baseline.text.withCString { textPointer in
-                origin.withUnsafeMutableBufferPointer { originPointer in
-                    scale.withUnsafeMutableBufferPointer { scalePointer in
-                        angles.withUnsafeMutableBufferPointer { anglesPointer in
-                            mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
-                                handle,
-                                generation,
-                                Int64(baseline.layerID),
-                                baseline.fields.rawValue,
-                                originPointer.baseAddress,
-                                scalePointer.baseAddress,
-                                anglesPointer.baseAddress,
-                                baseline.visible ? 1 : 0,
-                                textPointer,
-                                baseline.text.utf8.count,
-                                &diagnostic,
-                                diagnostic.count
-                            )
+                baseline.font.withCString { fontPointer in
+                    origin.withUnsafeMutableBufferPointer { originPointer in
+                        scale.withUnsafeMutableBufferPointer { scalePointer in
+                            angles.withUnsafeMutableBufferPointer { anglesPointer in
+                                mwx_scene_quickjs_owner_add_authored_layer_mutation_baseline(
+                                    handle,
+                                    generation,
+                                    Int64(baseline.layerID),
+                                    baseline.fields.rawValue,
+                                    originPointer.baseAddress,
+                                    scalePointer.baseAddress,
+                                    anglesPointer.baseAddress,
+                                    baseline.visible ? 1 : 0,
+                                    textPointer,
+                                    baseline.text.utf8.count,
+                                    fontPointer,
+                                    baseline.font.utf8.count,
+                                    &diagnostic,
+                                    diagnostic.count
+                                )
+                            }
                         }
                     }
                 }

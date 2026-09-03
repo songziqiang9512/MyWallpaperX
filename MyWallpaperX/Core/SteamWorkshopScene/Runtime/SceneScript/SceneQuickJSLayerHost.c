@@ -21,6 +21,10 @@ typedef struct MWXSceneQuickJSVideoHandle {
     uint32_t layer_index;
 } MWXSceneQuickJSVideoHandle;
 
+typedef struct MWXSceneQuickJSAssetHandle {
+    char *path;
+} MWXSceneQuickJSAssetHandle;
+
 static JSValue make_layer_handle(
     JSContext *context,
     MWXSceneQuickJSOwner *owner,
@@ -33,16 +37,38 @@ static void finalize_layer_handle(JSRuntime *runtime, JSValue value) {
     free(JS_GetOpaque(value, JS_GetClassID(value)));
 }
 
+static void finalize_asset_handle(JSRuntime *runtime, JSValue value) {
+    (void)runtime;
+    MWXSceneQuickJSAssetHandle *handle = JS_GetOpaque(
+        value, JS_GetClassID(value)
+    );
+    if (handle == NULL) return;
+    free(handle->path);
+    free(handle);
+}
+
 bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain) {
     if (domain == NULL || domain->runtime == NULL ||
-        domain->layer_handle_class_id != JS_INVALID_CLASS_ID) return false;
-    static const JSClassDef definition = {
+        domain->layer_handle_class_id != JS_INVALID_CLASS_ID ||
+        domain->asset_handle_class_id != JS_INVALID_CLASS_ID) return false;
+    static const JSClassDef layer_definition = {
         .class_name = "SceneLayerHandle",
         .finalizer = finalize_layer_handle,
     };
+    static const JSClassDef asset_definition = {
+        .class_name = "SceneAssetHandle",
+        .finalizer = finalize_asset_handle,
+    };
     JS_NewClassID(domain->runtime, &domain->layer_handle_class_id);
+    JS_NewClassID(domain->runtime, &domain->asset_handle_class_id);
     return domain->layer_handle_class_id != JS_INVALID_CLASS_ID &&
-        JS_NewClass(domain->runtime, domain->layer_handle_class_id, &definition) >= 0;
+        domain->asset_handle_class_id != JS_INVALID_CLASS_ID &&
+        JS_NewClass(
+            domain->runtime, domain->layer_handle_class_id, &layer_definition
+        ) >= 0 &&
+        JS_NewClass(
+            domain->runtime, domain->asset_handle_class_id, &asset_definition
+        ) >= 0;
 }
 
 enum LayerProperty {
@@ -122,6 +148,105 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
         if (!valid) return false;
     }
     return true;
+}
+
+static bool valid_asset_path(const char *path, size_t length) {
+    if (path == NULL || length == 0 ||
+        length > MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH ||
+        path[0] == '/' || path[0] == '\\' ||
+        memchr(path, '\0', length) != NULL ||
+        memchr(path, '\\', length) != NULL) return false;
+    size_t segment_start = 0;
+    for (size_t index = 0; index <= length; ++index) {
+        if (index != length && path[index] != '/') continue;
+        const size_t segment_length = index - segment_start;
+        if (segment_length == 0 ||
+            (segment_length == 1 && path[segment_start] == '.') ||
+            (segment_length == 2 && path[segment_start] == '.' &&
+             path[segment_start + 1] == '.')) return false;
+        segment_start = index + 1;
+    }
+    return true;
+}
+
+static JSValue make_asset_handle(
+    JSContext *context,
+    MWXSceneQuickJSDomain *domain,
+    const char *path,
+    size_t length
+) {
+    if (!valid_asset_path(path, length)) return JS_UNDEFINED;
+    MWXSceneQuickJSAssetHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return JS_EXCEPTION;
+    handle->path = malloc(length + 1);
+    if (handle->path == NULL) {
+        free(handle);
+        return JS_EXCEPTION;
+    }
+    memcpy(handle->path, path, length);
+    handle->path[length] = '\0';
+    JSValue value = JS_NewObjectClass(context, domain->asset_handle_class_id);
+    if (JS_IsException(value) || JS_SetOpaque(value, handle) < 0) {
+        free(handle->path);
+        free(handle);
+        JS_FreeValue(context, value);
+        return JS_EXCEPTION;
+    }
+    return value;
+}
+
+static const char *registered_asset_path(
+    MWXSceneQuickJSDomain *domain,
+    JSValueConst value
+) {
+    if (domain == NULL || !JS_IsObject(value)) return NULL;
+    MWXSceneQuickJSAssetHandle *handle = JS_GetOpaque(
+        value, domain->asset_handle_class_id
+    );
+    return handle == NULL ? NULL : handle->path;
+}
+
+static JSValue register_asset(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value;
+    (void)magic;
+    MWXSceneQuickJSOwner *owner = opaque;
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->module_owner != owner ||
+        owner->domain->callback_active || argc < 1 || argc > 2 ||
+        !JS_IsString(argv[0])) {
+        return JS_ThrowTypeError(
+            context, "registerAsset is only available during module evaluation"
+        );
+    }
+    if (argc == 2 && JS_ToBool(context, argv[1]) < 0) return JS_EXCEPTION;
+    size_t length = 0;
+    const char *path = JS_ToCStringLen(context, &length, argv[0]);
+    if (!valid_asset_path(path, length)) {
+        if (path != NULL) JS_FreeCString(context, path);
+        return JS_ThrowTypeError(context, "registerAsset path is invalid");
+    }
+    JSValue result = make_asset_handle(context, owner->domain, path, length);
+    JS_FreeCString(context, path);
+    return result;
+}
+
+bool mwx_scene_quickjs_install_asset_engine(
+    MWXSceneQuickJSOwner *owner,
+    JSValue engine
+) {
+    if (owner == NULL || owner->domain == NULL ||
+        !JS_IsObject(engine)) return false;
+    JSValue function = JS_NewCClosure(
+        owner->domain->context, register_asset, "registerAsset", NULL,
+        2, 0, owner
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        owner->domain->context, engine, "registerAsset", function,
+        JS_PROP_ENUMERABLE
+    ) >= 0;
 }
 
 static MWXSceneQuickJSAuthoredLayerMutationRecord *authored_mutation_for_layer(
@@ -236,6 +361,20 @@ static const double *authored_transform_value(
     return current;
 }
 
+static const char *authored_font_value(
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *mutation,
+    const MWXSceneQuickJSAuthoredLayerMutationRecord *baseline,
+    const MWXSceneQuickJSLayerRecord *record
+) {
+    if (mutation != NULL &&
+        (mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0)
+        return mutation->font;
+    if (baseline != NULL &&
+        (baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0)
+        return baseline->font;
+    return record->font == NULL ? "" : record->font;
+}
+
 static JSValue layer_get(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
@@ -318,7 +457,14 @@ static JSValue layer_get(
                   )
         );
     case LAYER_POINT_SIZE: return JS_NewFloat64(context, record->point_size);
-    case LAYER_FONT: return JS_NewString(context, record->font == NULL ? "" : record->font);
+    case LAYER_FONT: {
+        const char *font = !record->dynamic
+            ? authored_font_value(authored_mutation, authored_baseline, record)
+            : (record->font == NULL ? "" : record->font);
+        return font[0] == '\0'
+            ? JS_UNDEFINED
+            : make_asset_handle(context, handle->domain, font, strlen(font));
+    }
     case LAYER_ID: return JS_NewInt64(context, record->layer_id);
     case LAYER_NAME: return JS_NewString(context, record->name == NULL ? "" : record->name);
     }
@@ -551,6 +697,53 @@ static JSValue layer_set(
             return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
         }
         free(record->text); record->text = copy;
+        break;
+    }
+    case LAYER_FONT: {
+        if (!record->text_mutable && !record->dynamic)
+            return JS_ThrowTypeError(
+                context, "layer font mutation target is not a text layer"
+            );
+        const char *value = registered_asset_path(handle->domain, argv[0]);
+        const size_t length = value == NULL ? 0 : strlen(value);
+        if (!valid_asset_path(value, length) ||
+            length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT)
+            return JS_ThrowTypeError(
+                context, "layer font expects a registered asset handle"
+            );
+        const char *current = authored_target
+            ? authored_font_value(
+                authored_mutation_for_layer(owner, record_index),
+                authored_mutation_baseline_for_layer(owner, record_index),
+                record
+            )
+            : (record->font == NULL ? "" : record->font);
+        if (strcmp(current, value) == 0) break;
+        char *copy = malloc(length + 1);
+        if (copy == NULL) return JS_EXCEPTION;
+        memcpy(copy, value, length + 1);
+        if (authored_target) {
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                stage_authored_mutation(owner, record_index);
+            if (mutation == NULL) {
+                free(copy);
+                return JS_ThrowInternalError(
+                    context, "layer mutation buffer exceeded"
+                );
+            }
+            free(mutation->font);
+            mutation->font = copy;
+            mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT;
+            break;
+        }
+        if (!mark_dirty(owner, record)) {
+            free(copy);
+            return JS_ThrowInternalError(
+                context, "layer mutation buffer exceeded"
+            );
+        }
+        free(record->font);
+        record->font = copy;
         break;
     }
     default:
@@ -940,7 +1133,7 @@ static JSValue make_layer_handle(
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
-        {"font", LAYER_FONT, false}, {"id", LAYER_ID, false},
+        {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
         {"name", LAYER_NAME, false},
     };
     for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field) {
@@ -1037,7 +1230,6 @@ static JSValue get_layer(
         storage = storage_at_order(owner->domain, (int32_t)numeric);
     }
     if (storage < 0) return JS_ThrowRangeError(context, "getLayer target does not exist");
-    MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[storage];
     return make_layer_handle(context, owner, (uint32_t)storage, true);
 }
 
@@ -1072,6 +1264,31 @@ static bool read_optional_string(
     *output = malloc(length + 1);
     if (*output != NULL) { memcpy(*output, string, length); (*output)[length] = '\0'; }
     JS_FreeCString(context, string); return *output != NULL;
+}
+
+static bool read_optional_font(
+    JSContext *context,
+    MWXSceneQuickJSDomain *domain,
+    JSValueConst object,
+    char **output
+) {
+    JSValue value = JS_GetPropertyStr(context, object, "font");
+    if (JS_IsUndefined(value)) {
+        JS_FreeValue(context, value);
+        *output = calloc(1, 1);
+        return *output != NULL;
+    }
+    const char *path = registered_asset_path(domain, value);
+    const size_t length = path == NULL ? 0 : strlen(path);
+    if (!valid_asset_path(path, length) ||
+        length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT) {
+        JS_FreeValue(context, value);
+        return false;
+    }
+    *output = malloc(length + 1);
+    if (*output != NULL) memcpy(*output, path, length + 1);
+    JS_FreeValue(context, value);
+    return *output != NULL;
 }
 
 static double optional_number(JSContext *context, JSValueConst object, const char *key, double fallback) {
@@ -1209,13 +1426,18 @@ static JSValue create_layer(
     double scale[3] = {1, 1, 1};
     double color[3] = {1, 1, 1};
     bool visible = true;
-    if (JS_IsString(argv[0])) {
+    const char *registered_asset = registered_asset_path(domain, argv[0]);
+    if (JS_IsString(argv[0]) || registered_asset != NULL) {
         size_t length = 0;
-        const char *path = JS_ToCStringLen(context, &length, argv[0]);
-        if (path == NULL || length == 0 ||
-            length > MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH ||
-            memchr(path, '\0', length) != NULL) {
-            if (path != NULL) JS_FreeCString(context, path);
+        const char *path = registered_asset;
+        if (path != NULL) {
+            length = strlen(path);
+        } else {
+            path = JS_ToCStringLen(context, &length, argv[0]);
+        }
+        if (!valid_asset_path(path, length)) {
+            if (registered_asset == NULL && path != NULL)
+                JS_FreeCString(context, path);
             return JS_ThrowTypeError(context, "dynamic layer asset path is invalid");
         }
         asset_path = malloc(length + 1);
@@ -1223,14 +1445,14 @@ static JSValue create_layer(
         if (asset_path != NULL) {
             memcpy(asset_path, path, length); asset_path[length] = '\0';
         }
-        JS_FreeCString(context, path);
+        if (registered_asset == NULL) JS_FreeCString(context, path);
         if (asset_path == NULL || text == NULL || font == NULL || name == NULL) {
             free(asset_path); free(text); free(font); free(name);
             return JS_EXCEPTION;
         }
     } else {
         if (!read_optional_string(context, argv[0], "text", MWX_SCENE_QUICKJS_MAX_LAYER_TEXT, &text) ||
-            !read_optional_string(context, argv[0], "font", MWX_SCENE_QUICKJS_MAX_LAYER_FONT, &font) ||
+            !read_optional_font(context, domain, argv[0], &font) ||
             !read_optional_string(context, argv[0], "name", MWX_SCENE_QUICKJS_MAX_LAYER_NAME, &name) ||
             !read_optional_asset_path(context, argv[0], &asset_path) ||
             !read_optional_vec3(context, argv[0], "origin", origin, origin) ||
@@ -1396,7 +1618,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
-        {"font", LAYER_FONT, false}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
+        {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
     };
     for (size_t field = 0; field < sizeof(fields) / sizeof(fields[0]); ++field)
         if (!define_property(context, owner->material_function_layer, owner, 0, true, true,
@@ -1438,6 +1660,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
         MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
             &owner->authored_layer_mutations[index];
         free(mutation->text);
+        free(mutation->font);
         *mutation = (MWXSceneQuickJSAuthoredLayerMutationRecord){0};
     }
     owner->authored_layer_mutation_count = 0;
@@ -1605,7 +1828,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
                      MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
                 ? staged->text
                 : (record->text == NULL ? "" : record->text),
-            .font = record->font == NULL ? "" : record->font,
+            .font = (staged->fields &
+                     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0
+                ? staged->font
+                : (record->font == NULL ? "" : record->font),
             .asset_path = record->asset_path == NULL ? "" : record->asset_path,
         };
         memcpy(mutation->origin, staged->origin, sizeof(mutation->origin));
@@ -1848,6 +2074,7 @@ void mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(
         MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
             &owner->authored_layer_mutation_baselines[index];
         free(baseline->text);
+        free(baseline->font);
         *baseline = (MWXSceneQuickJSAuthoredLayerMutationRecord){0};
     }
     owner->authored_layer_mutation_baseline_count = 0;
@@ -1864,6 +2091,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     uint32_t visible,
     const char *text,
     size_t text_length,
+    const char *font,
+    size_t font_length,
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
@@ -1872,14 +2101,18 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT;
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
         fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
+        font == NULL ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
+        font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
         memchr(text, '\0', text_length) != NULL ||
+        memchr(font, '\0', font_length) != NULL ||
         owner->authored_layer_mutation_baseline_count >=
             MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS) {
         mwx_scene_quickjs_write_diagnostic(
@@ -1910,7 +2143,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         }
     }
     if (layer_index == UINT32_MAX ||
-        ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0 &&
+        ((fields & (MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
+                    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT)) != 0 &&
          !owner->domain->layers[layer_index].text_mutable)) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity,
@@ -1926,11 +2160,25 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     char *text_copy = NULL;
+    char *font_copy = NULL;
     if ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0) {
         text_copy = malloc(text_length + 1);
         if (text_copy == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
         memcpy(text_copy, text, text_length);
         text_copy[text_length] = '\0';
+    }
+    if ((fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT) != 0) {
+        if (!valid_asset_path(font, font_length)) {
+            free(text_copy);
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        }
+        font_copy = malloc(font_length + 1);
+        if (font_copy == NULL) {
+            free(text_copy);
+            return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+        }
+        memcpy(font_copy, font, font_length);
+        font_copy[font_length] = '\0';
     }
     MWXSceneQuickJSAuthoredLayerMutationRecord *baseline =
         &owner->authored_layer_mutation_baselines[
@@ -1941,6 +2189,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         .fields = fields,
         .visible = visible != 0,
         .text = text_copy,
+        .font = font_copy,
     };
     memcpy(baseline->origin, origin, sizeof(baseline->origin));
     memcpy(baseline->scale, scale, sizeof(baseline->scale));

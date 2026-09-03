@@ -34,8 +34,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let angles = Self(rawValue: 1 << 2)
         static let visibility = Self(rawValue: 1 << 3)
         static let text = Self(rawValue: 1 << 4)
+        static let font = Self(rawValue: 1 << 5)
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text,
+            .origin, .scale, .angles, .visibility, .text, .font,
         ]
     }
     let kind: Kind
@@ -76,7 +77,7 @@ nonisolated struct SceneDynamicSnapshot: Sendable {
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color
 }
-nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content }
+nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
@@ -176,6 +177,7 @@ func mutation(
     order: Int = 0,
     alpha: Double = 1,
     text: String = "text",
+    font: String = "",
     fields: SceneScriptLayerMutation.Fields = [],
     scale: SIMD3<Double> = .init(repeating: 1),
     angles: SIMD3<Double> = .zero,
@@ -188,7 +190,7 @@ func mutation(
         layerID: id, orderIndex: order,
         visible: visible, alpha: alpha, origin: .zero,
         scale: scale, angles: angles,
-        color: .init(repeating: 1), pointSize: 32, text: text, font: "",
+        color: .init(repeating: 1), pointSize: 32, text: text, font: font,
         assetPath: assetPath, ownerTarget: ownerTarget
     )
 }
@@ -234,8 +236,8 @@ enum Harness {
         let afterStatic = runtime.snapshot()
         let peerUpdate = runtime.apply([
             mutation(
-                20, dynamic: false, text: "~",
-                fields: [.scale, .text]
+                20, dynamic: false, text: "~", font: "fonts/selected.ttf",
+                fields: [.scale, .text, .font]
             )
         ])
         let afterPeer = runtime.snapshot()
@@ -371,6 +373,9 @@ enum Harness {
             "peerTextPublished": afterPeer.authoredLayerValues[
                 .text(layerID: 20, field: .content)
             ] == .string("~"),
+            "peerFontPublished": afterPeer.authoredLayerValues[
+                .text(layerID: 20, field: .font)
+            ] == .string("fonts/selected.ttf"),
             "authoredDefinitionCount": runtime.authoredLayerDefinitions.count,
             "rejected": !succeeded(rejected),
             "failedBatchTextRolledBack": afterRejected.authoredLayerValues[
@@ -472,7 +477,8 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["peerUpdateAccepted"])
         self.assertTrue(self.result["peerScalePublished"])
         self.assertTrue(self.result["peerTextPublished"])
-        self.assertEqual(self.result["authoredDefinitionCount"], 6)
+        self.assertTrue(self.result["peerFontPublished"])
+        self.assertEqual(self.result["authoredDefinitionCount"], 7)
         self.assertTrue(self.result["rejected"])
         self.assertTrue(self.result["failedBatchTextRolledBack"])
         self.assertEqual(self.result["rollbackLayers"], [-1])

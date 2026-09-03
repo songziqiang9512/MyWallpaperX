@@ -28,13 +28,16 @@ import Foundation
 enum Harness {
     static func main() throws {
         let authored = SceneDynamicTextSignature(
-            content: "A", pointSize: 8, colorRGB: [1, 1, 1], maxWidth: 100
+            content: "A", fontPath: nil,
+            pointSize: 8, colorRGB: [1, 1, 1], maxWidth: 100
         )
         let second = SceneDynamicTextSignature(
-            content: "B", pointSize: 9, colorRGB: [1, 0, 0], maxWidth: 200
+            content: "B", fontPath: "fonts/second.ttf",
+            pointSize: 9, colorRGB: [1, 0, 0], maxWidth: 200
         )
         let latest = SceneDynamicTextSignature(
-            content: "C", pointSize: 10, colorRGB: [0, 1, 0], maxWidth: 300
+            content: "C", fontPath: "fonts/latest.ttf",
+            pointSize: 10, colorRGB: [0, 1, 0], maxWidth: 300
         )
         var state = SceneDynamicTextGenerationState()
         state.registerInitial(layerID: 1, signature: authored, isReady: true)

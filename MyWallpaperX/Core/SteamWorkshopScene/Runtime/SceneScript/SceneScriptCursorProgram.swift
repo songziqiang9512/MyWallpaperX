@@ -555,7 +555,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             pointSize: current.pointSize,
             text: current.fields.contains(.text)
                 ? current.text : previous.text,
-            font: current.font,
+            font: current.fields.contains(.font)
+                ? current.font : previous.font,
             assetPath: current.assetPath,
             ownerTarget: current.ownerTarget ?? previous.ownerTarget
         )

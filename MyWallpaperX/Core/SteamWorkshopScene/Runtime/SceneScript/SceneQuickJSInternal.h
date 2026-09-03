@@ -95,6 +95,7 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double angles[3];
     bool visible;
     char *text;
+    char *font;
 } MWXSceneQuickJSAuthoredLayerMutationRecord;
 
 typedef struct MWXSceneQuickJSVideoEndedCallbackRecord {
@@ -153,6 +154,7 @@ struct MWXSceneQuickJSDomain {
     size_t user_properties_json_length;
     bool user_properties_snapshot_valid;
     JSClassID layer_handle_class_id;
+    JSClassID asset_handle_class_id;
     uint64_t interrupt_budget;
     uint64_t owner_creation_budget;
     bool interrupted;
@@ -288,6 +290,10 @@ bool mwx_scene_quickjs_install_owner_handle_globals(
 bool mwx_scene_quickjs_install_owner_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain);
+bool mwx_scene_quickjs_install_asset_engine(
+    MWXSceneQuickJSOwner *owner,
+    JSValue engine
+);
 bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);

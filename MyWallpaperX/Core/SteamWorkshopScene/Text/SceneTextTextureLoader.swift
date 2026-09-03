@@ -70,6 +70,7 @@ enum SceneTextTextureLoader {
     static func makeDynamicTexture(
         for layer: SceneRenderDescriptor.Layer,
         content: String,
+        fontPath: String? = nil,
         pointSize: Float,
         colorRGB: [Float],
         maxWidth: Float? = nil,
@@ -79,6 +80,7 @@ enum SceneTextTextureLoader {
         guard let rendered = makeRenderedTexture(
             for: layer,
             content: content,
+            fontPath: fontPath,
             pointSize: pointSize,
             colorRGB: colorRGB,
             maxWidth: maxWidth,
@@ -96,6 +98,7 @@ enum SceneTextTextureLoader {
     private static func makeRenderedTexture(
         for layer: SceneRenderDescriptor.Layer,
         content: String? = nil,
+        fontPath: String? = nil,
         pointSize: Float? = nil,
         colorRGB: [Float]? = nil,
         maxWidth: Float? = nil,
@@ -104,6 +107,7 @@ enum SceneTextTextureLoader {
     ) -> RenderedTexture? {
         guard let text = content ?? layer.text, let authoredStyle = layer.textStyle else { return nil }
         let style = authoredStyle.replacing(
+            fontPath: fontPath,
             pointSize: pointSize,
             colorRGB: colorRGB,
             maxWidth: maxWidth

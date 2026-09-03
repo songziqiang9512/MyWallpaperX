@@ -75,6 +75,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES = 1u << 2,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY = 1u << 3,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT = 1u << 4,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT = 1u << 5,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -452,6 +453,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     uint32_t visible,
     const char *text,
     size_t text_length,
+    const char *font,
+    size_t font_length,
     char *diagnostic,
     size_t diagnostic_capacity
 );

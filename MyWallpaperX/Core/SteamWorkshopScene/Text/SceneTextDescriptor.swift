@@ -48,12 +48,13 @@ struct SceneTextDescriptor: Codable {
     }
 
     nonisolated func replacing(
+        fontPath: String? = nil,
         pointSize: Float? = nil,
         colorRGB: [Float]? = nil,
         maxWidth: Float? = nil
     ) -> SceneTextDescriptor {
         SceneTextDescriptor(
-            fontPath: fontPath,
+            fontPath: fontPath ?? self.fontPath,
             pointSize: max(1, pointSize ?? self.pointSize),
             colorRGB: Self.paddedColor(colorRGB ?? self.colorRGB, fill: 1),
             brightness: brightness,

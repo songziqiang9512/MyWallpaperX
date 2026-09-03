@@ -90,6 +90,7 @@ nonisolated enum SceneDynamicLayerField: String, Codable, Equatable, Hashable, S
 
 nonisolated enum SceneDynamicTextField: String, Codable, Equatable, Hashable, Sendable {
     case content
+    case font
     case pointSize
     case color
     case maxWidth

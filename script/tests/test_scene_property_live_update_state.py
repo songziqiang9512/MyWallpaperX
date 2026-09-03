@@ -567,6 +567,42 @@ enum Harness {
         let unsupportedColorProviderRebuilds = unsupportedColorProviderCompilation.program
             .rebuildRequiredPropertyKeys.contains("scriptSpeed")
 
+        let scriptEventProgram = program(bindings: [])
+        var scriptEventState = ScenePropertyLiveUpdateState(
+            program: scriptEventProgram,
+            effectiveValues: ["fontChoice": .string("13")],
+            activeConsumerTargets: [alphaThree],
+            scriptUserPropertyConsumerTargetsByKey: [
+                "fontChoice": [alphaThree],
+            ]
+        )
+        let scriptEventAccepted = scriptEventState.apply(
+            .string("21"),
+            forPropertyKey: "fontChoice"
+        )
+        let scriptEventPublished =
+            scriptEventState.effectiveValues["fontChoice"] == .string("21")
+                && scriptEventState.userValues.isEmpty
+        let beforeScriptEventTypeFailure = scriptEventState
+        let scriptEventTypeRejected = !scriptEventState.apply(
+            .number(21),
+            forPropertyKey: "fontChoice"
+        )
+        let scriptEventTypeFailureWasAtomic = unchanged(
+            scriptEventState,
+            from: beforeScriptEventTypeFailure
+        )
+        let beforeUnavailableScriptEvent = scriptEventState
+        let unavailableScriptEventRejected = !scriptEventState.apply(
+            .string("1"),
+            forPropertyKey: "fontChoice",
+            unavailableConsumerTargets: [alphaThree]
+        )
+        let unavailableScriptEventWasAtomic = unchanged(
+            scriptEventState,
+            from: beforeUnavailableScriptEvent
+        )
+
         let payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
             "singleAccepted": singleAccepted,
@@ -630,6 +666,12 @@ enum Harness {
             "malformedProviderRebuilds": malformedProviderRebuilds,
             "nullOuterUserProviderClassified": nullOuterUserProviderClassified,
             "colorProviderClassified": !unsupportedColorProviderRebuilds,
+            "scriptEventAccepted": scriptEventAccepted,
+            "scriptEventPublished": scriptEventPublished,
+            "scriptEventTypeRejected": scriptEventTypeRejected,
+            "scriptEventTypeFailureWasAtomic": scriptEventTypeFailureWasAtomic,
+            "unavailableScriptEventRejected": unavailableScriptEventRejected,
+            "unavailableScriptEventWasAtomic": unavailableScriptEventWasAtomic,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

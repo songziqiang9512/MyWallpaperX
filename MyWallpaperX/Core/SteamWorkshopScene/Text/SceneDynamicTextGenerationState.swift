@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated struct SceneDynamicTextSignature: Equatable, Sendable {
     let content: String
+    let fontPath: String?
     let pointSize: Float
     let colorRGB: [Float]
     let maxWidth: Float

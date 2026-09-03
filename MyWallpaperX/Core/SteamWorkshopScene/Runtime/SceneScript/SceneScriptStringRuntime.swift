@@ -14,6 +14,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
     let hasAudioRegistration: Bool
+    let handlesUserProperties: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
@@ -70,6 +71,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var handlesMediaPlayback = false
         var handlesMediaProperties = false
         var handlesMediaTimeline = false
+        var handlesUserProperties = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             var updateAvailable: UInt32 = 0
@@ -83,11 +85,8 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
                     diagnostic.count
                 )
             }
-            guard updateResult == MWX_SCENE_QUICKJS_OK,
-                  updateAvailable == 1 else {
-                throw updateResult == MWX_SCENE_QUICKJS_OK
-                    ? SceneScriptScalarRuntimeFailure.invalidSource
-                    : Self.failure(updateResult, diagnostic)
+            guard updateResult == MWX_SCENE_QUICKJS_OK else {
+                throw Self.failure(updateResult, diagnostic)
             }
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
@@ -109,12 +108,21 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             handlesMediaTimeline = try SceneScriptOwnerExportBridge.contains(
                 "mediaTimelineChanged", owner: created
             )
+            handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
+                "applyUserProperties", owner: created
+            )
+            guard updateAvailable == 1 || handlesUserProperties
+                    || handlesMediaThumbnail || handlesMediaPlayback
+                    || handlesMediaProperties || handlesMediaTimeline else {
+                throw SceneScriptScalarRuntimeFailure.invalidSource
+            }
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         handle = created
         hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        self.handlesUserProperties = handlesUserProperties
         self.handlesMediaThumbnail = handlesMediaThumbnail
         self.handlesMediaPlayback = handlesMediaPlayback
         self.handlesMediaProperties = handlesMediaProperties
@@ -332,6 +340,34 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
                 )
             },
             interruptBudget: interruptBudget
+        )
+    }
+
+    func dispatchUserProperties(
+        changedPropertiesJSON: String,
+        scriptPropertiesJSON: String,
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        interruptBudget: UInt64? = nil
+    ) -> Result<SceneScriptMediaEventMutations, SceneScriptScalarRuntimeFailure> {
+        let layerID: Int
+        switch target {
+        case let .text(value, _), let .layer(value, _): layerID = value
+        default:
+            return .failure(.invalidArgument(
+                "SceneScript owner identity unavailable"
+            ))
+        }
+        domain.resetBudget(interruptBudget ?? budget.interruptBudget)
+        return SceneScriptMediaEventBridge.dispatchUserProperties(
+            owner: handle,
+            target: target,
+            layerID: layerID,
+            ownerGeneration: generation,
+            changedPropertiesJSON: changedPropertiesJSON,
+            scriptPropertiesJSON: scriptPropertiesJSON,
+            frame: frame,
+            userPropertiesJSON: userPropertiesJSON
         )
     }
 

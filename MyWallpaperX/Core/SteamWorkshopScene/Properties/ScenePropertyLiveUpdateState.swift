@@ -3,16 +3,22 @@ import Foundation
 nonisolated struct ScenePropertyLiveUpdateState {
     let program: ScenePropertyBindingProgram
     let activeConsumerTargets: Set<SceneDynamicTarget>
+    let scriptUserPropertyConsumerTargetsByKey:
+        [String: Set<SceneDynamicTarget>]
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
 
     nonisolated init(
         program: ScenePropertyBindingProgram,
         effectiveValues: [String: SceneUserPropertyValue],
-        activeConsumerTargets: Set<SceneDynamicTarget>
+        activeConsumerTargets: Set<SceneDynamicTarget>,
+        scriptUserPropertyConsumerTargetsByKey:
+            [String: Set<SceneDynamicTarget>] = [:]
     ) {
         self.program = program
         self.activeConsumerTargets = activeConsumerTargets
+        self.scriptUserPropertyConsumerTargetsByKey =
+            scriptUserPropertyConsumerTargetsByKey
         self.effectiveValues = effectiveValues
         self.userValues = program.evaluate(effectiveValues: effectiveValues).userValues
     }
@@ -46,11 +52,20 @@ nonisolated struct ScenePropertyLiveUpdateState {
         let instructionsByKey = Dictionary(grouping: program.instructions, by: \.propertyKey)
         var expectedTargets: Set<SceneDynamicTarget> = []
         for propertyKey in changedPropertyKeys {
-            guard let instructions = instructionsByKey[propertyKey], !instructions.isEmpty,
-                  instructions.allSatisfy({
-                      activeConsumerTargets.contains($0.target)
-                          && !unavailableConsumerTargets.contains($0.target)
-                  }) else {
+            let instructions = instructionsByKey[propertyKey] ?? []
+            let scriptTargets =
+                scriptUserPropertyConsumerTargetsByKey[propertyKey] ?? []
+            let consumerTargets = Set(instructions.map(\.target))
+                .union(scriptTargets)
+            guard !consumerTargets.isEmpty,
+                  consumerTargets.allSatisfy({
+                      activeConsumerTargets.contains($0)
+                          && !unavailableConsumerTargets.contains($0)
+                  }),
+                  instructions.isEmpty == false
+                    || Self.sameRuntimeValueKind(
+                        replacements[propertyKey], effectiveValues[propertyKey]
+                    ) else {
                 return false
             }
             expectedTargets.formUnion(instructions.map(\.target))
@@ -73,5 +88,19 @@ nonisolated struct ScenePropertyLiveUpdateState {
         effectiveValues = candidateEffectiveValues
         userValues = evaluation.userValues
         return true
+    }
+
+    private nonisolated static func sameRuntimeValueKind(
+        _ replacement: SceneUserPropertyValue?,
+        _ current: SceneUserPropertyValue?
+    ) -> Bool {
+        guard let current else { return false }
+        guard let replacement else { return true }
+        switch (replacement, current) {
+        case (.string, .string), (.number, .number), (.bool, .bool):
+            return true
+        default:
+            return false
+        }
     }
 }

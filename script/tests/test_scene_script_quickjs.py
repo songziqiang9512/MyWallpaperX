@@ -2380,21 +2380,22 @@ int main(void) {
     );
 
     const char *authored_peer_source =
+        "const replacement=engine.registerAsset('fonts/replacement.ttf');"
         "export function update(value){"
         "const layer=thisScene.getLayerByID(17);"
         "layer.origin=new Vec3(7,8,9);"
         "layer.scale=new Vec3(2,4,6);"
         "layer.angles=new Vec3(10,20,30);"
-        "layer.visible=false;layer.text='~';"
+        "layer.visible=false;layer.text='~';layer.font=replacement;"
         "if(layer.origin.x!==7||layer.origin.y!==8||layer.origin.z!==9||"
         "layer.scale.x!==2||layer.scale.y!==4||layer.scale.z!==6||"
         "layer.angles.x!==10||layer.angles.y!==20||layer.angles.z!==30||"
         "layer.visible!==false||layer.text!=='~')"
         "throw new Error('authored peer read-your-writes');"
-        "let fontRejected=false,pointSizeRejected=false;"
-        "try{layer.font='replacement';}catch(error){fontRejected=true;}"
+        "let forgedFontRejected=false,pointSizeRejected=false;"
+        "try{layer.font='replacement';}catch(error){forgedFontRejected=true;}"
         "try{layer.pointsize=99;}catch(error){pointSizeRejected=true;}"
-        "if(!fontRejected||!pointSizeRejected||"
+        "if(!forgedFontRejected||!pointSizeRejected||"
         "layer.alpha!==undefined||layer.solid!==undefined)"
         "throw new Error('unsupported authored fields opened');"
         "return value;}";
@@ -2419,7 +2420,8 @@ int main(void) {
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_SCALE |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT;
     failures += layer_mutation(
         authored_peer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
         0, authored_peer_fields, 17, 0, "~",
@@ -2440,7 +2442,8 @@ int main(void) {
             authored_peer_mutation.angles[0] == 10 &&
             authored_peer_mutation.angles[1] == 20 &&
             authored_peer_mutation.angles[2] == 30 &&
-            authored_peer_mutation.visible == 0,
+            authored_peer_mutation.visible == 0 &&
+            strcmp(authored_peer_mutation.font, "fonts/replacement.ttf") == 0,
         "authored peer staged values", diagnostic
     );
 

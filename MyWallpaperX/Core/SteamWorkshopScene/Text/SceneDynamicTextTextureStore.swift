@@ -146,6 +146,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let rendered = SceneTextTextureLoader.makeDynamicTexture(
             for: layer,
             content: request.signature.content,
+            fontPath: request.signature.fontPath,
             pointSize: request.signature.pointSize,
             colorRGB: request.signature.colorRGB,
             maxWidth: request.signature.maxWidth,
@@ -211,6 +212,9 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let content = stringValue(
             snapshot?[.text(layerID: layer.id, field: .content)]?.value
         ) ?? layer.text!
+        let fontPath = stringValue(
+            snapshot?[.text(layerID: layer.id, field: .font)]?.value
+        ).flatMap { $0.isEmpty ? nil : $0 } ?? authoredStyle.fontPath
         let pointSize = scalarValue(
             snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value
         ).map { Float(max(1, min($0, 1_024))) } ?? authoredStyle.pointSize
@@ -223,6 +227,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             : authoredStyle.maxWidth
         return .init(
             content: content,
+            fontPath: fontPath,
             pointSize: pointSize,
             colorRGB: color,
             maxWidth: maxWidth

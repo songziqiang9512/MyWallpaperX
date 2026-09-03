@@ -232,6 +232,11 @@ GENERIC_SCENE_FIXTURE = {
         },
         {
             "id": 120,
+            "text": {
+                "script": "fixture-user-text",
+                "user": "fixture-text",
+                "value": "authored text",
+            },
             "effects": [
                 {
                     "passes": [
@@ -882,9 +887,9 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         self.assertEqual(self.objects[20]["displayScriptFields"], [])
         self.assertEqual(self.objects[30]["displayScriptFields"], [])
 
-    def test_document_ir_preserves_all_fourteen_verified_target_shapes(self) -> None:
+    def test_document_ir_preserves_all_verified_target_shapes(self) -> None:
         bindings = self.generic["bindings"]
-        self.assertEqual(len(bindings), 14)
+        self.assertEqual(len(bindings), 15)
         owner_counts = {}
         for binding in bindings:
             owner_counts[binding["ownerKind"]] = (
@@ -892,7 +897,7 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             )
         self.assertEqual(
             owner_counts,
-            {"scene": 1, "object": 3, "effect": 1, "pass": 9},
+            {"scene": 1, "object": 4, "effect": 1, "pass": 9},
         )
         self.assertEqual(
             bindings[0]["targetPath"],
@@ -963,6 +968,17 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             explicit_null["wrapperKeys"],
             ["script", "user", "value"],
         )
+        text_owner = next(
+            binding
+            for binding in bindings
+            if binding["source"] == "fixture-user-text"
+        )
+        self.assertEqual(text_owner["ownerKind"], "object")
+        self.assertEqual(text_owner["objectID"], 120)
+        self.assertEqual(text_owner["targetPath"], ["objects", "[2]", "text"])
+        self.assertEqual(
+            text_owner["wrapperKeys"], ["script", "user", "value"]
+        )
 
     def test_authored_json_value_type_is_retained_without_vector_guessing(self) -> None:
         bindings = {
@@ -1007,8 +1023,8 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         evidence = {
             entry["source"]: entry for entry in all_evidence
         }
-        self.assertEqual(len(all_evidence), 23)
-        self.assertEqual(len(evidence), 22)
+        self.assertEqual(len(all_evidence), 24)
+        self.assertEqual(len(evidence), 23)
 
         particle_rate = evidence["fixture-particle-rate"]
         self.assertEqual(particle_rate["ownerKind"], "object")
