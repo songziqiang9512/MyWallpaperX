@@ -129,6 +129,13 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("正常帧不得重新解析、编译、建图", agents)
         self.assertIn("任何逐帧 JSON 编码", architecture)
 
+    def test_unique_output_owner_has_no_unowned_clear_present_bypass(self) -> None:
+        renderer_files = list((SCENE / "Rendering").glob("SceneMetalRenderer*.swift"))
+        source = "\n".join(path.read_text(encoding="utf-8") for path in renderer_files)
+        self.assertNotIn("renderClearPass", source)
+        self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
+
+
 
 if __name__ == "__main__":
     unittest.main()
