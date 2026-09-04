@@ -257,6 +257,16 @@ enum Harness {
                     reference: primary,
                     frameEpoch: typedNamedPublicationEpoch
                 ) == true
+        let staleTypedPublicationRegistry = SceneFrameTextureRegistry()
+        let staleTypedPublicationEpoch = staleTypedPublicationRegistry.beginFrame(
+            layerSources: [:]
+        )
+        let staleTypedPublicationRejected =
+            !staleTypedPublicationRegistry.publishReservedNamedLayerTarget(
+                reference: primary,
+                frameEpoch: staleTypedPublicationEpoch + 1,
+                texture: namedTexture
+            ) && staleTypedPublicationRegistry.resource(for: named) == nil
         let secondaryNamedReservationRejected = SceneFrameTextureResource
             .reservedNamedLayerTarget(
                 reference: secondary,
@@ -1061,6 +1071,7 @@ enum Harness {
             "exactNamedOverlayReady": exactNamedOverlayReady,
             "typedNamedPublicationSucceeded": typedNamedPublicationSucceeded,
             "typedNamedPublicationIsComplete": typedNamedPublicationIsComplete,
+            "staleTypedPublicationRejected": staleTypedPublicationRejected,
             "secondaryNamedReservationRejected": secondaryNamedReservationRejected,
             "missingRenderTargetUsageRejected": missingRenderTargetUsageRejected,
             "staleNamedOverlayRejected": staleNamedOverlayRejected,
@@ -1205,6 +1216,7 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "exactNamedOverlayReady",
             "typedNamedPublicationSucceeded",
             "typedNamedPublicationIsComplete",
+            "staleTypedPublicationRejected",
             "secondaryNamedReservationRejected",
             "missingRenderTargetUsageRejected",
             "staleNamedOverlayRejected",

@@ -238,7 +238,8 @@ final class SceneFrameTextureRegistry {
         frameEpoch: UInt64,
         texture: MTLTexture
     ) -> Bool {
-        guard let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+        guard frameEpoch == self.frameEpoch,
+              let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
             reference: reference,
             frameEpoch: frameEpoch,
             texture: texture
