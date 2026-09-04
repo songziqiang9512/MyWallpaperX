@@ -46,7 +46,7 @@ struct SceneEffectRuntimeDispositionCatalog {
                       case .admittedGeneric:
                           return subject.family == "resolved-material"
                       case .admittedDedicated:
-                          return admission.backendName == subject.family
+                          return false
                       case .admittedFallback:
                           return admission.backendName == subject.family
                               && subject.family == "visual-failure-passthrough"
@@ -160,8 +160,7 @@ struct SceneEffectRuntimeDispositionCatalog {
         [SceneEffectExactRuntimeSubject] {
         dispositions.compactMap { disposition in
             guard disposition.attribution == .exactKey,
-                  disposition.kind == .dedicated
-                    || disposition.kind == .fallback
+                  disposition.kind == .fallback
                     || disposition.kind == .program,
                   let family = disposition.family,
                   !family.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -195,13 +194,6 @@ struct SceneEffectRuntimeDispositionCatalog {
                 family: family,
                 role: .owner,
                 reason: "resolved-material-capability-owner"
-            )
-        case .admittedDedicated where family == admission.backendName:
-            return disposition(
-                admission,
-                kind: .dedicated,
-                family: family,
-                role: .owner
             )
         case .admittedFallback
             where family == "visual-failure-passthrough"

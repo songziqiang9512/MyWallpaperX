@@ -50,10 +50,7 @@ extension SceneEffectRuntimeDispositionCatalog {
                         && disposition.reasonCode
                             == "resolved-material-capability-owner"
                 case .admittedDedicated:
-                    return disposition.routeRole == .owner
-                        && disposition.kind == .dedicated
-                        && disposition.family == admission.backendName
-                        && disposition.reasonCode == admission.reasonCode
+                    return false
                 case .admittedFallback:
                     return disposition.routeRole == .owner
                         && disposition.kind == .fallback

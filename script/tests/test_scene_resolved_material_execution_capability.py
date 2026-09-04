@@ -50,6 +50,27 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("prepareVisualFailurePassthrough", executor)
         self.assertIn("snapshot", executor)
 
+    def test_unknown_execution_family_cannot_create_dedicated_owner(self) -> None:
+        admission = (
+            SCENE
+            / "RenderGraph/EffectCompilation/SceneEffectStageAdmission.swift"
+        ).read_text(encoding="utf-8")
+        disposition = (
+            SCENE / "Runtime/SceneEffectRuntimeDispositionCatalog.swift"
+        ).read_text(encoding="utf-8")
+        reporting = (
+            SCENE
+            / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog+Reporting.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertNotIn("admissionKind = .admittedDedicated", admission)
+        self.assertIn("unrecognized-unified-execution-family", admission)
+        self.assertNotIn("kind: .dedicated", disposition)
+        self.assertNotIn(
+            "case .admittedDedicated, .admittedFallback",
+            reporting,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

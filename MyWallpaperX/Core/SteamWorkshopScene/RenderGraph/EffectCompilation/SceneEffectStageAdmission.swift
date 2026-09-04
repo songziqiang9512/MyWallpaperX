@@ -14,6 +14,8 @@ nonisolated struct SceneEffectStageAdmission {
 
     enum Admission: String, CaseIterable {
         case inactive
+        /// Retained only so schema-1 diagnostic readers can decode historical
+        /// reports. The product admission builder no longer emits this state.
         case admittedDedicated = "admitted-dedicated"
         case admittedFallback = "admitted-fallback"
         case admittedGeneric = "admitted-generic"
@@ -149,8 +151,18 @@ enum SceneEffectStageAdmissionBuilder {
                     admissionKind = .admittedPassthrough
                     profileName = "inactive-passthrough"
                 default:
-                    admissionKind = .admittedDedicated
-                    profileName = nil
+                    // Capability subjects are an execution-authority boundary.
+                    // An unknown family must not manufacture a dedicated owner
+                    // that bypasses the shared Program/GraphExecutor route.
+                    return admission(
+                        key: key,
+                        path: descriptorEffect.file,
+                        activity: activity,
+                        admission: .notAdmitted,
+                        coverage: .rejectedCapability,
+                        backendName: subject.family,
+                        reasonCode: "unrecognized-unified-execution-family"
+                    )
                 }
                 return admission(
                     key: key,

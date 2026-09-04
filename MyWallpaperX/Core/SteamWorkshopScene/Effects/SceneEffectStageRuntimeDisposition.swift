@@ -5,6 +5,8 @@ nonisolated struct SceneEffectStageRuntimeDisposition {
 
     enum Kind: String, CaseIterable {
         case inactive
+        /// Schema-1 compatibility for historical evidence only. Current
+        /// product disposition construction never grants this owner kind.
         case dedicated
         case fallback
         case passthrough
