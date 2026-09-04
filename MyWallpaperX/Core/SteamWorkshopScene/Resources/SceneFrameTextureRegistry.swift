@@ -227,6 +227,30 @@ final class SceneFrameTextureRegistry {
         publishExplicit(publication, for: identity)
     }
 
+    /// Publishes a graph-owned named target as a complete typed provider atom.
+    /// Graph output is copied into the frame reservation before this method is
+    /// called; the reservation identity, epoch and Metal resource contract are
+    /// therefore validated once at the registry boundary instead of falling
+    /// back to an incomplete bare texture entry.
+    @discardableResult
+    func publishReservedNamedLayerTarget(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> Bool {
+        guard let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+            reference: reference,
+            frameEpoch: frameEpoch,
+            texture: texture
+        ) else { return false }
+        let identity = SceneFrameTextureIdentity.namedLayerTarget(reference)
+        set(resource.publication, for: identity)
+        return self.resource(for: identity)?.isCompleteNamedLayerTarget(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) == true
+    }
+
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
         guard let entry = entries[identity] else { return nil }
         switch entry.status {

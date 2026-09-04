@@ -659,8 +659,14 @@ final class SceneDependencyFrameRuntime {
                 variant: .primary
             )
         )
-        textureRegistry.set(.ready(reservation.texture), for: identity)
-        guard textureRegistry.texture(for: identity) === reservation.texture else {
+        guard textureRegistry.publishReservedNamedLayerTarget(
+            reference: SceneNamedTextureReference(
+                providerLayerID: layerID,
+                variant: .primary
+            ),
+            frameEpoch: frameEpoch,
+            texture: reservation.texture
+        ), textureRegistry.texture(for: identity) === reservation.texture else {
             publicationTelemetry.recordFailure(layerID: layerID)
             return false
         }

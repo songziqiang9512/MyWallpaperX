@@ -203,6 +203,19 @@ final class SceneFrameTextureRegistry {
             textures[identity] = texture
         }
     }
+
+    @discardableResult
+    func publishReservedNamedLayerTarget(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64,
+        texture: MTLTexture
+    ) -> Bool {
+        guard frameEpoch > 0 else { return false }
+        set(.ready(texture), for: .namedLayerTarget(reference))
+        return self.texture(
+            for: .namedLayerTarget(reference)
+        ) === texture
+    }
 }
 
 final class SceneNamedRenderTargetPool {

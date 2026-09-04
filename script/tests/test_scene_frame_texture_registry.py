@@ -241,6 +241,22 @@ enum Harness {
         )
         let exactNamedOverlayReady = namedOverlay?.resource(for: named)?
             .publication.texture === namedTexture
+        let typedNamedPublicationRegistry = SceneFrameTextureRegistry()
+        let typedNamedPublicationEpoch = typedNamedPublicationRegistry.beginFrame(
+            layerSources: [:]
+        )
+        let typedNamedPublicationSucceeded =
+            typedNamedPublicationRegistry.publishReservedNamedLayerTarget(
+                reference: primary,
+                frameEpoch: typedNamedPublicationEpoch,
+                texture: namedTexture
+            )
+        let typedNamedPublicationIsComplete =
+            typedNamedPublicationRegistry.resource(for: named)?
+                .isCompleteNamedLayerTarget(
+                    reference: primary,
+                    frameEpoch: typedNamedPublicationEpoch
+                ) == true
         let secondaryNamedReservationRejected = SceneFrameTextureResource
             .reservedNamedLayerTarget(
                 reference: secondary,
@@ -1043,6 +1059,8 @@ enum Harness {
             "primaryReady": primaryReady,
             "secondaryIsolated": secondaryIsolated,
             "exactNamedOverlayReady": exactNamedOverlayReady,
+            "typedNamedPublicationSucceeded": typedNamedPublicationSucceeded,
+            "typedNamedPublicationIsComplete": typedNamedPublicationIsComplete,
             "secondaryNamedReservationRejected": secondaryNamedReservationRejected,
             "missingRenderTargetUsageRejected": missingRenderTargetUsageRejected,
             "staleNamedOverlayRejected": staleNamedOverlayRejected,
@@ -1185,6 +1203,8 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "primaryReady",
             "secondaryIsolated",
             "exactNamedOverlayReady",
+            "typedNamedPublicationSucceeded",
+            "typedNamedPublicationIsComplete",
             "secondaryNamedReservationRejected",
             "missingRenderTargetUsageRejected",
             "staleNamedOverlayRejected",
