@@ -391,8 +391,8 @@
 ### E-V4-SCENESCRIPT-STATEFUL-UPDATE: typed `update(value)` 读取上一帧 published current
 
 - 目标合同与共享实现：SceneScript 的 `update(value)` 输入是该 target 的当前已发布值；authored descriptor 只作为初始 seed。`SceneSurfaceEvaluationTransaction` 以 target-scoped read-only projection 暴露上一帧 snapshot，`SceneDesktopWallpaperHost+FrameDriver` 仅为已绑定的 typed vector/scalar/String owner 回填该值；同帧 user/timeline producer 继续覆盖，结果仍由现有 dynamic snapshot、MaterialProgram、GraphExecutor 和唯一 compositor 消费。没有新增 property registry、clock、renderer 或旁路输出链。
-- fresh 真实结果：隔离真实 `2974757317` 的 `浮窗背景`、`音乐封面` 及其文字/附属层不再每帧从 authored origin 只走第一步，卡片由顶部冻结恢复为中心组合；ready/after 截图均非黑。签名 Debug App `com.songziqiang.MyWallpaperX` (bundle 277) executable SHA-256 `5b9a68e21325b6ed95a045b4d59b8f7c9d73d5554d8decebbf046202d1753114`，report SHA-256 `ed74a501a354fe4fbcc8c7e92d1c64d95e85b1b6e9f55a065003179daa780ab5`，ready/after SHA-256 `d6836538a61d13385866b8d3310d4a280c606a16b5e214337025a1f95aad20d6` / `253d9342c0631646aeecc9ae7d191ca9f645100301b791b1d1f00f73a940cd8f`。
-- 证据边界：benchmark 报告严格 `0/1 NON-PASS`，失败来自陈旧 matrix/静态期待，不能把它写成整样本 PASS；driver `13.329 FPS`、startup ready `11586.34 ms` 仍是未解决性能事实。此项只到 `S4 one real stateful SceneScript composition correction`，不推进 V4 阶段指针，也不证明完整 cursor/click、全部 SceneScript API、149 corpus 或官方 parity。
+- fresh 真实结果：隔离真实 `2974757317` 的 `浮窗背景`、`音乐封面` 及其文字/附属层不再每帧从 authored origin 只走第一步，卡片由顶部冻结恢复为中心组合；ready/after 截图均非黑。签名 Debug App `com.songziqiang.MyWallpaperX` (bundle 277) executable SHA-256 `33da9954d3185dccf80ce3e4bb78f623268dafc09afae4986526f319d468426b`，report SHA-256 `7bdbddc6e931d63583ab4c5acb586d0a1525e3a4629138526fc3e6a0b24211b8`，ready/after SHA-256 `8ed7bab3659f737c03592cc91add09d128cc684923036ddeed6a83bf14d38a55` / `7ce7947f523444a18e3dc1b576f1823aa8ed7f38e26dc29481b8e654dc4a395f`。
+- 证据边界：benchmark 报告严格 `0/1 NON-PASS`，失败来自陈旧 matrix/静态期待，不能把它写成整样本 PASS；driver `13.306 FPS`、startup ready `11601.32 ms` 仍是未解决性能事实。此项只到 `S4 one real stateful SceneScript composition correction`，不推进 V4 阶段指针，也不证明完整 cursor/click、全部 SceneScript API、149 corpus 或官方 parity。
 
 ## 2. 证据包
 
