@@ -279,18 +279,7 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        let definitions = SceneDynamicDefinitionMerger.merge(
-            propertyDefinitions: launchContext.runtimeInput.propertyBindingProgram.definitions,
-            timelineProgram: launchContext.timelineProgram,
-            textScriptProgram: launchContext.textScriptProgram,
-            additionalDefinitions: launchContext.sharedLayerAlphaProgram.definitions
-                + launchContext.propertyVectorScriptProgram.definitions
-                + launchContext.sceneScriptFallbackDefinitions
-                + launchContext.sceneScriptScalarProgram.definitions
-                + launchContext.sceneScriptStringProgram.definitions
-                + launchContext.sceneScriptDynamicLayerRuntime
-                    .authoredLayerDefinitions
-        )
+        let definitionIndex = launchContext.dynamicDefinitionIndex
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
             sceneTime: timing.sceneTime
@@ -349,11 +338,7 @@ extension SceneDesktopWallpaperHost {
         // instead of sliding to its centered position).  Carry forward only
         // targets owned by typed script programs and only when no higher
         // priority user/timeline producer is present for this frame.
-        let sceneScriptStatefulTargets = Set(
-            launchContext.propertyVectorScriptProgram.bindings.map(\.definition.target)
-                + launchContext.sceneScriptScalarProgram.bindings.map(\.target)
-                + launchContext.sceneScriptStringProgram.bindings.map(\.target)
-        )
+        let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
         let previousSceneScriptValues = surfaces.values.first?.evaluationTransaction
             .previousValues(for: sceneScriptStatefulTargets)
             .filter { target, _ in
@@ -370,7 +355,7 @@ extension SceneDesktopWallpaperHost {
         let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex,
             generation: 0,
-            definitions: definitions,
+            index: definitionIndex,
             userValues: launchContext.liveState.userValues,
             timelineValues: timelineValues,
             sceneScriptValues: boundedSceneScriptValues
@@ -682,7 +667,7 @@ extension SceneDesktopWallpaperHost {
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
             let resolvedDynamicValues = surface.evaluationTransaction.evaluate(
-                frameIndex: timing.frameIndex, definitions: definitions,
+                frameIndex: timing.frameIndex, index: definitionIndex,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
                 sceneScriptValues: commonSceneScriptValues

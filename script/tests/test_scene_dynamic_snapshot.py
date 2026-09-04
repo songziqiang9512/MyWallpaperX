@@ -76,10 +76,37 @@ enum Harness {
             .init(target: authoredNonFinite, valueType: .scalar, authoredValue: .scalar(.infinity)),
         ]
         let resolver = SceneDynamicSnapshotResolver()
+        let preparedIndex = SceneDynamicSnapshotResolver.prepare(
+            definitions: definitions
+        )
         let first = resolver.resolve(
             frameIndex: 42,
             generation: 7,
             definitions: definitions,
+            userValues: dictionary([
+                (alpha, .scalar(0.2)),
+                (text, .string("user")),
+                (vector, .scalar(8)),
+                (unknown, .scalar(1)),
+                (duplicate, .scalar(3)),
+                (authoredMismatch, .vector3(1, 2, 3)),
+                (authoredNonFinite, .scalar(1)),
+            ]),
+            timelineValues: dictionary([
+                (alpha, .scalar(0.3)),
+                (vector, .vector2(3, 4)),
+                (duplicate, .scalar(4)),
+            ]),
+            sceneScriptValues: dictionary([
+                (alpha, .scalar(0.4)),
+                (vector, .vector2(.nan, 9)),
+                (duplicate, .scalar(5)),
+            ])
+        )
+        let preparedFirst = resolver.resolve(
+            frameIndex: 42,
+            generation: 7,
+            index: preparedIndex,
             userValues: dictionary([
                 (alpha, .scalar(0.2)),
                 (text, .string("user")),
@@ -234,6 +261,7 @@ enum Harness {
             "nonFiniteMissing": first.snapshot[authoredNonFinite] == nil,
             "diagnostics": first.diagnostics.map { diagnostic($0) },
             "deterministic": first == second,
+            "preparedEquivalent": first == preparedFirst,
             "collisionDeterministic": collisionForward == collisionReverse,
             "collisionOrder": collisionForward.diagnostics.map { targetPath($0.target) },
             "layer12ControlPoint3": layer12ControlPoints[3].map { [$0.x, $0.y, $0.z] } ?? [],
@@ -342,6 +370,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
 
     def test_diagnostics_are_complete_and_deterministic(self) -> None:
         self.assertTrue(self.result["deterministic"])
+        self.assertTrue(self.result["preparedEquivalent"])
         self.assertEqual(
             self.result["diagnostics"],
             [

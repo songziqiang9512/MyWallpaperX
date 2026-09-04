@@ -370,12 +370,87 @@ nonisolated struct SceneDynamicSnapshotDiagnostic: Equatable, Sendable {
     let source: SceneDynamicSource
 }
 
+/// Launch/revision-stable projection of dynamic target definitions.
+///
+/// The definition list is authored topology.  Building its target index and
+/// validating authored values is therefore preparation work; frame updates
+/// should only apply the current user/timeline/SceneScript values to this
+/// immutable projection.
+nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
+    fileprivate let definitionsByTarget:
+        [SceneDynamicTarget: SceneDynamicTargetDefinition]
+    fileprivate let duplicateTargets: Set<SceneDynamicTarget>
+    fileprivate let authoredValues:
+        [SceneDynamicTarget: SceneDynamicResolvedValue]
+    fileprivate let authoredDiagnostics: [SceneDynamicSnapshotDiagnostic]
+
+    fileprivate init(definitions: [SceneDynamicTargetDefinition]) {
+        var definitionsByTarget: [
+            SceneDynamicTarget: SceneDynamicTargetDefinition
+        ] = [:]
+        var duplicateTargets: Set<SceneDynamicTarget> = []
+        for definition in definitions {
+            if definitionsByTarget[definition.target] != nil {
+                duplicateTargets.insert(definition.target)
+            } else {
+                definitionsByTarget[definition.target] = definition
+            }
+        }
+
+        var authoredValues: [
+            SceneDynamicTarget: SceneDynamicResolvedValue
+        ] = [:]
+        var authoredDiagnostics: [SceneDynamicSnapshotDiagnostic] = []
+        for definition in definitions where
+            !duplicateTargets.contains(definition.target) {
+            guard definition.authoredValue.valueType == definition.valueType else {
+                authoredDiagnostics.append(.init(
+                    code: .authoredTypeMismatch,
+                    target: definition.target,
+                    source: .authored
+                ))
+                continue
+            }
+            guard definition.authoredValue.isFinite else {
+                authoredDiagnostics.append(.init(
+                    code: .nonFiniteValue,
+                    target: definition.target,
+                    source: .authored
+                ))
+                continue
+            }
+            authoredValues[definition.target] = .init(
+                value: definition.authoredValue,
+                source: .authored
+            )
+        }
+
+        for target in duplicateTargets {
+            authoredDiagnostics.append(.init(
+                code: .duplicateDefinition,
+                target: target,
+                source: .authored
+            ))
+        }
+        self.definitionsByTarget = definitionsByTarget
+        self.duplicateTargets = duplicateTargets
+        self.authoredValues = authoredValues
+        self.authoredDiagnostics = authoredDiagnostics
+    }
+}
+
 nonisolated struct SceneDynamicSnapshotResolution: Equatable, Sendable {
     let snapshot: SceneDynamicSnapshot
     let diagnostics: [SceneDynamicSnapshotDiagnostic]
 }
 
 nonisolated struct SceneDynamicSnapshotResolver {
+    nonisolated static func prepare(
+        definitions: [SceneDynamicTargetDefinition]
+    ) -> SceneDynamicSnapshotDefinitionIndex {
+        SceneDynamicSnapshotDefinitionIndex(definitions: definitions)
+    }
+
     nonisolated func resolve(
         frameIndex: UInt64,
         generation: UInt64,
@@ -384,67 +459,45 @@ nonisolated struct SceneDynamicSnapshotResolver {
         timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
         sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     ) -> SceneDynamicSnapshotResolution {
-        var diagnostics: [SceneDynamicSnapshotDiagnostic] = []
-        var definitionsByTarget: [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
-        var duplicateTargets: Set<SceneDynamicTarget> = []
+        return resolve(
+            frameIndex: frameIndex,
+            generation: generation,
+            index: Self.prepare(definitions: definitions),
+            userValues: userValues,
+            timelineValues: timelineValues,
+            sceneScriptValues: sceneScriptValues
+        )
+    }
 
-        for definition in definitions {
-            if definitionsByTarget[definition.target] != nil {
-                duplicateTargets.insert(definition.target)
-            } else {
-                definitionsByTarget[definition.target] = definition
-            }
-        }
-        for target in duplicateTargets {
-            diagnostics.append(.init(
-                code: .duplicateDefinition,
-                target: target,
-                source: .authored
-            ))
-        }
-
-        var resolved: [SceneDynamicTarget: SceneDynamicResolvedValue] = [:]
-        for definition in definitions where !duplicateTargets.contains(definition.target) {
-            guard definition.authoredValue.valueType == definition.valueType else {
-                diagnostics.append(.init(
-                    code: .authoredTypeMismatch,
-                    target: definition.target,
-                    source: .authored
-                ))
-                continue
-            }
-            guard definition.authoredValue.isFinite else {
-                diagnostics.append(.init(
-                    code: .nonFiniteValue,
-                    target: definition.target,
-                    source: .authored
-                ))
-                continue
-            }
-            resolved[definition.target] = .init(
-                value: definition.authoredValue,
-                source: .authored
-            )
-        }
+    nonisolated func resolve(
+        frameIndex: UInt64,
+        generation: UInt64,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    ) -> SceneDynamicSnapshotResolution {
+        var diagnostics = index.authoredDiagnostics
+        var resolved = index.authoredValues
 
         apply(
             userValues,
             source: .userProperty,
-            definitions: definitionsByTarget,
+            definitions: index.definitionsByTarget,
             resolved: &resolved,
             diagnostics: &diagnostics
         )
         apply(
             timelineValues,
             source: .timeline,
-            definitions: definitionsByTarget,
+            definitions: index.definitionsByTarget,
             resolved: &resolved,
             diagnostics: &diagnostics
         )
         apply(
             sceneScriptValues,
             source: .sceneScript,
-            definitions: definitionsByTarget,
+            definitions: index.definitionsByTarget,
             resolved: &resolved,
             diagnostics: &diagnostics
         )
@@ -458,14 +511,15 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 frameIndex: frameIndex,
                 generation: generation,
                 values: resolved,
-                authoredValues: definitionsByTarget.compactMapValues { definition in
-                    !duplicateTargets.contains(definition.target)
+                authoredValues: index.definitionsByTarget.compactMapValues {
+                    definition in
+                    !index.duplicateTargets.contains(definition.target)
                         && resolved[definition.target] != nil
                         ? definition.authoredValue : nil
                 },
-                userPropertyNumericRanges: definitionsByTarget.compactMapValues {
+                userPropertyNumericRanges: index.definitionsByTarget.compactMapValues {
                     definition in
-                    guard !duplicateTargets.contains(definition.target),
+                    guard !index.duplicateTargets.contains(definition.target),
                           resolved[definition.target] != nil else { return nil }
                     return definition.userPropertyNumericRange
                 }

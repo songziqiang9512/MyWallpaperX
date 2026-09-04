@@ -79,6 +79,14 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
+    let frameSchema: SceneDesktopWallpaperLaunchFrameSchema
+    let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
+    var dynamicDefinitions: [SceneDynamicTargetDefinition] {
+        frameSchema.dynamicDefinitions
+    }
+    var dynamicDefinitionIndex: SceneDynamicSnapshotDefinitionIndex {
+        frameSchema.dynamicDefinitionIndex
+    }
     let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
     let soundPlaybackProgram: SceneSoundPlaybackProgram
     var liveState: ScenePropertyLiveUpdateState
@@ -686,6 +694,20 @@ extension SceneDesktopWallpaperHost {
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(
             try firstSurfaceRuntimePreparation.value()
         )
+        let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
+            runtimeInput: runtimeInput,
+            sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
+            propertyVectorScriptProgram: propertyVectorScriptProgram,
+            sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions,
+            sceneScriptScalarProgram: sceneScriptScalarProgram,
+            sceneScriptStringProgram: sceneScriptStringProgram,
+            sceneScriptOwnerLayerIDs: sceneScriptOwnerLayerIDs,
+            preparedDeviceResources: preparedDeviceResources,
+            dynamicImageMaterialColorTargets: model.propertyVectorProjection
+                .dynamicImageMaterialColorTargets,
+            timelineProgram: timelineProgram,
+            textScriptProgram: textScriptProgram
+        )
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
@@ -715,21 +737,9 @@ extension SceneDesktopWallpaperHost {
             sceneScriptVectorMediaRoute: sceneScriptVectorMediaRoute,
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
-            sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime(
-                descriptor: runtimeInput.renderDescriptor,
-                authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,
-                dynamicImageTemplates: Dictionary(
-                    uniqueKeysWithValues: preparedDeviceResources.baseImages
-                        .dynamicImageResources.map { key, resource in
-                            (key, SceneScriptDynamicImageLayerTemplate(
-                                modelPath: resource.modelPath,
-                                renderSizeWH: resource.renderSizeWH,
-                                materialColorTarget: model.propertyVectorProjection
-                                    .dynamicImageMaterialColorTargets[key]
-                            ))
-                        }
-                )
-            ),
+            sceneScriptDynamicLayerRuntime: frameSchema.dynamicLayerRuntime,
+            frameSchema: frameSchema,
+            sceneScriptStatefulTargets: frameSchema.sceneScriptStatefulTargets,
             baseMaterialProviderBindings: baseMaterialProviderBindings,
             soundPlaybackProgram: soundPlaybackProgram,
             liveState: Self.makeLivePropertyState(

@@ -24,10 +24,28 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
         timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
         sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     ) -> SceneDynamicSnapshotResolution {
+        evaluate(
+            frameIndex: frameIndex,
+            index: SceneDynamicSnapshotResolver.prepare(
+                definitions: definitions
+            ),
+            userValues: userValues,
+            timelineValues: timelineValues,
+            sceneScriptValues: sceneScriptValues
+        )
+    }
+
+    nonisolated mutating func evaluate(
+        frameIndex: UInt64,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    ) -> SceneDynamicSnapshotResolution {
         let resolution = resolver.resolve(
             frameIndex: frameIndex,
             generation: generation,
-            definitions: definitions,
+            index: index,
             userValues: userValues,
             timelineValues: timelineValues,
             sceneScriptValues: sceneScriptValues

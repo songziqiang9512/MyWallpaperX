@@ -86,6 +86,76 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             2,
         )
 
+    def test_dynamic_frame_schema_is_prepared_at_launch(self) -> None:
+        launch = (
+            SCENE / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
+        ).read_text(encoding="utf-8")
+        frame_driver = (
+            SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        ).read_text(encoding="utf-8")
+        frame_schema = (
+            SCENE / "Runtime/SceneDesktopWallpaperLaunchFrameSchema.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "self.launchDefinitions = SceneDynamicDefinitionMerger.merge(",
+            frame_schema,
+        )
+        self.assertIn(
+            "self.sceneScriptStatefulTargets = Set(",
+            frame_schema,
+        )
+        self.assertIn("SceneDesktopWallpaperLaunchFrameSchema(", launch)
+        self.assertIn(
+            "let definitionIndex = launchContext.dynamicDefinitionIndex",
+            frame_driver,
+        )
+        self.assertIn(
+            "index: definitionIndex",
+            frame_driver,
+        )
+        self.assertIn("frameSchema.dynamicDefinitions", launch)
+        self.assertIn("authoredDefinitionRevision", frame_schema)
+        self.assertIn("cachedDefinitionIndexRevision", frame_schema)
+        self.assertIn(
+            "SceneDynamicSnapshotResolver.prepare(",
+            frame_schema,
+        )
+        self.assertIn(
+            "let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets",
+            frame_driver,
+        )
+        self.assertNotIn(
+            "SceneDynamicDefinitionMerger.merge(",
+            frame_driver,
+        )
+
+    def test_dynamic_layer_projection_is_revisioned(self) -> None:
+        renderer = (
+            SCENE / "Rendering/SceneMetalRenderer.swift"
+        ).read_text(encoding="utf-8")
+        topology = (
+            SCENE
+            / "Runtime/SceneScript/SceneScriptDynamicLayerRuntime.swift"
+        ).read_text(encoding="utf-8")
+        cache = (
+            SCENE / "Rendering/SceneDynamicLayerRenderTopologyCache.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("private let dynamicLayerTopologyCache", renderer)
+        self.assertIn("dynamicLayerTopologyCache.resolve(", renderer)
+        self.assertNotIn(
+            "frameDescriptor = renderDescriptor.applying(layerTopology)",
+            renderer,
+        )
+        self.assertIn("let topologyRevision: UInt64", topology)
+        self.assertIn("dynamicTopologyChanged", topology)
+        self.assertIn("cachedSnapshotTopologyRevision", topology)
+        self.assertIn(
+            "if cachedSnapshotTopologyRevision != topologyRevision",
+            topology,
+        )
+        self.assertIn("revision == topology.topologyRevision", cache)
+        self.assertIn("func applyingFrameValues(", cache)
+
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (
             SCENE
