@@ -100,7 +100,6 @@ extension SceneDesktopWallpaperHost {
 #endif
         }
     }
-
     func startFrameDriver() {
         frameTimer?.invalidate()
         frameTimer = nil
@@ -129,7 +128,6 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
     }
-
     private func scheduleFrameDriver(
         after attempt: SceneFrameDriverAttempt,
         scheduledDeadline: CFTimeInterval
