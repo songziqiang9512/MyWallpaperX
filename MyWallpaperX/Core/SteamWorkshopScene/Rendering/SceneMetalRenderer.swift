@@ -27,6 +27,9 @@ struct SceneMetalRenderer {
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     private let effectExecutionTelemetry = SceneEffectExecutionTelemetry()
     private let staticModelDepthTargetPool = SceneParticleDepthTargetPool()
+    /// Dynamic layer descriptor projection is invalidated by the runtime's
+    /// topology revision, not by every frame that reuses the same snapshot.
+    private let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()
     init?(
         renderDescriptor: SceneRenderDescriptor,
         effectAdmissionCatalog: SceneEffectAdmissionCatalog,
@@ -148,8 +151,8 @@ struct SceneMetalRenderer {
         )
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
         // A normal frame has no topology mutation. Reuse the launch-scoped
-        // descriptor indexes and static world frames; dynamic values are
-        // still resolved below without rebuilding authored topology.
+        // descriptor indexes and static world frames; a dynamic projection is
+        // rebuilt only when its runtime topology revision changes.
         let frameDescriptor: SceneRenderDescriptor
         let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
         let frameStaticWorldFrames: [Int: simd_float4x4]
@@ -158,24 +161,25 @@ struct SceneMetalRenderer {
            !layerTopology.dynamicLayers.isEmpty
                 || layerTopology.renderOrderLayerIDs
                     != renderDescriptor.renderOrderLayerIDs {
-            frameDescriptor = renderDescriptor.applying(layerTopology)
-            frameLayersByID = Dictionary(
-                uniqueKeysWithValues: frameDescriptor.layers.map { ($0.id, $0) }
+            let projection = dynamicLayerTopologyCache.resolve(
+                baseDescriptor: renderDescriptor, topology: layerTopology
             )
-            frameStaticWorldFrames = SceneLayerWorldFrameResolver.compute(
-                descriptor: frameDescriptor, byID: frameLayersByID
-            )
-            authoredLayerIDs = frameDescriptor.renderOrderLayerIDs
+            frameDescriptor = projection.descriptor
+            frameLayersByID = projection.layersByID
+            frameStaticWorldFrames = projection.staticWorldFrames
+            authoredLayerIDs = projection.authoredLayerIDs
         } else {
             frameDescriptor = renderDescriptor
             frameLayersByID = layersByID
             frameStaticWorldFrames = worldFramesByLayerID
             authoredLayerIDs = renderDescriptor.renderOrderLayerIDs
         }
+        let dynamicLayerIDs = Set(layerTopology?.dynamicLayers.map(\.id) ?? [])
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: frameDescriptor, byID: frameLayersByID,
             snapshot: frameContext.dynamicValues,
-            staticFrames: frameStaticWorldFrames
+            staticFrames: frameStaticWorldFrames,
+            dynamicLayerIDs: dynamicLayerIDs
         )
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)

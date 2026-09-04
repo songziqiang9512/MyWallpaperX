@@ -7,7 +7,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
         descriptor: SceneRenderDescriptor,
         byID: [Int: SceneRenderDescriptor.Layer],
         snapshot: SceneDynamicSnapshot,
-        staticFrames: [Int: simd_float4x4]
+        staticFrames: [Int: simd_float4x4],
+        dynamicLayerIDs: Set<Int> = []
     ) -> [Int: simd_float4x4] {
         var overrides: [Int: SceneLayerWorldFrameResolver.TransformOverride] = [:]
         for layer in descriptor.layers {
@@ -16,6 +17,31 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             let angles = value(layerID: layer.id, field: .angles, snapshot: snapshot)
             guard origin != nil || scale != nil || angles != nil else { continue }
             overrides[layer.id] = .init(origin: origin, scale: scale, angles: angles)
+        }
+        if overrides.isEmpty, !dynamicLayerIDs.isEmpty {
+            // Dynamic script layers are currently root layers. Their complete
+            // frame record is applied to the cached descriptor projection,
+            // so refresh only their local world matrices instead of walking
+            // the entire authored hierarchy on every upsert.
+            var result = staticFrames
+            for layer in descriptor.layers
+                where dynamicLayerIDs.contains(layer.id) {
+                guard layer.parentID == nil else {
+                    // Keep the canonical parent/attachment semantics if a
+                    // future provider publishes a parented dynamic layer.
+                    return SceneLayerWorldFrameResolver.compute(
+                        layers: descriptor.layers,
+                        byID: byID,
+                        sceneOrthoHeight: descriptor.camera.orthoHeight,
+                        transformOverrides: overrides
+                    )
+                }
+                result[layer.id] = SceneLayerWorldFrameResolver.compute(
+                    layers: [layer], byID: [layer.id: layer],
+                    sceneOrthoHeight: descriptor.camera.orthoHeight
+                )[layer.id]
+            }
+            return result
         }
         guard !overrides.isEmpty else { return staticFrames }
         return SceneLayerWorldFrameResolver.compute(
