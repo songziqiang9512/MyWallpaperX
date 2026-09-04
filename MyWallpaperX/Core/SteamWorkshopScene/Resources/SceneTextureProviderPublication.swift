@@ -408,7 +408,10 @@ nonisolated struct SceneFrameTextureResource {
     ) -> Bool {
         guard frameEpoch > 0,
               reference.variant == .primary,
-              resourceGeneration == frameEpoch,
+              // Registry storage generations are monotonic across every resource
+              // publication; frame freshness is checked by the publication and
+              // candidate epochs below, not by equating the two counters.
+              resourceGeneration > 0,
               publication.contentGeneration == frameEpoch,
               publication.requestIdentity == .namedLayerTarget(reference),
               publication.isComplete,
@@ -448,7 +451,9 @@ nonisolated struct SceneFrameTextureResource {
     ) -> Bool {
         guard consumerLayerID >= 0,
               frameEpoch > 0,
-              resourceGeneration == frameEpoch,
+              // Scene-background resources share the registry-wide storage
+              // generation, while content validity is scoped to this frame.
+              resourceGeneration > 0,
               publication.contentGeneration == frameEpoch,
               publication.requestIdentity == .sceneBackground(consumerLayerID),
               publication.isComplete,

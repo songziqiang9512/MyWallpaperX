@@ -257,6 +257,26 @@ enum Harness {
                     reference: primary,
                     frameEpoch: typedNamedPublicationEpoch
                 ) == true
+        let namedPublicationAfterOtherResources = SceneFrameTextureRegistry()
+        let namedPublicationAfterOtherResourcesEpoch =
+            namedPublicationAfterOtherResources.beginFrame(
+                layerSources: [7: fallbackTexture],
+                userPropertyTextures: ["persistent-cover": propertyTexture],
+                systemTextures: [systemProviderIdentity: systemTexture]
+            )
+        let namedPublicationAfterOtherResourcesSucceeded =
+            namedPublicationAfterOtherResources
+                .publishReservedNamedLayerTarget(
+                    reference: primary,
+                    frameEpoch: namedPublicationAfterOtherResourcesEpoch,
+                    texture: namedTexture
+                )
+        let namedPublicationAfterOtherResourcesComplete =
+            namedPublicationAfterOtherResources
+                .completeNamedLayerTargetTexture(
+                    reference: primary,
+                    frameEpoch: namedPublicationAfterOtherResourcesEpoch
+                ) === namedTexture
         let bareNamedConsumerRegistry = SceneFrameTextureRegistry()
         let bareNamedConsumerEpoch = bareNamedConsumerRegistry.beginFrame(
             layerSources: [:]
@@ -1081,6 +1101,10 @@ enum Harness {
             "exactNamedOverlayReady": exactNamedOverlayReady,
             "typedNamedPublicationSucceeded": typedNamedPublicationSucceeded,
             "typedNamedPublicationIsComplete": typedNamedPublicationIsComplete,
+            "namedPublicationAfterOtherResourcesSucceeded":
+                namedPublicationAfterOtherResourcesSucceeded,
+            "namedPublicationAfterOtherResourcesComplete":
+                namedPublicationAfterOtherResourcesComplete,
             "bareNamedConsumerRejected": bareNamedConsumerRejected,
             "staleTypedPublicationRejected": staleTypedPublicationRejected,
             "secondaryNamedReservationRejected": secondaryNamedReservationRejected,
@@ -1227,6 +1251,8 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "exactNamedOverlayReady",
             "typedNamedPublicationSucceeded",
             "typedNamedPublicationIsComplete",
+            "namedPublicationAfterOtherResourcesSucceeded",
+            "namedPublicationAfterOtherResourcesComplete",
             "bareNamedConsumerRejected",
             "staleTypedPublicationRejected",
             "secondaryNamedReservationRejected",
