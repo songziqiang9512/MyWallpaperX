@@ -606,6 +606,27 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(surface_commit, timeline_commit)
         self.assertLess(timeline_commit, video_commit)
 
+    def test_shared_layer_alpha_candidate_commits_after_submission_barrier(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        prepare = frame_driver.index(
+            "sharedLayerAlphaRuntime.prepareValues("
+        )
+        candidate_values = frame_driver.index(
+            "pendingSharedLayerAlpha.values", prepare
+        )
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        surface_commit = frame_driver.index(
+            "evaluationTransaction.commit", barrier
+        )
+        alpha_commit = frame_driver.index(
+            "sharedLayerAlphaRuntime.commitValues(", barrier
+        )
+        self.assertLess(prepare, candidate_values)
+        self.assertLess(candidate_values, barrier)
+        self.assertLess(barrier, surface_commit)
+        self.assertLess(surface_commit, alpha_commit)
+        self.assertNotIn("sharedLayerAlphaRuntime.values(", frame_driver)
+
     def test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

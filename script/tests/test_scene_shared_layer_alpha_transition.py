@@ -145,6 +145,17 @@ enum Harness {
         let changed = runtime.values(
             effectivePropertyValues: changedInputs, frameTime: 0.1
         )
+        var transactionalRuntime = SceneSharedLayerAlphaRuntime(program: program)
+        let staged = transactionalRuntime.prepareValues(
+            effectivePropertyValues: inputs, frameTime: 0.25
+        )
+        let discarded = transactionalRuntime.prepareValues(
+            effectivePropertyValues: inputs, frameTime: 0.25
+        )
+        transactionalRuntime.commitValues(staged)
+        let afterCommit = transactionalRuntime.prepareValues(
+            effectivePropertyValues: inputs, frameTime: 0.25
+        )
 
         let malformed = binding(
             index: 4, id: 104, value: 0,
@@ -200,6 +211,9 @@ enum Harness {
             "exactWorkshopValue": scalar(second, 105),
             "badFrame": scalar(badFrame, 101),
             "changedUpper": scalar(changed, 101),
+            "staged": [scalar(staged.values, 101), scalar(staged.values, 102)],
+            "discarded": [scalar(discarded.values, 101), scalar(discarded.values, 102)],
+            "afterCommit": [scalar(afterCommit.values, 101), scalar(afterCommit.values, 102)],
             "malformedBindingCount": malformedProgram.bindings.count,
             "wrongIdentityBindingCount": wrongProgram.bindings.count,
             "duplicateInitializerBindingCount": duplicateInitializerProgram.bindings.count,
@@ -357,6 +371,11 @@ class SceneSharedLayerAlphaTransitionTests(unittest.TestCase):
         self.assertEqual(self.result["badFrame"], 0.5)
         self.assertEqual(self.result["changedUpper"], 0.3)
         self.assertEqual(self.result["exactWorkshopValue"], 0.5)
+
+    def test_shared_alpha_candidate_is_published_only_after_commit(self) -> None:
+        self.assertEqual(self.result["staged"], [0.25, 0.5])
+        self.assertEqual(self.result["discarded"], [0.25, 0.5])
+        self.assertEqual(self.result["afterCommit"], [0.5, 1])
 
     def test_only_admitted_alpha_ownership_is_released(self) -> None:
         self.assertEqual(

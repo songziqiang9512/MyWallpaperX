@@ -1,8 +1,17 @@
 import Foundation
 
-/// Scene-lifetime shared state and alpha counters. It advances once per host
-/// frame before the surface loop so every surface observes the same generation.
+/// Scene-lifetime shared state and alpha counters. One candidate is prepared
+/// per host frame before the surface loop so every surface observes the same
+/// values; the host commits it only after the shared submission barrier.
 nonisolated struct SceneSharedLayerAlphaRuntime {
+    /// A frame-local value candidate. Preparing a candidate never advances
+    /// the scene-lifetime state; the host publishes it only after the shared
+    /// surface submission barrier accepts the frame.
+    nonisolated struct PendingValues: Sendable {
+        let values: [SceneDynamicTarget: SceneDynamicValue]
+        fileprivate let states: [SceneDynamicTarget: Double]
+    }
+
     private let program: SceneSharedLayerAlphaProgram
     private var flags: [String: Bool]
     private var states: [SceneDynamicTarget: Double]
@@ -19,6 +28,39 @@ nonisolated struct SceneSharedLayerAlphaRuntime {
     }
 
     nonisolated mutating func values(
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        frameTime: TimeInterval
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        let pending = prepareValues(
+            effectivePropertyValues: effectivePropertyValues,
+            frameTime: frameTime
+        )
+        commitValues(pending)
+        return pending.values
+    }
+
+    /// Advances a copy of the shared-alpha state for the current frame.
+    /// Callers must explicitly commit the returned candidate after the frame
+    /// has been accepted by the common compositor path.
+    nonisolated func prepareValues(
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        frameTime: TimeInterval
+    ) -> PendingValues {
+        var candidate = self
+        let values = candidate.advanceValues(
+            effectivePropertyValues: effectivePropertyValues,
+            frameTime: frameTime
+        )
+        return PendingValues(values: values, states: candidate.states)
+    }
+
+    /// Publishes one previously prepared candidate. The candidate is a value
+    /// copy, so discarding it leaves the prior frame's state untouched.
+    nonisolated mutating func commitValues(_ pending: PendingValues) {
+        states = pending.states
+    }
+
+    private nonisolated mutating func advanceValues(
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frameTime: TimeInterval
     ) -> [SceneDynamicTarget: SceneDynamicValue] {

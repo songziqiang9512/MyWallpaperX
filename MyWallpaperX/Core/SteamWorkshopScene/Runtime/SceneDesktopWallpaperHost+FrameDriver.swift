@@ -281,10 +281,11 @@ extension SceneDesktopWallpaperHost {
             wallDate: timing.wallDate,
             mediaProperties: mediaProperties
         )
-        let sharedLayerAlphaValues = sharedLayerAlphaRuntime.values(
+        let pendingSharedLayerAlpha = sharedLayerAlphaRuntime.prepareValues(
             effectivePropertyValues: launchContext.liveState.effectiveValues,
             frameTime: timing.simulationFrameTime
         )
+        let sharedLayerAlphaValues = pendingSharedLayerAlpha.values
         let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
             .snapshot()
         // A SceneScript `update(value)` callback is handed the current
@@ -732,6 +733,7 @@ extension SceneDesktopWallpaperHost {
         pendingSurfaceEvaluations.forEach {
             $0.0.evaluationTransaction.commit($0.1)
         }
+        sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
         if !animationMutations.isEmpty,
            case .success = launchContext.timelinePlaybackRuntime.apply(
                animationMutations, sceneTime: timing.sceneTime
