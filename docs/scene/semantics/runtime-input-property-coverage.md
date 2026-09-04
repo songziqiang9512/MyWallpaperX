@@ -6,7 +6,9 @@
 
 > 2026-09-05 的 runtime model scaffold cleanup 删除了五个无引用的播放/renderer/input/timeline/shader 占位类型；policy 缺失门与 checkpoint Debug build 通过。该变更只收敛 owner 命名空间，不改变 runtime input/property/provider 合同，未重新运行真实样本，见 [E-V4-RUNTIME-MODEL-SCAFFOLD-CLEANUP](runtime-evidence-index.md#e-v4-runtime-model-scaffold-cleanup)。
 
-> 2026-09-05 的 graph provider publication 收口：graph output 与 static source fallback capture 完成 reservation/extent/format/usage 和 Metal blit 后，均通过 `SceneFrameTextureRegistry.publishReservedNamedLayerTarget` 发布 typed `SceneTextureProviderPublication`，publication boundary 固定 named-target identity、当前 frame epoch 与资源合同，future/stale epoch 在 registry 写入前拒绝；dependency 与 static-model consumer 只可通过 `completeNamedLayerTargetTexture` 读取完整 typed atom，bare/incomplete publication 会在边界拒绝。两个相关 Scene harness 与 checkpoint Debug build 通过，当前记为 `S3 shared provider-publication wiring`，尚未重新运行真实 graph-output consumer，不证明视觉支持、video generic provider 或 V4 完成，见 [E-V4-GRAPH-OUTPUT-TYPED-PUBLICATION](runtime-evidence-index.md#e-v4-graph-output-typed-publication)。
+> 2026-09-05 的 graph provider publication 收口：graph output 与 static source fallback capture 完成 reservation/extent/format/usage 和 Metal blit 后，均通过 `SceneFrameTextureRegistry.publishReservedNamedLayerTarget` 发布 typed `SceneTextureProviderPublication`，publication boundary 固定 named-target identity、当前 frame epoch 与资源合同，future/stale epoch 在 registry 写入前拒绝；dependency 与 static-model consumer 只可通过 `completeNamedLayerTargetTexture` 读取完整 typed atom，bare/incomplete publication 会在边界拒绝。两个相关 Scene harness 与 checkpoint Debug build 通过；随后真实 `2419444134` 暴露并修复了 registry-wide `resourceGeneration` 与 frame `contentGeneration` 的错误相等约束，layer `92/104` named graph output 已在同一公共链中完成 publication/GPU/compositor，但 runner 旧 observation 期待仍为 `NON-PASS`。详见 [E-V4-GRAPH-OUTPUT-TYPED-PUBLICATION](runtime-evidence-index.md#e-v4-graph-output-typed-publication) 与 [E-V4-TYPED-NAMED-PUBLICATION-GENERATION](runtime-evidence-index.md#e-v4-typed-named-publication-generation)。
+
+> 2026-09-05 的 Scene clear contract wiring：`general.clearenabled` 已从 `SceneDocument`/`SceneRenderDescriptor` 传入唯一 `SceneMainPassEncoder`；首个 color attachment 使用 `.clear` 或 `.load`，同一帧后续 offscreen/main-pass reopen 始终使用 `.load`。该批没有伪造 `clearenabled=false` 真实 corpus 输入，只以结构门和 checkpoint build 证明 descriptor → encoder 主链，透明/未覆盖 surface 的首帧内容与跨平台 golden 仍未验证，见 [E-V4-SCENE-CLEAR-ENABLED](runtime-evidence-index.md#e-v4-scene-clear-enabled)。
 
 > 状态：现役专项表
 >
@@ -119,7 +121,7 @@ HostFrameInputs(time, properties, audio, media)
 |---|---|---|---|
 | `general.orthogonalprojection` | `L3` | cover projection 与 canvas size；[E-BASE](runtime-evidence-index.md#e-base) | Windows 多比例像素门 |
 | `general.clearcolor` | `L3` | 主 pass clear color；[E-BASE](runtime-evidence-index.md#e-base) | HDR/color-space golden |
-| `general.clearenabled` | `L2` | 已进入 descriptor，但 renderer 总会 clear | author-off 正反门与透明背景策略 |
+| `general.clearenabled` | `L2` | 已进入 descriptor；唯一 `SceneMainPassEncoder` 首次 color load 按该值选择 `.clear`/`.load`，后续 pass 继续 `.load` | author-off 真实样本、透明/未覆盖 surface 首帧与跨平台 golden |
 | `general.nearz/farz` | `L3` | image/particle projection 使用并有边界保护；[E-BASE](runtime-evidence-index.md#e-base) | 3D camera 与异常值 golden |
 | Camera Parallax enable | `L3` | 只有作者开启时运行；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | Scene options 完整字段 |
 | parallax amount/delay | `L3` | smoother 与 layer transform 消费；[E-PARALLAX](runtime-evidence-index.md#e-parallax) | WE 数值/时序标定 |

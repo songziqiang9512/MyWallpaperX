@@ -26,14 +26,15 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"
         )
+        initialization = (
+            SCENE / "Rendering/SceneMetalRenderer+Initialization.swift"
+        ).read_text(encoding="utf-8")
         preflight = (
             SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
-        self.assertIn(
-            "resolvedMaterialPreparationOrder(\n                authoredLayerIDs:",
-            renderer,
-        )
+        self.assertIn(".resolvedMaterialPreparationOrder(", initialization)
+        self.assertIn("authoredLayerIDs: renderDescriptor.renderOrderLayerIDs", initialization)
         self.assertIn(
             "if let layerTopology,\n           !layerTopology.dynamicLayers.isEmpty",
             renderer,
@@ -140,7 +141,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         cache = (
             SCENE / "Rendering/SceneDynamicLayerRenderTopologyCache.swift"
         ).read_text(encoding="utf-8")
-        self.assertIn("private let dynamicLayerTopologyCache", renderer)
+        self.assertIn("let dynamicLayerTopologyCache", renderer)
         self.assertIn("dynamicLayerTopologyCache.resolve(", renderer)
         self.assertNotIn(
             "frameDescriptor = renderDescriptor.applying(layerTopology)",
@@ -204,6 +205,25 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         source = "\n".join(path.read_text(encoding="utf-8") for path in renderer_files)
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
+
+    def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
+        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        encoder = (SCENE / "Rendering/SceneMainPassEncoder.swift").read_text(
+            encoding="utf-8"
+        )
+        main_pass = renderer.index("let mainPass = SceneMainPassEncoder(")
+        self.assertIn(
+            "clearEnabled: frameDescriptor.camera.clearEnabled",
+            renderer[main_pass:],
+        )
+        self.assertIn("private let clearEnabled: Bool", encoder)
+        self.assertIn(
+            "self.nextLoadAction = clearEnabled ? .clear : .load",
+            encoder,
+        )
+        self.assertIn("nextLoadAction = .load", encoder)
 
     def test_runtime_model_has_no_parallel_placeholder_framework(self) -> None:
         source = (SCENE / "Runtime/SceneRuntimeModel.swift").read_text(

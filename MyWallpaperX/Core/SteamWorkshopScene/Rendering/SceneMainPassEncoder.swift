@@ -4,7 +4,8 @@ final class SceneMainPassEncoder {
     private let commandBuffer: MTLCommandBuffer
     private let target: MTLTexture
     private let clearColor: MTLClearColor
-    private var nextLoadAction: MTLLoadAction = .clear
+    private let clearEnabled: Bool
+    private var nextLoadAction: MTLLoadAction
     private var activeEncoder: MTLRenderCommandEncoder?
     private var activeDepthTexture: MTLTexture?
     private var isFinished = false
@@ -16,11 +17,14 @@ final class SceneMainPassEncoder {
     init(
         commandBuffer: MTLCommandBuffer,
         target: MTLTexture,
-        clearColor: MTLClearColor
+        clearColor: MTLClearColor,
+        clearEnabled: Bool
     ) {
         self.commandBuffer = commandBuffer
         self.target = target
         self.clearColor = clearColor
+        self.clearEnabled = clearEnabled
+        self.nextLoadAction = clearEnabled ? .clear : .load
     }
 
     func encoder() -> MTLRenderCommandEncoder? {

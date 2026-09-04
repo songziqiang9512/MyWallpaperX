@@ -189,7 +189,8 @@ struct SceneMetalRenderer {
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
             target: drawable.texture,
-            clearColor: sceneClearColor
+            clearColor: sceneClearColor,
+            clearEnabled: frameDescriptor.camera.clearEnabled
         )
         var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
