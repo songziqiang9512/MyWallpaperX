@@ -551,7 +551,7 @@ class SceneFrameContextTests(unittest.TestCase):
             "SceneScriptMediaFrameCoordinator.evaluate(", render_position
         )
         snapshot_position = frame_driver.index(
-            "surface.evaluationTransaction.evaluate", broadcast_position
+            "surface.evaluationTransaction.prepare", broadcast_position
         )
         self.assertLess(media_input_position, playback_event_position)
         self.assertLess(playback_event_position, properties_event_position)
@@ -647,6 +647,7 @@ class SceneFrameContextTests(unittest.TestCase):
             host_render.index("SceneScriptMediaFrameCoordinator.evaluate("),
         )
         self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
+        self.assertIn("PendingEvaluation", host_render)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

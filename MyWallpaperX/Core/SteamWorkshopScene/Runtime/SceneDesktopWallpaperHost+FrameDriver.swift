@@ -657,6 +657,8 @@ extension SceneDesktopWallpaperHost {
         let materialFunctionMutations = admittedOwnerEffects.flatMap(
             \.materialFunctionMutations
         )
+        var pendingSurfaceEvaluations:
+            [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
         for (displayID, surface) in surfaces {
@@ -670,12 +672,14 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
-            let resolvedDynamicValues = surface.evaluationTransaction.evaluate(
+            let pendingEvaluation = surface.evaluationTransaction.prepare(
                 frameIndex: timing.frameIndex, index: definitionIndex,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
                 sceneScriptValues: commonSceneScriptValues
-            ).snapshot
+            )
+            pendingSurfaceEvaluations.append((surface, pendingEvaluation))
+            let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
 #if DEBUG
             let dynamicValues: SceneDynamicSnapshot
             if Self.usesDebugEvidenceWindow,
@@ -743,6 +747,9 @@ extension SceneDesktopWallpaperHost {
         guard allSurfacesSubmitted else {
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
+        }
+        pendingSurfaceEvaluations.forEach {
+            $0.0.evaluationTransaction.commit($0.1)
         }
         launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)
         return .rendered

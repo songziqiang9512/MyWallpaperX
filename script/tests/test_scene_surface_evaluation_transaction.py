@@ -16,6 +16,9 @@ SOURCES = [
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Properties/SceneSurfaceEvaluationTransaction.swift",
 ]
+HOST_FRAME_DRIVER = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -33,6 +36,7 @@ enum Harness {
         var secondSurface = SceneSurfaceEvaluationTransaction()
         var emptySurface = SceneSurfaceEvaluationTransaction()
         var statefulSurface = SceneSurfaceEvaluationTransaction()
+        var pendingSurface = SceneSurfaceEvaluationTransaction()
 
         let emptyFirst = emptySurface.evaluate(frameIndex: 40, definitions: [])
         let emptySecond = emptySurface.evaluate(frameIndex: 41, definitions: [])
@@ -77,6 +81,28 @@ enum Harness {
         )
         let userOverridePublished = statefulSurface.previousValues(for: [target])
 
+        _ = pendingSurface.evaluate(
+            frameIndex: 400,
+            definitions: [definition],
+            sceneScriptValues: [target: .scalar(0.25)]
+        )
+        let pending = pendingSurface.prepare(
+            frameIndex: 401,
+            index: SceneDynamicSnapshotResolver.prepare(definitions: [definition]),
+            sceneScriptValues: [target: .scalar(0.75)]
+        )
+        let pendingPreview = pending.resolution.snapshot
+        let pendingBeforeCommit = pendingSurface.previousValues(for: [target])
+        pendingSurface.commit(pending)
+        let pendingAfterCommit = pendingSurface.previousValues(for: [target])
+        let discarded = pendingSurface.prepare(
+            frameIndex: 402,
+            index: SceneDynamicSnapshotResolver.prepare(definitions: [definition]),
+            sceneScriptValues: [target: .scalar(0.9)]
+        )
+        let discardedPreview = discarded.resolution.snapshot
+        let pendingAfterDiscard = pendingSurface.previousValues(for: [target])
+
         let payload: [String: Any] = [
             "empty": [identity(emptyFirst), identity(emptySecond)],
             "firstSurface": [
@@ -96,6 +122,13 @@ enum Harness {
             "secondSurface": [
                 state(isolated, target),
                 state(secondChanged, target),
+            ],
+            "pending": [
+                scalar(pendingPreview[target]?.value),
+                scalar(pendingBeforeCommit[target]),
+                scalar(pendingAfterCommit[target]),
+                scalar(discardedPreview[target]?.value),
+                scalar(pendingAfterDiscard[target]),
             ],
             "invalidDiagnostics": invalidHigherPriority.diagnostics.map {
                 [$0.source.rawValue, $0.code.rawValue]
@@ -194,6 +227,27 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
             self.result["invalidDiagnostics"],
             [["sceneScript", "nonFiniteValue"]],
         )
+
+    def test_pending_evaluation_is_not_published_until_commit(self) -> None:
+        self.assertEqual(
+            self.result["pending"],
+            ["0.75", "0.25", "0.75", "0.9", "0.75"],
+        )
+
+    def test_host_commits_surface_evaluations_after_submission_barrier(self) -> None:
+        source = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
+        self.assertIn("PendingEvaluation", source)
+        prepare_position = source.index(
+            "surface.evaluationTransaction.prepare("
+        )
+        outcome_position = source.index(
+            "let allSurfacesSubmitted =", prepare_position
+        )
+        commit_position = source.index(
+            "evaluationTransaction.commit", outcome_position
+        )
+        self.assertLess(prepare_position, outcome_position)
+        self.assertLess(outcome_position, commit_position)
 
 
 if __name__ == "__main__":

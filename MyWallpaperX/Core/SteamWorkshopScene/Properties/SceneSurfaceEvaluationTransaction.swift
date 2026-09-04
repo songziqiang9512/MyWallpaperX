@@ -1,6 +1,19 @@
 import Foundation
 
 nonisolated struct SceneSurfaceEvaluationTransaction {
+    nonisolated struct PendingEvaluation: Sendable {
+        fileprivate let nextGeneration: UInt64
+        let snapshot: SceneDynamicSnapshot
+        let diagnostics: [SceneDynamicSnapshotDiagnostic]
+
+        var resolution: SceneDynamicSnapshotResolution {
+            SceneDynamicSnapshotResolution(
+                snapshot: snapshot,
+                diagnostics: diagnostics
+            )
+        }
+    }
+
     private var generation: UInt64 = 0
     private var lastSnapshot: SceneDynamicSnapshot?
     private let resolver = SceneDynamicSnapshotResolver()
@@ -42,6 +55,27 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
         timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
         sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     ) -> SceneDynamicSnapshotResolution {
+        let pending = prepare(
+            frameIndex: frameIndex,
+            index: index,
+            userValues: userValues,
+            timelineValues: timelineValues,
+            sceneScriptValues: sceneScriptValues
+        )
+        commit(pending)
+        return pending.resolution
+    }
+
+    /// Resolves a candidate without publishing it. The host commits the
+    /// candidate only after every surface has submitted the same frame, so a
+    /// drawable/preflight failure cannot become SceneScript `previous-current`.
+    nonisolated func prepare(
+        frameIndex: UInt64,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        timelineValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    ) -> PendingEvaluation {
         let resolution = resolver.resolve(
             frameIndex: frameIndex,
             generation: generation,
@@ -63,11 +97,18 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
             generation: nextGeneration
         )
 
-        generation = nextGeneration
-        lastSnapshot = snapshot
-        return SceneDynamicSnapshotResolution(
+        return PendingEvaluation(
+            nextGeneration: nextGeneration,
             snapshot: snapshot,
             diagnostics: resolution.diagnostics
         )
+    }
+
+    /// Publishes one previously prepared candidate. This is intentionally a
+    /// small value commit owned by the surface transaction; no second state
+    /// store or alternate compositor path is introduced.
+    nonisolated mutating func commit(_ pending: PendingEvaluation) {
+        generation = pending.nextGeneration
+        lastSnapshot = pending.snapshot
     }
 }
