@@ -455,12 +455,14 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         publication = frame_driver.index(
             "commonSceneScriptValues.merge(\n"
             "            admittedValues(sceneScriptVectorResult.values),",
-            application,
+            validation,
         )
         self.assertLess(validation, rejection)
-        self.assertLess(rejection, application)
         self.assertLess(rejection, publication)
-        self.assertLess(application, publication)
+        self.assertLess(publication, application)
+        self.assertLess(
+            frame_driver.index("let allSurfacesSubmitted ="), application
+        )
         self.assertIn(
             "rejectedOwnerTargets.contains($0.key)",
             frame_driver[rejection:publication],

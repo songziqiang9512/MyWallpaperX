@@ -590,6 +590,22 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("displayTimer", view)
         self.assertNotIn("renderStartTime", view)
 
+    def test_scene_script_side_effect_commands_commit_after_submission_barrier(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        surface_commit = frame_driver.index(
+            "evaluationTransaction.commit", barrier
+        )
+        timeline_commit = frame_driver.index(
+            "timelinePlaybackRuntime.apply(", barrier
+        )
+        video_commit = frame_driver.index(
+            "videoTextureSourceRegistry?.apply(", barrier
+        )
+        self.assertLess(barrier, surface_commit)
+        self.assertLess(surface_commit, timeline_commit)
+        self.assertLess(timeline_commit, video_commit)
+
     def test_dynamic_snapshot_fault_is_debug_only_and_isolated_runner_owned(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

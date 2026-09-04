@@ -618,25 +618,6 @@ extension SceneDesktopWallpaperHost {
             \.animationMutations
         )
         let videoCommands = admittedOwnerEffects.flatMap(\.videoCommands)
-        if !animationMutations.isEmpty,
-           case .success = launchContext.timelinePlaybackRuntime.apply(
-               animationMutations, sceneTime: timing.sceneTime
-           ) {
-            NSLog(
-                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
-                animationMutations.count
-            )
-        }
-        if !videoCommands.isEmpty,
-           case .success? = videoTextureSourceRegistry?.apply(
-               videoCommands, timing: timing
-           ) {
-            NSLog(
-                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
-                videoCommands.count,
-                timing.frameIndex
-            )
-        }
         func admittedValues(
             _ values: [SceneDynamicTarget: SceneDynamicValue]
         ) -> [SceneDynamicTarget: SceneDynamicValue] {
@@ -750,6 +731,25 @@ extension SceneDesktopWallpaperHost {
         }
         pendingSurfaceEvaluations.forEach {
             $0.0.evaluationTransaction.commit($0.1)
+        }
+        if !animationMutations.isEmpty,
+           case .success = launchContext.timelinePlaybackRuntime.apply(
+               animationMutations, sceneTime: timing.sceneTime
+           ) {
+            NSLog(
+                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
+                animationMutations.count
+            )
+        }
+        if !videoCommands.isEmpty,
+           case .success? = videoTextureSourceRegistry?.apply(
+               videoCommands, timing: timing
+           ) {
+            NSLog(
+                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
+                videoCommands.count,
+                timing.frameIndex
+            )
         }
         launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)
         return .rendered
