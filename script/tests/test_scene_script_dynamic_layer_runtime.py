@@ -179,6 +179,7 @@ func mutation(
     text: String = "text",
     font: String = "",
     fields: SceneScriptLayerMutation.Fields = [],
+    origin: SIMD3<Double> = .zero,
     scale: SIMD3<Double> = .init(repeating: 1),
     angles: SIMD3<Double> = .zero,
     visible: Bool = true,
@@ -188,7 +189,7 @@ func mutation(
     .init(
         kind: kind, isDynamic: dynamic, fields: fields,
         layerID: id, orderIndex: order,
-        visible: visible, alpha: alpha, origin: .zero,
+        visible: visible, alpha: alpha, origin: origin,
         scale: scale, angles: angles,
         color: .init(repeating: 1), pointSize: 32, text: text, font: font,
         assetPath: assetPath, ownerTarget: ownerTarget
@@ -352,6 +353,37 @@ enum Harness {
                 ),
             ])
         )
+        let revisionRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: []
+        )
+        let initialTopologyRevision = revisionRuntime.topologyRevision
+        let dynamicTopologyPlan = revisionRuntime.preflightIsolatingOwners([
+            mutation(-7, order: 1)
+        ])
+        revisionRuntime.commit(dynamicTopologyPlan)
+        let afterDynamicTopologyRevision = revisionRuntime.topologyRevision
+        let dynamicValuePlan = revisionRuntime.preflightIsolatingOwners([
+            mutation(-7, order: 1, origin: .init(3, 4, 5), scale: .init(2, 2, 2))
+        ])
+        revisionRuntime.commit(dynamicValuePlan)
+        let afterDynamicValueRevision = revisionRuntime.topologyRevision
+        let initialDefinitionRevision = revisionRuntime.authoredDefinitionRevision
+        let firstDefinitionPlan = revisionRuntime.preflightIsolatingOwners([
+            mutation(
+                10, dynamic: false, fields: [.origin],
+                origin: .init(2, 3, 4)
+            ),
+        ])
+        revisionRuntime.commit(firstDefinitionPlan)
+        let afterDefinitionRevision = revisionRuntime.authoredDefinitionRevision
+        let valueOnlyPlan = revisionRuntime.preflightIsolatingOwners([
+            mutation(
+                10, dynamic: false, fields: [.origin],
+                origin: .init(5, 6, 7)
+            ),
+        ])
+        revisionRuntime.commit(valueOnlyPlan)
         let payload: [String: Any] = [
             "createSucceeded": succeeded(create),
             "priorSnapshotStable": beforeCreate.dynamicLayers.isEmpty,
@@ -425,6 +457,12 @@ enum Harness {
                     == colorTarget,
             "dynamicImageColor": resolvedImage.dynamicLayers.first?
                 .colorRGB?.map(Double.init) ?? [],
+            "definitionRevisionBumped": afterDefinitionRevision > initialDefinitionRevision,
+            "valueOnlyRevisionStable": revisionRuntime.authoredDefinitionRevision == afterDefinitionRevision,
+            "topologyRevisionStartsAtZero": initialTopologyRevision == 0,
+            "dynamicTopologyRevisionBumped": afterDynamicTopologyRevision > initialTopologyRevision,
+            "dynamicValueKeepsTopologyRevision": afterDynamicValueRevision == afterDynamicTopologyRevision,
+            "authoredValueKeepsTopologyRevision": revisionRuntime.topologyRevision == afterDynamicTopologyRevision,
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -511,6 +549,15 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicImageSucceeded"])
         self.assertTrue(self.result["dynamicImageColorTarget"])
         self.assertEqual(self.result["dynamicImageColor"], [0.25, 0.5, 0.75])
+
+    def test_definition_revision_tracks_schema_changes_only(self) -> None:
+        self.assertTrue(self.result["definitionRevisionBumped"])
+        self.assertTrue(self.result["valueOnlyRevisionStable"])
+
+    def test_topology_revision_tracks_dynamic_projection_only(self) -> None:
+        self.assertTrue(self.result["topologyRevisionStartsAtZero"])
+        self.assertTrue(self.result["dynamicTopologyRevisionBumped"])
+        self.assertTrue(self.result["authoredValueKeepsTopologyRevision"])
 
 
 if __name__ == "__main__":

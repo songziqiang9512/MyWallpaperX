@@ -1,6 +1,10 @@
 import Foundation
 
 nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
+    /// Changes only when a dynamic layer is admitted or removed. Authored
+    /// value publication stays frame-varying and does not invalidate the
+    /// renderer's prepared topology projection.
+    let topologyRevision: UInt64
     let dynamicLayers: [SceneRenderDescriptor.Layer]
     let renderOrderLayerIDs: [Int]
     let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
@@ -20,6 +24,7 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
             }
         }
         return .init(
+            topologyRevision: topologyRevision,
             dynamicLayers: resolvedLayers,
             renderOrderLayerIDs: renderOrderLayerIDs,
             authoredLayerValues: authoredLayerValues,
@@ -42,6 +47,7 @@ nonisolated struct SceneScriptLayerMutationOwnerFailure: Sendable {
 
 nonisolated struct SceneScriptLayerMutationApplyOutcome: Sendable {
     let committedMutationCount: Int
+    let committedDynamicMutationCount: Int
     let failures: [SceneScriptLayerMutationOwnerFailure]
 }
 
@@ -57,6 +63,7 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     fileprivate let authoredDefinitionOrder: [SceneDynamicTarget]
     fileprivate let authoredDefinitionsByTarget:
         [SceneDynamicTarget: SceneDynamicTargetDefinition]
+    fileprivate let dynamicTopologyChanged: Bool
 }
 
 nonisolated struct SceneScriptOwnerEffectsAdmission: Sendable {
@@ -77,6 +84,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     var authoredLayerDefinitions: [SceneDynamicTargetDefinition] {
         authoredDefinitionOrder.compactMap { authoredDefinitionsByTarget[$0] }
     }
+    /// Bumps only when the set or order of authored dynamic definitions is
+    /// published. Frame-varying values do not invalidate the launch schema.
+    private(set) var authoredDefinitionRevision: UInt64 = 0
+    /// Bumps when an admitted dynamic layer mutation changes the projected
+    /// descriptor. Static descriptor indexes and world frames can then be
+    /// reused between revisions without treating every frame as a rebuild.
+    private(set) var topologyRevision: UInt64 = 0
     private let authoredLayerIDs: Set<Int>
     private let authoredLayersByID: [Int: SceneRenderDescriptor.Layer]
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
@@ -85,6 +99,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    private var cachedSnapshotTopologyRevision: UInt64?
+    private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
+    private var cachedDynamicMaterialColorTargetsByLayerID:
+        [Int: SceneDynamicTarget] = [:]
     private let dynamicImageTemplates:
         [String: SceneScriptDynamicImageLayerTemplate]
 
@@ -113,28 +131,40 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     func snapshot() -> SceneScriptLayerTopologySnapshot {
-        let colorTargets: [(Int, SceneDynamicTarget)] = dynamicLayersByID
-            .compactMap { layerID, layer in
-                guard let modelPath = layer.imagePath,
-                      let target = dynamicImageTemplates[
-                        modelPath.lowercased()
-                      ]?.materialColorTarget else { return nil }
-                return (layerID, target)
-            }
-        let dynamicMaterialColorTargetsByLayerID = Dictionary(
-            uniqueKeysWithValues: colorTargets
-        )
+        if cachedSnapshotTopologyRevision != topologyRevision {
+            cachedDynamicLayers = order.compactMap { dynamicLayersByID[$0] }
+            let colorTargets: [(Int, SceneDynamicTarget)] = dynamicLayersByID
+                .compactMap { layerID, layer in
+                    guard let modelPath = layer.imagePath,
+                          let target = dynamicImageTemplates[
+                            modelPath.lowercased()
+                          ]?.materialColorTarget else { return nil }
+                    return (layerID, target)
+                }
+            cachedDynamicMaterialColorTargetsByLayerID = Dictionary(
+                uniqueKeysWithValues: colorTargets
+            )
+            cachedSnapshotTopologyRevision = topologyRevision
+        }
         return .init(
-            dynamicLayers: order.compactMap { dynamicLayersByID[$0] },
+            topologyRevision: topologyRevision,
+            dynamicLayers: cachedDynamicLayers,
             renderOrderLayerIDs: order,
             authoredLayerValues: authoredLayerValues,
             dynamicMaterialColorTargetsByLayerID:
-                dynamicMaterialColorTargetsByLayerID
+                cachedDynamicMaterialColorTargetsByLayerID
         )
     }
 
     func apply(
         _ mutations: [SceneScriptLayerMutation]
+    ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
+        apply(mutations, publishingTopologyRevision: true)
+    }
+
+    private func apply(
+        _ mutations: [SceneScriptLayerMutation],
+        publishingTopologyRevision: Bool
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
         guard mutations.count <= 192 else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
@@ -308,11 +338,21 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
               candidateLayers.keys.allSatisfy(candidateOrder.contains) else {
             return .failure(.mutationOverflow("dynamic layer topology budget exceeded"))
         }
+        let dynamicTopologyChanged = Self.dynamicTopologyChanged(
+            currentOrder: order,
+            currentLayers: dynamicLayersByID,
+            candidateOrder: candidateOrder,
+            candidateLayers: candidateLayers
+        )
         order = candidateOrder
         dynamicLayersByID = candidateLayers
         authoredLayerValues = candidateAuthoredValues
         authoredDefinitionOrder = candidateDefinitionOrder
         authoredDefinitionsByTarget = candidateDefinitions
+        if publishingTopologyRevision,
+           dynamicTopologyChanged {
+            topologyRevision &+= 1
+        }
         return .success(())
     }
 
@@ -336,13 +376,20 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let originalDefinitionOrder = authoredDefinitionOrder
         let originalDefinitions = authoredDefinitionsByTarget
         let outcome = applyIsolatingOwnersToCurrentState(mutations)
+        let dynamicTopologyChanged = Self.dynamicTopologyChanged(
+            currentOrder: originalOrder,
+            currentLayers: originalLayers,
+            candidateOrder: order,
+            candidateLayers: dynamicLayersByID
+        )
         let plan = SceneScriptLayerMutationPlan(
             outcome: outcome,
             order: order,
             dynamicLayersByID: dynamicLayersByID,
             authoredLayerValues: authoredLayerValues,
             authoredDefinitionOrder: authoredDefinitionOrder,
-            authoredDefinitionsByTarget: authoredDefinitionsByTarget
+            authoredDefinitionsByTarget: authoredDefinitionsByTarget,
+            dynamicTopologyChanged: dynamicTopologyChanged
         )
         order = originalOrder
         dynamicLayersByID = originalLayers
@@ -427,11 +474,23 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     }
 
     func commit(_ plan: SceneScriptLayerMutationPlan) {
+        // Definitions are append-only for the lifetime of a launch. Their
+        // stable order is therefore the cheapest complete invalidation key;
+        // authored values remain frame-varying state and do not invalidate
+        // the launch schema.
+        let definitionsChanged = authoredDefinitionOrder
+            != plan.authoredDefinitionOrder
         order = plan.order
         dynamicLayersByID = plan.dynamicLayersByID
         authoredLayerValues = plan.authoredLayerValues
         authoredDefinitionOrder = plan.authoredDefinitionOrder
         authoredDefinitionsByTarget = plan.authoredDefinitionsByTarget
+        if plan.dynamicTopologyChanged {
+            topologyRevision &+= 1
+        }
+        if definitionsChanged {
+            authoredDefinitionRevision &+= 1
+        }
     }
 
     private func applyIsolatingOwnersToCurrentState(
@@ -440,6 +499,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         guard mutations.count <= 192 else {
             return .init(
                 committedMutationCount: 0,
+                committedDynamicMutationCount: 0,
                 failures: [.init(
                     ownerTarget: nil,
                     failure: .mutationOverflow(
@@ -458,6 +518,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var claimedAuthoredTargets = Set<SceneDynamicTarget>()
         var failures: [SceneScriptLayerMutationOwnerFailure] = []
         var committedMutationCount = 0
+        var committedDynamicMutationCount = 0
         for owner in ownerOrder {
             guard let batch = grouped[owner] else { continue }
             let targets = Set(batch.flatMap(Self.authoredTargets))
@@ -470,10 +531,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 ))
                 continue
             }
-            switch apply(batch) {
+            switch apply(batch, publishingTopologyRevision: false) {
             case .success:
                 claimedAuthoredTargets.formUnion(targets)
                 committedMutationCount += batch.count
+                committedDynamicMutationCount += batch.filter(\.isDynamic).count
             case let .failure(failure):
                 failures.append(.init(
                     ownerTarget: owner, failure: failure
@@ -482,6 +544,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
         return .init(
             committedMutationCount: committedMutationCount,
+            committedDynamicMutationCount: committedDynamicMutationCount,
             failures: failures
         )
     }
@@ -512,6 +575,34 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             targets.append(.text(layerID: mutation.layerID, field: .font))
         }
         return targets
+    }
+
+    /// Dynamic upserts carry their complete frame value record, but that does
+    /// not make them a new graph topology. Only identity/order or the
+    /// structural resource lane invalidates the renderer's prepared
+    /// descriptor projection. Position, scale, angles, visibility, alpha,
+    /// color, text and font are applied to the cached projection per frame.
+    private static func dynamicTopologyChanged(
+        currentOrder: [Int],
+        currentLayers: [Int: SceneRenderDescriptor.Layer],
+        candidateOrder: [Int],
+        candidateLayers: [Int: SceneRenderDescriptor.Layer]
+    ) -> Bool {
+        guard currentOrder == candidateOrder,
+              currentLayers.count == candidateLayers.count,
+              currentLayers.keys == candidateLayers.keys else {
+            return true
+        }
+        for layerID in currentLayers.keys {
+            guard let current = currentLayers[layerID],
+                  let candidate = candidateLayers[layerID],
+                  current.id == candidate.id,
+                  current.contentKind == candidate.contentKind,
+                  current.imagePath == candidate.imagePath else {
+                return true
+            }
+        }
+        return false
     }
 
     private static func initialAuthoredDefinitions(
