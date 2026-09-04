@@ -68,10 +68,12 @@ TAU = 6.2831855
 
 SCENE_FIXTURE = {
     "version": 3,
+    "futureDocumentField": {"opaque": ["keep", True]},
     "objects": [
         {
             "id": 10,
             "name": "Loop alpha",
+            "futureLayerField": {"opaque": [1, True, None]},
             "image": "models/user/a.json",
             "size": "100 100",
             "alpha": {
@@ -106,8 +108,10 @@ SCENE_FIXTURE = {
             "effects": [
                 {
                     "file": "effects/pulse/effect.json",
+                    "futureEffectField": {"opaque": ["effect", True]},
                     "passes": [
                         {
+                            "futurePassField": {"opaque": ["pass", 2]},
                             "constantshadervalues": {
                                 "multiply": {
                                     "value": 0,
@@ -264,6 +268,14 @@ enum HarnessError: Error { case missingFixture }
 
 @main
 enum Harness {
+    static func containsObjectKey(
+        _ value: SceneJSONValue?,
+        _ key: String
+    ) -> Bool {
+        guard case let .object(fields) = value else { return false }
+        return fields[key] != nil
+    }
+
     static func main() throws {
         guard CommandLine.arguments.count == 2 else { throw HarnessError.missingFixture }
         let sceneURL = URL(fileURLWithPath: CommandLine.arguments[1])
@@ -271,11 +283,27 @@ enum Harness {
         let objects = Dictionary(uniqueKeysWithValues: document.objects.map { ($0.id, $0) })
 
         var payload: [String: Any] = [:]
+        payload["authoredFutureDocumentField"] = containsObjectKey(
+            document.authoredRoot,
+            "futureDocumentField"
+        )
         for (id, object) in objects {
             var entry: [String: Any] = [
                 "timelineHosts": object.timelines.map { $0.host.rawValue },
                 "timelineDiagnostics": object.timelineDiagnostics,
+                "authoredFutureLayerField": containsObjectKey(
+                    object.authoredValue,
+                    "futureLayerField"
+                ),
             ]
+            entry["authoredFutureEffectField"] = object.effects.contains {
+                containsObjectKey($0.authoredValue, "futureEffectField")
+            }
+            entry["authoredFuturePassField"] = object.effects
+                .flatMap(\.passes)
+                .contains {
+                    containsObjectKey($0.authoredValue, "futurePassField")
+                }
             entry["timelines"] = object.timelines.map { timeline in
                 [
                     "host": timeline.host.rawValue,
@@ -377,6 +405,10 @@ class SceneTimelineDocumentTests(unittest.TestCase):
         self.assertEqual(timeline["componentCount"], 1)
         self.assertFalse(timeline["isRelative"])
 
+    def test_authored_document_and_layer_values_survive_resolution(self) -> None:
+        self.assertTrue(self.result["authoredFutureDocumentField"])
+        self.assertTrue(self.result["10"]["authoredFutureLayerField"])
+
     def test_vector_host_keeps_all_three_lanes_and_relative_flag(self) -> None:
         entry = self.result["20"]
         self.assertEqual(entry["timelineHosts"], ["angles"])
@@ -396,6 +428,8 @@ class SceneTimelineDocumentTests(unittest.TestCase):
         self.assertEqual(multiply["diagnostics"], [])
         # 该 object 的 layer 级属性没有 animation
         self.assertEqual(self.result["30"]["timelineHosts"], [])
+        self.assertTrue(self.result["30"]["authoredFutureEffectField"])
+        self.assertTrue(self.result["30"]["authoredFuturePassField"])
 
     def test_user_bound_constant_is_not_mistaken_for_a_timeline(self) -> None:
         opacity = self.result["30"]["constants"]["opacity"]

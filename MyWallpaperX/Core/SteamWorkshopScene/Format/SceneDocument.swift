@@ -11,6 +11,9 @@ struct SceneDocument {
     struct SceneEffect: Identifiable {
         struct Pass: Identifiable {
             let id: Int?
+            /// Original authored pass object, retained beside the typed
+            /// projection so future material/provider fields are not erased.
+            let authoredValue: SceneJSONValue?
             let textures: [String]
             let textureSlots: [String?]
             let userTextureInputs: [SceneEffectTextureInput?]
@@ -21,12 +24,19 @@ struct SceneDocument {
 
         let id: Int?
         let name: String?
+        /// Original authored effect object, retained beside the typed
+        /// projection for loss-preserving lowering and diagnostics.
+        let authoredValue: SceneJSONValue?
         let file: String
         let visible: Bool?
         let passes: [Pass]
     }
 
     let sourceURL: URL
+    /// The authored document before user-property overrides are resolved.
+    /// Typed fields below intentionally use the resolved projection, while
+    /// this value remains available to later graph/provider consumers.
+    let authoredRoot: SceneJSONValue
     let declaredVersion: SceneDeclaredInteger
     let camera: CameraDescriptor
     let general: GeneralDescriptor
@@ -127,9 +137,13 @@ struct SceneDocumentLoader {
                 + (object.sound?.paths ?? [])
                 + object.effectFiles + object.texturePaths
         })
+        guard let authoredValue = SceneJSONValue(jsonObject: sourceRoot) else {
+            throw LoadError.invalidSceneJSON(sourceURL)
+        }
 
         return SceneDocument(
             sourceURL: sourceURL,
+            authoredRoot: authoredValue,
             declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
             camera: Self.parseCamera(root["camera"] as? [String: Any]),
             general: Self.parseGeneral(root["general"] as? [String: Any]),
@@ -159,7 +173,15 @@ struct SceneDocumentLoader {
     ) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
         let effects = root["effects"] as? [[String: Any]] ?? []
-        let parsedEffects = effects.compactMap(Self.parseEffect)
+        let authoredEffects = authoredRoot["effects"] as? [[String: Any]] ?? []
+        let parsedEffects = effects.enumerated().compactMap { index, effect in
+            Self.parseEffect(
+                effect,
+                authoredRoot: authoredEffects.indices.contains(index)
+                    ? authoredEffects[index]
+                    : effect
+            )
+        }
         let effectFiles = parsedEffects.map(\.file)
         let texturePaths = effects.flatMap(Self.effectTexturePaths)
         let text = textValue(root["text"])
@@ -171,6 +193,7 @@ struct SceneDocumentLoader {
         return SceneDocument.SceneObject(
             id: id,
             name: root["name"] as? String,
+            authoredValue: SceneJSONValue(jsonObject: authoredRoot),
             cameraPath: SceneDocument.Scene2DCameraPathDefinition.parse(root),
             imagePath: imagePath,
             staticModelPath: normalizedPath(root["model"] as? String),
@@ -230,11 +253,18 @@ struct SceneDocumentLoader {
         )
     }
 
-    nonisolated private static func parseEffect(_ root: [String: Any]) -> SceneDocument.SceneEffect? {
+    nonisolated private static func parseEffect(
+        _ root: [String: Any],
+        authoredRoot: [String: Any]
+    ) -> SceneDocument.SceneEffect? {
         guard let file = normalizedPath(root["file"] as? String) else { return nil }
-        let passes = (root["passes"] as? [[String: Any]] ?? []).map { pass in
+        let authoredPasses = authoredRoot["passes"] as? [[String: Any]] ?? []
+        let passes = (root["passes"] as? [[String: Any]] ?? []).enumerated().map { index, pass in
             SceneDocument.SceneEffect.Pass(
                 id: pass["id"] as? Int,
+                authoredValue: SceneJSONValue(jsonObject: authoredPasses.indices.contains(index)
+                    ? authoredPasses[index]
+                    : pass),
                 textures: texturePaths(in: pass),
                 textureSlots: (pass["textures"] as? [Any] ?? []).map { normalizedPath($0 as? String) },
                 userTextureInputs: (pass["usertextures"] as? [Any] ?? []).map(SceneEffectTextureInput.parse),
@@ -247,6 +277,7 @@ struct SceneDocumentLoader {
         return SceneDocument.SceneEffect(
             id: root["id"] as? Int,
             name: root["name"] as? String,
+            authoredValue: SceneJSONValue(jsonObject: authoredRoot),
             file: file,
             visible: visibleValue(root["visible"]),
             passes: passes

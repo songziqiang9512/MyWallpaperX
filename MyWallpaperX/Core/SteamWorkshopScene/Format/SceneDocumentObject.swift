@@ -253,6 +253,8 @@ extension SceneDocument {
     struct SceneObject: Identifiable {
         let id: Int
         let name: String?
+        /// Original authored object before user-property resolution.
+        let authoredValue: SceneJSONValue?
         var cameraPath: Scene2DCameraPathDefinition? = nil
         let imagePath: String?
         /// Direct static 3D model authored at `objects[].model`. Puppet image
