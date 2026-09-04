@@ -7,6 +7,16 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
 
     nonisolated init() {}
 
+    /// Values published by the preceding frame for stateful SceneScript
+    /// owners.  The accessor is intentionally read-only and target-scoped so
+    /// the host can feed callback state forward without exposing or replacing
+    /// the transaction's atomic snapshot publication.
+    nonisolated func previousValues(
+        for targets: Set<SceneDynamicTarget>
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        lastSnapshot?.values(for: targets, source: .sceneScript) ?? [:]
+    }
+
     nonisolated mutating func evaluate(
         frameIndex: UInt64,
         definitions: [SceneDynamicTargetDefinition],

@@ -252,6 +252,23 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         authoredValues[target]
     }
 
+    /// Returns the last published typed values for the requested runtime
+    /// owners.  SceneScript callbacks receive the current property value, not
+    /// the immutable authored seed, so the host uses this small projection as
+    /// the next frame's callback input.  Keeping the projection here avoids a
+    /// second mutable property registry while preserving the snapshot's
+    /// identity and source metadata for normal consumers.
+    nonisolated func values(
+        for targets: Set<SceneDynamicTarget>,
+        source: SceneDynamicSource? = nil
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        values.reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) {
+            guard targets.contains($1.key),
+                  source == nil || source == $1.value.source else { return }
+            $0[$1.key] = $1.value.value
+        }
+    }
+
     nonisolated func userPropertyNumericRange(
         for target: SceneDynamicTarget
     ) -> ClosedRange<Double>? {

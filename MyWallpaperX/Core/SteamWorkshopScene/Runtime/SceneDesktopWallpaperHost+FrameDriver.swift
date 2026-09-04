@@ -342,13 +342,30 @@ extension SceneDesktopWallpaperHost {
         )
         let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
             .snapshot()
-        var commonSceneScriptValues = textScriptValues.merging(
-            sharedLayerAlphaValues,
-            uniquingKeysWith: { existing, _ in existing }
-        ).merging(
-            layerMutationSnapshot.authoredLayerValues,
-            uniquingKeysWith: { _, committedMutation in committedMutation }
+        // A SceneScript `update(value)` callback is handed the current
+        // published value by the official runtime.  The authored descriptor is
+        // only the seed; feeding it again every frame freezes interpolation
+        // scripts (for example this sample's cover card remains at the top
+        // instead of sliding to its centered position).  Carry forward only
+        // targets owned by typed script programs and only when no higher
+        // priority user/timeline producer is present for this frame.
+        let sceneScriptStatefulTargets = Set(
+            launchContext.propertyVectorScriptProgram.bindings.map(\.definition.target)
+                + launchContext.sceneScriptScalarProgram.bindings.map(\.target)
+                + launchContext.sceneScriptStringProgram.bindings.map(\.target)
         )
+        let previousSceneScriptValues = surfaces.values.first?.evaluationTransaction
+            .previousValues(for: sceneScriptStatefulTargets)
+            .filter { target, _ in
+                !launchContext.liveState.userValues.keys.contains(target)
+                    && !timelineValues.keys.contains(target)
+            } ?? [:]
+        var commonSceneScriptValues = previousSceneScriptValues
+        commonSceneScriptValues.merge(textScriptValues) { _, current in current }
+        commonSceneScriptValues.merge(sharedLayerAlphaValues) { _, current in current }
+        commonSceneScriptValues.merge(
+            layerMutationSnapshot.authoredLayerValues
+        ) { _, committedMutation in committedMutation }
         let boundedSceneScriptValues = commonSceneScriptValues
         let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex,

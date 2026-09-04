@@ -32,18 +32,22 @@ enum Harness {
         var firstSurface = SceneSurfaceEvaluationTransaction()
         var secondSurface = SceneSurfaceEvaluationTransaction()
         var emptySurface = SceneSurfaceEvaluationTransaction()
+        var statefulSurface = SceneSurfaceEvaluationTransaction()
 
         let emptyFirst = emptySurface.evaluate(frameIndex: 40, definitions: [])
         let emptySecond = emptySurface.evaluate(frameIndex: 41, definitions: [])
 
         let first = firstSurface.evaluate(frameIndex: 100, definitions: [definition])
+        let firstPublished = firstSurface.previousValues(for: [target])
         let same = firstSurface.evaluate(frameIndex: 101, definitions: [definition])
         let changed = firstSurface.evaluate(
             frameIndex: 102,
             definitions: [definition],
             userValues: [target: .scalar(0.5)]
         )
+        let changedPublished = firstSurface.previousValues(for: [target])
         let isolated = secondSurface.evaluate(frameIndex: 200, definitions: [definition])
+        let isolatedPublished = secondSurface.previousValues(for: [target])
         let sourceOnly = firstSurface.evaluate(
             frameIndex: 103,
             definitions: [definition],
@@ -60,6 +64,18 @@ enum Harness {
             definitions: [definition],
             sceneScriptValues: [target: .scalar(0.75)]
         )
+        _ = statefulSurface.evaluate(
+            frameIndex: 300,
+            definitions: [definition],
+            sceneScriptValues: [target: .scalar(0.75)]
+        )
+        let statefulPublished = statefulSurface.previousValues(for: [target])
+        _ = statefulSurface.evaluate(
+            frameIndex: 301,
+            definitions: [definition],
+            userValues: [target: .scalar(0.5)]
+        )
+        let userOverridePublished = statefulSurface.previousValues(for: [target])
 
         let payload: [String: Any] = [
             "empty": [identity(emptyFirst), identity(emptySecond)],
@@ -69,6 +85,13 @@ enum Harness {
                 state(changed, target),
                 state(sourceOnly, target),
                 state(invalidHigherPriority, target),
+            ],
+            "published": [
+                scalar(firstPublished[target]),
+                scalar(changedPublished[target]),
+                scalar(isolatedPublished[target]),
+                scalar(statefulPublished[target]),
+                scalar(userOverridePublished[target]),
             ],
             "secondSurface": [
                 state(isolated, target),
@@ -146,6 +169,12 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
     def test_value_change_increments_generation_once(self) -> None:
         changed = self.result["firstSurface"][2]
         self.assertEqual(changed[:3], ["102", "2", "0.5"])
+
+    def test_previous_values_follow_the_published_snapshot(self) -> None:
+        self.assertEqual(
+            self.result["published"],
+            ["missing", "missing", "missing", "0.75", "missing"],
+        )
 
     def test_transactions_keep_generation_state_isolated(self) -> None:
         isolated, changed = self.result["secondSurface"]
