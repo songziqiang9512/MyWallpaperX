@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 import QuartzCore
 import simd
@@ -181,6 +182,23 @@ struct SceneMetalRenderer {
             staticFrames: frameStaticWorldFrames,
             dynamicLayerIDs: dynamicLayerIDs
         )
+#if DEBUG
+        let dynamicVisibleLayerCount = dynamicLayerIDs.intersection(
+            SceneLayerVisibility.visibleLayerIDs(
+                in: frameDescriptor, snapshot: frameContext.dynamicValues
+            )
+        ).count
+        let dynamicSourcePublicationCount = dynamicLayerIDs.reduce(into: 0) {
+            count, layerID in
+            guard let texture = imageTextures[layerID],
+                  imageTextures.explicitLayerSourcePublication(
+                      for: layerID, matching: texture
+                  ) != nil else { return }
+            count += 1
+        }
+        var dynamicEncodedLayerCount = 0
+        var dynamicPassthroughLayerCount = 0
+#endif
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
@@ -577,6 +595,16 @@ struct SceneMetalRenderer {
                         for: layer.contentKind
                     )
                 )
+#if DEBUG
+                if dynamicLayerIDs.contains(layer.id) {
+                    if drawOutcome.encoded {
+                        dynamicEncodedLayerCount += 1
+                    }
+                    if case .layerSourcePassthrough = drawOutcome {
+                        dynamicPassthroughLayerCount += 1
+                    }
+                }
+#endif
                 dependencyRuntime.recordBindingIfRequired(
                     for: layer.id,
                     encoded: drawOutcome.consumedDependency,
@@ -779,6 +807,31 @@ struct SceneMetalRenderer {
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
             return
         }
+#if DEBUG
+        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+           frameContext.frameIndex <= 2,
+           !dynamicLayerIDs.isEmpty {
+            NSLog(
+                "MWX DEBUG SCENE: phase=dynamic-layer-render frame=%llu topologyRevision=%llu cacheHit=%@ descriptor=%d visible=%d sourcePublications=%d encoded=%d passthrough=%d",
+                frameContext.frameIndex,
+                layerTopology?.topologyRevision ?? 0,
+                String(dynamicLayerTopologyCache.lastResolveWasCacheHit),
+                dynamicLayerIDs.count,
+                dynamicVisibleLayerCount,
+                dynamicSourcePublicationCount,
+                dynamicEncodedLayerCount,
+                dynamicPassthroughLayerCount
+            )
+            commandBuffer.addCompletedHandler { buffer in
+                NSLog(
+                    "MWX DEBUG SCENE: phase=dynamic-layer-render-completion frame=%llu status=%@ error=%@",
+                    frameContext.frameIndex,
+                    String(describing: buffer.status),
+                    buffer.error.map(String.init(describing:)) ?? "none"
+                )
+            }
+        }
+#endif
         commandBuffer.present(drawable)
         effectExecutionTelemetry.observeSharedCommandBuffer(
             for: effectExecutionTrace,
