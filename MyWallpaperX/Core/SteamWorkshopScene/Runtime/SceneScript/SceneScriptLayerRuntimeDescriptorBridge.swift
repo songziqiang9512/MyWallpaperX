@@ -13,7 +13,6 @@ nonisolated extension SceneScriptQuickJSDomain {
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]
     ) throws {
-        try configureLayerCatalog(descriptor)
         for (index, layer) in descriptor.layers.enumerated() {
             let scale = layerVector3(
                 layerID: layer.id, field: .scale,

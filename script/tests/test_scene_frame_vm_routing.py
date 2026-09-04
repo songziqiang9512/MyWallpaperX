@@ -30,6 +30,7 @@ OWNER_EFFECTS_VALIDATION_SOURCE = (
     SCRIPT / "SceneScriptOwnerEffectsRuntimeValidation.swift"
 )
 LAUNCH_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+Launch.swift"
+LAUNCH_SCHEMA_SOURCE = RUNTIME / "SceneDesktopWallpaperLaunchFrameSchema.swift"
 STARTUP_REPORT_SOURCE = (
     RUNTIME / "SceneDesktopWallpaperLaunchContext+StartupReport.swift"
 )
@@ -38,6 +39,10 @@ CANDIDATE_SOURCE = SCRIPT / "SceneScriptQuickJSProgramCandidate.swift"
 ROUTE_CANDIDATE_SOURCE = SCRIPT / "SceneScriptVectorMediaRouteCandidate.swift"
 FALLBACK_CATALOG_SOURCE = SCRIPT / "SceneScriptFallbackCatalog.swift"
 VECTOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptVectorProgram.swift"
+LAYER_HANDLE_SOURCE = SCRIPT / "SceneScriptLayerHandleBridge.swift"
+LAYER_RUNTIME_DESCRIPTOR_SOURCE = (
+    SCRIPT / "SceneScriptLayerRuntimeDescriptorBridge.swift"
+)
 
 
 def swift_body(source: str, signature: str) -> str:
@@ -60,6 +65,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self,
     ) -> None:
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
+        launch_schema = LAUNCH_SCHEMA_SOURCE.read_text(encoding="utf-8")
         startup_report = STARTUP_REPORT_SOURCE.read_text(encoding="utf-8")
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         model = MODEL_SOURCE.read_text(encoding="utf-8")
@@ -109,7 +115,11 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("SceneScriptStringProgram.projectedDefinitions(", fallback)
         self.assertIn("Set(definitions.map(\\.target)) == targets", fallback)
         self.assertIn("SceneScriptFallbackCatalog(", launch)
-        self.assertIn("+ launchContext.sceneScriptFallbackDefinitions", frame)
+        self.assertIn(
+            "sceneScriptFallbackDefinitions: sceneScriptFallbackDefinitions",
+            launch,
+        )
+        self.assertIn("+ sceneScriptFallbackDefinitions", launch_schema)
         self.assertIn("fallbackCatalog.targets.isDisjoint(", launch)
         self.assertIn("activeBindings=", startup_report)
         self.assertIn("mediaThumbnailTargets.count", startup_report)
@@ -180,6 +190,16 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("vectorProgram.evaluate(", media_frame)
         self.assertIn("stringProgram.evaluate(", media_frame)
         self.assertIn("scalarProgram.evaluate(", media_frame)
+
+    def test_layer_catalog_is_configured_once_per_snapshot(self) -> None:
+        handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")
+        runtime_fields = LAYER_RUNTIME_DESCRIPTOR_SOURCE.read_text(
+            encoding="utf-8"
+        )
+        snapshot = swift_body(handle, "func publishLayerSnapshot(")
+        runtime = swift_body(runtime_fields, "func publishLayerRuntimeFields(")
+        self.assertEqual(snapshot.count("configureLayerCatalog(descriptor)"), 1)
+        self.assertNotIn("configureLayerCatalog(descriptor)", runtime)
 
     def test_one_media_snapshot_feeds_vm_before_every_surface(self) -> None:
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

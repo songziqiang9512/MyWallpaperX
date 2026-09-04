@@ -3080,10 +3080,16 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
         evaluate = frame.index("SceneScriptMediaFrameCoordinator.evaluate(")
-        final_snapshot = frame.index("let resolvedDynamicValues = surface.evaluationTransaction.evaluate")
+        final_snapshot = frame.index(
+            "let pendingEvaluation = surface.evaluationTransaction.prepare("
+        )
+        resolved_snapshot = frame.index(
+            "let resolvedDynamicValues = pendingEvaluation.resolution.snapshot"
+        )
         self.assertLess(timeline, preliminary)
         self.assertLess(preliminary, evaluate)
         self.assertLess(evaluate, final_snapshot)
+        self.assertLess(final_snapshot, resolved_snapshot)
         self.assertIn("teardownSceneScriptOwners(launchContext, reason: reason)", frame)
         self.assertNotIn("sceneScriptScalarProgram.invalidate()", frame)
 
