@@ -6,7 +6,7 @@ extension SteamWorkshopService {
         requestedURL = requestedURLForCurrentContext(page: 1)
         navigationVersion += 1
         currentWorkshopItemID = nil
-        currentPageTitle = browseContext.title
+        currentPageTitle = browseContext.isAuthorWorkshop ? browseContext.title : source.pageTitle
         fetchBrowserItems()
     }
 
@@ -54,6 +54,7 @@ extension SteamWorkshopService {
         prefetchedBrowserPages.removeAll()
         let browseContext = self.browseContext
         let source = self.source
+        let personalSort = self.personalSort
         let browserContentMode = self.browserContentMode
         let query = browserQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let trendingWindow = self.trendingWindow
@@ -62,10 +63,11 @@ extension SteamWorkshopService {
         let resolutionFilter = self.resolutionFilter
         let categoryFilter = self.categoryFilter
         let expectedNavigationVersion = navigationVersion
-        let pageSize = browsePageSize(for: browseContext)
+        let pageSize = browsePageSize(for: browseContext, source: source)
         logBrowserDebug(
             "fetchBrowserItems start context=\(browseContext.title) forceRefresh=\(forceRefresh) query=\(query) pageSize=\(pageSize)"
         )
+        if preparePersonalWorkshopFetchIfNeeded(source: source, forceRefresh: forceRefresh, navigationVersion: expectedNavigationVersion) { return }
 
         if browseContext == .discovery,
            let itemID = Self.workshopItemIDSearchID(from: query) {
@@ -120,7 +122,8 @@ extension SteamWorkshopService {
             themeFilter: themeFilter,
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
-            categoryFilter: categoryFilter
+            categoryFilter: categoryFilter,
+            personalSort: personalSort
         ) {
             browserItems = cached.items
             browserState = .loaded
@@ -147,7 +150,6 @@ extension SteamWorkshopService {
             browserItems = []
             statusMessage = loadingStatusMessage(for: browseContext)
         }
-
         browserFetchTask = Task(priority: .userInitiated) { [weak self] in
             do {
                 let pageResult = try await Self.fetchWorkshopStubPage(
@@ -160,7 +162,8 @@ extension SteamWorkshopService {
                     ageRatingFilter: ageRatingFilter,
                     resolutionFilter: resolutionFilter,
                     categoryFilter: categoryFilter,
-                    page: 1
+                    page: 1,
+                    personalSort: personalSort
                 )
                 let stubs = pageResult.stubs
                 let seededItems = stubs.map(Self.seededBrowserItem)
@@ -173,6 +176,8 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           self.browseContext == browseContext,
+                          self.source == source,
+                          self.personalSort == personalSort,
                           self.browserContentMode == browserContentMode else { return }
                     self.isRefreshingBrowserFeed = false
                     self.browserItems = ageFilteredItems ?? seededItems
@@ -208,7 +213,8 @@ extension SteamWorkshopService {
                             ageRatingFilter: ageRatingFilter,
                             resolutionFilter: resolutionFilter,
                             categoryFilter: categoryFilter,
-                            items: self.browserItems
+                            items: self.browserItems,
+                            personalSort: personalSort
                         )
                         self.continueAgeFilteredPaginationIfNeeded(
                             loadedVisibleItemCount: self.browserItems.count
@@ -221,15 +227,14 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           self.browseContext == browseContext,
+                          self.source == source,
+                          self.personalSort == personalSort,
                           self.browserContentMode == browserContentMode else { return }
                     self.isRefreshingBrowserFeed = false
                     self.browserState = .loaded
                     self.hasMoreBrowserItems = pageResult.hasMore
                     self.browserNextPage = 2
                     self.isLoadingMoreBrowserItems = false
-                    self.logBrowserDebug(
-                        "fetchBrowserItems enqueued context=\(browseContext.title) stubCount=\(stubs.count) hasMore=\(pageResult.hasMore)"
-                    )
                     self.prefetchUpcomingBrowserPageIfNeeded(
                         context: browseContext,
                         browserContentMode: browserContentMode,
@@ -241,6 +246,7 @@ extension SteamWorkshopService {
                         resolutionFilter: resolutionFilter,
                         categoryFilter: categoryFilter,
                         page: self.browserNextPage,
+                        personalSort: personalSort,
                         lookaheadDepth: 1
                     )
                 }
@@ -250,6 +256,8 @@ extension SteamWorkshopService {
                     guard let self else { return }
                     guard self.navigationVersion == expectedNavigationVersion,
                           self.browseContext == browseContext,
+                          self.source == source,
+                          self.personalSort == personalSort,
                           self.browserContentMode == browserContentMode else { return }
                     self.isRefreshingBrowserFeed = false
                     if self.browserItems.isEmpty {
@@ -262,116 +270,6 @@ extension SteamWorkshopService {
                 }
             }
         }
-    }
-
-    nonisolated static func fetchWorkshopItemByIDSearch(id: String) async throws -> SteamWorkshopBrowserItem? {
-        let stub = SteamWorkshopBrowseStub(
-            id: id,
-            title: nil,
-            author: nil,
-            authorProfileURL: nil,
-            authorWorkshopURL: nil,
-            hasAdultContent: false,
-            summary: nil,
-            previewImageURL: nil
-        )
-
-        let detailsByID = try await fetchPublishedFileDetails(
-            ids: [id],
-            requestPriority: .userInitiated
-        )
-        guard let detail = detailsByID[id],
-              let workshopAppID = Int(Constants.workshopAppID),
-              detail.consumerAppID == workshopAppID else {
-            return nil
-        }
-
-        let resolved = await item(from: detail, stub: stub)
-        let enriched = try await maybeEnrichPreviewKind(for: resolved, requestPriority: .userInitiated)
-        saveDetailCache(item: enriched)
-        return enriched
-    }
-
-    nonisolated static func shouldEagerlyResolvePreviewKind(for requestPriority: SteamWorkshopDetailRequestPriority) -> Bool {
-        requestPriority == .userInitiated
-    }
-
-    nonisolated static func maybeEnrichPreviewKind(
-        for item: SteamWorkshopBrowserItem,
-        requestPriority: SteamWorkshopDetailRequestPriority
-    ) async throws -> SteamWorkshopBrowserItem {
-        guard shouldEagerlyResolvePreviewKind(for: requestPriority) else {
-            return item
-        }
-        return try await enrichPreviewKind(for: item, requestPriority: requestPriority)
-    }
-
-    nonisolated static func fetchWorkshopStubPage(
-        context: SteamWorkshopBrowseContext,
-        browserContentMode: SteamWorkshopBrowserContentMode,
-        source: SteamWorkshopSource,
-        query: String,
-        trendingWindow: SteamWorkshopTrendingWindow,
-        themeFilter: SteamWorkshopThemeFilter,
-        ageRatingFilter: SteamWorkshopAgeRatingFilter,
-        resolutionFilter: SteamWorkshopResolutionFilter,
-        categoryFilter: SteamWorkshopCategoryFilter,
-        page: Int
-    ) async throws -> SteamWorkshopBrowseStubPage {
-        let url: URL
-        switch context {
-        case .discovery:
-            url = makeBrowseURL(
-                browserContentMode: browserContentMode,
-                source: source,
-                query: query,
-                trendingWindow: trendingWindow,
-                themeFilter: themeFilter,
-                ageRatingFilter: ageRatingFilter,
-                resolutionFilter: resolutionFilter,
-                categoryFilter: categoryFilter,
-                page: page
-            )
-        case .authorWorkshop(_, let workshopURL):
-            url = makeAuthorWorkshopURL(baseURL: workshopURL, page: page)
-        }
-        let html = try await fetchHTML(url: url)
-        let stubs = parseBrowsePage(html: html)
-        for stub in stubs {
-            await saveAuthorNameIfPossible(
-                stub.author,
-                creatorID: creatorID(from: stub.authorProfileURL) ?? creatorID(from: stub.authorWorkshopURL),
-                authorProfileURL: stub.authorProfileURL,
-                authorWorkshopURL: stub.authorWorkshopURL
-            )
-        }
-        let pageSize = await context.isAuthorWorkshop ? Constants.authorWorkshopPageSize : Constants.browserPageSize
-        let hasNextPageLink = browsePageHasMore(html: html, currentPage: page)
-        let hasMore = hasNextPageLink || stubs.count >= pageSize
-        if !stubs.isEmpty {
-            return SteamWorkshopBrowseStubPage(stubs: stubs, hasMore: hasMore)
-        }
-
-        let pattern = #"sharedfiles/filedetails/\?id=(\d+)"#
-        let matches = firstCaptureMatches(pattern: pattern, in: html)
-        var ordered: [SteamWorkshopBrowseStub] = []
-        var seen = Set<String>()
-        for id in matches where seen.insert(id).inserted {
-            ordered.append(
-                SteamWorkshopBrowseStub(
-                    id: id,
-                    title: nil,
-                    author: nil,
-                    authorProfileURL: nil,
-                    authorWorkshopURL: nil,
-                    hasAdultContent: false,
-                    summary: nil,
-                    previewImageURL: nil
-                )
-            )
-        }
-        let fallbackHasMore = hasNextPageLink || ordered.count >= pageSize
-        return SteamWorkshopBrowseStubPage(stubs: ordered, hasMore: fallbackHasMore)
     }
 
     nonisolated static func fetchWorkshopItems(
@@ -715,7 +613,7 @@ extension SteamWorkshopService {
         _ detail: SteamWorkshopPublishedFileDetail,
         browserContentMode: SteamWorkshopBrowserContentMode
     ) -> Bool {
-        detail.tags.contains { tag in
+        browserContentMode.isAll || detail.tags.contains { tag in
             tag.tag.compare(browserContentMode.requiredTagValue, options: .caseInsensitive) == .orderedSame
         }
     }
@@ -724,18 +622,18 @@ extension SteamWorkshopService {
         browserContentMode: SteamWorkshopBrowserContentMode,
         workshopTypeText: String
     ) -> Bool {
-        workshopTypeText.compare(browserContentMode.requiredTagValue, options: .caseInsensitive) == .orderedSame
+        browserContentMode.isAll || workshopTypeText.compare(browserContentMode.requiredTagValue, options: .caseInsensitive) == .orderedSame
     }
 
     nonisolated static func browserItemMatchesContentMode(
         _ item: SteamWorkshopBrowserItem,
         browserContentMode: SteamWorkshopBrowserContentMode
     ) -> Bool {
-        if let workshopTypeText = item.workshopTypeText,
+        if !browserContentMode.isAll, let workshopTypeText = item.workshopTypeText,
            workshopTypeMatches(browserContentMode: browserContentMode, workshopTypeText: workshopTypeText) {
             return true
         }
-        return item.tags.contains {
+        return browserContentMode.isAll || item.tags.contains {
             $0.compare(browserContentMode.requiredTagValue, options: .caseInsensitive) == .orderedSame
         }
     }

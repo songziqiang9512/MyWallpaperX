@@ -207,6 +207,7 @@ extension SteamWorkshopService {
 
     func logoutImmediately() {
         cancelActiveLoginSession()
+        clearCommunitySession()
         cancelDownloadImmediately(showFeedback: false)
         defaults.removeObject(forKey: Constants.defaultsLastUsername)
         defaults.removeObject(forKey: Constants.defaultsLastAuthenticatedAt)
@@ -224,7 +225,6 @@ extension SteamWorkshopService {
         authError = nil
         authStatusMessage = "已退出当前 Steam 登录态。"
     }
-
     func loadAuthenticationState() {
         let storedUsername = defaults.string(forKey: Constants.defaultsLastUsername) ?? ""
         let storedPassword = SteamWorkshopCredentialStore.loadPassword() ?? ""

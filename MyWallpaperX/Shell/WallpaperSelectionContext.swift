@@ -134,6 +134,8 @@ extension SelectedItem {
             return .category(.myWallpapers)
         case .steamWorkshop:
             return .category(.myWallpapers)
+        case .steamSubscribed:
+            return .category(.myWallpapers)
         case .steamDownloads:
             return .category(.myWallpapers)
         case .staticImageLibrary:
@@ -165,6 +167,8 @@ extension SelectedItem {
             break
         case .steamWorkshop:
             break
+        case .steamSubscribed:
+            break
         case .steamDownloads:
             break
         case .staticImageLibrary:
@@ -195,7 +199,7 @@ extension SelectedItem {
         switch self {
         case .category, .tag:
             return true
-        case .staticImageLibrary, .silTag, .onlineLibrary, .onlineDownloads, .steamWorkshop, .steamDownloads:
+        case .staticImageLibrary, .silTag, .onlineLibrary, .onlineDownloads, .steamWorkshop, .steamSubscribed, .steamDownloads:
             return false
         }
     }
@@ -205,14 +209,14 @@ extension SelectedItem {
         switch self {
         case .staticImageLibrary, .silTag:
             return true
-        case .category, .tag, .onlineLibrary, .onlineDownloads, .steamWorkshop, .steamDownloads:
+        case .category, .tag, .onlineLibrary, .onlineDownloads, .steamWorkshop, .steamSubscribed, .steamDownloads:
             return false
         }
     }
 
     var isInSteamWorkshopContext: Bool {
         switch self {
-        case .steamWorkshop, .steamDownloads:
+        case .steamWorkshop, .steamSubscribed, .steamDownloads:
             return true
         case .category, .tag, .staticImageLibrary, .silTag, .onlineLibrary, .onlineDownloads:
             return false

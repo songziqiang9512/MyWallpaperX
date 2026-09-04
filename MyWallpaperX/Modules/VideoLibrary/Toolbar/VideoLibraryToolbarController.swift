@@ -790,7 +790,7 @@ extension VideoLibraryToolbarController {
         [IDs.sidebar, IDs.title, IDs.import, IDs.select, IDs.navigation, IDs.delete, IDs.favorite, IDs.tag, IDs.info, IDs.sort, IDs.zoom, IDs.search, .space, .flexibleSpace,
          .olCategory, .olRefresh, .olZoom, .olSearch, .olOrder, .olSettings,
          .olDownloadsTitle, .olDownloadsSelect, .olDownloadsDelete, .olDownloadsInfo, .olDownloadsSort, .olDownloadsReveal, .olDownloadsSearch,
-         .steamSort, .steamTrendingWindow, .steamFilter, .steamAccount, .steamRefresh, .steamZoom, .steamSearch, .steamDownloadsTitle, .steamDownloadsReveal, .steamDownloadsSearch,
+         .steamSort, .steamPersonalList, .steamTrendingWindow, .steamFilter, .steamAccount, .steamRefresh, .steamZoom, .steamSearch, .steamDownloadsTitle, .steamDownloadsReveal, .steamDownloadsSearch,
          .silImport, .silSelect, .silDelete, .silTag, .silInfo, .silSort, .silZoom, .silSearch]
     }
 

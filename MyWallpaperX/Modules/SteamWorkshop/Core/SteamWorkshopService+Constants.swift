@@ -24,6 +24,7 @@ extension SteamWorkshopService {
         nonisolated static let bundledSteamRootName = "Steam"
         nonisolated static let bundledSteamMetadataName = "runtime-metadata.json"
         nonisolated static let browserPageSize = 24
+        nonisolated static let personalWorkshopPageSize = 10
         nonisolated static let cacheTTL: TimeInterval = 60 * 15
         nonisolated static let detailCacheTTL: TimeInterval = 60 * 60 * 24
         nonisolated static let defaultsLastUsername = "SteamWorkshop.lastUsername"

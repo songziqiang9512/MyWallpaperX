@@ -74,7 +74,7 @@ final class AppKitSidebarContainerView: NSView {
         case staticImageLibrary
         case onlineLibrary
         case onlineDownloads     // 在线库已下载项
-        case steamWorkshop
+        case steamWorkshop, steamSubscribed
         case steamDownloads
     }
 
@@ -113,8 +113,8 @@ final class AppKitSidebarContainerView: NSView {
                 return .onlineLibrary
             case .onlineDownloads:
                 return .onlineDownloads
-            case .steamWorkshop:
-                return .steamWorkshop
+            case .steamWorkshop: return .steamWorkshop
+            case .steamSubscribed: return .steamSubscribed
             case .steamDownloads:
                 return .steamDownloads
             case .section:
@@ -490,7 +490,7 @@ final class AppKitSidebarContainerView: NSView {
                     title: "Steam 创意工坊",
                     symbolName: "shippingbox",
                     count: nil
-                ),
+                ), SidebarNode(kind: .steamSubscribed, title: "Steam 已订阅", symbolName: "checkmark.circle", count: nil),
                 SidebarNode(
                     kind: .steamDownloads,
                     title: "Steam 下载",

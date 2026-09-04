@@ -1,6 +1,50 @@
 import Foundation
 
 extension SteamWorkshopService {
+    nonisolated static func fetchWorkshopItemByIDSearch(id: String) async throws -> SteamWorkshopBrowserItem? {
+        let stub = SteamWorkshopBrowseStub(
+            id: id,
+            title: nil,
+            author: nil,
+            authorProfileURL: nil,
+            authorWorkshopURL: nil,
+            hasAdultContent: false,
+            summary: nil,
+            previewImageURL: nil
+        )
+
+        let detailsByID = try await fetchPublishedFileDetails(
+            ids: [id],
+            requestPriority: .userInitiated
+        )
+        guard let detail = detailsByID[id],
+              let workshopAppID = Int(Constants.workshopAppID),
+              detail.consumerAppID == workshopAppID else {
+            return nil
+        }
+
+        let resolved = await item(from: detail, stub: stub)
+        let enriched = try await maybeEnrichPreviewKind(for: resolved, requestPriority: .userInitiated)
+        saveDetailCache(item: enriched)
+        return enriched
+    }
+
+    nonisolated static func shouldEagerlyResolvePreviewKind(
+        for requestPriority: SteamWorkshopDetailRequestPriority
+    ) -> Bool {
+        requestPriority == .userInitiated
+    }
+
+    nonisolated static func maybeEnrichPreviewKind(
+        for item: SteamWorkshopBrowserItem,
+        requestPriority: SteamWorkshopDetailRequestPriority
+    ) async throws -> SteamWorkshopBrowserItem {
+        guard shouldEagerlyResolvePreviewKind(for: requestPriority) else {
+            return item
+        }
+        return try await enrichPreviewKind(for: item, requestPriority: requestPriority)
+    }
+
     func mergeBrowserItem(_ item: SteamWorkshopBrowserItem) {
         if let index = browserItems.firstIndex(where: { $0.id == item.id }) {
             browserItems[index] = item

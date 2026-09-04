@@ -22,10 +22,27 @@ extension SteamWorkshopToolbarController {
             syncBrowserContextControls()
             return
         }
-        let sources = SteamWorkshopSource.allCases
-        guard sender.indexOfSelectedItem >= 0, sender.indexOfSelectedItem < sources.count else { return }
-        SteamWorkshopService.shared.source = sources[sender.indexOfSelectedItem]
+        guard let rawValue = sender.selectedItem?.representedObject as? String else { return }
+        let service = SteamWorkshopService.shared
+        if service.source.isPersonal {
+            guard let sort = SteamWorkshopPersonalSort(rawValue: rawValue) else { return }
+            service.personalSort = sort
+        } else {
+            guard let source = SteamWorkshopSource(rawValue: rawValue), source.isPersonal == false else { return }
+            service.source = source
+        }
+        syncSortPopup()
         syncTrendingWindowPopup()
+    }
+
+    @objc func handlePersonalListAction(_ sender: NSPopUpButton) {
+        guard !SteamWorkshopService.shared.isBrowsingAuthorWorkshop,
+              let rawValue = sender.selectedItem?.representedObject as? String,
+              let source = SteamWorkshopSource(rawValue: rawValue),
+              source.isPersonal else { return }
+        SteamWorkshopService.shared.source = source
+        syncPersonalListPopup()
+        syncSortPopup()
     }
 
     @objc func handleTrendingWindowAction(_ sender: NSPopUpButton) {
@@ -75,8 +92,30 @@ extension SteamWorkshopToolbarController {
             menu.addItem(anonymousItem)
         }
 
+        menu.addItem(.separator())
+        if let communityAccountName = service.communityAccountName {
+            let statusItem = NSMenuItem(title: "Steam 社区：\(communityAccountName)", action: nil, keyEquivalent: "")
+            statusItem.isEnabled = false
+            menu.addItem(statusItem)
+            let switchItem = NSMenuItem(title: "切换 Steam 社区账号", action: #selector(handleSwitchCommunityAccount), keyEquivalent: "")
+            switchItem.target = self
+            menu.addItem(switchItem)
+        } else {
+            let communityItem = NSMenuItem(title: "登录 Steam 社区以查看我的订阅", action: #selector(handlePresentCommunityLogin), keyEquivalent: "")
+            communityItem.target = self
+            menu.addItem(communityItem)
+        }
+
         let buttonBounds = accountButton.bounds
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: buttonBounds.height + 4), in: accountButton)
+    }
+
+    @objc func handlePresentCommunityLogin() {
+        SteamWorkshopService.shared.presentCommunityLogin()
+    }
+
+    @objc func handleSwitchCommunityAccount() {
+        SteamWorkshopService.shared.switchCommunityAccount()
     }
 
     @objc func handleFilterMenu() {

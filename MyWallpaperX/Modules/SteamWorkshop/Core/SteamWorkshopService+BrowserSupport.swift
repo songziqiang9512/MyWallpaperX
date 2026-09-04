@@ -26,6 +26,7 @@ extension SteamWorkshopService {
     func loadingStatusMessage(for context: SteamWorkshopBrowseContext) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return "正在加载\(source.pageTitle)列表…" }
             return "正在抓取 Wallpaper Engine 创意工坊\(browserContentMode.shortDisplayName)列表…"
         case .authorWorkshop(let authorName, _):
             return "正在抓取 \(authorName) 的创意工坊作品…"
@@ -35,6 +36,7 @@ extension SteamWorkshopService {
     func cachedStatusMessage(for context: SteamWorkshopBrowseContext) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return "已载入缓存的\(source.pageTitle)列表" }
             return "已载入缓存的创意工坊列表"
         case .authorWorkshop(let authorName, _):
             return "已载入 \(authorName) 的工坊缓存列表"
@@ -44,6 +46,10 @@ extension SteamWorkshopService {
     func emptyResultsStatusMessage(for context: SteamWorkshopBrowseContext) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal {
+                let action = source == .myFavorites ? "收藏" : "订阅"
+                return "当前账号还没有\(action) Wallpaper Engine \(browserContentMode.displayName)。"
+            }
             return "没有抓取到符合条件的\(browserContentMode.displayName)项目。"
         case .authorWorkshop(let authorName, _):
             return "\(authorName) 当前没有抓取到可展示的\(browserContentMode.displayName)项目。"
@@ -53,6 +59,7 @@ extension SteamWorkshopService {
     func baseCardsStatusMessage(for context: SteamWorkshopBrowseContext, count: Int) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return "已载入 \(count) 个\(source.pageTitle)项目，正在补全详情…" }
             return "已载入 \(count) 张基础卡片，正在补全详情…"
         case .authorWorkshop(let authorName, _):
             return "已载入 \(authorName) 的 \(count) 张基础卡片，正在补全详情…"
@@ -66,6 +73,7 @@ extension SteamWorkshopService {
     ) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return hasMore ? "已加载 \(totalCount) 个\(source.pageTitle)项目" : "已加载全部 \(totalCount) 个\(source.pageTitle)项目" }
             return hasMore ? "已加载 \(totalCount) 个创意工坊\(browserContentMode.displayName)项目" : "已加载全部 \(totalCount) 个已抓取项目"
         case .authorWorkshop(let authorName, _):
             return hasMore ? "已加载 \(authorName) 的 \(totalCount) 个创意工坊项目" : "已加载 \(authorName) 的全部 \(totalCount) 个已抓取项目"
@@ -75,6 +83,7 @@ extension SteamWorkshopService {
     func failureStatusMessage(for context: SteamWorkshopBrowseContext) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return "\(source.pageTitle)列表加载失败" }
             return "创意工坊列表抓取失败"
         case .authorWorkshop(let authorName, _):
             return "\(authorName) 的工坊列表抓取失败"
@@ -84,16 +93,17 @@ extension SteamWorkshopService {
     func prefetchStatusMessage(for context: SteamWorkshopBrowseContext, page: Int) -> String {
         switch context {
         case .discovery:
+            if source.isPersonal { return "已预加载\(source.pageTitle)第 \(page) 页，正在补全详细信息…" }
             return "已预加载第 \(page) 页基础卡片，正在补全详细信息…"
         case .authorWorkshop(let authorName, _):
             return "已预加载 \(authorName) 的第 \(page) 页基础卡片，正在补全详细信息…"
         }
     }
 
-    func browsePageSize(for context: SteamWorkshopBrowseContext) -> Int {
+    func browsePageSize(for context: SteamWorkshopBrowseContext, source: SteamWorkshopSource) -> Int {
         switch context {
         case .discovery:
-            return Constants.browserPageSize
+            return source.isPersonal ? Constants.personalWorkshopPageSize : Constants.browserPageSize
         case .authorWorkshop:
             return Constants.authorWorkshopPageSize
         }
@@ -108,7 +118,8 @@ extension SteamWorkshopService {
         themeFilter: SteamWorkshopThemeFilter,
         ageRatingFilter: SteamWorkshopAgeRatingFilter,
         resolutionFilter: SteamWorkshopResolutionFilter,
-        categoryFilter: SteamWorkshopCategoryFilter
+        categoryFilter: SteamWorkshopCategoryFilter,
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate
     ) -> SteamWorkshopBrowserCacheSnapshot? {
         let url = cacheFileURL(
             context: context,
@@ -119,7 +130,8 @@ extension SteamWorkshopService {
             themeFilter: themeFilter,
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
-            categoryFilter: categoryFilter
+            categoryFilter: categoryFilter,
+            personalSort: personalSort
         )
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(SteamWorkshopBrowserCacheSnapshot.self, from: data)
@@ -135,7 +147,8 @@ extension SteamWorkshopService {
         ageRatingFilter: SteamWorkshopAgeRatingFilter,
         resolutionFilter: SteamWorkshopResolutionFilter,
         categoryFilter: SteamWorkshopCategoryFilter,
-        items: [SteamWorkshopBrowserItem]
+        items: [SteamWorkshopBrowserItem],
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate
     ) {
         let snapshot = SteamWorkshopBrowserCacheSnapshot(fetchedAt: Date(), items: items)
         guard let data = try? JSONEncoder().encode(snapshot) else { return }
@@ -148,9 +161,10 @@ extension SteamWorkshopService {
                 query: query,
                 trendingWindow: trendingWindow,
                 themeFilter: themeFilter,
-                ageRatingFilter: ageRatingFilter,
-                resolutionFilter: resolutionFilter,
-                categoryFilter: categoryFilter
+            ageRatingFilter: ageRatingFilter,
+            resolutionFilter: resolutionFilter,
+            categoryFilter: categoryFilter,
+            personalSort: personalSort
             ),
             options: [.atomic]
         )
@@ -202,11 +216,16 @@ extension SteamWorkshopService {
         themeFilter: SteamWorkshopThemeFilter,
         ageRatingFilter: SteamWorkshopAgeRatingFilter,
         resolutionFilter: SteamWorkshopResolutionFilter,
-        categoryFilter: SteamWorkshopCategoryFilter
+        categoryFilter: SteamWorkshopCategoryFilter,
+        personalSort: SteamWorkshopPersonalSort
     ) -> URL {
         switch context {
         case .discovery:
-            break
+            if source.isPersonal {
+                let account = safeCacheComponent(for: communityAccountID ?? "pending", fallback: "unknown")
+                let search = safeCacheComponent(for: query, fallback: "all")
+                return cacheDirectoryURL.appendingPathComponent("personal-\(account)-\(source.rawValue)-\(personalSort.rawValue)-\(browserContentMode.rawValue)-\(themeFilter.rawValue)-\(ageRatingFilter.rawValue)-\(resolutionFilter.rawValue)-\(categoryFilter.rawValue)-\(search).json")
+            }
         case .authorWorkshop:
             return cacheDirectoryURL.appendingPathComponent("\(context.cacheKeyComponent).json")
         }
@@ -217,6 +236,16 @@ extension SteamWorkshopService {
         let category = categoryFilter.rawValue.lowercased().replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
         let period = source.supportsTimeRange ? trendingWindow.rawValue : "na"
         return cacheDirectoryURL.appendingPathComponent("\(browserContentMode.rawValue)-\(source.rawValue)-\(period)-\(theme)-\(age)-\(resolution)-\(category)-\(normalized).json")
+    }
+
+    func clearPersonalSubscriptionCaches() {
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: cacheDirectoryURL,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for file in files where file.lastPathComponent.hasPrefix("personal-") {
+            try? FileManager.default.removeItem(at: file)
+        }
     }
 
     private func safeCacheComponent(for value: String, fallback: String) -> String {

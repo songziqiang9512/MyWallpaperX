@@ -10,8 +10,22 @@ extension SteamWorkshopService {
         ageRatingFilter: SteamWorkshopAgeRatingFilter,
         resolutionFilter: SteamWorkshopResolutionFilter,
         categoryFilter: SteamWorkshopCategoryFilter,
-        page: Int
+        page: Int,
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate
     ) -> URL {
+        if source.isPersonal {
+            return makePersonalWorkshopURL(
+                browserContentMode: browserContentMode,
+                source: source,
+                query: query,
+                themeFilter: themeFilter,
+                ageRatingFilter: ageRatingFilter,
+                resolutionFilter: resolutionFilter,
+                categoryFilter: categoryFilter,
+                page: page,
+                personalSort: personalSort
+            )
+        }
         var components = URLComponents(string: Constants.steamCommunityBase)!
         var queryItems = [
             URLQueryItem(name: "appid", value: Constants.workshopAppID),
@@ -19,10 +33,12 @@ extension SteamWorkshopService {
             URLQueryItem(name: "browsesort", value: source.browseFilter),
             URLQueryItem(name: "actualsort", value: source.browseFilter),
             URLQueryItem(name: "section", value: "readytouseitems"),
-            URLQueryItem(name: "requiredtags[0]", value: browserContentMode.requiredTagValue),
             URLQueryItem(name: "numperpage", value: "\(Constants.browserPageSize)"),
             URLQueryItem(name: "p", value: "\(max(1, page))")
         ]
+        if !browserContentMode.isAll {
+            queryItems.append(URLQueryItem(name: "requiredtags[0]", value: browserContentMode.requiredTagValue))
+        }
         if let themeTag = themeFilter.tagValue {
             queryItems.append(URLQueryItem(name: "requiredtags[]", value: themeTag))
         }
@@ -36,6 +52,38 @@ extension SteamWorkshopService {
         if source.supportsTimeRange {
             queryItems.append(URLQueryItem(name: "days", value: trendingWindow.daysValue))
         }
+        components.queryItems = queryItems
+        return components.url!
+    }
+
+    nonisolated static func makePersonalWorkshopURL(
+        browserContentMode: SteamWorkshopBrowserContentMode,
+        source: SteamWorkshopSource,
+        query: String,
+        themeFilter: SteamWorkshopThemeFilter,
+        ageRatingFilter: SteamWorkshopAgeRatingFilter,
+        resolutionFilter: SteamWorkshopResolutionFilter,
+        categoryFilter: SteamWorkshopCategoryFilter,
+        page: Int,
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate
+    ) -> URL {
+        var components = URLComponents(string: "https://steamcommunity.com/my/myworkshopfiles/")!
+        var queryItems = [
+            URLQueryItem(name: "appid", value: Constants.workshopAppID),
+            URLQueryItem(name: "searchtext", value: query),
+            URLQueryItem(name: "browsesort", value: source.browseFilter),
+            URLQueryItem(name: "browsefilter", value: source.browseFilter),
+            URLQueryItem(name: "sortmethod", value: personalSort.rawValue),
+            URLQueryItem(name: "numperpage", value: "\(Constants.personalWorkshopPageSize)"),
+            URLQueryItem(name: "p", value: "\(max(1, page))")
+        ]
+        if !browserContentMode.isAll {
+            queryItems.append(URLQueryItem(name: "requiredtags[0]", value: browserContentMode.requiredTagValue))
+        }
+        [themeFilter.tagValue, resolutionFilter.tagValue, categoryFilter.tagValue]
+            .compactMap { $0 }
+            .filter { $0.caseInsensitiveCompare(browserContentMode.requiredTagValue) != .orderedSame }
+            .forEach { queryItems.append(URLQueryItem(name: "requiredtags[]", value: $0)) }
         components.queryItems = queryItems
         return components.url!
     }

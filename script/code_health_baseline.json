@@ -29,12 +29,12 @@
     "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift": 642,
     "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift": 494,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Authentication.swift": 745,
-    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift": 975,
+    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift": 873,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseParsing.swift": 489,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift": 417,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift": 560,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift": 837,
-    "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController.swift": 670,
+    "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController.swift": 628,
     "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift": 592,
     "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift": 1182,
     "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift": 458,
@@ -51,7 +51,7 @@
     "MyWallpaperX/Modules/VideoLibrary/UI/AppKitSettingsView.swift": 1504,
     "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift": 436,
     "MyWallpaperX/Shell/AppKitDetailHostViewController.swift": 454,
-    "MyWallpaperX/Shell/AppKitMainSplitView.swift": 667,
+    "MyWallpaperX/Shell/AppKitMainSplitView.swift": 656,
     "MyWallpaperX/Shell/SidebarViews.swift": 1341
   }
 }

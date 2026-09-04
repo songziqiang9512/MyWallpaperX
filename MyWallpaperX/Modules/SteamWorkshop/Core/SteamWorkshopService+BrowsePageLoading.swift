@@ -12,6 +12,7 @@ extension SteamWorkshopService {
         let browseContext = self.browseContext
         let browserContentMode = self.browserContentMode
         let source = self.source
+        let personalSort = self.personalSort
         let query = browserQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         let trendingWindow = self.trendingWindow
         let themeFilter = self.themeFilter
@@ -30,9 +31,9 @@ extension SteamWorkshopService {
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
             categoryFilter: categoryFilter,
-            page: page
+            page: page,
+            personalSort: personalSort
         )
-
         logBrowserDebug(
             "loadMore start context=\(browseContext.title) page=\(page) query=\(query) "
                 + "currentCount=\(browserItems.count) hasMore=\(hasMoreBrowserItems)"
@@ -58,10 +59,10 @@ extension SteamWorkshopService {
                         ageRatingFilter: ageRatingFilter,
                         resolutionFilter: resolutionFilter,
                         categoryFilter: categoryFilter,
-                        page: page
+                        page: page,
+                        personalSort: personalSort
                     )
                 }
-
                 let stubs = pageResult.stubs
                 let seededItems = stubs.map(Self.seededBrowserItem)
                 guard let self else { return }
@@ -74,10 +75,11 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard self.navigationVersion == expectedNavigationVersion,
                           self.browseContext == browseContext,
+                          self.source == source,
+                          self.personalSort == personalSort,
                           self.browserContentMode == browserContentMode else {
                         return
                     }
-
                     let existingIDs = Set(self.browserItems.map(\.id))
                     let newItems = (ageFilteredItems ?? seededItems).filter {
                         !existingIDs.contains($0.id)
@@ -87,7 +89,6 @@ extension SteamWorkshopService {
                     self.hasMoreBrowserItems = pageResult.hasMore
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreRetryAfter = .distantPast
-
                     if ageFilteredItems == nil {
                         self.statusMessage = self.prefetchStatusMessage(
                             for: browseContext,
@@ -116,7 +117,8 @@ extension SteamWorkshopService {
                             ageRatingFilter: ageRatingFilter,
                             resolutionFilter: resolutionFilter,
                             categoryFilter: categoryFilter,
-                            items: self.browserItems
+                            items: self.browserItems,
+                            personalSort: personalSort
                         )
                         self.continueAgeFilteredPaginationIfNeeded(
                             loadedVisibleItemCount: newItems.count
@@ -140,6 +142,7 @@ extension SteamWorkshopService {
                         resolutionFilter: resolutionFilter,
                         categoryFilter: categoryFilter,
                         page: self.browserNextPage,
+                        personalSort: personalSort,
                         lookaheadDepth: 1
                     )
                 }
@@ -147,7 +150,10 @@ extension SteamWorkshopService {
                 await MainActor.run {
                     guard let self,
                           self.navigationVersion == expectedNavigationVersion,
-                          self.browseContext == browseContext else {
+                          self.browseContext == browseContext,
+                          self.source == source,
+                          self.personalSort == personalSort,
+                          self.browserContentMode == browserContentMode else {
                         return
                     }
                     self.isLoadingMoreBrowserItems = false
