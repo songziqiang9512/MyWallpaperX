@@ -223,6 +223,9 @@ enum SceneBaseImageTextureLoad {
         let texture: MTLTexture
         let candidate: SceneTextureCandidate?
         let animation: SceneSpriteAnimation?
+        /// TEX sampler metadata remains available when specialized loading
+        /// cannot publish a normal candidate (animated/sprite/puppet routes).
+        let baseTextureSampling: SceneTextureSampling?
         let message: String
     }
 
@@ -345,6 +348,7 @@ enum SceneBaseImageTextureLoad {
                     texture: playback.texture,
                     candidate: nil,
                     animation: animation,
+                    baseTextureSampling: SceneTextureSampling(texFlags: container.flags),
                     message: "; base color cross-image sprite playback"
                 ))
             case .unsupported(let detail):
@@ -369,6 +373,9 @@ enum SceneBaseImageTextureLoad {
                 candidate: nil,
                 animation: container.flatMap {
                     SceneSpriteAnimation(frames: $0.spriteFrames)
+                },
+                baseTextureSampling: container.map {
+                    SceneTextureSampling(texFlags: $0.flags)
                 },
                 message: "; base color specialized authored load (\(reason))"
                     + crossImageFallbackMessage

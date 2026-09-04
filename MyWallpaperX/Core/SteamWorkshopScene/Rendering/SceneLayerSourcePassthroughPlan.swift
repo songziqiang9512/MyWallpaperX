@@ -144,10 +144,10 @@ struct SceneLayerSourcePassthroughPlan {
                 == .color(.resolved(.opaque)) else {
             return .failure(.publicationContentInvalid)
         }
-        guard let sourceSample = SceneBaseImageTextureCandidateResolver.sample(
-            candidate: publication.candidate,
-            sourceTexture: publication.texture
-        ) else { return .failure(.publicationSampleInvalid) }
+        guard let sourceSample = request.resolvedBaseTextureSample(),
+              sourceSample.textureFrame == publication.candidate.uvTransform else {
+            return .failure(.publicationSampleInvalid)
+        }
         let resolvedSourceKind: SourceKind
         switch Self.sourceKind(request: request, publication: publication) {
         case let .success(value): resolvedSourceKind = value

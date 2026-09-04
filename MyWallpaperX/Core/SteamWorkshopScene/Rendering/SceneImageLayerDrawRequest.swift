@@ -231,6 +231,7 @@ struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
     let texture: MTLTexture
     var baseTextureCandidate: SceneTextureCandidate? = nil
+    var baseTextureSampling: SceneTextureSampling? = nil
     let masks: SceneImageLayerMasks
     let textureFrame: SceneTextureUVTransform
     let mvp: simd_float4x4
@@ -247,9 +248,23 @@ struct SceneImageLayerDrawRequest {
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
 
+    nonisolated func effectiveSourceSampling(
+        for sampling: SceneTextureSampling
+    ) -> SceneTextureSampling {
+        sampling.applying(
+            clampUVs: layer.clampUVs,
+            noInterpolation: layer.noInterpolation
+        )
+    }
+
     func resolvedBaseTextureSample() -> SceneBaseImageTextureSample? {
         guard let baseTextureCandidate else {
-            return .init(textureFrame: textureFrame, sampling: .linearClamp)
+            return .init(
+                textureFrame: textureFrame,
+                sampling: effectiveSourceSampling(
+                    for: baseTextureSampling ?? .linearClamp
+                )
+            )
         }
         let acceptsCandidate: Bool
         switch (layer.contentKind, baseTextureCandidate.identity) {
@@ -263,9 +278,13 @@ struct SceneImageLayerDrawRequest {
             acceptsCandidate = false
         }
         guard acceptsCandidate else { return nil }
-        return SceneBaseImageTextureCandidateResolver.sample(
+        guard let sample = SceneBaseImageTextureCandidateResolver.sample(
             candidate: baseTextureCandidate,
             sourceTexture: texture
+        ) else { return nil }
+        return .init(
+            textureFrame: sample.textureFrame,
+            sampling: effectiveSourceSampling(for: sample.sampling)
         )
     }
 

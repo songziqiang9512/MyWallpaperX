@@ -146,6 +146,8 @@ struct SceneRenderDescriptorBuilder {
                     displayScriptOwnership: object.displayScriptOwnership,
                     colorRGB: padVector(object.colorRGB, length: 3, fill: 1),
                     colorBlendMode: object.colorBlendMode,
+                    clampUVs: object.clampUVs,
+                    noInterpolation: object.noInterpolation,
                     brightness: object.brightness,
                     imageAlignment: object.imageAlignment,
                     origin: object.origin,

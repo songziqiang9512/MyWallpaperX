@@ -41,6 +41,7 @@ class SceneMetalView: NSView {
     private let userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
     private var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
+    private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
     private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     private var imagePipeline: SceneImageLayerPipeline?
@@ -133,6 +134,7 @@ class SceneMetalView: NSView {
         var report = SceneStartupReportBuffer(enabled: logURL != nil)
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
+        var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var staticPuppetRecompositions: [
@@ -287,6 +289,9 @@ class SceneMetalView: NSView {
                 if let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
                 }
+                if let sampling = baseLoad.baseTextureSampling {
+                    loadedSpecializedBaseTextureSamplings[layer.id] = sampling
+                }
                 if report.isEnabled {
                     var message = "layer \(layer.id) \"\(name)\": OK"
                         + " \(url.lastPathComponent) → \(texture.width)×\(texture.height)"
@@ -322,6 +327,7 @@ class SceneMetalView: NSView {
         }
         imageTextures = loaded
         spriteAnimations = loadedSpriteAnimations
+        specializedBaseTextureSamplings = loadedSpecializedBaseTextureSamplings
         let textLoad = SceneTextTextureLoader.load(
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
@@ -389,6 +395,7 @@ class SceneMetalView: NSView {
                 candidate: loaded.candidate,
                 layerID: layerID
             )
+            specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling
             deferredBaseImageURLs.removeValue(forKey: layerID)
             return true
         case .failed:
@@ -458,6 +465,7 @@ class SceneMetalView: NSView {
             userPropertyTextureStates: userPropertyTextureLoad.providerStates,
             mediaThumbnail: mediaThumbnail,
             spriteAnimations: spriteAnimations,
+            specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
             particleBatches: particleBatches,
             particlePipeline: particlePlayback?.pipeline,

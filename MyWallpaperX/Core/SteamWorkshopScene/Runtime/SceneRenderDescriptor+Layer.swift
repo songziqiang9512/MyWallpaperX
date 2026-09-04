@@ -27,6 +27,10 @@ extension SceneRenderDescriptor {
         var displayScriptOwnership: SceneLayerDisplayScriptOwnership? = nil
         var colorRGB: [Float]?
         let colorBlendMode: Int?
+        /// Layer-local sampler overrides; omission preserves the candidate's
+        /// authored TEX sampler state.
+        var clampUVs: Bool? = nil
+        var noInterpolation: Bool? = nil
         // 作者 `brightness` 颜色乘数；text 通道已在 CoreText 栅格化阶段消费同名 key。
         let brightness: Double?
         // image/solid quad pivot: center/top/right/bottom/left and corner variants.

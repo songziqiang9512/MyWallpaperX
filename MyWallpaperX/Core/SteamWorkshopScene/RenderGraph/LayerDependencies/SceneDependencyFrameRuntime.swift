@@ -432,7 +432,10 @@ final class SceneDependencyFrameRuntime {
                 uniforms.textureFrame0 = sourceCandidate.uvTransform.uniform0
                 uniforms.textureFrame1 = sourceCandidate.uvTransform.uniform1
                 uniforms.sourceSampling = SIMD2(
-                    sourceCandidate.sampling.imageLayerUniformMode,
+                    sourceCandidate.sampling.applying(
+                        clampUVs: layer.clampUVs,
+                        noInterpolation: layer.noInterpolation
+                    ).imageLayerUniformMode,
                     0
                 )
                 let didEncode = SceneOffscreenEffectRenderer.captureSource(
@@ -530,7 +533,10 @@ final class SceneDependencyFrameRuntime {
             uniforms.textureFrame0 = providerSource.textureFrame.uniform0
             uniforms.textureFrame1 = providerSource.textureFrame.uniform1
             uniforms.sourceSampling = SIMD2(
-                providerSource.sampling.imageLayerUniformMode,
+                providerSource.sampling.applying(
+                    clampUVs: layer.clampUVs,
+                    noInterpolation: layer.noInterpolation
+                ).imageLayerUniformMode,
                 0
             )
             encoded = mainPass.encodeOffscreen { commandBuffer in

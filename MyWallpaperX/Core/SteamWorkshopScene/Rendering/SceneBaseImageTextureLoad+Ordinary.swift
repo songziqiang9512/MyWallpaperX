@@ -42,6 +42,7 @@ extension SceneBaseImageTextureLoad {
                     texture: candidate.texture,
                     candidate: nil,
                     animation: nil,
+                    baseTextureSampling: candidate.sampling,
                     message: "; base color specialized authored binding"
                         + " (unsupported candidate UV/sampler:"
                         + " \(candidate.diagnosticSummary))"
@@ -59,6 +60,7 @@ extension SceneBaseImageTextureLoad {
                 texture: candidate.texture,
                 candidate: candidate,
                 animation: nil,
+                baseTextureSampling: nil,
                 message: "; base color candidate \(candidate.diagnosticSummary)"
                     + " mappedScale=\(scale.x),\(scale.y)"
             ))

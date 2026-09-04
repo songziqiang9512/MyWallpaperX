@@ -829,6 +829,18 @@ enum Harness {
             candidate: mappedNearestCandidate,
             sourceTexture: mappedNearestCandidate.texture
         )
+        let layerRepeatLinear = SceneTextureSampling(texFlags: 1).applying(
+            clampUVs: false,
+            noInterpolation: false
+        )
+        let layerClampNearest = SceneTextureSampling(texFlags: 0).applying(
+            clampUVs: true,
+            noInterpolation: true
+        )
+        let layerOmissionPreservesSource = SceneTextureSampling(texFlags: 1).applying(
+            clampUVs: nil,
+            noInterpolation: nil
+        )
         let clampBorderSample = SceneBaseImageTextureCandidateResolver.sample(
             candidate: copy(
                 baseDirectCandidate,
@@ -1375,6 +1387,12 @@ enum Harness {
                 mappedNearestSample.textureFrame.xAxis == SIMD2(0.5, 0)
                     && mappedNearestSample.textureFrame.yAxis == SIMD2(0, 1)
                     && mappedNearestSample.sampling.imageLayerUniformMode == 3,
+            "layerSamplerOverrideRepeatLinear":
+                layerRepeatLinear.imageLayerUniformMode == 1,
+            "layerSamplerOverrideClampNearest":
+                layerClampNearest.imageLayerUniformMode == 2,
+            "layerSamplerOmissionPreservesSource":
+                layerOmissionPreservesSource.imageLayerUniformMode == 3,
             "clampBorderBaseSampleRejected": clampBorderSample == nil,
             "clampBorderBaseLoadRejected": clampBorderBaseLoadRejected,
             "unknownFlagsBaseSampleRejected": unknownFlagsSample == nil,
@@ -2114,6 +2132,9 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "identityIsCanonicalFile": True,
                 "imageShaderUsesAuthoredNearestFilter": True,
                 "imageShaderUsesAuthoredRepeatSampler": True,
+                "layerSamplerOverrideClampNearest": True,
+                "layerSamplerOverrideRepeatLinear": True,
+                "layerSamplerOmissionPreservesSource": True,
                 "inPlaceStableMetadata": True,
                 "inPlaceStatusChangeDetected": True,
                 "invalidMappedRejected": True,

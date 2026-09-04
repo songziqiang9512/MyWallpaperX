@@ -79,6 +79,23 @@ nonisolated struct SceneTextureSampling: Equatable, Hashable, Sendable {
         }
     }
 
+    /// Apply image-layer sampler properties without mutating the shared
+    /// candidate.  Omitted properties preserve the TEX/source sampler; an
+    /// authored value explicitly selects its filter or address mode.
+    func applying(
+        clampUVs: Bool?,
+        noInterpolation: Bool?
+    ) -> SceneTextureSampling {
+        SceneTextureSampling(
+            filter: noInterpolation.map { $0 ? .nearest : .linear } ?? filter,
+            addressMode: clampUVs.map {
+                $0 ? .clampToEdge : .repeatWrap
+            } ?? addressMode,
+            usesClampBorderFallback: usesClampBorderFallback,
+            rawFlags: rawFlags
+        )
+    }
+
     /// Preserve the effective-sampler equality used by direct image
     /// routes. Program admission inspects `rawFlags` separately before use.
     static func == (lhs: SceneTextureSampling, rhs: SceneTextureSampling) -> Bool {

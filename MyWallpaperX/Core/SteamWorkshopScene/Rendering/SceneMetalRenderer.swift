@@ -116,6 +116,7 @@ struct SceneMetalRenderer {
         ] = [:],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot = .empty,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         particleBatches: [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
@@ -216,6 +217,7 @@ struct SceneMetalRenderer {
         guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
+            specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
             userPropertyTextures: userPropertyTextures,
             userPropertyStates: userPropertyTextureStates,
@@ -459,6 +461,7 @@ struct SceneMetalRenderer {
                     layer: layer,
                     texture: texture,
                     baseTextureCandidate: baseSource.candidate,
+                    baseTextureSampling: specializedBaseTextureSamplings[layer.id],
                     masks: .empty,
                     textureFrame: spriteAnimations[layer.id]?.transform(at: time) ?? .identity,
                     mvp: mvp,

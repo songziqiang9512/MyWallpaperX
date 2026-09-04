@@ -276,6 +276,11 @@ extension SceneDocument {
         let displayScriptOwnership: SceneLayerDisplayScriptOwnership
         let colorRGB: [Float]?
         let colorBlendMode: Int?
+        /// Per-layer sampler overrides. They remain distinct from TEX
+        /// metadata because the same resource may be bound by layers with
+        /// different authored policies.
+        let clampUVs: Bool?
+        let noInterpolation: Bool?
         // 作者 `brightness`：layer 颜色乘数，随包 `razer_bedroom` 的 wave layer 用 3.0/4.0
         // 做过曝发光，其余随包 object 都是 1.0。text 通道在 CoreText 栅格化阶段已消费同名
         // key（见 SceneTextDescriptor.brightness），所以这里保留原始声明而不折进 colorRGB。

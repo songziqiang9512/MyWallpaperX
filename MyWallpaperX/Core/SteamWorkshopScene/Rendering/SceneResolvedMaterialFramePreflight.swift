@@ -6,6 +6,7 @@ extension SceneMetalRenderer {
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         userPropertyTextures: [String: MTLTexture],
         userPropertyStates: [
@@ -56,6 +57,7 @@ extension SceneMetalRenderer {
                 plans: plans,
                 imageTextures: imageTextures,
                 spriteAnimations: spriteAnimations,
+                specializedBaseTextureSamplings: specializedBaseTextureSamplings,
                 imagePipeline: imagePipeline,
                 offscreenTexturePool: offscreenTexturePool,
                 frameContext: frameContext,
@@ -353,6 +355,7 @@ extension SceneMetalRenderer {
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -609,6 +612,7 @@ extension SceneMetalRenderer {
                     layer: layer,
                     texture: texture,
                     baseTextureCandidate: sourceCandidate,
+                    baseTextureSampling: specializedBaseTextureSamplings[layerID],
                     masks: .empty,
                     textureFrame: textureFrame,
                     mvp: outputMVP,

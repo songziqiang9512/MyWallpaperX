@@ -200,6 +200,8 @@ struct SceneDocumentLoader {
             displayScriptOwnership: .parse(authoredObject: authoredRoot),
             colorRGB: floatVector(root["color"]),
             colorBlendMode: root["colorBlendMode"] as? Int,
+            clampUVs: visibleValue(root["clampuvs"]),
+            noInterpolation: visibleValue(root["nointerpolation"]),
             brightness: doubleValue(root["brightness"]),
             imageAlignment: stringValue(root["alignment"]),
             origin: stringValue(root["origin"]),

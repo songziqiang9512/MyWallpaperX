@@ -59,6 +59,8 @@ struct SceneRenderDescriptor {
         let utilityLayer: SceneUtilityLayer?
         let alpha: Double?
         let colorRGB: [Double]?
+        let clampUVs: Bool? = nil
+        let noInterpolation: Bool? = nil
     }
 
     let layers: [Layer]
@@ -238,13 +240,43 @@ final class SceneGPUCompletionTelemetry {
 enum SceneTexturePurpose { case premultipliedColor }
 enum SceneTextureSampling {
     case linearClamp
+    case linearRepeat
+    case nearestClamp
     case nearestRepeat
     var isResolvedForMaterialProgram: Bool { true }
     var usesClampBorderFallback: Bool { false }
+    private var isNearest: Bool {
+        switch self {
+        case .nearestClamp, .nearestRepeat: true
+        case .linearClamp, .linearRepeat: false
+        }
+    }
+    private var isClamped: Bool {
+        switch self {
+        case .linearClamp, .nearestClamp: true
+        case .linearRepeat, .nearestRepeat: false
+        }
+    }
     var imageLayerUniformMode: UInt32 {
         switch self {
         case .linearClamp: 0
+        case .linearRepeat: 1
+        case .nearestClamp: 2
         case .nearestRepeat: 3
+        }
+    }
+
+    func applying(
+        clampUVs: Bool?,
+        noInterpolation: Bool?
+    ) -> Self {
+        let clamped = clampUVs ?? isClamped
+        let nearest = noInterpolation ?? isNearest
+        switch (nearest, clamped) {
+        case (false, true): return .linearClamp
+        case (false, false): return .linearRepeat
+        case (true, true): return .nearestClamp
+        case (true, false): return .nearestRepeat
         }
     }
 }
