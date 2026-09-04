@@ -97,10 +97,10 @@ extension SceneDependencyFrameRuntime {
               normalized(binding.materialPath) == normalized(materialPath) else {
             return nil
         }
-        let identity = SceneFrameTextureIdentity.namedLayerTarget(
-            expectedReference
-        )
-        guard let texture = textureRegistry.texture(for: identity),
+        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+                  reference: expectedReference,
+                  frameEpoch: textureRegistry.frameEpoch
+              ),
               texture.textureType == .type2D,
               texture.sampleCount == 1,
               texture.usage.contains(.shaderRead) else { return nil }

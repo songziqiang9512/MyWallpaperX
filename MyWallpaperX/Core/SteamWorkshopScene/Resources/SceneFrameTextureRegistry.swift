@@ -252,6 +252,25 @@ final class SceneFrameTextureRegistry {
         ) == true
     }
 
+    /// Returns a named-target texture only when the current frame contains a
+    /// complete typed publication for the exact reference. Bare entries stay
+    /// visible to layer-source plumbing but cannot cross a material/provider
+    /// consumer boundary.
+    func completeNamedLayerTargetTexture(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64
+    ) -> MTLTexture? {
+        guard frameEpoch == self.frameEpoch,
+              let resource = resource(
+                  for: .namedLayerTarget(reference)
+              ),
+              resource.isCompleteNamedLayerTarget(
+                  reference: reference,
+                  frameEpoch: frameEpoch
+              ) else { return nil }
+        return resource.publication.texture
+    }
+
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
         guard let entry = entries[identity] else { return nil }
         switch entry.status {

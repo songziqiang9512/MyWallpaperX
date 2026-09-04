@@ -197,6 +197,14 @@ final class SceneFrameTextureRegistry {
         textures[identity]
     }
 
+    func completeNamedLayerTargetTexture(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64
+    ) -> MTLTexture? {
+        guard frameEpoch == self.frameEpoch else { return nil }
+        return texture(for: .namedLayerTarget(reference))
+    }
+
     func set(_ status: Status, for identity: SceneFrameTextureIdentity) {
         switch status {
         case let .ready(texture):

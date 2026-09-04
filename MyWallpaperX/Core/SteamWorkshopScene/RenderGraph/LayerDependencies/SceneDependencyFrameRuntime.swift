@@ -233,11 +233,14 @@ final class SceneDependencyFrameRuntime {
         }
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
-        let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
+        let reference = SceneNamedTextureReference(
             providerLayerID: binding.providerLayerID,
             variant: .primary
-        ))
-        guard let texture = textureRegistry.texture(for: identity) else { return nil }
+        )
+        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) else { return nil }
         if let reservation = reservationsByProviderLayerID[binding.providerLayerID] {
             guard reservation.frameEpoch == frameEpoch,
                   texture === reservation.texture else { return nil }
@@ -275,13 +278,14 @@ final class SceneDependencyFrameRuntime {
               reservation.kind == binding.kind else {
             return .invalid(reasonCode: "external-primary-reservation-mismatch")
         }
-        let identity = SceneFrameTextureIdentity.namedLayerTarget(
-            SceneNamedTextureReference(
-                providerLayerID: binding.providerLayerID,
-                variant: .primary
-            )
+        let reference = SceneNamedTextureReference(
+            providerLayerID: binding.providerLayerID,
+            variant: .primary
         )
-        guard let texture = textureRegistry.texture(for: identity) else {
+        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) else {
             return .unavailable(
                 reasonCode: "external-primary-provider-capture-unavailable"
             )
@@ -345,12 +349,16 @@ final class SceneDependencyFrameRuntime {
 #endif
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
-        let identity = SceneFrameTextureIdentity.namedLayerTarget(SceneNamedTextureReference(
+        let reference = SceneNamedTextureReference(
             providerLayerID: layer.id,
             variant: .primary
-        ))
+        )
         let reservation = reservationsByProviderLayerID[layer.id]
-        if reservation == nil, textureRegistry.texture(for: identity) != nil {
+        if reservation == nil,
+           textureRegistry.completeNamedLayerTargetTexture(
+               reference: reference,
+               frameEpoch: frameEpoch
+           ) != nil {
             return true
         }
         let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
@@ -395,7 +403,11 @@ final class SceneDependencyFrameRuntime {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return false
             }
-            if let publishedTexture = textureRegistry.texture(for: identity) {
+            if let publishedTexture = textureRegistry
+                .completeNamedLayerTargetTexture(
+                    reference: reference,
+                    frameEpoch: frameEpoch
+                ) {
                 guard publishedTexture === reservation.texture else {
                     captureTelemetry.recordFailure(layerID: layer.id)
                     return false
@@ -563,7 +575,10 @@ final class SceneDependencyFrameRuntime {
                 ),
                 frameEpoch: frameEpoch,
                 texture: target
-            ), textureRegistry.texture(for: identity) === target else {
+            ), textureRegistry.completeNamedLayerTargetTexture(
+                reference: reference,
+                frameEpoch: frameEpoch
+            ) === target else {
                 captureTelemetry.recordFailure(layerID: layer.id)
                 return false
             }
@@ -663,20 +678,18 @@ final class SceneDependencyFrameRuntime {
             destinationOrigin: .init(x: 0, y: 0, z: 0)
         )
         blit.endEncoding()
-        let identity = SceneFrameTextureIdentity.namedLayerTarget(
-            SceneNamedTextureReference(
-                providerLayerID: layerID,
-                variant: .primary
-            )
+        let reference = SceneNamedTextureReference(
+            providerLayerID: layerID,
+            variant: .primary
         )
         guard textureRegistry.publishReservedNamedLayerTarget(
-            reference: SceneNamedTextureReference(
-                providerLayerID: layerID,
-                variant: .primary
-            ),
+            reference: reference,
             frameEpoch: frameEpoch,
             texture: reservation.texture
-        ), textureRegistry.texture(for: identity) === reservation.texture else {
+        ), textureRegistry.completeNamedLayerTargetTexture(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ) === reservation.texture else {
             publicationTelemetry.recordFailure(layerID: layerID)
             return false
         }
