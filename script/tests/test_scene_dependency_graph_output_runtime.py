@@ -19,6 +19,9 @@ RUNTIME_SOURCE = (
 STATIC_MODEL_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+StaticModel.swift"
 )
+GEOMETRY_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+Geometry.swift"
+)
 
 
 HARNESS_SOURCE = r'''
@@ -860,6 +863,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     str(RUNTIME_SOURCE),
+                    str(GEOMETRY_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(harness),
                     "-framework",
