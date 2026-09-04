@@ -566,6 +566,27 @@ extension SceneDesktopWallpaperHost {
         let layerMutationCount = ownerEffects.reduce(0) {
             $0 + $1.layerMutations.count
         }
+#if DEBUG
+        if Self.usesDebugEvidenceWindow, timing.frameIndex == 0 {
+            let effectSummary = ownerEffects.map { effect in
+                let dynamicCount = effect.layerMutations.filter(\.isDynamic).count
+                return "owner=\(effect.ownerTarget)"
+                    + ":layers=\(effect.layerMutations.count)"
+                    + ":dynamic=\(dynamicCount)"
+            }.joined(separator: ",")
+            NSLog(
+                "MWX DEBUG SCENE: phase=owner-effects frame=%llu vectorValues=%d vectorFailures=%d vectorLayers=%d vectorOwners=%d cursorOwners=%d totalLayers=%d summary=%@",
+                timing.frameIndex,
+                sceneScriptVectorResult.values.count,
+                sceneScriptVectorResult.failures.count,
+                sceneScriptVectorResult.layerMutations.count,
+                coordinatedSceneScript.vector.ownerEffects.count,
+                cursorResult.ownerEffects.count,
+                layerMutationCount,
+                effectSummary
+            )
+        }
+#endif
         var runtimeValidationFailures:
             [SceneScriptOwnerEffectsRuntimeFailure] = []
         let fixedPoint = launchContext.sceneScriptDynamicLayerRuntime
@@ -586,6 +607,26 @@ extension SceneDesktopWallpaperHost {
         rejectedOwnerTargets.formUnion(admission.rejectedOwners.compactMap(
             \.ownerTarget
         ))
+#if DEBUG
+        if Self.usesDebugEvidenceWindow, timing.frameIndex == 0 {
+            let admittedLayers = admittedOwnerEffects.reduce(0) {
+                $0 + $1.layerMutations.count
+            }
+            let admittedDynamicLayers = admittedOwnerEffects.reduce(0) {
+                $0 + $1.layerMutations.filter(\.isDynamic).count
+            }
+            NSLog(
+                "MWX DEBUG SCENE: phase=owner-effects-admission frame=%llu admittedOwners=%d rejectedOwners=%d externallyRejected=%d admittedLayers=%d admittedDynamic=%d topologyRevision=%llu",
+                timing.frameIndex,
+                admittedOwnerEffects.count,
+                admission.rejectedOwners.count,
+                fixedPoint.externallyRejectedOwners.count,
+                admittedLayers,
+                admittedDynamicLayers,
+                launchContext.sceneScriptDynamicLayerRuntime.topologyRevision
+            )
+        }
+#endif
         for rejected in admission.rejectedOwners {
             NSLog(
                 "MWX SceneScript VM: layerMutations=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
