@@ -135,6 +135,18 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
 
+    def test_runtime_model_has_no_parallel_placeholder_framework(self) -> None:
+        source = (SCENE / "Runtime/SceneRuntimeModel.swift").read_text(
+            encoding="utf-8"
+        )
+        for placeholder in (
+            "ScenePlaybackController",
+            "SceneRenderer",
+            "SceneInputModel",
+            "SceneTimelineModel",
+            "SceneShaderModel",
+        ):
+            self.assertNotIn(placeholder, source)
 
 
 if __name__ == "__main__":
