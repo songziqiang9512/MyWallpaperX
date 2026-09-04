@@ -11,7 +11,7 @@
     "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift": 866,
     "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift": 840,
     "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift": 884,
-    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift": 1062,
+    "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseFetching.swift": 873,
     "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift": 837,
     "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift": 1182,
     "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift": 1443,

@@ -1,6 +1,7 @@
 import Foundation
 
 enum SteamWorkshopBrowserContentMode: String, CaseIterable, Identifiable {
+    case all
     case video
     case web
     case scene
@@ -9,6 +10,7 @@ enum SteamWorkshopBrowserContentMode: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
+        case .all: return "全部壁纸"
         case .video: return "视频壁纸"
         case .web: return "WEB壁纸"
         case .scene: return "场景壁纸"
@@ -17,6 +19,7 @@ enum SteamWorkshopBrowserContentMode: String, CaseIterable, Identifiable {
 
     nonisolated var shortDisplayName: String {
         switch self {
+        case .all: return "全部"
         case .video: return "视频"
         case .web: return "WEB"
         case .scene: return "场景"
@@ -25,14 +28,18 @@ enum SteamWorkshopBrowserContentMode: String, CaseIterable, Identifiable {
 
     nonisolated var requiredTagValue: String {
         switch self {
+        case .all: return ""
         case .video: return "Video"
         case .web: return "Web"
         case .scene: return "Scene"
         }
     }
 
+    nonisolated var isAll: Bool { self == .all }
+
     nonisolated var searchPlaceholder: String {
         switch self {
+        case .all: return "搜索 Steam 壁纸或输入工坊 ID"
         case .video: return "搜索 Steam 视频或输入工坊 ID"
         case .web: return "搜索 Steam WEB 壁纸或输入工坊 ID"
         case .scene: return "搜索 Steam 场景壁纸或输入工坊 ID"
@@ -43,8 +50,13 @@ enum SteamWorkshopBrowserContentMode: String, CaseIterable, Identifiable {
 enum SteamWorkshopSource: String, CaseIterable, Identifiable {
     case featured
     case recent
-    case subscribed
+    case mostSubscribed
     case updated
+    case mySubscriptions
+    case myFavorites
+
+    nonisolated static let publicSources: [Self] = [.featured, .recent, .mostSubscribed, .updated]
+    nonisolated static let personalSources: [Self] = [.mySubscriptions, .myFavorites]
 
     nonisolated var id: String { rawValue }
 
@@ -52,8 +64,10 @@ enum SteamWorkshopSource: String, CaseIterable, Identifiable {
         switch self {
         case .featured: return "最热门"
         case .recent: return "最新发布"
-        case .subscribed: return "最多订阅"
+        case .mostSubscribed: return "最多订阅"
         case .updated: return "最后更新"
+        case .mySubscriptions: return "Steam 已订阅"
+        case .myFavorites: return "我的收藏"
         }
     }
 
@@ -61,13 +75,49 @@ enum SteamWorkshopSource: String, CaseIterable, Identifiable {
         switch self {
         case .featured: return "trend"
         case .recent: return "mostrecent"
-        case .subscribed: return "totaluniquesubscribers"
+        case .mostSubscribed: return "totaluniquesubscribers"
         case .updated: return "lastupdated"
+        case .mySubscriptions: return "mysubscriptions"
+        case .myFavorites: return "myfavorites"
         }
     }
 
     nonisolated var supportsTimeRange: Bool {
         self == .featured
+    }
+
+    nonisolated var isPersonal: Bool {
+        self == .mySubscriptions || self == .myFavorites
+    }
+
+    nonisolated var pageTitle: String {
+        switch self {
+        case .mySubscriptions: return "我的订阅"
+        case .myFavorites: return "我的收藏"
+        default: return "Steam 创意工坊"
+        }
+    }
+}
+
+enum SteamWorkshopPersonalSort: String, CaseIterable, Identifiable {
+    case name = "alpha"
+    case rating
+    case favorites
+    case fileSize = "filesize"
+    case subscriptionDate = "subscriptiondate"
+    case lastUpdated = "lastupdated"
+
+    nonisolated var id: String { rawValue }
+
+    nonisolated var displayName: String {
+        switch self {
+        case .name: return "名称"
+        case .rating: return "分级"
+        case .favorites: return "收藏"
+        case .fileSize: return "文件大小"
+        case .subscriptionDate: return "订阅日期"
+        case .lastUpdated: return "最近更新"
+        }
     }
 }
 
@@ -163,26 +213,34 @@ enum SteamWorkshopThemeFilter: String, CaseIterable, Identifiable {
     }
 }
 
-enum SteamWorkshopAgeRatingFilter: String, CaseIterable, Identifiable {
-    case all
-    case everyone = "Everyone"
-    case mature = "Mature"
-    case unspecified = "Unspecified"
+struct SteamWorkshopAgeRatingFilter: OptionSet, Hashable {
+    let rawValue: UInt8
 
-    nonisolated var id: String { rawValue }
+    static let everyone = Self(rawValue: 1 << 0)
+    static let questionable = Self(rawValue: 1 << 1)
+    static let mature = Self(rawValue: 1 << 2)
+    static let all: Self = [.everyone, .questionable, .mature]
+    nonisolated static let selectableRatings: [Self] = [.everyone, .questionable, .mature]
 
     nonisolated var displayName: String {
         switch self {
-        case .all: return "全部年龄"
-        case .everyone: return "大众级"
-        case .mature: return "成人级"
-        case .unspecified: return "未指定"
+        case .everyone: return "大众级 (G)"
+        case .questionable: return "家长指导级 (PG-13)"
+        case .mature: return "限制级 / 成人级 (R-18)"
+        default: return "全部年龄"
         }
     }
 
-    nonisolated var tagValue: String? {
-        self == .all ? nil : rawValue
+    nonisolated var tagValue: String {
+        switch self {
+        case .everyone: return "Everyone"
+        case .questionable: return "Questionable"
+        case .mature: return "Mature"
+        default: return ""
+        }
     }
+
+    nonisolated static let ratingTagValues = selectableRatings.map(\.tagValue)
 }
 
 enum SteamWorkshopResolutionFilter: String, CaseIterable, Identifiable {

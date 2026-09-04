@@ -15,6 +15,7 @@ enum SelectedItem: Hashable {
     case onlineLibrary
     case onlineDownloads         // 在线库已下载项管理
     case steamWorkshop
+    case steamSubscribed
     case steamDownloads
 }
 

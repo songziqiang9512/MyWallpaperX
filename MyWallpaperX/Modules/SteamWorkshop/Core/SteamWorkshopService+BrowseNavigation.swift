@@ -18,7 +18,7 @@ extension SteamWorkshopService {
         requestedURL = requestedURLForCurrentContext(page: 1)
         navigationVersion += 1
         currentWorkshopItemID = nil
-        currentPageTitle = browseContext.title
+        currentPageTitle = browseContext.isAuthorWorkshop ? browseContext.title : source.pageTitle
         statusMessage = loadingStatusMessage(for: browseContext)
         fetchBrowserItems()
         requestSteamWorkshopBrowserSelection()
@@ -57,7 +57,8 @@ extension SteamWorkshopService {
                 ageRatingFilter: ageRatingFilter,
                 resolutionFilter: resolutionFilter,
                 categoryFilter: categoryFilter,
-                page: page
+                page: page,
+                personalSort: personalSort
             )
         case .authorWorkshop(_, let workshopURL):
             return Self.makeAuthorWorkshopURL(baseURL: workshopURL, page: page)
@@ -161,7 +162,7 @@ extension SteamWorkshopService {
         NotificationCenter.default.post(
             name: .appKitSelectItemRequested,
             object: nil,
-            userInfo: ["selectedItem": "steamWorkshop"]
+            userInfo: ["selectedItem": source.isPersonal ? "steamSubscribed" : "steamWorkshop"]
         )
     }
 }

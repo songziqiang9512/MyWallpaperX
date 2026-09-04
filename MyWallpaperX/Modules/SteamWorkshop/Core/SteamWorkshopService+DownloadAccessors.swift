@@ -67,7 +67,7 @@ extension SteamWorkshopService {
     var activeFilterDisplayParts: [String] {
         var parts: [String] = []
         if themeFilter != .all { parts.append(themeFilter.displayName) }
-        if ageRatingFilter != .all { parts.append(ageRatingFilter.displayName) }
+        if let ageRating = ageRatingFilter.activeDisplayName { parts.append(ageRating) }
         if resolutionFilter != .all { parts.append(resolutionFilter.displayName) }
         if categoryFilter != .all { parts.append(categoryFilter.displayName) }
         return parts

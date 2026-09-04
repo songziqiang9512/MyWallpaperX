@@ -41,7 +41,8 @@ extension SteamWorkshopService {
             themeFilter: themeFilter,
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
-            categoryFilter: categoryFilter
+            categoryFilter: categoryFilter,
+            personalSort: personalSort
         ) {
             browserItems = cached.items
             browserState = .loaded
@@ -135,6 +136,7 @@ extension SteamWorkshopService {
         suppressAutomaticBrowseNavigation = true
         browserContentMode = .video
         source = .featured
+        personalSort = .subscriptionDate
         trendingWindow = .week
         themeFilter = .all
         ageRatingFilter = .all
@@ -151,7 +153,8 @@ extension SteamWorkshopService {
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
             categoryFilter: categoryFilter,
-            page: 1
+            page: 1,
+            personalSort: personalSort
         )
         navigationVersion += 1
         currentPageTitle = browseContext.title

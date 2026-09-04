@@ -27,7 +27,8 @@ extension SteamWorkshopService {
                         ageRatingFilter: self.ageRatingFilter,
                         resolutionFilter: self.resolutionFilter,
                         categoryFilter: self.categoryFilter,
-                        items: self.browserItems
+                        items: self.browserItems,
+                        personalSort: self.personalSort
                     )
                 }
                 self.browserDetailHydrationTask = nil
@@ -74,12 +75,14 @@ extension SteamWorkshopService {
                     guard self.navigationVersion == navigationVersion,
                           self.browseContext == context,
                           self.browserContentMode == browserContentMode else { return }
-                    for item in items {
+                    let visibleItems = self.visibleItemsAfterApplyingAgeRating(items)
+                    self.removeAgeFilteredStubs(stubs, keeping: visibleItems)
+                    for item in visibleItems {
                         self.browserDetailRetryCounts[item.id] = nil
                     }
-                    self.mergeBrowserItems(items)
+                    self.mergeBrowserItems(visibleItems)
                     if let selectedID = self.selectedBrowserItem?.id,
-                       let refreshedSelected = items.first(where: { $0.id == selectedID }) {
+                       let refreshedSelected = visibleItems.first(where: { $0.id == selectedID }) {
                         self.selectedBrowserItem = refreshedSelected
                         self.selectedBrowserItemError = nil
                     }
@@ -157,9 +160,12 @@ extension SteamWorkshopService {
         resolutionFilter: SteamWorkshopResolutionFilter,
         categoryFilter: SteamWorkshopCategoryFilter,
         page: Int,
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate,
         lookaheadDepth: Int = 0
     ) {
-        guard page > 1 else { return }
+        // 个人库使用单一的、带登录态的 WebView。预取会与用户主动翻页争用该 WebView，
+        // 导致 WebKit 取消前一个导航并返回 NSURLErrorCancelled (-999)。
+        guard !source.isPersonal, page > 1 else { return }
         let key = browserPagePrefetchKey(
             context: context,
             browserContentMode: browserContentMode,
@@ -170,7 +176,8 @@ extension SteamWorkshopService {
             ageRatingFilter: ageRatingFilter,
             resolutionFilter: resolutionFilter,
             categoryFilter: categoryFilter,
-            page: page
+            page: page,
+            personalSort: personalSort
         )
         guard prefetchedBrowserPageKeys.insert(key).inserted else { return }
         let expectedNavigationVersion = navigationVersion
@@ -186,7 +193,8 @@ extension SteamWorkshopService {
                 ageRatingFilter: ageRatingFilter,
                 resolutionFilter: resolutionFilter,
                 categoryFilter: categoryFilter,
-                page: page
+                page: page,
+                personalSort: personalSort
             ), !pageResult.stubs.isEmpty else {
                 return
             }
@@ -200,7 +208,8 @@ extension SteamWorkshopService {
                       self.themeFilter == themeFilter,
                       self.ageRatingFilter == ageRatingFilter,
                       self.resolutionFilter == resolutionFilter,
-                      self.categoryFilter == categoryFilter else {
+                      self.categoryFilter == categoryFilter,
+                      self.personalSort == personalSort else {
                     return
                 }
                 self.prefetchedBrowserPages[key] = pageResult
@@ -219,6 +228,7 @@ extension SteamWorkshopService {
                     resolutionFilter: resolutionFilter,
                     categoryFilter: categoryFilter,
                     page: page + 1,
+                    personalSort: personalSort,
                     lookaheadDepth: lookaheadDepth - 1
                 )
             }
@@ -235,8 +245,9 @@ extension SteamWorkshopService {
         ageRatingFilter: SteamWorkshopAgeRatingFilter,
         resolutionFilter: SteamWorkshopResolutionFilter,
         categoryFilter: SteamWorkshopCategoryFilter,
-        page: Int
+        page: Int,
+        personalSort: SteamWorkshopPersonalSort = .subscriptionDate
     ) -> String {
-        "\(context.cacheKeyComponent)|\(browserContentMode.rawValue)|\(source.rawValue)|\(trendingWindow.rawValue)|\(themeFilter.rawValue)|\(ageRatingFilter.rawValue)|\(resolutionFilter.rawValue)|\(categoryFilter.rawValue)|\(query)|\(page)"
+        "\(context.cacheKeyComponent)|\(browserContentMode.rawValue)|\(source.rawValue)|\(personalSort.rawValue)|\(trendingWindow.rawValue)|\(themeFilter.rawValue)|\(ageRatingFilter.rawValue)|\(resolutionFilter.rawValue)|\(categoryFilter.rawValue)|\(query)|\(page)"
     }
 }

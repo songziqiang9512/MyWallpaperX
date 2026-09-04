@@ -161,7 +161,7 @@ final class AppKitDetailHostViewController: NSViewController {
             return StaticViewController(contentView: OnlineLibraryBrowserView())
         case .onlineDownloads:
             return StaticViewController(contentView: AppKitOLDownloadsContainerView())
-        case .steamWorkshop:
+        case .steamWorkshop, .steamSubscribed:
             return StaticViewController(contentView: AppKitSteamWorkshopBrowserView())
         case .steamDownloads:
             return StaticViewController(contentView: AppKitSteamWorkshopDownloadsView())

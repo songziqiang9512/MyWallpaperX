@@ -89,6 +89,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
 
     private func setSelectedItem(_ newValue: SelectedItem) {
         guard selectedItem != newValue else { return }
+        prepareSteamBrowseSelection(newValue)
         selectedItem = newValue
         update(wallpaperManager: wallpaperManager, selectedItem: selectedItem)
         syncManagerSelection(from: newValue)
@@ -141,6 +142,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         switch selectedItem {
         case "steamWorkshop":
             setSelectedItem(.steamWorkshop)
+        case "steamSubscribed": setSelectedItem(.steamSubscribed)
         case "steamDownloads":
             setSelectedItem(.steamDownloads)
         case "onlineLibrary":
@@ -172,7 +174,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
 
         let isSIL = item == .staticImageLibrary || { if case .silTag = item { return true }; return false }()
         let isOnline = item == .onlineLibrary || item == .onlineDownloads
-        let isSteam = item == .steamWorkshop || item == .steamDownloads
+        let isSteam = item == .steamWorkshop || item == .steamSubscribed || item == .steamDownloads
         let newModule = moduleIdentifier(for: item)
 
         if lastPostedModuleID != newModule {
@@ -257,19 +259,6 @@ final class AppKitMainSplitViewController: NSSplitViewController {
             userInfo["silTag"] = tag
         }
         return userInfo
-    }
-
-    private func moduleIdentifier(for item: SelectedItem) -> ModuleIdentifier {
-        switch item {
-        case .staticImageLibrary, .silTag:
-            return .staticImageLibrary
-        case .onlineLibrary, .onlineDownloads:
-            return .onlineLibrary
-        case .steamWorkshop, .steamDownloads:
-            return .steamWorkshop
-        default:
-            return .videoLibrary
-        }
     }
 
     private func syncQuickLookPreviewIfNeeded() {

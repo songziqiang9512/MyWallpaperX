@@ -117,7 +117,7 @@ extension SteamWorkshopService {
         if preferredTag(in: [tag], matching: SteamWorkshopBrowserContentMode.allCases.map(\.requiredTagValue)) != nil {
             return true
         }
-        if preferredTag(in: [tag], matching: SteamWorkshopAgeRatingFilter.allCases.map(\.rawValue)) != nil {
+        if preferredTag(in: [tag], matching: SteamWorkshopAgeRatingFilter.ratingTagValues) != nil {
             return true
         }
         if preferredTag(in: [tag], matching: SteamWorkshopCategoryFilter.allCases.dropFirst().map(\.rawValue)) != nil {
