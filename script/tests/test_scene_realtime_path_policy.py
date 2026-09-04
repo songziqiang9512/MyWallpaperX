@@ -206,6 +206,47 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("renderClearPass", source)
         self.assertEqual(source.count("commandBuffer.present(drawable)"), 1)
 
+    def test_frame_submission_outcome_controls_dynamic_plan_commit(self) -> None:
+        renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        outcome = (
+            SCENE / "Rendering/SceneMetalRenderer+FrameOutcome.swift"
+        ).read_text(encoding="utf-8")
+        view = (SCENE / "Rendering/SceneMetalView.swift").read_text(
+            encoding="utf-8"
+        )
+        preflight = (
+            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        driver = (
+            SCENE
+            / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("enum FrameOutcome: Equatable", outcome)
+        self.assertIn("case submitted", outcome)
+        self.assertIn("case deferred(reasonCode: String)", outcome)
+        self.assertIn("case dropped(reasonCode: String)", outcome)
+        self.assertIn(") -> FrameOutcome", renderer)
+        self.assertEqual(renderer.count("commandBuffer.commit()"), 1)
+        self.assertNotIn("finishUnsubmittedCommandBuffer", renderer)
+        self.assertIn("return .submitted", renderer)
+        self.assertIn(") -> SceneMetalRenderer.FrameOutcome", view)
+        self.assertIn("return renderer.renderFrame(", view)
+        self.assertIn(
+            ") -> SceneMetalRenderer.ResolvedMaterialFrameAdmission",
+            preflight,
+        )
+        self.assertIn("var frameOutcomes: [SceneMetalRenderer.FrameOutcome]", driver)
+        self.assertIn("frameOutcomes.allSatisfy(\\.isSubmitted)", driver)
+        self.assertIn("case .dropped:", driver)
+        plan_commit = driver.index(
+            "launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)"
+        )
+        submission_guard = driver.index("let allSurfacesSubmitted")
+        self.assertGreater(plan_commit, submission_guard)
+
     def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
         renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(
             encoding="utf-8"

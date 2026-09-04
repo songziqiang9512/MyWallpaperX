@@ -416,11 +416,11 @@ class SceneMetalView: NSView {
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
-    ) {
+    ) -> SceneMetalRenderer.FrameOutcome {
         let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         guard let drawable = metalLayer.nextDrawable() else {
             performanceTelemetry?.recordDrawableMiss()
-            return
+            return .deferred(reasonCode: "drawable-unavailable")
         }
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
@@ -458,7 +458,7 @@ class SceneMetalView: NSView {
                 preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
             )
         }
-        renderer.renderFrame(
+        return renderer.renderFrame(
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
             userPropertyTextures: userPropertyTextureLoad.textures,

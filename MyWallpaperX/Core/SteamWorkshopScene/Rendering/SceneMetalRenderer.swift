@@ -66,14 +66,18 @@ struct SceneMetalRenderer {
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
-    ) {
-        guard !imageCompositor.shouldDeferResolvedMaterialFrame else { return }
+    ) -> FrameOutcome {
+        guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
+            return .deferred(reasonCode: "resolved-material-frame-in-flight")
+        }
         let cpuStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         guard let commandBuffer = commandQueue.makeCommandBuffer() else {
             performanceTelemetry?.recordCommandBufferUnavailable()
-            return
+            return .deferred(reasonCode: "command-buffer-unavailable")
         }
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
+        // Failure abandons this not-enqueued buffer; only success arms,
+        // commits, and submits the source transaction as one contract.
         defer { sourceUpdateTransaction.cancel() }
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
         defer { frameDepthLeases.forEach { $0.cancel() } }
@@ -169,7 +173,7 @@ struct SceneMetalRenderer {
             dynamicLayerColors: dynamicLightColors
         )
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
-        guard let resolvedMaterialFrameTargetPlans = admitResolvedMaterialFrameTargets(
+        let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
@@ -184,7 +188,16 @@ struct SceneMetalRenderer {
             parallaxConfiguration: parallaxConfiguration,
             mainTarget: drawable.texture,
             commandBuffer: commandBuffer
-        ) else { return }
+        )
+        let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
+        switch resolvedMaterialFrameAdmission {
+        case let .ready(plans):
+            resolvedMaterialFrameTargetPlans = plans
+        case let .deferred(reasonCode):
+            return .deferred(reasonCode: reasonCode)
+        case let .rejected(reasonCode):
+            return .dropped(reasonCode: reasonCode)
+        }
         var stopsAfterClaimedFailure = false
         let mainPass = SceneMainPassEncoder(
             commandBuffer: commandBuffer,
@@ -739,7 +752,7 @@ struct SceneMetalRenderer {
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
-            return
+            return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
@@ -781,6 +794,6 @@ struct SceneMetalRenderer {
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
             )
         }
+        return .submitted
     }
-
 }

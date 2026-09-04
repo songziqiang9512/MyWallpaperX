@@ -20,7 +20,7 @@ extension SceneMetalRenderer {
         parallaxConfiguration: SceneLayerParallax.Configuration,
         mainTarget: MTLTexture,
         commandBuffer: MTLCommandBuffer
-    ) -> [Int: SceneResolvedMaterialFrameTargetPlan]? {
+    ) -> SceneMetalRenderer.ResolvedMaterialFrameAdmission {
         // Publish this frame's typed resources before target sizing or source
         // admission. Otherwise preflight reads a stale/empty registry while
         // preparation later encodes the current provider into that target.
@@ -50,7 +50,9 @@ extension SceneMetalRenderer {
                     "frame-local-fallback-install-rejected"
                 )
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return nil
+                return .rejected(
+                    reasonCode: "frame-local-fallback-install-rejected"
+                )
             }
             var requestFailureReason: String?
             guard let requests = resolvedMaterialFramePreparationRequests(
@@ -72,7 +74,10 @@ extension SceneMetalRenderer {
                     requestFailureReason ?? "frame-preparation-request-invalid"
                 )
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return nil
+                return .rejected(
+                    reasonCode: requestFailureReason
+                        ?? "frame-preparation-request-invalid"
+                )
             }
             switch imageCompositor.prepareResolvedMaterialFrame(
                 requests,
@@ -90,21 +95,27 @@ extension SceneMetalRenderer {
                         "prepared-provider-output-install-rejected"
                     )
                     _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                    return nil
+                    return .rejected(
+                        reasonCode: "prepared-provider-output-install-rejected"
+                    )
                 }
             case .rejected:
                 _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-                return nil
+                return .rejected(
+                    reasonCode: "resolved-material-frame-preparation-rejected"
+                )
             }
-            return plans
+            return .ready(plans: plans)
         case .deferred:
             _ = imageCompositor.deferResolvedMaterialFrame()
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-            return nil
+            return .deferred(
+                reasonCode: "resolved-material-preflight-deferred"
+            )
         case .rejected(let reasonCode):
             imageCompositor.recordResolvedMaterialFramePreflightFailure(reasonCode)
             _ = imageCompositor.endResolvedMaterialFrame(on: commandBuffer)
-            return nil
+            return .rejected(reasonCode: reasonCode)
         }
     }
 

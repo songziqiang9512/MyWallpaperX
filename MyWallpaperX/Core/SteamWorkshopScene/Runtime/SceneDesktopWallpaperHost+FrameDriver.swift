@@ -10,6 +10,7 @@ private let sceneBusyFrameRetryInterval = max(
 private enum SceneFrameDriverAttempt {
     case rendered
     case busy
+    case dropped
     case inactive
 }
 
@@ -153,6 +154,11 @@ extension SceneDesktopWallpaperHost {
             // History-bearing graphs remain single-frame-in-flight. A short
             // retry prevents a slight overrun from losing a full 60 Hz slot.
             nextDeadline = now + sceneBusyFrameRetryInterval
+        case .dropped:
+            // A hard frame rejection did not produce a drawable, but it is
+            // not an in-flight resource wait. Keep normal cadence without
+            // reporting the attempt as rendered.
+            nextDeadline = max(scheduledDeadline + sceneFrameInterval, now)
         case .inactive:
             frameTimer?.invalidate()
             frameTimer = nil
@@ -651,9 +657,16 @@ extension SceneDesktopWallpaperHost {
         let materialFunctionMutations = admittedOwnerEffects.flatMap(
             \.materialFunctionMutations
         )
+        var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
+        frameOutcomes.reserveCapacity(surfaces.count)
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
-                mediaThumbnailSnapshots[displayID] else { continue }
+                mediaThumbnailSnapshots[displayID] else {
+                frameOutcomes.append(.deferred(
+                    reasonCode: "media-thumbnail-snapshot-unavailable"
+                ))
+                continue
+            }
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
@@ -705,7 +718,7 @@ extension SceneDesktopWallpaperHost {
                 snapshot: dynamicValues
             )
 #endif
-            surface.metalView.renderFrame(
+            let frameOutcome = surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
                 layerTopology: layerTopology.resolvingDynamicMaterialColors(
                     from: dynamicValues
@@ -716,6 +729,7 @@ extension SceneDesktopWallpaperHost {
                 performanceTelemetry: Self.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
             )
+            frameOutcomes.append(frameOutcome)
 #if DEBUG
             if Self.usesDebugEvidenceWindow {
                 SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
@@ -723,6 +737,12 @@ extension SceneDesktopWallpaperHost {
                 )
             }
 #endif
+        }
+        let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
+            && frameOutcomes.allSatisfy(\.isSubmitted)
+        guard allSurfacesSubmitted else {
+            return frameOutcomes.contains(where: { $0.isDeferred })
+                ? .busy : .dropped
         }
         launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)
         return .rendered

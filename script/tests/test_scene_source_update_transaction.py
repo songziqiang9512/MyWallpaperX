@@ -186,6 +186,8 @@ enum Harness {
         self.assertLess(seal, transaction_arm)
         self.assertLess(transaction_arm, command_commit)
         self.assertLess(command_commit, did_submit)
+        self.assertEqual(source.count("commandBuffer.commit()"), 1)
+        self.assertNotIn("finishUnsubmittedCommandBuffer", source)
         self.assertNotIn("frameTransaction: sourceUpdateTransaction", source)
         claimed_failure_stop = source.index(
             "request.resolvedMaterialFrameTargetPlan != nil"
