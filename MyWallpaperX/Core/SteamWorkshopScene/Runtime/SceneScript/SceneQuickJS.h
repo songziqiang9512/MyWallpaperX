@@ -334,6 +334,17 @@ size_t mwx_scene_quickjs_owner_layer_mutation_count(
     const MWXSceneQuickJSOwner *owner
 );
 
+// Layer mutations remain visible to subsequent callbacks in the same frame.
+// The host commits or discards this owner-local transaction after Swift
+// admission and surface submission decide whether the frame is safe to keep.
+void mwx_scene_quickjs_owner_commit_layer_mutations(
+    MWXSceneQuickJSOwner *owner
+);
+
+void mwx_scene_quickjs_owner_discard_layer_mutations(
+    MWXSceneQuickJSOwner *owner
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
     MWXSceneQuickJSOwner *owner,
     size_t index,

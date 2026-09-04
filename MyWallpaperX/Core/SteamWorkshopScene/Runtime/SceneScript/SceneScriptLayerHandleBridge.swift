@@ -258,6 +258,22 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
 }
 
 nonisolated enum SceneScriptLayerMutationBridge {
+    // These limits mirror the lossless C DTO/QuickJS contracts. Keep the
+    // validation at this ABI boundary so malformed native data cannot become
+    // a permissive Swift mutation and then reach the shared frame plan.
+    private static let maximumLayerIdentity: Int64 = 9_007_199_254_740_991
+    private static let maximumTextBytes = 4_096
+    private static let maximumFontBytes = 1_024
+    private static let maximumAssetPathBytes = 1_024
+
+    static func commit(owner: OpaquePointer) {
+        mwx_scene_quickjs_owner_commit_layer_mutations(owner)
+    }
+
+    static func discard(owner: OpaquePointer) {
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner)
+    }
+
     static func configure(owner: OpaquePointer, target: SceneDynamicTarget) throws {
         guard let layerID = layerID(for: target) else { return }
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -288,6 +304,18 @@ nonisolated enum SceneScriptLayerMutationBridge {
     ) -> Result<[SceneScriptLayerMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_layer_mutation_count(owner)
         guard count <= 64 else { return .failure(.mutationOverflow("layer mutation buffer exceeded")) }
+        // Owners without layer side effects are valid even when their target
+        // belongs to a non-layer API family. Validate the identity only when
+        // a DTO is actually being attached to the owner effect package.
+        if count > 0 {
+            guard let ownerLayerID = layerID(for: ownerTarget),
+                  Int64(ownerLayerID) >= -maximumLayerIdentity,
+                  Int64(ownerLayerID) <= maximumLayerIdentity else {
+                return .failure(.invalidArgument(
+                    "invalid layer mutation owner identity"
+                ))
+            }
+        }
         var output: [SceneScriptLayerMutation] = []
         output.reserveCapacity(count)
         for index in 0..<count {
@@ -297,25 +325,72 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 owner, index, &raw, &diagnostic, diagnostic.count
             )
             guard result == MWX_SCENE_QUICKJS_OK,
-                  raw.layer_id >= Int64(Int.min), raw.layer_id <= Int64(Int.max),
+                  raw.dynamic <= 1,
+                  raw.visible <= 1,
+                  raw.layer_id >= -maximumLayerIdentity,
+                  raw.layer_id <= maximumLayerIdentity,
+                  raw.order_index >= 0,
                   raw.alpha.isFinite, raw.point_size.isFinite,
                   raw.origin.0.isFinite, raw.origin.1.isFinite, raw.origin.2.isFinite,
                   raw.scale.0.isFinite, raw.scale.1.isFinite, raw.scale.2.isFinite,
                   raw.angles.0.isFinite, raw.angles.1.isFinite, raw.angles.2.isFinite,
-                  raw.color.0.isFinite, raw.color.1.isFinite, raw.color.2.isFinite,
+                  raw.color.0.isFinite, raw.color.1.isFinite,
+                  raw.color.2.isFinite,
                   let textPointer = raw.text, let fontPointer = raw.font,
                   let assetPathPointer = raw.asset_path else {
-                return .failure(.invalidArgument(String(cString: diagnostic)))
+                return .failure(.invalidArgument(
+                    String(cString: diagnostic).isEmpty
+                        ? "invalid layer mutation ABI"
+                        : String(cString: diagnostic)
+                ))
+            }
+            let kind: SceneScriptLayerMutation.Kind
+            switch raw.kind {
+            case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT.rawValue):
+                kind = .upsert
+            case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue):
+                kind = .destroy
+            default:
+                // Never silently reinterpret a future/invalid enum value as
+                // an upsert.
+                return .failure(.invalidArgument("unknown layer mutation kind"))
             }
             let fields = SceneScriptLayerMutation.Fields(rawValue: raw.fields)
-            guard raw.dynamic != 0 || (
-                !fields.isEmpty && fields.isSubset(of: .authoredFields)
-            ) else {
-                return .failure(.invalidArgument("invalid authored layer mutation fields"))
+            guard raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0 else {
+                return .failure(.invalidArgument("unknown layer mutation fields"))
+            }
+            if raw.dynamic == 1 {
+                guard (0...1).contains(raw.alpha),
+                      (1...1024).contains(raw.point_size),
+                      (0...1).contains(raw.color.0),
+                      (0...1).contains(raw.color.1),
+                      (0...1).contains(raw.color.2) else {
+                    return .failure(.invalidArgument(
+                        "invalid dynamic layer mutation range"
+                    ))
+                }
+            }
+            switch (kind, raw.dynamic, raw.fields) {
+            case (.destroy, 1, 0), (.upsert, 1, 0):
+                break
+            case (.upsert, 0, _)
+                where !fields.isEmpty && fields.isSubset(of: .authoredFields):
+                break
+            default:
+                return .failure(.invalidArgument(
+                    "layer mutation kind/dynamic/fields ABI mismatch"
+                ))
+            }
+            let text = String(cString: textPointer)
+            let font = String(cString: fontPointer)
+            let assetPath = String(cString: assetPathPointer)
+            guard text.utf8.count <= maximumTextBytes,
+                  font.utf8.count <= maximumFontBytes,
+                  assetPath.utf8.count <= maximumAssetPathBytes else {
+                return .failure(.invalidArgument("layer mutation string exceeds ABI limit"))
             }
             output.append(.init(
-                kind: raw.kind == UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue)
-                    ? .destroy : .upsert,
+                kind: kind,
                 isDynamic: raw.dynamic != 0, fields: fields,
                 layerID: Int(raw.layer_id), orderIndex: Int(raw.order_index),
                 visible: raw.visible != 0, alpha: raw.alpha,
@@ -328,8 +403,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 ),
                 color: .init(raw.color.0, raw.color.1, raw.color.2),
                 pointSize: raw.point_size,
-                text: String(cString: textPointer), font: String(cString: fontPointer),
-                assetPath: String(cString: assetPathPointer).nilIfEmpty,
+                text: text, font: font,
+                assetPath: assetPath.nilIfEmpty,
                 ownerTarget: ownerTarget
             ))
         }

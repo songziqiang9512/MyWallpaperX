@@ -1906,11 +1906,19 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_initialize_string(
             diagnostic, diagnostic_capacity,
             "SceneScript properties unavailable"
         );
+        // Property assignment can fail before the callback body runs.  The
+        // owner may still carry a journal from an earlier same-frame event;
+        // discard it before disabling so no provisional topology/value or
+        // domain lock survives this hard failure.
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
     if (owner->initialized) {
-        if (input_length >= output_capacity) return MWX_SCENE_QUICKJS_BAD_RETURN;
+        if (input_length >= output_capacity) {
+            mwx_scene_quickjs_owner_discard_layer_mutations(owner);
+            return MWX_SCENE_QUICKJS_BAD_RETURN;
+        }
         memmove(output, input, input_length);
         output[input_length] = '\0';
         *output_length = input_length;
@@ -1995,6 +2003,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
             diagnostic, diagnostic_capacity,
             "SceneScript properties unavailable"
         );
+        mwx_scene_quickjs_owner_discard_layer_mutations(owner);
         owner->disabled = true;
         return MWX_SCENE_QUICKJS_EXCEPTION;
     }
@@ -2044,6 +2053,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_update_string(
                 diagnostic, diagnostic_capacity,
                 "SceneScript string output capacity is insufficient"
             );
+            mwx_scene_quickjs_owner_discard_layer_mutations(owner);
             return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         }
         memcpy(output, current, current_length + 1);

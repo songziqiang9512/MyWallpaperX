@@ -399,6 +399,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 )
             case let .failure(failure):
                 discardCandidates(ownerLayerID: binding.layerID)
+                // Cursor callbacks borrow the vector owner's C transaction;
+                // an extraction/identity failure must not remain commit-able
+                // when the vector pass runs later in the same frame.
+                binding.owner.discardLayerMutations()
                 failures[binding.layerID] = failure
                 disabledLayerIDs.insert(binding.layerID)
                 capturedHits.removeValue(forKey: binding.layerID)
@@ -498,6 +502,11 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         for binding in bindings where !disabledLayerIDs.contains(binding.layerID) {
             if case let .failure(failure) = binding.owner.commitStorage() {
                 discardCandidates(ownerLayerID: binding.layerID)
+                // A borrowed cursor binding shares its vector owner's C
+                // layer transaction.  Cursor runs before the vector pass;
+                // discard immediately so a later vector finalizer cannot
+                // commit a cursor callback that failed storage publication.
+                binding.owner.discardLayerMutations()
                 failures[binding.layerID] = failure
                 disabledLayerIDs.insert(binding.layerID)
                 capturedHits.removeValue(forKey: binding.layerID)
@@ -573,6 +582,22 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         previousPointerPosition = pointerPosition
         previousPrimaryButtonIsDown = primaryButtonIsDown
         capturedHits = [:]
+    }
+
+    func finalizeLayerMutations(
+        committing: Bool,
+        rejectedOwnerTargets: Set<SceneDynamicTarget> = []
+    ) {
+        bindings.forEach { binding in
+            guard binding.ownsOwner else { return }
+            let target = binding.owner.target
+            let rejected = rejectedOwnerTargets.contains(target)
+            if committing && !rejected && !disabledLayerIDs.contains(binding.layerID) {
+                binding.owner.commitLayerMutations()
+            } else {
+                binding.owner.discardLayerMutations()
+            }
+        }
     }
 
     func invalidate() {

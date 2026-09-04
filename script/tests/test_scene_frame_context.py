@@ -26,6 +26,10 @@ HOST_FRAME_DRIVER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+)
 HOST_POINTER_EVENTS_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
@@ -97,6 +101,10 @@ PARTICLE_PLAYBACK_SOURCE = (
 RENDERER_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift"
+)
+RENDERER_INITIALIZATION_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer+Initialization.swift"
 )
 COMPOSITOR_SOURCE = (
     REPOSITORY_ROOT
@@ -592,22 +600,19 @@ class SceneFrameContextTests(unittest.TestCase):
 
     def test_scene_script_side_effect_commands_commit_after_submission_barrier(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         barrier = frame_driver.index("let allSurfacesSubmitted =")
-        surface_commit = frame_driver.index(
-            "evaluationTransaction.commit", barrier
-        )
-        timeline_commit = frame_driver.index(
-            "timelinePlaybackRuntime.apply(", barrier
-        )
-        video_commit = frame_driver.index(
-            "videoTextureSourceRegistry?.apply(", barrier
-        )
-        self.assertLess(barrier, surface_commit)
+        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        surface_commit = lifecycle.index("evaluationTransaction.commit")
+        timeline_commit = lifecycle.index("timelinePlaybackRuntime.apply(")
+        video_commit = lifecycle.index("videoTextureSourceRegistry?.apply(")
+        self.assertLess(barrier, commit_call)
         self.assertLess(surface_commit, timeline_commit)
         self.assertLess(timeline_commit, video_commit)
 
     def test_shared_layer_alpha_candidate_commits_after_submission_barrier(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         prepare = frame_driver.index(
             "sharedLayerAlphaRuntime.prepareValues("
         )
@@ -615,15 +620,12 @@ class SceneFrameContextTests(unittest.TestCase):
             "pendingSharedLayerAlpha.values", prepare
         )
         barrier = frame_driver.index("let allSurfacesSubmitted =")
-        surface_commit = frame_driver.index(
-            "evaluationTransaction.commit", barrier
-        )
-        alpha_commit = frame_driver.index(
-            "sharedLayerAlphaRuntime.commitValues(", barrier
-        )
+        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        surface_commit = lifecycle.index("evaluationTransaction.commit")
+        alpha_commit = lifecycle.index("sharedLayerAlphaRuntime.commitValues(")
         self.assertLess(prepare, candidate_values)
         self.assertLess(candidate_values, barrier)
-        self.assertLess(barrier, surface_commit)
+        self.assertLess(barrier, commit_call)
         self.assertLess(surface_commit, alpha_commit)
         self.assertNotIn("sharedLayerAlphaRuntime.values(", frame_driver)
 
@@ -872,6 +874,9 @@ class SceneFrameContextTests(unittest.TestCase):
         host = HOST_SOURCE.read_text(encoding="utf-8")
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         renderer = RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer_initialization = RENDERER_INITIALIZATION_SOURCE.read_text(
+            encoding="utf-8"
+        )
         compositor = COMPOSITOR_SOURCE.read_text(encoding="utf-8")
         repository = PIPELINE_REPOSITORY_SOURCE.read_text(encoding="utf-8")
 
@@ -898,7 +903,7 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn("MTLCreateSystemDefaultDevice()", renderer)
         self.assertIn(
             "SceneImageLayerCompositor(\n            pipelineRepository:",
-            renderer,
+            renderer_initialization,
         )
         self.assertNotIn("SceneGaussianBlurPipeline(device:", compositor)
         self.assertNotIn("SceneBloomPipeline(device:", compositor)

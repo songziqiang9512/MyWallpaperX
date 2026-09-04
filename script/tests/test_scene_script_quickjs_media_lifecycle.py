@@ -324,6 +324,94 @@ int main(void) {
         );
     }
 
+    // A direct owner teardown must not discard a peer's still-provisional
+    // topology transaction.  It reports a retryable hard failure, and the
+    // caller can retry after the peer reaches the frame barrier.
+    const char *retry_target_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'retry-target',text:'target'});"
+        "return value;}";
+    MWXSceneQuickJSOwner *retry_target = mwx_scene_quickjs_owner_create(
+        domain, retry_target_source, strlen(retry_target_source),
+        105, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        retry_target != NULL, "teardown retry target compile", diagnostic
+    );
+    if (retry_target != NULL) {
+        failures += update_owner(
+            retry_target, 105, 1, MWX_SCENE_QUICKJS_OK, 1,
+            "teardown retry target creates dynamic layer"
+        );
+        mwx_scene_quickjs_owner_commit_layer_mutations(retry_target);
+    }
+
+    const char *retry_blocker_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'retry-blocker',text:'blocker'});"
+        "return value;}";
+    MWXSceneQuickJSOwner *retry_blocker = mwx_scene_quickjs_owner_create(
+        domain, retry_blocker_source, strlen(retry_blocker_source),
+        106, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        retry_blocker != NULL, "teardown retry blocker compile", diagnostic
+    );
+    if (retry_target != NULL && retry_blocker != NULL) {
+        failures += update_owner(
+            retry_blocker, 106, 1, MWX_SCENE_QUICKJS_OK, 1,
+            "teardown retry blocker holds topology journal"
+        );
+        uint32_t retry_invoked = 0;
+        uint32_t retry_threw = 0;
+        MWXSceneQuickJSFrameInput retry_frame = {
+            .time_of_day = 0.25, .frame_time = 0, .runtime = 3,
+        };
+        MWXSceneQuickJSResult retry_result =
+            mwx_scene_quickjs_owner_teardown_with_provenance(
+                retry_target, 105, &retry_frame, NULL, 0, "{}", 2,
+                &retry_invoked, &retry_threw, diagnostic, sizeof(diagnostic)
+            );
+        MWXSceneQuickJSLifecycleSnapshot retry_snapshot = {0};
+        failures += check(
+            retry_result == MWX_SCENE_QUICKJS_EXCEPTION &&
+                retry_invoked == 0 && retry_threw == 0 &&
+                mwx_scene_quickjs_owner_lifecycle_snapshot(
+                    retry_target, &retry_snapshot
+                ) == MWX_SCENE_QUICKJS_OK &&
+                retry_snapshot.teardown_started == 1 &&
+                retry_snapshot.active_dynamic_layer_count == 1,
+            "teardown waits for foreign topology transaction",
+            diagnostic
+        );
+        mwx_scene_quickjs_owner_commit_layer_mutations(retry_blocker);
+        MWXSceneQuickJSLifecycleSnapshot blocker_snapshot = {0};
+        failures += check(
+            mwx_scene_quickjs_owner_lifecycle_snapshot(
+                retry_blocker, &blocker_snapshot
+            ) == MWX_SCENE_QUICKJS_OK &&
+                blocker_snapshot.active_dynamic_layer_count == 1,
+            "foreign teardown failure preserves peer journal",
+            diagnostic
+        );
+        retry_invoked = 0;
+        retry_threw = 0;
+        retry_result = mwx_scene_quickjs_owner_teardown_with_provenance(
+            retry_target, 999, &retry_frame, NULL, 0, "{}", 2,
+            &retry_invoked, &retry_threw, diagnostic, sizeof(diagnostic)
+        );
+        failures += check(
+            retry_result == MWX_SCENE_QUICKJS_OK && retry_invoked == 0 &&
+                retry_threw == 0 &&
+                mwx_scene_quickjs_owner_lifecycle_snapshot(
+                    retry_target, &retry_snapshot
+                ) == MWX_SCENE_QUICKJS_OK &&
+                retry_snapshot.active_dynamic_layer_count == 0,
+            "teardown retry removes owner layers after peer release",
+            diagnostic
+        );
+    }
+
     const char *exception_source =
         "export function update(value){return value;}"
         "export function destroy(){thisScene.createLayer({text:'discard'});"
@@ -379,6 +467,8 @@ int main(void) {
 
     if (overflow != NULL) mwx_scene_quickjs_owner_destroy(overflow);
     if (exception != NULL) mwx_scene_quickjs_owner_destroy(exception);
+    if (retry_blocker != NULL) mwx_scene_quickjs_owner_destroy(retry_blocker);
+    if (retry_target != NULL) mwx_scene_quickjs_owner_destroy(retry_target);
     if (teardown != NULL) mwx_scene_quickjs_owner_destroy(teardown);
     mwx_scene_quickjs_owner_destroy(peer);
     mwx_scene_quickjs_owner_destroy(media);

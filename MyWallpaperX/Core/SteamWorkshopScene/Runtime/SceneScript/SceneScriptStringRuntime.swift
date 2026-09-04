@@ -174,16 +174,22 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(result, diagnostic))
         }
         guard didInitialize != 0 else { return .success(nil) }
         guard outputLength <= 65_536 else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("oversized initialized string output"))
         }
         let value = String(decoding: output.prefix(outputLength).map {
             UInt8(bitPattern: $0)
         }, as: UTF8.self)
-        return callbackEvaluation(value).map(Optional.some)
+        let evaluation = callbackEvaluation(value)
+        if case .failure = evaluation {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+        }
+        return evaluation.map(Optional.some)
     }
 
     func evaluate(
@@ -226,15 +232,21 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(result, diagnostic))
         }
         guard outputLength <= 65_536 else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("oversized string output"))
         }
         let value = String(decoding: output.prefix(outputLength).map {
             UInt8(bitPattern: $0)
         }, as: UTF8.self)
-        return callbackEvaluation(value)
+        let evaluation = callbackEvaluation(value)
+        if case .failure = evaluation {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+        }
+        return evaluation
     }
 
     private func callbackEvaluation(
@@ -244,24 +256,31 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         switch target {
         case let .text(value, _), let .layer(value, _): layerID = value
         default:
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         let materialFunctions: [SceneScriptMaterialFunctionMutation]
         switch SceneScriptEffectHandleBridge.mutations(owner: handle, layerID: layerID) {
         case let .success(value): materialFunctions = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         let animations: [SceneTimelinePlaybackMutation]
         switch SceneScriptAnimationHandleBridge.mutations(owner: handle, target: target) {
         case let .success(value): animations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         let layerMutations: [SceneScriptLayerMutation]
         switch SceneScriptLayerMutationBridge.mutations(
             owner: handle, ownerTarget: target
         ) {
         case let .success(value): layerMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         return .success(.init(
             value: .string(value),
@@ -376,8 +395,20 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         mwx_scene_quickjs_owner_invalidate(handle)
     }
 
+    func commitLayerMutations() {
+        SceneScriptLayerMutationBridge.commit(owner: handle)
+    }
+
+    func discardLayerMutations() {
+        SceneScriptLayerMutationBridge.discard(owner: handle)
+    }
+
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle)
+        if case .failure = result {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+        }
+        return result
     }
 
     func discardStorage() {

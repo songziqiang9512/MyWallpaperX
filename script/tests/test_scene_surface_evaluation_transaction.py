@@ -19,6 +19,9 @@ SOURCES = [
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_FRAME_DRIVER_LIFECYCLE = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -236,6 +239,7 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
 
     def test_host_commits_surface_evaluations_after_submission_barrier(self) -> None:
         source = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
+        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE.read_text(encoding="utf-8")
         self.assertIn("PendingEvaluation", source)
         prepare_position = source.index(
             "surface.evaluationTransaction.prepare("
@@ -243,11 +247,13 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
         outcome_position = source.index(
             "let allSurfacesSubmitted =", prepare_position
         )
-        commit_position = source.index(
-            "evaluationTransaction.commit", outcome_position
+        commit_call_position = source.index(
+            "commitSubmittedSceneFrame(", outcome_position
         )
         self.assertLess(prepare_position, outcome_position)
-        self.assertLess(outcome_position, commit_position)
+        self.assertLess(outcome_position, commit_call_position)
+        self.assertIn("func commitSubmittedSceneFrame(", lifecycle)
+        self.assertIn("evaluationTransaction.commit", lifecycle)
 
 
 if __name__ == "__main__":

@@ -725,33 +725,20 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
+            finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
-        pendingSurfaceEvaluations.forEach {
-            $0.0.evaluationTransaction.commit($0.1)
-        }
-        sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
-        if !animationMutations.isEmpty,
-           case .success = launchContext.timelinePlaybackRuntime.apply(
-               animationMutations, sceneTime: timing.sceneTime
-           ) {
-            NSLog(
-                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
-                animationMutations.count
-            )
-        }
-        if !videoCommands.isEmpty,
-           case .success? = videoTextureSourceRegistry?.apply(
-               videoCommands, timing: timing
-           ) {
-            NSLog(
-                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
-                videoCommands.count,
-                timing.frameIndex
-            )
-        }
-        launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)
+        commitSubmittedSceneFrame(
+            launchContext,
+            pendingSurfaceEvaluations: pendingSurfaceEvaluations,
+            pendingSharedLayerAlpha: pendingSharedLayerAlpha,
+            animationMutations: animationMutations,
+            videoCommands: videoCommands,
+            timing: timing,
+            layerPlan: admission.layerPlan,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
         return .rendered
     }
 

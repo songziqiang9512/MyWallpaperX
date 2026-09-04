@@ -2241,6 +2241,10 @@ int main(void) {
         dynamic_layer, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
         1, 0, 0, 1, "tick", "dynamic layer snapshot"
     );
+    // The product host finalizes every owner after the surface barrier.  Keep
+    // the direct C harness at that same boundary before the next owner may
+    // perform topology work.
+    mwx_scene_quickjs_owner_commit_layer_mutations(dynamic_layer);
     failures += update(
         dynamic_layer, 40, 1, MWX_SCENE_QUICKJS_OK, 103,
         "dynamic layer handle persists"
@@ -2249,6 +2253,7 @@ int main(void) {
         mwx_scene_quickjs_owner_layer_mutation_count(dynamic_layer) == 0,
         "unchanged dynamic layer setters are deduplicated", ""
     );
+    mwx_scene_quickjs_owner_commit_layer_mutations(dynamic_layer);
 
     const char *dynamic_image_configuration_source =
         "let image;export function init(value){image=thisScene.createLayer({"
@@ -2299,6 +2304,7 @@ int main(void) {
             dynamic_image_configuration_mutation.visible == 1,
         "dynamic image configuration fields published", diagnostic
     );
+    mwx_scene_quickjs_owner_commit_layer_mutations(dynamic_image_configuration);
 
     const char *destroyed_enumerated_source =
         "export function update(value){"
@@ -2322,6 +2328,7 @@ int main(void) {
         destroyed_enumerated, 53, 1, MWX_SCENE_QUICKJS_OK, 1,
         "destroyed enumerated handle becomes stale"
     );
+    mwx_scene_quickjs_owner_commit_layer_mutations(destroyed_enumerated);
 
     MWXSceneQuickJSOwner *dynamic_intruder = mwx_scene_quickjs_owner_create(
         domain,
@@ -2658,6 +2665,252 @@ int main(void) {
         mwx_scene_quickjs_owner_layer_mutation_count(dynamic_budget) == 64,
         "dynamic layer budget remains bounded", diagnostic
     );
+    // Discarding the bounded batch also exercises the provisional-create
+    // tombstones and keeps later fixtures independent of these 64 records.
+    mwx_scene_quickjs_owner_discard_layer_mutations(dynamic_budget);
+
+    const char *dynamic_rollback_source =
+        "let layer;"
+        "export function init(value){layer=thisScene.createLayer({"
+        "name:'rollback',text:'stable'});return value;}"
+        "export function update(value){if(value===2){layer.text='leak';"
+        "thisScene.sortLayer(layer,0);throw new Error('reject frame');}"
+        "return value;}";
+    MWXSceneQuickJSOwner *dynamic_rollback = mwx_scene_quickjs_owner_create(
+        domain, dynamic_rollback_source, strlen(dynamic_rollback_source),
+        67, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        dynamic_rollback != NULL, "dynamic rollback owner compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        dynamic_rollback, 17, "dynamic rollback owner identity"
+    );
+    failures += update(
+        dynamic_rollback, 67, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "dynamic rollback baseline created"
+    );
+    mwx_scene_quickjs_owner_commit_layer_mutations(dynamic_rollback);
+
+    const char *dynamic_rollback_observer_source =
+        "export function update(value){let marker=-1;"
+        "for(const layer of thisScene.enumerateLayers())"
+        "if(layer.name==='rollback')marker=layer.text==='stable'"
+        "?thisScene.getLayerIndex(layer):-2;"
+        "return thisScene.getLayerCount()*10+marker;}";
+    MWXSceneQuickJSOwner *dynamic_rollback_observer =
+        mwx_scene_quickjs_owner_create(
+            domain, dynamic_rollback_observer_source,
+            strlen(dynamic_rollback_observer_source),
+            68, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        dynamic_rollback_observer != NULL,
+        "dynamic rollback observer compile", diagnostic
+    );
+    failures += update(
+        dynamic_rollback_observer, 68, 0, MWX_SCENE_QUICKJS_OK, 54,
+        "dynamic rollback baseline is observable"
+    );
+    failures += update(
+        dynamic_rollback, 67, 2, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "dynamic value and order failure rejects owner transaction"
+    );
+    failures += update(
+        dynamic_rollback_observer, 68, 0, MWX_SCENE_QUICKJS_OK, 54,
+        "dynamic value and order failure restores previous current"
+    );
+
+    const char *dynamic_create_failure_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'ghost',text:'ghost'});"
+        "throw new Error('reject create');}";
+    MWXSceneQuickJSOwner *dynamic_create_failure =
+        mwx_scene_quickjs_owner_create(
+            domain, dynamic_create_failure_source,
+            strlen(dynamic_create_failure_source),
+            69, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        dynamic_create_failure != NULL,
+        "dynamic create failure owner compile", diagnostic
+    );
+    failures += update(
+        dynamic_create_failure, 69, 0,
+        MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "failed callback tombstones provisional dynamic layer"
+    );
+    failures += update(
+        dynamic_rollback_observer, 68, 0, MWX_SCENE_QUICKJS_OK, 54,
+        "failed create leaves no observable ghost layer"
+    );
+
+    const char *dynamic_explicit_discard_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'discard',text:'discard'});"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *dynamic_explicit_discard =
+        mwx_scene_quickjs_owner_create(
+            domain, dynamic_explicit_discard_source,
+            strlen(dynamic_explicit_discard_source),
+            70, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        dynamic_explicit_discard != NULL,
+        "dynamic explicit discard owner compile", diagnostic
+    );
+    failures += update(
+        dynamic_explicit_discard, 70, 0, MWX_SCENE_QUICKJS_OK, 6,
+        "provisional create is visible to its callback"
+    );
+    mwx_scene_quickjs_owner_discard_layer_mutations(
+        dynamic_explicit_discard
+    );
+    failures += update(
+        dynamic_rollback_observer, 68, 0, MWX_SCENE_QUICKJS_OK, 54,
+        "explicit discard restores dynamic topology"
+    );
+
+    const char *dynamic_invalidate_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'invalidate',text:'invalidate'});"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *dynamic_invalidate = mwx_scene_quickjs_owner_create(
+        domain, dynamic_invalidate_source, strlen(dynamic_invalidate_source),
+        71, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        dynamic_invalidate != NULL,
+        "dynamic invalidate owner compile", diagnostic
+    );
+    failures += update(
+        dynamic_invalidate, 71, 0, MWX_SCENE_QUICKJS_OK, 6,
+        "provisional create precedes owner invalidation"
+    );
+    mwx_scene_quickjs_owner_invalidate(dynamic_invalidate);
+    failures += update(
+        dynamic_rollback_observer, 68, 0, MWX_SCENE_QUICKJS_OK, 54,
+        "owner invalidation discards provisional dynamic topology"
+    );
+
+    // Dynamic topology is a frame-scoped candidate, not a single-owner lock.
+    // Both callbacks may observe and extend the same provisional order before
+    // the host reaches its surface barrier.
+    const char *multi_owner_a_source =
+        "let layer;export function update(value){"
+        "layer=thisScene.createLayer({name:'multi-a',text:'a'});"
+        "thisScene.sortLayer(layer,0);"
+        "if(thisScene.getLayerIndex(layer)!==0)throw new Error('multi-a order');"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *multi_owner_a = mwx_scene_quickjs_owner_create(
+        domain, multi_owner_a_source, strlen(multi_owner_a_source),
+        73, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        multi_owner_a != NULL, "multi-owner A compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        multi_owner_a, 17, "multi-owner A identity"
+    );
+    failures += update(
+        multi_owner_a, 73, 1, MWX_SCENE_QUICKJS_OK, 6,
+        "multi-owner A provisional topology"
+    );
+
+    const char *multi_owner_b_source =
+        "let layer;export function update(value){"
+        "const listed=thisScene.enumerateLayers();"
+        "if(listed[0].name!=='multi-a')throw new Error('multi-owner A missing');"
+        "layer=thisScene.createLayer({name:'multi-b',text:'b'});"
+        "thisScene.sortLayer(layer,1);"
+        "if(thisScene.getLayerIndex(layer)!==1)throw new Error('multi-b order');"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *multi_owner_b = mwx_scene_quickjs_owner_create(
+        domain, multi_owner_b_source, strlen(multi_owner_b_source),
+        74, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        multi_owner_b != NULL, "multi-owner B compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        multi_owner_b, 42, "multi-owner B identity"
+    );
+    failures += update(
+        multi_owner_b, 74, 1, MWX_SCENE_QUICKJS_OK, 7,
+        "multi-owner B appends before barrier"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(multi_owner_a) == 1 &&
+            mwx_scene_quickjs_owner_layer_mutation_count(multi_owner_b) == 1,
+        "multi-owner topology mutations remain owner-scoped", diagnostic
+    );
+    mwx_scene_quickjs_owner_commit_layer_mutations(multi_owner_a);
+    mwx_scene_quickjs_owner_commit_layer_mutations(multi_owner_b);
+
+    const char *multi_owner_bad_source =
+        "export function update(value){"
+        "thisScene.createLayer({name:'multi-bad',text:'bad'});"
+        "thisScene.sortLayer(thisScene.getLayer('multi-bad'),0);"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *multi_owner_bad = mwx_scene_quickjs_owner_create(
+        domain, multi_owner_bad_source, strlen(multi_owner_bad_source),
+        75, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        multi_owner_bad != NULL, "multi-owner rollback bad compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        multi_owner_bad, 17, "multi-owner rollback bad identity"
+    );
+    failures += update(
+        multi_owner_bad, 75, 1, MWX_SCENE_QUICKJS_OK, 8,
+        "multi-owner rejected candidate succeeds before admission"
+    );
+
+    const char *multi_owner_good_source =
+        "export function update(value){"
+        "let sawBad=false;for(const layer of thisScene.enumerateLayers())"
+        "if(layer.name==='multi-bad')sawBad=true;"
+        "if(!sawBad)throw new Error('multi-bad was not provisional');"
+        "thisScene.createLayer({name:'multi-good',text:'good'});"
+        "return thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *multi_owner_good = mwx_scene_quickjs_owner_create(
+        domain, multi_owner_good_source, strlen(multi_owner_good_source),
+        76, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        multi_owner_good != NULL, "multi-owner rollback good compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        multi_owner_good, 42, "multi-owner rollback good identity"
+    );
+    failures += update(
+        multi_owner_good, 76, 1, MWX_SCENE_QUICKJS_OK, 9,
+        "multi-owner good peer observes rejected candidate"
+    );
+    mwx_scene_quickjs_owner_discard_layer_mutations(multi_owner_bad);
+    mwx_scene_quickjs_owner_commit_layer_mutations(multi_owner_good);
+
+    const char *multi_owner_observer_source =
+        "export function update(value){let bad=false,good=false;"
+        "for(const layer of thisScene.enumerateLayers()){"
+        "if(layer.name==='multi-bad')bad=true;"
+        "if(layer.name==='multi-good')good=true;}"
+        "return (bad?100:0)+(good?10:0)+thisScene.getLayerCount();}";
+    MWXSceneQuickJSOwner *multi_owner_observer = mwx_scene_quickjs_owner_create(
+        domain, multi_owner_observer_source,
+        strlen(multi_owner_observer_source), 77,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        multi_owner_observer != NULL, "multi-owner rollback observer compile",
+        diagnostic
+    );
+    failures += update(
+        multi_owner_observer, 77, 0, MWX_SCENE_QUICKJS_OK, 18,
+        "multi-owner discard replays admitted peer only"
+    );
+    mwx_scene_quickjs_owner_commit_layer_mutations(multi_owner_observer);
 
     int storage_reads = 0;
     failures += check(
@@ -2825,6 +3078,11 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(timer_exception);
     mwx_scene_quickjs_owner_destroy(dynamic_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_image_configuration);
+    mwx_scene_quickjs_owner_destroy(multi_owner_a);
+    mwx_scene_quickjs_owner_destroy(multi_owner_b);
+    mwx_scene_quickjs_owner_destroy(multi_owner_bad);
+    mwx_scene_quickjs_owner_destroy(multi_owner_good);
+    mwx_scene_quickjs_owner_destroy(multi_owner_observer);
     mwx_scene_quickjs_owner_destroy(destroyed_enumerated);
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
@@ -2839,6 +3097,11 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(static_visible);
     mwx_scene_quickjs_owner_destroy(forged_layer);
     mwx_scene_quickjs_owner_destroy(dynamic_budget);
+    mwx_scene_quickjs_owner_destroy(dynamic_rollback);
+    mwx_scene_quickjs_owner_destroy(dynamic_rollback_observer);
+    mwx_scene_quickjs_owner_destroy(dynamic_create_failure);
+    mwx_scene_quickjs_owner_destroy(dynamic_explicit_discard);
+    mwx_scene_quickjs_owner_destroy(dynamic_invalidate);
     mwx_scene_quickjs_owner_destroy(storage_owner);
     mwx_scene_quickjs_owner_destroy(storage_throw);
     mwx_scene_quickjs_owner_destroy(value_storage);

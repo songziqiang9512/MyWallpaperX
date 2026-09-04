@@ -398,6 +398,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -422,6 +423,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                                 "string initialization returned a non-string value"
                             )
                             disabledTargets.insert(binding.target)
+                            binding.discardLayerMutations()
                             continue
                         }
                         current = initialized
@@ -438,6 +440,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -522,6 +525,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                 if case let .failure(failure) = binding.commitStorage() {
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
                 if let playback {
@@ -594,10 +598,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             case let .failure(failure):
                 failures[binding.target] = failure
                 disabledTargets.insert(binding.target)
+                binding.discardLayerMutations()
             }
         }
         for binding in bindings where failures[binding.target] != nil {
             binding.discardStorage()
+            binding.discardLayerMutations()
         }
         return .init(
             values: values,
@@ -610,6 +616,20 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     }
 
     func invalidate() { bindings.forEach { $0.invalidate() } }
+
+    func finalizeLayerMutations(
+        committing: Bool,
+        rejectedOwnerTargets: Set<SceneDynamicTarget> = []
+    ) {
+        bindings.forEach { binding in
+            let rejected = rejectedOwnerTargets.contains(binding.target)
+            if committing && !rejected && !disabledTargets.contains(binding.target) {
+                binding.commitLayerMutations()
+            } else {
+                binding.discardLayerMutations()
+            }
+        }
+    }
 
     func teardown(
         frame: SceneScriptFrameInput,
@@ -648,6 +668,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         case let .failure(failure):
             failures[binding.target] = failure
             disabledTargets.insert(binding.target)
+            binding.discardLayerMutations()
             return false
         }
     }

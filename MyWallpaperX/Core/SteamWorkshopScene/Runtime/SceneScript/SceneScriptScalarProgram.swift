@@ -281,72 +281,6 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         )
     }
 
-    static func projectedTargets(
-        descriptor: SceneRenderDescriptor,
-        scriptBindings: [SceneScriptBindingIR],
-        timelineTargets: Set<SceneDynamicTarget> = []
-    ) -> Set<SceneDynamicTarget> {
-        Set(projectedDefinitions(
-            descriptor: descriptor,
-            scriptBindings: scriptBindings,
-            timelineTargets: timelineTargets
-        ).map(\.target))
-    }
-
-    static func projectedDefinitions(
-        descriptor: SceneRenderDescriptor,
-        scriptBindings: [SceneScriptBindingIR],
-        timelineTargets: Set<SceneDynamicTarget> = [],
-        excludedTargets: Set<SceneDynamicTarget> = []
-    ) -> [SceneDynamicTargetDefinition] {
-        let candidates = scriptBindings.compactMap { binding ->
-            (target: SceneDynamicTarget, authored: Double)? in
-            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
-                  let authored = binding.authoredValue?.numberValue,
-                  authored.isFinite,
-                  let target = projection(
-                      binding,
-                      descriptor: descriptor,
-                      timelineTargets: timelineTargets
-                  ), !excludedTargets.contains(target) else { return nil }
-            return (target, authored)
-        }
-        let counts = Dictionary(grouping: candidates, by: \.target)
-            .mapValues(\.count)
-        return candidates.compactMap { candidate in
-            guard counts[candidate.target] == 1 else { return nil }
-            return .init(
-                target: candidate.target,
-                valueType: .scalar,
-                authoredValue: .scalar(candidate.authored)
-            )
-        }
-    }
-
-    static func projectedOwnerSources(
-        descriptor: SceneRenderDescriptor,
-        scriptBindings: [SceneScriptBindingIR],
-        timelineTargets: Set<SceneDynamicTarget> = [],
-        excludedTargets: Set<SceneDynamicTarget> = []
-    ) -> [String] {
-        let candidates = scriptBindings.compactMap { binding ->
-            (source: String, target: SceneDynamicTarget)? in
-            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
-                  let target = projection(
-                      binding,
-                      descriptor: descriptor,
-                      timelineTargets: timelineTargets
-                  ),
-                  !excludedTargets.contains(target) else { return nil }
-            return (binding.source, target)
-        }
-        let counts = Dictionary(grouping: candidates, by: \.target)
-            .mapValues(\.count)
-        return candidates.compactMap { candidate in
-            counts[candidate.target] == 1 ? candidate.source : nil
-        }
-    }
-
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         frame: SceneScriptFrameInput,
@@ -390,6 +324,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 failures[binding.target] = .invalidArgument(
                     "SceneScript properties unavailable"
                 )
+                binding.discardLayerMutations()
                 continue
             }
             let hasUserPropertyInput = propertyInputs.values.contains {
@@ -446,6 +381,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                                 "scalar initialization returned a non-scalar value"
                             )
                             disabledTargets.insert(binding.target)
+                            binding.discardLayerMutations()
                             continue
                         }
                         evaluationInput = initializedValue
@@ -462,6 +398,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -484,6 +421,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -510,6 +448,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -533,6 +472,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -555,6 +495,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -578,6 +519,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -599,6 +541,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
             }
@@ -614,6 +557,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 if case let .failure(failure) = binding.commitStorage() {
                     failures[binding.target] = failure
                     disabledTargets.insert(binding.target)
+                    binding.discardLayerMutations()
                     continue
                 }
                 if hasUserPropertyInput {
@@ -727,10 +671,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             case let .failure(failure):
                 failures[binding.target] = failure
                 disabledTargets.insert(binding.target)
+                binding.discardLayerMutations()
             }
         }
         for binding in bindings where failures[binding.target] != nil {
             binding.discardStorage()
+            binding.discardLayerMutations()
         }
         return .init(
             values: values,
@@ -744,6 +690,20 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
 
     func invalidate() {
         bindings.forEach { $0.invalidate() }
+    }
+
+    func finalizeLayerMutations(
+        committing: Bool,
+        rejectedOwnerTargets: Set<SceneDynamicTarget> = []
+    ) {
+        bindings.forEach { binding in
+            let rejected = rejectedOwnerTargets.contains(binding.target)
+            if committing && !rejected && !disabledTargets.contains(binding.target) {
+                binding.commitLayerMutations()
+            } else {
+                binding.discardLayerMutations()
+            }
+        }
     }
 
     func teardown(

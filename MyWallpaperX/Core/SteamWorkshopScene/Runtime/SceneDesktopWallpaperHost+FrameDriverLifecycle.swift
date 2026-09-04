@@ -2,10 +2,104 @@ import AppKit
 import QuartzCore
 
 extension SceneDesktopWallpaperHost {
+    func finalizeSceneScriptLayerMutations(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        committing: Bool,
+        rejectedOwnerTargets: Set<SceneDynamicTarget> = []
+    ) {
+        context.sceneScriptScalarProgram.finalizeLayerMutations(
+            committing: committing,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+        context.sceneScriptStringProgram.finalizeLayerMutations(
+            committing: committing,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+        context.sceneScriptCursorProgram.finalizeLayerMutations(
+            committing: committing,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+        context.propertyVectorScriptProgram.finalizeLayerMutations(
+            committing: committing,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+    }
+
+    func discardSceneScriptLayerMutations(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) {
+        finalizeSceneScriptLayerMutations(context, committing: false)
+    }
+
+    func commitSceneScriptLayerMutations(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>
+    ) {
+        finalizeSceneScriptLayerMutations(
+            context, committing: true,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+    }
+
+    func commitSceneScriptLayerPlan(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        plan: SceneScriptLayerMutationPlan,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>
+    ) {
+        context.sceneScriptDynamicLayerRuntime.commit(plan)
+        commitSceneScriptLayerMutations(
+            context, rejectedOwnerTargets: rejectedOwnerTargets
+        )
+    }
+
+    func commitSubmittedSceneFrame(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        pendingSurfaceEvaluations:
+            [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)],
+        pendingSharedLayerAlpha: SceneSharedLayerAlphaRuntime.PendingValues,
+        animationMutations: [SceneTimelinePlaybackMutation],
+        videoCommands: [SceneScriptVideoCommand],
+        timing: SceneFrameTiming,
+        layerPlan: SceneScriptLayerMutationPlan,
+        rejectedOwnerTargets: Set<SceneDynamicTarget>
+    ) {
+        pendingSurfaceEvaluations.forEach {
+            $0.0.evaluationTransaction.commit($0.1)
+        }
+        sharedLayerAlphaRuntime.commitValues(pendingSharedLayerAlpha)
+        if !animationMutations.isEmpty,
+           case .success = context.timelinePlaybackRuntime.apply(
+               animationMutations, sceneTime: timing.sceneTime
+           ) {
+            NSLog(
+                "MWX SceneScript VM: animationCommands=%d callback=committed nextFrame=true route=generic-only",
+                animationMutations.count
+            )
+        }
+        if !videoCommands.isEmpty,
+           case .success? = videoTextureSourceRegistry?.apply(
+               videoCommands, timing: timing
+           ) {
+            NSLog(
+                "MWX SceneScript VM: videoCommands=%d callback=committed frame=%llu route=generic-only",
+                videoCommands.count,
+                timing.frameIndex
+            )
+        }
+        commitSceneScriptLayerPlan(
+            context, plan: layerPlan,
+            rejectedOwnerTargets: rejectedOwnerTargets
+        )
+    }
+
     func teardownSceneScriptOwners(
         _ context: SceneDesktopWallpaperLaunchContext,
         reason: SceneGraphExecutionResetReason
     ) {
+        // Stop/switch is a scene-wide barrier.  Release every owner journal
+        // before destroy callbacks so dynamic topology removal cannot be
+        // blocked by a provisional owner from the last frame.
+        discardSceneScriptLayerMutations(context)
         let hostTime = CACurrentMediaTime()
 #if DEBUG
         let wallDate = Self.debugWallDateOverride ?? Date()

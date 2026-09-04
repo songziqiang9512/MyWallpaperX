@@ -24,6 +24,11 @@ HOST_FRAME_DRIVER_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
     / "SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+)
 OWNER_EFFECTS_VALIDATION_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
@@ -441,6 +446,7 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
 
     def test_video_command_failure_withholds_its_visibility_owner(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
             encoding="utf-8"
         )
@@ -448,7 +454,7 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         validation = frame_driver.index(
             ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
         )
-        application = frame_driver.index("videoTextureSourceRegistry?.apply(")
+        application = lifecycle.index("videoTextureSourceRegistry?.apply(")
         rejection = frame_driver.index(
             ".rejectVideoCommandTargets(rejectedVideoTargets)", validation
         )
@@ -459,10 +465,11 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         )
         self.assertLess(validation, rejection)
         self.assertLess(rejection, publication)
-        self.assertLess(publication, application)
-        self.assertLess(
-            frame_driver.index("let allSurfacesSubmitted ="), application
-        )
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        self.assertGreater(commit_call, barrier)
+        self.assertIn("func commitSubmittedSceneFrame(", lifecycle)
+        self.assertGreater(application, lifecycle.index("func commitSubmittedSceneFrame("))
         self.assertIn(
             "rejectedOwnerTargets.contains($0.key)",
             frame_driver[rejection:publication],

@@ -321,6 +321,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(
                 raw: result,
                 diagnostic: Self.diagnostic(diagnostic)
@@ -329,6 +330,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         guard didInitialize != 0 else { return .success(nil) }
         guard Self.accepts(output),
               let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("invalid initialized scalar output"))
         }
         let callbackMutations: SceneScriptMediaEventMutations
@@ -338,7 +340,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             layerID: layerID
         ) {
         case let .success(value): callbackMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         return .success(.init(
             value: .scalar(output),
@@ -394,12 +398,14 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             }
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(
                 raw: result,
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
         guard Self.accepts(output) else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("invalid scalar output"))
         }
         let layerID: Int
@@ -408,6 +414,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
              let .text(value, .pointSize), let .particle(value, _):
             layerID = value
         default:
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("SceneScript owner identity unavailable"))
         }
         let mutations: [SceneScriptMaterialFunctionMutation]
@@ -416,7 +423,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             layerID: layerID
         ) {
         case let .success(value): mutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         let animationMutations: [SceneTimelinePlaybackMutation]
         switch SceneScriptAnimationHandleBridge.mutations(
@@ -424,14 +433,18 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             target: target
         ) {
         case let .success(value): animationMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         let layerMutations: [SceneScriptLayerMutation]
         switch SceneScriptLayerMutationBridge.mutations(
             owner: handle, ownerTarget: target
         ) {
         case let .success(value): layerMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         return .success(.init(
             value: .scalar(output),
@@ -569,8 +582,20 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         mwx_scene_quickjs_owner_invalidate(handle)
     }
 
+    func commitLayerMutations() {
+        SceneScriptLayerMutationBridge.commit(owner: handle)
+    }
+
+    func discardLayerMutations() {
+        SceneScriptLayerMutationBridge.discard(owner: handle)
+    }
+
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle)
+        if case .failure = result {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+        }
+        return result
     }
 
     func discardStorage() {

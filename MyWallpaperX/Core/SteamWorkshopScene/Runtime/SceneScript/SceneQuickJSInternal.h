@@ -28,6 +28,20 @@
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS 64
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_KEY_BYTES 256
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_VALUE_BYTES (64u * 1024u)
+#define MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYER_OPERATIONS \
+    (MWX_SCENE_QUICKJS_MAX_LAYERS * 2)
+
+enum MWXSceneQuickJSDynamicLayerTopologyOperationKind {
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_CREATE = 1,
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT = 2,
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_DESTROY = 3,
+};
+
+enum MWXSceneQuickJSDynamicLayerTopologyOperationState {
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_PENDING = 0,
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_COMMITTED = 1,
+    MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_DISCARDED = 2,
+};
 
 typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
     uint32_t effect_index;
@@ -137,6 +151,30 @@ typedef struct MWXSceneQuickJSStorageMutationRecord {
     size_t json_length;
 } MWXSceneQuickJSStorageMutationRecord;
 
+// Dynamic layer records are exposed to JavaScript during a callback, so the
+// callback must be able to read its own writes. Keep only the first value
+// touched by an owner; topology edits are replayed from the domain-level
+// operation journal so multiple owners can mutate one frame safely.
+typedef struct MWXSceneQuickJSDynamicLayerValueBaseline {
+    uint32_t layer_index;
+    double current_origin[3];
+    double scale[3];
+    double angles[3];
+    double color[3];
+    double alpha;
+    char *text;
+    char *font;
+    bool visible;
+} MWXSceneQuickJSDynamicLayerValueBaseline;
+
+typedef struct MWXSceneQuickJSDynamicLayerTopologyOperation {
+    uint64_t owner_identity;
+    uint32_t layer_index;
+    int32_t order_index;
+    uint32_t kind;
+    uint32_t state;
+} MWXSceneQuickJSDynamicLayerTopologyOperation;
+
 struct MWXSceneQuickJSDomain {
     JSRuntime *runtime;
     JSContext *context;
@@ -163,6 +201,26 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    // All callbacks run serially, but their dynamic topology edits remain
+    // provisional until the host frame barrier. The baseline plus operation
+    // journal lets the domain replay only committed/pending owner ranges when
+    // one owner is rejected, without a second layer/renderer registry.
+    bool dynamic_layer_topology_transaction_active;
+    uint32_t dynamic_layer_topology_baseline_layer_count;
+    size_t dynamic_layer_topology_baseline_order_count;
+    uint32_t dynamic_layer_topology_baseline_order[
+        MWX_SCENE_QUICKJS_MAX_LAYERS
+    ];
+    uint8_t dynamic_layer_topology_baseline_active[
+        MWX_SCENE_QUICKJS_MAX_LAYERS
+    ];
+    size_t dynamic_layer_topology_operation_count;
+    MWXSceneQuickJSDynamicLayerTopologyOperation
+        dynamic_layer_topology_operations[
+            MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYER_OPERATIONS
+        ];
+    size_t dynamic_layer_transaction_participant_count;
+    size_t dynamic_layer_topology_participant_count;
     uint64_t layer_snapshot_generation;
     MWXSceneQuickJSStagedLayerSnapshot *pending_layer_snapshot;
     uint64_t pending_layer_snapshot_generation;
@@ -212,6 +270,14 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     bool rejection_overflow;
     size_t layer_mutation_count;
+    bool dynamic_layer_transaction_active;
+    bool dynamic_layer_topology_participating;
+    size_t dynamic_layer_created_count;
+    uint32_t dynamic_layer_created_indices[MWX_SCENE_QUICKJS_MAX_LAYERS];
+    size_t dynamic_layer_value_baseline_count;
+    MWXSceneQuickJSDynamicLayerValueBaseline dynamic_layer_value_baselines[
+        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+    ];
     size_t storage_mutation_count;
     size_t storage_mutation_bytes;
     bool storage_mutation_overflow;
@@ -298,7 +364,7 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_destroy_owner_handles(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);
-void mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
+bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
 bool mwx_scene_quickjs_dispatch_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner
 );

@@ -232,6 +232,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 }
             }
             guard output.allSatisfy(\.isFinite) else {
+                SceneScriptLayerMutationBridge.discard(owner: handle)
                 return .failure(.badReturn("invalid initialized Vec3 output"))
             }
             publishedValue = runtimeValue(
@@ -243,10 +244,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed initialization input"))
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(result, diagnostic))
         }
         guard didInitialize != 0 else { return .success(nil) }
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
         let callbackMutations: SceneScriptMediaEventMutations
@@ -254,7 +257,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             owner: handle, target: target, layerID: layerID
         ) {
         case let .success(value): callbackMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         return validatedEvaluation(
             value: publishedValue,
@@ -329,6 +334,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 }
             }
             guard output.allSatisfy(\.isFinite) else {
+                SceneScriptLayerMutationBridge.discard(owner: handle)
                 return .failure(.badReturn("non-finite Vec3 output"))
             }
             publishedValue = runtimeValue(
@@ -340,9 +346,11 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(.invalidArgument("invalid typed SceneScript input"))
         }
         guard result == MWX_SCENE_QUICKJS_OK else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(result, diagnostic))
         }
         guard let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.invalidArgument("effect handle layer identity unavailable"))
         }
         let callbackMutations: SceneScriptMediaEventMutations
@@ -350,7 +358,9 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             owner: handle, target: target, layerID: layerID
         ) {
         case let .success(value): callbackMutations = value
-        case let .failure(failure): return .failure(failure)
+        case let .failure(failure):
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+            return .failure(failure)
         }
         return validatedEvaluation(
             value: publishedValue,
@@ -368,6 +378,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         if valueType == .bool {
             guard mutations.materialFunctions.isEmpty,
                   mutations.animations.isEmpty else {
+                SceneScriptLayerMutationBridge.discard(owner: handle)
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
                 ))
@@ -380,6 +391,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                         guard mutation.kind == .upsert,
                               !mutation.fields.isEmpty,
                               mutation.fields.isSubset(of: .authoredFields) else {
+                            SceneScriptLayerMutationBridge.discard(owner: handle)
                             return .failure(.invalidArgument(
                                 "Boolean dynamic-layer owner produced an invalid authored mutation"
                             ))
@@ -390,6 +402,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                         }
                         guard !mutation.fields.contains(.visibility)
                                 || mutation.visible == publishedValue.boolValue else {
+                            SceneScriptLayerMutationBridge.discard(owner: handle)
                             return .failure(.invalidArgument(
                                 "Boolean dynamic-layer owner visibility disagrees with its value"
                             ))
@@ -406,6 +419,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                           let modelPath = dynamicImagePathsByAuthoredIdentity[
                             assetPath.lowercased()
                           ] else {
+                        SceneScriptLayerMutationBridge.discard(owner: handle)
                         return .failure(.invalidArgument(
                             "Boolean dynamic-layer owner requested an unprepared asset"
                         ))
@@ -420,6 +434,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                         && mutation.fields == .visibility
                         && mutation.visible == publishedValue.boolValue
                 }) else {
+                    SceneScriptLayerMutationBridge.discard(owner: handle)
                     return .failure(.invalidArgument(
                         "Boolean value owner produced out-of-cohort mutations"
                     ))
@@ -671,8 +686,20 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         mwx_scene_quickjs_owner_invalidate(handle)
     }
 
+    func commitLayerMutations() {
+        SceneScriptLayerMutationBridge.commit(owner: handle)
+    }
+
+    func discardLayerMutations() {
+        SceneScriptLayerMutationBridge.discard(owner: handle)
+    }
+
     func commitStorage() -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        domain.commitStorage(owner: handle)
+        let result = domain.commitStorage(owner: handle)
+        if case .failure = result {
+            SceneScriptLayerMutationBridge.discard(owner: handle)
+        }
+        return result
     }
 
     func discardStorage() {

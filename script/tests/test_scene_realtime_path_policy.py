@@ -223,6 +223,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             SCENE
             / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
         ).read_text(encoding="utf-8")
+        lifecycle = (
+            SCENE
+            / "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("enum FrameOutcome: Equatable", outcome)
         self.assertIn("case submitted", outcome)
@@ -241,11 +245,14 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("var frameOutcomes: [SceneMetalRenderer.FrameOutcome]", driver)
         self.assertIn("frameOutcomes.allSatisfy(\\.isSubmitted)", driver)
         self.assertIn("case .dropped:", driver)
-        plan_commit = driver.index(
-            "launchContext.sceneScriptDynamicLayerRuntime.commit(admission.layerPlan)"
-        )
         submission_guard = driver.index("let allSurfacesSubmitted")
-        self.assertGreater(plan_commit, submission_guard)
+        commit_call = driver.index("commitSubmittedSceneFrame(", submission_guard)
+        helper_start = lifecycle.index("func commitSceneScriptLayerPlan(")
+        plan_commit = lifecycle.index(
+            "context.sceneScriptDynamicLayerRuntime.commit(plan)", helper_start
+        )
+        self.assertGreater(commit_call, submission_guard)
+        self.assertGreater(plan_commit, helper_start)
 
     def test_scene_clear_enabled_controls_only_initial_main_pass_load(self) -> None:
         renderer = (SCENE / "Rendering/SceneMetalRenderer.swift").read_text(

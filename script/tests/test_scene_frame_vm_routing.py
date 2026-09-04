@@ -16,6 +16,9 @@ RENDERING = SCENE / "Rendering"
 
 HOST_SOURCE = RUNTIME / "SceneDesktopWallpaperHost.swift"
 FRAME_DRIVER_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+FrameDriver.swift"
+FRAME_DRIVER_LIFECYCLE_SOURCE = (
+    RUNTIME / "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+)
 POINTER_EVENTS_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+PointerEvents.swift"
 VIEW_SOURCE = RENDERING / "SceneMetalView.swift"
 MEDIA_COORDINATOR_SOURCE = RENDERING / "SceneMediaThumbnailCoordinator.swift"
@@ -151,12 +154,14 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
     def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        lifecycle = FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
         media_frame = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
         owner_validation = OWNER_EFFECTS_VALIDATION_SOURCE.read_text(
             encoding="utf-8"
         )
         render = swift_body(frame, "private func renderFrame()")
+        commit_frame = swift_body(lifecycle, "func commitSubmittedSceneFrame(")
         publication = render.index(".publishLayerSnapshot(")
         cursor_batch = render.index("let cursorBatch:")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
@@ -165,13 +170,28 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
         )
         surface_render = render.index("surface.metalView.renderFrame(")
-        layer_commit = render.index(".commit(admission.layerPlan)")
+        layer_commit = render.index("commitSubmittedSceneFrame(")
         self.assertLess(publication, cursor_batch)
         self.assertLess(publication, cursor)
         self.assertLess(publication, media_callback)
         self.assertLess(media_callback, owner_preflight)
         self.assertLess(owner_preflight, surface_render)
         self.assertLess(surface_render, layer_commit)
+        surface_commit = commit_frame.index("evaluationTransaction.commit")
+        alpha_commit = commit_frame.index("sharedLayerAlphaRuntime.commitValues(")
+        timeline_commit = commit_frame.index("timelinePlaybackRuntime.apply(")
+        video_commit = commit_frame.index("videoTextureSourceRegistry?.apply(")
+        plan_call = commit_frame.index("commitSceneScriptLayerPlan(")
+        plan_helper_start = lifecycle.index("func commitSceneScriptLayerPlan(")
+        plan_commit = lifecycle.index(
+            "context.sceneScriptDynamicLayerRuntime.commit(plan)",
+            plan_helper_start,
+        )
+        self.assertLess(surface_commit, alpha_commit)
+        self.assertLess(alpha_commit, timeline_commit)
+        self.assertLess(timeline_commit, video_commit)
+        self.assertLess(video_commit, plan_call)
+        self.assertGreater(plan_commit, plan_helper_start)
         self.assertIn("rejectedOwnerTargets.contains($0.key)", render)
         self.assertIn("admittedOwnerEffects.flatMap(", render)
         self.assertEqual(
@@ -200,6 +220,50 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         runtime = swift_body(runtime_fields, "func publishLayerRuntimeFields(")
         self.assertEqual(snapshot.count("configureLayerCatalog(descriptor)"), 1)
         self.assertNotIn("configureLayerCatalog(descriptor)", runtime)
+
+    def test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan(self) -> None:
+        handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")
+        mutations = swift_body(handle, "static func mutations(")
+
+        # The C DTO is a safety boundary: enum values and bit fields must be
+        # exact, rather than being coerced into the nearest Swift case.
+        self.assertIn(
+            "case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT.rawValue):",
+            mutations,
+        )
+        self.assertIn(
+            "case UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue):",
+            mutations,
+        )
+        self.assertIn("raw.dynamic <= 1", mutations)
+        self.assertIn("raw.visible <= 1", mutations)
+        self.assertIn("raw.order_index >= 0", mutations)
+        self.assertIn("raw.layer_id >= -maximumLayerIdentity", mutations)
+        self.assertIn("raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0", mutations)
+        self.assertIn("switch (kind, raw.dynamic, raw.fields)", mutations)
+        self.assertIn("case (.destroy, 1, 0), (.upsert, 1, 0):", mutations)
+        self.assertIn(
+            "case (.upsert, 0, _)\n                where !fields.isEmpty && fields.isSubset(of: .authoredFields):",
+            mutations,
+        )
+        self.assertIn("if raw.dynamic == 1", mutations)
+        self.assertIn("(0...1).contains(raw.alpha)", mutations)
+        self.assertIn("(1...1024).contains(raw.point_size)", mutations)
+        self.assertIn("(0...1).contains(raw.color.0)", mutations)
+        self.assertIn("unknown layer mutation kind", mutations)
+        self.assertNotIn(
+            "raw.kind == UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY.rawValue)\n                    ? .destroy : .upsert",
+            mutations,
+        )
+
+        # A malformed DTO must remain a local owner failure; callers discard
+        # the owner-local C journal before the candidate reaches frame commit.
+        scalar = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        string = (SCRIPT / "SceneScriptStringRuntime.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("SceneScriptLayerMutationBridge.discard(owner: handle)", scalar)
+        self.assertIn("SceneScriptLayerMutationBridge.discard(owner: handle)", string)
 
     def test_one_media_snapshot_feeds_vm_before_every_surface(self) -> None:
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

@@ -1,6 +1,72 @@
 import Foundation
 
 nonisolated extension SceneScriptScalarProgram {
+    static func projectedTargets(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = []
+    ) -> Set<SceneDynamicTarget> {
+        Set(projectedDefinitions(
+            descriptor: descriptor,
+            scriptBindings: scriptBindings,
+            timelineTargets: timelineTargets
+        ).map(\.target))
+    }
+
+    static func projectedDefinitions(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
+        excludedTargets: Set<SceneDynamicTarget> = []
+    ) -> [SceneDynamicTargetDefinition] {
+        let candidates = scriptBindings.compactMap { binding ->
+            (target: SceneDynamicTarget, authored: Double)? in
+            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
+                  let authored = binding.authoredValue?.numberValue,
+                  authored.isFinite,
+                  let target = projection(
+                      binding,
+                      descriptor: descriptor,
+                      timelineTargets: timelineTargets
+                  ), !excludedTargets.contains(target) else { return nil }
+            return (target, authored)
+        }
+        let counts = Dictionary(grouping: candidates, by: \.target)
+            .mapValues(\.count)
+        return candidates.compactMap { candidate in
+            guard counts[candidate.target] == 1 else { return nil }
+            return .init(
+                target: candidate.target,
+                valueType: .scalar,
+                authoredValue: .scalar(candidate.authored)
+            )
+        }
+    }
+
+    static func projectedOwnerSources(
+        descriptor: SceneRenderDescriptor,
+        scriptBindings: [SceneScriptBindingIR],
+        timelineTargets: Set<SceneDynamicTarget> = [],
+        excludedTargets: Set<SceneDynamicTarget> = []
+    ) -> [String] {
+        let candidates = scriptBindings.compactMap { binding ->
+            (source: String, target: SceneDynamicTarget)? in
+            guard SceneScriptPropertyInputCodec.inputs(binding.properties) != nil,
+                  let target = projection(
+                      binding,
+                      descriptor: descriptor,
+                      timelineTargets: timelineTargets
+                  ),
+                  !excludedTargets.contains(target) else { return nil }
+            return (binding.source, target)
+        }
+        let counts = Dictionary(grouping: candidates, by: \.target)
+            .mapValues(\.count)
+        return candidates.compactMap { candidate in
+            counts[candidate.target] == 1 ? candidate.source : nil
+        }
+    }
+
     static func projection(
         _ binding: SceneScriptBindingIR,
         descriptor: SceneRenderDescriptor,

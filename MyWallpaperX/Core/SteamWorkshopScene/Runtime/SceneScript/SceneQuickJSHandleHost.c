@@ -443,6 +443,11 @@ void mwx_scene_quickjs_domain_reset_budget(
 
 void mwx_scene_quickjs_owner_invalidate(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) return;
+    // Invalidation can be requested while a frame is between VM extraction
+    // and the surface barrier.  Drop the C-side dynamic journal before the
+    // generation becomes stale so provisional records cannot retain the
+    // domain topology lock or leak into a later snapshot.
+    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     owner->authored_layer_baseline_available = false;
     owner->generation += 1;
     owner->disabled = true;
@@ -510,7 +515,20 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
         );
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
-    if (owner->teardown_started) return MWX_SCENE_QUICKJS_OK;
+    if (owner->teardown_started) {
+        // A direct retry may arrive after a peer released the domain topology
+        // lock.  Teardown is idempotent, but permanent dynamic-layer removal
+        // still needs to be retried so a failed first attempt cannot leak the
+        // owner's records or leave the domain in a partially retired state.
+        if (mwx_scene_quickjs_owner_remove_dynamic_layers(owner)) {
+            return MWX_SCENE_QUICKJS_OK;
+        }
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript dynamic layer teardown is waiting for a peer transaction"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     if (owner->generation != expected_generation) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "stale SceneScript owner generation"
@@ -528,6 +546,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);
+    // Clear this owner's journal before invoking its destroy callback.  The
+    // Swift scene lifecycle releases all owner journals at its scene-wide
+    // barrier, so permanent removal cannot inherit a dropped-frame lock.
+    mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_begin_layer_mutations(owner);
     owner->material_function_count = 0;
     owner->material_function_overflow = false;
@@ -628,7 +650,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_teardown_with_provenance(
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);
     mwx_scene_quickjs_owner_begin_layer_mutations(owner);
-    mwx_scene_quickjs_owner_remove_dynamic_layers(owner);
+    const bool dynamic_layers_removed =
+        mwx_scene_quickjs_owner_remove_dynamic_layers(owner);
+    if (!dynamic_layers_removed && result == MWX_SCENE_QUICKJS_OK) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "SceneScript dynamic layer teardown is waiting for a peer transaction"
+        );
+        result = MWX_SCENE_QUICKJS_EXCEPTION;
+    }
     owner->material_function_count = 0;
     owner->animation_command_count = 0;
     owner->generation += 1;

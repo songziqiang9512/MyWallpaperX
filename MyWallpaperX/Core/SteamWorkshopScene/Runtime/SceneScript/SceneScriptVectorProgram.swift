@@ -380,6 +380,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -405,6 +406,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -415,6 +417,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     "Boolean value owner produced out-of-cohort callback mutations"
                 )
                 disabledTargets.insert(target)
+                binding.owner.discardLayerMutations()
                 continue
             }
             if binding.owner.hasAudioRegistration {
@@ -441,6 +444,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -467,6 +471,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -492,6 +497,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -518,6 +524,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -542,6 +549,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 case let .failure(failure):
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
             }
@@ -568,6 +576,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                             "Boolean value owner produced conflicting target visibility"
                         )
                         disabledTargets.insert(target)
+                        binding.owner.discardLayerMutations()
                         continue
                     }
                     callbackLayerMutations.removeAll(keepingCapacity: true)
@@ -579,6 +588,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 if case let .failure(failure) = binding.owner.commitStorage() {
                     failures[target] = failure
                     disabledTargets.insert(target)
+                    binding.owner.discardLayerMutations()
                     continue
                 }
                 if let pendingPlaybackEvent {
@@ -699,10 +709,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             case let .failure(failure):
                 failures[target] = failure
                 disabledTargets.insert(target)
+                binding.owner.discardLayerMutations()
             }
         }
         for binding in bindings where failures[binding.definition.target] != nil {
             binding.owner.discardStorage()
+            binding.owner.discardLayerMutations()
         }
         return .init(
             values: values,
@@ -731,6 +743,21 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
 
     func invalidate() {
         bindings.forEach { $0.owner.invalidate() }
+    }
+
+    func finalizeLayerMutations(
+        committing: Bool,
+        rejectedOwnerTargets: Set<SceneDynamicTarget> = []
+    ) {
+        bindings.forEach { binding in
+            let target = binding.definition.target
+            let rejected = rejectedOwnerTargets.contains(target)
+            if committing && !rejected && !disabledTargets.contains(target) {
+                binding.owner.commitLayerMutations()
+            } else {
+                binding.owner.discardLayerMutations()
+            }
+        }
     }
 
     func teardown(
