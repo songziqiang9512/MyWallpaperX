@@ -186,6 +186,7 @@ final class SceneFrameTextureRegistry {
 
     var frameEpoch: UInt64
     private(set) var readyPublicationCount = 0
+    private(set) var typedPublicationCount = 0
     private var textures: [SceneFrameTextureIdentity: MTLTexture] = [:]
 
     init(frameEpoch: UInt64) {
@@ -211,6 +212,7 @@ final class SceneFrameTextureRegistry {
         texture: MTLTexture
     ) -> Bool {
         guard frameEpoch > 0 else { return false }
+        typedPublicationCount += 1
         set(.ready(texture), for: .namedLayerTarget(reference))
         return self.texture(
             for: .namedLayerTarget(reference)
@@ -691,6 +693,7 @@ enum Harness {
                 == capturedUV.uniform1
             && SceneOffscreenEffectRenderer.lastSourceSampling == SIMD2(3, 0)
             && captureRegistry.readyPublicationCount == 1
+            && captureRegistry.typedPublicationCount == 1
         let modelSolidProvider = SceneRenderDescriptor.Layer(
             id: 500,
             contentKind: "solid",
@@ -811,6 +814,8 @@ enum Harness {
                 directInput?.texture === provisionalInput?.texture
                 && directInput?.texture !== output,
             "capturedNonDefaultSourceAtom": capturedNonDefaultSourceAtom,
+            "graphOutputTypedPublication": registry.typedPublicationCount == 1,
+            "captureTypedPublication": captureRegistry.typedPublicationCount == 1,
             "inactiveModelProviderDoesNotCapture":
                 inactiveModelProviderDoesNotCapture,
             "modelProviderCarriesDynamicAppearance":
@@ -884,6 +889,8 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "failedPublicationLeftReservationUnpublished": True,
                     "published": True,
                     "publicationCount": 1,
+                    "graphOutputTypedPublication": True,
+                    "captureTypedPublication": True,
                     "gpuCompleted": True,
                     "copiedGraphOutputBytes": True,
                     "readyUsesDistinctNamedTarget": True,

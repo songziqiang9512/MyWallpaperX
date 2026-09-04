@@ -556,7 +556,17 @@ final class SceneDependencyFrameRuntime {
             }
         }
         if encoded {
-            textureRegistry.set(.ready(target), for: identity)
+            guard textureRegistry.publishReservedNamedLayerTarget(
+                reference: SceneNamedTextureReference(
+                    providerLayerID: layer.id,
+                    variant: .primary
+                ),
+                frameEpoch: frameEpoch,
+                texture: target
+            ), textureRegistry.texture(for: identity) === target else {
+                captureTelemetry.recordFailure(layerID: layer.id)
+                return false
+            }
 #if DEBUG
             if debugCaptureFault.observeSuccessfulCapture(for: layer.id) {
                 NSLog(

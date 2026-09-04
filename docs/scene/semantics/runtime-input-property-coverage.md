@@ -6,7 +6,7 @@
 
 > 2026-09-05 的 runtime model scaffold cleanup 删除了五个无引用的播放/renderer/input/timeline/shader 占位类型；policy 缺失门与 checkpoint Debug build 通过。该变更只收敛 owner 命名空间，不改变 runtime input/property/provider 合同，未重新运行真实样本，见 [E-V4-RUNTIME-MODEL-SCAFFOLD-CLEANUP](runtime-evidence-index.md#e-v4-runtime-model-scaffold-cleanup)。
 
-> 2026-09-05 的 graph provider publication 收口：graph output 完成 reservation/extent/format/usage 与 Metal blit 后，现通过 `SceneFrameTextureRegistry.publishReservedNamedLayerTarget` 发布 typed `SceneFrameTextureResource`，publication boundary 固定 named-target identity、当前 frame epoch 与资源合同，future/stale epoch 在 registry 写入前拒绝；后续 dependency lookup、GraphExecutor、唯一 compositor 不变。两个相关 Scene harness 与 checkpoint Debug build 通过，当前记为 `S3 shared provider-publication wiring`，尚未重新运行真实 graph-output consumer，不证明视觉支持、video generic provider 或 V4 完成，见 [E-V4-GRAPH-OUTPUT-TYPED-PUBLICATION](runtime-evidence-index.md#e-v4-graph-output-typed-publication)。
+> 2026-09-05 的 graph provider publication 收口：graph output 与 static source fallback capture 完成 reservation/extent/format/usage 和 Metal blit 后，均通过 `SceneFrameTextureRegistry.publishReservedNamedLayerTarget` 发布 typed `SceneFrameTextureResource`，publication boundary 固定 named-target identity、当前 frame epoch 与资源合同，future/stale epoch 在 registry 写入前拒绝；后续 dependency lookup、GraphExecutor、唯一 compositor 不变。两个相关 Scene harness 与 checkpoint Debug build 通过，当前记为 `S3 shared provider-publication wiring`，尚未重新运行真实 graph-output consumer，不证明视觉支持、video generic provider 或 V4 完成，见 [E-V4-GRAPH-OUTPUT-TYPED-PUBLICATION](runtime-evidence-index.md#e-v4-graph-output-typed-publication)。
 
 > 状态：现役专项表
 >
