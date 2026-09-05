@@ -1,6 +1,6 @@
 # MyWallpaperX 文档入口
 
-这个目录只保留一个当前答案：现役目录解释系统现在怎样工作、已经实现什么和下一步做什么；所有被替代的计划、评审、迁移记录和基线统一进入[历史文档索引](history/README.md)。
+这个目录只保留一个当前答案：代码和运行证据决定现在是什么，稳定合同决定最终怎样，现役路线决定先做什么。Scene 日常开发从[开发工作流](scene/development-workflow.md)开始；被替代的计划、评审、迁移记录和基线统一进入[历史文档索引](history/README.md)。
 
 ## 事实角色
 
@@ -9,6 +9,7 @@
 | 工作规则 | Agent 如何实现、验证、提交和保护工作区 | [`AGENTS.md`](../AGENTS.md) |
 | 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
 | Scene 目标架构 | 如何把官方/静态/参考证据转成 MyWallpaperX 的兼容运行时 | [Scene 兼容运行时架构](scene/runtime-architecture.md) |
+| Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development-workflow.md) |
 | Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
@@ -21,6 +22,7 @@
 ## Scene
 
 - [Scene 专题入口](scene/README.md)：当前架构、路线、能力、证据和资料导航。
+- [Scene 开发工作流](scene/development-workflow.md)：日常唯一操作入口，包含决策卡、验证梯度和消融规则。
 - [Scene 兼容运行时架构](scene/runtime-architecture.md)：官方公开合同、2.8.42 客户端静态观察、Mirage clean-room 模式和项目独立方案的边界。
 - [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md)：唯一现役 Scene 执行计划；只在该文件维护当前阶段、阶段顺序、完成门与退役条件，本导航不复制其移动状态。
 - [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。

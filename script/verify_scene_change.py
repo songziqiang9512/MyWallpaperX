@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = Path(__file__).with_name("scene_validation_gates.json")
 PHASES = ("inner", "checkpoint", "integration", "milestone")
 GATE_STATUSES = {"planned", "skipped", "blocked", "passed", "failed"}
+# The repository-wide Markdown link walk is a checkpoint contract.  Keeping it
+# out of the inner loop prevents a one-line documentation edit from paying the
+# full documentation scan cost; checkpoint and later phases still run it.
+INNER_HEAVY_MODULES = {"test_scene_semantics_coverage"}
 SCENE_PRODUCT_PATTERNS = (
     "MyWallpaperX/Core/SteamWorkshopScene/**",
     "MyWallpaperX/App/DebugScenePlaybackRunner*.swift",
@@ -199,6 +203,8 @@ def build_plan(
     registry: dict[str, Any],
 ) -> tuple[list[Gate], set[str]]:
     modules, keywords, groups = mapped_tests(paths, registry)
+    if args.phase == "inner":
+        modules.difference_update(INNER_HEAVY_MODULES)
     phase_index = PHASES.index(args.phase)
     scene_product_change = any(is_scene_product_path(path) for path in paths)
     swift_change = any(path.endswith(".swift") for path in paths)

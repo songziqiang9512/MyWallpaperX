@@ -72,6 +72,17 @@ class SceneValidationSelectionTests(unittest.TestCase):
         self.assertNotIn("__scene_validation_no_scope_match__", gates[0].command)
         self.assertNotIn("--keyword", gates[0].command)
 
+    def test_inner_docs_gate_skips_repository_wide_link_walk(self) -> None:
+        gates, _ = verify.build_plan(
+            ["docs/scene/development-workflow.md"],
+            arguments(phase="inner"),
+            self.registry,
+        )
+        self.assertEqual([gate.gate_id for gate in gates], ["focused-tests"])
+        self.assertIn("test_document_role_index", gates[0].command)
+        self.assertIn("test_scene_governance_contract", gates[0].command)
+        self.assertNotIn("test_scene_semantics_coverage", gates[0].command)
+
     def test_non_scene_documentation_change_selects_repository_link_contract(self) -> None:
         gates, groups = verify.build_plan(
             ["docs/architecture/technology-stack-boundaries.md"],

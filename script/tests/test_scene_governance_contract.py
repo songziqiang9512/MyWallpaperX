@@ -14,6 +14,7 @@ AGENT_RULES = ROOT / "AGENTS.md"
 GITIGNORE = ROOT / ".gitignore"
 DOCS_README = ROOT / "docs/README.md"
 ROADMAP = ROOT / "docs/scene/scene-compatibility-roadmap.md"
+WORKFLOW = ROOT / "docs/scene/development-workflow.md"
 RUNTIME_ARCHITECTURE = ROOT / "docs/scene/runtime-architecture.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
@@ -151,14 +152,11 @@ class SceneGovernanceContractTests(unittest.TestCase):
 
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
-        self.assertIn("## 4. AI 主动纠偏合同", roadmap)
-        self.assertIn("## 8. 当前阶段选择协议", roadmap)
-        self.assertIn("当前代码、旧测试、旧类型层级和历史 matrix", roadmap)
-        self.assertIn("readiness 的唯一事实入口", roadmap)
-        self.assertIn("任何 `selection-required` 成员都不能执行或计为", roadmap)
-        self.assertIn("本节不复述 current capability", roadmap)
-        self.assertIn("semantics/coverage-ledger.md#1-口径", roadmap)
-        self.assertIn("semantics/runtime-evidence-index.md#1-当前证据快照", roadmap)
+        self.assertIn("当前主线：**V4 typed input/provider 收口**", roadmap)
+        self.assertIn("本文只拥有阶段顺序和完成门", roadmap)
+        self.assertIn("能力、owner、route、样本和运行结果分别由", roadmap)
+        self.assertIn("不得以另一个 input family 的通过替代 V4 完成", roadmap)
+        self.assertIn("## 4. 完成与回滚", roadmap)
         self.assertNotIn("当前 Swift/Metal 底座已经拥有", roadmap)
         self.assertNotIn("当前七类成员", roadmap)
         self.assertNotIn("目前还不是可运行门", roadmap)
@@ -237,30 +235,11 @@ class SceneGovernanceContractTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, combined)
 
-        roadmap = ROADMAP.read_text(encoding="utf-8")
-        for deviation_class in (
-            "aligned",
-            "missing",
-            "contradictory",
-            "duplicate-owner",
-            "over-specialized",
-            "stale-document",
-            "unknown",
-        ):
-            with self.subTest(deviationClass=deviation_class):
-                self.assertIn(f"`{deviation_class}`", roadmap)
-        for correction_field in (
-            "capability_id:",
-            "target_contract:",
-            "first_breakpoint:",
-            "shared_backbone_owner:",
-            "visible_result:",
-            "failure_radius:",
-            "smallest_executable_gate:",
-            "old_owner_or_mechanism_to_delete:",
-        ):
-            with self.subTest(correctionField=correction_field):
-                self.assertIn(correction_field, roadmap)
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        for decision_field in ("结果：", "首断点：", "owner：", "最小门："):
+            with self.subTest(decisionField=decision_field):
+                self.assertIn(decision_field, workflow)
+        self.assertIn("目标合同、当前事实、owner、fallback/route、纠正门和退役条件", AGENT_RULES.read_text(encoding="utf-8"))
 
     def test_scene_evidence_is_a_local_ignored_cache(self) -> None:
         rules = AGENT_RULES.read_text(encoding="utf-8")

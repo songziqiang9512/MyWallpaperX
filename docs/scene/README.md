@@ -1,14 +1,13 @@
 # Scene 文档入口
 
-Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者内容，按纵向切片快速得到真实效果”。不再按 effect 名称继续扩张专用 planner，也不先横向建完 compiler、RenderGraph、VM 和 particle platform。
+Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者内容，按纵向切片快速得到真实效果”。日常操作只看[开发工作流](development-workflow.md)；本页只做角色导航。
 
 ## 开始工作
 
-1. 先看[能力台账](semantics/coverage-ledger.md)确认当前状态和未验证边界；
-2. 看[运行证据索引](semantics/runtime-evidence-index.md)确认最新实际运行结果；
-3. 用[兼容执行路线](scene-compatibility-roadmap.md)确定当前纵向 lane 和第一批；
-4. 需要理解 owner/data flow 时看[兼容运行时架构](runtime-architecture.md)；
-5. 再从[语义手册](semantics/README.md)进入对应专项合同。
+1. 先看[开发工作流](development-workflow.md)；
+2. 查[能力台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-index.md)找首断点；
+3. 用[兼容执行路线](scene-compatibility-roadmap.md)确认当前 V 轨和完成门；
+4. 只有需要理解长期 owner/data flow 或专项语义时，才进入架构和语义手册。
 
 对每个触达范围都要分开写目标合同、当前事实和偏差债务。现有代码与测试只能证明当前实现；它们偏离目标架构时，应在当前纵向 atom 所需范围内主动纠正，而不是新增兼容错误实现的 wrapper、matcher 或专用分支。
 
@@ -18,6 +17,7 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 
 - [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
 - [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；V0 ordinary shader/material、V1 graph、V2 VM、V3 particle、V4 inputs/providers、V5 advanced/release。
+- [Scene 开发工作流](development-workflow.md)：首断点、最小正反门、验证梯度和消融准则；不保存批次状态。
 - [Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。
 - [长期技术边界](../architecture/technology-stack-boundaries.md)：Swift/AppKit/Metal、QuickJS-NG、glslang/SPIRV-Cross、跨语言和发布边界。
 
