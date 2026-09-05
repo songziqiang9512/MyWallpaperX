@@ -47,7 +47,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
               !sampler.usesGraphInputMaterialAlias,
               template.textureSlots.indices.contains(slot),
               template.textureSlots[slot] == nil,
-              case let .asset(path)? = sampler.defaultTexture else {
+              case let .asset(path)? = sampler.defaultTexture
+        else {
             return nil
         }
         let reference = Template.TextureReference.asset(path)
@@ -67,7 +68,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
     ) -> Result<LaunchReadinessProjection, Failure> {
         do {
             guard template.textureSlots.count == 8,
-                  samplers.keys.allSatisfy((0 ..< 8).contains) else {
+                  samplers.keys.allSatisfy((0 ..< 8).contains)
+            else {
                 throw launchFailure(.identityInvariant, phase: .invariant)
             }
             let structuralFacts = SceneResolvedMaterialShaderSchema
@@ -78,10 +80,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 )
             var graphFacts = structuralFacts
             for (slot, fact) in graphInputSourceSlotFacts
-            where fact.provenance == .dormantUnresolvedMaterialAlias {
+                where fact.provenance == .dormantUnresolvedMaterialAlias
+            {
                 guard samplers[slot] != nil,
                       fact.slot == slot,
-                      fact.inputIdentity == implicitFramebufferIdentity else {
+                      fact.inputIdentity == implicitFramebufferIdentity
+                else {
                     throw launchFailure(
                         .textureReferenceInvalid,
                         slot: slot
@@ -112,12 +116,12 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                             // conditional declaration, but it is not required
                             // consumption until that sampler becomes active.
                             hasOptionalSource = true
-                        // A readiness-combo asset may disappear between the
-                        // immutable launch census and a concrete frame. Cache
-                        // both combo-off and combo-on Programs even when the
-                        // launch snapshot is ready; frame selection still
-                        // refuses pending/unavailable instead of silently
-                        // substituting the combo-off result.
+                            // A readiness-combo asset may disappear between the
+                            // immutable launch census and a concrete frame. Cache
+                            // both combo-off and combo-on Programs even when the
+                            // launch snapshot is ready; frame selection still
+                            // refuses pending/unavailable instead of silently
+                            // substituting the combo-off result.
                         } else if sampler?.readinessCombo != nil {
                             hasOptionalSource = true
                         } else {
@@ -176,10 +180,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                         required |= bit
                     } else if sampler.usesGraphInputMaterialAlias
                         || SceneResolvedMaterialShaderSchema
-                            .implicitFramebufferSlots(
-                                template: template,
-                                samplers: samplers
-                            ).contains(index) {
+                        .implicitFramebufferSlots(
+                            template: template,
+                            samplers: samplers
+                        ).contains(index)
+                    {
                         throw launchFailure(
                             .textureReferenceInvalid,
                             slot: index
@@ -229,7 +234,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     declaration -> Int? in
                     guard declaration.kind == .uniform,
                           declaration.type.caseInsensitiveCompare("sampler2D")
-                              == .orderedSame,
+                          == .orderedSame,
                           declaration.name.hasPrefix("g_Texture"),
                           let slot = Int(declaration.name.dropFirst(
                               "g_Texture".count
@@ -258,13 +263,14 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> Result<[[SceneShaderTextureFormat?]], Failure> {
         guard template.textureSlots.count == 8,
-              formatSlots.allSatisfy((0 ..< 8).contains) else {
+              formatSlots.allSatisfy((0 ..< 8).contains)
+        else {
             return .failure(launchFailure(
                 .identityInvariant,
                 phase: .invariant
             ))
         }
-        var profiles = [Array<SceneShaderTextureFormat?>(
+        var profiles = [[SceneShaderTextureFormat?](
             repeating: nil,
             count: 8
         )]
@@ -388,14 +394,15 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         case let .asset(path):
             guard let sampler,
                   let purpose = resolvedPurpose
-                    ?? sampler.purpose(for: reference) else { return [nil] }
+                  ?? sampler.purpose(for: reference) else { return [nil] }
             let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
             guard let value = assetFormatFacts[identity.reportToken] else {
                 return [nil]
             }
             if value == -1 { return [] }
             guard let rawValue = UInt32(exactly: value),
-                  let format = SceneShaderTextureFormat(rawValue: rawValue) else {
+                  let format = SceneShaderTextureFormat(rawValue: rawValue)
+            else {
                 return [nil]
             }
             return [format]

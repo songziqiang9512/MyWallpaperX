@@ -2,8 +2,22 @@ import Metal
 import simd
 
 final class ScenePuppetPlaybackState {
+    private struct FrameSignature: Equatable {
+        let frameA: Int
+        let frameB: Int
+        let fractionBits: UInt32
+        let visible: Bool
+
+        init(sample: ScenePuppetAnimationEvaluator.FrameSample?, visible: Bool) {
+            frameA = sample?.frameA ?? 0
+            frameB = sample?.frameB ?? 0
+            fractionBits = sample?.fraction.bitPattern ?? 0
+            self.visible = visible
+        }
+    }
+
     private struct SubmissionState {
-        var frameSignature: [Int]?
+        var frameSignature: [FrameSignature]?
         var nextVertexBufferIndex = 0
     }
 
@@ -11,6 +25,7 @@ final class ScenePuppetPlaybackState {
         let state: ScenePuppetPlaybackState
         let texture: MTLTexture
         let byteCost: Int
+        let coverage: ScenePuppetMeshRecomposer.CoverageExtent
     }
 
     enum Failure: Error, CustomStringConvertible {
@@ -24,11 +39,11 @@ final class ScenePuppetPlaybackState {
             switch self {
             case .degenerateLayerSize:
                 return "degenerate layer size"
-            case .textureTooLarge(let width, let height):
+            case let .textureTooLarge(width, height):
                 return "animation target \(width)x\(height) exceeds limit"
-            case .budgetExceeded(let requested, let remaining):
+            case let .budgetExceeded(requested, remaining):
                 return "animation target \(requested) B exceeds remaining budget \(remaining) B"
-            case .evaluation(let failure):
+            case let .evaluation(failure):
                 return failure.description
             case .resourceAllocationFailed:
                 return "Metal animation resource allocation failed"
@@ -47,8 +62,8 @@ final class ScenePuppetPlaybackState {
     private let vertexBuffers: [MTLBuffer]
     private let indexBuffer: MTLBuffer
     private let renderPipelineState: MTLRenderPipelineState
-    private let layerWidth: Float
-    private let layerHeight: Float
+    private let coverageWidth: Float
+    private let coverageHeight: Float
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -65,17 +80,100 @@ final class ScenePuppetPlaybackState {
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline
     ) -> Result<Output, Failure> {
-        guard layerWidth.isFinite, layerHeight.isFinite,
-              layerWidth >= 1, layerHeight >= 1 else {
+        let evaluator: ScenePuppetAnimationEvaluator
+        do {
+            evaluator = try ScenePuppetAnimationEvaluator(
+                mesh: mesh,
+                rig: rig,
+                // Prepare every selected clip once.  Layered playback needs
+                // the frame-0 reference pose for additive deltas as well as
+                // the absolute tracks; neither is rebuilt on a normal frame.
+                additiveAnimations: selection.clips.map(\.animation)
+            )
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            return .failure(.evaluation(failure))
+        } catch {
+            return .failure(.resourceAllocationFailed)
+        }
+        // The render target is reused for every animated pose. Include the
+        // selected clips' authored frame poses and interval midpoints in the
+        // load-time coverage so a limb that swings outside the bind pose
+        // cannot be clipped by the fixed target extent.
+        var animatedMaxAbs = SIMD2<Float>(repeating: 0)
+        func record(_ positions: [SIMD2<Float>]) {
+            for position in positions {
+                animatedMaxAbs.x = max(animatedMaxAbs.x, abs(position.x))
+                animatedMaxAbs.y = max(animatedMaxAbs.y, abs(position.y))
+            }
+        }
+        let baselineSamples = selection.clips.map { _ in
+            ScenePuppetAnimationEvaluator.FrameSample(frameA: 0, frameB: 0)
+        }
+        for (clipIndex, clip) in selection.clips.enumerated() {
+            let frameCount = clip.animation.frameCount
+            guard frameCount >= 0 else {
+                return .failure(.evaluation(.invalidFrame(0)))
+            }
+            // Keep preparation bounded for malformed-but-accepted long clips
+            // while retaining both endpoints and a representative interval
+            // sample for every sampled segment.
+            let frameStride = max(1, Int(ceil(Double(frameCount) / 512.0)))
+            var sampledFrames = Array(stride(from: 0, through: frameCount, by: frameStride))
+            if sampledFrames.last != frameCount { sampledFrames.append(frameCount) }
+            for frame in sampledFrames {
+                var samples = baselineSamples
+                samples[clipIndex] = ScenePuppetAnimationEvaluator.FrameSample(
+                    frameA: frame,
+                    frameB: frame
+                )
+                do {
+                    record(try evaluator.deformedPositions(
+                        selection: selection,
+                        frameSamples: samples
+                    ))
+                } catch let failure as ScenePuppetAnimationEvaluationFailure {
+                    return .failure(.evaluation(failure))
+                } catch {
+                    return .failure(.resourceAllocationFailed)
+                }
+                guard frame < frameCount else { continue }
+                let nextFrame = min(frame + frameStride, frameCount)
+                guard nextFrame > frame else { continue }
+                samples[clipIndex] = ScenePuppetAnimationEvaluator.FrameSample(
+                    frameA: frame,
+                    frameB: nextFrame,
+                    fraction: 0.5
+                )
+                do {
+                    record(try evaluator.deformedPositions(
+                        selection: selection,
+                        frameSamples: samples
+                    ))
+                } catch let failure as ScenePuppetAnimationEvaluationFailure {
+                    return .failure(.evaluation(failure))
+                } catch {
+                    return .failure(.resourceAllocationFailed)
+                }
+            }
+        }
+        guard let coverage = ScenePuppetMeshRecomposer.coverageExtent(
+            mesh: mesh,
+            layerWidth: layerWidth,
+            layerHeight: layerHeight,
+            additionalPositions: [
+                SIMD2(animatedMaxAbs.x, 0),
+                SIMD2(0, animatedMaxAbs.y),
+            ]
+        ) else {
             return .failure(.degenerateLayerSize)
         }
         guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
-            layerWidth: layerWidth,
-            layerHeight: layerHeight
+            layerWidth: coverage.width,
+            layerHeight: coverage.height
         ) else {
             return .failure(.textureTooLarge(
-                width: Int(layerWidth.rounded()),
-                height: Int(layerHeight.rounded())
+                width: Int(coverage.width.rounded()),
+                height: Int(coverage.height.rounded())
             ))
         }
         let width = dimensions.width
@@ -83,21 +181,6 @@ final class ScenePuppetPlaybackState {
         let byteCost = width * height * 4
         guard byteCost <= remainingByteBudget else {
             return .failure(.budgetExceeded(requested: byteCost, remaining: remainingByteBudget))
-        }
-
-        let evaluator: ScenePuppetAnimationEvaluator
-        do {
-            evaluator = try ScenePuppetAnimationEvaluator(
-                mesh: mesh,
-                rig: rig,
-                additiveAnimations: selection.composition == .disjointAdditive
-                    ? selection.clips.map(\.animation)
-                    : []
-            )
-        } catch let failure as ScenePuppetAnimationEvaluationFailure {
-            return .failure(.evaluation(failure))
-        } catch {
-            return .failure(.resourceAllocationFailed)
         }
         let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false
@@ -110,10 +193,11 @@ final class ScenePuppetPlaybackState {
               let indexBuffer = device.makeBuffer(
                   bytes: &indices,
                   length: indices.count * MemoryLayout<UInt16>.stride
-              ) else {
+              )
+        else {
             return .failure(.resourceAllocationFailed)
         }
-        let vertexBuffers = (0..<3).compactMap { _ in
+        let vertexBuffers = (0 ..< 3).compactMap { _ in
             device.makeBuffer(length: vertexBufferLength)
         }
         guard vertexBuffers.count == 3 else {
@@ -130,10 +214,15 @@ final class ScenePuppetPlaybackState {
             vertexBuffers: vertexBuffers,
             indexBuffer: indexBuffer,
             renderPipelineState: pipeline.state,
-            layerWidth: layerWidth,
-            layerHeight: layerHeight
+            coverageWidth: coverage.width,
+            coverageHeight: coverage.height
         )
-        return .success(Output(state: state, texture: targetTexture, byteCost: byteCost))
+        return .success(Output(
+            state: state,
+            texture: targetTexture,
+            byteCost: byteCost,
+            coverage: coverage
+        ))
     }
 
     func encode(
@@ -142,25 +231,27 @@ final class ScenePuppetPlaybackState {
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
-        let frameIndices: [Int?] = selection.clips.map { clip in
+        let frameSamples: [ScenePuppetAnimationEvaluator.FrameSample?] = selection.clips.map { clip in
             guard isVisible(clip.layer, dynamicValues: dynamicValues) else { return nil }
-            return ScenePuppetAnimationEvaluator.frameIndex(
+            return ScenePuppetAnimationEvaluator.frameSample(
                 sceneTime: sceneTime,
                 rate: clip.layer.rate ?? 1,
                 animation: clip.animation
             )
         }
-        let signature = frameIndices.map { $0 ?? -1 }
+        let signature = frameSamples.map { sample in
+            FrameSignature(sample: sample, visible: sample != nil)
+        }
         guard let positions = try? evaluator.deformedPositions(
             selection: selection,
-            frameIndices: frameIndices
+            frameSamples: frameSamples
         ) else { return }
 
         let vertices = mesh.vertices.indices.map { index in
             SceneQuadVertex(
                 position: SIMD2(
-                    positions[index].x / layerWidth,
-                    positions[index].y / layerHeight
+                    positions[index].x / coverageWidth,
+                    positions[index].y / coverageHeight
                 ),
                 texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
             )
@@ -203,7 +294,7 @@ final class ScenePuppetPlaybackState {
                 length: MemoryLayout<SceneLayerFragmentUniforms>.size,
                 index: 0
             )
-            for slot in 0...5 {
+            for slot in 0 ... 5 {
                 encoder.setFragmentTexture(atlasTexture, index: slot)
             }
             encoder.drawIndexedPrimitives(
@@ -243,8 +334,8 @@ final class ScenePuppetPlaybackState {
         vertexBuffers: [MTLBuffer],
         indexBuffer: MTLBuffer,
         renderPipelineState: MTLRenderPipelineState,
-        layerWidth: Float,
-        layerHeight: Float
+        coverageWidth: Float,
+        coverageHeight: Float
     ) {
         self.layerID = layerID
         self.animationIDs = animationIDs
@@ -256,7 +347,7 @@ final class ScenePuppetPlaybackState {
         self.vertexBuffers = vertexBuffers
         self.indexBuffer = indexBuffer
         self.renderPipelineState = renderPipelineState
-        self.layerWidth = layerWidth
-        self.layerHeight = layerHeight
+        self.coverageWidth = coverageWidth
+        self.coverageHeight = coverageHeight
     }
 }

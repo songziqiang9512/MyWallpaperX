@@ -92,6 +92,29 @@ private enum Harness {
                 fragment: componentFragment,
                 activeSlots: [0, 1]
             ),
+            "unusedHelperControlFlow": .init(
+                vertex: vertex(
+                    slot: 1,
+                    attribute: "a_TexCoord",
+                    varyingDeclaration: "varying vec4 v_TexCoord;",
+                    body: [
+                        "v_TexCoord = a_TexCoord.xyxy;",
+                        "v_TexCoord.z *= g_Texture1Resolution.z / g_Texture1Resolution.x;",
+                        "v_TexCoord.w *= g_Texture1Resolution.w / g_Texture1Resolution.y;",
+                    ]
+                ).replacingOccurrences(
+                    of: "void main() {",
+                    with: """
+                    mat3 unusedPerspectiveHelper(vec2 p0, vec2 p1) {
+                        if (p0.x == p1.x) { return mat3(1.0); }
+                        else { return mat3(2.0); }
+                    }
+                    void main() {
+                    """
+                ),
+                fragment: componentFragment,
+                activeSlots: [0, 1]
+            ),
             "unseenNames": .init(
                 vertex: vertex(
                     slot: 6,
@@ -318,6 +341,7 @@ class SceneAuthoredShaderSameSlotMappedCoordinateTests(unittest.TestCase):
                 "mappedComponents": "zw",
             }],
         )
+        self.assertEqual(result["unusedHelperControlFlow"], result["component"])
         self.assertEqual(
             result["unseenNames"],
             [{

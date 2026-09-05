@@ -28,6 +28,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// frame-varying inputs (audio, overrides, particle age/position) live in
     /// the execution helpers.
     private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
+    /// Only these operators own per-particle oscillation cache entries. Keeping
+    /// the indices prepared avoids scanning every operator for each death.
+    private let positionOscillationOperatorIndices: [Int]
     private let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
@@ -70,6 +73,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorExecutionPlans = definition.operators.map(
             SceneParticleOperatorExecutionPlan.init
         )
+        positionOscillationOperatorIndices = definition.operators.indices.filter {
+            definition.operators[$0].kind == .oscillatePosition
+        }
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicy.map(
             SceneParticleStepSnapshotRecorder.init(policy:)
@@ -154,16 +160,31 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         for (operatorIndex, value) in definition.operators.enumerated() {
             apply(value, operatorIndex: operatorIndex, duration: duration)
         }
-        for particle in particles where particle.age + 1e-12 >= particle.lifetime {
-            deathEvents.append(particle)
-            for (operatorIndex, value) in definition.operators.enumerated()
-            where value.kind == .oscillatePosition {
-                positionOscillationCache.removeValue(forKey: .init(
-                    particleID: particle.id, operatorIndex: operatorIndex
-                ))
+        // Collect deaths and compact the live prefix in one pass. The previous
+        // two-pass sequence walked every particle once for events and again for
+        // removal, which is a measurable cost for authored systems with tens of
+        // thousands of particles. Preserve authored order while keeping the
+        // event payload and oscillation-cache cleanup identical.
+        var liveCount = 0
+        for readIndex in particles.indices {
+            let particle = particles[readIndex]
+            if particle.age + 1e-12 >= particle.lifetime {
+                deathEvents.append(particle)
+                for operatorIndex in positionOscillationOperatorIndices {
+                    positionOscillationCache.removeValue(forKey: .init(
+                        particleID: particle.id, operatorIndex: operatorIndex
+                    ))
+                }
+                continue
             }
+            if liveCount != readIndex {
+                particles[liveCount] = particle
+            }
+            liveCount += 1
         }
-        particles.removeAll { $0.age + 1e-12 >= $0.lifetime }
+        if liveCount < particles.count {
+            particles.removeLast(particles.count - liveCount)
+        }
         simulationTime += duration
         stepSnapshotRecorder?.record(duration: duration, particles: particles)
     }

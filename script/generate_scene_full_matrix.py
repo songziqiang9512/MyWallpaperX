@@ -110,8 +110,8 @@ OPTIONAL_RUNTIME_EXPECTATION_GROUPS = {
 
 PUPPET_ANIMATION_EXPECTATIONS = {
     "expected_puppet_animation_layer_ids": "puppet_animation_layer_ids",
-    "expected_puppet_disjoint_additive_layer_ids":
-        "puppet_disjoint_additive_layer_ids",
+    "expected_puppet_layered_layer_ids":
+        "puppet_layered_layer_ids",
     "expected_puppet_animation_clip_count": "puppet_animation_clip_count",
 }
 

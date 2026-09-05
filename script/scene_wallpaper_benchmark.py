@@ -1571,10 +1571,10 @@ def puppet_animation_runtime_metrics(preview_text: str) -> dict[str, Any]:
     entries.sort(key=lambda entry: entry["layer_id"])
     return {
         "layer_ids": [entry["layer_id"] for entry in entries],
-        "disjoint_additive_layer_ids": [
+        "layered_layer_ids": [
             entry["layer_id"]
             for entry in entries
-            if entry["mode"] == "disjoint-additive"
+            if entry["mode"] == "layered"
         ],
         "clip_count": sum(entry["clip_count"] for entry in entries),
         "entries": entries,
@@ -1590,14 +1590,14 @@ def puppet_animation_runtime_failures(
     if expected_layer_ids is not None:
         if metrics["layer_ids"] != sorted(int(value) for value in expected_layer_ids):
             failures.append("puppet animation layer IDs mismatch")
-    expected_additive_layer_ids = sample.get(
-        "expected_puppet_disjoint_additive_layer_ids"
+    expected_layered_layer_ids = sample.get(
+        "expected_puppet_layered_layer_ids"
     )
-    if expected_additive_layer_ids is not None:
-        if metrics["disjoint_additive_layer_ids"] != sorted(
-            int(value) for value in expected_additive_layer_ids
+    if expected_layered_layer_ids is not None:
+        if metrics["layered_layer_ids"] != sorted(
+            int(value) for value in expected_layered_layer_ids
         ):
-            failures.append("puppet disjoint-additive layer IDs mismatch")
+            failures.append("puppet layered layer IDs mismatch")
     expected_clip_count = sample.get("expected_puppet_animation_clip_count")
     if expected_clip_count is not None:
         if metrics["clip_count"] != int(expected_clip_count):
@@ -7495,8 +7495,8 @@ def run_sample(
             "solid_loaded_ratio": round(solid_runtime["loaded_ratio"], 4),
             "solid_loaded_layer_ids": solid_runtime["loaded_layer_ids"],
             "puppet_animation_layer_ids": puppet_animation_runtime["layer_ids"],
-            "puppet_disjoint_additive_layer_ids": (
-                puppet_animation_runtime["disjoint_additive_layer_ids"]
+            "puppet_layered_layer_ids": (
+                puppet_animation_runtime["layered_layer_ids"]
             ),
             "puppet_animation_clip_count": puppet_animation_runtime["clip_count"],
             "puppet_animation_entries": puppet_animation_runtime["entries"],

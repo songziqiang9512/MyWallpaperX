@@ -193,6 +193,7 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             ),
             "mdlv0016-wrong-stride.mdl": build_mdl(magic=b"MDLV0016"),
             "mdlv0017.mdl": build_mdl(magic=b"MDLV0017"),
+            "mdlv0019.mdl": build_mdl(magic=b"MDLV0019"),
             "mdlv0021.mdl": build_mdl(magic=b"MDLV0021"),
             "bad-magic.mdl": build_mdl(magic=b"MDLX0001"),
             "no-block.mdl": b"MDLV0023\x00" + b"\x00" * 64 + b"MDLS",
@@ -275,6 +276,12 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual(entry["version"], "MDLV0017")
 
+    def test_mdlv0019_magic_is_accepted_by_the_strict_mesh_reader(self):
+        entry = self.results["mdlv0019.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual(entry["version"], "MDLV0019")
+        self.assertEqual(entry["stride"], 80)
+
     def test_unknown_magic_fails_closed(self):
         entry = self.results["bad-magic.mdl"]
         self.assertFalse(entry["ok"])
@@ -333,6 +340,80 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             frame = attachments[name]["sceneFrame"]
             self.assertAlmostEqual(frame[12], x, places=3)
             self.assertAlmostEqual(frame[13], y, places=3)
+
+
+def coverage_extent(
+    max_abs: tuple[float, float],
+    layer: tuple[float, float],
+    additional_abs: tuple[float, float] = (0.0, 0.0),
+) -> tuple[float, float]:
+    """Mirrors ScenePuppetMeshRecomposer.coverageExtent."""
+    half = (
+        max(layer[0] / 2.0, max_abs[0], additional_abs[0]),
+        max(layer[1] / 2.0, max_abs[1], additional_abs[1]),
+    )
+    return (half[0] * 2.0, half[1] * 2.0)
+
+
+class PuppetMeshCoverageContractTests(unittest.TestCase):
+    def test_overflow_grows_origin_centered_extent_without_moving_world(self) -> None:
+        # 3264246690 layer 389: authored 3658×2000, bind-pose max |y| = 1609.5.
+        width, height = coverage_extent(
+            max_abs=(1780.0, 1609.5),
+            layer=(3658.0, 2000.0),
+        )
+        self.assertEqual(width, 3658.0)
+        self.assertAlmostEqual(height, 3219.0, places=4)
+        scale = 0.54881
+        vertex_y = 1609.5
+        world = (vertex_y / height) * height * scale
+        self.assertAlmostEqual(world, vertex_y * scale, places=5)
+
+    def test_in_frame_mesh_keeps_authored_extent(self) -> None:
+        # 3787382101 layer 28 fits 5600×2400; compositor stays authored.
+        width, height = coverage_extent(
+            max_abs=(1848.4, 1121.7),
+            layer=(5600.0, 2400.0),
+        )
+        self.assertEqual((width, height), (5600.0, 2400.0))
+
+    def test_animated_pose_overflow_grows_extent(self) -> None:
+        width, height = coverage_extent(
+            max_abs=(1780.0, 1609.5),
+            layer=(3658.0, 2000.0),
+            additional_abs=(1900.0, 1710.0),
+        )
+        self.assertEqual((width, height), (3800.0, 3420.0))
+
+    def test_recomposer_and_playback_share_coverage_mapping(self) -> None:
+        recomposer = (
+            SCENE_ROOT / "Rendering/ScenePuppetMeshRecomposer.swift"
+        ).read_text(encoding="utf-8")
+        playback = (
+            SCENE_ROOT / "Rendering/ScenePuppetPlaybackState.swift"
+        ).read_text(encoding="utf-8")
+        load = (SCENE_ROOT / "Rendering/ScenePuppetLayerLoad.swift").read_text(
+            encoding="utf-8"
+        )
+        base = (SCENE_ROOT / "Rendering/SceneBaseImageTextureLoad.swift").read_text(
+            encoding="utf-8"
+        )
+        view = (SCENE_ROOT / "Rendering/SceneMetalView.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("contentFit", recomposer)
+        self.assertNotIn("ContentFit", recomposer)
+        self.assertIn("static func coverageExtent(", recomposer)
+        self.assertIn("vertex.x / coverage.width", recomposer)
+        self.assertIn("vertex.y / coverage.height", recomposer)
+        self.assertNotIn("contentFit", playback)
+        self.assertIn("ScenePuppetMeshRecomposer.coverageExtent(", playback)
+        self.assertIn("positions[index].x / coverageWidth", playback)
+        self.assertIn("positions[index].y / coverageHeight", playback)
+        self.assertNotIn("var renderSize:", load)
+        self.assertIn("func setPuppetSource(", base)
+        self.assertIn("setPuppetSource(", view)
+        self.assertNotIn("puppetRenderSize", view)
 
 
 if __name__ == "__main__":

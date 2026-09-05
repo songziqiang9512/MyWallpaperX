@@ -1,12 +1,12 @@
 import Foundation
 import Metal
 
-// Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
-// mesh, and creates either a bounded playback state or a static
-// bind-pose image. Failure
-// keeps the existing atlas texture (current behavior) and reports why, so
-// unsupported puppets stay visible in diagnostics instead of silently
-// pretending to be supported.
+/// Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
+/// mesh, and creates either a bounded playback state or a static
+/// bind-pose image. Failure
+/// keeps the existing atlas texture (current behavior) and reports why, so
+/// unsupported puppets stay visible in diagnostics instead of silently
+/// pretending to be supported.
 enum ScenePuppetLayerLoad {
     struct StaticRecomposeIdentity: Hashable {
         fileprivate let puppetMeshSource: SceneTextureLoader.SourceKey
@@ -20,6 +20,12 @@ enum ScenePuppetLayerLoad {
         let playback: ScenePuppetPlaybackState?
         let byteCost: Int
         let message: String
+        let coverage: ScenePuppetMeshRecomposer.CoverageExtent?
+    }
+
+    struct CachedSource {
+        let texture: MTLTexture
+        let coverage: ScenePuppetMeshRecomposer.CoverageExtent
     }
 
     static func staticRecomposeIdentity(
@@ -38,7 +44,8 @@ enum ScenePuppetLayerLoad {
                   relativePath: puppetMeshPath,
                   cacheDirectory: cacheDirectory
               ),
-              let puppetMeshSource = loader.sourceKey(for: puppetMeshURL) else {
+              let puppetMeshSource = loader.sourceKey(for: puppetMeshURL)
+        else {
             return nil
         }
         return StaticRecomposeIdentity(
@@ -67,7 +74,8 @@ enum ScenePuppetLayerLoad {
                 texture: nil,
                 playback: nil,
                 byteCost: 0,
-                message: "puppet mesh unavailable (\(puppetMeshPath))"
+                message: "puppet mesh unavailable (\(puppetMeshPath))",
+                coverage: nil
             )
         }
         let data: Data
@@ -78,7 +86,8 @@ enum ScenePuppetLayerLoad {
                 texture: nil,
                 playback: nil,
                 byteCost: 0,
-                message: "puppet mesh read failed (\(puppetMeshPath))"
+                message: "puppet mesh read failed (\(puppetMeshPath))",
+                coverage: nil
             )
         }
         let mesh: SceneMdlPuppetMesh
@@ -89,14 +98,16 @@ enum ScenePuppetLayerLoad {
                 texture: nil,
                 playback: nil,
                 byteCost: 0,
-                message: "puppet mesh rejected: \(error.description) (\(puppetMeshPath))"
+                message: "puppet mesh rejected: \(error.description) (\(puppetMeshPath))",
+                coverage: nil
             )
         } catch {
             return Outcome(
                 texture: nil,
                 playback: nil,
                 byteCost: 0,
-                message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))"
+                message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))",
+                coverage: nil
             )
         }
         let renderSize = layer.renderSizeWH ?? []
@@ -125,7 +136,7 @@ enum ScenePuppetLayerLoad {
                     layers: layer.puppetAnimationLayers,
                     animationSet: animationSet
                 ) {
-                case .success(let selection?):
+                case let .success(selection?):
                     switch ScenePuppetPlaybackState.make(
                         layerID: layer.id,
                         mesh: mesh,
@@ -138,7 +149,7 @@ enum ScenePuppetLayerLoad {
                         device: device,
                         pipeline: pipeline
                     ) {
-                    case .success(let output):
+                    case let .success(output):
                         return Outcome(
                             texture: output.texture,
                             playback: output.state,
@@ -153,14 +164,19 @@ enum ScenePuppetLayerLoad {
                                 mesh.triangleCount,
                                 output.texture.width,
                                 output.texture.height
-                            )
+                            ) + coverageNote(
+                                coverage: output.coverage,
+                                layerWidth: layerWidth,
+                                layerHeight: layerHeight
+                            ),
+                            coverage: output.coverage
                         )
-                    case .failure(let failure):
+                    case let .failure(failure):
                         animationFallbackMessage = "animation target rejected: \(failure.description)"
                     }
                 case .success(nil):
                     animationFallbackMessage = "animation inactive: no visible layer"
-                case .failure(let failure):
+                case let .failure(failure):
                     animationFallbackMessage = "animation rejected: \(failure.description)"
                 }
             } catch let failure as SceneMdlPuppetRigReadError {
@@ -207,7 +223,7 @@ enum ScenePuppetLayerLoad {
             commandQueue: commandQueue,
             pipeline: pipeline
         ) {
-        case .success(let output):
+        case let .success(output):
             return Outcome(
                 texture: output.texture,
                 playback: nil,
@@ -220,24 +236,50 @@ enum ScenePuppetLayerLoad {
                     output.triangleCount,
                     output.texture.width,
                     output.texture.height
-                ) + (animationFallbackMessage.map { "; \($0)" } ?? "")
+                ) + coverageNote(
+                    coverage: output.coverage,
+                    layerWidth: layerWidth,
+                    layerHeight: layerHeight
+                ) + (animationFallbackMessage.map { "; \($0)" } ?? ""),
+                coverage: output.coverage
             )
-        case .failure(let failure):
+        case let .failure(failure):
             return Outcome(
                 texture: nil,
                 playback: nil,
                 byteCost: 0,
                 message: "puppet mesh recompose failed: \(failure.description) (\(layer.puppetMeshPath ?? "unknown"))"
-                    + (animationFallbackMessage.map { "; \($0)" } ?? "")
+                    + (animationFallbackMessage.map { "; \($0)" } ?? ""),
+                coverage: nil
             )
         }
     }
 
-    // The mesh path comes from extracted pkg JSON; only accept it when the
-    // resolved file (symlinks included) stays inside the extraction cache.
+    private static func coverageNote(
+        coverage: ScenePuppetMeshRecomposer.CoverageExtent,
+        layerWidth: Float,
+        layerHeight: Float
+    ) -> String {
+        guard abs(coverage.width - layerWidth) >= 0.5
+            || abs(coverage.height - layerHeight) >= 0.5
+        else {
+            return ""
+        }
+        return String(
+            format: " coverage=%.0f×%.0f authored=%.0f×%.0f",
+            coverage.width,
+            coverage.height,
+            layerWidth,
+            layerHeight
+        )
+    }
+
+    /// The mesh path comes from extracted pkg JSON; only accept it when the
+    /// resolved file (symlinks included) stays inside the extraction cache.
     private static func containedFileURL(relativePath: String, cacheDirectory: URL) -> URL? {
         guard relativePath.hasPrefix("/") == false,
-              relativePath.contains("..") == false else {
+              relativePath.contains("..") == false
+        else {
             return nil
         }
         let candidate = cacheDirectory.appendingPathComponent(relativePath)

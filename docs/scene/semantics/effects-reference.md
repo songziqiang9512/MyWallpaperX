@@ -34,7 +34,7 @@
 | [Twirl](https://docs.wallpaperengine.io/en/scene/effects/effect/twirl.html) / `twirl` | effect-local center/size/feather、ellipse、inner/repeat/noise、可选 mask | 1P | 严格使用 effect-local UV 和作者作用域 | A+C |
 | [Water Flow](https://docs.wallpaperengine.io/en/scene/effects/effect/waterflow.html) / `waterflow` | flow mask + time-offset，按方向做周期性局部重采样 | 1P | 保留 phase/scale/feather/repeat；不能替换成全图水波 | A+C |
 | [Water Ripple](https://docs.wallpaperengine.io/en/scene/effects/effect/waterripple.html) / `waterripple` | 可选 opacity mask + water normal；两组滚动 normal；Perspective 是 combo | 1P | 解码 normal 格式、aspect、scroll 和 `strength^2`；Perspective 不默认启用 | A+C |
-| [Water Waves](https://docs.wallpaperengine.io/en/scene/effects/effect/waterwaves.html) / `waterwaves` | 可选 opacity/time-offset mask；一组或双组定向正弦波；可选 Perspective | 1P | `PERSPECTIVE`、`DUALWAVES` 默认关闭；仅在作者 mask 内变形 | A+C |
+| [Water Waves](https://docs.wallpaperengine.io/en/scene/effects/effect/waterwaves.html) / `waterwaves` | 可选 opacity/time-offset mask；一组或双组定向正弦波；可选 Perspective | 1P | `PERSPECTIVE`、`DUALWAVES` 默认关闭；仅在作者 mask 内变形。未绑定 mask 才编译 `MASK=0`（`mask = 1.0` 整图）；作者绑定 mask 后不得再编译整图变形，mask 未就绪时 effect-local previous-current。作者已用 `g_TextureNResolution.zw/xy` 构造同槽 UV 时，host transform 必须是 identity，避免 mask 被二次缩放 | A+C |
 
 ### 2.1 对当前错误最重要的区别
 
@@ -47,6 +47,8 @@ Depth Parallax          -> depth map 驱动的 UV/POM 重采样
 ```
 
 五类路径不能共用一个“正弦位移”实现。
+
+当前样本边界：`3787382101` 的 Water Waves 虽已完成资源 ready 与 generic admission，但最新隔离截图仍显示人物全身被扭曲；这说明执行链证据不足以证明作者 mask 的局部视觉效果，问题保持开放，不得把本表的局部变形合同写成该样本已修复。
 
 ## 3. 模糊类
 

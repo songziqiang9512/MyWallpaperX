@@ -2834,6 +2834,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
 
         self.assertIn("operatorExecutionPlans", simulator_source)
         self.assertIn("SceneParticleOperatorExecutionPlan.init", simulator_source)
+        self.assertIn("positionOscillationOperatorIndices", simulator_source)
+        self.assertIn("definition.operators.indices.filter", simulator_source)
         self.assertNotIn("SceneParticleOperatorBlendPlan(value)", simulator_source)
         self.assertNotIn("SceneParticlePositionOscillationPlan(value)", simulator_source)
         self.assertNotIn("SceneParticleOperatorBlendPlan(value)", control_point_source)

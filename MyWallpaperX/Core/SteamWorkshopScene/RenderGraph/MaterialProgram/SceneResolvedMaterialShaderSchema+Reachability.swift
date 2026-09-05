@@ -18,7 +18,7 @@ extension SceneResolvedMaterialShaderSchema {
     ) throws -> [Int: Set<Sampler>] {
         let profiles = try textureFormatProfiles
             ?? SceneResolvedMaterialTextureResolver
-                .exhaustiveLaunchTextureFormatProfiles(template: template)
+            .exhaustiveLaunchTextureFormatProfiles(template: template)
         guard !profiles.isEmpty else { throw Issue.sampler("texture-format-envelope") }
         var cache: [ReachabilityVariantKey: [Int: Sampler]] = [:]
         func samplers(
@@ -83,7 +83,8 @@ extension SceneResolvedMaterialShaderSchema {
                     try samplers(for: mask, textureFormats: $0)
                 }
                 guard let representative = variants.first,
-                      variants.dropFirst().allSatisfy({ $0 == representative }) else {
+                      variants.dropFirst().allSatisfy({ $0 == representative })
+                else {
                     throw Issue.sampler("texture-format-schema-divergence")
                 }
                 active = representative
@@ -108,20 +109,13 @@ extension SceneResolvedMaterialShaderSchema {
         return reachable
     }
 
-    /// Texture availability can only change preprocessing for sampler slots
-    /// that actually provide a texture-readiness schema. Enumerating the other
-    /// bits repeats the same prepared program under a different dictionary
-    /// identity (up to 256 times) without adding a reachable sampler fact.
-    ///
-    /// Fall back to the historical exhaustive envelope when metadata cannot be
-    /// projected cleanly so malformed/unsupported contracts keep their prior
-    /// rejection behavior.
-    private nonisolated static func launchAvailabilityMasks(
+    /// Sampler slots whose shader schema owns a presence combo such as
+    /// `MASK` or `TIMEOFFSET`. Parse failure returns nil so callers keep the
+    /// historical optional envelope instead of inventing combo facts.
+    nonisolated static func readinessComboSlotMask(
         _ template: Template
-    ) -> [UInt8] {
-        guard let graph = template.shaderContract.sourceGraph else {
-            return Array(UInt8.min ... UInt8.max)
-        }
+    ) -> UInt8? {
+        guard let graph = template.shaderContract.sourceGraph else { return nil }
         var readinessSlots: UInt8 = 0
         for node in graph.nodes {
             let parsed = SceneShaderContractSourceParser().parse(
@@ -135,17 +129,33 @@ extension SceneResolvedMaterialShaderSchema {
                 declarations: parsed.declarations
             )
             guard let schemas = try? SceneShaderVariantResolver.schemas(in: source)
-            else { return Array(UInt8.min ... UInt8.max) }
+            else { return nil }
             for slot in schemas.compactMap(\.samplerSlot) {
-                guard (0 ..< 8).contains(slot) else {
-                    return Array(UInt8.min ... UInt8.max)
-                }
+                guard (0 ..< 8).contains(slot) else { return nil }
                 readinessSlots |= UInt8(1) << UInt8(slot)
             }
         }
+        return readinessSlots
+    }
+
+    /// Texture availability can only change preprocessing for sampler slots
+    /// that actually provide a texture-readiness schema. Enumerating the other
+    /// bits repeats the same prepared program under a different dictionary
+    /// identity (up to 256 times) without adding a reachable sampler fact.
+    ///
+    /// Fall back to the historical exhaustive envelope when metadata cannot be
+    /// projected cleanly so malformed/unsupported contracts keep their prior
+    /// rejection behavior.
+    private nonisolated static func launchAvailabilityMasks(
+        _ template: Template
+    ) -> [UInt8] {
+        guard let readinessSlots = readinessComboSlotMask(template) else {
+            return Array(UInt8.min ... UInt8.max)
+        }
         var optionalCandidateSlots: UInt8 = 0
         for slot in template.textureSlots.compactMap({ $0 })
-            where !slot.candidates.isEmpty {
+            where !slot.candidates.isEmpty
+        {
             guard (0 ..< 8).contains(slot.index) else {
                 return Array(UInt8.min ... UInt8.max)
             }
@@ -165,7 +175,8 @@ extension SceneResolvedMaterialShaderSchema {
         implicitFramebufferIdentity: Graph.TextureIdentity?
     ) throws -> UInt8 {
         guard template.textureSlots.count == 8,
-              samplers.keys.allSatisfy((0 ..< 8).contains) else {
+              samplers.keys.allSatisfy((0 ..< 8).contains)
+        else {
             throw Issue.sampler("readiness-schema")
         }
         var required: UInt8 = 0
@@ -204,7 +215,8 @@ extension SceneResolvedMaterialShaderSchema {
                             template: template,
                             sampler: sampler,
                             slot: index
-                        ) != nil else {
+                        ) != nil
+                    else {
                         throw Issue.sampler(sampler.name)
                     }
                     required |= bit
@@ -212,7 +224,8 @@ extension SceneResolvedMaterialShaderSchema {
                     break
                 }
                 if sampler.usesGraphInputMaterialAlias,
-                   implicitFramebufferIdentity != nil {
+                   implicitFramebufferIdentity != nil
+                {
                     required |= bit
                 }
             }

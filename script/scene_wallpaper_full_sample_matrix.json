@@ -5136,7 +5136,7 @@
         59,
         157
       ],
-      "expected_puppet_disjoint_additive_layer_ids": [
+      "expected_puppet_layered_layer_ids": [
         21,
         44,
         50,

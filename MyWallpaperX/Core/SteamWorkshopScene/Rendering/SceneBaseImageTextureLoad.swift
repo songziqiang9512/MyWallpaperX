@@ -21,14 +21,16 @@ struct SceneBaseImageTextureSnapshot {
         var validatedLayerSources: [Int: SceneLayerSourcePublication] = [:]
         let atomicLayerIDs = Set(layerSourcePublications.keys)
         for (layerID, publication) in explicitLayerSources
-            where !atomicLayerIDs.contains(layerID) {
+            where !atomicLayerIDs.contains(layerID)
+        {
             guard let texture = textures[layerID],
                   texture === publication.texture,
                   publication.requestIdentity == .layerSource(layerID),
                   SceneLayerSourcePublication.supportsDirectTextureLane(
-                    layerID: layerID,
-                    publication: publication
-                  ) else {
+                      layerID: layerID,
+                      publication: publication
+                  )
+            else {
                 validatedTextures[layerID] = nil
                 continue
             }
@@ -39,7 +41,8 @@ struct SceneBaseImageTextureSnapshot {
         }
         for (layerID, layerSource) in layerSourcePublications {
             guard let texture = textures[layerID],
-                  layerSource.isComplete(layerID: layerID, matching: texture) else {
+                  layerSource.isComplete(layerID: layerID, matching: texture)
+            else {
                 validatedTextures[layerID] = nil
                 validatedExplicitLayerSources[layerID] = nil
                 continue
@@ -71,7 +74,8 @@ struct SceneBaseImageTextureSnapshot {
         matching texture: MTLTexture
     ) -> SceneTextureCandidate? {
         guard let candidate = candidates[layerID],
-              candidate.texture === texture else {
+              candidate.texture === texture
+        else {
             return nil
         }
         return candidate
@@ -84,7 +88,8 @@ struct SceneBaseImageTextureSnapshot {
         guard let publication = explicitLayerSources[layerID],
               publication.texture === texture,
               publication.requestIdentity == .layerSource(layerID),
-              publication.isComplete else {
+              publication.isComplete
+        else {
             return nil
         }
         return publication
@@ -93,7 +98,8 @@ struct SceneBaseImageTextureSnapshot {
     func layerSourceRenderSize(for layerID: Int) -> [Float]? {
         guard let texture = textures[layerID],
               let layerSource = layerSourcePublications[layerID],
-              layerSource.isComplete(layerID: layerID, matching: texture) else {
+              layerSource.isComplete(layerID: layerID, matching: texture)
+        else {
             return nil
         }
         return layerSource.renderSizeWH
@@ -102,13 +108,16 @@ struct SceneBaseImageTextureSnapshot {
     func isLayerSourcePending(_ layerID: Int) -> Bool {
         pendingLayerSourceIDs.contains(layerID)
     }
-
 }
 
 struct SceneBaseImageTextureStore {
     private(set) var textures: [Int: MTLTexture] = [:]
     private(set) var candidates: [Int: SceneTextureCandidate] = [:]
     private(set) var publications: [Int: SceneTextureProviderPublication] = [:]
+    /// Puppet sources whose bind-pose leaves the imported image box publish
+    /// the origin-centered coverage as the logical compositor/effect extent.
+    /// World vertices stay `origin + mesh * authored scale`.
+    private var puppetLayerSources: [Int: SceneLayerSourcePublication] = [:]
     private var contentGeneration: UInt64 = 0
 
     subscript(layerID: Int) -> MTLTexture? {
@@ -117,6 +126,7 @@ struct SceneBaseImageTextureStore {
             textures[layerID] = newValue
             candidates[layerID] = nil
             publications[layerID] = nil
+            puppetLayerSources[layerID] = nil
         }
     }
 
@@ -138,11 +148,14 @@ struct SceneBaseImageTextureStore {
                 contentGeneration: contentGeneration
             )
         }
+        puppetLayerSources[layerID] = nil
     }
 
-    mutating func setStaticPuppetRecomposition(
+    mutating func setPuppetSource(
         _ texture: MTLTexture,
-        layerID: Int
+        layerID: Int,
+        logicalWidth: Float,
+        logicalHeight: Float
     ) {
         contentGeneration &+= 1
         let size = CGSize(width: texture.width, height: texture.height)
@@ -159,11 +172,19 @@ struct SceneBaseImageTextureStore {
         )
         textures[layerID] = texture
         candidates[layerID] = candidate
-        publications[layerID] = Self.publication(
+        let publication = Self.publication(
             for: candidate,
             layerID: layerID,
             contentGeneration: contentGeneration
         )
+        publications[layerID] = publication
+        puppetLayerSources[layerID] = publication.flatMap {
+            SceneLayerSourcePublication(
+                layerID: layerID,
+                publication: $0,
+                renderSizeWH: [logicalWidth, logicalHeight]
+            )
+        }
     }
 
     mutating func merge(_ incoming: [Int: MTLTexture]) {
@@ -171,6 +192,7 @@ struct SceneBaseImageTextureStore {
         for layerID in incoming.keys {
             candidates[layerID] = nil
             publications[layerID] = nil
+            puppetLayerSources[layerID] = nil
         }
     }
 
@@ -186,10 +208,16 @@ struct SceneBaseImageTextureStore {
         combinedPublications.merge(explicitLayerSources) { _, replacement in
             replacement
         }
+        var combinedLayerSources = puppetLayerSources.filter { layerID, layerSource in
+            textures[layerID] === layerSource.texture
+        }
+        combinedLayerSources.merge(layerSourcePublications) { _, replacement in
+            replacement
+        }
         return SceneBaseImageTextureSnapshot(
             textures: textures,
             explicitLayerSources: combinedPublications,
-            layerSourcePublications: layerSourcePublications,
+            layerSourcePublications: combinedLayerSources,
             candidates: candidates,
             pendingLayerSourceIDs: pendingLayerSourceIDs
         )
@@ -237,9 +265,9 @@ enum SceneBaseImageTextureLoad {
     ) -> String {
         let detail: String
         switch failure {
-        case .unsupportedFormat(let ext):
+        case let .unsupportedFormat(ext):
             detail = "unsupported \(ext) (\(url.lastPathComponent))"
-        case .unsupportedTexFormat(let code):
+        case let .unsupportedTexFormat(code):
             detail = "unsupported .tex format \(code) (\(url.lastPathComponent))"
         case .texNoEmbeddedImage:
             detail = ".tex has no embedded JPEG/PNG (likely DXT)"
@@ -247,9 +275,9 @@ enum SceneBaseImageTextureLoad {
         case .texContainsVideoPayload:
             detail = ".tex is mp4 payload (animated/video)"
                 + " — \(url.lastPathComponent)"
-        case .decodeFailed(let message):
+        case let .decodeFailed(message):
             detail = "decode failed (\(message))"
-        case .textureAllocationFailed(let width, let height):
+        case let .textureAllocationFailed(width, height):
             detail = "texture allocation failed at \(width)×\(height)"
         case .loaded:
             detail = "internal candidate route mismatch"
@@ -328,7 +356,8 @@ enum SceneBaseImageTextureLoad {
     ) -> Outcome {
         var crossImageFallbackMessage = ""
         if reason == "multi-image TEX",
-           let source, let container, container.imageCount > 1 {
+           let source, let container, container.imageCount > 1
+        {
             switch spriteTextureLoader.playback(
                 source: source,
                 container: container,
@@ -337,7 +366,7 @@ enum SceneBaseImageTextureLoad {
                     loader.sourceKey(for: url) == source
                 }
             ) {
-            case .loaded(let playback):
+            case let .loaded(playback):
                 guard let animation = SceneSpriteAnimation(
                     frames: container.spriteFrames,
                     texturePlayback: playback
@@ -351,7 +380,7 @@ enum SceneBaseImageTextureLoad {
                     baseTextureSampling: SceneTextureSampling(texFlags: container.flags),
                     message: "; base color cross-image sprite playback"
                 ))
-            case .unsupported(let detail):
+            case let .unsupported(detail):
                 crossImageFallbackMessage =
                     "; cross-image sprite playback unavailable (\(detail))"
             }
@@ -367,7 +396,7 @@ enum SceneBaseImageTextureLoad {
             purpose: .premultipliedColor,
             device: device
         ) {
-        case .loaded(let texture):
+        case let .loaded(texture):
             return .loaded(Loaded(
                 texture: texture,
                 candidate: nil,

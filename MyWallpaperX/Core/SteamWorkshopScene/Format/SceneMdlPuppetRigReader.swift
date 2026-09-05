@@ -15,7 +15,7 @@ struct SceneMdlPuppetRig {
     let vertexWeights: [VertexWeights]
 }
 
-enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Sendable {
+enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
     case unsupportedMagic(String)
     case skeletonBlockMissing
     case invalidSkeletonBounds
@@ -29,35 +29,35 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable, Send
 
     nonisolated var description: String {
         switch self {
-        case .unsupportedMagic(let magic):
+        case let .unsupportedMagic(magic):
             return "unsupported rig mdl magic \(magic)"
         case .skeletonBlockMissing:
             return "rig requires the version-matched skeleton block"
         case .invalidSkeletonBounds:
             return "invalid version-matched rig bounds"
-        case .invalidBoneCount(let count):
+        case let .invalidBoneCount(count):
             return "invalid rig bone count \(count)"
-        case .invalidBoneRecord(let index):
+        case let .invalidBoneRecord(index):
             return "invalid version-matched rig bone record \(index)"
-        case .invalidBoneParent(let boneIndex, let parentIndex):
+        case let .invalidBoneParent(boneIndex, parentIndex):
             return "invalid rig parent \(parentIndex) for bone \(boneIndex)"
-        case .invalidBindMatrix(let index):
+        case let .invalidBindMatrix(index):
             return "invalid bind matrix for rig bone \(index)"
-        case .unsupportedVertexStride(let stride):
+        case let .unsupportedVertexStride(stride):
             return "unsupported skinned vertex stride \(stride)"
-        case .vertexCountMismatch(let expected, let actual):
+        case let .vertexCountMismatch(expected, actual):
             return "rig has \(actual) vertex weights; expected \(expected)"
-        case .invalidVertexWeights(let index):
+        case let .invalidVertexWeights(index):
             return "invalid puppet vertex weights at index \(index)"
         }
     }
 }
 
-// Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
-// fields. MDLV0016/MDLS0002, MDLV0017/MDLS0002, and MDLV0023/MDLS0004 use the
-// same strictly validated record shape; the version pair is still checked
-// before any bone data is consumed. The index fields begin at stride - 40 and
-// weights at stride - 24 for the verified 52-, 80-, and 84-byte records.
+/// Version-matched MDLS bind hierarchy plus the four-index/four-weight vertex
+/// fields. MDLV0016/MDLS0002, MDLV0017/MDLS0002, and MDLV0023/MDLS0004 use the
+/// same strictly validated record shape; the version pair is still checked
+/// before any bone data is consumed. The index fields begin at stride - 40 and
+/// weights at stride - 24 for the verified 52-, 80-, and 84-byte records.
 enum SceneMdlPuppetRigReader {
     private struct VersionContract {
         let skeletonMarker: Data
@@ -73,6 +73,10 @@ enum SceneMdlPuppetRigReader {
             skeletonMarker: Data("MDLS0002\0".utf8),
             vertexStrides: [80, 84]
         ),
+        "MDLV0019": VersionContract(
+            skeletonMarker: Data("MDLS0002\0".utf8),
+            vertexStrides: [80]
+        ),
         "MDLV0023": VersionContract(
             skeletonMarker: Data("MDLS0004\0".utf8),
             vertexStrides: [80, 84]
@@ -80,9 +84,9 @@ enum SceneMdlPuppetRigReader {
     ]
     private static let markerSize = 9
     private static let matrixByteCount = 64
-    private static let maxBoneCount = 4_096
-    private static let maxNameBytes = 1_024
-    private static let maxMetadataBytes = 64 * 1_024
+    private static let maxBoneCount = 4096
+    private static let maxNameBytes = 1024
+    private static let maxMetadataBytes = 64 * 1024
     private static let maxAbsoluteMatrixValue: Float = 1_000_000
     private static let weightTolerance: Float = 0.0001
 
@@ -129,13 +133,13 @@ enum SceneMdlPuppetRigReader {
 
         var bones: [SceneMdlPuppetRig.Bone] = []
         bones.reserveCapacity(boneCount)
-        for boneIndex in 0..<boneCount {
+        for boneIndex in 0 ..< boneCount {
             guard let nameEnd = nullTerminator(
                 in: data,
                 from: cursor,
                 bound: endOffset,
                 maxBytes: maxNameBytes
-            ), String(data: data[cursor..<nameEnd], encoding: .utf8) != nil else {
+            ), String(data: data[cursor ..< nameEnd], encoding: .utf8) != nil else {
                 throw SceneMdlPuppetRigReadError.invalidBoneRecord(boneIndex)
             }
             cursor = nameEnd + 1
@@ -182,13 +186,15 @@ enum SceneMdlPuppetRigReader {
     ) throws -> [SceneMdlPuppetRig.VertexWeights] {
         let magic = mesh.version
         guard let contract = versionContracts[magic],
-              contract.vertexStrides.contains(mesh.vertexStride) else {
+              contract.vertexStrides.contains(mesh.vertexStride)
+        else {
             throw SceneMdlPuppetRigReadError.unsupportedVertexStride(mesh.vertexStride)
         }
         let vertexDataOffset = mesh.meshBlockOffset + 8
         let vertexDataEnd = vertexDataOffset + mesh.vertices.count * mesh.vertexStride
         guard vertexDataOffset >= markerSize,
-              vertexDataEnd <= skeletonOffset else {
+              vertexDataEnd <= skeletonOffset
+        else {
             throw SceneMdlPuppetRigReadError.vertexCountMismatch(
                 expected: mesh.vertices.count,
                 actual: 0
@@ -214,12 +220,13 @@ enum SceneMdlPuppetRigReader {
             )
             var sum: Float = 0
             var hasWeight = false
-            for influence in 0..<4 {
+            for influence in 0 ..< 4 {
                 let weight = weights[influence]
                 guard indices[influence] < UInt32(boneCount),
                       weight.isFinite,
                       weight >= 0,
-                      weight <= 1 + weightTolerance else {
+                      weight <= 1 + weightTolerance
+                else {
                     throw SceneMdlPuppetRigReadError.invalidVertexWeights(vertexIndex)
                 }
                 sum += weight
@@ -246,7 +253,7 @@ enum SceneMdlPuppetRigReader {
     ) throws -> [Float] {
         var values: [Float] = []
         values.reserveCapacity(16)
-        for component in 0..<16 {
+        for component in 0 ..< 16 {
             let value = readFloat(data, at: offset + component * 4)
             guard value.isFinite, abs(value) <= maxAbsoluteMatrixValue else {
                 throw SceneMdlPuppetRigReadError.invalidBindMatrix(boneIndex)
@@ -257,7 +264,8 @@ enum SceneMdlPuppetRigReader {
         guard abs(values[3]) <= epsilon,
               abs(values[7]) <= epsilon,
               abs(values[11]) <= epsilon,
-              abs(values[15] - 1) <= epsilon else {
+              abs(values[15] - 1) <= epsilon
+        else {
             throw SceneMdlPuppetRigReadError.invalidBindMatrix(boneIndex)
         }
         return values
@@ -271,13 +279,13 @@ enum SceneMdlPuppetRigReader {
     ) -> Int? {
         guard offset < bound else { return nil }
         let limit = min(bound, offset + maxBytes + 1)
-        return data[offset..<limit].firstIndex(of: 0)
+        return data[offset ..< limit].firstIndex(of: 0)
     }
 
     private static func readUInt32(_ data: Data, at offset: Int) -> UInt32 {
         var value: UInt32 = 0
         _ = withUnsafeMutableBytes(of: &value) { buffer in
-            data.copyBytes(to: buffer, from: offset..<(offset + 4))
+            data.copyBytes(to: buffer, from: offset ..< (offset + 4))
         }
         return UInt32(littleEndian: value)
     }

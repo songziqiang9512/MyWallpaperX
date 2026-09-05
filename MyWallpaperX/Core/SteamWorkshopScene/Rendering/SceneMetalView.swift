@@ -9,7 +9,9 @@ private struct SceneStartupReportBuffer {
         lines = enabled ? [] : nil
     }
 
-    var isEnabled: Bool { lines != nil }
+    var isEnabled: Bool {
+        lines != nil
+    }
 
     mutating func append(_ line: @autoclosure () -> String) {
         guard lines != nil else { return }
@@ -56,9 +58,9 @@ class SceneMetalView: NSView {
     var sceneScriptPointerEvents = SceneSurfacePointerEventBuffer()
     var parallaxPointerSmoother: SceneParallaxPointerSmoother
     var trackingArea: NSTrackingArea?
-#if DEBUG
-    let debugFrameCapture = SceneDebugFrameCapture()
-#endif
+    #if DEBUG
+        let debugFrameCapture = SceneDebugFrameCapture()
+    #endif
     init?(
         renderDescriptor: SceneRenderDescriptor, effectAdmissionCatalog: SceneEffectAdmissionCatalog,
         baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram = .empty,
@@ -76,13 +78,13 @@ class SceneMetalView: NSView {
             staticModelResources: staticModelResources,
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
-        self.metalDevice = renderer.device
+        metalDevice = renderer.device
         self.renderer = renderer
-        self.mediaThumbnailCoordinator = .init(
+        mediaThumbnailCoordinator = .init(
             program: baseMaterialProviderBindings, device: renderer.device
         )
-        self.solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
-        self.userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
+        solidLayerTexture = SceneSolidLayerTexture.make(device: renderer.device)
+        userPropertyTextureLoad = SceneUserPropertyTextureLoader().load(
             urlsByPropertyKey: userPropertyTextureURLs,
             requestedIdentities: resolvedMaterialRuntime.userPropertyDemands(
                 including: renderDescriptor.texturePropertyKeys
@@ -96,28 +98,33 @@ class SceneMetalView: NSView {
             resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs,
             sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs
         )
-#if DEBUG
-        debugFrameCapture.configure(layer)
-#endif
+        #if DEBUG
+            debugFrameCapture.configure(layer)
+        #endif
         layer.contentsGravity = .resizeAspect
         layer.frame = frame
         // Prime drawableSize so the very first render has a non-zero target.
         let initialScale = NSScreen.main?.backingScaleFactor ?? 1
         layer.contentsScale = initialScale
         layer.drawableSize = CGSize(width: frame.width * initialScale, height: frame.height * initialScale)
-        self.metalLayer = layer
-        self.offscreenTexturePool = SceneOffscreenTexturePool(device: metalDevice)
-        self.parallaxPointerSmoother = SceneParallaxPointerSmoother(
+        metalLayer = layer
+        offscreenTexturePool = SceneOffscreenTexturePool(device: metalDevice)
+        parallaxPointerSmoother = SceneParallaxPointerSmoother(
             delay: renderDescriptor.camera.parallaxDelay
         )
         super.init(frame: frame)
         self.layer = layer
-        self.wantsLayer = true
-        self.imagePipeline = imageLayerPipeline
+        wantsLayer = true
+        imagePipeline = imageLayerPipeline
     }
+
     @available(*, unavailable)
-    required init?(coder: NSCoder) { nil }
+    required init?(coder _: NSCoder) {
+        nil
+    }
+
     // MARK: - Texture loading and diagnostics
+
     func loadImageLayers(
         from cacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
@@ -138,7 +145,7 @@ class SceneMetalView: NSView {
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var staticPuppetRecompositions: [
-            ScenePuppetLayerLoad.StaticRecomposeIdentity: MTLTexture
+            ScenePuppetLayerLoad.StaticRecomposeIdentity: ScenePuppetLayerLoad.CachedSource
         ] = [:]
         var puppetRecomposeBytes = 0
         var preparedBaseImageHitCount = 0
@@ -189,7 +196,8 @@ class SceneMetalView: NSView {
                 device: metalDevice
             )
             if preparedBaseImages.deferredLayerIDs.contains(layer.id),
-               preparedBaseImage == nil {
+               preparedBaseImage == nil
+            {
                 deferredBaseImageURLs[layer.id] = url
                 report.append(
                     "layer \(layer.id) \"\(name)\":"
@@ -228,10 +236,11 @@ class SceneMetalView: NSView {
                 preparedBaseImageHitCount += 1
             }
             switch baseImage {
-            case .loaded(let baseLoad):
+            case let .loaded(baseLoad):
                 let texture = baseLoad.texture
                 var effectiveTexture = texture
                 var hasStaticPuppetRecomposition = false
+                var puppetCoverage: ScenePuppetMeshRecomposer.CoverageExtent?
                 var puppetMessage: String?
                 let staticPuppetIdentity = ScenePuppetLayerLoad.staticRecomposeIdentity(
                     for: layer,
@@ -241,29 +250,39 @@ class SceneMetalView: NSView {
                     loader: loader
                 )
                 if let staticPuppetIdentity,
-                   let cachedTexture = staticPuppetRecompositions[staticPuppetIdentity] {
-                    effectiveTexture = cachedTexture
+                   let cached = staticPuppetRecompositions[staticPuppetIdentity]
+                {
+                    effectiveTexture = cached.texture
+                    puppetCoverage = cached.coverage
                     hasStaticPuppetRecomposition = true
                     if report.isEnabled {
                         puppetMessage = "; puppet bind-pose source reused"
                     }
                 } else if let imagePipeline,
-                   let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
-                       for: layer,
-                       atlasTexture: texture,
-                       cacheDirectory: cacheDirectory,
-                       remainingByteBudget: ScenePuppetMeshRecomposer.recomposeByteBudget
-                           - puppetRecomposeBytes,
-                       device: metalDevice,
-                       commandQueue: renderer.commandQueue,
-                       pipeline: imagePipeline
-                   ) {
+                          let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
+                              for: layer,
+                              atlasTexture: texture,
+                              cacheDirectory: cacheDirectory,
+                              remainingByteBudget: ScenePuppetMeshRecomposer.recomposeByteBudget
+                                  - puppetRecomposeBytes,
+                              device: metalDevice,
+                              commandQueue: renderer.commandQueue,
+                              pipeline: imagePipeline
+                          )
+                {
                     if let recomposedTexture = puppetOutcome.texture {
                         effectiveTexture = recomposedTexture
+                        puppetCoverage = puppetOutcome.coverage
                         puppetRecomposeBytes += puppetOutcome.byteCost
                         if let staticPuppetIdentity,
-                           puppetOutcome.playback == nil {
-                            staticPuppetRecompositions[staticPuppetIdentity] = recomposedTexture
+                           puppetOutcome.playback == nil,
+                           let coverage = puppetOutcome.coverage
+                        {
+                            staticPuppetRecompositions[staticPuppetIdentity] =
+                                ScenePuppetLayerLoad.CachedSource(
+                                    texture: recomposedTexture,
+                                    coverage: coverage
+                                )
                             hasStaticPuppetRecomposition = true
                         }
                     }
@@ -274,10 +293,15 @@ class SceneMetalView: NSView {
                         puppetMessage = "; \(puppetOutcome.message)"
                     }
                 }
-                if hasStaticPuppetRecomposition {
-                    loaded.setStaticPuppetRecomposition(
+                if let puppetCoverage,
+                   hasStaticPuppetRecomposition
+                   || loadedPuppetPlaybackStates[layer.id] != nil
+                {
+                    loaded.setPuppetSource(
                         effectiveTexture,
-                        layerID: layer.id
+                        layerID: layer.id,
+                        logicalWidth: puppetCoverage.width,
+                        logicalHeight: puppetCoverage.height
                     )
                 } else {
                     loaded.set(
@@ -310,7 +334,7 @@ class SceneMetalView: NSView {
                     message += "; \(placementSummary)"
                     report.append(message)
                 }
-            case .failed(let failure):
+            case let .failed(failure):
                 if report.isEnabled {
                     var message = SceneBaseImageTextureLoad.failureReportLine(
                         failure,
@@ -427,12 +451,14 @@ class SceneMetalView: NSView {
         let frameContext = makeFrameContext(
             timing: timing, dynamicValues: dynamicValues,
             materialFunctionMutations: materialFunctionMutations,
-            parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum)
+            parallax: parallaxMouseNormalized, audioSpectrum: audioSpectrum
+        )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
         let particleBatches = advanceParticles(
             timing: timing, dynamicValues: dynamicValues,
-            frameContext: frameContext, cameraFrame: cameraFrame)
+            frameContext: frameContext, cameraFrame: cameraFrame
+        )
         dynamicTextTextures?.update(
             from: dynamicValues,
             dynamicLayers: layerTopology.dynamicLayers
@@ -447,11 +473,11 @@ class SceneMetalView: NSView {
             mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
             videoSources: videoTextureSources, timing: timing
         )
-#if DEBUG
-        let frameReadback = debugFrameCapture.encodeIfRequested
-#else
-        let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
-#endif
+        #if DEBUG
+            let frameReadback = debugFrameCapture.encodeIfRequested
+        #else
+            let frameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil
+        #endif
         if let frameStart, let drawableAcquired {
             performanceTelemetry?.recordPreparation(
                 drawableWait: drawableAcquired - frameStart,
@@ -494,5 +520,4 @@ class SceneMetalView: NSView {
         }
         return outcome
     }
-
 }

@@ -6,8 +6,7 @@ import Foundation
 /// This fact is deliberately source-structural. It never consults an effect,
 /// material, path, asset, or sample identity.
 nonisolated struct SceneAuthoredShaderSameSlotMappedCoordinateFact:
-    Hashable,
-    Sendable
+    Hashable
 {
     let textureSlot: Int
     let sourceAttributeName: String
@@ -59,9 +58,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         activeSamplerSlots: Set<Int>
     ) -> Set<SceneAuthoredShaderSameSlotMappedCoordinateFact> {
         guard let vertex = unit(source: vertexSource, stage: .vertex),
-              let fragment = unit(source: fragmentSource, stage: .fragment),
-              !hasAmbiguousControlFlow(vertex),
-              !hasAmbiguousControlFlow(fragment)
+              let fragment = unit(source: fragmentSource, stage: .fragment)
         else { return [] }
 
         return analyze(
@@ -76,8 +73,14 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         fragment: SceneAuthoredShaderSyntaxUnit,
         activeSamplerSlots: Set<Int>
     ) -> Set<SceneAuthoredShaderSameSlotMappedCoordinateFact> {
-        guard !hasAmbiguousControlFlow(vertex),
-              !hasAmbiguousControlFlow(fragment)
+        guard let vertexMain = single(vertex.functions, where: {
+            $0.name == "main"
+        }),
+            let fragmentMain = single(fragment.functions, where: {
+                $0.name == "main"
+            }),
+            !hasAmbiguousControlFlow(in: vertexMain, unit: vertex),
+            !hasAmbiguousControlFlow(in: fragmentMain, unit: fragment)
         else { return [] }
 
         return Set(activeSamplerSlots.compactMap { slot in
@@ -109,14 +112,14 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
                 && $0.name == resolutionName
                 && $0.arraySize == nil
         }) != nil,
-        single(fragment.declarations, where: {
-            $0.storage == .uniform
-                && $0.typeName == "sampler2D"
-                && $0.name == samplerName
-                && $0.arraySize == nil
-        }) != nil,
-        references(resolutionName, in: fragment).isEmpty,
-        references(samplerName, in: vertex).isEmpty
+            single(fragment.declarations, where: {
+                $0.storage == .uniform
+                    && $0.typeName == "sampler2D"
+                    && $0.name == samplerName
+                    && $0.arraySize == nil
+            }) != nil,
+            references(resolutionName, in: fragment).isEmpty,
+            references(samplerName, in: vertex).isEmpty
         else { return nil }
 
         let vertexStatements = statements(
@@ -191,7 +194,8 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         else { return nil }
 
         if attributeDeclaration(name: source.name, in: unit) != nil,
-           source.components == "xy" {
+           source.components == "xy"
+        {
             return Mapping(
                 attributeName: source.name,
                 varyingName: varying.name,
@@ -240,31 +244,31 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
                     varying,
                     components: components
                 ),
-                let horizontal = single(scales, where: {
-                    $0.varyingName == varying.name
-                        && $0.component == String(components.first!)
-                        && $0.axis == .horizontal
-                }),
-                let vertical = single(scales, where: {
-                    $0.varyingName == varying.name
-                        && $0.component == String(components.last!)
-                        && $0.axis == .vertical
-                }),
-                let copy = single(statements, where: {
-                    authoredCopy(
-                        statement: $0,
-                        varying: varying,
-                        unit: unit
-                    ).map {
-                        $0.copiedComponents.contains(components)
-                            && $0.range.upperBound <= min(
-                                horizontal.range.lowerBound,
-                                vertical.range.lowerBound
-                            )
-                    } == true
-                }).flatMap({
-                    authoredCopy(statement: $0, varying: varying, unit: unit)
-                })
+                    let horizontal = single(scales, where: {
+                        $0.varyingName == varying.name
+                            && $0.component == String(components.first!)
+                            && $0.axis == .horizontal
+                    }),
+                    let vertical = single(scales, where: {
+                        $0.varyingName == varying.name
+                            && $0.component == String(components.last!)
+                            && $0.axis == .vertical
+                    }),
+                    let copy = single(statements, where: {
+                        authoredCopy(
+                            statement: $0,
+                            varying: varying,
+                            unit: unit
+                        ).map {
+                            $0.copiedComponents.contains(components)
+                                && $0.range.upperBound <= min(
+                                    horizontal.range.lowerBound,
+                                    vertical.range.lowerBound
+                                )
+                        } == true
+                    }).flatMap({
+                        authoredCopy(statement: $0, varying: varying, unit: unit)
+                    })
                 else { continue }
 
                 results.append(.init(
@@ -347,7 +351,8 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
             ]
         } else if right.count == 3,
                   right[1] == ".",
-                  right[2] == "xy" {
+                  right[2] == "xy"
+        {
             attributeName = right[0]
             copiedComponents = [
                 left.components ?? (varying.typeName == "vec2" ? "xy" : ""),
@@ -356,7 +361,8 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
                   right[1] == ".",
                   right[2] == "xyxy",
                   left.components == nil,
-                  varying.typeName == "vec4" {
+                  varying.typeName == "vec4"
+        {
             attributeName = right[0]
             copiedComponents = ["xy", "zw"]
         } else {
@@ -464,7 +470,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
               )
         else { return nil }
 
-        let range = (samplerIndex - 2)..<(close + 1)
+        let range = (samplerIndex - 2) ..< (close + 1)
         guard main.bodyRange.contains(range.lowerBound),
               main.bodyRange.contains(range.upperBound - 1),
               let parsed = call(Array(unit.tokens[range]).map(\.text)),
@@ -533,11 +539,14 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         return swizzle.contains(where: target.contains)
     }
 
-    private static func hasAmbiguousControlFlow(_ unit: Unit) -> Bool {
-        let identifiers: Set<String> = [
+    private static func hasAmbiguousControlFlow(
+        in function: Unit.Function,
+        unit: Unit
+    ) -> Bool {
+        let identifiers: Set = [
             "if", "else", "for", "while", "do", "switch", "case", "default",
         ]
-        return unit.tokens.contains {
+        return unit.tokens[function.bodyRange].contains {
             ($0.kind == .identifier && identifiers.contains($0.text))
                 || $0.text == "?"
         }
@@ -610,7 +619,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         var depth = 0
         var start = 2
         var arguments: [[String]] = []
-        for index in 2..<(expression.count - 1) {
+        for index in 2 ..< (expression.count - 1) {
             switch expression[index] {
             case "(": depth += 1
             case ")":
@@ -618,13 +627,13 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
                 guard depth >= 0 else { return nil }
             case "," where depth == 0:
                 guard start < index else { return nil }
-                arguments.append(Array(expression[start..<index]))
+                arguments.append(Array(expression[start ..< index]))
                 start = index + 1
             default: break
             }
         }
         guard depth == 0, start < expression.count - 1 else { return nil }
-        arguments.append(Array(expression[start..<(expression.count - 1)]))
+        arguments.append(Array(expression[start ..< (expression.count - 1)]))
         return (expression[0], arguments)
     }
 
@@ -639,12 +648,12 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         var result: [Range<Int>] = []
         var start = body.lowerBound + 1
         var depth = 0
-        for index in (body.lowerBound + 1)..<(body.upperBound - 1) {
+        for index in (body.lowerBound + 1) ..< (body.upperBound - 1) {
             switch tokens[index].text {
             case "{": depth += 1
             case "}": depth -= 1
             case ";" where depth == 0:
-                result.append(start..<(index + 1))
+                result.append(start ..< (index + 1))
                 start = index + 1
             default: break
             }
@@ -678,7 +687,7 @@ nonisolated enum SceneAuthoredShaderSameSlotMappedCoordinateAnalyzer {
         tokens: [Token]
     ) -> Int? {
         var depth = 0
-        for index in open..<upperBound {
+        for index in open ..< upperBound {
             if tokens[index].text == "(" { depth += 1 }
             if tokens[index].text == ")" {
                 depth -= 1

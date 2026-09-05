@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-05
+> 最近核对：2026-09-06
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -21,6 +21,52 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+### 2026-09-06 Puppet mesh coverage + Water Waves mask UV owner
+
+用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同不变：`world = origin + mesh * authored scale`。官方 Introduction 把 image effect 限制在作者 mesh/padding，不是导入图 `size` 硬裁；第三方 Mirage 只交叉支持“mesh 在 layer transform 下提交、不按导入框 contain”的职责顺序，不是可复制实现。现役 bake+compositor 因此发布 origin 居中 coverage（作者 size∪bind-pose）给唯一 compositor/effect capture，映射为 `vertex / coverage`。`3264246690` layer 389 的逻辑高度从作者 `2000` 扩到覆盖 bind-pose `|y|=1609.5`；框内样本（`3787382101` layer 28）保持作者 `5600×2400`。
+
+`3787382101` 的两张 Water Waves mask 是 `1400×600` R8，与作者画幅同宽高比。stock vert 无条件 include 的 helper `if` 不再让 same-slot mapped UV owner 失效。presence-combo 仍缓存 on/off 两套 Program。同日前一版签名 2/2 PASS 与“头/手齐全、不再整图细波纹”已被用户眼睛证伪，不能再当当前视觉事实。
+
+这属于 `S2 mapping/UV-owner contract correction`，在新的隔离运行之前不升级为 `S4`。不证明官方像素 parity、头发运动数值、149 corpus 或完整 Water Waves family。
+
+### 2026-09-06 用户截图复核（当前裁决）
+
+最新隔离运行的报告为 `/private/tmp/mwx-visible-final.FDfcLr/report.json`：`3787382101` 的 loaded texture ratio 为 `1.0`，`3264246690` 为 `0.9412`；两者的运行报告均为 benchmark `PASS`，但这只证明资源加载、帧提交、GPU completion 与 compositor 安全门通过。对应截图为 `results/3787382101/scene-after-window.png`、`results/3787382101/scene-ready-window.png`、`results/3264246690/scene-after-window.png` 和 `results/3264246690/scene-ready-window.png`。
+
+截图验收否决了“构图完整”的旧结论：`3264246690` layer 389 的人物左侧手肘仍有明显三角缺角；`3787382101` 的 Water Waves 仍表现为人物全身受到波纹扭曲。该样本的 15/15 resolved-material asset demands 已 ready，且 Water Waves mask 已进入 generic admission，但目前没有局部 ROI 或像素证据证明位移被限制在作者 mask 内。因此这两个问题暂停修复并登记为未闭合视觉债务；不得把 benchmark `PASS`、资源 ready 或整链 completion 写成视觉修复完成。
+
+### 2026-09-06 Puppet frame 溢出适配 + MDLV0019 版本族
+
+两个真实用户报告的 Puppet 几何首断点闭合，均不新增 renderer/registry/compositor owner：
+
+- **`3264246690` 缺头/肘**：该样本 layer 389 的 bind-pose mesh（1968×2589.5）超出作者导入图（3658×2000）。后继已废止按 AABB 中心收缩和 origin-pivot `contentFit`；当前合同见上行 origin 居中 coverage。最新隔离截图仍显示人物左侧手肘三角缺角，故几何视觉问题未解决。
+- **`3238423642` 纹理错位**：katanabody 是 MDLV0019 + MDLS0002 + MDLA0005，此前 reader 失败关闭回退 raw atlas 散件。逐字节验证真实资产后新增该 version pair：mesh stride 80（position/UV 偏移同 0017/0023）、MDLS0002 骨架、MDLA0005 trailer 为 34 字节全零（无 auxiliary），其他形状失败关闭。
+
+当前签名 Developer ID Debug App（CDHash `42c74c2c70ca6bdd3e1dcf23ea759de63e5b11c8`、executable SHA-256 `927d1eeb24e22fdb...`）隔离运行，report SHA-256 `40a4ca45ff3ff1d67cd3414daec24bcaf0f8a86cc0a34c48852b7361407e7a8f`：`3238423642` 严格 1/1 PASS、84/83/0 帧、4 个 katanabody 层与 butterfly 全部从 atlas 散件恢复为组装人物。`3264246690` 该次运行的尺寸结论已被后继合同取代。回归门（report SHA-256 `3c97a2589677f2aef63360636f8a73eefc387622ecbd59c6e2d9263e5005cb44`）：`3769688830` 7 层/17 clip 不变（仅既有陈旧 effect 计数 NON-PASS）、`2998757800` PASS、`3747492842` 的 6 个单 clip 不变（其 Simple Audio Bars visual-failure-passthrough 为既有 effect 债务，与本批无关）。
+
+这属于 `S4 MDLV0019 geometry recovery + regression safety`；不证明 frame/mesh 的官方精确对齐数值、非 1 blend、attachment follow、149 corpus 或官方 parity。
+
+### 2026-09-06 当前三样本 Puppet 资源发布与整链回归
+
+使用包含当前 fail-closed 边界修正的签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `e3f5f4f9bbb1106eb48ba57607b62518132064f8`、executable SHA-256 `8ca852e77fb1195e83b8b6feba8f041fbe24441b6468329199908e893fa74679`）对隔离三样本矩阵运行：首轮 report SHA-256 `7c997e63d63808486bec3dcb67fa4095dbf5fcf5e6cd1bb011bbfe07d3ba159d` 中 `3787382101` 与 `3264246690` 通过；`3748311238` 因一次 benchmark 进程 `SIGTERM` 缺失 ready/runtime 事件而未形成结果，随后以相同 binary 单独重跑 report SHA-256 `7c8fd298cbad58a00896fb38e776432ed389593488cb54400f01a56ed52667a0` 并通过：
+
+- `3787382101`：loaded texture ratio `1.0`，Puppet layers `[25,28]` 均为 `single-absolute`，58/57/0 submitted/completed/failed，0 drawable miss，driver `29.087 FPS`；ready/after 的执行链安全，但截图视觉验收仍显示 Water Waves 影响人物全身。
+- `3748311238`：loaded texture ratio `1.0`，layer `728` 为 `layered ids=124,770 clips=2`，79/78/0 submitted/completed/failed，0 drawable miss，driver `43.311 FPS`；ready/after 构图完整。
+- `3264246690`：loaded texture ratio `0.9412`，layer `389` 为 `layered ids=494,319,483 clips=3`，53/52/0 submitted/completed/failed，0 drawable miss，driver `29.057 FPS`；ready/after 的执行链安全，但截图仍显示人物左侧手肘缺角。该样本的 `0.9412` 来自六个 authored effect capability rejection，不是 Puppet atlas publication failure。
+
+三例的纹理候选均完成资源加载与 publication；此前的第一个错误在公共 Puppet target/animation admission：`3787382101` 的 5600×2400、`3748311238` 的 5000×2200 因物理 target 4096 上限拒绝重组，`3264246690` 的 additive 494/319/483 因旧 bind-pose/不重叠合同回退静态姿态。当前 `ScenePuppetMeshRecomposer.targetDimensions` 在 4096 与 128 MiB load-time budget 内保持 authored aspect ratio，`ScenePuppetAnimationEvaluator` 在同一 playback/publication/compositor 链中按作者顺序执行 layered base/delta 与 interval sampling；资源 identity、generation/publication、GPU completion、唯一 compositor 与 next-frame 均闭合。该证据只证明三样本公共 Puppet 执行与输出安全；后继截图复核已否决 `3787382101` 的 Water Waves 局部视觉与 `3264246690` 的肘部构图，不得升级为 `S4` 视觉修复完成，也不证明完整 effect family、149 corpus、官方逐帧 parity 或性能完成。
+
+### 2026-09-06 Puppet layered 组合与 loop/mirror/single interval 采样
+
+`ScenePuppetAnimationSelector` 不再拒绝 mixed/overlapping 组合：可见 clip 按作者顺序进入 `layered` 组合，逐 bone 由首个可见 opaque clip 提供 base pose（无 opaque 时首个可见 additive clip 提升为 base anchor），其余 additive clip 以各自 frame-0 为 reference 叠加 TRS delta；MDLA reader 保留 loop/mirror/single 三种 authored mode，evaluator 以 source-FPS interval（frameA/frameB/fraction）采样并插值，mirror 保留 authored 末端 pose，single 停在末端 interval。重复 animation id、越界 frame、不可分解 transform 与畸形数据继续失败关闭；显式非 1 blend 与 blend-in/out 仍在 bounded profile 之外。普通帧只消费 launch 期准备的 poses/reference/driven 集，不新增 parser、clock、registry 或 compositor owner。
+
+当前签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `3564c57c3748a3fd0d6a5c2d5e62dc8607469627`、executable SHA-256 `1805c1975174f845f0551def30d9dbdb846d2337cdb3f09c8d9ca3b9c27b43a5`）对隔离双样本临时矩阵运行，report SHA-256 `f809162d8849a7cd404605ee9b75d46aec2c19752035eb0fa6950f0f941d75fe`：
+
+- 真实 `3264246690` 的 layer 389「1拆分」由此前 additive 494/319/483 整层回退静态姿态恢复为 `puppet animation OK MDLV0023 mode=layered ids=494,319,483 clips=3 verts=9018 tris=17387 → 3658×2000`；严格 1/1 PASS，133/132/0 submitted/completed/failed、0 drawable miss、driver `26.616 FPS`、pre-encode p95 `0.126 ms`，ready/after 能证明 layered 动画执行与头发/丝带区域姿态变化，但不能证明构图完整；后继截图仍显示人物左侧手肘缺角。
+- 真实 `3769688830` 回归：7 个预期 Puppet layer 全部播放（`[21,44,50,53,56,59]` 为 layered、`157` 保持 single-absolute）、17 clips，72/71/0 submitted/completed/failed、0 drawable miss、driver `14.499 FPS`；该样本正式 selection 仍因 19 项本批外陈旧 effect 计数期待严格 NON-PASS，puppet 三门（layer IDs/layered IDs/clip count）全部通过。
+
+这属于 `S4 one real layered puppet animation recovery + one real regression`；不证明官方逐帧数值 parity、非 1 blend、attachment follow、完整样本、149 corpus 或性能完成（两样本 startup 约 13.9/14.4 s 与 3769688830 的 CPU frame p95 `56.856 ms` 仍是既有债务）。benchmark 门禁键由 `expected_puppet_disjoint_additive_layer_ids` 更名为 `expected_puppet_layered_layer_ids`（mode=`layered`），`scene_wallpaper_sample_matrix.json` 的 base digest 已重钉。
 
 ### 2026-09-05 V4 particle child template selection index
 

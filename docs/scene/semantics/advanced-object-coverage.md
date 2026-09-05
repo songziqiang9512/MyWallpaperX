@@ -103,14 +103,15 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 - 受限执行边界：只解析已验证的 `MDLV0023 + MDLS0004 + MDAT0001` 形状；marker/bounds/count/parent/bone/name/affine matrix 任一非法时整组 fail closed。child 没有合法 parent、parent model 没有同名 attachment 或 frame 非 16 个有限 float 时保留普通 parent transform，并以 `attachment=<name>:unavailable` 诊断；没有样本 ID 特判。
 - 验收：隔离 `3769688830` 定向门中 ahriarm 从画面最右回到肩部、ahriorb 回到右上挂点；三个 attachment 进入 interpretation。当前不可执行的 `Water droplets` 只保留 bind IR，不伪装成已渲染；动画播放器也没有把静态 attachment 升级为动态 follow。
 
-**MDLA 动画（`f1ee79b` 严格单 clip；`0892e74b` bounded additive 子集）**
+**MDLA 动画（`f1ee79b` 严格单 clip；2026-09-06 layered 组合与 loop/mirror/single interval 采样）**
 
 - v25 保存 animation layer 的 id/clip/additive/blend/blend-in/out/time/rate/static-or-bound visibility；缺失或畸形可选数值返回 `nil`，不会递归崩溃。
-- loader 只对已验证的 MDLV0016/MDLS0002/MDLA0003、MDLV0017/MDLS0002/MDLA0004 或 MDLV0023/MDLS0004/MDLA0006 version pair 建立 persistent target 与三份 persistent vertex buffer；每帧 CPU 求 source-FPS 离散 LBS，并在正常 frame command buffer 中先更新 target、再供 compositor 采样，没有 per-frame `waitUntilCompleted`。静态0016重组可按exact mesh source、atlas identity和作者尺寸复用；animated target不复用。
-- bounded additive selector 要求全部 clip 为 additive、首帧逐 bone 与 bind pose 最大差值不超过 `0.001`，用相对首帧 `0.0001` 阈值识别 driven bones，并要求集合两两不相交；激活 clip 对自己 driven bones 提供完整 local TRS，其余骨骼保留 bind。重叠、重复 animation、非 bind reference 或 mixed opaque/additive 整层回退 bind pose。
+- loader 只对已验证的 MDLV0016/MDLS0002/MDLA0003、MDLV0017/MDLS0002/MDLA0004、MDLV0019/MDLS0002/MDLA0005 或 MDLV0023/MDLS0004/MDLA0006 version pair 建立 persistent target 与三份 persistent vertex buffer；每帧 CPU 求 source-FPS LBS，并在正常 frame command buffer 中先更新 target、再供 compositor 采样，没有 per-frame `waitUntilCompleted`。静态0016重组可按exact mesh source、atlas identity和作者尺寸复用；animated target不复用。MDLA0005 的 trailer 是 34 字节全零（无 auxiliary track），其他形状失败关闭。
+- compositor/effect 消费 origin 居中、覆盖作者 `size`∪bind-pose 的 coverage，再乘作者/父级 `scale`。recompose/playback 共用 `position = mesh / coverage`，世界顶点保持 `origin + mesh * authored scale`。框内 mesh 保持作者 size；溢出只把该轴的半幅扩到 `max(|vertex|)`，不绕 origin 或 AABB 中心缩小。真实 `3264246690` layer 389 的世界尺度仍由作者 scale 决定，但最新截图仍显示人物左侧手肘缺角；coverage 只证明几何范围计算已执行，不证明最终肘部轮廓正确。
+- layered selector 保留完整作者顺序：逐 bone 由首个可见 opaque clip 提供 base pose（无 opaque 时首个可见 additive clip 提升为 base anchor），其余 additive clip 以各自 frame-0 为 reference 叠加 TRS delta；重叠 bone 与非 bind reference 合法，重复 animation id、越界 frame 或不可分解 transform 仍失败关闭。MDLA 的 loop/mirror/single 三种 authored mode 都进入 IR；frame 是相邻两个 authored pose 的 interval，采样携带 fraction 做 TRS/slerp 插值，mirror 保留 authored 末端 pose 与方向，single 停在末端 interval。显式非 1 blend、blend-in/out 仍在 bounded profile 之外。
 - `animationlayers[].visible` 的 property binding 编译为稳定 `(layerID, animationLayerID)` typed bool target；每帧 snapshot 缺失或类型错误时该 clip 不激活，不执行任意 SceneScript。
-- `3747492842` 继续证明严格单 clip；`3769688830` 定向门证明 7 个 Puppet layers / 17 clips，其中 6 个 disjoint-additive layers 实际播放。旧 fixed13/full45 中该样本的 bind-pose 回退结论只属于 `0892e74b` 前历史基线，本批未重跑两门。
-- 旧 v24 同样本对照仍有 effect 运动，因此 whole-frame 增量只是方向性证据。没有 Windows WE golden 时，不把当前离散采样、矩阵或 LBS 写成 `L4`，也不宣称 interpolation、冲突 mixing/权重或 attachment follow。
+- `3747492842` 继续证明严格单 clip；`3769688830` 定向门证明 7 个 Puppet layers / 17 clips，其中 6 个 layered layers 实际播放；`3264246690` 的 layer 389 以 `mode=layered ids=494,319,483 clips=3` 从静态回退恢复为可见动画，但最新截图仍有肘部缺角，视觉验收未闭合。旧 fixed13/full45 中该样本的 bind-pose 回退结论只属于 `0892e74b` 前历史基线，本批未重跑两门。
+- 旧 v24 同样本对照仍有 effect 运动，因此 whole-frame 增量只是方向性证据。没有 Windows WE golden 时，不把当前 interval 采样、矩阵或 LBS 写成 `L4`，也不宣称冲突 mixing 的官方权重语义或 attachment follow。
 
 ## 4. 3D Models 官方页面覆盖（8）
 

@@ -1,21 +1,68 @@
 import Metal
 import simd
 
-// One-shot GPU recomposition of a puppet layer's atlas texture into its
-// bind-pose layout. Puppet models pack body parts into a UV atlas; drawing
-// the raw atlas as a quad scatters those parts. This pass replays the mesh
-// (position + UV + triangle indices) once into an offscreen texture sized to
-// the authored layer, producing the static bind-pose image every downstream
-// consumer (masks, effects, blends) can keep treating as a plain layer source.
-//
-// Warp animation, skeleton playback, and attachment transforms are NOT
-// implemented here; the output is the bind pose only.
+/// One-shot GPU recomposition of a puppet layer's atlas texture into its
+/// bind-pose layout. Puppet models pack body parts into a UV atlas; drawing
+/// the raw atlas as a quad scatters those parts. This pass replays the mesh
+/// (position + UV + triangle indices) once into an offscreen texture sized to
+/// the origin-centered mesh coverage, producing the static bind-pose image
+/// every downstream consumer (masks, effects, blends) can keep treating as a
+/// plain layer source.
+///
+/// Warp animation, skeleton playback, and attachment transforms are NOT
+/// implemented here; the output is the bind pose only.
 enum ScenePuppetMeshRecomposer {
     struct Output {
         let texture: MTLTexture
         let byteCost: Int
         let vertexCount: Int
         let triangleCount: Int
+        let coverage: CoverageExtent
+    }
+
+    /// Origin-centered box that covers the authored layer size and the
+    /// bind-pose mesh. Official puppet effects are limited to the authored
+    /// mesh/padding area; baking into the imported image size clips limbs
+    /// that leave that box. World vertices stay
+    /// `origin + mesh * authored scale` because the compositor quad uses
+    /// this extent and mapping is `position = mesh / extent`.
+    struct CoverageExtent: Equatable {
+        let width: Float
+        let height: Float
+    }
+
+    static func coverageExtent(
+        mesh: SceneMdlPuppetMesh,
+        layerWidth: Float,
+        layerHeight: Float,
+        additionalPositions: [SIMD2<Float>] = []
+    ) -> CoverageExtent? {
+        guard layerWidth.isFinite, layerHeight.isFinite,
+              layerWidth >= 1, layerHeight >= 1
+        else {
+            return nil
+        }
+        var half = SIMD2(layerWidth * 0.5, layerHeight * 0.5)
+        for vertex in mesh.vertices {
+            let x = abs(vertex.x)
+            let y = abs(vertex.y)
+            guard x.isFinite, y.isFinite else { return nil }
+            half.x = max(half.x, x)
+            half.y = max(half.y, y)
+        }
+        for position in additionalPositions {
+            let x = abs(position.x)
+            let y = abs(position.y)
+            guard x.isFinite, y.isFinite else { return nil }
+            half.x = max(half.x, x)
+            half.y = max(half.y, y)
+        }
+        let width = half.x * 2
+        let height = half.y * 2
+        guard width.isFinite, height.isFinite, width >= 1, height >= 1 else {
+            return nil
+        }
+        return CoverageExtent(width: width, height: height)
     }
 
     enum Failure: Error, CustomStringConvertible {
@@ -29,9 +76,9 @@ enum ScenePuppetMeshRecomposer {
             switch self {
             case .degenerateLayerSize:
                 return "degenerate layer size"
-            case .textureTooLarge(let width, let height):
+            case let .textureTooLarge(width, height):
                 return "recompose target \(width)x\(height) exceeds limit"
-            case .budgetExceeded(let requested, let remaining):
+            case let .budgetExceeded(requested, remaining):
                 return "recompose cost \(requested) B exceeds remaining budget \(remaining) B"
             case .resourceAllocationFailed:
                 return "Metal resource allocation failed"
@@ -42,8 +89,8 @@ enum ScenePuppetMeshRecomposer {
     }
 
     static let maxTextureDimension = 4096
-    // Independent from the per-frame offscreen pool: bind-pose recomposition
-    // happens once per load and the results are retained like layer sources.
+    /// Independent from the per-frame offscreen pool: bind-pose recomposition
+    /// happens once per load and the results are retained like layer sources.
     static let recomposeByteBudget = 128 * 1024 * 1024
 
     /// Match the texture loader's dimension ceiling without changing the
@@ -81,17 +128,20 @@ enum ScenePuppetMeshRecomposer {
         commandQueue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline
     ) -> Result<Output, Failure> {
-        guard layerWidth.isFinite, layerHeight.isFinite,
-              layerWidth >= 1, layerHeight >= 1 else {
-            return .failure(.degenerateLayerSize)
-        }
-        guard let dimensions = targetDimensions(
+        guard let coverage = coverageExtent(
+            mesh: mesh,
             layerWidth: layerWidth,
             layerHeight: layerHeight
         ) else {
+            return .failure(.degenerateLayerSize)
+        }
+        guard let dimensions = targetDimensions(
+            layerWidth: coverage.width,
+            layerHeight: coverage.height
+        ) else {
             return .failure(.textureTooLarge(
-                width: Int(layerWidth.rounded()),
-                height: Int(layerHeight.rounded())
+                width: Int(coverage.width.rounded()),
+                height: Int(coverage.height.rounded())
             ))
         }
         let width = dimensions.width
@@ -105,7 +155,7 @@ enum ScenePuppetMeshRecomposer {
         vertices.reserveCapacity(mesh.vertices.count)
         for vertex in mesh.vertices {
             vertices.append(SceneQuadVertex(
-                position: SIMD2(vertex.x / layerWidth, vertex.y / layerHeight),
+                position: SIMD2(vertex.x / coverage.width, vertex.y / coverage.height),
                 texcoord: SIMD2(vertex.u, vertex.v)
             ))
         }
@@ -125,7 +175,8 @@ enum ScenePuppetMeshRecomposer {
                   bytes: &indices,
                   length: indices.count * MemoryLayout<UInt16>.stride
               ),
-              let commandBuffer = commandQueue.makeCommandBuffer() else {
+              let commandBuffer = commandQueue.makeCommandBuffer()
+        else {
             return .failure(.resourceAllocationFailed)
         }
 
@@ -149,7 +200,7 @@ enum ScenePuppetMeshRecomposer {
             length: MemoryLayout<SceneLayerFragmentUniforms>.size,
             index: 0
         )
-        for slot in 0...5 {
+        for slot in 0 ... 5 {
             encoder.setFragmentTexture(atlasTexture, index: slot)
         }
         encoder.drawIndexedPrimitives(
@@ -169,7 +220,8 @@ enum ScenePuppetMeshRecomposer {
             texture: target,
             byteCost: byteCost,
             vertexCount: mesh.vertices.count,
-            triangleCount: mesh.triangleCount
+            triangleCount: mesh.triangleCount,
+            coverage: coverage
         ))
     }
 }

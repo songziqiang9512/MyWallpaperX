@@ -1,14 +1,14 @@
 import Foundation
 
-// Bind-pose mesh extracted from a Wallpaper Engine puppet `.mdl` file.
-//
-// Contract provenance: the MDLV block layout (versioned magic, first "MDLS"
-// offset as the mesh search bound, a `u32 vertexBytes` header followed by
-// tightly packed vertices, then `u32 indexBytes` and uint16 triangle indices,
-// position at vertex offset 0 and UV in the trailing 8 bytes) matches the
-// auditable third-party player interpretation and was cross-checked against
-// real Workshop puppet assets. It is NOT an official public format contract;
-// anything outside the verified shape fails closed.
+/// Bind-pose mesh extracted from a Wallpaper Engine puppet `.mdl` file.
+///
+/// Contract provenance: the MDLV block layout (versioned magic, first "MDLS"
+/// offset as the mesh search bound, a `u32 vertexBytes` header followed by
+/// tightly packed vertices, then `u32 indexBytes` and uint16 triangle indices,
+/// position at vertex offset 0 and UV in the trailing 8 bytes) matches the
+/// auditable third-party player interpretation and was cross-checked against
+/// real Workshop puppet assets. It is NOT an official public format contract;
+/// anything outside the verified shape fails closed.
 struct SceneMdlPuppetMesh {
     struct Vertex {
         let x: Float
@@ -24,10 +24,12 @@ struct SceneMdlPuppetMesh {
     let vertices: [Vertex]
     let indices: [UInt16]
 
-    nonisolated var triangleCount: Int { indices.count / 3 }
+    nonisolated var triangleCount: Int {
+        indices.count / 3
+    }
 }
 
-enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable, Sendable {
+enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable {
     case fileTooSmall
     case unsupportedMagic(String)
     case meshBlockNotFound
@@ -38,25 +40,26 @@ enum SceneMdlPuppetMeshReadError: Error, CustomStringConvertible, Equatable, Sen
         switch self {
         case .fileTooSmall:
             return "puppet mdl smaller than header"
-        case .unsupportedMagic(let magic):
+        case let .unsupportedMagic(magic):
             return "unsupported puppet mdl magic \(magic)"
         case .meshBlockNotFound:
             return "no strict bind-pose mesh block found"
-        case .nonFiniteVertexData(let vertexIndex):
+        case let .nonFiniteVertexData(vertexIndex):
             return "non-finite vertex data at index \(vertexIndex)"
-        case .vertexDataOutOfRange(let vertexIndex):
+        case let .vertexDataOutOfRange(vertexIndex):
             return "vertex data out of accepted range at index \(vertexIndex)"
         }
     }
 }
 
-// Parses the single bind-pose mesh block out of a puppet `.mdl`. Skeleton
-// ("MDLS"), animation ("MDLA") and attachment ("MDAT") blocks are read-only
-// bounds here; this reader never interprets them.
+/// Parses the single bind-pose mesh block out of a puppet `.mdl`. Skeleton
+/// ("MDLS"), animation ("MDLA") and attachment ("MDAT") blocks are read-only
+/// bounds here; this reader never interprets them.
 enum SceneMdlPuppetMeshReader {
     private static let vertexStridesByMagic = [
         "MDLV0016": [52],
         "MDLV0017": [80, 84],
+        "MDLV0019": [80],
         "MDLV0021": [80, 84],
         "MDLV0023": [80, 84],
     ]
@@ -112,7 +115,7 @@ enum SceneMdlPuppetMeshReader {
         vertexStrides: [Int]
     ) -> MeshBlock? {
         guard bound > markerSize + meshHeaderSize + 4 else { return nil }
-        for offset in markerSize..<(bound - meshHeaderSize - 4) {
+        for offset in markerSize ..< (bound - meshHeaderSize - 4) {
             let vertexBytes = Int(readUInt32(data, at: offset + 4))
             guard vertexBytes > 0 else { continue }
             let verticesOffset = offset + meshHeaderSize
@@ -154,7 +157,7 @@ enum SceneMdlPuppetMeshReader {
         var vertices: [SceneMdlPuppetMesh.Vertex] = []
         vertices.reserveCapacity(block.vertexCount)
         let uvOffset = block.stride - 8
-        for index in 0..<block.vertexCount {
+        for index in 0 ..< block.vertexCount {
             let base = block.vertexBytesOffset + index * block.stride
             let x = readFloat(data, at: base)
             let y = readFloat(data, at: base + 4)
@@ -168,14 +171,15 @@ enum SceneMdlPuppetMeshReader {
                   abs(y) <= maxAbsolutePosition,
                   abs(z) <= maxAbsolutePosition,
                   abs(u) <= maxAbsoluteUV,
-                  abs(v) <= maxAbsoluteUV else {
+                  abs(v) <= maxAbsoluteUV
+            else {
                 throw SceneMdlPuppetMeshReadError.vertexDataOutOfRange(vertexIndex: index)
             }
             vertices.append(.init(x: x, y: y, z: z, u: u, v: v))
         }
         var indices: [UInt16] = []
         indices.reserveCapacity(block.indexCount)
-        for index in 0..<block.indexCount {
+        for index in 0 ..< block.indexCount {
             indices.append(readUInt16(data, at: block.indexBytesOffset + index * 2))
         }
         return SceneMdlPuppetMesh(
@@ -191,7 +195,7 @@ enum SceneMdlPuppetMeshReader {
         guard let range = data.range(
             of: Data(marker.utf8),
             options: [],
-            in: markerSize..<data.count
+            in: markerSize ..< data.count
         ) else { return nil }
         return range.lowerBound
     }
@@ -199,7 +203,7 @@ enum SceneMdlPuppetMeshReader {
     private static func maxUInt16(_ data: Data, at offset: Int, count: Int) -> UInt16? {
         guard count > 0, offset + count * 2 <= data.count else { return nil }
         var maxValue: UInt16 = 0
-        for index in 0..<count {
+        for index in 0 ..< count {
             maxValue = max(maxValue, readUInt16(data, at: offset + index * 2))
         }
         return maxValue
@@ -208,7 +212,7 @@ enum SceneMdlPuppetMeshReader {
     private static func readUInt32(_ data: Data, at offset: Int) -> UInt32 {
         var value: UInt32 = 0
         _ = withUnsafeMutableBytes(of: &value) { buffer in
-            data.copyBytes(to: buffer, from: offset..<(offset + 4))
+            data.copyBytes(to: buffer, from: offset ..< (offset + 4))
         }
         return UInt32(littleEndian: value)
     }
@@ -216,7 +220,7 @@ enum SceneMdlPuppetMeshReader {
     private static func readUInt16(_ data: Data, at offset: Int) -> UInt16 {
         var value: UInt16 = 0
         _ = withUnsafeMutableBytes(of: &value) { buffer in
-            data.copyBytes(to: buffer, from: offset..<(offset + 2))
+            data.copyBytes(to: buffer, from: offset ..< (offset + 2))
         }
         return UInt16(littleEndian: value)
     }
