@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-05 V4 particle child template selection index
+
+`SceneParticleChildRuntime` 在 launch 期间缓存按 template index 和 `(trigger, depth, parentAssetPath)` 的稳定索引；普通帧的 child spawn/follow、pointer control-point 与 nested-parent lookup 复用该索引，未新增 particle/provider/clock/graph/compositor owner。修改后的 Developer ID Debug App 对隔离真实 `3396722575` representative matrix 严格 `1/1 PASS`，22/21/0 submitted/completed/failed、0 drawable miss、driver `8.009 FPS`、pre-encode p95 `63.211 ms`、CPU p95 `59.569 ms`、GPU p95 `14.612 ms`，ready/after 非黑，motion mean delta `0.04187`。这是一次 S3 executable shared hot-path correction + S4 whole-composition safety evidence；不证明稳定性能收益、流畅度、全部粒子、149 corpus、SceneClock/particle frame atomicity 或官方 parity。
+
 > 下表 Pulse combined RGB + scalar-alpha 行中的“exact”在隔离终审后精确限定为 canonical `BLENDMODE=9` helper、左右RGB multiplier、同一factor与auxiliary→factor依赖均在source/MSL两侧守恒；其他mode或自定义同签名helper不在该owner cohort。
 
 | 证据面 | 当前结论 | 严格边界 |
@@ -455,4 +459,3 @@
 - 目标合同与共享实现：SceneScript 的 `update(value)` 输入是该 target 的当前已发布值；authored descriptor 只作为初始 seed。`SceneSurfaceEvaluationTransaction` 以 target-scoped read-only projection 暴露上一帧 snapshot，`SceneDesktopWallpaperHost+FrameDriver` 仅为已绑定的 typed vector/scalar/String owner 回填该值；同帧 user/timeline producer 继续覆盖，结果仍由现有 dynamic snapshot、MaterialProgram、GraphExecutor 和唯一 compositor 消费。没有新增 property registry、clock、renderer 或旁路输出链。
 - fresh 真实结果：隔离真实 `2974757317` 的 `浮窗背景`、`音乐封面` 及其文字/附属层不再每帧从 authored origin 只走第一步，卡片由顶部冻结恢复为中心组合；ready/after 截图均非黑。签名 Debug App `com.songziqiang.MyWallpaperX` (bundle 277) executable SHA-256 `33da9954d3185dccf80ce3e4bb78f623268dafc09afae4986526f319d468426b`，report SHA-256 `7bdbddc6e931d63583ab4c5acb586d0a1525e3a4629138526fc3e6a0b24211b8`，ready/after SHA-256 `8ed7bab3659f737c03592cc91add09d128cc684923036ddeed6a83bf14d38a55` / `7ce7947f523444a18e3dc1b576f1823aa8ed7f38e26dc29481b8e654dc4a395f`。
 - 证据边界：benchmark 报告严格 `0/1 NON-PASS`，失败来自陈旧 matrix/静态期待，不能把它写成整样本 PASS；driver `13.306 FPS`、startup ready `11601.32 ms` 仍是未解决性能事实。此项只到 `S4 one real stateful SceneScript composition correction`，不推进 V4 阶段指针，也不证明完整 cursor/click、全部 SceneScript API、149 corpus 或官方 parity。
-
