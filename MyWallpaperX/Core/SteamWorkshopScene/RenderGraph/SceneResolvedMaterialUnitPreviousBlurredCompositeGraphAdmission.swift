@@ -57,11 +57,26 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
         }
         guard resolutions.allSatisfy(\.isResolved) else { return false }
         let materials = resolutions.compactMap(\.node)
+        let shaderNamespace = blurShaderNamespace(
+            forDefinition: effect.definitionPath
+        )
         guard materials.count == 4,
-              shader(materials[0], is: "effects/blur_downsample4"),
-              shader(materials[1], is: "effects/blur_gaussian"),
-              shader(materials[2], is: "effects/blur_gaussian"),
-              shader(materials[3], is: "effects/blur_combine"),
+              shader(
+                  materials[0], is: "effects/blur_downsample4",
+                  namespace: shaderNamespace
+              ),
+              shader(
+                  materials[1], is: "effects/blur_gaussian",
+                  namespace: shaderNamespace
+              ),
+              shader(
+                  materials[2], is: "effects/blur_gaussian",
+                  namespace: shaderNamespace
+              ),
+              shader(
+                  materials[3], is: "effects/blur_combine",
+                  namespace: shaderNamespace
+              ),
               materials.allSatisfy({ supportedState($0.renderState) }),
               supportedDownsample(materials[0], source: effect.input),
               supportedGaussian(materials[1], source: quarterA, vertical: false),
@@ -235,9 +250,29 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
 
     private static func shader(
         _ material: SceneResolvedMaterialNode,
-        is expected: String
+        is expected: String,
+        namespace: String?
     ) -> Bool {
-        normalizedPath(material.shaderPath) == expected
+        let actual = normalizedPath(material.shaderPath)
+        guard actual != expected else { return true }
+        guard let namespace, !namespace.isEmpty else { return false }
+        return actual == "\(namespace)/\(expected)"
+    }
+
+    /// Workshop-authored blur definitions keep the stock blur shader
+    /// basenames but relocate them below the definition's namespace. The
+    /// namespace is derived from the exact definition identity, so an
+    /// unrelated shader with the same basename cannot open this owner gate.
+    private static func blurShaderNamespace(forDefinition path: String) -> String? {
+        let components = normalizedPath(path).split(separator: "/")
+        guard components.count >= 4,
+              components.first == "effects",
+              components.suffix(2) == ["blur", "effect.json"] else {
+            return nil
+        }
+        let namespace = components.dropFirst().dropLast(2)
+        guard !namespace.isEmpty else { return nil }
+        return namespace.joined(separator: "/")
     }
 
     private static func normalizedCombos(
@@ -311,8 +346,18 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
 
     private static func isBlurDefinition(_ path: String) -> Bool {
         let normalized = normalizedPath(path)
-        return normalized == "effects/blur/effect.json"
-            || normalized.hasSuffix("/effects/blur/effect.json")
+        if normalized == "effects/blur/effect.json"
+            || normalized.hasSuffix("/effects/blur/effect.json") {
+            return true
+        }
+        // Workshop packages place the same definition below
+        // `effects/<namespace>/blur/effect.json` rather than the stock
+        // `effects/blur/effect.json` path. Keep the admission structural and
+        // let the shader helper bind any relocated names to this namespace.
+        let components = normalized.split(separator: "/")
+        return components.count >= 4
+            && components.first == "effects"
+            && components.suffix(2) == ["blur", "effect.json"]
     }
 
     private static func normalizedPath(_ path: String) -> String {

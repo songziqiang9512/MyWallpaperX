@@ -104,6 +104,9 @@ enum Harness {
 
     enum Fixture: String, CaseIterable {
         case stock
+        case workshopNamespaced
+        case workshopWrongNamespace
+        case stockDefinitionNamespacedShader
         case maskedStock
         case wrongTarget
         case wrongTargetExtent
@@ -237,7 +240,10 @@ enum Harness {
         ]
         let effect = Graph.Effect(
             key: effectKey,
-            definitionPath: "effects/blur/effect.json",
+            definitionPath: fixture == .workshopNamespaced
+                || fixture == .workshopWrongNamespace
+                ? "effects/workshop/3260400126/blur/effect.json"
+                : "effects/blur/effect.json",
             input: source,
             output: output,
             nodeIndices: nodes.map(\.nodeIndex)
@@ -343,36 +349,52 @@ enum Harness {
         let materialMask: [String?] = fixture == .maskFromMaterial
             ? [nil, "masks/material-owned-mask"]
             : []
+        let shaderNamespace: String? = switch fixture {
+        case .workshopNamespaced:
+            "workshop/3260400126"
+        case .workshopWrongNamespace:
+            "workshop/other"
+        case .stockDefinitionNamespacedShader:
+            "workshop/3260400126"
+        default:
+            nil
+        }
+        func shader(_ basename: String) -> String {
+            if let shaderNamespace {
+                return "\(shaderNamespace)/effects/\(basename)"
+            }
+            return "effects/\(basename)"
+        }
         return .init(
             layers: [
                 .init(
                     id: layerID,
                     contentKind: "composition",
                     effects: [
-                        .init(
-                            id: effectKey.descriptorID,
-                            passes: effectPasses(fixture)
-                        ),
+                .init(
+                    id: effectKey.descriptorID,
+                    passes: effectPasses(fixture)
+                ),
                     ]
                 ),
             ],
             materialPasses: [
                 material(
                     name: "blur_downsample4",
-                    shader: "effects/blur_downsample4"
+                    shader: shader("blur_downsample4")
                 ),
                 material(
                     name: "blur_gaussian_x",
-                    shader: "effects/blur_gaussian"
+                    shader: shader("blur_gaussian")
                 ),
                 material(
                     name: "blur_gaussian_y",
-                    shader: "effects/blur_gaussian",
+                    shader: shader("blur_gaussian"),
                     combos: ["VERTICAL": 1]
                 ),
                 material(
                     name: "blur_combine",
-                    shader: "effects/blur_combine",
+                    shader: shader("blur_combine"),
                     textureSlots: materialMask
                 ),
             ]
@@ -445,6 +467,11 @@ class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
     def test_stock_four_node_two_fbo_graph_is_admitted(self) -> None:
         self.assertTrue(self.result["stock"])
         self.assertTrue(self.result["maskedStock"])
+
+    def test_workshop_namespace_alias_is_bound_to_the_blur_definition(self) -> None:
+        self.assertTrue(self.result["workshopNamespaced"])
+        self.assertFalse(self.result["workshopWrongNamespace"])
+        self.assertFalse(self.result["stockDefinitionNamespacedShader"])
 
     def test_target_and_binding_contracts_reject_exact_graph_unit(self) -> None:
         self.assertFalse(self.result["wrongTarget"])
