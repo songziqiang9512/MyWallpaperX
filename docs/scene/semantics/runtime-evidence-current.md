@@ -26,6 +26,14 @@
 
 `SceneParticleChildRuntime` 在 launch 期间缓存按 template index 和 `(trigger, depth, parentAssetPath)` 的稳定索引；普通帧的 child spawn/follow、pointer control-point 与 nested-parent lookup 复用该索引，派发调用内的 active-system/depth budget 也改为局部计数快照，未新增 particle/provider/clock/graph/compositor owner。修改后的 Developer ID Debug App 对隔离真实 `3396722575` representative matrix 严格 `1/1 PASS`，22/21/0 submitted/completed/failed、0 drawable miss、driver `8.009 FPS`、pre-encode p95 `63.211 ms`、CPU p95 `59.569 ms`、GPU p95 `14.612 ms`，ready/after 非黑，motion mean delta `0.04187`。这属于 S3 executable shared hot-path wiring + bounded whole-composition safety observation；该次真实运行先于后继计数快照改动，未证明后继改动的匹配 FPS 收益、稳定性能、流畅度、全部粒子、149 corpus、SceneClock/particle frame atomicity 或官方 parity。候选/后继 synthetic eventfollow、nested 与 pointer fixtures 均与前一实现连续 3 次输出完全一致。
 
+### 2026-09-05 V4 Puppet physical target scaling
+
+三个真实纹理异常样本把问题区分为两个共享断点：`3787382101` 的 `巨剑`/`人物`（5600×2400）和 `3748311238` 的 `203`（5000×2200）都已完成 atlas texture publication，但 Puppet recomposition/animation target 原先因 4096 物理维度上限被拒绝，随后 raw atlas quad 造成身体散片；`3264246690` 的 `1拆分` 已完成 MDLV0023 mesh bind-pose recompose，仍因 additive animation 494 bone 9 不满足现役 bind-pose contract 而回退静态姿态。`ScenePuppetMeshRecomposer.targetDimensions` 现在在同一 4096 维度和 128 MiB load-time budget 内保持 authored aspect ratio 缩放，`ScenePuppetPlaybackState` 复用同一 helper；logical layer extent、mesh UV/position、atlas identity、generation/publication 与唯一 compositor 不变。
+
+当前签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `442c64363d405d6fdd14a81ae22f05af2e21cebd`、executable SHA-256 `7b61086c72f1c82a91e34f1023863f7451e09a50c3da76df73af1b80682c8248`）对同一隔离三样本矩阵运行：`3787382101` 与 `3748311238` 的 Puppet bind-pose texture 分别为 4096×1755、4096×1802，画面从 atlas 散片恢复为完整人物/武器构图；三者均 ready/after 非黑、0 failed frame、0 drawable miss，分别 133/132、129/128、103/102 submitted/completed，driver 45.486/44.544/35.864 FPS。报告 SHA-256 为 `6a46a20a80e699c19fe9d0b3486b0ae4de587319564816b24ad83466516248cd`。
+
+这属于 `S4` 两个真实 Puppet source-recomposition visible + `S3` 一个 additive rejection boundary；不证明 `3264246690` 的 additive 494/319/483 组合、动画 attachment、完整 Puppet motion、149 corpus、独立 ROI 或 official parity。资源加载不是三个样本的共同缺口：三者 loaded texture ratio 分别为 1.0、1.0、0.9412；`3264246690` 的 0.9412 与 six authored effects 的 capability rejection 同时存在，不能把它解释为 Puppet texture publication failure。
+
 > 下表 Pulse combined RGB + scalar-alpha 行中的“exact”在隔离终审后精确限定为 canonical `BLENDMODE=9` helper、左右RGB multiplier、同一factor与auxiliary→factor依赖均在source/MSL两侧守恒；其他mode或自定义同签名helper不在该owner cohort。
 
 | 证据面 | 当前结论 | 严格边界 |

@@ -857,7 +857,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|
 | Puppet asset identity | `L2` | 更多 MDL/MDLA 版本、辅助轨道和完整资源图 |
-| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment + 严格单 clip / disjoint-bone additive CPU LBS | 插值、冲突 mixing/权重、GPU skinning、动态 attachment follow、层级/遮罩 |
+| Puppet mesh/bones/weights runtime | `L3` bind pose + 静态 attachment + 严格单 clip / disjoint-bone additive CPU LBS；Puppet recompose/playback target 在 4096 物理维度内按 authored aspect ratio 缩放并复用同一 load-time budget/publication atom，真实 `3787382101` 与 `3748311238` 的 oversized atlas 已恢复完整人物/武器构图 | 插值、冲突 mixing/权重、GPU skinning、动态 attachment follow、层级/遮罩；`3264246690` 的 additive 494/319/483 仍因非 bind reference/重叠 bone contract 回退静态姿态 |
 | Puppet spring/rigid/rope/wind | `L0` | fixed timestep solver、events、确定性 golden |
 | 2D PBR maps | `L0` | normal/roughness/metalness/emissive slot 与 color space |
 | Bounded standalone volumetric `lspot` | `L3 bounded` | 四束 authored cone 已按 source order、world origin 与 relative Mirror angle Timeline direct draw；无 lit-material interaction |

@@ -46,6 +46,31 @@ enum ScenePuppetMeshRecomposer {
     // happens once per load and the results are retained like layer sources.
     static let recomposeByteBudget = 128 * 1024 * 1024
 
+    /// Match the texture loader's dimension ceiling without changing the
+    /// authored layer's logical extent. Large Puppet layers commonly use an
+    /// atlas that is already downscaled on upload; recomposition must apply
+    /// the same bounded physical scale instead of falling back to the raw
+    /// atlas quad and scattering the body parts.
+    static func targetDimensions(
+        layerWidth: Float,
+        layerHeight: Float
+    ) -> (width: Int, height: Int)? {
+        guard layerWidth.isFinite, layerHeight.isFinite,
+              layerWidth >= 1, layerHeight >= 1 else { return nil }
+        let scale = min(
+            1,
+            Float(maxTextureDimension) / layerWidth,
+            Float(maxTextureDimension) / layerHeight
+        )
+        guard scale.isFinite, scale > 0 else { return nil }
+        let width = max(1, Int((layerWidth * scale).rounded()))
+        let height = max(1, Int((layerHeight * scale).rounded()))
+        guard width <= maxTextureDimension, height <= maxTextureDimension else {
+            return nil
+        }
+        return (width, height)
+    }
+
     static func recompose(
         mesh: SceneMdlPuppetMesh,
         atlasTexture: MTLTexture,
@@ -60,11 +85,17 @@ enum ScenePuppetMeshRecomposer {
               layerWidth >= 1, layerHeight >= 1 else {
             return .failure(.degenerateLayerSize)
         }
-        let width = Int(layerWidth.rounded())
-        let height = Int(layerHeight.rounded())
-        guard width <= maxTextureDimension, height <= maxTextureDimension else {
-            return .failure(.textureTooLarge(width: width, height: height))
+        guard let dimensions = targetDimensions(
+            layerWidth: layerWidth,
+            layerHeight: layerHeight
+        ) else {
+            return .failure(.textureTooLarge(
+                width: Int(layerWidth.rounded()),
+                height: Int(layerHeight.rounded())
+            ))
         }
+        let width = dimensions.width
+        let height = dimensions.height
         let byteCost = width * height * 4
         guard byteCost <= remainingByteBudget else {
             return .failure(.budgetExceeded(requested: byteCost, remaining: remainingByteBudget))

@@ -69,12 +69,17 @@ final class ScenePuppetPlaybackState {
               layerWidth >= 1, layerHeight >= 1 else {
             return .failure(.degenerateLayerSize)
         }
-        let width = Int(layerWidth.rounded())
-        let height = Int(layerHeight.rounded())
-        guard width <= ScenePuppetMeshRecomposer.maxTextureDimension,
-              height <= ScenePuppetMeshRecomposer.maxTextureDimension else {
-            return .failure(.textureTooLarge(width: width, height: height))
+        guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
+            layerWidth: layerWidth,
+            layerHeight: layerHeight
+        ) else {
+            return .failure(.textureTooLarge(
+                width: Int(layerWidth.rounded()),
+                height: Int(layerHeight.rounded())
+            ))
         }
+        let width = dimensions.width
+        let height = dimensions.height
         let byteCost = width * height * 4
         guard byteCost <= remainingByteBudget else {
             return .failure(.budgetExceeded(requested: byteCost, remaining: remainingByteBudget))
