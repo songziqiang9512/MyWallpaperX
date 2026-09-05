@@ -16,6 +16,11 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
 
     private let lock = NSLock()
     private var slots: [Slot] = []
+    /// Completion handlers are armed before particle encoding starts.  Metal
+    /// command-buffer ownership is therefore established before a command can
+    /// cross the enqueue/commit boundary; marking a slot later only records
+    /// which candidate the already-armed command actually captured.
+    private var armedSubmissionCommandBuffers: Set<ObjectIdentifier> = []
     private var currentSlotIndex: Int?
     private var currentCount = 0
 
@@ -56,31 +61,46 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
     }
 
     @discardableResult
+    func armSubmission(on commandBuffer: MTLCommandBuffer) -> Bool {
+        // Completion handlers are installed only while the command is still
+        // not enqueued.  The renderer calls this before its first particle
+        // draw; `markSubmitted` also calls it for isolated/unit callers.
+        let identity = ObjectIdentifier(commandBuffer)
+        return withLock {
+            if armedSubmissionCommandBuffers.contains(identity) { return true }
+            guard commandBuffer.status == .notEnqueued else { return false }
+            armedSubmissionCommandBuffers.insert(identity)
+            commandBuffer.addCompletedHandler { [weak self] buffer in
+                self?.releaseSlots(
+                    for: ObjectIdentifier(buffer)
+                )
+            }
+            return true
+        }
+    }
+
+    @discardableResult
     func markSubmitted(on commandBuffer: MTLCommandBuffer) -> Bool {
-        // The normal caller marks immediately after encoding and before commit,
-        // but tolerate a command that crossed into the queue synchronously. A
-        // completed/error command no longer needs a completion reservation and
-        // must not be allowed to claim a slot.
+        // Arm before reserving the slot.  This keeps completion-handler
+        // registration out of the post-encoding path and makes the slot
+        // reservation safe even if the command is enqueued immediately after
+        // the renderer returns from this method.
         guard commandBuffer.status != .completed,
               commandBuffer.status != .error else { return false }
         let submissionCommandBuffer = ObjectIdentifier(commandBuffer)
-        let submittedSlot: Int? = withLock {
+        guard armSubmission(on: commandBuffer) else { return false }
+        let didReserve = withLock {
             guard let currentSlotIndex,
                   slots.indices.contains(currentSlotIndex),
-                  !slots[currentSlotIndex].isInFlight else { return nil }
+                  !slots[currentSlotIndex].isInFlight,
+                  armedSubmissionCommandBuffers.contains(submissionCommandBuffer)
+            else { return false }
             slots[currentSlotIndex].isInFlight = true
             slots[currentSlotIndex].submissionCommandBuffer = submissionCommandBuffer
             self.currentSlotIndex = nil
-            return currentSlotIndex
+            return true
         }
-        guard let submittedSlot else { return false }
-        commandBuffer.addCompletedHandler { [weak self] _ in
-            self?.releaseSlot(
-                at: submittedSlot,
-                commandBuffer: submissionCommandBuffer
-            )
-        }
-        return true
+        return didReserve
     }
 
     /// Discards the current CPU-written candidate when no draw was encoded.
@@ -133,6 +153,7 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
                 slots[index].submissionCommandBuffer = nil
                 cancelled = true
             }
+            armedSubmissionCommandBuffers.remove(submissionCommandBuffer)
             if cancelled, currentSlotIndex == nil {
                 currentCount = 0
             }
@@ -198,17 +219,15 @@ final class SceneParticleMetalInstanceBuffer: @unchecked Sendable {
         return buffer
     }
 
-    private func releaseSlot(
-        at index: Int,
-        commandBuffer: ObjectIdentifier
-    ) {
+    private func releaseSlots(for commandBuffer: ObjectIdentifier) {
         withLock {
-            guard slots.indices.contains(index),
-                  slots[index].submissionCommandBuffer == commandBuffer else {
-                return
+            for index in slots.indices where
+                slots[index].submissionCommandBuffer == commandBuffer
+            {
+                slots[index].isInFlight = false
+                slots[index].submissionCommandBuffer = nil
             }
-            slots[index].isInFlight = false
-            slots[index].submissionCommandBuffer = nil
+            armedSubmissionCommandBuffers.remove(commandBuffer)
         }
     }
 

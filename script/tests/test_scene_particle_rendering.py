@@ -2104,8 +2104,9 @@ class SceneParticleRenderingTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("func cancelUncommittedSubmission(", instance_source)
-        self.assertIn("commandBuffer.status != .completed", instance_source)
-        self.assertIn("commandBuffer.status != .error", instance_source)
+        self.assertIn("func armSubmission(on commandBuffer: MTLCommandBuffer)", instance_source)
+        self.assertIn("commandBuffer.status == .notEnqueued", instance_source)
+        self.assertIn("armedSubmissionCommandBuffers", instance_source)
         self.assertIn("func draw(\n", pipeline_source)
         self.assertIn(") -> Bool", pipeline_source)
         self.assertIn("let didEncode: Bool", particle_renderer_source)

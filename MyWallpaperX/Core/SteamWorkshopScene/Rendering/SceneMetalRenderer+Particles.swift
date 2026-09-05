@@ -11,6 +11,19 @@ extension SceneMetalRenderer {
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer
     ) -> SceneParticleDepthTargetLease? {
+        // Install completion ownership before the first draw.  A command can
+        // cross the enqueue/commit boundary as soon as the shared renderer
+        // seals the frame; registering here keeps every later slot mark out of
+        // that unsafe window.
+        var armedBuffers: Set<ObjectIdentifier> = []
+        for batch in batches {
+            let identity = ObjectIdentifier(batch.instanceBuffer)
+            if armedBuffers.insert(identity).inserted,
+               !batch.instanceBuffer.armSubmission(on: commandBuffer) {
+                batches.forEach { _ = $0.instanceBuffer.cancelPending() }
+                return nil
+            }
+        }
         let usesDepth = batches.contains { $0.renderState.requiresDepthAttachment }
         let targetExtent = mainPass.targetExtent
         let depthLease = usesDepth ? pipeline.acquireDepthTarget(
