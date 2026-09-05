@@ -9,7 +9,7 @@
 > 最后更新：2026-05-05
 > 基准 Git 分支：`dev`
 
-本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。当前实现应以代码和可复现门禁为准；AppKit 迁移现状见[迁移计划顶部残留清单](../../architecture/appkit-migration.md)，Scene 现役事实见[覆盖台账](../../scene/semantics/coverage-ledger.md)与[运行证据索引](../../scene/semantics/runtime-evidence-index.md)，Web 按[专题入口](../../web/README.md)复核当前代码和最新报告。
+本备忘录保留 2026-05-05 的框架结构与协作约定，停止作为现役架构清单更新。当前实现应以代码和可复现门禁为准；AppKit 迁移现状见[迁移计划顶部残留清单](../../architecture/appkit-migration.md)，Scene 现役事实见[覆盖台账](../../scene/semantics/coverage-ledger.md)与[运行证据索引](../scene/runtime-evidence-index.md)，Web 按[专题入口](../../web/README.md)复核当前代码和最新报告。
 
 ---
 

@@ -37,7 +37,7 @@
 
 ### 2.1 与当前项目状态的关系
 
-本文把结构化随包文件和 Ghidra 证据整理为**研究候选观察**，不是待实现合同，也不维护 MyWallpaperX 的能力等级、route 或产品 owner 快照。当前能力只查[SceneScript API 覆盖表](scenescript-api-coverage.md)，当前运行深度与失败边界只查[运行证据索引](runtime-evidence-index.md)，现役顺序只查[唯一现役路线](../scene-compatibility-roadmap.md)。候选观察必须经官方黑盒区分、去除静态实现细节并通过交接审查，才能形成新的中性行为合同；需要新的官方非公开行为时，必须由独立研究任务产生该合同。
+本文把结构化随包文件和 Ghidra 证据整理为**研究候选观察**，不是待实现合同，也不维护 MyWallpaperX 的能力等级、route 或产品 owner 快照。当前能力只查[SceneScript API 覆盖表](scenescript-api-coverage.md)，当前运行深度与失败边界只查[运行证据索引](./runtime-evidence-current.md)，现役顺序只查[唯一现役路线](../scene-compatibility-roadmap.md)。候选观察必须经官方黑盒区分、去除静态实现细节并通过交接审查，才能形成新的中性行为合同；需要新的官方非公开行为时，必须由独立研究任务产生该合同。
 
 ## 3. 编辑器 authoring/type surface（`LB`）
 

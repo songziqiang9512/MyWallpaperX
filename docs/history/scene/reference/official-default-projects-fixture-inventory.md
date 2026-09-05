@@ -1,4 +1,5 @@
 # 官方 19 工程 fixture 清单
+> **历史证据 — 非现役入口**
 
 审查日期：2026-07-25
 取证快照：Wallpaper Engine 2.8.42 `projects/defaultprojects`
@@ -6,7 +7,7 @@
 
 > 这批工程随正版安装分发，**全部为解包状态（0 个 `.pkg`）**。它们是一批官方分发、结构完全可见的正向输入 corpus；本文不声称它们覆盖全部官方作者工程或历史版本。
 >
-> [运行证据索引](runtime-evidence-index.md) 记录的 45 个可运行样本全部来自 Workshop 用户作品。本文补的是官方自制侧的正向 fixture 基线。
+> [运行证据索引](../runtime-evidence-index.md) 记录的 45 个可运行样本全部来自 Workshop 用户作品。本文补的是官方自制侧的正向 fixture 基线。
 
 ## 1. 结论先行
 
@@ -141,7 +142,7 @@ scene 文件顶层键只有 4 个：`general`、`objects`、`camera`，以及 3 
 
 注意这 4 个工程**同时是正交工程**（都有 `orthogonalprojection` 对象）。即透视参数与正交配置并存，正交生效时透视参数是死数据。不能用「有 fov 即透视」判定。
 
-`nearz` 在 `dino_run` 中序列化为 `0.0099999998`（float32），在其余三者为 `0.009999999776482582`（double 展开的 float32）。同一常量两种写法，比较必须按 float32 精度。这与 [内联脚本 binding target 取证](scenescript-binding-target-forensics.md) §5 的 float32 结论一致。
+`nearz` 在 `dino_run` 中序列化为 `0.0099999998`（float32），在其余三者为 `0.009999999776482582`（double 展开的 float32）。同一常量两种写法，比较必须按 float32 精度。这与 [内联脚本 binding target 取证](../../../scene/semantics/scenescript-binding-target-forensics.md) §5 的 float32 结论一致。
 
 ### 4.3 音频处理
 
@@ -227,7 +228,7 @@ scene 文件顶层键只有 4 个：`general`、`objects`、`camera`，以及 3 
 
 `format` 取值分布：`rgba8888` ×67、`dxt5n` ×5、`dxt5n+` ×5、`dxt5` ×1、缺席 ×9。
 
-`dxt5n` / `dxt5n+` 的 10 个 sidecar 全部是 `*_normal.tex-json`（arsenal 5、fantasticcar 4、eagleflag 1）。它们是压缩法线输入的官方正向 corpus；具体 shader 分支与像素结果见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md)，不能只由 sidecar 名称宣称运行 parity。
+`dxt5n` / `dxt5n+` 的 10 个 sidecar 全部是 `*_normal.tex-json`（arsenal 5、fantasticcar 4、eagleflag 1）。它们是压缩法线输入的官方正向 corpus；具体 shader 分支与像素结果见 [Shader source 前置合同审查](../../../scene/semantics/shader-prelude-and-backend-abstraction.md)，不能只由 sidecar 名称宣称运行 parity。
 
 `srgb` 集中在 `razer_bedroom`（10 个中的绝大部分），并与该工程 `hdr: true` 同时出现；这是 corpus 相关性，不证明 HDR 是启用 sRGB 标注的原因或必要条件。
 
@@ -306,7 +307,7 @@ imagesequence:  {"frameduration": 0.1,
 
 ## 11. 可选官方 fixture 分组（非计划编号）
 
-本节 `G0`–`G8` 只是本文内部给九组 fixture 的短标签，用于描述输入从窄到宽；它们与已退役 Scene 能力计划中的 `G0`–`G5` 编号没有关系，也不表示当前路线、成熟度或必须依次实现。现役开发顺序见 [Scene 兼容路线](../scene-compatibility-roadmap.md)，具体跑哪组由本批风险和 validation gate 决定。
+本节 `G0`–`G8` 只是本文内部给九组 fixture 的短标签，用于描述输入从窄到宽；它们与已退役 Scene 能力计划中的 `G0`–`G5` 编号没有关系，也不表示当前路线、成熟度或必须依次实现。现役开发顺序见 [Scene 兼容路线](../../../scene/scene-compatibility-roadmap.md)，具体跑哪组由本批风险和 validation gate 决定。
 
 按覆盖能力从窄到宽排序，每一档只引入一个新维度：
 
@@ -329,7 +330,7 @@ G0–G3 是低成本回归候选，G4–G8 是较宽快照候选；它们都不�
 | 门 | 前置能力 |
 |---|---|
 | G0 | scene 解析、image layer、正交投影、TEX 解码（含 DXT5n） |
-| G1 | + 自定义 shader 编译（prelude 见 [Shader Prelude 文档](shader-prelude-and-backend-abstraction.md)） |
+| G1 | + 自定义 shader 编译（prelude 见 [Shader Prelude 文档](../../../scene/semantics/shader-prelude-and-backend-abstraction.md)） |
 | G2 | + effect 链、`constantshadervalues`、SceneScript VM |
 | G3 | + 粒子系统、HDR/bloom |
 | G5 | + 透视相机、相机路径插值、`.mdl` 加载 |
@@ -350,13 +351,13 @@ G0–G3 是低成本回归候选，G4–G8 是较宽快照候选；它们都不�
 - 视频纹理、Timeline 动画事件、Texture Variants、`displaycondition`
 - 用户属性的全部类型（`project.json.general` 中的属性未在本文展开，需单独取证）
 
-这些仍需 Workshop 样本或自建 fixture，见 [资料来源与证据索引](source-index.md) §6。
+这些仍需 Workshop 样本或自建 fixture，见 [资料来源与证据索引](../../../scene/semantics/source-index.md) §6。
 
 ## 13. 关联文档
 
-- [内联脚本与 binding target 取证](scenescript-binding-target-forensics.md) —— 本批工程中 13 处内联 SceneScript 的详细取证
-- [Shader Prelude 与跨后端抽象层取证](shader-prelude-and-backend-abstraction.md) —— `dxt5n` 与 `DecompressNormal` 分支的对接
-- [场景格式与 Render Graph](scene-format-and-render-graph.md) —— scene 文件整体结构
-- [运行时系统语义](runtime-systems-reference.md) —— 粒子组件语义
-- [运行证据索引](runtime-evidence-index.md) —— Workshop 侧现役样本矩阵
-- [资料来源与证据索引](source-index.md) —— 本文来源应登记于此
+- [内联脚本与 binding target 取证](../../../scene/semantics/scenescript-binding-target-forensics.md) —— 本批工程中 13 处内联 SceneScript 的详细取证
+- [Shader Prelude 与跨后端抽象层取证](../../../scene/semantics/shader-prelude-and-backend-abstraction.md) —— `dxt5n` 与 `DecompressNormal` 分支的对接
+- [场景格式与 Render Graph](../../../scene/semantics/scene-format-and-render-graph.md) —— scene 文件整体结构
+- [运行时系统语义](../../../scene/semantics/runtime-systems-reference.md) —— 粒子组件语义
+- [运行证据索引](../runtime-evidence-index.md) —— Workshop 侧现役样本矩阵
+- [资料来源与证据索引](../../../scene/semantics/source-index.md) —— 本文来源应登记于此

@@ -5,7 +5,7 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 ## 开始工作
 
 1. 先看[开发工作流](development-workflow.md)；
-2. 查[能力台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-index.md)找首断点；
+2. 查[能力台账](semantics/coverage-ledger.md)和[运行证据索引](semantics/runtime-evidence-current.md)找首断点；
 3. 用[兼容执行路线](scene-compatibility-roadmap.md)确认当前 V 轨和完成门；
 4. 只有需要理解长期 owner/data flow 或专项语义时，才进入架构和语义手册。
 
@@ -18,14 +18,14 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 - [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
 - [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；V0 ordinary shader/material、V1 graph、V2 VM、V3 particle、V4 inputs/providers、V5 advanced/release。
 - [Scene 开发工作流](development-workflow.md)：首断点、最小正反门、验证梯度和消融准则；不保存批次状态。
-- [Scene 启动响应与按需诊断合同](scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。
+- [Scene 启动响应与按需诊断合同](../architecture/scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。
 - [长期技术边界](../architecture/technology-stack-boundaries.md)：Swift/AppKit/Metal、QuickJS-NG、glslang/SPIRV-Cross、跨语言和发布边界。
 
 ## 当前事实
 
 - [能力台账](semantics/coverage-ledger.md)：所有系统的当前能力、部分能力、缺失项和待办。
-- [运行证据索引](semantics/runtime-evidence-index.md)：当前构建/运行身份、样本结果和证据限制。
-- 版本化证据载荷位于被 Git 忽略的本机缓存，只由[运行证据索引](semantics/runtime-evidence-index.md)保存输入、App、报告、manifest 身份与哈希摘要；现役文档不链接或依赖该本机目录。
+- [运行证据索引](semantics/runtime-evidence-current.md)：当前构建/运行身份、样本结果和证据限制。
+- 版本化证据载荷位于被 Git 忽略的本机缓存，只由[运行证据索引](semantics/runtime-evidence-current.md)保存输入、App、报告、manifest 身份与哈希摘要；现役文档不链接或依赖该本机目录。
 - [Corpus 能力清单](semantics/scene-corpus-capability-inventory.md)：真实 authored occurrence、family、参数和资源影响面；不表示运行支持。
 - [能力依赖图](semantics/capability-dependency-map.md)：公共依赖和不可绕过边界；不是任务队列。
 - [Fast Scene Suite 机器合同](../../script/scene_fast_suite.json)：成员、选择状态和 readiness 的唯一事实入口；任何 `selection-required` 成员都不能执行或计为 Suite PASS。

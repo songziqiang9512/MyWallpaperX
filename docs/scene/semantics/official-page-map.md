@@ -4,12 +4,12 @@
 >
 > 官方快照：`b26412295cbfd0ee5cdceff67e2c95069527aa1b`
 >
-> 页面范围：`official-page-catalog.md` 中 179 个唯一 `/en/scene/` URL；`lib.sceneScript.d.ts` v2.8 另列，不计入 179
+> 页面范围：`docs/history/scene/reference/official-page-catalog.md` 中 179 个唯一 `/en/scene/` URL；`lib.sceneScript.d.ts` v2.8 另列，不计入 179
 > 最近核对：2026-07-23
 
 本表只回答每个官方页面落到哪个本地合同，以及该页面对 MyWallpaperX 播放器是否适用。当前实现等级、代码和测试证据仍由链接的专项表维护；页面被列入本表不代表能力已经实现。
 
-分类沿用 [`official-page-crosswalk.md`](official-page-crosswalk.md)：
+分类沿用 [`docs/history/scene/reference/official-page-crosswalk.md`](../../history/scene/reference/official-page-crosswalk.md)：
 
 - `runtime-required`：作者产物会改变播放结果；必须有作者启用、执行或 fail-closed 合同。
 - `ingest-required`：编辑器导出资源或配置会影响输入；播放器读取产物，不复刻制作流程。

@@ -4,12 +4,13 @@
     "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
+      "docs/architecture/scene-launch-responsiveness-contract.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/scene/development-workflow.md",
       "docs/scene/runtime-architecture.md",
       "docs/scene/scene-compatibility-roadmap.md",
-      "docs/scene/scene-launch-responsiveness-contract.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
+      "docs/scene/semantics/runtime-evidence-current.md",
       "docs/web/wallpaper-engine-web-rules.md",
       "docs/web/web-project-json-localization.md",
       "docs/web/web-project-json-runtime-model.md",
@@ -43,6 +44,12 @@
       "retirementCondition": "产品目标内的 SwiftUI import、NSHosting 接点和 SwiftUI-to-AppKit bridge 经可复现扫描与构建门证明全部为零，且长期架构合同已接管最终职责后，将本文转为 historical-evidence。"
     },
     {
+      "path": "docs/architecture/scene-launch-responsiveness-contract.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
       "path": "docs/architecture/technology-stack-boundaries.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
@@ -68,7 +75,81 @@
         "docs/web/current-state.md",
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/client-binary-dependency-forensics.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/client-runtime-static-forensics.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/client-changelog-appendix.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/client-changelog-forensics.md",
+        "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/official-default-projects-fixture-inventory.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/scene-corpus-capability-inventory.md",
+        "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/official-page-catalog.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/official-page-map.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/official-page-crosswalk.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/official-page-map.md",
+        "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/reference/zcompat-backward-compatibility-forensics.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/source-index.md",
+        "docs/scene/semantics/client-changelog-forensics.md",
+        "docs/scene/semantics/coverage-ledger.md"
+      ]
+    },
+    {
+      "path": "docs/history/scene/runtime-evidence-index.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/semantics/runtime-evidence-current.md",
+        "docs/scene/semantics/coverage-ledger.md"
       ]
     },
     {
@@ -79,7 +160,7 @@
       "currentAuthorities": [
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -90,7 +171,7 @@
       "currentAuthorities": [
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -101,7 +182,7 @@
       "currentAuthorities": [
         "docs/scene/semantics/source-index.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -112,7 +193,7 @@
       "currentAuthorities": [
         "docs/scene/semantics/source-index.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -123,7 +204,7 @@
       "currentAuthorities": [
         "docs/scene/scene-compatibility-roadmap.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -133,7 +214,7 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md",
+        "docs/scene/semantics/runtime-evidence-current.md",
         "docs/scene/semantics/scene-corpus-capability-inventory.md"
       ]
     },
@@ -145,7 +226,7 @@
       "currentAuthorities": [
         "docs/scene/semantics/source-index.md",
         "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-index.md"
+        "docs/scene/semantics/runtime-evidence-current.md"
       ]
     },
     {
@@ -197,7 +278,7 @@
       "path": "docs/scene/development-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/runtime-evidence-index.md"
+      "currentStateAuthority": "docs/scene/semantics/runtime-evidence-current.md"
     },
     {
       "path": "docs/scene/runtime-architecture.md",
@@ -212,16 +293,16 @@
       "retirementCondition": "V0-V5 的产品目标均由现役能力台账和运行证据证明，所有待办均有完成、明确不支持或平台策略结论，旧专用产品 owner 已删除或隔离，并由稳定架构合同和能力台账接管终态后，将本文转为 historical-evidence。"
     },
     {
-      "path": "docs/scene/scene-launch-responsiveness-contract.md",
-      "role": "stable-contract",
-      "entrypoint": "docs/scene/README.md",
-      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
-    },
-    {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/semantics/README.md",
       "currentStateAuthority": "docs/scene/semantics/source-index.md"
+    },
+    {
+      "path": "docs/scene/semantics/runtime-evidence-current.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     },
     {
       "path": "docs/web/wallpaper-engine-web-rules.md",

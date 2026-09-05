@@ -6,7 +6,7 @@
 >
 > 唯一目标：`authored input → prepare once → typed frame commit → GPU execute → unique compositor`，并在稳定帧时间内持续得到正确画面。每个改动必须减少首断点，或闭合一个可见/可执行合同。
 >
-> 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](semantics/coverage-ledger.md)、专项表和[运行证据索引](semantics/runtime-evidence-index.md)拥有。日常操作见[开发工作流](development-workflow.md)。
+> 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](semantics/coverage-ledger.md)、专项表和[运行证据索引](semantics/runtime-evidence-current.md)拥有。日常操作见[开发工作流](development-workflow.md)。
 
 ## 1. 不变的目标架构
 
@@ -38,7 +38,7 @@ Swift/AppKit 持有 identity、作者顺序、frame state、资源/target/public
 
 V4 处理 user property、Timeline、pointer、audio、media、text、video 和 provider。每次只选一个真实纵向结果，优先级按当前运行证据的共享首断点排序：
 
-1. 先解决[运行证据索引](semantics/runtime-evidence-index.md)记录的共享 CPU/pre-encode 首断点；
+1. 先解决[运行证据索引](semantics/runtime-evidence-current.md)记录的共享 CPU/pre-encode 首断点；
 2. 再闭合一个 typed producer 到真实 consumer 的可见结果；
 3. 再补 next-frame/event、cancel/generation/teardown 反例；
 4. 最后才更新能力表和运行索引，或扩展到下一个 input family。

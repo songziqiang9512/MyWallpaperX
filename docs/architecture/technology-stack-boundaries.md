@@ -17,7 +17,7 @@
 3. [Scene 兼容运行时架构](../scene/runtime-architecture.md)规定官方/参考证据如何转化为项目执行结构；
 4. [Scene 兼容执行路线](../scene/scene-compatibility-roadmap.md)决定当前迁移顺序和停止项；
 5. [Scene 语义手册](../scene/semantics/README.md)和专项覆盖表记录语义合同与当前能力，[能力依赖图](../scene/semantics/capability-dependency-map.md)只记录前置关系；
-6. [运行证据索引](../scene/semantics/runtime-evidence-index.md)决定当前构建、签名和真实运行证据；
+6. [运行证据索引](../scene/semantics/runtime-evidence-current.md)决定当前构建、签名和真实运行证据；
 7. [Web 现役状态](../web/current-state.md)决定 Web 当前源码所有权、证据边界和待验收项。
 
 本文使用三种状态词：

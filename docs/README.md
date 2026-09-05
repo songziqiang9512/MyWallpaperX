@@ -9,11 +9,12 @@
 | 工作规则 | Agent 如何实现、验证、提交和保护工作区 | [`AGENTS.md`](../AGENTS.md) |
 | 长期技术边界 | 技术栈、语言、进程、依赖和所有权 | [技术栈与架构路线](architecture/technology-stack-boundaries.md) |
 | Scene 目标架构 | 如何把官方/静态/参考证据转成 MyWallpaperX 的兼容运行时 | [Scene 兼容运行时架构](scene/runtime-architecture.md) |
+| Scene 启动响应 | 详情诊断、异步 preparation、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](architecture/scene-launch-responsiveness-contract.md) |
 | Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development-workflow.md) |
 | Scene 现役计划 | 当前段位、剩余顺序、停止项和完成门 | [Scene 兼容执行路线](scene/scene-compatibility-roadmap.md) |
 | Scene 官方结果研究 | 公开资料不足时如何研究固定官方客户端并把结果交给独立实现 | [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md) |
 | Scene 当前能力 | 每项能力现在是已执行、部分、仅结构还是缺失 | [Scene 能力台账](scene/semantics/coverage-ledger.md)及专项表 |
-| Scene 当前运行证据 | 当前构建、样本、GPU/compositor、失败和未验证边界 | [运行证据索引](scene/semantics/runtime-evidence-index.md) |
+| Scene 当前运行证据 | 当前构建、样本、GPU/compositor、失败和未验证边界 | [运行证据索引](scene/semantics/runtime-evidence-current.md) |
 | Web 当前状态 | Web 源码所有权、运行事实和缺口 | [Web 现役状态](web/current-state.md) |
 | 历史 | 当时的计划、审计、迁移和基线 | [历史文档索引](history/README.md) |
 
@@ -28,7 +29,7 @@
 - [官方客户端行为研究与一致性验证工作流](scene/semantics/official-client-behavior-research-workflow.md)：有界黑盒/静态研究、独立实现交接和预登记 parity 门。
 - [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
 - [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。
-- [运行证据索引](scene/semantics/runtime-evidence-index.md)：已运行的当前证据和失败边界。
+- [运行证据索引](scene/semantics/runtime-evidence-current.md)：已运行的当前证据和失败边界。
 - [Corpus 能力清单](scene/semantics/scene-corpus-capability-inventory.md)：真实作者输入的影响面；不证明运行支持。
 - [Fast Scene Suite 合同](../script/scene_fast_suite.json)：低成本纵向门的成员与 readiness 机器定义；成员未批准时明确为 `selection-required`，不能把任意样本冒充 suite PASS。
 

@@ -41,11 +41,11 @@
 | 先回答 | 权威入口 |
 |---|---|
 | MyWallpaperX 当前是否实现、实现到哪一级 | [覆盖台账](coverage-ledger.md) 与对应专项覆盖表 |
-| 当前等级由哪些代码、测试、隔离样本和 GPU 结果支撑 | [运行证据索引](runtime-evidence-index.md) |
+| 当前等级由哪些代码、测试、隔离样本和 GPU 结果支撑 | [运行证据索引](./runtime-evidence-current.md) |
 | implementation agent 可消费的项目合同与失败边界 | [场景格式与 RenderGraph](scene-format-and-render-graph.md)、[SceneScript API 覆盖表的项目目标合同](scenescript-api-coverage.md#11-mywallpaperx-v2-目标运行时合同)和[兼容运行时架构](../runtime-architecture.md)；本文及 SceneScript 深层静态页只有待独立审查的研究候选 |
 | 某个结论的输入身份、方法和静态限制 | 本文 §2–§7 |
 
-2026-07-31 审查时曾在这里记录 RenderGraph、SceneScript、Particle、Video/Sound/Media 的项目等级解释；这些状态已经撤权且不再复制。当前实现和缺口只查[覆盖台账](coverage-ledger.md)与对应专项表，当前运行身份只查[运行证据索引](runtime-evidence-index.md)。
+2026-07-31 审查时曾在这里记录 RenderGraph、SceneScript、Particle、Video/Sound/Media 的项目等级解释；这些状态已经撤权且不再复制。当前实现和缺口只查[覆盖台账](coverage-ledger.md)与对应专项表，当前运行身份只查[运行证据索引](./runtime-evidence-current.md)。
 
 ## 2. 输入身份
 
@@ -370,7 +370,7 @@ reset/teardown 会归零活动计数和 CPU buffer，遍历 root 与分组 child
 - 分支由Scene `general.orthogonalprojection`形成的全局mode位选择，不读取particle/layer flags。orthographic先清零Z、以XY做roughness整形，再乘`amplitude × authored projection height × .01`；true perspective保留XYZ并使用独立scale。正交Scene中即使particle `flags=4`选择下游perspective VP，也不会再求第二套XYZ shake。随包orthographic Scene + flags4 Snow preset只作状态分层互证，不承担shake动态证明。
 - shake写回working eye/center后，parallax算术明确读取刚写回的eye XY并与pointer平滑项组合；shared view同样只由这一shake后working camera构建，不回读base camera。Mirage固定revision在这里读取base camera并采用不同scale/suppression策略，不能作为官方真值。
 
-该证据不足以证明 player 对越界脚本值的处理、官方 pause/seek 事件、其他版本/backend、Windows 同相位数值/像素或真正 perspective Scene 在 MyWallpaperX 已实现。项目当前的独立 2D orthographic bounded evaluator 及其证据只由 [E-CAMERA-SHAKE](runtime-evidence-index.md#e-camera-shake) 说明，本静态页不为其取得实现授权。临时 Ghidra 工程没有进入仓库，复核后已精确清理且当前不可恢复。
+该证据不足以证明 player 对越界脚本值的处理、官方 pause/seek 事件、其他版本/backend、Windows 同相位数值/像素或真正 perspective Scene 在 MyWallpaperX 已实现。项目当前的独立 2D orthographic bounded evaluator 及其证据只由 [E-CAMERA-SHAKE](../../history/scene/runtime-evidence-index.md#e-camera-shake) 说明，本静态页不为其取得实现授权。临时 Ghidra 工程没有进入仓库，复核后已精确清理且当前不可恢复。
 
 ## 6. SceneScript 的 module/engine/owner 机制
 
@@ -618,11 +618,11 @@ media generation N
 
 ## 10. 关联入口
 
-- [客户端二进制与第三方依赖取证](client-binary-dependency-forensics.md)
+- [客户端二进制与第三方依赖取证](../../history/scene/reference/client-binary-dependency-forensics.md)
 - [场景格式与 RenderGraph](scene-format-and-render-graph.md)
 - [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md)
 - [SceneScript 2.8.42 固定客户端静态取证](scenescript-runtime-implementation-contract.md)（`research-context-only`）
 - [运行时系统语义](runtime-systems-reference.md)
 - [资料来源与证据索引](source-index.md)
 - [覆盖台账](coverage-ledger.md)
-- [运行证据索引](runtime-evidence-index.md)
+- [运行证据索引](./runtime-evidence-current.md)

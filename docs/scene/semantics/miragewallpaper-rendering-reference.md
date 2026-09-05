@@ -25,7 +25,7 @@ Mirage 不是 Wallpaper Engine 官方实现。它的 README 明确说明项目�
 
 - 本文只提炼架构、状态传播、资源身份、时序和失败边界，不复制源码、shader、纹理、JSON payload、二进制或算法表达；
 - Mirage 与本地官方资料或真实样本冲突时，按本资料库的证据优先级处理，不能修改官方合同去迎合 Mirage；
-- 本文不更新 [覆盖台账](coverage-ledger.md) 或 [运行证据索引](runtime-evidence-index.md)，也不证明 MyWallpaperX 当前能力等级；
+- 本文不更新 [覆盖台账](coverage-ledger.md) 或 [运行证据索引](./runtime-evidence-current.md)，也不证明 MyWallpaperX 当前能力等级；
 - 本轮没有构建或运行 Mirage，也没有以其输出充当像素或时序 golden。所有结论均为固定 revision 的静态源码审查；“疑似缺口”需后续黑盒或样本验证。
 
 下文源码路径均以 `<repo>/Reference Project/MirageWallpaper/` 为根。正文既有行号默认只对应基础 revision `8893b25b3fb4abdd63d72e9fe31bdd59e765208a`；增量复核表中的结论分别绑定其行内 revision、path 与 symbol，不能跨 revision 复用行号。
@@ -494,7 +494,7 @@ Mirage 只能提供“一个第三方实现怎样连线”的 `third-party-refer
 | camera、parallax、mouse、audio、media、text | [运行时系统语义](runtime-systems-reference.md)、[运行输入与属性覆盖表](runtime-input-property-coverage.md) | 先确认作者启用条件、坐标域与生命周期，再比较 Mirage 接线 |
 | SceneScript cursor/event/update | [SceneScript API 覆盖表](scenescript-api-coverage.md)、[SceneScript 2.8.42 静态研究](scenescript-runtime-implementation-contract.md) | Mirage 的 AABB hit-test、local=world 和 watchdog 都是独立实现选择；两份静态研究都不是 implementation input |
 | particles、lighting、3D、puppet | [粒子组件覆盖表](particle-component-coverage.md)、[高级对象覆盖表](advanced-object-coverage.md) | 字段被解析或 uniform 被上传不代表完整执行 |
-| 当前 MyWallpaperX 是否已支持 | [总覆盖台账](coverage-ledger.md)、[运行证据索引](runtime-evidence-index.md) | 本页不能单独提升任何等级；必须有项目代码、测试和隔离运行证据 |
+| 当前 MyWallpaperX 是否已支持 | [总覆盖台账](coverage-ledger.md)、[运行证据索引](./runtime-evidence-current.md) | 本页不能单独提升任何等级；必须有项目代码、测试和隔离运行证据 |
 
 具体判断顺序为：先用官方页面/类型声明确定作者可见合同，再用客户端固定版本静态取证收窄内部结构，用真实样本确认 wire 形态，最后把 Mirage 当作结构交叉检查。如果只有 Mirage 一条证据，结论只能保持 `third-party-reference-pattern` 候选，不能进入通用执行准入。
 

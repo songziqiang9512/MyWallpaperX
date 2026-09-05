@@ -1,6 +1,31 @@
 # Scene 语义手册
 
-本目录按需提供作者语义合同、专项覆盖和研究资料。它不是日常任务队列。日常开发先看[Scene 开发工作流](../development-workflow.md)，当前阶段看[执行路线](../scene-compatibility-roadmap.md)，当前能力和运行事实分别看[能力台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-index.md)。
+本目录按需提供作者语义合同、专项覆盖和研究资料。它不是日常任务队列。日常开发先看[Scene 开发工作流](../development-workflow.md)，当前阶段看[执行路线](../scene-compatibility-roadmap.md)，当前能力和运行事实分别看[能力台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-current.md)。不要把整个语义目录或整份流水账一次性装入上下文。
+
+## 读取分层
+
+默认只读当前层，只有首断点需要时才向下取证：
+
+| 层 | 内容 | 日常用法 |
+| --- | --- | --- |
+| 当前合同 | `runtime-architecture.md`、路线、专项覆盖表 | 决定 owner、边界、fallback 和目标行为 |
+| 当前状态 | `coverage-ledger.md` 的 `## 1`–`## 7`；`runtime-evidence-current.md` 的 `## 1 当前证据快照` | 只找当前首断点和最近可复核证据；需要细节时按精确 `E-*` anchor 打开一条 |
+| 按需研究 | `source-index.md`、官方研究工作流、官方页面映射、客户端/Mirage 取证 | 公开资料和现有代码无法决定当前纵向切片时才读；研究原文不是实现输入 |
+| 冷档/附录 | 运行证据 `## 2`、台账 `## 8` 的批次记录、`docs/history/scene/reference/client-changelog-appendix.md`、页面 catalog/crosswalk、`docs/history/` | 只为追溯旧结论、比较回归或恢复唯一失败现场而读；不作为普通开发上下文 |
+
+一条记录只有在仍然改变当前 owner、route、失败半径、验证门或未决问题时才留在当前层。单纯的日期、commit、hash、截图路径、重复 PASS/NON-PASS 和已经被后继证据取代的叙事属于冷档候选。
+
+## 资料和代码的边界
+
+| 资料 | 是否由运行时直接读取 | 进入产品的形态 |
+| --- | --- | --- |
+| 官方网页、页面 map/catalog、静态取证、Mirage 研究 | 否 | 人工提炼后的合同、正反 fixture 或研究边界；不得复制私有算法、payload、shader 或资产 |
+| 语义专项表和能力台账 | 否 | 部分合同已独立转写到 Swift/Metal、测试和资源解析器；文档更新不会自动改变代码 |
+| `lib.sceneScript-v2.8.d.ts` 参考快照 | 否 | 仅作为注释、测试和人工核对依据，不进入 App bundle 或编译输入 |
+| `SceneStockAssets.bundle` 及其解析器 | 是 | 这是产品资源合同，不是研究资料；资源 identity 以 Swift resolver 和测试为准 |
+| 运行证据、修复台账、census 输出 | 否 | 只提供可复核事实和链接；普通播放不得依赖报告、hash、census 或完整 observation |
+
+因此，“资料已纳入代码”只能在对应代码、测试或资源 consumer 能被指出时成立；文档之间互相链接不算代码消费。
 
 ## 当前能力入口
 

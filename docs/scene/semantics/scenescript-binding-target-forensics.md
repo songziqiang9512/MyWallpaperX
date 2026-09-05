@@ -6,7 +6,7 @@
 
 > 文档角色：`official-client-static-observation / research-context-only`。本文只记录固定 2.8.42 随包默认工程中 13 处内联脚本的静态 JSON 形态，不是现役能力、实现说明或通用运行语义。implementation agent 只能消费已经写入项目自有 SceneScript 合同的 IR、正反 fixture 和动态对照协议，不能从本文的样本源码、字段邻接或推断直接生成产品代码。
 >
-> 2026-07-25 审查开始时，[SceneScript API 覆盖表](scenescript-api-coverage.md) 曾把 property-bound 实例记为 `L0`，并以 `ScriptSource + owner + target + authoredValue + valueType` 为当时缺口。该等级已经撤权；本文只保留五项静态输入形态，当前能力与缺口只查现役覆盖表和[运行证据索引](runtime-evidence-index.md)。
+> 2026-07-25 审查开始时，[SceneScript API 覆盖表](scenescript-api-coverage.md) 曾把 property-bound 实例记为 `L0`，并以 `ScriptSource + owner + target + authoredValue + valueType` 为当时缺口。该等级已经撤权；本文只保留五项静态输入形态，当前能力与缺口只查现役覆盖表和[运行证据索引](./runtime-evidence-current.md)。
 >
 > 这批工程随正版安装分发，全 docs 此前零引用。
 
@@ -145,7 +145,7 @@
 | `valueType` | 先保留 `value` 的 JSON 类型；字符串是否为向量还需结合 target/property schema，不能只凭空格模式猜测 |
 | `wrapperKeys` | 项目自有策略：记录承载 `script` 的 wrapper 直接 key，用于 shape admission；当前实现与兼容解码边界只查项目合同和运行证据，本页不授权 |
 
-项目曾另设 `SceneScriptSourceEvidenceIR` 记录 string-valued inline `script` 的 provenance/conflict 信息；这属于 `MyWallpaperX-current-evidence` 或 `MyWallpaperX-strategy`，不是本文静态样本能够证明的官方结构。是否仍为当前实现只查[SceneScript API 覆盖表](scenescript-api-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
+项目曾另设 `SceneScriptSourceEvidenceIR` 记录 string-valued inline `script` 的 provenance/conflict 信息；这属于 `MyWallpaperX-current-evidence` 或 `MyWallpaperX-strategy`，不是本文静态样本能够证明的官方结构。是否仍为当前实现只查[SceneScript API 覆盖表](scenescript-api-coverage.md)和[运行证据索引](./runtime-evidence-current.md)。
 
 下表保留 2026-07-25 审查时提出的**候选区分问题**，不作为现役验收门：
 
@@ -158,7 +158,7 @@
 | 调度 | 未导出 `update` 的实例是否进入每帧队列；`applyUserProperties` 的初次/批次触发次数 |
 | 回退 | 脚本缺失、解析失败或求值异常时，固定客户端的 observable 是否保持 authored value |
 
-本文只确定 target 的**静态形态**，不证明 generic 求值、调度或回退语义。implementation agent 只查[SceneScript API 覆盖表](scenescript-api-coverage.md)的公开 API/项目目标合同和[兼容运行时架构](../runtime-architecture.md)；当前 bounded 执行与证据只查 API 覆盖表和[运行证据索引](runtime-evidence-index.md)。
+本文只确定 target 的**静态形态**，不证明 generic 求值、调度或回退语义。implementation agent 只查[SceneScript API 覆盖表](scenescript-api-coverage.md)的公开 API/项目目标合同和[兼容运行时架构](../runtime-architecture.md)；当前 bounded 执行与证据只查 API 覆盖表和[运行证据索引](./runtime-evidence-current.md)。
 
 ## 9. 关联文档
 

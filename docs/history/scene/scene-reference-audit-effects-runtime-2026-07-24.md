@@ -4,7 +4,7 @@
 >
 > 本文仅保存 2026-07-24 的 clean-room 研究线索；其中参考项目判断、实现建议和路径均须按现役证据重新核验，不能直接形成任务或能力结论。
 >
-> 现役研究入口查[资料来源索引](../../scene/semantics/source-index.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
+> 现役研究入口查[资料来源索引](../../scene/semantics/source-index.md)，能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](./runtime-evidence-index.md)；全部历史材料见[历史索引](../README.md)。
 
 审查日期：2026-07-24  
 审查方式：只读  

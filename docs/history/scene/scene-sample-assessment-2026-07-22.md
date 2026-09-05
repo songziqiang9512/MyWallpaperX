@@ -4,7 +4,7 @@
 >
 > 本文仅保存 2026-07-22 的 21 样本视觉基线；其中等级、截图判断、“当前增量”、路径、门和数值均不得作为当前兼容性或任务优先级。
 >
-> 现役能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](../../scene/semantics/runtime-evidence-index.md)，执行顺序查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)；全部历史材料见[历史索引](../README.md)。
+> 现役能力与证据查[覆盖台账](../../scene/semantics/coverage-ledger.md)和[运行证据索引](./runtime-evidence-index.md)，执行顺序查 [Scene 兼容执行路线](../../scene/scene-compatibility-roadmap.md)；全部历史材料见[历史索引](../README.md)。
 
 > 本文完整冻结为 2026-07-22 的逐样本视觉与当时增量基线，不再维护任何“当前”状态。现役支持等级、官方能力缺口和下一公共依赖统一查 [Scene 官方语义与实现覆盖台账](../../scene/semantics/coverage-ledger.md)；下文所有“当前增量”均只表示该历史快照当时的记录。
 
@@ -28,7 +28,7 @@
 - `3766415113` 使用 `gifscene.json` / `gifscene.pkg`；历史报告记录了 entry、sequence 和单图 UV 修正。
 - `3738202317` 在 20 样本旧报告中因 `.tex format 6` 显示灰底；后续 BC2/DXT3 修复记录为 1/1 纹理加载成功。
 - “作者预期”首先来自包内 scene 描述、`project.json` 属性和样本自带 preview。`3194ac5` 已把 preview reference、中心裁切运行截图、分项指标和并排图接入固定门；WaifuX SceneBake 只作辅助动态参考，不能在冲突时覆盖样本 preview。两者都不是逐帧金标准，最终仍需在相同分辨率、相同属性默认值下与 Wallpaper Engine 录屏做差异验收。
-- 首轮 21 样本报告保留为修复前视觉基线；现役提交、正式矩阵、签名与测试总数统一查 [运行证据索引](../../scene/semantics/runtime-evidence-index.md)，本历史评估不再复制易过期的全局状态。
+- 首轮 21 样本报告保留为修复前视觉基线；现役提交、正式矩阵、签名与测试总数统一查 [运行证据索引](./runtime-evidence-index.md)，本历史评估不再复制易过期的全局状态。
 
 表中 `I/P/T` 分别表示 image / particle / text 图层声明数量；`prop` 不含每个项目都有的 `schemecolor`。纹理加载率只统计当前 renderer 识别为 image candidate 的图层，不应直接当成视觉完成度。
 

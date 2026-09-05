@@ -18,10 +18,11 @@ WORKFLOW = ROOT / "docs/scene/development-workflow.md"
 RUNTIME_ARCHITECTURE = ROOT / "docs/scene/runtime-architecture.md"
 SCENE_README = ROOT / "docs/scene/README.md"
 WEB_README = ROOT / "docs/web/README.md"
+SEMANTICS_README = ROOT / "docs/scene/semantics/README.md"
 SCENE_EVIDENCE = ROOT / "docs/scene/evidence"
 SOURCE_INDEX = ROOT / "docs/scene/semantics/source-index.md"
 COVERAGE_LEDGER = ROOT / "docs/scene/semantics/coverage-ledger.md"
-RUNTIME_EVIDENCE = ROOT / "docs/scene/semantics/runtime-evidence-index.md"
+RUNTIME_EVIDENCE = ROOT / "docs/scene/semantics/runtime-evidence-current.md"
 RENDER_GRAPH_COVERAGE = (
     ROOT / "docs/scene/semantics/render-graph-shader-coverage.md"
 )
@@ -92,6 +93,16 @@ REQUIRED_METRICS = {
 class SceneGovernanceContractTests(unittest.TestCase):
     def setUp(self) -> None:
         self.manifest = json.loads(FAST_SUITE.read_text(encoding="utf-8"))
+
+    def test_semantics_directory_has_a_hot_cold_reading_boundary(self) -> None:
+        text = SEMANTICS_README.read_text(encoding="utf-8")
+        for phrase in (
+            "读取分层",
+            "资料和代码的边界",
+            "不要把整个语义目录或整份流水账一次性装入上下文",
+            "文档之间互相链接不算代码消费",
+        ):
+            self.assertIn(phrase, text)
 
     def test_fast_suite_manifest_is_complete_but_honest_about_readiness(self) -> None:
         self.assertEqual(self.manifest.get("schemaVersion"), 1)
@@ -236,9 +247,16 @@ class SceneGovernanceContractTests(unittest.TestCase):
                 self.assertIn(phrase, combined)
 
         workflow = WORKFLOW.read_text(encoding="utf-8")
-        for decision_field in ("结果：", "首断点：", "owner：", "最小门："):
-            with self.subTest(decisionField=decision_field):
-                self.assertIn(decision_field, workflow)
+        for autonomy_contract in (
+            "不规定模型必须采用的步骤、命令、文件模板或任务拆分",
+            "模型可以自由重组类型",
+            "目标合同不被错误现状改写",
+            "失败半径保持在最小安全单元",
+            "结论不超过实际证据",
+            "答不出来时，先建立能区分候选原因的 observable",
+        ):
+            with self.subTest(autonomyContract=autonomy_contract):
+                self.assertIn(autonomy_contract, workflow)
         self.assertIn("目标合同、当前事实、owner、fallback/route、纠正门和退役条件", AGENT_RULES.read_text(encoding="utf-8"))
 
     def test_scene_evidence_is_a_local_ignored_cache(self) -> None:

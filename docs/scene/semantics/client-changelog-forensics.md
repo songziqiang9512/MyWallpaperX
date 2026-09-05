@@ -4,7 +4,7 @@
 取证快照：Wallpaper Engine 2.8.42 `ui/dist/scripts/scripts.js` 内嵌变更日志
 审查方式：只读静态提取，459 个 revision / 741 条变更 / 45 KB 正文
 
-> 文档角色：`official-client-static-observation / research-context-only`。本文只保留固定 2.8.42 客户端内嵌 changelog 的版本证据；不是产品实现说明、算法说明、现役能力或任务入口。implementation agent 不得把 changelog 条目、本文的历史解读或客户端内部措辞直接翻译成代码，只能消费项目自有语义合同、正反 fixture 与官方结果对照协议。现役事实查[覆盖台账](coverage-ledger.md)与[运行证据索引](runtime-evidence-index.md)，顺序查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
+> 文档角色：`official-client-static-observation / research-context-only`。本文只保留固定 2.8.42 客户端内嵌 changelog 的版本证据；不是产品实现说明、算法说明、现役能力或任务入口。implementation agent 不得把 changelog 条目、本文的历史解读或客户端内部措辞直接翻译成代码，只能消费项目自有语义合同、正反 fixture 与官方结果对照协议。现役事实查[覆盖台账](coverage-ledger.md)与[运行证据索引](./runtime-evidence-current.md)，顺序查[Scene 兼容路线](../scene-compatibility-roadmap.md)。
 
 > 官方在编辑器 UI 脚本里内嵌了逐版本变更日志：`assets/**` 只给出当前 build 的静态数据形态，changelog 给出「哪一版加了什么、改了什么、为什么改」。
 >
@@ -16,18 +16,18 @@
 python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root <client-root> --output-dir <生成物目录>
 ```
 
-输出 `changelog.json` 含每个 revision 的 headline、编号与逐条变更，并记录源文件 SHA-256 供版本变化比对。459 版 / 741 条的逐字全量已固化在 [changelog 全量附录](client-changelog-appendix.md)，查证个别条目时先查附录，无需回到官方客户端目录。
+输出 `changelog.json` 含每个 revision 的 headline、编号与逐条变更，并记录源文件 SHA-256 供版本变化比对。459 版 / 741 条的逐字全量已固化在 [changelog 全量附录](../../history/scene/reference/client-changelog-appendix.md)，查证个别条目时先查附录，无需回到官方客户端目录。
 
 ## 1. 结论先行
 
 1. **该固定客户端的 SceneScript VM 是 V8，REV 4260 记录升级到 14.0**。此前 [SceneScript 2.8.42 静态取证](scenescript-runtime-implementation-contract.md) §3 只能把当时客户端的 VM 候选收窄为「至少覆盖 ES2019 authoring surface」；[Windows 官方客户端取证记录](../../history/scene/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md) §11 明确拒绝从 `scenescript32.dll` 已加载推断 VM。本快照内 10 条独立条目（含 Android 平台 2 条）正面确认当时引擎侧使用 V8。这是版本有界研究事实，不决定 MyWallpaperX 的 VM 选型。
 2. **该固定客户端曾从 JSON 中删除等于默认值的字段**（REV 4148、REV 4366）。因此“字段缺席是否表示取默认值”是项目合同必须显式回答的行为问题；这些条目本身不公开完整默认值表，也不直接规定 parser 实现。
-3. **该固定客户端的文字渲染记录指向 MSDF（多通道有向距离场），不是单一位图栅格路径**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。2026-07-26 审查时 MyWallpaperX 的 CoreText 路径与该结构不同；这只是历史项目解释，当前文字实现与等级只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
+3. **该固定客户端的文字渲染记录指向 MSDF（多通道有向距离场），不是单一位图栅格路径**（REV 4319-4367 共 19 条）。outline、drop shadow、blur 三类 text effect 都建立在 MSDF 之上。2026-07-26 审查时 MyWallpaperX 的 CoreText 路径与该结构不同；这只是历史项目解释，当前文字实现与等级只查[运行输入与属性覆盖表](runtime-input-property-coverage.md)和[运行证据索引](./runtime-evidence-current.md)。
 4. **该 changelog 区间记录 shader pass / FBO / binding 条件表达式加入四个比较运算符**：REV 4192 先记录 `ge`，REV 4193 再记录 `gt`、`le`、`lt`。这确认固定客户端的名称面，不证明完整条件语法或 MyWallpaperX 当前状态。
-5. **REV 4256 不能被解读为「REFRACT 只降低不透明度、不是扭曲」**。它只说明：某些 profile 曾借 refraction feature 降低粒子不透明度而非制造位移，因此固定客户端重新启用了 particle shader 的 framebuffer multiplication；同域 REV 4149/4252 及当前官方 Particle General 文档仍把 refraction 与 normal map/background distortion 关联。项目提交 `e698c18` 曾据此采用 strict normal + framebuffer displacement 的 bounded 策略；该历史决策不由本文继续授权，当前执行与边界只查[粒子组件覆盖表](particle-component-coverage.md)和[运行证据索引](runtime-evidence-index.md)。
+5. **REV 4256 不能被解读为「REFRACT 只降低不透明度、不是扭曲」**。它只说明：某些 profile 曾借 refraction feature 降低粒子不透明度而非制造位移，因此固定客户端重新启用了 particle shader 的 framebuffer multiplication；同域 REV 4149/4252 及当前官方 Particle General 文档仍把 refraction 与 normal map/background distortion 关联。项目提交 `e698c18` 曾据此采用 strict normal + framebuffer displacement 的 bounded 策略；该历史决策不由本文继续授权，当前执行与边界只查[粒子组件覆盖表](particle-component-coverage.md)和[运行证据索引](./runtime-evidence-current.md)。
 6. **粒子系统在 REV 4102-4112 被整体重构**，且 REV 4103 明确「changed new child config structure」。child 配置结构变过，跨版本样本可能带两种形态。
 7. **REV 4120 记录 static child 初始化曾因未计入 parent object transform 而修复**。这提供一个可做动态对照的行为问题，不证明完整 transform 数学，也不描述 MyWallpaperX 当前批次。
-8. 官方存在**按作品新旧分叉的行为开关**：REV 3967 的粒子颜色覆盖修复注明 "Only enabled for new wallpapers"，REV 3987 为「依赖旧 build 错误 eye z pos 的老作品」保留兼容。这与 [zcompat 取证](zcompat-backward-compatibility-forensics.md) 的 `maximumprojectid` 机制是同一类设计。
+8. 官方存在**按作品新旧分叉的行为开关**：REV 3967 的粒子颜色覆盖修复注明 "Only enabled for new wallpapers"，REV 3987 为「依赖旧 build 错误 eye z pos 的老作品」保留兼容。这与 [zcompat 取证](../../history/scene/reference/zcompat-backward-compatibility-forensics.md) 的 `maximumprojectid` 机制是同一类设计。
 
 ## 2. 语料与口径
 
@@ -475,7 +475,7 @@ python3.12 script/extract_wallpaper_engine_client_evidence.py --client-root <cli
 
 1. 对每个字段分别确认“缺席”“显式默认值”和“显式关闭”的可观察结果；changelog 不提供一张可直接采用的全局默认值表。
 2. 把“能力存在不等于启用”与“缺席是否取默认值”作为两个独立合同问题，不能仅从这些 revision 合并成一条通用 parser 规则。
-3. 遇到按作品 ID / 发布时间分叉的迹象时，把历史兼容列为候选解释，并用 [zcompat](zcompat-backward-compatibility-forensics.md)、项目 fixture 与动态对照区分；不要让 changelog 单独决定通用逻辑。
+3. 遇到按作品 ID / 发布时间分叉的迹象时，把历史兼容列为候选解释，并用 [zcompat](../../history/scene/reference/zcompat-backward-compatibility-forensics.md)、项目 fixture 与动态对照区分；不要让 changelog 单独决定通用逻辑。
 
 ## 14. 本文不覆盖的域
 

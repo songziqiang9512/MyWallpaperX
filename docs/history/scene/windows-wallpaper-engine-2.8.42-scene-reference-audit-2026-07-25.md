@@ -10,7 +10,7 @@
 审查方式：Parallels Windows 11 静态检查、进程检查和有限 UI 验证
 MyWallpaperX 审查基线：`678a0525c2adaa1eaed8be886aa68e7f3f680c4c`
 
-> 本文是 2.8.42 客户端静态取证的版本化审计快照，不是 MyWallpaperX 当前能力或开发优先级入口。当前实现等级以 [Scene 能力总账](../../scene/semantics/coverage-ledger.md)、对应专项覆盖表和 [运行证据索引](../../scene/semantics/runtime-evidence-index.md) 为准；后续 Ghidra 结构结论统一维护在 [官方客户端运行机制静态取证](../../scene/semantics/client-runtime-static-forensics.md)。
+> 本文是 2.8.42 客户端静态取证的版本化审计快照，不是 MyWallpaperX 当前能力或开发优先级入口。当前实现等级以 [Scene 能力总账](../../scene/semantics/coverage-ledger.md)、对应专项覆盖表和 [运行证据索引](./runtime-evidence-index.md) 为准；后续 Ghidra 结构结论统一维护在 [官方客户端运行机制静态取证](../../scene/semantics/client-runtime-static-forensics.md)。
 
 ## 1. 目的与结论
 
@@ -567,7 +567,7 @@ Monaco 随包声明只装载 ES5 到 ES2019 的类型库，且没有 DOM/Node/We
 
 ## 16. 官方默认项目 corpus
 
-`projects/defaultprojects` 有 19 个项目：14 个 `project.json` 明确声明 `type: "scene"`，2 个 Web，2 个省略 `type` 但入口为 scene-shaped JSON 的旧工程，以及 1 个 EXE 项目。以下 census 仍只统计 14 个明确 Scene，避免把扩展名 fallback 当成已确认的官方 loader 规则；完整 16 个 scene-shaped 工程的逐项目输入清单见 [官方默认工程 corpus](../../scene/semantics/official-default-projects-fixture-inventory.md)。
+`projects/defaultprojects` 有 19 个项目：14 个 `project.json` 明确声明 `type: "scene"`，2 个 Web，2 个省略 `type` 但入口为 scene-shaped JSON 的旧工程，以及 1 个 EXE 项目。以下 census 仍只统计 14 个明确 Scene，避免把扩展名 fallback 当成已确认的官方 loader 规则；完整 16 个 scene-shaped 工程的逐项目输入清单见 [官方默认工程 corpus](./reference/official-default-projects-fixture-inventory.md)。
 
 | 项目 | 数量 |
 |---|---:|
@@ -913,4 +913,4 @@ MyWallpaperX 当前 Puppet mesh reader 只接受 `MDLV0021/MDLV0023`，rig/anima
 
 作者 shader 还声明了 16/32/64 三档、左右声道分别命名的 audio spectrum uniform。静态声明只约束 binder identity，不能证明 Windows renderer 实际填入独立 stereo 数据。
 
-这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](../../scene/semantics/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用版本化 manifest 与隔离 fixture。
+这批文件不能静态确认 ID 的身份、`maximumprojectid` 比较方向、Web replace 的首次/全量策略、缺文件/零匹配行为或补丁应用时机。详细 A/C 边界见 [zcompat 向后兼容机制取证](./reference/zcompat-backward-compatibility-forensics.md)。MyWallpaperX 若建立兼容层，应使用版本化 manifest 与隔离 fixture。

@@ -1,4 +1,5 @@
 # zcompat 官方向后兼容机制取证
+> **历史证据 — 非现役入口**
 
 审查日期：2026-07-25
 取证快照：Wallpaper Engine 2.8.42 `assets/zcompat`
@@ -72,7 +73,7 @@ assets/zcompat/
 | 自定义 `u_` uniform | 2 | 7 |
 | 顶点变换 | 使用 `mul` 与 model-view-projection uniform | 同左 |
 
-两份都使用与 stock shader 相同的 `mul` 等候选 frontend token。可确认 token surface 有交集；确切矩阵约定与 frontend 展开仍按 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) 的 C 级边界处理。
+两份都使用与 stock shader 相同的 `mul` 等候选 frontend token。可确认 token surface 有交集；确切矩阵约定与 frontend 展开仍按 [Shader source 前置合同审查](../../../scene/semantics/shader-prelude-and-backend-abstraction.md) 的 C 级边界处理。
 
 zcompat shader 中出现的 prelude 符号：`texSample2D` ×6、`frac` ×7、`saturate` ×3、`mul` ×2、`CAST3` ×1、`HLSL`/`GLSL` 各 ×1。全部落在 25 个已确认符号内，没有引入新符号。
 
@@ -80,7 +81,7 @@ uniform 标注的两种 `material` 语义值：`"framebuffer"`（pixelate 的 `g
 
 两份 shader 的 10 个 `[COMBO]` 的 `type` 是 `options` ×9 与 `imageblending` ×1，全部落在 stock shader 已有的取值域内，**没有引入新控件类型**；也没有使用 `[OFF_COMBO]` 等变体拼写。
 
-`assets/` 全域的注解标记普查、`[COMBO]` 载荷键必填性、`require` 依赖条件，以及 combo 注解与 uniform 标注的 `type` 值域划分，见 [Shader source 前置合同审查](shader-prelude-and-backend-abstraction.md) §8。本文初版曾把两类注解的 `type` 合并成一张表，是错的：`color` 在 `[COMBO]` 行上出现 0 次。
+`assets/` 全域的注解标记普查、`[COMBO]` 载荷键必填性、`require` 依赖条件，以及 combo 注解与 uniform 标注的 `type` 值域划分，见 [Shader source 前置合同审查](../../../scene/semantics/shader-prelude-and-backend-abstraction.md) §8。本文初版曾把两类注解的 `type` 合并成一张表，是错的：`color` 在 `[COMBO]` 行上出现 0 次。
 
 ### 3.4 音频频谱 uniform（附带发现）
 
@@ -92,7 +93,7 @@ g_AudioSpectrum32Left[32]   g_AudioSpectrum32Right[32]
 g_AudioSpectrum64Left[64]   g_AudioSpectrum64Right[64]
 ```
 
-**这 6 个名字在 `assets/shaders` 的 108 个 stock shader 中出现 0 次**，因此不在 [Shader Prelude 文档](shader-prelude-and-backend-abstraction.md) §7 的 141 个 `g_` uniform 清单内。这份 zcompat shader 是本机唯一的实物证据。
+**这 6 个名字在 `assets/shaders` 的 108 个 stock shader 中出现 0 次**，因此不在 [Shader Prelude 文档](../../../scene/semantics/shader-prelude-and-backend-abstraction.md) §7 的 141 个 `g_` uniform 清单内。这份 zcompat shader 是本机唯一的实物证据。
 
 两条可确认的声明合同：
 
@@ -189,7 +190,7 @@ g_AudioSpectrum64Left[64]   g_AudioSpectrum64Right[64]
 
 ## 8. 关联文档
 
-- [Shader source 前置合同与跨后端假设审查](shader-prelude-and-backend-abstraction.md) —— frontend token 与 `g_` uniform 清单（不含音频系列）
-- [SceneScript 2.8.42 固定客户端静态取证](scenescript-runtime-implementation-contract.md) —— 只作 `AUDIO_RESOLUTION_*` 与 `registerAudioBuffers` 的研究上下文，不是实现合同
+- [Shader source 前置合同与跨后端假设审查](../../../scene/semantics/shader-prelude-and-backend-abstraction.md) —— frontend token 与 `g_` uniform 清单（不含音频系列）
+- [SceneScript 2.8.42 固定客户端静态取证](../../../scene/semantics/scenescript-runtime-implementation-contract.md) —— 只作 `AUDIO_RESOLUTION_*` 与 `registerAudioBuffers` 的研究上下文，不是实现合同
 - [官方 19 工程 fixture 清单](official-default-projects-fixture-inventory.md) —— `supportsaudioprocessing` 开关的官方样本
-- [资料来源与证据索引](source-index.md) —— 第三方播放器的 mono spectrum 偏差记录；本文来源应登记于此
+- [资料来源与证据索引](../../../scene/semantics/source-index.md) —— 第三方播放器的 mono spectrum 偏差记录；本文来源应登记于此
