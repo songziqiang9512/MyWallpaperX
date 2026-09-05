@@ -21,6 +21,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private let layerImageEmissionMap: SceneParticleLayerImageEmissionMap?
     private let worldSpaceFrame: SceneParticleWorldSpaceFrame?
     private let hasWorldSpaceMovement: Bool
+    /// Immutable operator admission and turbulence data prepared with the definition.
+    /// Dynamic audio and speed values are still read on every frame.
+    private let operatorAudioExecutionAdmission: [Bool]
+    private let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
     var random: SceneParticleRandomGenerator
@@ -56,6 +60,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.hasWorldSpaceMovement = definition.operators.contains(
             where: \.isWorldSpaceMovement
         )
+        operatorAudioExecutionAdmission = definition.operators.map {
+            !$0.audioResponse.isEnabled || $0.hasBoundedAudioResponse
+        }
+        turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicy.map(
             SceneParticleStepSnapshotRecorder.init(policy:)
         )
@@ -245,7 +253,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorIndex: Int,
         duration: Double
     ) {
-        guard admitsAudioExecution(value) else { return }
+        guard operatorAudioExecutionAdmission[operatorIndex] else { return }
         switch value.kind {
         case .movement:
             let authoredGravity = SceneParticleSimulationMath.vector(
@@ -343,35 +351,29 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 )
             }
         case .turbulence:
-            let scale = SceneParticleSimulationMath.scalar(value.scale, fallback: 0.005)
-            let timeScale = value.timeScale ?? 0.01
-            let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
-            let rawMinimumSpeed = value.speedMinimum ?? 500
-            let rawMaximumSpeed = value.speedMaximum ?? 1_000
-            guard scale.isFinite, timeScale.isFinite,
-                  rawMinimumSpeed.isFinite, rawMaximumSpeed.isFinite else { break }
-            let minimumSpeed = max(rawMinimumSpeed, 0)
-            let maximumSpeed = max(rawMaximumSpeed, minimumSpeed)
+            guard let plan = turbulencePlans[operatorIndex] else { break }
             let speedOverride = overrideScalar(activeInstanceOverride?.speed)
-            let blend = SceneParticleOperatorBlendPlan(value)
+            let phaseAudioFactor = plan.audioResponse.map {
+                1 + $0.evaluate(audioInput)
+            } ?? 1
             for index in particles.indices {
                 let phase = turbulenceRandom(
-                    value.phaseMinimum ?? 0, value.phaseMaximum ?? 0,
+                    plan.phaseMinimum, plan.phaseMaximum,
                     index, operatorIndex, 0
-                ) * audioPhaseFactor(value.audioResponse)
+                ) * phaseAudioFactor
                 let speed = turbulenceRandom(
-                    minimumSpeed, maximumSpeed, index, operatorIndex, 1
+                    plan.minimumSpeed, plan.maximumSpeed, index, operatorIndex, 1
                 ) * speedOverride
                 let direction = SceneParticleSimulationMath.turbulenceDirection(
                     position: particles[index].position,
                     time: simulationTime,
                     phase: phase,
-                    scale: scale,
-                    timeScale: timeScale,
-                    mask: mask
+                    scale: plan.scale,
+                    timeScale: plan.timeScale,
+                    mask: plan.mask
                 )
                 let delta = direction * speed * duration
-                    * operatorBlend(blend, normalizedLives[index])
+                    * plan.blendAmount(normalizedLives[index])
                 SceneParticleSimulationMath.addFinite(delta, to: &particles[index].velocity)
             }
         case .controlPointAttract:

@@ -1,8 +1,57 @@
 import Foundation
 
-/// Builds one child template at a time. Rope systems stay isolated so particles
-/// from separate event/static systems can never become adjacent rope nodes.
+/// Builds child instances from the persistent system state. Rope systems stay
+/// isolated so particles from separate event/static systems can never become
+/// adjacent rope nodes.
 enum SceneParticleChildInstanceBuilder {
+    /// Rebuild every template in one pass over the live systems.
+    ///
+    /// The previous per-template entry point filtered `systems` once for every
+    /// template. Complex authored scenes can retain hundreds of child systems,
+    /// so that turned an otherwise linear frame step into an avoidable
+    /// `templates * systems` scan and allocated a short-lived matching array for
+    /// each template. Templates and the index are launch-stable; only particle
+    /// state and the reusable scratch buffers are frame-varying.
+    static func rebuildAll(
+        templates: [SceneParticleChildTemplate],
+        templatesByIndex: [Int: SceneParticleChildTemplate]? = nil,
+        systems: [SceneParticleChildSystem],
+        layerAlpha: Float,
+        into scratch: inout [Int: [SceneParticleGPUInstance]]
+    ) {
+        let lookup = templatesByIndex ?? Dictionary(
+            templates.map { ($0.index, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for template in templates {
+            scratch[template.index, default: []].removeAll(keepingCapacity: true)
+        }
+        for system in systems {
+            guard let template = lookup[system.templateIndex] else { continue }
+            if let rope = template.rope {
+                scratch[template.index, default: []].append(contentsOf: rope.instances(
+                    particles: system.simulator.particles,
+                    origin: system.origin,
+                    particleOrigins: system.isWorldSpace ? system.particleOrigins : [:],
+                    layerAlpha: layerAlpha,
+                    simulationTime: system.simulator.simulationTime
+                ))
+                continue
+            }
+            for particle in system.simulator.particles {
+                scratch[template.index, default: []].append(template.instance(
+                    origin: system.isWorldSpace
+                        ? system.particleOrigins[particle.id] ?? system.origin
+                        : system.origin,
+                    particle: particle,
+                    layerAlpha: layerAlpha
+                ))
+            }
+        }
+    }
+
+    /// Builds one child template at a time for focused callers and older
+    /// validation harnesses. The realtime path uses `rebuildAll` above.
     static func rebuild(
         template: SceneParticleChildTemplate,
         systems: [SceneParticleChildSystem],

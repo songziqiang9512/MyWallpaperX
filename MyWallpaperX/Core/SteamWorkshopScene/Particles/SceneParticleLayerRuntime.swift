@@ -6,6 +6,8 @@ import simd
 /// Such a container must not manufacture a sprite draw or a root simulator.
 struct SceneParticleRootRenderRuntime {
     let definition: SceneParticleDefinition
+    /// Prepared once with the definition graph; coordinates remain frame-varying.
+    let pointerControlPointIdentities: [Int]
     let trail: SceneParticleTrailRenderPlan?
     let rope: SceneParticleRopePlan?
     let texture: MTLTexture

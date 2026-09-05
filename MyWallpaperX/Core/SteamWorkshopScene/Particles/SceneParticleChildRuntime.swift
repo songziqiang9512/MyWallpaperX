@@ -18,6 +18,9 @@ final class SceneParticleChildRuntime {
     let unsupportedDetails: [String]
     let performanceDetails: [String]
     let handlesAllChildren: Bool
+    /// Launch-stable demand used by the host to avoid projecting the pointer
+    /// for particle layers whose prepared child graph cannot consume it.
+    let hasPointerControlPointConsumer: Bool
     var hasTemplates: Bool {
         !templates.isEmpty
     }
@@ -77,8 +80,16 @@ final class SceneParticleChildRuntime {
                 )
             }
         )
+        // Allocate the reusable per-template output map once. The map itself
+        // is topology, while each value is only cleared/refilled per frame.
+        for template in expansion.templates {
+            instanceScratch[template.index] = []
+        }
         unsupportedDetails = expansion.unsupportedDetails
         handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
+        hasPointerControlPointConsumer = expansion.templates.contains {
+            !$0.pointerControlPointIdentities.isEmpty
+        }
         nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
         var performance = expansion.performanceDetails
         let staticTemplates = templates.filter { $0.trigger == .staticChild }
@@ -141,13 +152,20 @@ final class SceneParticleChildRuntime {
             limitations: &limitations
         )
 
+        SceneParticleChildInstanceBuilder.rebuildAll(
+            templates: templates,
+            templatesByIndex: templatesByIndex,
+            systems: systems,
+            layerAlpha: layerAlpha,
+            into: &instanceScratch
+        )
         var batches: [SceneParticleDrawBatch] = []
+        batches.reserveCapacity(templates.count)
         var failures: [String] = []
         for template in templates {
-            var instances = instanceScratch.removeValue(forKey: template.index) ?? []
-            rebuildInstances(for: template, into: &instances)
-            instanceScratch[template.index] = instances
-            guard !instances.isEmpty else { continue }
+            guard let instances = instanceScratch[template.index], !instances.isEmpty else {
+                continue
+            }
             guard template.instanceBuffer.update(device: device, instances: instances) else {
                 failures.append(template.path)
                 continue
@@ -307,10 +325,14 @@ final class SceneParticleChildRuntime {
         guard let template = templatesByIndex[system.templateIndex] else {
             return [:]
         }
+        guard !template.pointerControlPointIdentities.isEmpty else { return [:] }
         let childLocalPosition = pointerLocalPosition.map {
             template.transform.inversePosition($0 - system.origin)
         }
-        return template.definition.pointerControlPointValues(at: childLocalPosition)
+        return template.definition.pointerControlPointValues(
+            at: childLocalPosition,
+            identities: template.pointerControlPointIdentities
+        )
     }
 
     private func spawn(
@@ -431,18 +453,6 @@ final class SceneParticleChildRuntime {
             )
         ))
         nextSystemID &+= 1
-    }
-
-    private func rebuildInstances(
-        for template: SceneParticleChildTemplate,
-        into instances: inout [SceneParticleGPUInstance]
-    ) {
-        SceneParticleChildInstanceBuilder.rebuild(
-            template: template,
-            systems: systems,
-            layerAlpha: layerAlpha,
-            into: &instances
-        )
     }
 
     private func updateWorldSpaceOrigins(

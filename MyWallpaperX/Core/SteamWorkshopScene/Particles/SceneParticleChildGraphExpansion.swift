@@ -12,6 +12,8 @@ struct SceneParticleChildTemplate {
     let index: Int
     let path: String
     let definition: SceneParticleDefinition
+    /// Prepared once per child template; do not rediscover operator topology per frame.
+    let pointerControlPointIdentities: [Int]
     let trigger: SceneParticleChildTrigger
     let trail: SceneParticleTrailRenderPlan?
     let rope: SceneParticleRopePlan?
@@ -311,6 +313,7 @@ enum SceneParticleChildGraphExpansion {
                 index: templateIndex,
                 path: path,
                 definition: asset.definition,
+                pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
                 trigger: trigger,
                 trail: render.trail,
                 rope: render.rope,

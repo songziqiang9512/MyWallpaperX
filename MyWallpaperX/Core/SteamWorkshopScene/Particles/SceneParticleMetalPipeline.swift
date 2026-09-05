@@ -112,6 +112,7 @@ struct SceneParticleMetalPipeline {
         )
     }
 
+    @discardableResult
     func draw(
         texture: MTLTexture,
         instances: SceneParticleMetalInstanceBuffer,
@@ -121,8 +122,8 @@ struct SceneParticleMetalPipeline {
         colorSampling: SceneParticleTextureSampling,
         usesDepthAttachment: Bool = false,
         encoder: MTLRenderCommandEncoder
-    ) {
-        guard let drawState = instances.currentDrawState() else { return }
+    ) -> Bool {
+        guard let drawState = instances.currentDrawState() else { return false }
         let state = renderState.blendMode == .additive
             ? (usesDepthAttachment ? depthAdditiveState : additiveState)
             : (usesDepthAttachment ? depthTranslucentState : translucentState)
@@ -167,6 +168,7 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        return true
     }
 
     func acquireDepthTarget(width: Int, height: Int) -> SceneParticleDepthTargetLease? {
@@ -180,6 +182,7 @@ struct SceneParticleMetalPipeline {
         framebufferSnapshot.capture(target: target, commandBuffer: commandBuffer)
     }
 
+    @discardableResult
     func drawRefraction(
         texture: MTLTexture,
         binding: SceneParticleRefractionBinding,
@@ -190,9 +193,9 @@ struct SceneParticleMetalPipeline {
         colorUVScale: SIMD2<Float>,
         colorSampling: SceneParticleTextureSampling,
         encoder: MTLRenderCommandEncoder
-    ) {
+    ) -> Bool {
         guard let drawState = instances.currentDrawState(),
-              let normal = binding.resolvedNormalArguments() else { return }
+              let normal = binding.resolvedNormalArguments() else { return false }
         encoder.setRenderPipelineState(
             renderState.blendMode == .additive ? refractAdditiveState : refractTranslucentState
         )
@@ -243,6 +246,7 @@ struct SceneParticleMetalPipeline {
             vertexCount: Self.unitQuad.count,
             instanceCount: drawState.count
         )
+        return true
     }
 
     private func bindGeometry(

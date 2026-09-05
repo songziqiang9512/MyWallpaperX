@@ -11,15 +11,17 @@ extension SceneMetalView {
         frameContext: SceneFrameContext,
         cameraFrame: SceneParticleCameraFrame
     ) -> [SceneParticleDrawBatch] {
-        particlePlayback?.advance(
+        guard let particlePlayback else { return [] }
+        return particlePlayback.advance(
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,
             pointerLocalPositions: renderer.particlePointerLocalPositions(
                 frameContext: frameContext,
-                cameraFrame: cameraFrame
+                cameraFrame: cameraFrame,
+                demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs
             ),
             audioSpectrum: frameContext.audioSpectrum
-        ) ?? []
+        )
     }
 
     func teardownParticlePlayback(reason: SceneGraphExecutionResetReason) {

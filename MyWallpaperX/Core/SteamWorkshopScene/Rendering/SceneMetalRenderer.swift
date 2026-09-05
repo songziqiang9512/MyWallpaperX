@@ -67,6 +67,31 @@ struct SceneMetalRenderer {
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
+        var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
+        var didCommitParticleSubmission = false
+        defer {
+            if !didCommitParticleSubmission {
+                if let commandBuffer = particleSubmissionCommandBuffer,
+                   commandBuffer.status == .notEnqueued {
+                    // A command accepted by Metal owns every marked slot
+                    // until its completion handler fires. Only the
+                    // pre-enqueue window may be rolled back after a
+                    // synchronous renderer failure.
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
+                            on: commandBuffer
+                        )
+                    }
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                } else if particleSubmissionCommandBuffer == nil {
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                }
+            }
+        }
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
         }
@@ -75,6 +100,7 @@ struct SceneMetalRenderer {
             performanceTelemetry?.recordCommandBufferUnavailable()
             return .deferred(reasonCode: "command-buffer-unavailable")
         }
+        particleSubmissionCommandBuffer = commandBuffer
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
         // Failure abandons this not-enqueued buffer; only success arms,
         // commits, and submits the source transaction as one contract.
@@ -788,6 +814,7 @@ struct SceneMetalRenderer {
         sourceUpdateTransaction.arm(on: commandBuffer)
         frameDepthLeases.forEach { $0.arm(on: commandBuffer) }
         commandBuffer.commit()
+        didCommitParticleSubmission = true
         sourceUpdateTransaction.didSubmit()
         if let cpuStart {
             performanceTelemetry?.recordCPUFrame(

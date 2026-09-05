@@ -284,9 +284,14 @@ nonisolated extension SceneParticleDefinition {
             || point.hasBoundedStaticInput(identity: plan.controlPoint)
     }
 
-    func pointerControlPointValues(
-        at position: SIMD3<Double>?
-    ) -> [Int: SIMD3<Double>] {
+    /// Returns the launch-stable control-point identities that can consume the
+    /// pointer.  The declaration graph and admission checks are immutable after
+    /// parse, so callers on the realtime path should compute this once and pass
+    /// it back to `pointerControlPointValues` for each frame.
+    var pointerControlPointIdentities: [Int] {
+        // Most particle definitions have no pointer-following control point.
+        // Keep that common case off the operator/initializer scans entirely.
+        guard controlPoints.contains(where: \.followsPointer) else { return [] }
         var identities = Set(operators.compactMap { value -> Int? in
             guard supportsBoundedControlPointForce(value),
                   case let .supported(plan) = value.controlPointForceAdmission,
@@ -296,6 +301,14 @@ nonisolated extension SceneParticleDefinition {
             return plan.controlPoint
         })
         identities.formUnion(positionAroundPointerControlPointIdentities)
+        return identities.sorted()
+    }
+
+    /// Resolves only the frame-varying pointer value against a prepared identity
+    /// list.  Dynamic pointer coordinates stay live; topology/admission does not.
+    func pointerControlPointValues(
+        at position: SIMD3<Double>?, identities: [Int]
+    ) -> [Int: SIMD3<Double>] {
         guard !identities.isEmpty else { return [:] }
         let value: SIMD3<Double>
         if let position, position.x.isFinite, position.y.isFinite,
@@ -305,5 +318,14 @@ nonisolated extension SceneParticleDefinition {
             value = .init(repeating: .nan)
         }
         return Dictionary(uniqueKeysWithValues: identities.map { ($0, value) })
+    }
+
+    /// Compatibility entry point for diagnostics and focused tests.  Production
+    /// runtimes use the prepared overload above so this metadata is not rebuilt
+    /// on every frame.
+    func pointerControlPointValues(
+        at position: SIMD3<Double>?
+    ) -> [Int: SIMD3<Double>] {
+        pointerControlPointValues(at: position, identities: pointerControlPointIdentities)
     }
 }

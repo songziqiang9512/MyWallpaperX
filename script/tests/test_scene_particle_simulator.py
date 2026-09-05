@@ -509,6 +509,10 @@ enum Harness {
         let pointerMapped = pointerDefinition.pointerControlPointValues(
             at: SIMD3(3, 4, 0)
         )[1]
+        let pointerIdentities = pointerDefinition.pointerControlPointIdentities
+        let pointerCachedMapped = pointerDefinition.pointerControlPointValues(
+            at: SIMD3(3, 4, 0), identities: pointerIdentities
+        )[1]
         let pointerOutsideMapped = pointerDefinition.pointerControlPointValues(at: nil)[1]
         let duplicatePointerDefinition = SceneParticleDefinitionParser().parse(
             root: try! object(controlPointForceJSON(
@@ -1386,6 +1390,8 @@ enum Harness {
             ),
             "pointerLifetimeBlendVelocity": vector(pointerLifetimeBlend.particles[0].velocity),
             "pointerMapped": pointerMapped.map(vector) ?? [],
+            "pointerIdentityPlan": pointerIdentities,
+            "pointerCachedMatches": pointerCachedMapped.map(vector) == pointerMapped.map(vector),
             "pointerOutsideInactive": pointerOutsideMapped?.x.isNaN == true
                 && pointerOutsideMapped?.y.isNaN == true
                 && pointerOutsideMapped?.z.isNaN == true,
@@ -2577,6 +2583,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["pointerInactiveTailBlendVelocity"], [2, 0, 0])
         self.assertAlmostEqual(self.results["pointerLifetimeBlendVelocity"][0], 1.8)
         self.assertEqual(self.results["pointerMapped"], [3, 4, 0])
+        self.assertEqual(self.results["pointerIdentityPlan"], [1])
+        self.assertTrue(self.results["pointerCachedMatches"])
         self.assertTrue(self.results["pointerOutsideInactive"])
         self.assertTrue(self.results["duplicatePointerRejected"])
         self.assertEqual(

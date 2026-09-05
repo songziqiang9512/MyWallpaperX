@@ -8,6 +8,10 @@ final class SceneParticleRuntime {
     private let device: MTLDevice
     private var layers: [SceneParticleLayerRuntime] = []
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
+    /// Launch-stable layer demand for pointer projection. Root and child
+    /// template identities are prepared with the particle graph; frame-varying
+    /// coordinates are still supplied by the host each advance.
+    private(set) var pointerControlPointLayerIDs: Set<Int> = []
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
     var hasAudioConsumer: Bool { layers.contains { $0.definition.hasBoundedAudioConsumer } }
@@ -109,6 +113,7 @@ final class SceneParticleRuntime {
         }
 
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
+        var pointerDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else { continue }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
@@ -177,6 +182,9 @@ final class SceneParticleRuntime {
                     rootRender: nil,
                     childRuntime: retainedChildRuntime
                 ))
+                if childRuntime.hasPointerControlPointConsumer {
+                    pointerDemandLayerIDs.insert(layer.id)
+                }
                 continue
             }
 
@@ -214,7 +222,12 @@ final class SceneParticleRuntime {
                 rootRender: rootRender,
                 childRuntime: retainedChildRuntime
             ))
+            if !rootRender.pointerControlPointIdentities.isEmpty
+                || childRuntime.hasPointerControlPointConsumer {
+                pointerDemandLayerIDs.insert(layer.id)
+            }
         }
+        pointerControlPointLayerIDs = pointerDemandLayerIDs
     }
 
     /// Advances every active layer by the frame delta and returns batches in scene render order.
@@ -228,7 +241,8 @@ final class SceneParticleRuntime {
             var parentParticles: [SceneParticleState] = []
             if var root = layers[index].rootRender {
                 let pointerValues = root.definition.pointerControlPointValues(
-                    at: pointerLocalPositions[layerID]
+                    at: pointerLocalPositions[layerID],
+                    identities: root.pointerControlPointIdentities
                 )
                 let controlPoints = dynamicValues.particleControlPoints(
                     layerID: layerID
@@ -515,6 +529,7 @@ final class SceneParticleRuntime {
         )
         return SceneParticleRootRenderRuntime(
             definition: asset.definition,
+            pointerControlPointIdentities: asset.definition.pointerControlPointIdentities,
             trail: render.trail,
             rope: render.rope,
             texture: texture,

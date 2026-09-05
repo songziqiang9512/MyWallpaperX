@@ -106,6 +106,72 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
     }
 }
 
+/// Launch-stable execution inputs for the turbulence operator.
+///
+/// Particle position, simulation time, audio input and speed overrides remain
+/// frame-varying. Everything else comes from the authored definition and is
+/// prepared once with the simulator.
+nonisolated struct SceneParticleTurbulencePlan: Sendable {
+    let scale: Double
+    let timeScale: Double
+    let mask: SIMD3<Double>
+    let minimumSpeed: Double
+    let maximumSpeed: Double
+    let phaseMinimum: Double
+    let phaseMaximum: Double
+    let hasBlendIn: Bool
+    let blendInStart: Double
+    let blendInEnd: Double
+    let hasBlendOut: Bool
+    let blendOutStart: Double
+    let blendOutEnd: Double
+    let audioResponse: SceneParticleAudioResponsePlan?
+
+    nonisolated init?(_ value: SceneParticleOperator) {
+        guard case .turbulence = value.kind else { return nil }
+        let scale = SceneParticleSimulationMath.scalar(value.scale, fallback: 0.005)
+        let timeScale = value.timeScale ?? 0.01
+        let mask = SceneParticleSimulationMath.vector(
+            value.mask, fallback: SIMD3(1, 1, 0)
+        )
+        let rawMinimumSpeed = value.speedMinimum ?? 500
+        let rawMaximumSpeed = value.speedMaximum ?? 1_000
+        guard scale.isFinite, timeScale.isFinite,
+              rawMinimumSpeed.isFinite, rawMaximumSpeed.isFinite else {
+            return nil
+        }
+        self.scale = scale
+        self.timeScale = timeScale
+        self.mask = mask
+        self.minimumSpeed = max(rawMinimumSpeed, 0)
+        self.maximumSpeed = max(rawMaximumSpeed, self.minimumSpeed)
+        self.phaseMinimum = value.phaseMinimum ?? 0
+        self.phaseMaximum = value.phaseMaximum ?? 0
+        self.hasBlendIn = value.blendInStart != nil || value.blendInEnd != nil
+        self.blendInStart = value.blendInStart ?? 0
+        self.blendInEnd = value.blendInEnd ?? 0
+        self.hasBlendOut = value.blendOutStart != nil || value.blendOutEnd != nil
+        self.blendOutStart = value.blendOutStart ?? 1
+        self.blendOutEnd = value.blendOutEnd ?? 1
+        self.audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
+    }
+
+    nonisolated func blendAmount(_ life: Double) -> Double {
+        var result = 1.0
+        if hasBlendIn {
+            result *= SceneParticleSimulationMath.changeAmount(
+                life, blendInStart, blendInEnd
+            )
+        }
+        if hasBlendOut {
+            result *= 1 - SceneParticleSimulationMath.changeAmount(
+                life, blendOutStart, blendOutEnd
+            )
+        }
+        return result
+    }
+}
+
 nonisolated extension SceneParticleEmitter {
     /// Audio emission currently admits the common root Sphere/Box rate profile only.
     /// Delay, duration, periodic, burst, Layer Image and unknown flag interactions remain

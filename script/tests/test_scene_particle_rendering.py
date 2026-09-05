@@ -213,6 +213,7 @@ enum Harness {
             "ropeTrailTransform": ropeTrailTransformContract(),
             "ropeTrailAspect": ropeTrailAspectContract(),
             "instanceBufferSlots": instanceBufferSlotTest(),
+            "instanceBufferPendingCancellation": instanceBufferPendingCancellationTest(),
             "colorContract": colorContractTest(),
             "refractionContract": refractionContractTest(),
             "texSampling": [
@@ -339,11 +340,22 @@ enum Harness {
         ]
         let instances = SceneParticleMetalInstanceBuffer()
         guard instances.update(device: device, instances: values) else { return false }
+        let emptyInstances = SceneParticleMetalInstanceBuffer()
         let basis = SceneParticleOrientation.screen.basis(
             cameraRight: SIMD3(1, 0, 0), cameraUp: SIMD3(0, 1, 0),
             cameraForward: SIMD3(0, 0, -1)
         )
-        pipeline.draw(
+        let emptyDraw = pipeline.draw(
+            texture: input, instances: emptyInstances,
+            uniforms: SceneParticleLayerUniforms(
+                viewProjection: SceneMatrix.identity(),
+                layerModel: SceneMatrix.identity(), basis: basis
+            ),
+            renderState: particleState(.translucent),
+            colorSampling: .directImageFallback,
+            encoder: encoder
+        )
+        let translucentDraw = pipeline.draw(
             texture: input, instances: instances,
             uniforms: SceneParticleLayerUniforms(
                 viewProjection: SceneMatrix.identity(),
@@ -353,7 +365,7 @@ enum Harness {
             colorSampling: .directImageFallback,
             encoder: encoder
         )
-        pipeline.draw(
+        let additiveDraw = pipeline.draw(
             texture: input, instances: instances,
             uniforms: SceneParticleLayerUniforms(
                 viewProjection: SceneMatrix.identity(),
@@ -366,7 +378,9 @@ enum Harness {
         encoder.endEncoding()
         let submitted = instances.markSubmitted(on: command)
         let completed = commitAndWait(command)
-        return submitted && completed && command.status == .completed && instances.count == 2
+        return !emptyDraw && translucentDraw && additiveDraw
+            && submitted && completed
+            && command.status == .completed && instances.count == 2
     }
 
     private static func additiveFractionalAlphaPixel() -> [Int] {
@@ -622,6 +636,71 @@ enum Harness {
             "firstCompleted": firstCompleted,
             "reusedFirst": reusedBuffer === firstBuffer,
             "cleanupCompleted": secondCompleted && thirdCompleted,
+        ]
+    }
+
+    private static func instanceBufferPendingCancellationTest() -> [String: Any] {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue(),
+              let pendingCommand = queue.makeCommandBuffer() else {
+            return ["available": false]
+        }
+        let instances = SceneParticleMetalInstanceBuffer()
+        guard instances.update(device: device, instances: [instance(x: 1)]),
+              let firstBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let pendingCancelled = instances.cancelPending()
+        let pendingCleared = instances.currentDrawState() == nil && instances.count == 0
+        guard instances.update(device: device, instances: [instance(x: 2)]),
+              let secondBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let reusedAfterPending = secondBuffer === firstBuffer
+        let marked = instances.markSubmitted(on: pendingCommand)
+        let uncommittedCancelled = instances.cancelUncommittedSubmission(on: pendingCommand)
+        let uncommittedCleared = instances.currentDrawState() == nil && instances.count == 0
+        guard instances.update(device: device, instances: [instance(x: 3)]),
+              let thirdBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let reusedAfterSubmissionCancel = thirdBuffer === firstBuffer
+        let idempotentCancel = !instances.cancelUncommittedSubmission(on: pendingCommand)
+        _ = instances.cancelPending()
+
+        guard let committedCommand = queue.makeCommandBuffer(),
+              instances.update(device: device, instances: [instance(x: 4)]),
+              let committedBuffer = instances.buffer,
+              instances.markSubmitted(on: committedCommand) else {
+            return ["available": false]
+        }
+        let cancelInFlightRejected = !instances.cancelPending()
+        let inFlightCountPreserved = instances.count == 1
+        guard commitAndWait(committedCommand) else {
+            return ["available": false]
+        }
+        let cancelAfterCompletionRejected =
+            !instances.cancelUncommittedSubmission(on: committedCommand)
+        guard instances.update(device: device, instances: [instance(x: 5)]),
+              let afterCompletionBuffer = instances.buffer else {
+            return ["available": false]
+        }
+        let reusedAfterCompletion = afterCompletionBuffer === committedBuffer
+        _ = instances.cancelPending()
+        return [
+            "available": true,
+            "pendingCancelled": pendingCancelled,
+            "pendingCleared": pendingCleared,
+            "reusedAfterPending": reusedAfterPending,
+            "marked": marked,
+            "uncommittedCancelled": uncommittedCancelled,
+            "uncommittedCleared": uncommittedCleared,
+            "reusedAfterSubmissionCancel": reusedAfterSubmissionCancel,
+            "idempotentCancel": idempotentCancel,
+            "cancelInFlightRejected": cancelInFlightRejected,
+            "inFlightCountPreserved": inFlightCountPreserved,
+            "cancelAfterCompletionRejected": cancelAfterCompletionRejected,
+            "reusedAfterCompletion": reusedAfterCompletion,
         ]
     }
 
@@ -1993,6 +2072,52 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertTrue(slots["firstCompleted"])
         self.assertTrue(slots["reusedFirst"])
         self.assertTrue(slots["cleanupCompleted"])
+
+    def test_uncommitted_particle_slots_are_cancelled_and_reusable(self) -> None:
+        slots = self.result["instanceBufferPendingCancellation"]
+        self.assertTrue(slots["available"])
+        self.assertTrue(slots["pendingCancelled"])
+        self.assertTrue(slots["pendingCleared"])
+        self.assertTrue(slots["reusedAfterPending"])
+        self.assertTrue(slots["marked"])
+        self.assertTrue(slots["uncommittedCancelled"])
+        self.assertTrue(slots["uncommittedCleared"])
+        self.assertTrue(slots["reusedAfterSubmissionCancel"])
+        self.assertTrue(slots["idempotentCancel"])
+        self.assertTrue(slots["cancelInFlightRejected"])
+        self.assertTrue(slots["inFlightCountPreserved"])
+        self.assertTrue(slots["cancelAfterCompletionRejected"])
+        self.assertTrue(slots["reusedAfterCompletion"])
+
+    def test_particle_submission_uses_shared_cancel_and_commit_boundary(self) -> None:
+        instance_source = (
+            SOURCE_ROOT / "Particles/SceneParticleMetalInstanceBuffer.swift"
+        ).read_text(encoding="utf-8")
+        pipeline_source = (
+            SOURCE_ROOT / "Particles/SceneParticleMetalPipeline.swift"
+        ).read_text(encoding="utf-8")
+        particle_renderer_source = (
+            SOURCE_ROOT / "Rendering/SceneMetalRenderer+Particles.swift"
+        ).read_text(encoding="utf-8")
+        renderer_source = (
+            SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("func cancelUncommittedSubmission(", instance_source)
+        self.assertIn("commandBuffer.status != .completed", instance_source)
+        self.assertIn("commandBuffer.status != .error", instance_source)
+        self.assertIn("func draw(\n", pipeline_source)
+        self.assertIn(") -> Bool", pipeline_source)
+        self.assertIn("let didEncode: Bool", particle_renderer_source)
+        self.assertIn("if didEncode", particle_renderer_source)
+        self.assertIn("if encoded { clearsDepth = false }", particle_renderer_source)
+        self.assertIn("cancelPending()", particle_renderer_source)
+        self.assertIn("cancelUncommittedSubmission", renderer_source)
+        self.assertIn("if !didCommitParticleSubmission", renderer_source)
+        self.assertIn("commandBuffer.status == .notEnqueued", renderer_source)
+        commit_index = renderer_source.index("commandBuffer.commit()")
+        armed_index = renderer_source.index("didCommitParticleSubmission = true")
+        self.assertLess(commit_index, armed_index)
 
     def test_refraction_samples_the_preceding_framebuffer_with_bounded_snapshot(self) -> None:
         contract = self.result["refractionContract"]

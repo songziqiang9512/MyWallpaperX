@@ -436,6 +436,9 @@ enum Harness {
             )]
         )
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let demandRuntime = SceneParticleRuntime(
+            descriptor: descriptor, cacheDirectory: directory, device: device
+        )
         func velocity(pointer: SIMD3<Double>?) -> [Float] {
             let runtime = SceneParticleRuntime(
                 descriptor: descriptor, cacheDirectory: directory, device: device
@@ -457,6 +460,7 @@ enum Harness {
             // Root-local x=10 becomes child-local x=4 through authored scale 2.5,
             // which is inside threshold 5. Without that frame conversion it is outside.
             "insideScaled": velocity(pointer: SIMD3(10, 0, 0)),
+            "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
         ]
     }
 
@@ -2805,6 +2809,24 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["outside"], [0, 0, 0])
         self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
         self.assertEqual(result["insideScaled"][1:], [0, 0])
+        self.assertEqual(result["pointerDemandLayerIDs"], [18])
+
+    def test_host_pointer_projection_is_gated_by_prepared_particle_demand(self) -> None:
+        pointer = (
+            SOURCE_ROOT / "Rendering/SceneMetalRenderer+ParticlePointer.swift"
+        ).read_text(encoding="utf-8")
+        playback = (
+            SOURCE_ROOT / "Rendering/SceneMetalView+ParticlePlayback.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "guard frameContext.pointer.isInside, !demandedLayerIDs.isEmpty else {",
+            pointer,
+        )
+        self.assertIn("demandedLayerIDs.contains(layer.id)", pointer)
+        self.assertIn(
+            "demandedLayerIDs: particlePlayback.pointerControlPointLayerIDs",
+            playback,
+        )
 
     def test_runtime_consumes_each_surface_snapshot_then_restores_authored_fallback(self) -> None:
         result = self.run_harness("dynamic-control-point-synthetic")

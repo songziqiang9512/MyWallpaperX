@@ -7,6 +7,9 @@ final class SceneParticlePlaybackState {
     let lifecycleIdentity = UUID()
     let pipeline: SceneParticleMetalPipeline
     private let runtime: SceneParticleRuntime
+    /// Prepared once with the playback graph; no per-frame particle topology
+    /// scan is needed to decide whether pointer projection is required.
+    let pointerControlPointLayerIDs: Set<Int>
     private(set) var batches: [SceneParticleDrawBatch]
     private var didTeardown = false
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
@@ -25,7 +28,7 @@ final class SceneParticlePlaybackState {
     ) {
         guard let pipeline = SceneParticleMetalPipeline(device: device) else { return nil }
         self.pipeline = pipeline
-        self.runtime = SceneParticleRuntime(
+        let runtime = SceneParticleRuntime(
             descriptor: descriptor,
             cacheDirectory: cacheDirectory,
             device: device,
@@ -36,6 +39,8 @@ final class SceneParticlePlaybackState {
             staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames,
             initialDynamicValues: initialDynamicValues
         )
+        self.runtime = runtime
+        self.pointerControlPointLayerIDs = runtime.pointerControlPointLayerIDs
         self.batches = runtime.advance(by: 0)
     }
 

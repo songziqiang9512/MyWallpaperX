@@ -17,7 +17,10 @@ extension SceneMetalRenderer {
             width: targetExtent.width,
             height: targetExtent.height
         ) : nil
-        guard !usesDepth || depthLease != nil else { return nil }
+        guard !usesDepth || depthLease != nil else {
+            batches.forEach { _ = $0.instanceBuffer.cancelPending() }
+            return nil
+        }
         var clearsDepth = usesDepth
         for batch in batches {
             let basis = particleBasis(
@@ -33,31 +36,34 @@ extension SceneMetalRenderer {
                 basis: basis,
                 viewportSize: viewportSize
             )
+            let didEncode: Bool
             if let refraction = batch.refraction {
                 let captured = mainPass.withReadableTarget { target, buffer in
                     pipeline.snapshot(target: target, commandBuffer: buffer)
                 }
-                guard let background = captured ?? nil,
-                      let encoder = mainPass.encoder() else { continue }
-                pipeline.drawRefraction(
-                    texture: batch.texture,
-                    binding: refraction,
-                    background: background,
-                    instances: batch.instanceBuffer,
-                    uniforms: uniforms,
-                    renderState: batch.renderState,
-                    colorUVScale: batch.colorUVScale,
-                    colorSampling: batch.colorSampling,
-                    encoder: encoder
-                )
+                if let background = captured ?? nil,
+                   let encoder = mainPass.encoder() {
+                    didEncode = pipeline.drawRefraction(
+                        texture: batch.texture,
+                        binding: refraction,
+                        background: background,
+                        instances: batch.instanceBuffer,
+                        uniforms: uniforms,
+                        renderState: batch.renderState,
+                        colorUVScale: batch.colorUVScale,
+                        colorSampling: batch.colorSampling,
+                        encoder: encoder
+                    )
+                } else {
+                    didEncode = false
+                }
             } else if let encoder = usesDepth
                 ? mainPass.encoder(
                     depthTexture: depthLease?.texture,
                     clearsDepth: clearsDepth
                 )
                 : mainPass.encoder() {
-                clearsDepth = false
-                pipeline.draw(
+                let encoded = pipeline.draw(
                     texture: batch.texture,
                     instances: batch.instanceBuffer,
                     uniforms: uniforms,
@@ -67,8 +73,32 @@ extension SceneMetalRenderer {
                     usesDepthAttachment: usesDepth,
                     encoder: encoder
                 )
+                if encoded { clearsDepth = false }
+                didEncode = encoded
+            } else {
+                didEncode = false
             }
-            batch.instanceBuffer.markSubmitted(on: commandBuffer)
+            if didEncode {
+                // Reserve the slot for this command only after the pipeline
+                // confirms that a draw was actually encoded.  The renderer's
+                // outer defer handles a later preflight/seal rejection while
+                // the command is still not enqueued.
+                if !batch.instanceBuffer.markSubmitted(on: commandBuffer) {
+                    // A completed/error command cannot own a slot. The draw
+                    // was synchronous, so releasing this still-current
+                    // candidate is safe only when the command is already
+                    // terminal.  An enqueued/committed command may still be
+                    // reading the instance buffer; leave that ownership alone
+                    // and let its completion handler release the slot.
+                    if commandBuffer.status == .completed
+                        || commandBuffer.status == .error
+                    {
+                        _ = batch.instanceBuffer.cancelPending()
+                    }
+                }
+            } else {
+                _ = batch.instanceBuffer.cancelPending()
+            }
         }
         return depthLease
     }
