@@ -24,7 +24,7 @@
 
 ### 2026-09-05 V4 particle child template selection index
 
-`SceneParticleChildRuntime` 在 launch 期间缓存按 template index 和 `(trigger, depth, parentAssetPath)` 的稳定索引；普通帧的 child spawn/follow、pointer control-point 与 nested-parent lookup 复用该索引，未新增 particle/provider/clock/graph/compositor owner。修改后的 Developer ID Debug App 对隔离真实 `3396722575` representative matrix 严格 `1/1 PASS`，22/21/0 submitted/completed/failed、0 drawable miss、driver `8.009 FPS`、pre-encode p95 `63.211 ms`、CPU p95 `59.569 ms`、GPU p95 `14.612 ms`，ready/after 非黑，motion mean delta `0.04187`。这是一次 S3 executable shared hot-path correction + S4 whole-composition safety evidence；不证明稳定性能收益、流畅度、全部粒子、149 corpus、SceneClock/particle frame atomicity 或官方 parity。
+`SceneParticleChildRuntime` 在 launch 期间缓存按 template index 和 `(trigger, depth, parentAssetPath)` 的稳定索引；普通帧的 child spawn/follow、pointer control-point 与 nested-parent lookup 复用该索引，派发调用内的 active-system/depth budget 也改为局部计数快照，未新增 particle/provider/clock/graph/compositor owner。修改后的 Developer ID Debug App 对隔离真实 `3396722575` representative matrix 严格 `1/1 PASS`，22/21/0 submitted/completed/failed、0 drawable miss、driver `8.009 FPS`、pre-encode p95 `63.211 ms`、CPU p95 `59.569 ms`、GPU p95 `14.612 ms`，ready/after 非黑，motion mean delta `0.04187`。这属于 S3 executable shared hot-path wiring + bounded whole-composition safety observation；该次真实运行先于后继计数快照改动，未证明后继改动的匹配 FPS 收益、稳定性能、流畅度、全部粒子、149 corpus、SceneClock/particle frame atomicity 或官方 parity。候选/后继 synthetic eventfollow、nested 与 pointer fixtures 均与前一实现连续 3 次输出完全一致。
 
 > 下表 Pulse combined RGB + scalar-alpha 行中的“exact”在隔离终审后精确限定为 canonical `BLENDMODE=9` helper、左右RGB multiplier、同一factor与auxiliary→factor依赖均在source/MSL两侧守恒；其他mode或自定义同签名helper不在该owner cohort。
 
