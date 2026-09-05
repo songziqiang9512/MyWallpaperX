@@ -1,7 +1,7 @@
 import Foundation
 import Metal
 
-enum SceneParticleChildTrigger: Equatable {
+enum SceneParticleChildTrigger: Hashable {
     case staticChild
     case spawn
     case death

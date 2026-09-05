@@ -3,6 +3,12 @@ import Metal
 
 /// Executes strict children up to depth two. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
+    private struct TemplateSelectionKey: Hashable {
+        let trigger: SceneParticleChildTrigger
+        let depth: Int
+        let parentAssetPath: String?
+    }
+
     // Child systems run on the CPU fallback; cap burst spikes while retaining authored
     // distribution. Each depth keeps its own aggregate budget so nested trails cannot
     // starve depth-one children and vice versa.
@@ -25,6 +31,8 @@ final class SceneParticleChildRuntime {
     private let layerAlpha: Float
     private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
+    private let templatesByIndex: [Int: SceneParticleChildTemplate]
+    private let templatesBySelection: [TemplateSelectionKey: [SceneParticleChildTemplate]]
     private let nestedParentPaths: Set<String>
     private var systems: [SceneParticleChildSystem] = []
     private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
@@ -55,6 +63,20 @@ final class SceneParticleChildRuntime {
             rootInstanceOverride: rootInstanceOverride
         )
         templates = expansion.templates
+        templatesByIndex = Dictionary(
+            expansion.templates.map { ($0.index, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        templatesBySelection = Dictionary(
+            grouping: expansion.templates,
+            by: {
+                TemplateSelectionKey(
+                    trigger: $0.trigger,
+                    depth: $0.depth,
+                    parentAssetPath: $0.parentAssetPath
+                )
+            }
+        )
         unsupportedDetails = expansion.unsupportedDetails
         handlesAllChildren = expansion.handledRootChildren == rootAsset.definition.children.count
         nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
@@ -189,9 +211,7 @@ final class SceneParticleChildRuntime {
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
-            guard let path = templates.first(where: {
-                $0.index == systems[index].templateIndex
-            })?.path,
+            guard let path = templatesByIndex[systems[index].templateIndex]?.path,
                   nestedParentPaths.contains(path) else { continue }
             frames.append(SceneParticleChildParentFrame(
                 systemID: systems[index].id,
@@ -284,7 +304,7 @@ final class SceneParticleChildRuntime {
         for system: SceneParticleChildSystem,
         pointerLocalPosition: SIMD3<Double>?
     ) -> [Int: SIMD3<Double>] {
-        guard let template = templates.first(where: { $0.index == system.templateIndex }) else {
+        guard let template = templatesByIndex[system.templateIndex] else {
             return [:]
         }
         let childLocalPosition = pointerLocalPosition.map {
@@ -303,11 +323,11 @@ final class SceneParticleChildRuntime {
         limitations: inout Set<String>
     ) {
         guard !events.isEmpty else { return }
+        let selectionKey = TemplateSelectionKey(
+            trigger: trigger, depth: depth, parentAssetPath: parentPath
+        )
         for event in events {
-            for template in templates
-                where template.trigger == trigger && template.depth == depth
-                && template.parentAssetPath == parentPath
-            {
+            for template in templatesBySelection[selectionKey] ?? [] {
                 let activeCount = systems.lazy.filter {
                     $0.templateIndex == template.index && $0.spawnScopeID == scopeID
                 }.count
@@ -338,10 +358,10 @@ final class SceneParticleChildRuntime {
         limitations: inout Set<String>
     ) {
         guard !parents.isEmpty else { return }
-        for template in templates
-            where template.trigger == .follow && template.depth == depth
-            && template.parentAssetPath == parentPath
-        {
+        let selectionKey = TemplateSelectionKey(
+            trigger: .follow, depth: depth, parentAssetPath: parentPath
+        )
+        for template in templatesBySelection[selectionKey] ?? [] {
             var followedIDs = Set(systems.lazy.compactMap { system in
                 system.templateIndex == template.index && system.spawnScopeID == scopeID
                     ? system.parentParticleID : nil
