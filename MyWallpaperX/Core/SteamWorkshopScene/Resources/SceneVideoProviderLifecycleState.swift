@@ -90,6 +90,11 @@ nonisolated struct SceneVideoProviderLifecycleState {
         return contentGeneration
     }
 
+    nonisolated mutating func discardPlannedFrame(frameIndex: UInt64) {
+        guard lastPlan?.frameIndex == frameIndex else { return }
+        lastPlan = nil
+    }
+
     nonisolated mutating func pause(
         sceneTime: TimeInterval,
         hostTime: TimeInterval

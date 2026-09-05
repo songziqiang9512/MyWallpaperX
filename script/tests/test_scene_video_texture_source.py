@@ -76,6 +76,21 @@ enum Harness {
         )
         let secondPublication = state.didPublish(frameIndex: 10)
 
+        var discarded = SceneVideoProviderLifecycleState(epoch: 74)
+        discarded.start(sceneTime: 0, hostTime: 0)
+        let discardedPlan = discarded.planFrame(
+            frameIndex: 20,
+            sceneTime: 1,
+            hostTime: 1
+        )
+        discarded.discardPlannedFrame(frameIndex: 20)
+        let retriedAfterDiscard = discarded.planFrame(
+            frameIndex: 20,
+            sceneTime: 1,
+            hostTime: 1
+        )
+        let retryPublication = discarded.didPublish(frameIndex: 20)
+
         let initialEpoch = state.epoch
         state.pause(sceneTime: 10.75, hostTime: 100.75)
         let pausedEpoch = state.epoch
@@ -158,6 +173,12 @@ enum Harness {
                 && second.shouldDecode
                 && secondPublication == 2
                 && state.contentGeneration == 2,
+            "discardedPlanCanRetry": discardedPlan.shouldDecode
+                && retriedAfterDiscard.shouldDecode
+                && discardedPlan.contentGeneration == 0
+                && retriedAfterDiscard.contentGeneration == 0
+                && retryPublication == 1
+                && discarded.contentGeneration == 1,
             "pauseHoldsItemTime": !paused.shouldDecode
                 && close(paused.itemTime, 0.75),
             "resumeIsContinuous": resumed.shouldDecode
@@ -269,6 +290,7 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "loopRestartsAtLatestSceneTime",
             "epochIsInherited",
             "stopIsIdempotent",
+            "discardedPlanCanRetry",
         ):
             with self.subTest(contract=key):
                 self.assertTrue(result[key], key)
@@ -320,7 +342,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
                 self.assertIn(token, self.source)
 
     def test_synchronized_anchor_retries_when_the_player_did_not_start(self) -> None:
-        current_frame = swift_block(self.source, "func currentFrame(")
+        current_frame = swift_block(self.source, "func prepareFrame(")
         self.assertIsNotNone(current_frame)
         assert current_frame is not None
         self.assertIn("needsPlayerAnchor || player.rate == 0", current_frame)
@@ -419,7 +441,13 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         self.assertIn("sources.removeValue(forKey: identity)?.stop()", registry)
         self.assertIn("videoSourceRegistry.source(", view)
         self.assertNotIn("currentTexture(forHostTime:", view)
-        self.assertIn("source.currentFrame(for: timing)", assembly)
+        self.assertIn("source.prepareFrame(for: timing)", assembly)
+        self.assertIn("commitPreparedFrame()", view)
+        self.assertIn("discardPreparedFrame()", view)
+        self.assertIn(
+            "markPlayerAnchorRequired()",
+            VIDEO_SOURCE.read_text(encoding="utf-8"),
+        )
         self.assertIn("pendingLayerSourceIDs.insert(layerID)", assembly)
         self.assertIn("pendingLayerSourceIDs: pendingLayerSourceIDs", assembly)
 

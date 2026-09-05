@@ -44,6 +44,8 @@ final class SceneVideoTextureSource {
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var currentCVMetalTexture: CVMetalTexture?
     private var lastFrame: Frame?
+    private var pendingFrame: Frame?
+    private var pendingFrameIndex: UInt64?
     private var hasStarted = false
     private var needsPlayerAnchor = true
     private var playbackBarrier: UInt64 = 0
@@ -132,6 +134,21 @@ final class SceneVideoTextureSource {
     }
 
     func currentFrame(for timing: SceneFrameTiming) -> Frame? {
+        guard let frame = prepareFrame(for: timing) else { return lastFrame }
+        commitPreparedFrame()
+        return frame
+    }
+
+    /// Builds a frame candidate without advancing the provider publication.
+    /// The host commits it only after the surface submission barrier accepts
+    /// the frame, so a drawable miss or graph rejection cannot consume video
+    /// content generation or replace the last-ready frame.
+    func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
+        if pendingFrameIndex == timing.frameIndex {
+            return pendingFrame
+        }
+        pendingFrame = nil
+        pendingFrameIndex = nil
         guard player.currentItem != nil else { return nil }
         if !hasStarted {
             lifecycle.start(
@@ -185,12 +202,10 @@ final class SceneVideoTextureSource {
             itemTimeForDisplay: &itemTimeForDisplay
         ),
         expectedBarrier == playbackBarrier,
-        let texture = makeTexture(from: pixelBuffer),
-        let contentGeneration = lifecycle.didPublish(
-            frameIndex: timing.frameIndex
-        ) else {
+        let texture = makeTexture(from: pixelBuffer) else {
             return lastFrame
         }
+        let contentGeneration = lifecycle.contentGeneration &+ 1
 
         let frame = Frame(
             texture: texture,
@@ -202,8 +217,31 @@ final class SceneVideoTextureSource {
         )
         needsPlayerAnchor = false
         if !lifecycle.isPlaying { player.pause() }
-        lastFrame = frame
+        pendingFrame = frame
+        pendingFrameIndex = timing.frameIndex
         return frame
+    }
+
+    func commitPreparedFrame() {
+        guard let pendingFrame,
+              let frameIndex = pendingFrameIndex,
+              lifecycle.didPublish(frameIndex: frameIndex) != nil else {
+            return
+        }
+        lastFrame = pendingFrame
+        self.pendingFrame = nil
+        pendingFrameIndex = nil
+    }
+
+    func discardPreparedFrame() {
+        guard let frameIndex = pendingFrameIndex else { return }
+        pendingFrame = nil
+        pendingFrameIndex = nil
+        lifecycle.discardPlannedFrame(frameIndex: frameIndex)
+        // AVPlayer may have advanced while the candidate was being encoded.
+        // Re-anchor on the next attempt so a rejected surface cannot move the
+        // provider clock ahead of the last submitted content.
+        markPlayerAnchorRequired()
     }
 
     func playbackSnapshot(
@@ -348,6 +386,8 @@ final class SceneVideoTextureSource {
         player.replaceCurrentItem(with: nil)
         currentCVMetalTexture = nil
         lastFrame = nil
+        pendingFrame = nil
+        pendingFrameIndex = nil
         CVMetalTextureCacheFlush(textureCache, 0)
         try? FileManager.default.removeItem(at: temporaryFileURL)
     }

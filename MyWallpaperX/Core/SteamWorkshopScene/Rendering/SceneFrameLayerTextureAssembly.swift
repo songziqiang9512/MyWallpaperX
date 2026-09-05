@@ -36,7 +36,7 @@ enum SceneFrameLayerTextureAssembly {
         _ = mediaThumbnail
         _ = mediaBindings
         for (layerID, source) in videoSources {
-            guard let frame = source.currentFrame(for: timing) else {
+            guard let frame = source.prepareFrame(for: timing) else {
                 pendingLayerSourceIDs.insert(layerID)
                 continue
             }

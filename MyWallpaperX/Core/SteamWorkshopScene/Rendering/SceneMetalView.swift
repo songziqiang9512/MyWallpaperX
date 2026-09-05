@@ -458,7 +458,7 @@ class SceneMetalView: NSView {
                 preEncode: ProcessInfo.processInfo.systemUptime - drawableAcquired
             )
         }
-        return renderer.renderFrame(
+        let outcome = renderer.renderFrame(
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
             userPropertyTextures: userPropertyTextureLoad.textures,
@@ -487,6 +487,12 @@ class SceneMetalView: NSView {
             performanceTelemetry: performanceTelemetry,
             to: drawable
         )
+        if outcome.isSubmitted {
+            videoTextureSources.values.forEach { $0.commitPreparedFrame() }
+        } else {
+            videoTextureSources.values.forEach { $0.discardPreparedFrame() }
+        }
+        return outcome
     }
 
 }

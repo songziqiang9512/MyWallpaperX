@@ -4760,7 +4760,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertLess(abandon_unsealed, command_commit)
         self.assertIn(
             "guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {\n"
-            "            return\n"
+            "            return .dropped(reasonCode: \"resolved-material-frame-seal-rejected\")\n"
             "        }",
             renderer,
         )
