@@ -4,6 +4,83 @@ nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
     private static let unpremultiply = "mwxGenericUnpremultiply"
     private static let premultiply = "mwxGenericPremultiply"
 
+    /// Applies the compositor boundary to a source-proven direct carrier.
+    /// The authored analyzer proves the member-write semantics; this method
+    /// only accepts the corresponding bounded compiler shape (one sampled
+    /// local and one terminal output) so compiler drift cannot turn the fact
+    /// into a broad text rewrite.
+    static func lowerDirectCarrier(
+        _ source: String,
+        expectedSlot: Int
+    ) -> String? {
+        guard (0 ..< 8).contains(expectedSlot),
+              !containsWord(unpremultiply, in: source),
+              !containsWord(premultiply, in: source),
+              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
+              let calls = compilerTextureSampleCalls(in: source),
+              calls.count == 1,
+              calls[0].slot == expectedSlot else { return nil }
+
+        let declarations = matches(
+            #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\(([^;]+)\)(\s*;[ \t]*)$"#,
+            in: source
+        )
+        guard declarations.count == 1,
+              let declaration = declarations.first,
+              let local = capture(declaration, 2, in: source),
+              !local.isEmpty else { return nil }
+
+        let outputs = matches(
+            #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
+            in: source
+        )
+        guard outputs.count == 1,
+              let output = outputs.first,
+              capture(output, 2, in: source) == local,
+              matches(#"\bout\.mwxFragColor\b"#, in: source).count == 1,
+              declaration.range.location < output.range.location,
+              hasDirectMemberRewrite(
+                  local: local,
+                  before: output.range.location,
+                  in: source
+              ) else {
+            return nil
+        }
+
+        // lowerPreserving performs the actual range-safe replacement and
+        // inserts the canonical helper definitions exactly once.  All shape
+        // checks above are repeated there; keeping this call centralized
+        // avoids a second boundary implementation.
+        return lowerPreserving(source, expectedSlot: expectedSlot)
+    }
+
+    /// A direct-carrier route must describe an actual member reconstruction.
+    /// Requiring an explicit write keeps compiler-drift probes that merely read
+    /// or copy the carrier out of this lowering while still covering compound
+    /// and multi-step alpha mutations that the simple attenuation route cannot
+    /// represent.
+    private static func hasDirectMemberRewrite(
+        local: String,
+        before outputLocation: Int,
+        in source: String
+    ) -> Bool {
+        let escapedLocal = escaped(local)
+        let prefix = #"(?m)^\s*"# + escapedLocal
+        let componentWrite = matches(
+            prefix + #"\.(?:x|y|z|r|g|b|a|w)\s*(?:=|\+=|-=|\*=|/=)\s*[^;]+;[ \t]*$"#,
+            in: source
+        )
+        let vectorWrite = matches(
+            prefix + #"\.(?:xyz|rgb|xyzw|rgba)\s*(?:=|\+=|-=|\*=|/=)\s*[^;]+;[ \t]*$"#,
+            in: source
+        )
+        return (componentWrite + vectorWrite).contains {
+            $0.range.location < outputLocation
+        }
+    }
+
     /// SPIRV-Cross samples the host's premultiplied color directly into the
     /// authored local. A source-proven alpha-preserving RGB flow must instead
     /// execute in straight color, then return to the compositor boundary.

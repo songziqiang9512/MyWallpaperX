@@ -221,6 +221,36 @@ private func metal(
     )?.metalSource ?? ""
 }
 
+private func directCarrierArtifact() -> String {
+    let source = """
+    using namespace metal;
+    fragmentOutput sceneFragment() {
+        float4 carrier = g_Texture0.sample(sampler, uv);
+        carrier.xyz = mix(carrier.xyz, float3(1.0), 0.5);
+        carrier.w *= 0.5;
+        out.mwxFragColor = carrier;
+        return out;
+    }
+    """
+    return SceneGenericShaderStraightAlphaPreservingLowering
+        .lowerDirectCarrier(source, expectedSlot: 0) ?? ""
+}
+
+private func directCarrierCompoundArtifact() -> String {
+    let source = """
+    using namespace metal;
+    fragmentOutput sceneFragment() {
+        float4 carrier = g_Texture0.sample(sampler, uv);
+        carrier.rgb *= 0.5;
+        carrier.a *= 0.5;
+        out.mwxFragColor = carrier;
+        return out;
+    }
+    """
+    return SceneGenericShaderStraightAlphaPreservingLowering
+        .lowerDirectCarrier(source, expectedSlot: 0) ?? ""
+}
+
 private func generatedUnderlayFragment(_ body: String) -> String {
     """
     varying vec2 v_TexCoord;
@@ -2060,6 +2090,19 @@ enum Harness {
                 "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
                 "c.rgb *= 0.5; c.a *= 0.5; gl_FragColor = c;"
             ),
+            "directCarrierBlend": transfer(
+                "vec4 carrier = texSample2D(g_Texture0, v_TexCoord); " +
+                "carrier.rgb = ApplyBlending(0, carrier.rgb, g_Tint, " +
+                "g_ScalarWeight); carrier.a = 0.0; " +
+                "carrier.a += g_ScalarWeight; " +
+                "carrier.a = mix(carrier.a, 1.0, g_ScalarWeight); " +
+                "gl_FragColor = carrier;"
+            ),
+            "directCarrierCompound": transfer(
+                "vec4 carrier = texSample2D(g_Texture0, v_TexCoord); " +
+                "carrier.rgb *= 0.5; carrier.a *= 0.5; " +
+                "gl_FragColor = carrier;"
+            ),
             "multipleLocalAlphaWrites": transfer(
                 "vec4 c = texSample2D(g_Texture0, v_TexCoord); " +
                 "c.a *= 0.5; c.a += 0.1; gl_FragColor = c;"
@@ -2127,6 +2170,8 @@ enum Harness {
                 "vec4 color = texSample2D(g_Texture0, v_TexCoord); " +
                 "gl_FragColor = vec4(color.rgb, color.a * 0.5);"
             ),
+            "directCarrierArtifact": directCarrierArtifact(),
+            "directCarrierCompoundArtifact": directCarrierCompoundArtifact(),
             "passthroughMetal": metal(
                 "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
             ),
@@ -2602,7 +2647,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.assertEqual(self.result[key], "unresolved", key)
         self.assertEqual(
             self.result["modifiedAliasReplacement"],
-            "signal-preserving-slot:0",
+            "unresolved",
         )
 
     def test_nested_same_slot_mix_graph_is_bounded_and_fail_closed(self) -> None:
@@ -2748,7 +2793,7 @@ class SceneShaderColorContractTests(unittest.TestCase):
         )
         self.assertEqual(
             self.result["invalidIndependentSignal"],
-            "signal-preserving-slot:0",
+            "unresolved",
         )
 
         producer = self.result["independentSignalMetal"]
@@ -2793,13 +2838,21 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.assertNotIn("mwxUnpremultiply", self.result[key], key)
             self.assertNotIn("mwxPremultiply", self.result[key], key)
 
-    def test_alpha_math_and_non_linear_writes_remain_unproven(self) -> None:
+    def test_direct_carrier_writes_use_straight_boundary_and_reject_escapes(self) -> None:
+        self.assertEqual(self.result["directCarrierBlend"], "straight-slot:0")
+        self.assertEqual(self.result["directCarrierCompound"], "straight-slot:0")
+        artifact = self.result["directCarrierArtifact"]
+        self.assertEqual(artifact.count("mwxGenericUnpremultiply("), 2)
+        self.assertEqual(artifact.count("mwxGenericPremultiply("), 2)
+        compound_artifact = self.result["directCarrierCompoundArtifact"]
+        self.assertEqual(compound_artifact.count("mwxGenericUnpremultiply("), 2)
+        self.assertEqual(compound_artifact.count("mwxGenericPremultiply("), 2)
         for key in (
             "localRGBWrite",
             "multipleLocalAlphaWrites",
-            "wholeLocalWrite",
         ):
-            self.assertEqual(self.result[key], "signal-preserving-slot:0", key)
+            self.assertEqual(self.result[key], "straight-slot:0", key)
+        self.assertEqual(self.result["wholeLocalWrite"], "unresolved")
         for key in (
             "arithmetic",
             "modifiedStraightLocal",

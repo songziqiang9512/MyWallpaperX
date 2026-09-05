@@ -270,6 +270,7 @@ private struct VaryingLinkOutput: Codable {
     let deadMismatchAccepted: Bool
     let deadFragmentInterfaceRemoved: Bool
     let liveMismatchRejected: Bool
+    let commentedLocalDeclarationDoesNotHideLiveVarying: Bool
     let strictPrefixAccepted: Bool
     let textureCoordinateBoundedAccepted: Bool
     let textureCoordinateBoundedSlot3: Bool
@@ -1007,6 +1008,29 @@ private struct GenericShaderArtifactHarness {
                 of: "vec4(v_Live, 0.0, 1.0)",
                 with: "v_Optional"
             )
+            let commentedLocalFragment = [
+                "varying vec4 v_Commented;",
+                "void main() {",
+                "    // vec4 v_Commented = v_Commented;",
+                "    gl_FragColor = v_Commented;",
+                "}",
+            ].joined(separator: "\n")
+            let commentedLocalMismatchRejected: Bool
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex.replacingOccurrences(
+                    of: "varying vec2 v_Optional;",
+                    with: "varying vec2 v_Optional;\nvarying vec2 v_Commented;"
+                ).replacingOccurrences(
+                    of: "v_Optional = a_TexCoord;",
+                    with: "v_Optional = a_TexCoord;\n    v_Commented = a_TexCoord;"
+                ),
+                fragmentSource: commentedLocalFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            ) {
+            case .failure(.varyingUnsupported): commentedLocalMismatchRejected = true
+            case .failure: commentedLocalMismatchRejected = false
+            case .success: commentedLocalMismatchRejected = false
+            }
             let dead: SceneGenericShaderSourceNormalizer.Pair?
             switch SceneGenericShaderSourceNormalizer.normalize(
                 vertexSource: vertex,
@@ -1093,6 +1117,8 @@ private struct GenericShaderArtifactHarness {
                 deadFragmentInterfaceRemoved:
                     dead?.fragment.contains("in vec4 v_Optional") == false,
                 liveMismatchRejected: liveMismatchRejected,
+                commentedLocalDeclarationDoesNotHideLiveVarying:
+                    commentedLocalMismatchRejected,
                 strictPrefixAccepted: {
                     guard case let .success(pair) = prefix else { return false }
                     return pair.fragment.contains("in vec4 v_Live;")
@@ -4620,6 +4646,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "deadMismatchAccepted": True,
             "deadFragmentInterfaceRemoved": True,
             "liveMismatchRejected": True,
+            "commentedLocalDeclarationDoesNotHideLiveVarying": True,
             "strictPrefixAccepted": True,
             "textureCoordinateBoundedAccepted": True,
             "textureCoordinateBoundedSlot3": True,

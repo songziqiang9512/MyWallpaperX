@@ -102,10 +102,23 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
                   in: expression, before: output, tokens: tokens, body: main.bodyRange
               ), let definition = vectorDefinition(
                   name, before: output, tokens: tokens, body: main.bodyRange
-              ), expression.filter({ $0.text == name }).count == 1 else { return nil }
+              ), expression.filter({ $0.text == name }).count == 1,
+              let initializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: definition, in: tokens, body: main.bodyRange
+                  ) else { return nil }
         let slots = sampledSlots(tokens: tokens, range: main.bodyRange)
+        let directSampledCarrier = SceneAuthoredShaderColorTransferAnalyzer
+            .directTextureSampleSlot(initializer) != nil
         guard slots.count == 1,
               let slot = slots.first,
+              sampledCallCount(tokens: tokens, range: main.bodyRange) == 1,
+              (!directSampledCarrier || carrierUsesAreReadOnly(
+                  name,
+                  definition: definition,
+                  output: output,
+                  tokens: tokens
+              )),
               outputDependsOnSamples(
                   name,
                   definition: definition,
@@ -114,6 +127,42 @@ nonisolated enum SceneAuthoredShaderIndependentAlphaAnalyzer {
                   body: main.bodyRange
               ) else { return nil }
         return slot
+    }
+
+    /// The broad preserving fallback is intentionally read-only.  Any member
+    /// mutation, whole-vector assignment, or alias escape needs a more
+    /// specific independent-signal proof (producer/carrier/accumulator) or a
+    /// direct ordinary-color proof owned by the color-transfer analyzer.
+    private static func carrierUsesAreReadOnly(
+        _ name: String,
+        definition: Int,
+        output: Int,
+        tokens: [Token]
+    ) -> Bool {
+        let writes: Set<String> = ["=", "+=", "-=", "*=", "/="]
+        for index in (definition + 1)..<output where tokens[index].text == name {
+            guard index + 2 < output,
+                  tokens[index + 1].text == ".",
+                  ["rgb", "a"].contains(tokens[index + 2].text) else {
+                return false
+            }
+            if index + 3 < output,
+               writes.contains(tokens[index + 3].text) {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func sampledCallCount(
+        tokens: [Token],
+        range: Range<Int>
+    ) -> Int {
+        range.reduce(into: 0) { count, index in
+            if ["texSample2D", "texture2D"].contains(tokens[index].text) {
+                count += 1
+            }
+        }
     }
 
     private static func composite(

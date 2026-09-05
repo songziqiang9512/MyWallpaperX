@@ -271,47 +271,61 @@ extension SceneShaderPreprocessor {
     nonisolated enum ExpressionLexer {
         static func tokenize(_ input: String, limit: Int) throws -> [ExpressionToken] {
             var tokens: [ExpressionToken] = []
-            var index = input.startIndex
+            // A small but common authored-source quirk is a statement-like
+            // semicolon after an `#if`/`#elif` expression.  The directive
+            // grammar has no statement terminator, but Wallpaper Engine's
+            // shipped shader corpus accepts this spelling.  Treat one final
+            // semicolon as inert syntax while retaining strict rejection for
+            // semicolons inside the expression.
+            let expression = input
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .hasSuffix(";")
+                ? String(input
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                    .dropLast()
+                    .trimmingCharacters(in: .whitespacesAndNewlines))
+                : input
+            var index = expression.startIndex
             func append(_ token: ExpressionToken) throws {
                 tokens.append(token)
                 if tokens.count > limit {
                     throw ExpressionError(message: "Shader condition exceeds its token budget.")
                 }
             }
-            while index < input.endIndex {
-                if input[index].isWhitespace { index = input.index(after: index); continue }
-                let pair = String(input[index...].prefix(2))
+            while index < expression.endIndex {
+                if expression[index].isWhitespace { index = expression.index(after: index); continue }
+                let pair = String(expression[index...].prefix(2))
                 let paired: [String: ExpressionToken] = [
                     "&&": .and, "||": .or, "==": .equal, "!=": .notEqual,
                     "<=": .lessEqual, ">=": .greaterEqual
                 ]
                 if let token = paired[pair] {
-                    try append(token); index = input.index(index, offsetBy: 2); continue
+                    try append(token); index = expression.index(index, offsetBy: 2); continue
                 }
-                let character = input[index]
-                if character == "!" { try append(.not); index = input.index(after: index); continue }
-                if character == "<" { try append(.less); index = input.index(after: index); continue }
-                if character == ">" { try append(.greater); index = input.index(after: index); continue }
-                if character == "(" { try append(.leftParen); index = input.index(after: index); continue }
-                if character == ")" { try append(.rightParen); index = input.index(after: index); continue }
-                if character.isNumber || (character == "-" && input.index(after: index) < input.endIndex
-                    && input[input.index(after: index)].isNumber) {
+                let character = expression[index]
+                if character == "!" { try append(.not); index = expression.index(after: index); continue }
+                if character == "<" { try append(.less); index = expression.index(after: index); continue }
+                if character == ">" { try append(.greater); index = expression.index(after: index); continue }
+                if character == "(" { try append(.leftParen); index = expression.index(after: index); continue }
+                if character == ")" { try append(.rightParen); index = expression.index(after: index); continue }
+                if character.isNumber || (character == "-" && expression.index(after: index) < expression.endIndex
+                    && expression[expression.index(after: index)].isNumber) {
                     let start = index
-                    index = input.index(after: index)
-                    while index < input.endIndex, input[index].isNumber { index = input.index(after: index) }
-                    guard let value = Int64(input[start..<index]) else {
+                    index = expression.index(after: index)
+                    while index < expression.endIndex, expression[index].isNumber { index = expression.index(after: index) }
+                    guard let value = Int64(expression[start..<index]) else {
                         throw ExpressionError(message: "Invalid integer in shader condition.")
                     }
                     try append(.number(value)); continue
                 }
                 if character == "_" || character.isLetter {
                     let start = index
-                    index = input.index(after: index)
-                    while index < input.endIndex,
-                          input[index] == "_" || input[index].isLetter || input[index].isNumber {
-                        index = input.index(after: index)
+                    index = expression.index(after: index)
+                    while index < expression.endIndex,
+                          expression[index] == "_" || expression[index].isLetter || expression[index].isNumber {
+                        index = expression.index(after: index)
                     }
-                    try append(.identifier(String(input[start..<index]))); continue
+                    try append(.identifier(String(expression[start..<index]))); continue
                 }
                 throw ExpressionError(message: "Unsupported token in shader condition.")
             }

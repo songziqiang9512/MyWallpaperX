@@ -64,25 +64,29 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             return .failure(.sourceTooLarge)
         }
         do {
-            let typedVertexSource = rewriteAssignmentVectorConversions(
-                SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
-                    SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                        vertexSource,
+            let typedVertexSource = rewriteFloatArrayIndices(
+                rewriteAssignmentVectorConversions(
+                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
+                        SceneGenericShaderScalarArithmeticNormalizer.rewrite(
+                            vertexSource,
+                            stage: .vertex
+                        ),
                         stage: .vertex
                     ),
                     stage: .vertex
-                ),
-                stage: .vertex
+                )
             )
-            let typedFragmentSource = rewriteAssignmentVectorConversions(
-                SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
-                    SceneGenericShaderScalarArithmeticNormalizer.rewrite(
-                        fragmentSource,
+            let typedFragmentSource = rewriteFloatArrayIndices(
+                rewriteAssignmentVectorConversions(
+                    SceneGenericShaderDirectFunctionVectorArgumentNormalizer.rewriteUsingBoundedSyntax(
+                        SceneGenericShaderScalarArithmeticNormalizer.rewrite(
+                            fragmentSource,
+                            stage: .fragment
+                        ),
                         stage: .fragment
                     ),
                     stage: .fragment
-                ),
-                stage: .fragment
+                )
             )
             var parsed: [String: ParsedStage] = [
                 "vertex": try parse(typedVertexSource),
@@ -579,6 +583,125 @@ void main() {
         return result
     }
 
+    /// Vulkan GLSL requires an integer array subscript, while the authored
+    /// shader dialect accepts a float scalar used as an index (the common
+    /// audio-bar shape computes a bin with `floor`). Preserve the authored
+    /// value and add only the target-language conversion when both sides are
+    /// structurally proven: a fixed-size float array and an unambiguous float
+    /// scalar identifier. Unknown expressions, dynamic arrays, and ambiguous
+    /// shadowed names remain untouched and therefore fail closed in glslang.
+    private static func rewriteFloatArrayIndices(_ source: String) -> String {
+        let normalized = source
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\r", with: "\n")
+        let masked = lexicalMask(normalized)
+        let arrayMatcher = try! NSRegularExpression(pattern:
+            #"\b(?:uniform\s+|const\s+)?float\s+([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*[0-9]+\s*\]"#
+        )
+        let nameMatcher = try! NSRegularExpression(pattern:
+            #"\b(?:const\s+)?float\s+([A-Za-z_][A-Za-z0-9_]*)\b"#
+        )
+        let integerMatcher = try! NSRegularExpression(pattern:
+            #"\b(?:const\s+)?(?:int|uint)\s+([A-Za-z_][A-Za-z0-9_]*)\b"#
+        )
+        let functionMatcher = try! NSRegularExpression(pattern:
+            #"\b(?:bool|int|uint|float|vec[2-4]|ivec[2-4]|uvec[2-4])\s+([A-Za-z_][A-Za-z0-9_]*)\s*\("#
+        )
+        let declarationRange = NSRange(masked.startIndex..., in: masked)
+        let arrayNames = Set(arrayMatcher.matches(in: masked, range: declarationRange)
+            .compactMap { match -> String? in
+                guard match.numberOfRanges > 1,
+                      let range = Range(match.range(at: 1), in: masked) else {
+                    return nil
+                }
+                return String(masked[range])
+            })
+        guard !arrayNames.isEmpty else { return normalized }
+        let floatNames = Set(nameMatcher.matches(in: masked, range: declarationRange)
+            .compactMap { match -> String? in
+                guard match.numberOfRanges > 1,
+                      let range = Range(match.range(at: 1), in: masked) else {
+                    return nil
+                }
+                return String(masked[range])
+            })
+        let integerNames = Set(integerMatcher.matches(in: masked, range: declarationRange)
+            .compactMap { match -> String? in
+                guard match.numberOfRanges > 1,
+                      let range = Range(match.range(at: 1), in: masked) else {
+                    return nil
+                }
+                return String(masked[range])
+            })
+        let functionNames = Set(functionMatcher.matches(in: masked, range: declarationRange)
+            .compactMap { match -> String? in
+                guard match.numberOfRanges > 1,
+                      let range = Range(match.range(at: 1), in: masked) else {
+                    return nil
+                }
+                return String(masked[range])
+            })
+        let eligibleNames = floatNames
+            .subtracting(integerNames)
+            .subtracting(functionNames)
+        guard !eligibleNames.isEmpty else { return normalized }
+
+        let accessMatcher = try! NSRegularExpression(pattern:
+            #"\b([A-Za-z_][A-Za-z0-9_]*)\s*\[\s*([A-Za-z_][A-Za-z0-9_]*)\s*\]"#
+        )
+        var result = normalized
+        for match in accessMatcher.matches(in: masked, range: declarationRange).reversed() {
+            guard match.numberOfRanges > 2,
+                  let arrayRange = Range(match.range(at: 1), in: masked),
+                  let indexRange = Range(match.range(at: 2), in: masked) else {
+                continue
+            }
+            let arrayName = String(masked[arrayRange])
+            let indexName = String(masked[indexRange])
+            guard arrayNames.contains(arrayName), eligibleNames.contains(indexName),
+                  !hasMemberPrefix(before: arrayRange.lowerBound, in: masked),
+                  let replacementRange = Range(match.range(at: 2), in: result) else {
+                continue
+            }
+            result.replaceSubrange(
+                replacementRange,
+                with: "int(\(indexName))"
+            )
+        }
+        return result
+    }
+
+    private static func hasMemberPrefix(
+        before location: String.Index,
+        in source: String
+    ) -> Bool {
+        source[..<location].last(where: { !$0.isWhitespace }) == "."
+    }
+
+    /// Return a same-length view containing only executable source. Keeping
+    /// offsets stable lets regex rewrites apply to the original source while
+    /// ignoring comments and quoted labels.
+    private static func lexicalMask(_ source: String) -> String {
+        var inBlockComment = false
+        return source
+            .split(separator: "\n", omittingEmptySubsequences: false)
+            .map { line in
+                let lexical = SceneShaderLexicalScanner.scan(
+                    String(line),
+                    inBlockComment: &inBlockComment
+                )
+                return lexical.segments.map { segment -> String in
+                    switch segment.kind {
+                    case .code:
+                        return segment.text
+                    case .quoted, .blockComment, .lineComment:
+                        return String(repeating: " ", count: segment.text.utf16.count)
+                    }
+                }.joined()
+            }
+            .joined(separator: "\n")
+    }
+
     /// The authored sampler accepts a float2 coordinate, while the common
     /// shader ABI exposes several texture-coordinate varyings as vec4. Apply
     /// the existing narrowing rule only when the coordinate is a declared
@@ -708,9 +831,10 @@ void main() {
         let regex = try! NSRegularExpression(pattern:
             #"\b"# + NSRegularExpression.escapedPattern(for: word) + #"\b"#
         )
+        let code = lexicalMask(source)
         return regex.firstMatch(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
+            in: code,
+            range: NSRange(code.startIndex..., in: code)
         ) != nil
     }
 
@@ -720,9 +844,10 @@ void main() {
             #"\b(?:"# + types + #")\s+"#
                 + NSRegularExpression.escapedPattern(for: name) + #"\b"#
         )
+        let code = lexicalMask(source)
         return regex.firstMatch(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
+            in: code,
+            range: NSRange(code.startIndex..., in: code)
         ) != nil
     }
 

@@ -175,6 +175,20 @@ extension SceneGenericShaderArtifactBuilder {
                     .singleSamplerAlphaMutationSourceSlot(
                         fragmentSource: authoredSource
                     ) == expectedSlot
+            let directCarrierLowering: String? =
+                SceneAuthoredShaderColorTransferAnalyzer
+                    .directCarrierSourceSlot(fragmentSource: authoredSource)
+                    == expectedSlot
+                    && SceneAuthoredShaderColorTransferAnalyzer
+                        .directCarrierHasRGBMutation(
+                            fragmentSource: authoredSource
+                        )
+                    ? SceneGenericShaderStraightAlphaPreservingLowering
+                        .lowerDirectCarrier(
+                            source,
+                            expectedSlot: expectedSlot
+                        )
+                    : nil
             let direct = straightAlphaAttenuation(
                 source,
                 requiresStraightColorBoundary: requiresStraightColorBoundary
@@ -185,10 +199,11 @@ extension SceneGenericShaderArtifactBuilder {
                 ?? (direct?.transfer.slot == expectedSlot ? direct?.msl : nil)
                 ?? SceneGenericShaderStraightAlphaPreservingLowering
                     .lowerConditionalUnion(source, expectedSlot: expectedSlot)
-                    ?? SceneGenericShaderStraightAlphaPreservingLowering
-                        .lowerDirectOutputAlphaMutation(source, expectedSlot: expectedSlot)
-                    ?? SceneGenericShaderStraightAlphaPreservingLowering
-                        .lowerStraightOutput(source, expectedSlot: expectedSlot)
+                ?? SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerDirectOutputAlphaMutation(source, expectedSlot: expectedSlot)
+                ?? directCarrierLowering
+                ?? SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerStraightOutput(source, expectedSlot: expectedSlot)
             guard let lowered else { throw Failure.colorTransfer }
             return (lowered, artifactTransfer(kind: "straight-alpha", slot: expectedSlot))
         case let .straightAlphaPreserving(textureSlot: expectedSlot):
@@ -458,6 +473,16 @@ extension SceneGenericShaderArtifactBuilder {
               countWord(name, in: source) == 3 + matches(
                   #"\b"# + namePattern + #"\.(?:[xyzrgb]{1,3})\b"#, in: source
               ).count,
+              straightAlphaAttenuationUsesAreLinear(
+                  name: name,
+                  source: source,
+                  declaration: source.range(
+                      of: #"(?m)^\s*float4\s+"# + namePattern + #"\s*="#,
+                      options: .regularExpression
+                  ),
+                  attenuation: attenuation[0].range,
+                  output: assignments[0].range
+              ),
               let replaceRange = Range(attenuation[0].range, in: source) else { return nil }
         if requiresStraightColorBoundary {
             guard let transformed =
@@ -484,6 +509,57 @@ extension SceneGenericShaderArtifactBuilder {
                 slots: nil
             )
         )
+    }
+
+    /// Verifies the compiler shape before the boundary rewrite. The
+    /// alpha-only route may read RGB members while deriving its factor, but a
+    /// whole-carrier read, an alpha read, or an RGB mutation changes the
+    /// authored color contract and must fall through to a narrower route.
+    private static func straightAlphaAttenuationUsesAreLinear(
+        name: String,
+        source: String,
+        declaration: Range<String.Index>?,
+        attenuation: NSRange,
+        output: NSRange
+    ) -> Bool {
+        let namePattern = escaped(name)
+        let uses = matches(#"\b"# + namePattern + #"\b"#, in: source)
+        let sourceNSString = source as NSString
+        let declarationRange = declaration.map { NSRange($0, in: source) }
+        let allowedRGBMembers: Set<String> = [
+            "x", "y", "z", "r", "g", "b", "rgb", "xyz",
+        ]
+        let assignmentOperators = #"(?:=|\+=|-=|\*=|/=)"#
+        for use in uses {
+            if declarationRange.map({ NSIntersectionRange($0, use.range).length > 0 }) == true
+                || NSIntersectionRange(attenuation, use.range).length > 0
+                || NSIntersectionRange(output, use.range).length > 0 {
+                continue
+            }
+            let lineRange = sourceNSString.lineRange(for: use.range)
+            let line = sourceNSString.substring(with: lineRange)
+            let suffixStart = use.range.location + use.range.length
+            guard suffixStart <= sourceNSString.length else { return false }
+            let suffix = sourceNSString.substring(
+                with: NSRange(
+                    location: suffixStart,
+                    length: sourceNSString.length - suffixStart
+                )
+            )
+            guard let member = captures(
+                #"^\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)\b"#,
+                in: suffix
+            )?.first,
+                  allowedRGBMembers.contains(member),
+                  !regexMatches(
+                      #"\b"# + namePattern + #"\s*\.\s*"# + escaped(member)
+                          + #"\s*"# + assignmentOperators,
+                      line
+                  ) else {
+                return false
+            }
+        }
+        return true
     }
 
     /// SPIRV-Cross samples the host's premultiplied color directly into the

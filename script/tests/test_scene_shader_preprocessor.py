@@ -623,6 +623,24 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     var checks = ["conditional_includes"]
 
     try write(
+        "#define MODE 1\n#if MODE == 1;\nTRAILING_SEMICOLON_IF\n#elif MODE == 2;\nBAD_TRAILING_SEMICOLON_ELIF\n#endif",
+        to: looseRoot,
+        "shaders/logic/trailing_condition_semicolon.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    let trailingConditionSemicolon = try prepared(
+        rootPath: "shaders/logic/trailing_condition_semicolon.frag",
+        graph: graph("shaders/logic/trailing_condition_semicolon.frag", view: view),
+        environment: environment()
+    )
+    try expect(
+        trailingConditionSemicolon.source.contains("TRAILING_SEMICOLON_IF")
+            && !trailingConditionSemicolon.source.contains("BAD_TRAILING_SEMICOLON_ELIF"),
+        "A trailing semicolon should be inert in a shader condition."
+    )
+    checks.append("trailing_condition_semicolon")
+
+    try write(
         """
         #define DOUBLE(value) ((value) + (value))
         #define APPLY(value, function) function(value)
@@ -717,6 +735,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         ("function_parameter_budget", "#define F(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q) a", .budgetExceeded),
         ("object_quoted", "#define VALUE \"quoted\"\nVALUE", .malformedDirective),
         ("object_unbalanced", "#define VALUE (1 + 2\nVALUE", .malformedDirective),
+        ("condition_embedded_semicolon", "#if 1; + 2\nVALUE\n#endif", .invalidExpression),
         ("unknown", "#pragma once\nVALUE", .unknownDirective),
         ("joined_name", "#if0\nBAD\n#endif", .unknownDirective),
         ("unmatched_else", "#else\nVALUE", .unmatchedElse),
@@ -1542,6 +1561,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             self.run_mode("preprocessor"),
             [
                 "conditional_includes",
+                "trailing_condition_semicolon",
                 "function_macros",
                 "redundant_top_level_endif",
                 "directive_failures",
