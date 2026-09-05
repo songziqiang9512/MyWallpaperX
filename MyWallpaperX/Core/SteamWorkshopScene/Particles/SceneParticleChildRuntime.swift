@@ -326,15 +326,21 @@ final class SceneParticleChildRuntime {
         let selectionKey = TemplateSelectionKey(
             trigger: trigger, depth: depth, parentAssetPath: parentPath
         )
+        guard let selectedTemplates = templatesBySelection[selectionKey] else { return }
+        // This dispatch only appends systems. Keep its budget counts local so
+        // each event sees preceding appends without rescanning live systems.
+        var activeCounts: [Int: Int] = [:]
+        for system in systems where system.spawnScopeID == scopeID {
+            activeCounts[system.templateIndex, default: 0] += 1
+        }
+        var activeDepthCount = depthSystemCount(depth)
         for event in events {
-            for template in templatesBySelection[selectionKey] ?? [] {
-                let activeCount = systems.lazy.filter {
-                    $0.templateIndex == template.index && $0.spawnScopeID == scopeID
-                }.count
+            for template in selectedTemplates {
+                let activeCount = activeCounts[template.index, default: 0]
                 guard activeCount < template.maximumSystemCount,
                       SceneParticleChildLifecycle.accepts(event: event, template: template, scopeID: scopeID)
                 else { continue }
-                guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
+                guard activeDepthCount < Self.maximumSystemsPerDepth else {
                     limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
@@ -345,6 +351,8 @@ final class SceneParticleChildRuntime {
                     origin: parentOrigin + event.position,
                     parentParticle: event
                 )
+                activeCounts[template.index] = activeCount + 1
+                activeDepthCount += 1
             }
         }
     }
@@ -361,7 +369,9 @@ final class SceneParticleChildRuntime {
         let selectionKey = TemplateSelectionKey(
             trigger: .follow, depth: depth, parentAssetPath: parentPath
         )
-        for template in templatesBySelection[selectionKey] ?? [] {
+        guard let selectedTemplates = templatesBySelection[selectionKey] else { return }
+        var activeDepthCount = depthSystemCount(depth)
+        for template in selectedTemplates {
             var followedIDs = Set(systems.lazy.compactMap { system in
                 system.templateIndex == template.index && system.spawnScopeID == scopeID
                     ? system.parentParticleID : nil
@@ -371,7 +381,7 @@ final class SceneParticleChildRuntime {
                       followedIDs.count < template.maximumSystemCount,
                       SceneParticleChildLifecycle.accepts(event: parent, template: template, scopeID: scopeID)
                 else { continue }
-                guard depthSystemCount(depth) < Self.maximumSystemsPerDepth else {
+                guard activeDepthCount < Self.maximumSystemsPerDepth else {
                     limitations.insert(Self.budgetDetail(depth: depth))
                     continue
                 }
@@ -383,6 +393,7 @@ final class SceneParticleChildRuntime {
                     origin: parentOrigin + parent.position,
                     parentParticle: parent
                 )
+                activeDepthCount += 1
             }
         }
     }
