@@ -24,6 +24,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// Immutable operator admission and turbulence data prepared with the definition.
     /// Dynamic audio and speed values are still read on every frame.
     private let operatorAudioExecutionAdmission: [Bool]
+    /// Launch-stable operator normalization and declaration plans.  Keep all
+    /// frame-varying inputs (audio, overrides, particle age/position) live in
+    /// the execution helpers.
+    private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
     private let turbulencePlans: [SceneParticleTurbulencePlan?]
     let simulationSeed: UInt64
     private var emitters: [SceneParticleEmitterState]
@@ -63,6 +67,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorAudioExecutionAdmission = definition.operators.map {
             !$0.audioResponse.isEnabled || $0.hasBoundedAudioResponse
         }
+        operatorExecutionPlans = definition.operators.map(
+            SceneParticleOperatorExecutionPlan.init
+        )
         turbulencePlans = definition.operators.map(SceneParticleTurbulencePlan.init)
         self.stepSnapshotRecorder = stepSnapshotPolicy.map(
             SceneParticleStepSnapshotRecorder.init(policy:)
@@ -303,7 +310,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                 particles[index].color *= start + (end - start) * amount
             }
         case .oscillateAlpha:
-            let blend = SceneParticleOperatorBlendPlan(value)
+            let blend = operatorExecutionPlans[operatorIndex].blend
             for index in particles.indices {
                 let factor = oscillationFactor(
                     value,
@@ -315,7 +322,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     * operatorBlend(blend, normalizedLives[index])
             }
         case .oscillateSize:
-            let blend = SceneParticleOperatorBlendPlan(value)
+            let blend = operatorExecutionPlans[operatorIndex].blend
             for index in particles.indices {
                 let factor = oscillationFactor(
                     value,
@@ -328,9 +335,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     * operatorBlend(blend, normalizedLives[index])
             }
         case .oscillatePosition:
-            let mask = SceneParticleSimulationMath.vector(value.mask, fallback: SIMD3(1, 1, 0))
-            let oscillationPlan = SceneParticlePositionOscillationPlan(value)
-            let blend = SceneParticleOperatorBlendPlan(value)
+            let executionPlan = operatorExecutionPlans[operatorIndex]
+            guard let oscillationPlan = executionPlan.positionOscillation else {
+                break
+            }
+            let mask = executionPlan.positionMask
+            let blend = executionPlan.blend
             for index in particles.indices {
                 let oscillation = positionOscillation(
                     oscillationPlan,
@@ -380,14 +390,22 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             applyControlPointForce(
                 value,
                 duration: duration,
-                normalizedLives: normalizedLives
+                normalizedLives: normalizedLives,
+                blend: operatorExecutionPlans[operatorIndex].blend
             )
         case .boids:
             applyBoids(value, duration: duration)
         case .vortex:
-            applyVortex(value, duration: duration)
+            applyVortex(
+                value,
+                duration: duration,
+                audioResponsePlan: operatorExecutionPlans[operatorIndex].audioResponse
+            )
         case .capVelocity:
-            applyCapVelocity(value)
+            applyCapVelocity(
+                value,
+                blendPlan: operatorExecutionPlans[operatorIndex].blend
+            )
         case .remapValue:
             guard let plan = value.boundedVelocityRemapPlan else { break }
             for index in particles.indices {

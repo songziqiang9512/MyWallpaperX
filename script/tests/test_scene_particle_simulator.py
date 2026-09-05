@@ -2818,6 +2818,29 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         ):
             self.assertAlmostEqual(coarse, fine, places=10)
 
+    def test_operator_execution_plans_are_prepared_once(self) -> None:
+        simulator_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator.swift"
+        ).read_text(encoding="utf-8")
+        control_point_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift"
+        ).read_text(encoding="utf-8")
+        cap_velocity_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift"
+        ).read_text(encoding="utf-8")
+        vortex_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("operatorExecutionPlans", simulator_source)
+        self.assertIn("SceneParticleOperatorExecutionPlan.init", simulator_source)
+        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", simulator_source)
+        self.assertNotIn("SceneParticlePositionOscillationPlan(value)", simulator_source)
+        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", control_point_source)
+        self.assertNotIn("SceneParticleOperatorBlendPlan(value)", cap_velocity_source)
+        self.assertNotIn("SceneParticleAudioResponsePlan(value.audioResponse)", vortex_source)
+        self.assertIn("audioResponsePlan:", vortex_source)
+
     def test_color_initializer_interpolates_between_authored_colors(self) -> None:
         self.assertTrue(self.results["colorUsesSingleInterpolation"])
 

@@ -51,6 +51,30 @@ nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
     }
 }
 
+/// Launch-stable execution values shared by the operator hot path.
+///
+/// The authored operator itself remains available to the simulator for
+/// dynamic inputs and capability checks, while these immutable plans keep
+/// scalar/vector normalization and audio declaration parsing out of every
+/// fixed step.
+nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
+    let blend: SceneParticleOperatorBlendPlan
+    let positionOscillation: SceneParticlePositionOscillationPlan?
+    let positionMask: SIMD3<Double>
+    let audioResponse: SceneParticleAudioResponsePlan?
+
+    nonisolated init(_ value: SceneParticleOperator) {
+        blend = SceneParticleOperatorBlendPlan(value)
+        positionOscillation = value.kind == .oscillatePosition
+            ? SceneParticlePositionOscillationPlan(value)
+            : nil
+        positionMask = SceneParticleSimulationMath.vector(
+            value.mask, fallback: SIMD3(1, 1, 0)
+        )
+        audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
+    }
+}
+
 extension SceneParticleSimulator {
     nonisolated func oscillationFactor(
         _ value: SceneParticleOperator,

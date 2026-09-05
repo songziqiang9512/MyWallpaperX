@@ -4,14 +4,14 @@ nonisolated extension SceneParticleSimulator {
     func applyControlPointForce(
         _ value: SceneParticleOperator,
         duration: Double,
-        normalizedLives: [Double]
+        normalizedLives: [Double],
+        blend: SceneParticleOperatorBlendPlan
     ) {
         guard definition.supportsBoundedControlPointForce(value),
               case let .supported(plan) = value.controlPointForceAdmission,
               let target = controlPointPosition(plan.controlPoint, offset: plan.origin),
               normalizedLives.count == particles.count
         else { return }
-        let blend = SceneParticleOperatorBlendPlan(value)
         for index in particles.indices {
             let delta = target - particles[index].position
             let distance = SceneParticleSimulationMath.length(delta)

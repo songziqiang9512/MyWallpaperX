@@ -6,12 +6,13 @@ nonisolated extension SceneParticleSimulator {
     /// reverses it. This is a project-owned clean-room numeric contract, not a Windows golden.
     func applyVortex(
         _ value: SceneParticleOperator,
-        duration: Double
+        duration: Double,
+        audioResponsePlan: SceneParticleAudioResponsePlan?
     ) {
         guard let plan = value.vortexPlan else { return }
         let audioScale: Double
         if value.audioResponse.isEnabled {
-            guard let audioPlan = SceneParticleAudioResponsePlan(value.audioResponse) else {
+            guard let audioPlan = audioResponsePlan else {
                 return
             }
             audioScale = audioPlan.evaluate(audioInput)
