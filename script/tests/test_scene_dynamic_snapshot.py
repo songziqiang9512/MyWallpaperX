@@ -245,6 +245,26 @@ enum Harness {
             definitions: [boundedDefinition],
             userValues: [boundedDefinition.target: .scalar(0.31)]
         )
+        let dynamicOrigin = SceneDynamicTarget.layer(
+            layerID: 21, field: .origin
+        )
+        let dynamicTransform = resolver.resolve(
+            frameIndex: 12,
+            generation: 6,
+            definitions: [
+                .init(
+                    target: dynamicOrigin,
+                    valueType: .vector3,
+                    authoredValue: .vector3(0, 0, 0)
+                ),
+                .init(
+                    target: .layer(layerID: 21, field: .alpha),
+                    valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+            ],
+            timelineValues: [dynamicOrigin: .vector3(10, 20, 30)]
+        )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -286,6 +306,8 @@ enum Harness {
             "boundedOverflowDiagnostics": boundedOverflow.diagnostics.map {
                 diagnostic($0)
             },
+            "dynamicTransformLayerIDs": dynamicTransform
+                .snapshot.dynamicTransformLayerIDsForFrame.sorted(),
             "empty": [empty.frameIndex, empty.generation, UInt64(empty.count)],
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
@@ -421,6 +443,14 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
             "userPropertyNumericRanges: index.userPropertyNumericRanges",
             source,
         )
+
+    def test_prepared_transform_candidates_bound_snapshot_projection(self) -> None:
+        self.assertEqual(self.result["dynamicTransformLayerIDs"], [21])
+        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fileprivate let dynamicTransformLayerIDs", source)
+        self.assertIn("candidates: index.dynamicTransformLayerIDs", source)
 
 
 if __name__ == "__main__":

@@ -4832,6 +4832,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：prepared maps 只复制 immutable authored metadata，不承载 resolved dynamic value、source priority、diagnostics、generation、provider 或 publication；apply 仍按 user→timeline→SceneScript 逐项校验并保持 previous/authored fallback。duplicate/错型/nonfinite authored definitions 不进入 maps，invalid higher-priority producer 仍只产生既有诊断；没有新增 property registry、VM、clock、renderer、graph/history 或 output owner。
 - **自动门与边界**：`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_dynamic_layer_values` 与 `test_scene_surface_evaluation_transaction` 共 35 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed snapshot preparation wiring，不外推为视觉 parity、稳定性能或 V4 收口。
 
+<a id="e-v4-typed-world-frame-candidate-index"></a>
+### E-V4-TYPED-WORLD-FRAME-CANDIDATE-INDEX: prepared transform candidate index
+
+证据等级：`S2 shared typed world-frame candidate wiring`。本批只收口 `SceneDynamicSnapshot` 为 world-frame consumer 构造动态 transform target 集合时的共享 CPU/pre-encode 扫描，不宣称真实构图改善、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 authored definition 的稳定 target identity 在 prepare/revision 阶段形成 index，普通帧只把 user/timeline/SceneScript 的 typed values 投影给现有 world-frame consumer。此前 snapshot initializer 每帧对完整 `resolved values` 做 `compactMap`，寻找 source 非 authored 且 field 为 origin/scale/angles 的 layer；当前 `SceneDynamicSnapshotDefinitionIndex` 在同一份 authored/type/finite/duplicate validation 中记录有效 vector3 transform candidate IDs，resolver 只在这些 candidate 上按三个 target 做实时 source/value/finite 检查。`replacingIdentity` 直接保留已经计算的 transform ID 集合，不重复扫描。
+- **失败半径与 owner**：candidate set 只是 definition-index 派生的 immutable identity projection，不承载动态值、source priority、generation、provider 或 publication；无动态 candidate、authored fallback、错误类型、非 finite、duplicate/invalid definition 仍不会进入 world-frame override。`SceneLayerDynamicWorldFrameResolver`、parent/attachment hierarchy、dynamic script root fast path、Program/GraphExecutor 与唯一 compositor/output owner 不变。
+- **自动门与边界**：`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_realtime_path_policy` 共 31 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过（最终源码 `BUILD SUCCEEDED`）。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed world-frame candidate wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

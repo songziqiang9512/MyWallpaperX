@@ -330,7 +330,8 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
             generation: generation,
             values: values,
             authoredValues: authoredValues,
-            userPropertyNumericRanges: userPropertyNumericRanges
+            userPropertyNumericRanges: userPropertyNumericRanges,
+            dynamicTransformLayerIDs: dynamicTransformLayerIDs
         )
     }
 
@@ -340,7 +341,8 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     ) -> SceneDynamicSnapshot {
         SceneDynamicSnapshot(
             frameIndex: frameIndex, generation: generation,
-            values: [:], authoredValues: [:], userPropertyNumericRanges: [:]
+            values: [:], authoredValues: [:], userPropertyNumericRanges: [:],
+            dynamicTransformLayerIDs: []
         )
     }
 
@@ -350,20 +352,15 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         values: [SceneDynamicTarget: SceneDynamicResolvedValue],
         authoredValues: [SceneDynamicTarget: SceneDynamicValue],
         userPropertyNumericRanges:
-            [SceneDynamicTarget: ClosedRange<Double>]
+            [SceneDynamicTarget: ClosedRange<Double>],
+        dynamicTransformLayerIDs: Set<Int>
     ) {
         self.frameIndex = frameIndex
         self.generation = generation
         self.values = values
         self.authoredValues = authoredValues
         self.userPropertyNumericRanges = userPropertyNumericRanges
-        self.dynamicTransformLayerIDs = Set(values.compactMap { target, resolved in
-            guard resolved.source != .authored,
-                  case let .layer(layerID, field) = target,
-                  field == .origin || field == .scale || field == .angles,
-                  case .vector3 = resolved.value else { return nil }
-            return layerID
-        })
+        self.dynamicTransformLayerIDs = dynamicTransformLayerIDs
     }
 }
 
@@ -398,6 +395,7 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
         [SceneDynamicTarget: SceneDynamicValue]
     fileprivate let userPropertyNumericRanges:
         [SceneDynamicTarget: ClosedRange<Double>]
+    fileprivate let dynamicTransformLayerIDs: Set<Int>
     fileprivate let authoredDiagnostics: [SceneDynamicSnapshotDiagnostic]
 
     fileprivate init(definitions: [SceneDynamicTargetDefinition]) {
@@ -422,6 +420,7 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
         var userPropertyNumericRanges: [
             SceneDynamicTarget: ClosedRange<Double>
         ] = [:]
+        var dynamicTransformLayerIDs: Set<Int> = []
         var authoredDiagnostics: [SceneDynamicSnapshotDiagnostic] = []
         for definition in definitions where
             !duplicateTargets.contains(definition.target) {
@@ -449,6 +448,11 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
             if let range = definition.userPropertyNumericRange {
                 userPropertyNumericRanges[definition.target] = range
             }
+            if case let .layer(layerID, field) = definition.target,
+               definition.valueType == .vector3,
+               field == .origin || field == .scale || field == .angles {
+                dynamicTransformLayerIDs.insert(layerID)
+            }
         }
 
         for target in duplicateTargets {
@@ -463,6 +467,7 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
         self.authoredValues = authoredValues
         self.authoredValueLanes = authoredValueLanes
         self.userPropertyNumericRanges = userPropertyNumericRanges
+        self.dynamicTransformLayerIDs = dynamicTransformLayerIDs
         self.authoredDiagnostics = authoredDiagnostics
     }
 }
@@ -540,10 +545,31 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 generation: generation,
                 values: resolved,
                 authoredValues: index.authoredValueLanes,
-                userPropertyNumericRanges: index.userPropertyNumericRanges
+                userPropertyNumericRanges: index.userPropertyNumericRanges,
+                dynamicTransformLayerIDs: Self.dynamicTransformLayerIDs(
+                    in: resolved,
+                    candidates: index.dynamicTransformLayerIDs
+                )
             ),
             diagnostics: orderedDiagnostics
         )
+    }
+
+    private nonisolated static func dynamicTransformLayerIDs(
+        in values: [SceneDynamicTarget: SceneDynamicResolvedValue],
+        candidates: Set<Int>
+    ) -> Set<Int> {
+        candidates.filter { layerID in
+            [SceneDynamicLayerField.origin, .scale, .angles].contains { field in
+                guard let resolved = values[
+                    .layer(layerID: layerID, field: field)
+                ], resolved.source != .authored else { return false }
+                guard case let .vector3(x, y, z) = resolved.value else {
+                    return false
+                }
+                return x.isFinite && y.isFinite && z.isFinite
+            }
+        }
     }
 
     private nonisolated func apply(
