@@ -410,6 +410,18 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
             [["userProperty", "userPropertyValueOutOfRange"]],
         )
 
+    def test_prepared_authored_lanes_are_reused_by_frame_resolution(self) -> None:
+        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("fileprivate let authoredValueLanes", source)
+        self.assertIn("fileprivate let userPropertyNumericRanges", source)
+        self.assertIn("authoredValues: index.authoredValueLanes", source)
+        self.assertIn(
+            "userPropertyNumericRanges: index.userPropertyNumericRanges",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

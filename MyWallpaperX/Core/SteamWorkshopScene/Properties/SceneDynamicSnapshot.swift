@@ -394,6 +394,10 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
     fileprivate let duplicateTargets: Set<SceneDynamicTarget>
     fileprivate let authoredValues:
         [SceneDynamicTarget: SceneDynamicResolvedValue]
+    fileprivate let authoredValueLanes:
+        [SceneDynamicTarget: SceneDynamicValue]
+    fileprivate let userPropertyNumericRanges:
+        [SceneDynamicTarget: ClosedRange<Double>]
     fileprivate let authoredDiagnostics: [SceneDynamicSnapshotDiagnostic]
 
     fileprivate init(definitions: [SceneDynamicTargetDefinition]) {
@@ -411,6 +415,12 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
 
         var authoredValues: [
             SceneDynamicTarget: SceneDynamicResolvedValue
+        ] = [:]
+        var authoredValueLanes: [
+            SceneDynamicTarget: SceneDynamicValue
+        ] = [:]
+        var userPropertyNumericRanges: [
+            SceneDynamicTarget: ClosedRange<Double>
         ] = [:]
         var authoredDiagnostics: [SceneDynamicSnapshotDiagnostic] = []
         for definition in definitions where
@@ -435,6 +445,10 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
                 value: definition.authoredValue,
                 source: .authored
             )
+            authoredValueLanes[definition.target] = definition.authoredValue
+            if let range = definition.userPropertyNumericRange {
+                userPropertyNumericRanges[definition.target] = range
+            }
         }
 
         for target in duplicateTargets {
@@ -447,6 +461,8 @@ nonisolated struct SceneDynamicSnapshotDefinitionIndex: Sendable {
         self.definitionsByTarget = definitionsByTarget
         self.duplicateTargets = duplicateTargets
         self.authoredValues = authoredValues
+        self.authoredValueLanes = authoredValueLanes
+        self.userPropertyNumericRanges = userPropertyNumericRanges
         self.authoredDiagnostics = authoredDiagnostics
     }
 }
@@ -523,18 +539,8 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 frameIndex: frameIndex,
                 generation: generation,
                 values: resolved,
-                authoredValues: index.definitionsByTarget.compactMapValues {
-                    definition in
-                    !index.duplicateTargets.contains(definition.target)
-                        && resolved[definition.target] != nil
-                        ? definition.authoredValue : nil
-                },
-                userPropertyNumericRanges: index.definitionsByTarget.compactMapValues {
-                    definition in
-                    guard !index.duplicateTargets.contains(definition.target),
-                          resolved[definition.target] != nil else { return nil }
-                    return definition.userPropertyNumericRange
-                }
+                authoredValues: index.authoredValueLanes,
+                userPropertyNumericRanges: index.userPropertyNumericRanges
             ),
             diagnostics: orderedDiagnostics
         )

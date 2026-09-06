@@ -4823,6 +4823,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：map 只读借用当前 frame projection，不缓存 provider readiness、claim token、generation、graph output 或 texture publication。ID 缺失仍由 `preparationLayers.count` mismatch 局部拒绝，graph/static provider capture、external dependency、source extent、Program/GraphExecutor、completion/publication 与 host barrier 不变；没有新增 provider registry、renderer、graph/history 或 output owner。
 - **自动门与边界**：`test_scene_dependency_render_plan`、`test_scene_realtime_path_policy` 与 `test_scene_source_update_transaction` 共 44 tests / OK；其中一处关于 verified XRay owner 的静态断言同步到现行 `SceneMetalRenderer+Initialization.swift` 文件位置，未放宽行为门；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、provider readiness fault、GPU completion rollback、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 provider preparation wiring，不外推为视觉 parity、稳定性能或 V4 收口。
 
+<a id="e-v4-typed-snapshot-prepared-authored-lanes"></a>
+### E-V4-TYPED-SNAPSHOT-PREPARED-AUTHORED-LANES: reuse definition-index authored lanes
+
+证据等级：`S2 shared typed snapshot preparation wiring`。本批只减少 typed snapshot resolver 对 launch/revision-stable authored projections 的普通帧重建，不宣称动态输入视觉、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 authored definitions 在 prepare/revision 阶段完成类型、finite、duplicate、authored fallback 与 range metadata，普通帧只应用 user/timeline/SceneScript values。此前 `SceneDynamicSnapshotResolver.resolve(index:)` 已使用 `index.authoredValues` 作为 resolved seed，却仍对 `index.definitionsByTarget` 再做两次 `compactMapValues`，构造 snapshot 的 authored value lane 与 numeric range map。当前 `SceneDynamicSnapshotDefinitionIndex` 同步保存验证后的 `authoredValueLanes` 与非空 `userPropertyNumericRanges`，resolve 直接传入 snapshot。
+- **失败半径与 owner**：prepared maps 只复制 immutable authored metadata，不承载 resolved dynamic value、source priority、diagnostics、generation、provider 或 publication；apply 仍按 user→timeline→SceneScript 逐项校验并保持 previous/authored fallback。duplicate/错型/nonfinite authored definitions 不进入 maps，invalid higher-priority producer 仍只产生既有诊断；没有新增 property registry、VM、clock、renderer、graph/history 或 output owner。
+- **自动门与边界**：`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_dynamic_layer_values` 与 `test_scene_surface_evaluation_transaction` 共 35 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed snapshot preparation wiring，不外推为视觉 parity、稳定性能或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 
