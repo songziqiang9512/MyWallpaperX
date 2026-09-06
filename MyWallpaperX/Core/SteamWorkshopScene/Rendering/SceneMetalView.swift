@@ -443,6 +443,14 @@ class SceneMetalView: NSView {
         parallaxPointerSmoother.restore(state)
     }
 
+    func snapshotPointerPrevious() -> SIMD2<Float> {
+        pointerState.previous
+    }
+
+    func restorePointerPrevious(_ value: SIMD2<Float>) {
+        pointerState.previous = value
+    }
+
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
@@ -458,6 +466,7 @@ class SceneMetalView: NSView {
         }
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxPointerState = parallaxPointerSmoother.snapshot()
+        let pointerPrevious = pointerState.previous
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
         let frameContext = makeFrameContext(
             timing: timing, dynamicValues: dynamicValues,
@@ -532,6 +541,7 @@ class SceneMetalView: NSView {
             )
         } else {
             parallaxPointerSmoother.restore(parallaxPointerState)
+            pointerState.previous = pointerPrevious
             videoTextureSources.values.forEach { $0.discardPreparedFrame() }
         }
         return outcome

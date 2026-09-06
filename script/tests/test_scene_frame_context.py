@@ -854,6 +854,16 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(render_loop, barrier)
         self.assertLess(restore, render.index("restoreSceneScriptPointerEvents", restore))
 
+    def test_pointer_previous_rolls_back_with_surface_submission(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        snapshot = frame_driver.index("let pointerPreviousStates =")
+        render_loop = frame_driver.index("for (displayID, surface) in surfaces", snapshot)
+        barrier = frame_driver.index("let allSurfacesSubmitted =", render_loop)
+        restore = frame_driver.index("restorePointerPrevious", barrier)
+        self.assertLess(snapshot, render_loop)
+        self.assertLess(render_loop, barrier)
+        self.assertLess(restore, frame_driver.index("restoreSceneScriptPointerEvents", restore))
+
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
         engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")

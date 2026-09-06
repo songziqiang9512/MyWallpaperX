@@ -626,6 +626,9 @@ extension SceneDesktopWallpaperHost {
         let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map {
             ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother())
         })
+        let pointerPreviousStates = Dictionary(uniqueKeysWithValues: surfaces.map {
+            ($0.key, $0.value.metalView.snapshotPointerPrevious())
+        })
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {
@@ -719,6 +722,9 @@ extension SceneDesktopWallpaperHost {
             )
             for (displayID, state) in parallaxPointerStates {
                 surfaces[displayID]?.metalView.restoreParallaxPointerSmoother(state)
+            }
+            for (displayID, previous) in pointerPreviousStates {
+                surfaces[displayID]?.metalView.restorePointerPrevious(previous)
             }
             // The cursor producer advanced before the outcome was known.
             // A deferred/dropped frame must not consume pointer events or
