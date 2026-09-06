@@ -469,7 +469,7 @@ class SceneMetalView: NSView {
         from input: SceneMediaThumbnailInbox.Snapshot
     ) -> SceneMediaThumbnailTextureStore.Snapshot {
         pendingMediaThumbnailInput = input
-        return mediaThumbnailCoordinator.snapshot()
+        return mediaThumbnailCoordinator.prepareFrame()
     }
 
     func snapshotParallaxPointerSmoother() -> SceneParallaxPointerSmoother.State {
@@ -602,13 +602,18 @@ class SceneMetalView: NSView {
     }
 
     func commitPreparedMediaThumbnailUpdate() {
-        guard let pendingMediaThumbnailInput else { return }
+        guard let pendingMediaThumbnailInput else {
+            mediaThumbnailCoordinator.commitPreparedFrame()
+            return
+        }
         self.pendingMediaThumbnailInput = nil
         _ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)
+        mediaThumbnailCoordinator.commitPreparedFrame()
     }
 
     func discardPreparedMediaThumbnailUpdate() {
         pendingMediaThumbnailInput = nil
+        mediaThumbnailCoordinator.discardPreparedFrame()
     }
 
     func commitPreparedFrameTexturePublication() {

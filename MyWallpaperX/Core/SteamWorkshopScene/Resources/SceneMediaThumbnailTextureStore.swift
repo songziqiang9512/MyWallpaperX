@@ -105,6 +105,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var pendingRequest: DecodeRequest?
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
+    private var preparedFrameSnapshot: Snapshot?
 
     init(
         device: MTLDevice,
@@ -160,9 +161,38 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         }
     }
 
+    /// Pins the provider publication used by one host frame. Decode/upload
+    /// completion may replace current/previous textures concurrently, but a
+    /// submitted or dropped frame must not observe a mid-frame generation.
+    func prepareFrame() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        if let preparedFrameSnapshot { return preparedFrameSnapshot }
+        let snapshot = makeSnapshotLocked()
+        preparedFrameSnapshot = snapshot
+        return snapshot
+    }
+
+    func commitPreparedFrame() {
+        lock.lock()
+        preparedFrameSnapshot = nil
+        lock.unlock()
+    }
+
+    func discardPreparedFrame() {
+        lock.lock()
+        preparedFrameSnapshot = nil
+        lock.unlock()
+    }
+
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
+        if let preparedFrameSnapshot { return preparedFrameSnapshot }
+        return makeSnapshotLocked()
+    }
+
+    private func makeSnapshotLocked() -> Snapshot {
 #if DEBUG
         if readyGeneration != requestedGeneration,
            readyGeneration > 0,

@@ -665,7 +665,7 @@ class SceneFrameContextTests(unittest.TestCase):
         view = VIEW_SOURCE.read_text(encoding="utf-8")
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         prepare = view.index("func prepareMediaThumbnail(")
-        snapshot = view.index("return mediaThumbnailCoordinator.snapshot()", prepare)
+        snapshot = view.index("return mediaThumbnailCoordinator.prepareFrame()", prepare)
         commit = view.index("func commitPreparedMediaThumbnailUpdate()")
         update = view.index(
             "_ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
@@ -683,6 +683,10 @@ class SceneFrameContextTests(unittest.TestCase):
         frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
         self.assertLess(prepare, snapshot)
         self.assertLess(commit, update)
+        self.assertLess(
+            update,
+            view.index("mediaThumbnailCoordinator.commitPreparedFrame()", update),
+        )
         self.assertLess(commit, discard)
         self.assertLess(barrier, barrier_discard)
         self.assertLess(barrier, barrier_commit)

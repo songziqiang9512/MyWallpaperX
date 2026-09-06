@@ -680,6 +680,14 @@ enum Harness {
             "mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
             view[commit:],
         )
+        self.assertIn(
+            "mediaThumbnailCoordinator.commitPreparedFrame()",
+            view[commit:],
+        )
+        self.assertIn(
+            "mediaThumbnailCoordinator.discardPreparedFrame()",
+            view[discard:],
+        )
         barrier = frame_driver.index("let allSurfacesSubmitted =")
         barrier_discard = frame_driver.index(
             "discardPreparedMediaThumbnailUpdate()", barrier

@@ -24,4 +24,16 @@ final class SceneMediaThumbnailCoordinator {
     func snapshot() -> SceneMediaThumbnailTextureStore.Snapshot {
         textureStore.snapshot()
     }
+
+    func prepareFrame() -> SceneMediaThumbnailTextureStore.Snapshot {
+        textureStore.prepareFrame()
+    }
+
+    func commitPreparedFrame() {
+        textureStore.commitPreparedFrame()
+    }
+
+    func discardPreparedFrame() {
+        textureStore.discardPreparedFrame()
+    }
 }

@@ -1371,7 +1371,13 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         store = MEDIA_STORE.read_text(encoding="utf-8")
         self.assertIn("private var cachedSnapshot: Snapshot?", store)
         self.assertIn("private var snapshotDirty = true", store)
+        self.assertIn("private var preparedFrameSnapshot: Snapshot?", store)
+        self.assertIn("func prepareFrame() -> Snapshot", store)
+        self.assertIn("func commitPreparedFrame()", store)
+        self.assertIn("func discardPreparedFrame()", store)
+        self.assertIn("if let preparedFrameSnapshot { return preparedFrameSnapshot }", store)
         self.assertIn("if !snapshotDirty, let cachedSnapshot", store)
+        self.assertIn("return makeSnapshotLocked()", store)
         self.assertIn("snapshotDirty = true", store)
 
     def test_current_provider_stale_rejection_last_ready_and_clear(self) -> None:
