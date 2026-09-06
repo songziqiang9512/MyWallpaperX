@@ -183,6 +183,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
+    private var lastAudioGeneration: UInt64?
 
     init(
         domain: SceneScriptQuickJSDomain,
@@ -283,11 +284,20 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     func refreshAudio(
         _ snapshot: SceneAudioSpectrumSnapshot
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        SceneScriptAudioHost.refresh(
+        guard lastAudioGeneration != snapshot.generation else {
+            return .success(())
+        }
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = SceneScriptAudioHost.refresh(
             owner: handle,
             ownerGeneration: generation,
-            snapshot: snapshot
+            snapshot: snapshot,
+            diagnostic: &diagnostic
         )
+        if case .success = result {
+            lastAudioGeneration = snapshot.generation
+        }
+        return result
     }
 
     func initializeIfNeeded(

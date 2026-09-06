@@ -11,7 +11,8 @@ nonisolated enum SceneScriptAudioHost {
     static func refresh(
         owner: OpaquePointer,
         ownerGeneration: UInt64,
-        snapshot: SceneAudioSpectrumSnapshot
+        snapshot: SceneAudioSpectrumSnapshot,
+        diagnostic: inout [CChar]
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
         let inputs: [(UInt32, [Float], [Float])] = [
             (16, snapshot.left, snapshot.right),
@@ -19,7 +20,6 @@ nonisolated enum SceneScriptAudioHost {
             (64, snapshot.left64, snapshot.right64),
         ]
         for (resolution, left, right) in inputs {
-            var diagnostic = [CChar](repeating: 0, count: 512)
             let result = left.withUnsafeBufferPointer { leftBuffer in
                 right.withUnsafeBufferPointer { rightBuffer in
                     mwx_scene_quickjs_owner_refresh_audio_resolution(
