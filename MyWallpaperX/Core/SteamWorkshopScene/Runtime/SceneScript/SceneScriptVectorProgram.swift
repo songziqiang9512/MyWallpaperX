@@ -91,7 +91,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
         return program
     }
-
     static func compileNonPass(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -110,7 +109,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             budget: budget
         ).program
     }
-
     static func compileNonPassCandidate(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -181,7 +179,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             failures: failures
         )
     }
-
     @discardableResult
     func instantiatePassOwners(
         projection: SceneScriptVectorCandidateCatalog,
@@ -202,7 +199,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             failures: failures
         )
     }
-
     private func instantiateCandidates(
         _ candidates: [SceneScriptVectorCandidate],
         budget: SceneScriptScalarBudget
@@ -266,13 +262,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         definitions = bindings.map(\.definition)
         return failures
     }
-
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
         propertyRevision: UInt64? = nil,
         targetFilter: SceneDynamicTarget? = nil,
+        excludedTargets: Set<SceneDynamicTarget> = [],
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
@@ -306,9 +302,13 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        let selectedBindings = targetFilter.flatMap { bindingIndicesByTarget[$0].map { [bindings[$0]] } } ?? bindings
+        let selectedBindings: ArraySlice<SceneScriptVectorBinding>
+        if let targetFilter, let index = bindingIndicesByTarget[targetFilter] { selectedBindings = bindings[index...index] }
+        else if targetFilter != nil { selectedBindings = bindings[0..<0] }
+        else { selectedBindings = bindings[...] }
         for binding in selectedBindings {
             let target = binding.definition.target
+            if excludedTargets.contains(target) { continue }
             if disabledTargets.contains(target) { continue }
             guard let input = inputs[target],
                   input.valueType == binding.definition.valueType,

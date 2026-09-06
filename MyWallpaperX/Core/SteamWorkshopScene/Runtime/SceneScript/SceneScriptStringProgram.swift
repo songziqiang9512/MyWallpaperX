@@ -330,6 +330,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
         targetFilter: SceneDynamicTarget? = nil,
+        excludedTargets: Set<SceneDynamicTarget> = [],
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
@@ -357,10 +358,16 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         var animations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        let selectedBindings = targetFilter.flatMap {
-            bindingIndicesByTarget[$0].map { [bindings[$0]] }
-        } ?? bindings
+        let selectedBindings: ArraySlice<SceneScriptStringOwner>
+        if let targetFilter, let index = bindingIndicesByTarget[targetFilter] {
+            selectedBindings = bindings[index...index]
+        } else if targetFilter != nil {
+            selectedBindings = bindings[0..<0]
+        } else {
+            selectedBindings = bindings[...]
+        }
         for binding in selectedBindings {
+            if excludedTargets.contains(binding.target) { continue }
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .string(inputString) = input else { continue }

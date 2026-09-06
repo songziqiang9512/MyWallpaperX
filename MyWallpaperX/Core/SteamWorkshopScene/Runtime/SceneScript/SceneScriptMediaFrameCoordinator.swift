@@ -109,7 +109,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             switch registration.family {
             case .vector:
                 let frameResult = vectorProgram.evaluate(
-                    inputs: input(registration.target, from: vectorInputs),
+                    inputs: vectorInputs,
                     effectivePropertyValues: effectivePropertyValues,
                     frame: frame,
                     propertyRevision: propertyRevision,
@@ -131,7 +131,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                 vector.merge(frameResult)
             case .string:
                 let frameResult = stringProgram.evaluate(
-                    inputs: input(registration.target, from: stringInputs),
+                    inputs: stringInputs,
                     effectivePropertyValues: effectivePropertyValues,
                     propertyRevision: propertyRevision,
                     targetFilter: registration.target,
@@ -152,7 +152,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                 string.merge(frameResult)
             case .scalar:
                 let frameResult = scalarProgram.evaluate(
-                    inputs: input(registration.target, from: scalarInputs),
+                    inputs: scalarInputs,
                     frame: frame,
                     effectivePropertyValues: effectivePropertyValues,
                     propertyRevision: propertyRevision,
@@ -175,10 +175,11 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         }
 
         let remainingVector = vectorProgram.evaluate(
-            inputs: vectorInputs.filter { !vectorMediaTargets.contains($0.key) },
+            inputs: vectorInputs,
             effectivePropertyValues: effectivePropertyValues,
             frame: frame,
             propertyRevision: propertyRevision,
+            excludedTargets: vectorMediaTargets,
             audioSpectrum: audioSpectrum,
             userPropertiesJSON: userPropertiesJSON
         )
@@ -191,9 +192,10 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         videoCommands.append(contentsOf: remainingVector.videoCommands)
         vector.merge(remainingVector)
         let remainingString = stringProgram.evaluate(
-            inputs: stringInputs.filter { !stringMediaTargets.contains($0.key) },
+            inputs: stringInputs,
             effectivePropertyValues: effectivePropertyValues,
             propertyRevision: propertyRevision,
+            excludedTargets: stringMediaTargets,
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
             audioSpectrum: audioSpectrum
@@ -206,10 +208,11 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         )
         string.merge(remainingString)
         let remainingScalar = scalarProgram.evaluate(
-            inputs: scalarInputs.filter { !scalarMediaTargets.contains($0.key) },
+            inputs: scalarInputs,
             frame: frame,
             effectivePropertyValues: effectivePropertyValues,
             propertyRevision: propertyRevision,
+            excludedTargets: scalarMediaTargets,
             userPropertiesJSON: userPropertiesJSON,
             audioSpectrum: audioSpectrum
         )
@@ -232,12 +235,6 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         )
     }
 
-    private func input(
-        _ target: SceneDynamicTarget,
-        from inputs: [SceneDynamicTarget: SceneDynamicValue]
-    ) -> [SceneDynamicTarget: SceneDynamicValue] {
-        inputs[target].map { [target: $0] } ?? [:]
-    }
 }
 
 private nonisolated struct VectorAccumulator {

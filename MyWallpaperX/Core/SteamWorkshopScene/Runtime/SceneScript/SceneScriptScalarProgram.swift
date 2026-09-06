@@ -292,6 +292,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
         targetFilter: SceneDynamicTarget? = nil,
+        excludedTargets: Set<SceneDynamicTarget> = [],
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
@@ -318,10 +319,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        let selectedBindings = targetFilter.flatMap {
-            bindingIndicesByTarget[$0].map { [bindings[$0]] }
-        } ?? bindings
+        let selectedBindings: ArraySlice<SceneScriptScalarOwner>
+        if let targetFilter, let index = bindingIndicesByTarget[targetFilter] {
+            selectedBindings = bindings[index...index]
+        } else if targetFilter != nil {
+            selectedBindings = bindings[0..<0]
+        } else {
+            selectedBindings = bindings[...]
+        }
         for binding in selectedBindings {
+            if excludedTargets.contains(binding.target) { continue }
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }

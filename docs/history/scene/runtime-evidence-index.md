@@ -2330,6 +2330,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：target index 只选择既有 binding，不缓存动态 value、event、provider 或 owner state；target 缺失仍返回空选择，disabled target、wrong input type、VM failure 与 local previous-current fallback 继续由原 Program 处理。每个 registration 仍独立观察相同 generation event，owner callback/mutation 仍由 coordinator 在原 authored 顺序合并；next-frame、invalidate、teardown 与 all-surface frame outcome 不改变。
 - **自动门与边界**：`test_scene_property_vector_script` 的 direct target-filter 正反门与 authored cross-family media order、duplicate generation、next-frame、invalidate/recovery 通过；`test_scene_script_string_lifecycle`、`test_scene_frame_vm_routing`、`test_scene_frame_context` 一并通过，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、完整 multi-owner benchmark、GPU completion、视觉 ROI 或 provider breadth，故最高只到 `S2`。
 
+<a id="e-v4-scenescript-authored-dispatch-input-reuse"></a>
+### E-V4-SCENESCRIPT-AUTHORED-DISPATCH-INPUT-REUSE: reuse typed input collections across authored owner dispatch
+
+证据等级：`S2 shared typed input hot-path wiring`。本批只收口上一批 authored target dispatch 后仍由 coordinator 为每个 registration 构造临时 input/filter dictionary 的共享 CPU/pre-encode 成本；不宣称真实 signed sample CPU trace、完整 multi-owner benchmark、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：`SceneScriptMediaFrameCoordinator` 仍按 launch-prepared authored ordinal 将 media owners 送入原 scalar/string/vector Program/VM。上一批已由 Program 的 prepared target→binding index 选择单 owner，但 coordinator 仍把 `input(registration.target, from:)` 的单元素 dictionary 传入 targeted call，并为 remaining path 对每个 family 建立过滤 dictionary；当前 targeted call 直接传入原 typed input dictionary，Program 以 `ArraySlice` zero-copy 选择 indexed binding，remaining call 直接传入原 dictionary并以 prepared `excludedTargets` 跳过 media targets。没有复制动态 value、改变 property/provider state 或新增 owner。
+- **失败半径与恢复**：target filter 缺失仍形成空 slice，excluded target 只阻止 remaining call 重复消费，wrong type、disabled owner、VM failure、event generation watermark、owner mutation merge 与 previous-current fallback 仍由原 Program/coordinator 处理。完整 authored order、next-frame、invalidate、teardown 与 all-surface frame outcome 不变。
+- **自动门与边界**：四个 focused SceneScript/frame module 共 **59 tests / OK**；direct target-filter 正反门、跨 family authored order、duplicate generation、next-frame、invalidate/recovery 继续通过，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、完整 multi-owner benchmark、GPU completion、视觉 ROI 或 provider breadth，故最高只到 `S2`。
+
 <a id="e-v4-media-thumbnail-value-only-invalidation"></a>
 ### E-V4-MEDIA-THUMBNAIL-VALUE-ONLY-INVALIDATION: color-only media publications reuse ready texture atoms
 
