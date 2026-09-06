@@ -156,6 +156,9 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         )
         self.assertIn("revision == topology.topologyRevision", cache)
         self.assertIn("func applyingFrameValues(", cache)
+        self.assertIn("let layerIndicesByID: [Int: Int]", cache)
+        self.assertIn("guard let index = layerIndicesByID[layer.id]", cache)
+        self.assertNotIn("descriptor.layers.firstIndex(where:", cache)
 
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (
