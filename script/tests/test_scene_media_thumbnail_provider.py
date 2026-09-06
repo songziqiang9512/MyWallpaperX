@@ -14,6 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 RENDERER = SCENE / "Rendering/SceneMetalRenderer.swift"
+MEDIA_STORE = SCENE / "Resources/SceneMediaThumbnailTextureStore.swift"
 SOURCES = [
     SCENE / "Runtime/SceneMediaThumbnailInbox.swift",
     SCENE / "Format/SceneJSONValue.swift",
@@ -1366,6 +1367,12 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertLess(defer_frame, deferred_end)
         self.assertLess(deferred_end, rejected)
         self.assertLess(rejected, rejected_end)
+
+        store = MEDIA_STORE.read_text(encoding="utf-8")
+        self.assertIn("private var cachedSnapshot: Snapshot?", store)
+        self.assertIn("private var snapshotDirty = true", store)
+        self.assertIn("if !snapshotDirty, let cachedSnapshot", store)
+        self.assertIn("snapshotDirty = true", store)
 
     def test_current_provider_stale_rejection_last_ready_and_clear(self) -> None:
         if shutil.which("swiftc") is None:

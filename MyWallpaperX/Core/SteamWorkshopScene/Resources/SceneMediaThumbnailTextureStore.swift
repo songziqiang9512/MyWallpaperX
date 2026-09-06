@@ -103,6 +103,8 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
     private var lastSuccessfulEncodedCurrent: Data?
     private var reportedPendingGeneration: UInt64?
     private var pendingRequest: DecodeRequest?
+    private var cachedSnapshot: Snapshot?
+    private var snapshotDirty = true
 
     init(
         device: MTLDevice,
@@ -126,6 +128,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         }
         requestedGeneration = input.generation
         pendingRequest?.cancel()
+        snapshotDirty = true
 
         // Artwork and its derived colors share the inbox generation so the
         // authored media event remains ordered.  A color-only publication is
@@ -176,6 +179,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             )
         }
 #endif
+        if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }
         let publication: (
             String,
             SceneTextureProviderIdentity,
@@ -284,7 +288,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
                 }
             }
         }
-        return Snapshot(
+        let snapshot = Snapshot(
             generation: readyGeneration,
             pendingGeneration: pendingRequest?.input.generation,
             pendingIdentities: pendingIdentities,
@@ -296,6 +300,9 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
             systemTextures: textures,
             publications: publications
         )
+        cachedSnapshot = snapshot
+        snapshotDirty = false
+        return snapshot
     }
 
     private func decode(_ request: DecodeRequest) {
@@ -360,6 +367,7 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         readyGeneration = input.generation
         reportedPendingGeneration = nil
         pendingRequest = nil
+        snapshotDirty = true
 #if DEBUG
         print(
             "MWX media thumbnail store: phase=ready"

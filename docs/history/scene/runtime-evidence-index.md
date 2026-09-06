@@ -4796,6 +4796,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与生命周期**：target identity/index 是 snapshot 派生数据，不成为第二 property registry；`replacingIdentity`、empty snapshot 与 per-surface generation 仍通过同一 initializer 生成索引。未知 target、错误类型、非 finite 或 authored source 不进入集合；无动态 transform 时直接保留 static frames，已有 parent/attachment hierarchy、dynamic script root local-frame path、Program/GraphExecutor、publication/completion 与唯一 output owner 不变。
 - **自动门与边界**：`test_scene_layer_world_frame`、`test_scene_dynamic_snapshot` 与 `test_scene_dynamic_layer_values` 共 24 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed world-frame wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
 
+<a id="e-v4-media-thumbnail-snapshot-cache"></a>
+### E-V4-MEDIA-THUMBNAIL-SNAPSHOT-CACHE: media thumbnail provider publication snapshot cache
+
+证据等级：`S2 shared provider publication hot-path wiring`。本批只减少已提交 media provider publication 的重复字典构造，不宣称真实媒体视觉、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 provider readiness/generation 先形成 candidate，当前 frame 只读取已提交 current/previous publication；此前 `SceneMediaThumbnailTextureStore.snapshot()` 每次调用都重新构造 current/preserved/previous publication、provider state、system texture 与 pending identity 字典。当前 store 增加 `cachedSnapshot`/`snapshotDirty`，`snapshot()` 在状态未变化时直接返回上一份 immutable Snapshot；accepted input generation（包括 color-only ready generation）和 decode completion/clear/failure 统一失效 cache，重新发布后写回 store-owned snapshot。
+- **失败半径与生命周期**：cache 只持有 ready/pending 的观察投影，不拥有 requested input、DecodeRequest、generation、cancel 或 texture lifecycle；stale/cancel 回调仍由 request identity 与 requested generation 拒绝。pending readiness、last-ready previous-current、malformed/unavailable fallback、provider state 与 all-surface submission barrier unchanged；没有新增 media provider、resource registry、clock、renderer、graph/history 或 output owner。
+- **自动门与边界**：`test_scene_media_thumbnail_provider` 2 tests / OK；`test_scene_frame_vm_routing`、`test_scene_source_update_transaction`、`test_scene_frame_context` 共 53 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 live producer、多 surface readiness fault、GPU completion rollback、媒体 ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 provider publication wiring，不外推为媒体视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 
