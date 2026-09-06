@@ -2272,6 +2272,13 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 负向/恢复运行：同一 binary 以 `--drop-dynamic-values-frame 1` 运行，report SHA-256 `49e61dfe14c51ca689b02ff2b9e22d2fad30b773f4a9c17ee0059068fd780634`。frame 1 记录 `dynamic-snapshot-fault state=dropped generation=2`，frame 2 `state=recovered generation=3`；37/36/0 submitted/completed/failed，ready/after 非黑，app.log 仍只有初始五个 generation-1 text publication。旧 benchmark 的 fault aggregate 预期因此为 NON-PASS，不能冒充全样本 PASS；该运行未单独证明异步 raster completion 与 surface outcome 的跨线程顺序，只证明新的 update 调用门与公共输出安全。
 - 边界：本 anchor 只收口动态 text provider 的 prepare/submission 边界，不宣称 text layout、font、ROI、pixel parity、完整样本、长稳性能或 V4 完成；raster OOM、device-loss、取消/teardown 与多 surface completion 仍由现有 store/资源合同处理，需后续 fresh evidence。
 
+<a id="e-v4-dynamic-text-all-surface-submission-barrier"></a>
+### E-V4-DYNAMIC-TEXT-ALL-SURFACE-SUBMISSION-BARRIER: stage text requests until the host barrier
+
+- 实现：`SceneMetalView` 仍以当前 ready text publication 参加本 surface encode，但 `FrameOutcome.submitted` 只把下一代 `dynamicValues/dynamicLayers` 放入 surface-local pending candidate；`SceneDesktopWallpaperHost` 只有在所有 surface `submitted` 后才让每个 view 调用既有 `SceneDynamicTextTextureStore.update`，任一 surface deferred/dropped 则 discard 所有 pending candidates。text generation、CoreText raster queue、provider identity 与 compositor 不变，没有第二个 text owner。
+- 自动门：`test_scene_source_update_transaction`、`test_scene_frame_context` 与相邻 realtime/rendering selection 共 **13 modules / ALL OK**；code-health 通过（902 Swift、16 locked legacy、182 warnings），checkpoint Debug build `BUILD SUCCEEDED`。该批未新增真实 multi-surface fault、raster completion或GPU completion注入。
+- 边界：只证明跨 surface submission 前不会提前推进 text requested generation；异步 raster completion、OOM/device loss/cancel/teardown、text layout/font/ROI、真实 deferred/dropped运行、视觉 parity、稳定性能和 V4 完成仍未证明。
+
 <a id="e-audio-input"></a>
 ### E-AUDIO-INPUT: Scene 16/32/64 频段音频频谱输入管线
 

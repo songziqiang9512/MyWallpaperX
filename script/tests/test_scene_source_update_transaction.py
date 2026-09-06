@@ -467,16 +467,16 @@ enum Harness {
         snapshot = view.index("let dynamicTextSnapshot = dynamicTextTextures?.snapshot()")
         outcome = view.index("let outcome = renderer.renderFrame(", snapshot)
         submitted = view.index("if outcome.isSubmitted {", outcome)
-        update = view.index("dynamicTextTextures?.update(", submitted)
+        pending = view.index("pendingDynamicTextUpdate = (", submitted)
+        commit = view.index("func commitPreparedDynamicTextUpdate()")
+        update = view.index("dynamicTextTextures?.update(", commit)
 
         self.assertLess(snapshot, outcome)
         self.assertLess(outcome, submitted)
-        self.assertLess(submitted, update)
-        self.assertNotIn("dynamicTextTextures?.update(", view[:snapshot])
-        self.assertIn(
-            "Dynamic text is an asynchronous provider.",
-            view,
-        )
+        self.assertLess(submitted, pending)
+        self.assertLess(commit, update)
+        self.assertIn("func discardPreparedDynamicTextUpdate()", view)
+        self.assertIn("Dynamic text is asynchronous", view)
         self.assertIn("private var generationState", dynamic_text)
         self.assertIn("generationState.finish(request", dynamic_text)
 

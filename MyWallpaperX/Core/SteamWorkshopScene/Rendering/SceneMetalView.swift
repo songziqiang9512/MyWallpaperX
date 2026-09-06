@@ -49,6 +49,10 @@ class SceneMetalView: NSView {
     private var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
+    private var pendingDynamicTextUpdate: (
+        snapshot: SceneDynamicSnapshot,
+        dynamicLayers: [SceneRenderDescriptor.Layer]
+    )?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     private weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: URL] = [:]
@@ -459,6 +463,7 @@ class SceneMetalView: NSView {
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneMetalRenderer.FrameOutcome {
+        pendingDynamicTextUpdate = nil
         let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         guard let drawable = metalLayer.nextDrawable() else {
             performanceTelemetry?.recordDrawableMiss()
@@ -532,12 +537,10 @@ class SceneMetalView: NSView {
         )
         if outcome.isSubmitted {
             videoTextureSources.values.forEach { $0.commitPreparedFrame() }
-            // Dynamic text is an asynchronous provider.  Publish its next
-            // render request only after this frame crossed the submission
-            // boundary; a deferred/dropped frame must not advance the text
-            // provider generation that the next successful frame observes.
-            dynamicTextTextures?.update(
-                from: dynamicValues,
+            // Dynamic text is asynchronous; stage its next request for the
+            // host's all-surface submission barrier.
+            pendingDynamicTextUpdate = (
+                snapshot: dynamicValues,
                 dynamicLayers: layerTopology.dynamicLayers
             )
         } else {
@@ -546,5 +549,18 @@ class SceneMetalView: NSView {
             videoTextureSources.values.forEach { $0.discardPreparedFrame() }
         }
         return outcome
+    }
+
+    func commitPreparedDynamicTextUpdate() {
+        guard let pendingDynamicTextUpdate else { return }
+        self.pendingDynamicTextUpdate = nil
+        dynamicTextTextures?.update(
+            from: pendingDynamicTextUpdate.snapshot,
+            dynamicLayers: pendingDynamicTextUpdate.dynamicLayers
+        )
+    }
+
+    func discardPreparedDynamicTextUpdate() {
+        pendingDynamicTextUpdate = nil
     }
 }

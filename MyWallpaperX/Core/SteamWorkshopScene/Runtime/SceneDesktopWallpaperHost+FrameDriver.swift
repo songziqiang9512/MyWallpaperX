@@ -287,13 +287,9 @@ extension SceneDesktopWallpaperHost {
         let sharedLayerAlphaValues = pendingSharedLayerAlpha.values
         let layerMutationSnapshot = launchContext.sceneScriptDynamicLayerRuntime
             .snapshot()
-        // A SceneScript `update(value)` callback is handed the current
-        // published value by the official runtime.  The authored descriptor is
-        // only the seed; feeding it again every frame freezes interpolation
-        // scripts (for example this sample's cover card remains at the top
-        // instead of sliding to its centered position).  Carry forward only
-        // targets owned by typed script programs and only when no higher
-        // priority user/timeline producer is present for this frame.
+        // SceneScript `update(value)` receives the current published value;
+        // the authored descriptor is only the seed. Carry forward typed
+        // targets when no higher-priority user/timeline producer is present.
         let sceneScriptStatefulTargets = launchContext.sceneScriptStatefulTargets
         let previousSceneScriptValues = surfaces.values.first?.evaluationTransaction
             .previousValues(for: sceneScriptStatefulTargets)
@@ -738,10 +734,12 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
             finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
         commitSubmittedSceneFrame(
             launchContext,
             pendingSurfaceEvaluations: pendingSurfaceEvaluations,

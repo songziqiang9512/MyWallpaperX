@@ -640,6 +640,17 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(surface_commit, timeline_commit)
         self.assertLess(timeline_commit, video_commit)
 
+    def test_dynamic_text_request_waits_for_all_surface_submission(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        render = swift_body(frame_driver, "private func renderFrame()")
+        barrier = render.index("let allSurfacesSubmitted =")
+        discard = render.index("discardPreparedDynamicTextUpdate()", barrier)
+        commit = render.index("commitPreparedDynamicTextUpdate()", barrier)
+        frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(barrier, discard)
+        self.assertLess(barrier, commit)
+        self.assertLess(commit, frame_commit)
+
     def test_local_storage_transaction_commits_or_discards_with_submission(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
