@@ -2228,6 +2228,13 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 负向/恢复：同一 binary 以 `--drop-dynamic-values-frame 1` 运行，report SHA-256 `e8661e8a499b0cfc25a98c3ea6c6a33e84dd7d20bee21f865e4937a33c523e72`。frame 1 记录 `dynamic-snapshot-fault state=dropped generation=2 resolvedValues=255`，之后 frame 2 记录 `state=recovered generation=3`；对应 SceneScript material-uniform 消费从 frame 0/generation 1 后跳过故障代并在后续代继续，故障只产生已有 effect-local dynamic-uniform binding fallback，而没有新 registry、VM、graph 或 compositor route。fault runner 的旧“both succeeded and failed/recovery”聚合门因此为 NON-PASS，不能冒充全样本 PASS。
 - 边界：本 anchor 证明当前真实 sample 的 SceneScript scalar/vector producer→typed snapshot→prepared Program consumer 与局部恢复，不等于所有 `SceneScript` API、dynamic layer/text/media/pointer provider、其他 uniform shape、完整样本、官方 parity、稳定性能或 V4 完成；仍保留 source/target/ABI/generation 不匹配时的最小拒绝与 previous-current fallback。
 
+<a id="e-v4-clock-submission-barrier"></a>
+### E-V4-CLOCK-SUBMISSION-BARRIER: SceneClock rollback at the surface submission barrier
+
+- 实现：`SceneDesktopWallpaperHost.renderFrame` 在调用共享 `SceneClock.advance` 前保存其 launch-owned state；当任一现有 surface 返回 `deferred` 或 `dropped` 时，host 在既有 pointer/evaluation/layer-mutation rollback 前恢复 `frameIndex`、`startHostTime`/`lastHostTime`、pause anchor 与 resume discontinuity state。全部 surface `submitted` 的路径不恢复，随后由原有提交生命周期保留这次 clock advancement。没有新增 clock、frame driver、property/provider、renderer 或 compositor owner，普通帧仍只执行一次 `advance` 与必要的实时安全检查。
+- 自动门：`python3.12 -m unittest script.tests.test_scene_frame_context` **28/28**；checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组 **7 modules / ALL OK**；`script/check_code_health.py --check --base-ref HEAD` 通过（902 Swift、16 locked legacy、182 warnings）；checkpoint Debug build `BUILD SUCCEEDED`；`git diff --check` 通过。Swift harness 先对同一时间尝试推进后 restore，再重试，证明失败尝试不消耗 frame index 或 host anchor；frame-driver 顺序门锁定 snapshot→advance→submission barrier→restore→其他 producer rollback。
+- 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion 和 GPU completion 后的回滚仍可能在 surface outcome 前推进，不外推视觉 parity、稳定性能、官方 timing 或 V4 完成。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 

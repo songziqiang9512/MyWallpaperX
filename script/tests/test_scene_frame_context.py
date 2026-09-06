@@ -141,6 +141,17 @@ enum Harness {
             hostTime: 10.5,
             wallDate: Date(timeIntervalSince1970: 1_001)
         )
+        let clockState = clock.snapshot()
+        let failedAttempt = clock.advance(
+            hostTime: 10.75,
+            wallDate: Date(timeIntervalSince1970: 1_001.25)
+        )
+        clock.restore(clockState)
+        let retriedAttempt = clock.advance(
+            hostTime: 10.75,
+            wallDate: Date(timeIntervalSince1970: 1_001.25)
+        )
+        clock.restore(clockState)
         let longFrame = clock.advance(
             hostTime: 11.5,
             wallDate: Date(timeIntervalSince1970: 1_001.5)
@@ -174,6 +185,8 @@ enum Harness {
         let payload: [String: Any] = [
             "first": timing(first),
             "second": timing(second),
+            "failedAttempt": timing(failedAttempt),
+            "retriedAttempt": timing(retriedAttempt),
             "longFrame": timing(longFrame),
             "backwards": timing(backwards),
             "reset": timing(reset),
@@ -363,6 +376,16 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertEqual(long_frame["simulationFrameTime"], 0.25)
         self.assertEqual(long_frame["droppedFrameTime"], 0.75)
         self.assertTrue(long_frame["isDiscontinuous"])
+
+    def test_clock_snapshot_restore_does_not_consume_failed_attempt(self) -> None:
+        failed = self.result["failedAttempt"]
+        retried = self.result["retriedAttempt"]
+        self.assertEqual(failed["frameIndex"], 2)
+        self.assertEqual(retried["frameIndex"], 2)
+        self.assertEqual(retried["hostTime"], failed["hostTime"])
+        self.assertEqual(retried["sceneTime"], failed["sceneTime"])
+        self.assertEqual(retried["rawFrameTime"], failed["rawFrameTime"])
+        self.assertEqual(retried["simulationFrameTime"], failed["simulationFrameTime"])
 
     def test_reset_starts_a_new_generation(self) -> None:
         self.assertEqual(self.result["reset"], {
@@ -790,6 +813,20 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("scheduledDeadline + sceneFrameInterval", schedule)
         self.assertIn("nextDeadline = max(cadenceDeadline, now)", schedule)
         self.assertNotIn("while cadenceDeadline <= now", schedule)
+
+    def test_scene_clock_rolls_back_when_surface_submission_barrier_fails(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        render = swift_body(frame_driver, "private func renderFrame()")
+        snapshot = render.index("let clockState = sceneClock.snapshot()")
+        advance = render.index("sceneClock.advance(", snapshot)
+        barrier = render.index("let allSurfacesSubmitted =", advance)
+        restore = render.index("sceneClock.restore(clockState)", barrier)
+        pointer_restore = render.index("restoreSceneScriptPointerEvents", restore)
+        self.assertLess(snapshot, advance)
+        self.assertLess(advance, barrier)
+        self.assertLess(restore, pointer_restore)
+        self.assertIn("A deferred/dropped surface must not consume a", render)
+        self.assertIn("frame index or move the host-time anchor", render)
 
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")

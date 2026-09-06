@@ -203,6 +203,7 @@ extension SceneDesktopWallpaperHost {
 #else
         let wallDate = Date()
 #endif
+        let clockState = sceneClock.snapshot()
         let advancedTiming = sceneClock.advance(
             hostTime: CACurrentMediaTime(),
             wallDate: wallDate
@@ -704,6 +705,10 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
+            // The shared clock is part of the same frame transaction as every
+            // typed producer. A deferred/dropped surface must not consume a
+            // frame index or move the host-time anchor before publication.
+            sceneClock.restore(clockState)
             // The cursor producer advanced before the outcome was known.
             // A deferred/dropped frame must not consume pointer events or
             // advance edge state: re-insert the drained batches and restore

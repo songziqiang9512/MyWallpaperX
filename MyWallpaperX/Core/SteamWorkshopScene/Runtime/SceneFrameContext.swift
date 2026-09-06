@@ -67,6 +67,34 @@ nonisolated struct SceneFrameContext: Equatable, Sendable {
 nonisolated struct SceneClock {
     nonisolated static let maximumSimulationFrameTime: TimeInterval = 0.25
 
+    /// Launch-owned mutable state captured before a frame attempt. The host
+    /// restores this state when no surface reaches the submission barrier so
+    /// a failed attempt cannot consume the shared frame index or time anchor.
+    nonisolated struct State: Equatable, Sendable {
+        fileprivate let startHostTime: TimeInterval
+        fileprivate let lastHostTime: TimeInterval
+        fileprivate let nextFrameIndex: UInt64
+        fileprivate let pausedHostTime: TimeInterval?
+        fileprivate let pausedSceneTime: TimeInterval
+        fileprivate let anchorsFirstResumedFrame: Bool
+
+        fileprivate init(
+            startHostTime: TimeInterval,
+            lastHostTime: TimeInterval,
+            nextFrameIndex: UInt64,
+            pausedHostTime: TimeInterval?,
+            pausedSceneTime: TimeInterval,
+            anchorsFirstResumedFrame: Bool
+        ) {
+            self.startHostTime = startHostTime
+            self.lastHostTime = lastHostTime
+            self.nextFrameIndex = nextFrameIndex
+            self.pausedHostTime = pausedHostTime
+            self.pausedSceneTime = pausedSceneTime
+            self.anchorsFirstResumedFrame = anchorsFirstResumedFrame
+        }
+    }
+
     private var startHostTime: TimeInterval
     private var lastHostTime: TimeInterval
     private var nextFrameIndex: UInt64 = 0
@@ -75,6 +103,26 @@ nonisolated struct SceneClock {
     private var anchorsFirstResumedFrame = false
 
     nonisolated var isPaused: Bool { pausedHostTime != nil }
+
+    nonisolated func snapshot() -> State {
+        State(
+            startHostTime: startHostTime,
+            lastHostTime: lastHostTime,
+            nextFrameIndex: nextFrameIndex,
+            pausedHostTime: pausedHostTime,
+            pausedSceneTime: pausedSceneTime,
+            anchorsFirstResumedFrame: anchorsFirstResumedFrame
+        )
+    }
+
+    nonisolated mutating func restore(_ state: State) {
+        startHostTime = state.startHostTime
+        lastHostTime = state.lastHostTime
+        nextFrameIndex = state.nextFrameIndex
+        pausedHostTime = state.pausedHostTime
+        pausedSceneTime = state.pausedSceneTime
+        anchorsFirstResumedFrame = state.anchorsFirstResumedFrame
+    }
 
     nonisolated init(hostTime: TimeInterval) {
         let normalizedHostTime = hostTime.isFinite ? hostTime : 0
