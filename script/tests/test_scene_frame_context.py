@@ -540,8 +540,11 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("let advancedTiming = sceneClock.advance", frame_driver)
         self.assertIn("let timing = advancedTiming", frame_driver)
         render_position = frame_driver.index("private func renderFrame()")
+        media_vm_position = frame_driver.index(
+            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(", render_position
+        )
         broadcast_position = frame_driver.index(
-            "for (displayID, surface) in surfaces", render_position
+            "for (displayID, surface) in surfaces", media_vm_position
         )
         media_input_position = frame_driver.index(
             "let mediaInput = SceneMediaThumbnailInbox.shared.latest()", render_position
@@ -554,9 +557,6 @@ class SceneFrameContextTests(unittest.TestCase):
         )
         timeline_event_position = frame_driver.index(
             "SceneScriptMediaTimelineEventInput(snapshot: mediaInput)", render_position
-        )
-        media_vm_position = frame_driver.index(
-            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(", render_position
         )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.prepare", broadcast_position

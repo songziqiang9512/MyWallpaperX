@@ -356,40 +356,15 @@ extension SceneDesktopWallpaperHost {
                 timing.frameIndex, String(describing: failure), failure.code
             )
         }
-        let cursorBatch: SceneScriptCursorFrameBatch
-        if sceneScriptLayerSnapshotFailure != nil {
-            cursorBatch = .init(samples: [], overflowed: false)
-        } else if surfaces.count == 1,
-                  let metalView = surfaces.values.first?.metalView {
-            cursorBatch = metalView.sceneScriptCursorFrameBatch(
-                ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
-                capturedOwnerLayerIDs:
-                    launchContext.sceneScriptCursorProgram.capturedOwnerLayerIDs,
-                timing: timing,
-                dynamicValues: preliminaryForSceneScript
-            )
-        } else {
-            let cursorHits = surfaces.values.reduce(
-                into: [Int: SceneScriptCursorHit]()
-            ) { result, surface in
-                _ = surface.metalView.drainSceneScriptPointerEvents()
-                result.merge(surface.metalView.sceneScriptCursorHits(
-                    ownerLayerIDs: launchContext.sceneScriptCursorProgram.ownerLayerIDs,
-                    timing: timing,
-                    dynamicValues: preliminaryForSceneScript
-                )) { existing, _ in existing }
-            }
-            cursorBatch = .init(
-                samples: [.init(
-                    hits: cursorHits,
-                    primaryButtonIsDown: surfaces.values.contains {
-                        $0.metalView.pointerState.isPrimaryButtonDown
-                    }
-                )],
-                overflowed: false
-            )
-        }
+        let cursorPreparation = prepareSceneScriptCursorBatch(
+            launchContext: launchContext,
+            timing: timing,
+            preliminaryForSceneScript: preliminaryForSceneScript,
+            layerSnapshotFailure: sceneScriptLayerSnapshotFailure
+        )
+        let cursorBatch = cursorPreparation.batch
         let cursorResult: SceneScriptCursorFrameResult
+        var cursorEdgeState: SceneScriptCursorEdgeState?
         if let failure = sceneScriptLayerSnapshotFailure {
             cursorResult = .init(
                 failures: Dictionary(uniqueKeysWithValues:
@@ -401,6 +376,8 @@ extension SceneDesktopWallpaperHost {
                 layerMutations: [], inputBatchOverflowed: false
             )
         } else {
+            cursorEdgeState = launchContext.sceneScriptCursorProgram
+                .edgeStateSnapshot()
             cursorResult = launchContext.sceneScriptCursorProgram.dispatch(
                 batch: cursorBatch,
                 frame: sceneScriptFrame,
@@ -727,6 +704,19 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
+            // The cursor producer advanced before the outcome was known.
+            // A deferred/dropped frame must not consume pointer events or
+            // advance edge state: re-insert the drained batches and restore
+            // the pre-dispatch snapshot so the next frame still sees every
+            // press/release/click edge for the same input.
+            for (displayID, batch) in cursorPreparation.drainedPointerBatches {
+                surfaces[displayID]?.metalView
+                    .restoreSceneScriptPointerEvents(batch)
+            }
+            if let cursorEdgeState {
+                launchContext.sceneScriptCursorProgram
+                    .restoreEdgeState(cursorEdgeState)
+            }
             finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped

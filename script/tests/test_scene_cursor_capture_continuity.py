@@ -210,6 +210,30 @@ enum Harness {
             frame: frame,
             userPropertiesJSON: "{}"
         )
+
+        let edgeProgram = SceneScriptCursorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor,
+            scriptBindings: [binding(layerID: 10, index: 0, source: revertSource)],
+            generation: 53
+        )
+        let pressBatch = SceneScriptCursorFrameBatch(samples: [
+            sample(position: .zero, localX: 0, hits: [10], down: true),
+        ], overflowed: false)
+        let prePressEdgeState = edgeProgram.edgeStateSnapshot()
+        let firstPress = edgeProgram.dispatch(
+            batch: pressBatch, frame: frame, userPropertiesJSON: "{}"
+        )
+        let firstPressMutations = firstPress.layerMutations.count
+        edgeProgram.restoreEdgeState(prePressEdgeState)
+        let restoredPress = edgeProgram.dispatch(
+            batch: pressBatch, frame: frame, userPropertiesJSON: "{}"
+        )
+        let restoredPressMutations = restoredPress.layerMutations.count
+        let consumedPress = edgeProgram.dispatch(
+            batch: pressBatch, frame: frame, userPropertiesJSON: "{}"
+        )
+        let consumedPressMutations = consumedPress.layerMutations.count
         let final = drag.layerMutations.first
         let reverted = revert.layerMutations.first
         let peer = failure.layerMutations.first { $0.layerID == 20 }
@@ -271,6 +295,9 @@ enum Harness {
             "nextFrameProjectionMutationCount": verification.layerMutations.count,
             "rollbackFailedOwners": rollback.failures.keys.sorted(),
             "rollbackLeakedMutations": rollback.layerMutations.count,
+            "edgeRestoreFirstMutations": firstPressMutations,
+            "edgeRestoreRedispatchMutations": restoredPressMutations,
+            "edgeConsumedWithoutRestore": consumedPressMutations,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -540,6 +567,15 @@ class SceneCursorCaptureContinuityTests(unittest.TestCase):
     def test_missing_peer_rolls_back_prior_peer_write(self) -> None:
         self.assertEqual(self.result["rollbackFailedOwners"], [10])
         self.assertEqual(self.result["rollbackLeakedMutations"], 0)
+
+    def test_restored_edge_state_redispatches_press_without_loss(self) -> None:
+        # The first press dispatch emits the cursorDown mutation. Restoring
+        # the pre-dispatch edge state must make a re-dispatch of the same
+        # batch emit the identical press edge, while a re-dispatch without
+        # restore consumes the edge (already-down state) and emits nothing.
+        self.assertEqual(self.result["edgeRestoreFirstMutations"], 1)
+        self.assertEqual(self.result["edgeRestoreRedispatchMutations"], 1)
+        self.assertEqual(self.result["edgeConsumedWithoutRestore"], 0)
 
 
 if __name__ == "__main__":

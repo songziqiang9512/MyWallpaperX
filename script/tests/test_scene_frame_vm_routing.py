@@ -164,6 +164,9 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
     def test_layer_snapshot_precedes_every_shared_domain_callback(self) -> None:
         frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        frame_driver_cursor = (
+            RUNTIME / "SceneDesktopWallpaperHost+FrameDriverCursor.swift"
+        ).read_text(encoding="utf-8")
         lifecycle = FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
         media_frame = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
@@ -173,7 +176,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         render = swift_body(frame, "private func renderFrame()")
         commit_frame = swift_body(lifecycle, "func commitSubmittedSceneFrame(")
         publication = render.index(".publishLayerSnapshot(")
-        cursor_batch = render.index("let cursorBatch:")
+        cursor_batch = render.index("let cursorBatch = cursorPreparation.batch")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
         media_callback = render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate(")
         owner_preflight = render.index(
@@ -212,9 +215,12 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("timelineRuntime.validate(", owner_validation)
         self.assertIn("videoRegistry.validate(", owner_validation)
         self.assertNotIn(".applyIsolatingOwners(layerMutations)", render)
-        self.assertIn("if sceneScriptLayerSnapshotFailure != nil", render)
+        self.assertIn("if layerSnapshotFailure != nil", frame_driver_cursor)
+        self.assertIn(
+            "cursorBatch = .init(samples: [], overflowed: false)",
+            frame_driver_cursor,
+        )
         self.assertEqual(render.count("if let failure = sceneScriptLayerSnapshotFailure"), 3)
-        self.assertIn("cursorBatch = .init(samples: [], overflowed: false)", render)
         self.assertNotIn("publishLayerSnapshot", vector)
         self.assertNotIn("layerSnapshot:", vector)
         self.assertIn("vectorProgram.evaluate(", media_frame)
@@ -323,7 +329,8 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "launchContext.frameSchema.mediaFrameCoordinator.evaluate("
         )
         surface_loop_position = host_render.index(
-            "for (displayID, surface) in surfaces"
+            "for (displayID, surface) in surfaces",
+            media_vm_position,
         )
         surface_render_position = host_render.index(
             "surface.metalView.renderFrame(",
@@ -376,7 +383,13 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
     def test_cursor_exports_gate_the_single_surface_dispatch_route(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        frame_driver_cursor = (
+            RUNTIME / "SceneDesktopWallpaperHost+FrameDriverCursor.swift"
+        ).read_text(encoding="utf-8")
         pointer_events = POINTER_EVENTS_SOURCE.read_text(encoding="utf-8")
+        pointer_state = (
+            RUNTIME / "SceneSurfacePointerState.swift"
+        ).read_text(encoding="utf-8")
         interaction = CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
         cursor_program = CURSOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
@@ -390,11 +403,25 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)
         self.assertIn("guard debugPointerOverride == nil", pointer_events)
         self.assertIn("recordSceneScriptPointerEvent(", pointer_events)
-        self.assertIn("else if surfaces.count == 1,", frame_driver)
-        self.assertIn("let metalView = surfaces.values.first?.metalView", frame_driver)
-        self.assertIn("sceneScriptCursorFrameBatch(", frame_driver)
-        self.assertIn("capturedOwnerLayerIDs:", frame_driver)
-        self.assertIn("drainSceneScriptPointerEvents()", frame_driver)
+        self.assertIn("else if surfaces.count == 1,", frame_driver_cursor)
+        self.assertIn("let (displayID, surface) = surfaces.first", frame_driver_cursor)
+        self.assertIn("sceneScriptCursorFrameBatch(", frame_driver_cursor)
+        self.assertIn("capturedOwnerLayerIDs:", frame_driver_cursor)
+        self.assertIn("drainSceneScriptPointerEvents()", frame_driver_cursor)
+        self.assertIn("drainedEvents: drained", frame_driver_cursor)
+        # A deferred/dropped frame must re-insert drained pointer events and
+        # restore the pre-dispatch cursor edge state instead of consuming
+        # press/release/click edges for a frame that was never displayed.
+        self.assertIn("restoreSceneScriptPointerEvents(batch)", frame_driver)
+        self.assertIn("edgeStateSnapshot()", frame_driver)
+        self.assertIn("restoreEdgeState(cursorEdgeState)", frame_driver)
+        self.assertIn("drainedPointerBatches[displayID] = drained", frame_driver_cursor)
+        self.assertIn(
+            "mutating func restore(", pointer_state
+        )
+        self.assertIn(
+            "events.insert(contentsOf: batch.events, at: 0)", pointer_state
+        )
         self.assertIn("surface: sceneScriptSurfaceInput(", interaction)
         self.assertIn("cursorLeftDown: pointer.primaryButtonIsDown", interaction)
         self.assertIn("init(replacingSurfaceOf frame:", scalar_runtime)

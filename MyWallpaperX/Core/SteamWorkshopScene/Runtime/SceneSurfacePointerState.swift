@@ -48,4 +48,23 @@ nonisolated struct SceneSurfacePointerEventBuffer: Sendable {
         overflowed = false
         return batch
     }
+
+    /// Re-inserts a drained batch for a frame that was not submitted. Events
+    /// are prepended to preserve FIFO order relative to any events appended
+    /// after the drain; a rejected overflowed batch re-arms the overflow flag
+    /// so the next drain keeps failing closed instead of synthesizing a
+    /// partial press/release sequence.
+    mutating func restore(_ batch: SceneSurfacePointerEventBatch) {
+        guard !batch.events.isEmpty || batch.overflowed else { return }
+        if batch.overflowed {
+            events.removeAll(keepingCapacity: true)
+            overflowed = true
+            return
+        }
+        events.insert(contentsOf: batch.events, at: 0)
+        if events.count > Self.maximumEventCount {
+            events.removeAll(keepingCapacity: true)
+            overflowed = true
+        }
+    }
 }

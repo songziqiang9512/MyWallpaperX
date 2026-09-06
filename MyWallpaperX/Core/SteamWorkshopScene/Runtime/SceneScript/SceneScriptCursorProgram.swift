@@ -69,6 +69,24 @@ nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
     }
 }
 
+/// Frame-visible cursor edge state. Dispatch advances this state before the
+/// surface outcome is known; a deferred/dropped frame must restore it so the
+/// next successful frame still sees enter/leave, press/release and click
+/// edges for every event it re-dispatches.
+nonisolated struct SceneScriptCursorEdgeState: Sendable {
+    var previousHits: [Int: SceneScriptCursorHit]
+    var capturedHits: [Int: SceneScriptCursorHit]
+    var previousPointerPosition: SIMD2<Float>?
+    var previousPrimaryButtonIsDown: Bool
+
+    static let empty = SceneScriptCursorEdgeState(
+        previousHits: [:],
+        capturedHits: [:],
+        previousPointerPosition: nil,
+        previousPrimaryButtonIsDown: false
+    )
+}
+
 private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
     let authoredOrder: Int
@@ -97,6 +115,22 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     var ownerLayerIDs: Set<Int> { Set(bindings.map(\.layerID)) }
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
+
+    func edgeStateSnapshot() -> SceneScriptCursorEdgeState {
+        .init(
+            previousHits: previousHits,
+            capturedHits: capturedHits,
+            previousPointerPosition: previousPointerPosition,
+            previousPrimaryButtonIsDown: previousPrimaryButtonIsDown
+        )
+    }
+
+    func restoreEdgeState(_ state: SceneScriptCursorEdgeState) {
+        previousHits = state.previousHits
+        capturedHits = state.capturedHits
+        previousPointerPosition = state.previousPointerPosition
+        previousPrimaryButtonIsDown = state.previousPrimaryButtonIsDown
+    }
 
     private init(
         bindings: [SceneScriptCursorBinding],

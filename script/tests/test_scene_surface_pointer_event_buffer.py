@@ -45,12 +45,35 @@ enum Harness {
         overflow.append(event(0.5, true))
         let recovered = overflow.drain()
 
+        var restored = SceneSurfacePointerEventBuffer()
+        restored.append(event(0.1, false))
+        restored.append(event(0.2, true))
+        let drainedForRestore = restored.drain()
+        restored.append(event(0.3, false))
+        restored.restore(drainedForRestore)
+        let restoredOrder = restored.drain()
+
+        var overflowRestored = SceneSurfacePointerEventBuffer()
+        for index in 0...SceneSurfacePointerEventBuffer.maximumEventCount {
+            overflowRestored.append(event(Float(index), index.isMultiple(of: 2)))
+        }
+        let rejectedOverflow = overflowRestored.drain()
+        overflowRestored.append(event(0.7, true))
+        overflowRestored.restore(rejectedOverflow)
+        let overflowRejectedAgain = overflowRestored.drain()
+
         let result: [String: Any] = [
             "rapidStates": ordered.events.map(\.primaryButtonIsDown),
             "rapidOverflowed": ordered.overflowed,
             "overflowRejectedAll": rejected.overflowed && rejected.events.isEmpty,
             "recovered": !recovered.overflowed
                 && recovered.events.map(\.primaryButtonIsDown) == [true],
+            "restoredOrder": restoredOrder.events.map {
+                [$0.normalizedPosition.x, $0.primaryButtonIsDown ? 1 : 0]
+            },
+            "restoredNotOverflowed": !restoredOrder.overflowed,
+            "overflowRestoredRejectsAgain": overflowRejectedAgain.overflowed
+                && overflowRejectedAgain.events.isEmpty,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -100,6 +123,20 @@ class SceneSurfacePointerEventBufferTests(unittest.TestCase):
             self.assertFalse(payload["rapidOverflowed"])
             self.assertTrue(payload["overflowRejectedAll"])
             self.assertTrue(payload["recovered"])
+            # Restore re-inserts the drained batch at the front, so FIFO
+            # order survives a dropped frame's rollback.
+            self.assertEqual(len(payload["restoredOrder"]), 3)
+            for restored, expected in zip(
+                payload["restoredOrder"],
+                [(0.1, 0), (0.2, 1), (0.3, 0)],
+            ):
+                self.assertAlmostEqual(restored[0], expected[0], places=5)
+                self.assertEqual(restored[1], expected[1])
+            self.assertTrue(payload["restoredNotOverflowed"])
+            # Restoring a rejected overflowed batch keeps failing closed:
+            # the next drain must reject the whole batch again instead of
+            # synthesizing a partial press/release sequence.
+            self.assertTrue(payload["overflowRestoredRejectsAgain"])
 
 
 if __name__ == "__main__":

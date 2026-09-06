@@ -87,15 +87,15 @@ extension SceneMetalView {
         ownerLayerIDs: Set<Int>,
         capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        drainedEvents: SceneSurfacePointerEventBatch
     ) -> SceneScriptCursorFrameBatch {
-        let drained = drainSceneScriptPointerEvents()
         let current = SceneSurfacePointerEvent(
             normalizedPosition: pointerState.sceneScriptCurrent,
             isInside: pointerState.isInside,
             primaryButtonIsDown: pointerState.sceneScriptPrimaryButtonIsDown
         )
-        var events = drained.events
+        var events = drainedEvents.events
         if events.last != current { events.append(current) }
         if events.isEmpty { events = [current] }
         var captureCandidates = capturedOwnerLayerIDs
@@ -133,8 +133,12 @@ extension SceneMetalView {
         }
         return .init(
             samples: samples,
-            overflowed: drained.overflowed
+            overflowed: drainedEvents.overflowed
         )
+    }
+
+    func restoreSceneScriptPointerEvents(_ batch: SceneSurfacePointerEventBatch) {
+        sceneScriptPointerEvents.restore(batch)
     }
 
     private func originInteractionHits(
