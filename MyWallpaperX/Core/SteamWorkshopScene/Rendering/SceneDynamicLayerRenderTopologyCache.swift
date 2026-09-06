@@ -10,6 +10,8 @@ final class SceneDynamicLayerRenderTopologyCache {
         let layerIndicesByID: [Int: Int]
         let staticWorldFrames: [Int: simd_float4x4]
         let authoredLayerIDs: [Int]
+        let orderedLayers: [SceneRenderDescriptor.Layer]
+        let orderedLayerPositionsByID: [Int: Int]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
 
@@ -22,10 +24,14 @@ final class SceneDynamicLayerRenderTopologyCache {
             guard !topology.dynamicLayers.isEmpty else { return self }
             var descriptor = descriptor
             var layersByID = layersByID
+            var orderedLayers = orderedLayers
             for layer in topology.dynamicLayers {
                 guard let index = layerIndicesByID[layer.id] else { continue }
                 descriptor.layers[index] = layer
                 layersByID[layer.id] = layer
+                if let orderedIndex = orderedLayerPositionsByID[layer.id] {
+                    orderedLayers[orderedIndex] = layer
+                }
             }
             return .init(
                 descriptor: descriptor,
@@ -33,6 +39,8 @@ final class SceneDynamicLayerRenderTopologyCache {
                 layerIndicesByID: layerIndicesByID,
                 staticWorldFrames: staticWorldFrames,
                 authoredLayerIDs: authoredLayerIDs,
+                orderedLayers: orderedLayers,
+                orderedLayerPositionsByID: orderedLayerPositionsByID,
                 dynamicLayerIDs: dynamicLayerIDs,
                 lightLayerIDs: lightLayerIDs
             )
@@ -62,6 +70,14 @@ final class SceneDynamicLayerRenderTopologyCache {
             }
         )
         let dynamicLayerIDs = Set(topology.dynamicLayers.map(\.id))
+        let authoredLayerIDs = descriptor.renderOrderLayerIDs
+        let orderedLayers = authoredLayerIDs.compactMap { layersByID[$0] }
+        let orderedLayerPositionsByID = Dictionary(
+            uniqueKeysWithValues: authoredLayerIDs.enumerated().compactMap {
+                offset, layerID in
+                layersByID[layerID] == nil ? nil : (layerID, offset)
+            }
+        )
         let lightLayerIDs = descriptor.layers.compactMap { layer in
             layer.spotLight != nil || layer.directionalLight != nil
                 ? layer.id : nil
@@ -73,7 +89,9 @@ final class SceneDynamicLayerRenderTopologyCache {
             staticWorldFrames: SceneLayerWorldFrameResolver.compute(
                 descriptor: descriptor, byID: layersByID
             ),
-            authoredLayerIDs: descriptor.renderOrderLayerIDs,
+            authoredLayerIDs: authoredLayerIDs,
+            orderedLayers: orderedLayers,
+            orderedLayerPositionsByID: orderedLayerPositionsByID,
             dynamicLayerIDs: dynamicLayerIDs,
             lightLayerIDs: lightLayerIDs
         )

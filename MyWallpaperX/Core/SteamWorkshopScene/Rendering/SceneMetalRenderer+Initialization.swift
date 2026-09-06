@@ -59,6 +59,9 @@ extension SceneMetalRenderer {
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
+        self.authoredLayers = renderDescriptor.renderOrderLayerIDs.compactMap {
+            byID[$0]
+        }
         self.resolvedMaterialPreparationLayerIDs = preparationLayerIDs
         self.resolvedMaterialPreparationLayers = preparationLayerIDs.flatMap { ids in
             let layers = ids.compactMap { byID[$0] }

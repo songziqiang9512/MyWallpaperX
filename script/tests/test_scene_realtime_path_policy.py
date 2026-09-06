@@ -163,6 +163,16 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("descriptor.layers.firstIndex(where:", cache)
         self.assertIn("let dynamicLayerIDs: Set<Int>", cache)
         self.assertIn("let lightLayerIDs: [Int]", cache)
+        self.assertIn("let orderedLayers: [SceneRenderDescriptor.Layer]", cache)
+        self.assertIn("let orderedLayerPositionsByID: [Int: Int]", cache)
+        self.assertIn("orderedLayers[orderedIndex] = layer", cache)
+        self.assertIn("let frameOrderedLayers: [SceneRenderDescriptor.Layer]", renderer)
+        self.assertIn("frameOrderedLayers = projection.orderedLayers", renderer)
+        self.assertIn("frameOrderedLayers = authoredLayers", renderer)
+        self.assertNotIn(
+            "let orderedLayers = authoredLayerIDs.compactMap",
+            renderer,
+        )
 
     def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
         visibility = (

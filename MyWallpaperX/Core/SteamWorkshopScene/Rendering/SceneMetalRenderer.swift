@@ -9,6 +9,7 @@ struct SceneMetalRenderer {
     let imageCompositor: SceneImageLayerCompositor
     let pipelineRepository: SceneImageEffectPipelineRepository
     let visibleLayerIDs: Set<Int>
+    let authoredLayers: [SceneRenderDescriptor.Layer]
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
@@ -98,7 +99,7 @@ struct SceneMetalRenderer {
         let frameDescriptor: SceneRenderDescriptor
         let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
         let frameStaticWorldFrames: [Int: simd_float4x4]
-        let authoredLayerIDs: [Int]
+        let frameOrderedLayers: [SceneRenderDescriptor.Layer]
         let frameDynamicLayerIDs: Set<Int>; let frameLightLayerIDs: [Int]
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
@@ -110,13 +111,13 @@ struct SceneMetalRenderer {
             frameDescriptor = projection.descriptor
             frameLayersByID = projection.layersByID
             frameStaticWorldFrames = projection.staticWorldFrames
-            authoredLayerIDs = projection.authoredLayerIDs
+            frameOrderedLayers = projection.orderedLayers
             frameDynamicLayerIDs = projection.dynamicLayerIDs; frameLightLayerIDs = projection.lightLayerIDs
         } else {
             frameDescriptor = renderDescriptor
             frameLayersByID = layersByID
             frameStaticWorldFrames = worldFramesByLayerID
-            authoredLayerIDs = renderDescriptor.renderOrderLayerIDs
+            frameOrderedLayers = authoredLayers
             frameDynamicLayerIDs = []; frameLightLayerIDs = lightLayerIDs
         }
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
@@ -150,9 +151,7 @@ struct SceneMetalRenderer {
             cameraFrame: cameraFrame,
             viewportSize: viewportSize
         )
-        let orderedLayers = authoredLayerIDs.compactMap {
-            frameLayersByID[$0]
-        }
+        let orderedLayers = frameOrderedLayers
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: frameDescriptor, layersByID: frameLayersByID,
             snapshot: frameContext.dynamicValues)
