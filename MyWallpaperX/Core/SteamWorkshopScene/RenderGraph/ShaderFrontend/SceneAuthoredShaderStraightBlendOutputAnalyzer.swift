@@ -115,6 +115,117 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return slot
     }
 
+    static func analyzeWithIndependentAlpha(
+        outputUses: [Int], fragment: Unit, main: Unit.Function
+    ) -> Int? {
+        analyze(outputUses: outputUses, fragment: fragment, main: main)
+            ?? analyzeIndependentAlphaUniform(
+                outputUses: outputUses, fragment: fragment, main: main
+            )
+    }
+
+    /// Proves a straight RGB blend whose output alpha is an independent
+    /// authored scalar uniform.  The sampled source still participates in the
+    /// RGB path through its straight RGB/alpha pair, but the final alpha is
+    /// deliberately not required to equal the blend weight.  This is the
+    /// narrow contract used by materials that replace coverage with an
+    /// authored opacity value.
+    static func analyzeIndependentAlphaUniform(
+        outputUses: [Int],
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Int? {
+        let tokens = fragment.tokens
+        guard outputUses.count == 1,
+              let output = outputUses.first,
+              rootAssignment(output, tokens: tokens, body: main.bodyRange),
+              let outputExpression = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: output, in: tokens, body: main.bodyRange
+                ),
+              let outputArguments = callArguments(
+                  outputExpression, function: ["vec4", "float4"], count: 2
+              ),
+              let color = identifier(outputArguments[0]),
+              let alpha = identifier(outputArguments[1]),
+              let colorDefinition = uniqueDefinition(
+                  color, types: ["vec3", "float3"], before: output,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let alphaDefinition = uniqueDefinition(
+                  alpha, types: ["float"], before: output,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let colorWrite = uniqueAssignment(
+                  color, after: colorDefinition, before: output,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let blendExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: colorWrite, in: tokens, body: main.bodyRange
+                  ),
+              let blendArguments = callArguments(
+                  blendExpression, function: ["ApplyBlending"], count: 4
+              ),
+              member(blendArguments[2], name: color, component: "rgb"),
+              let baseArguments = callArguments(
+                  blendArguments[1], function: ["mix", "lerp"], count: 3
+              ),
+              member(baseArguments[0], name: color, component: "rgb"),
+              let sample = memberName(baseArguments[1], component: "rgb"),
+              member(baseArguments[2], name: sample, component: "a"),
+              blendHelper(fragment) != nil,
+              let sampleDefinition = uniqueDefinition(
+                  sample, types: ["vec4", "float4"], before: output,
+                  tokens: tokens, body: main.bodyRange
+              ),
+              let sampleInitializer = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: sampleDefinition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              let slot = SceneAuthoredShaderColorTransferAnalyzer
+                  .directTextureSampleSlot(sampleInitializer),
+              let alphaExpression = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: alphaDefinition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              let alphaUniform = identifier(alphaExpression),
+              fragment.declarations.contains(where: {
+                  $0.storage == .uniform
+                      && $0.typeName == "float"
+                      && $0.arraySize == nil
+                      && $0.name == alphaUniform
+              }),
+              main.bodyRange.filter({
+                  ["texSample2D", "texture2D"].contains(tokens[$0].text)
+              }).count == 1,
+              helperFunctionsDoNotSampleTextures(fragment, excluding: main),
+              exactUses(
+                  sample,
+                  expected: [
+                      baseArguments[1].startIndex,
+                      baseArguments[2].startIndex,
+                  ],
+                  afterDefinitionBefore: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              exactUses(
+                  alpha,
+                  expected: [outputArguments[1].startIndex],
+                  afterDefinitionBefore: outputExpression.endIndex,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ) else {
+            return nil
+        }
+        return slot
+    }
+
     /// Proves a generated straight-RGB flow that uses one sampled color as
     /// the blend base and copies that sample's alpha to the output unchanged.
     /// Auxiliary texture reads are limited to scalar channels, so only the

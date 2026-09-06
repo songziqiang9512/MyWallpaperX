@@ -939,6 +939,30 @@ enum Harness {
                 "float alpha = weight; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
             ),
+            "straightBlendIndependentUniformAlpha": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = g_ScalarWeight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendIndependentUniformAlphaMetal": metal(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = g_ScalarWeight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendIndependentUniformAlphaExpression": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = g_ScalarWeight * 0.5; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
             "straightBlendPureRGBHelper": transfer(
                 "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
                 "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
@@ -966,6 +990,25 @@ enum Harness {
                 "scene.rgb, scene.a), finalColor.rgb, weight); " +
                 "float alpha = weight * 0.5; " +
                 "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendIndependentUniformAlphaExtraSample": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "float hidden = texSample2D(g_Texture1, v_TexCoord).r; " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight + hidden); " +
+                "float alpha = g_ScalarWeight; " +
+                "gl_FragColor = vec4(finalColor, alpha);"
+            ),
+            "straightBlendIndependentUniformAlphaSampledHelper": transfer(
+                "float weight = 0.5; vec3 finalColor = vec3(0.8); " +
+                "vec4 scene = texSample2D(g_Texture0, v_TexCoord); " +
+                "finalColor = ApplyBlending(0, mix(finalColor.rgb, " +
+                "scene.rgb, scene.a), finalColor.rgb, weight); " +
+                "float alpha = g_ScalarWeight; " +
+                "gl_FragColor = vec4(finalColor, alpha);",
+                blendReturns: "return mix(base, " +
+                    "texSample2D(g_Texture1, v_TexCoord).rgb, opacity);"
             ),
             "straightBlendExtraSample": transfer(
                 "float weight = texSample2D(g_Texture1, v_TexCoord).r; " +
@@ -2310,6 +2353,13 @@ class SceneShaderColorContractTests(unittest.TestCase):
             self.result["straightBlendReplacement"], "straight-slot:0"
         )
         self.assertEqual(
+            self.result["straightBlendIndependentUniformAlpha"],
+            "straight-slot:0",
+        )
+        source = self.result["straightBlendIndependentUniformAlphaMetal"]
+        self.assertIn("mwxUnpremultiply(mwxTexture0.sample", source)
+        self.assertIn("return mwxPremultiply(mwxFragColor);", source)
+        self.assertEqual(
             self.result["straightBlendPureRGBHelper"], "straight-slot:0"
         )
         self.assertEqual(
@@ -2858,6 +2908,9 @@ class SceneShaderColorContractTests(unittest.TestCase):
             "modifiedStraightLocal",
             "straightRGBMath",
             "straightBlendDifferentAlpha",
+            "straightBlendIndependentUniformAlphaExpression",
+            "straightBlendIndependentUniformAlphaExtraSample",
+            "straightBlendIndependentUniformAlphaSampledHelper",
             "straightBlendExtraSample",
             "straightBlendHelperTextureRead",
             "mixedSampleAlpha",

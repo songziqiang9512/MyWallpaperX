@@ -374,7 +374,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
         ) {
             return .straightAlpha(textureSlot: fact.sourceSlot)
         }
-        if let slot = SceneAuthoredShaderStraightBlendOutputAnalyzer.analyze(
+        if let slot = SceneAuthoredShaderStraightBlendOutputAnalyzer.analyzeWithIndependentAlpha(
             outputUses: outputUses,
             fragment: fragment,
             main: main
