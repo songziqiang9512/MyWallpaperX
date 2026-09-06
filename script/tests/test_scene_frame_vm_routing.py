@@ -364,10 +364,16 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
         self.assertIn("mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot", view)
         self.assertEqual(
-            view_prepare.count("mediaThumbnailCoordinator.update(from: input)"),
-            1,
+            view_prepare.count("pendingMediaThumbnailInput = input"), 1
         )
+        self.assertIn("return mediaThumbnailCoordinator.snapshot()", view_prepare)
         self.assertNotIn("mediaThumbnailCoordinator.update", view_render)
+        self.assertIn("func commitPreparedMediaThumbnailUpdate()", view)
+        self.assertIn(
+            "_ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
+            view,
+        )
+        self.assertIn("func discardPreparedMediaThumbnailUpdate()", view)
         self.assertNotIn("SceneMediaThumbnailInbox.shared", view)
         self.assertIn(
             "from input: SceneMediaThumbnailInbox.Snapshot",

@@ -500,5 +500,33 @@ enum Harness {
         self.assertLess(barrier, commit)
         self.assertLess(commit, dynamic_commit)
 
+    def test_media_thumbnail_request_waits_for_host_submission_barrier(self) -> None:
+        view = VIEW.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
+        prepare = view.index("func prepareMediaThumbnail(")
+        outcome = view.index("let outcome = renderer.renderFrame(")
+        self.assertLess(prepare, outcome)
+        self.assertIn("pendingMediaThumbnailInput = input", view[prepare:outcome])
+        self.assertNotIn(
+            "mediaThumbnailCoordinator.update(from: input)", view[prepare:outcome]
+        )
+        commit = view.index("func commitPreparedMediaThumbnailUpdate()")
+        discard = view.index("func discardPreparedMediaThumbnailUpdate()")
+        self.assertIn(
+            "mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
+            view[commit:],
+        )
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        barrier_discard = frame_driver.index(
+            "discardPreparedMediaThumbnailUpdate()", barrier
+        )
+        barrier_commit = frame_driver.index(
+            "commitPreparedMediaThumbnailUpdate()", barrier
+        )
+        frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(barrier, barrier_discard)
+        self.assertLess(barrier, barrier_commit)
+        self.assertLess(barrier_commit, frame_commit)
+
 if __name__ == "__main__":
     unittest.main()

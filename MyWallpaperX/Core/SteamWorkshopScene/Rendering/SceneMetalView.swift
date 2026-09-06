@@ -53,6 +53,7 @@ class SceneMetalView: NSView {
         snapshot: SceneDynamicSnapshot,
         dynamicLayers: [SceneRenderDescriptor.Layer]
     )?
+    private var pendingMediaThumbnailInput: SceneMediaThumbnailInbox.Snapshot?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     private weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: URL] = [:]
@@ -434,7 +435,8 @@ class SceneMetalView: NSView {
     func prepareMediaThumbnail(
         from input: SceneMediaThumbnailInbox.Snapshot
     ) -> SceneMediaThumbnailTextureStore.Snapshot {
-        mediaThumbnailCoordinator.update(from: input)
+        pendingMediaThumbnailInput = input
+        return mediaThumbnailCoordinator.snapshot()
     }
 
     func snapshotParallaxPointerSmoother() -> SceneParallaxPointerSmoother.State {
@@ -555,6 +557,16 @@ class SceneMetalView: NSView {
 
     func discardPreparedVideoFrames() {
         videoTextureSources.values.forEach { $0.discardPreparedFrame() }
+    }
+
+    func commitPreparedMediaThumbnailUpdate() {
+        guard let pendingMediaThumbnailInput else { return }
+        self.pendingMediaThumbnailInput = nil
+        _ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)
+    }
+
+    func discardPreparedMediaThumbnailUpdate() {
+        pendingMediaThumbnailInput = nil
     }
 
     func commitPreparedDynamicTextUpdate() {

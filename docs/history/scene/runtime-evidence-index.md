@@ -2288,6 +2288,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：任一 drawable/preflight/seal/graph surface outcome 非 `submitted` 时，pending video plan 被清除，`lifecycle.discardPlannedFrame` 保留上一份 `lastFrame` 并重置 player anchor；全 surface 成功才由现有 `didPublish` 增 generation。多个 view 共享同一 source 时同帧 candidate 只由第一次 prepare 建立，host commit/discard 对重复 view 调用是幂等的，不新增第二 provider state。视频 command 的 typed validation/apply 仍在既有 host commit 阶段，GPU completion 后 provider 回滚、异步 AVFoundation decode、resize/device-loss 和跨显示器真实 fault 不在本批范围。
 - **自动门与边界**：`test_scene_source_update_transaction` 与 `test_scene_frame_context` 的 40 项 focused tests 通过，`test_scene_video_texture_source` 的既有 lifecycle/publication harness 保持通过；code-health 为 902 Swift / 16 locked legacy / 182 warnings / PASS，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未注入真实 multi-surface deferred/dropped、未重新运行视频 sample，因此最高结论为 `S2` shared provider-publication wiring，不扩张到 `S4` 视频视觉、稳定性能、完整 `IVideoTexture`、149 corpus 或 V4 完成。
 
+<a id="e-v4-media-thumbnail-all-surface-submission-barrier"></a>
+### E-V4-MEDIA-THUMBNAIL-ALL-SURFACE-SUBMISSION-BARRIER: media thumbnail requests follow the host barrier
+
+证据等级：`S2 shared provider-publication wiring`。本批收口 media thumbnail provider 在 surface outcome 前推进 generation/cancel/decode request 的共享断点；不宣称异步 decode/upload completion、thumbnail ROI 或 live platform producer 已闭合。
+
+- **目标合同、首断点与共享实现**：`SceneMediaThumbnailInbox.shared.latest()` 仍是 host 的单一 producer snapshot，现有每 surface 的 `SceneMediaThumbnailCoordinator`/`SceneMediaThumbnailTextureStore` 仍是 provider/readiness/last-ready/stale-generation owner。此前 `prepareMediaThumbnail` 直接调用 `textureStore.update`，即使后续 surface deferred/dropped 也会推进 requested generation、取消旧 decode 并排队新请求；当前 prepare 只保存 surface-local pending `Snapshot` 并读取当前 ready snapshot，host 在确认全部 surface `submitted` 后才调用既有 coordinator update，失败则 discard。Program/GraphExecutor、frame registry、single compositor/output、generation/stale/last-ready guards 均未复制或迁移。
+- **失败半径与恢复**：drawable/preflight/seal 或任一 surface outcome 非 `submitted` 时，pending input 被清除且不会启动该帧 thumbnail decode；上一份 ready/current 保留，下一帧继续从同一 inbox generation 重试。成功 barrier 才开始现有异步 request；generation cancellation、stale completion、teardown/weak queue 和 missing/clear fallback 继续由 `SceneMediaThumbnailTextureStore` 处理。
+- **自动门与边界**：`test_scene_frame_vm_routing`、`test_scene_frame_context`、`test_scene_source_update_transaction` 与既有 `test_scene_media_thumbnail_provider` 合计 **51 tests / OK**；code-health（902 Swift、16 locked legacy、182 warnings）通过，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未注入真实 multi-surface deferred/dropped、GPU completion、decode/upload fault 或 live media producer，故保持 `S2`；不外推 thumbnail 视觉 ROI、稳定性能、完整 media API、149 corpus、官方 parity 或 V4 完成。
+
 <a id="e-audio-input"></a>
 ### E-AUDIO-INPUT: Scene 16/32/64 频段音频频谱输入管线
 

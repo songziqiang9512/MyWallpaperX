@@ -720,11 +720,9 @@ extension SceneDesktopWallpaperHost {
             for (displayID, previous) in pointerPreviousStates {
                 surfaces[displayID]?.metalView.restorePointerPrevious(previous)
             }
-            // The cursor producer advanced before the outcome was known.
-            // A deferred/dropped frame must not consume pointer events or
-            // advance edge state: re-insert the drained batches and restore
-            // the pre-dispatch snapshot so the next frame still sees every
-            // press/release/click edge for the same input.
+            // Cursor producer advanced before outcome; deferred frames restore
+            // the pre-dispatch snapshot, reinsert drained batches, and preserve
+            // every press/release/click edge for the same input.
             for (displayID, batch) in cursorPreparation.drainedPointerBatches {
                 surfaces[displayID]?.metalView
                     .restoreSceneScriptPointerEvents(batch)
@@ -734,12 +732,14 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }
             surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
             finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }
         surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
         surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
         commitSubmittedSceneFrame(

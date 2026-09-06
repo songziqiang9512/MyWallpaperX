@@ -644,17 +644,49 @@ class SceneFrameContextTests(unittest.TestCase):
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         render = swift_body(frame_driver, "private func renderFrame()")
         barrier = render.index("let allSurfacesSubmitted =")
+        media_discard = render.index("discardPreparedMediaThumbnailUpdate()", barrier)
         video_discard = render.index("discardPreparedVideoFrames()", barrier)
         discard = render.index("discardPreparedDynamicTextUpdate()", barrier)
+        media_commit = render.index("commitPreparedMediaThumbnailUpdate()", barrier)
         video_commit = render.index("commitPreparedVideoFrames()", barrier)
         commit = render.index("commitPreparedDynamicTextUpdate()", barrier)
         frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
         self.assertLess(barrier, video_discard)
+        self.assertLess(barrier, media_discard)
         self.assertLess(barrier, discard)
+        self.assertLess(barrier, media_commit)
         self.assertLess(barrier, video_commit)
         self.assertLess(barrier, commit)
+        self.assertLess(media_commit, video_commit)
         self.assertLess(video_commit, commit)
         self.assertLess(commit, frame_commit)
+
+    def test_media_thumbnail_request_waits_for_all_surface_submission(self) -> None:
+        view = VIEW_SOURCE.read_text(encoding="utf-8")
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        prepare = view.index("func prepareMediaThumbnail(")
+        snapshot = view.index("return mediaThumbnailCoordinator.snapshot()", prepare)
+        commit = view.index("func commitPreparedMediaThumbnailUpdate()")
+        update = view.index(
+            "_ = mediaThumbnailCoordinator.update(from: pendingMediaThumbnailInput)",
+            commit,
+        )
+        discard = view.index("func discardPreparedMediaThumbnailUpdate()")
+        render = swift_body(frame_driver, "private func renderFrame()")
+        barrier = render.index("let allSurfacesSubmitted =")
+        barrier_discard = render.index(
+            "discardPreparedMediaThumbnailUpdate()", barrier
+        )
+        barrier_commit = render.index(
+            "commitPreparedMediaThumbnailUpdate()", barrier
+        )
+        frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(prepare, snapshot)
+        self.assertLess(commit, update)
+        self.assertLess(commit, discard)
+        self.assertLess(barrier, barrier_discard)
+        self.assertLess(barrier, barrier_commit)
+        self.assertLess(barrier_commit, frame_commit)
 
     def test_local_storage_transaction_commits_or_discards_with_submission(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

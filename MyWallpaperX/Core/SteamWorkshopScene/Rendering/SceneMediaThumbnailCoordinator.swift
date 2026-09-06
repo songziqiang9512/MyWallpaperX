@@ -20,4 +20,8 @@ final class SceneMediaThumbnailCoordinator {
         textureStore.update(from: input)
         return textureStore.snapshot()
     }
+
+    func snapshot() -> SceneMediaThumbnailTextureStore.Snapshot {
+        textureStore.snapshot()
+    }
 }
