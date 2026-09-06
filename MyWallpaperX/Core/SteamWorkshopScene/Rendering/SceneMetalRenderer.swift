@@ -172,8 +172,8 @@ struct SceneMetalRenderer {
         )
         let frameLightSnapshot = SceneLightSnapshot.make(
             descriptor: frameDescriptor,
-            worldFramesByLayerID: frameWorldFrames,
-            dynamicLayerColors: dynamicLightColors
+            worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
+            candidateLayerIDs: frameLightLayerIDs, layersByID: frameLayersByID
         )
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,

@@ -26,11 +26,15 @@ struct SceneLightSnapshot {
     static func make(
         descriptor: SceneRenderDescriptor,
         worldFramesByLayerID: [Int: simd_float4x4],
-        dynamicLayerColors: [Int: SIMD3<Float>] = [:]
+        dynamicLayerColors: [Int: SIMD3<Float>] = [:],
+        candidateLayerIDs: [Int]? = nil,
+        layersByID: [Int: SceneRenderDescriptor.Layer]? = nil
     ) -> SceneLightSnapshot {
         let ambient = color(descriptor.lighting?.ambientColorRGB)
             + color(descriptor.lighting?.skylightColorRGB)
-        let directional = descriptor.layers.compactMap { layer -> Directional? in
+        let lightLayers = candidateLayerIDs?.compactMap { layersByID?[$0] }
+            ?? descriptor.layers
+        let directional = lightLayers.compactMap { layer -> Directional? in
             guard layer.visible != false,
                   let definition = layer.directionalLight,
                   let frame = worldFramesByLayerID[layer.id],
@@ -51,7 +55,7 @@ struct SceneLightSnapshot {
                 intensity: intensity
             )
         }.prefix(4)
-        let spot = descriptor.layers.compactMap { layer -> Spot? in
+        let spot = lightLayers.compactMap { layer -> Spot? in
             guard layer.visible != false,
                   let definition = layer.spotLight,
                   let frame = worldFramesByLayerID[layer.id],
