@@ -2,6 +2,8 @@
 
 > 日常读取边界：开头的更正记录只用于追溯；从 `## 1. 固定求值合同` 起按目标类型读取固定合同和当前边界。不要把历次修订、截图或运行数字当作第二份状态源。
 
+> 2026-09-07 的 Timeline typed consumer 证据已穿过现有 `SceneResolvedMaterialDynamicValues` → prepared Program → GraphExecutor encode 边界：真实 `3748311238` layer 728 的两个 `g_Friction` Timeline uniform 在 debug evidence window 与 typed encoded bytes 逐代精确相等，frame `0…322` / generation `1…323` 共 646 条记录；单帧 snapshot drop 只造成两个 effect 的局部 passthrough，下一代恢复。实现同时为 `.sceneScript` 声明/来源保留同一检查分支，但该真实样本没有 SceneScript scalar binding，因此 SceneScript 仍是 code/test-only，不能写成 runtime support。见 [E-V4-TYPED-FRAME-DRIVEN-UNIFORM-CONSUMPTION](../../history/scene/runtime-evidence-index.md#e-v4-typed-frame-driven-uniform-consumption)。
+
 > 2026-09-05 的 SceneScript dynamic-layer C journal 已接入现有 host surface barrier：value/order/destroy 与 owner-created slots 在 QuickJS owner 内保留首个 baseline，拓扑操作追加到同一 domain-level operation journal；callback/owner admission 或 surface submission 失败、显式 invalidate 时 discard 恢复值和顺序，失败创建只 tombstone 不回退 `layer_count`，成功全 surface submission 后才 commit。多个 owner 可在同一 frame 依次追加 provisional create/sort/destroy，拒绝某个 owner 时只重放仍存活的 peer；teardown 仅在 peer topology participant 仍存在时返回 typed busy/exception，释放后可重试，scene-wide teardown 先释放所有 owner journal。C rollback/create/discard、多-owner selective replay 与 teardown/retry focused harness 均 `2/2 PASS`，本批未运行真实样本/GPU；任意 JS heap rollback、live producer、多surface与官方顺序仍未闭合，见 [E-V4-SCENESCRIPT-DYNAMIC-LAYER-TRANSACTION](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-dynamic-layer-transaction)。
 
 > 2026-09-05 的 topology cache 后继已完成真实命中证据：`3792817546` frame 1 为 `topologyRevision=1 cacheHit=false`，frame 2 在同一 revision 下为 `cacheHit=true`；两帧均 `descriptor=63 visible=63 sourcePublications=63 encoded=63 passthrough=0`、command buffer `status=4/error=none`。value-only dynamic layer upsert 现在复用已准备的 descriptor/index projection，仅刷新动态 root local frame；identity/order/content-kind/image-path 变化仍触发 revision invalidation。该证据只覆盖 package-literal root image slice，不证明 parented topology、完整 SceneScript、149 corpus 或官方 parity，见 [E-V4-SCENESCRIPT-DYNAMIC-TOPOLOGY-CACHE-RUNTIME](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-dynamic-topology-cache-runtime)。
@@ -16,7 +18,7 @@
 
 > 状态：现役专项表
 >
-> 最近核对：2026-09-05
+> 最近核对：2026-09-07
 >
 > 本页维护当前能力与缺口；精确运行身份见 [运行证据索引](./runtime-evidence-current.md)，唯一实现顺序见 [Scene 兼容执行路线](../scene-compatibility-roadmap.md)。旧 R/B 批次只作证据 provenance。
 

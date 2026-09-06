@@ -80,6 +80,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Attachment.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift",
     VISUAL_FAILURE_PASSTHROUGH_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Validation.swift",

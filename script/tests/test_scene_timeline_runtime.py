@@ -19,6 +19,11 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+GRAPH_EXECUTOR_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution"
+    / "SceneResolvedMaterialGraphExecutor+DynamicUniformDiagnostics.swift"
+)
 SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
@@ -528,10 +533,34 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(playback["paused"], 1.0)
         self.assertAlmostEqual(playback["autoplay"], 1.0)
         self.assertAlmostEqual(playback["played"], 0.5)
+
         self.assertAlmostEqual(playback["held"], 0.5)
         self.assertAlmostEqual(playback["stopped"], 1.0)
         self.assertTrue(playback["atomicRejected"])
         self.assertAlmostEqual(playback["afterRejected"], 1.0)
+
+    def test_prepared_program_has_frame_driven_uniform_consumption_proof(self) -> None:
+        source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "func recordTypedFrameDrivenUniformConsumptions(",
+            source,
+        )
+        self.assertIn(
+            "case (.timeline, .timeline):",
+            source,
+        )
+        self.assertIn(
+            "case (.sceneScript, .sceneScript):",
+            source,
+        )
+        self.assertIn(
+            "expected == uniform.encodedValue",
+            source,
+        )
+        self.assertIn(
+            "MWX typed input consumption: channel=%@",
+            source,
+        )
 
     def test_relative_transform_adds_lane_values_to_authored_base(self) -> None:
         self.assertEqual(

@@ -341,6 +341,12 @@ extension SceneResolvedMaterialGraphExecutor {
                     nodeIndex: nodeIndex,
                     frameInputs: frameInputs
                 )
+                recordTypedFrameDrivenUniformConsumptions(
+                    program: program,
+                    effect: node.effect,
+                    nodeIndex: nodeIndex,
+                    frameInputs: frameInputs
+                )
                 recordTypedAudioSpectrumUniformConsumptions(
                     program: program,
                     effect: node.effect,
