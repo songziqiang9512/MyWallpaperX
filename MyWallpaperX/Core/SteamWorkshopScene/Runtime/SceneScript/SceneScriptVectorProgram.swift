@@ -731,10 +731,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         )
     }
 
-    func rejectVideoCommandTargets(_ targets: Set<SceneDynamicTarget>) {
-        disabledTargets.formUnion(targets)
-    }
-
     func userPropertiesJSON(
         effectiveValues: [String: SceneUserPropertyValue],
         revision: UInt64

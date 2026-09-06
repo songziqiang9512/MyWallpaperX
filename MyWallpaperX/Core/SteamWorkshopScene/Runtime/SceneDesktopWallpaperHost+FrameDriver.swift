@@ -564,7 +564,6 @@ extension SceneDesktopWallpaperHost {
                 String(describing: rejected.failure)
             )
         }
-        var rejectedVideoTargets = Set<SceneDynamicTarget>()
         for failure in runtimeValidationFailures {
             let subsystem: String
             switch failure.subsystem {
@@ -572,7 +571,6 @@ extension SceneDesktopWallpaperHost {
                 subsystem = "animationCommands"
             case .video:
                 subsystem = "videoCommands"
-                rejectedVideoTargets.insert(failure.ownerTarget)
             }
             NSLog(
                 "MWX SceneScript VM: %@=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
@@ -581,10 +579,6 @@ extension SceneDesktopWallpaperHost {
                 String(describing: failure.ownerTarget),
                 failure.reason
             )
-        }
-        if !rejectedVideoTargets.isEmpty {
-            launchContext.propertyVectorScriptProgram
-                .rejectVideoCommandTargets(rejectedVideoTargets)
         }
         let animationMutations = admittedOwnerEffects.flatMap(
             \.animationMutations

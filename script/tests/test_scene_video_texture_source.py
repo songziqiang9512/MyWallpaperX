@@ -34,6 +34,11 @@ OWNER_EFFECTS_VALIDATION_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
     / "SceneScriptOwnerEffectsRuntimeValidation.swift"
 )
+VECTOR_PROGRAM_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
+    / "SceneScriptVectorProgram.swift"
+)
 VIEW_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift"
@@ -483,16 +488,12 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
         )
         application = lifecycle.index("videoTextureSourceRegistry?.apply(")
-        rejection = frame_driver.index(
-            ".rejectVideoCommandTargets(rejectedVideoTargets)", validation
-        )
         publication = frame_driver.index(
             "commonSceneScriptValues.merge(\n"
             "            admittedValues(sceneScriptVectorResult.values),",
             validation,
         )
-        self.assertLess(validation, rejection)
-        self.assertLess(rejection, publication)
+        self.assertLess(validation, publication)
         barrier = frame_driver.index("let allSurfacesSubmitted =")
         commit_call = frame_driver.index("commitSubmittedSceneFrame(", barrier)
         self.assertGreater(commit_call, barrier)
@@ -500,7 +501,30 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         self.assertGreater(application, lifecycle.index("func commitSubmittedSceneFrame("))
         self.assertIn(
             "rejectedOwnerTargets.contains($0.key)",
-            frame_driver[rejection:publication],
+            frame_driver[validation:publication],
+        )
+
+    def test_provider_validation_failure_does_not_disable_future_callbacks(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        vector_program = VECTOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+        validation = frame_driver.index(
+            ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
+        )
+        publication = frame_driver.index(
+            "commonSceneScriptValues.merge(\n"
+            "            admittedValues(sceneScriptVectorResult.values),",
+            validation,
+        )
+        self.assertNotIn("rejectVideoCommandTargets", frame_driver)
+        self.assertNotIn("rejectVideoCommandTargets", vector_program)
+        self.assertIn(
+            "rejectedOwnerTargets.formUnion(admission.rejectedOwners.compactMap(",
+            frame_driver[validation:publication],
+        )
+        self.assertIn(
+            "disabledTargets.insert(target)",
+            vector_program,
+            "callback/VM failures remain the persistent owner-local disable boundary",
         )
 
 
