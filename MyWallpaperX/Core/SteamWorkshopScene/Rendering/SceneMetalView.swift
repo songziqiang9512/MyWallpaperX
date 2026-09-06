@@ -459,10 +459,6 @@ class SceneMetalView: NSView {
             timing: timing, dynamicValues: dynamicValues,
             frameContext: frameContext, cameraFrame: cameraFrame
         )
-        dynamicTextTextures?.update(
-            from: dynamicValues,
-            dynamicLayers: layerTopology.dynamicLayers
-        )
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
             dynamicLayers: layerTopology.dynamicLayers
@@ -515,6 +511,14 @@ class SceneMetalView: NSView {
         )
         if outcome.isSubmitted {
             videoTextureSources.values.forEach { $0.commitPreparedFrame() }
+            // Dynamic text is an asynchronous provider.  Publish its next
+            // render request only after this frame crossed the submission
+            // boundary; a deferred/dropped frame must not advance the text
+            // provider generation that the next successful frame observes.
+            dynamicTextTextures?.update(
+                from: dynamicValues,
+                dynamicLayers: layerTopology.dynamicLayers
+            )
         } else {
             videoTextureSources.values.forEach { $0.discardPreparedFrame() }
         }

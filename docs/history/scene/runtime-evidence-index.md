@@ -2228,6 +2228,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 负向/恢复：同一 binary 以 `--drop-dynamic-values-frame 1` 运行，report SHA-256 `e8661e8a499b0cfc25a98c3ea6c6a33e84dd7d20bee21f865e4937a33c523e72`。frame 1 记录 `dynamic-snapshot-fault state=dropped generation=2 resolvedValues=255`，之后 frame 2 记录 `state=recovered generation=3`；对应 SceneScript material-uniform 消费从 frame 0/generation 1 后跳过故障代并在后续代继续，故障只产生已有 effect-local dynamic-uniform binding fallback，而没有新 registry、VM、graph 或 compositor route。fault runner 的旧“both succeeded and failed/recovery”聚合门因此为 NON-PASS，不能冒充全样本 PASS。
 - 边界：本 anchor 证明当前真实 sample 的 SceneScript scalar/vector producer→typed snapshot→prepared Program consumer 与局部恢复，不等于所有 `SceneScript` API、dynamic layer/text/media/pointer provider、其他 uniform shape、完整样本、官方 parity、稳定性能或 V4 完成；仍保留 source/target/ABI/generation 不匹配时的最小拒绝与 previous-current fallback。
 
+<a id="e-v4-dynamic-text-submission-barrier"></a>
+### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
+
+- 实现：`SceneMetalView.renderFrame` 先从 `SceneDynamicTextTextureStore` 取当前 ready snapshot 组装 `SceneFrameLayerTextureAssembly` 并调用唯一 `SceneMetalRenderer`；只有返回 `FrameOutcome.submitted` 后才调用现有 `dynamicTextTextures.update(from:dynamicLayers:)`，deferred/dropped 分支只丢弃 video prepared frame，不推进 text store 的 requested generation。没有新增 text/provider/registry/transaction owner；异步 raster completion 与现有 generation state 保持原边界。
+- 自动门：`python3.12 -m unittest script.tests.test_scene_source_update_transaction` **6/6**；相关 realtime/frame routing/context tests **45/45**；`script/check_code_health.py --check --base-ref HEAD` 通过（902 Swift、16 locked legacy、182 warnings）；checkpoint Debug build `BUILD SUCCEEDED`。新测试锁定 snapshot→renderer→submitted→text update 顺序，并确认 text generation state 仍由 `SceneDynamicTextTextureStore` 持有。
+- 正向真实运行：当前签名 Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `6624e6c68f83d55b68f00153244b21d149823e2e`、executable SHA-256 `1a23cda330758dcc3012835cd46b19d24444d2826e586935e019ecd0f3ff6195`）运行真实 `2938612768`，report SHA-256 `a8de21f63d403efccf4455c457b0c0c303c95fccd778b52449441c5a9f8ba435`，minimal matrix `PASS loaded=1.000`，36/35/0 submitted/completed/failed。app.log 记录动态文字 layer `626/187/1095/629/924` 各一次 generation `1` publication，ready/after 非黑，GPU/publication/terminal compositor/next-frame 连续。
+- 负向/恢复运行：同一 binary 以 `--drop-dynamic-values-frame 1` 运行，report SHA-256 `49e61dfe14c51ca689b02ff2b9e22d2fad30b773f4a9c17ee0059068fd780634`。frame 1 记录 `dynamic-snapshot-fault state=dropped generation=2`，frame 2 `state=recovered generation=3`；37/36/0 submitted/completed/failed，ready/after 非黑，app.log 仍只有初始五个 generation-1 text publication。旧 benchmark 的 fault aggregate 预期因此为 NON-PASS，不能冒充全样本 PASS；该运行未单独证明异步 raster completion 与 surface outcome 的跨线程顺序，只证明新的 update 调用门与公共输出安全。
+- 边界：本 anchor 只收口动态 text provider 的 prepare/submission 边界，不宣称 text layout、font、ROI、pixel parity、完整样本、长稳性能或 V4 完成；raster OOM、device-loss、取消/teardown 与多 surface completion 仍由现有 store/资源合同处理，需后续 fresh evidence。
+
 <a id="e-audio-input"></a>
 ### E-AUDIO-INPUT: Scene 16/32/64 频段音频频谱输入管线
 

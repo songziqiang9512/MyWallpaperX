@@ -21,6 +21,7 @@ UTILITY_LAYER = SCENE / "Rendering/SceneUtilityLayerRenderer.swift"
 VIEW = SCENE / "Rendering/SceneMetalView.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
+DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
@@ -459,6 +460,25 @@ enum Harness {
         completion = sprite.index("commandBuffer.addCompletedHandler", sprite_rollback)
         self.assertIn("submissionTracker.cancel(submission)", sprite[sprite_rollback:completion])
         self.assertIn("if latest?.id == token.id", sprite)
+
+    def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
+        view = VIEW.read_text(encoding="utf-8")
+        dynamic_text = DYNAMIC_TEXT.read_text(encoding="utf-8")
+        snapshot = view.index("let dynamicTextSnapshot = dynamicTextTextures?.snapshot()")
+        outcome = view.index("let outcome = renderer.renderFrame(", snapshot)
+        submitted = view.index("if outcome.isSubmitted {", outcome)
+        update = view.index("dynamicTextTextures?.update(", submitted)
+
+        self.assertLess(snapshot, outcome)
+        self.assertLess(outcome, submitted)
+        self.assertLess(submitted, update)
+        self.assertNotIn("dynamicTextTextures?.update(", view[:snapshot])
+        self.assertIn(
+            "Dynamic text is an asynchronous provider.",
+            view,
+        )
+        self.assertIn("private var generationState", dynamic_text)
+        self.assertIn("generationState.finish(request", dynamic_text)
 
 if __name__ == "__main__":
     unittest.main()
