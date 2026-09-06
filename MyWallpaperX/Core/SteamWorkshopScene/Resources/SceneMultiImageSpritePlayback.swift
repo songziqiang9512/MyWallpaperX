@@ -186,6 +186,12 @@ final class SceneSpriteFrameSubmissionTracker {
             latest = nil
         }
     }
+
+    func discardLatest() {
+        lock.lock()
+        latest = nil
+        lock.unlock()
+    }
 }
 
 final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
@@ -255,6 +261,10 @@ final class SceneMultiImageSpritePlayback: SceneSpriteTexturePlayback {
                 succeeded: completed.status == .completed
             )
         }
+    }
+
+    func discardPreparedFrame() {
+        submissionTracker.discardLatest()
     }
 
     private func frameIndex(at elapsed: Float) -> Int {

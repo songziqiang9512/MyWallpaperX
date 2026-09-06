@@ -234,6 +234,12 @@ enum Harness {
         }
         result["cancelledSubmissionCanRetry"] =
             submissionTracker.begin(frameIndex: 1) != nil
+        if let hostDroppedSubmission = submissionTracker.begin(frameIndex: 2) {
+            submissionTracker.complete(hostDroppedSubmission, succeeded: true)
+            submissionTracker.discardLatest()
+        }
+        result["hostDroppedSubmissionCanRetry"] =
+            submissionTracker.begin(frameIndex: 2) != nil
 
         guard let residentCosts = SceneMultiImageSpriteTextureCost.estimate(
             container: animated,
@@ -767,6 +773,7 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["failedSubmissionCanRetry"])
         self.assertTrue(self.result["staleFailureKeepsNewerSubmission"])
         self.assertTrue(self.result["cancelledSubmissionCanRetry"])
+        self.assertTrue(self.result["hostDroppedSubmissionCanRetry"])
 
     def test_resident_budget_shares_sources_but_counts_each_output(self) -> None:
         self.assertTrue(self.result["residentBudgetDeduplicatesSource"])

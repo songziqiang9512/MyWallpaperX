@@ -551,6 +551,10 @@ class SceneMetalView: NSView {
         return outcome
     }
 
+    func discardPreparedSpriteFrames() {
+        spriteAnimations.values.forEach { $0.discardPreparedFrame() }
+    }
+
     func commitPreparedVideoFrames() {
         videoTextureSources.values.forEach { $0.commitPreparedFrame() }
     }

@@ -708,7 +708,6 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
-            // A deferred/dropped surface must not consume a frame index or move the host-time anchor.
             sceneClock.restore(clockState)
             launchContext.timelinePlaybackRuntime.restoreObservationState(
                 timelineObservationState
@@ -728,6 +727,7 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
             surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }

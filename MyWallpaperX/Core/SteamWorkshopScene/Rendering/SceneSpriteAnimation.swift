@@ -9,6 +9,8 @@ protocol SceneSpriteTexturePlayback: AnyObject {
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     )
+
+    func discardPreparedFrame()
 }
 
 struct SceneSpriteAnimation {
@@ -97,6 +99,10 @@ struct SceneSpriteAnimation {
             commandBuffer: commandBuffer,
             transaction: transaction
         )
+    }
+
+    func discardPreparedFrame() {
+        texturePlayback?.discardPreparedFrame()
     }
 
     func aspectRatio(forFrameAt index: Int) -> Float {

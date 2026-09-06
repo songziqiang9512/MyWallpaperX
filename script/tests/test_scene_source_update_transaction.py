@@ -468,6 +468,14 @@ enum Harness {
         completion = sprite.index("commandBuffer.addCompletedHandler", sprite_rollback)
         self.assertIn("submissionTracker.cancel(submission)", sprite[sprite_rollback:completion])
         self.assertIn("if latest?.id == token.id", sprite)
+        self.assertIn("func discardLatest()", sprite)
+        self.assertIn("submissionTracker.discardLatest()", sprite)
+        self.assertIn("func discardPreparedSpriteFrames()", view)
+        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        sprite_discard = frame_driver.index("discardPreparedSpriteFrames()", barrier)
+        asset_discard = frame_driver.index("discardPreparedMaterialAssetFrame()", barrier)
+        self.assertLess(sprite_discard, asset_discard)
 
     def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
         view = VIEW.read_text(encoding="utf-8")
