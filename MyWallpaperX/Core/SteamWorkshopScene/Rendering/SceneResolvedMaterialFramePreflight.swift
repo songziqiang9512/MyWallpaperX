@@ -130,13 +130,10 @@ extension SceneMetalRenderer {
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
         let viewportSize = frameContext.screenSize
-        guard let preparationLayerIDs = resolvedMaterialPreparationLayerIDs else {
+        guard let orderedLayers = resolvedMaterialPreparationLayers else {
             return .rejected(
                 reasonCode: "resolved-material-preparation-order-invalid"
             )
-        }
-        let orderedLayers = preparationLayerIDs.compactMap {
-            layersByID[$0]
         }
         let availableExecutionLayerIDs =
             imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []

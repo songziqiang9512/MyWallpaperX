@@ -24,7 +24,7 @@ struct SceneMetalRenderer {
     /// The dependency graph and authored order are launch-scoped facts. Keep
     /// the validated topological order with the renderer so normal frames do
     /// not rebuild the same order for admission and request preparation.
-    let resolvedMaterialPreparationLayerIDs: [Int]?
+    let resolvedMaterialPreparationLayerIDs: [Int]?; let resolvedMaterialPreparationLayers: [SceneRenderDescriptor.Layer]?
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
     let effectExecutionTelemetry = SceneEffectExecutionTelemetry()

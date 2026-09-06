@@ -33,6 +33,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
         self.assertIn("resolvedMaterialPreparationLayerIDs: [Int]?", renderer)
+        self.assertIn("resolvedMaterialPreparationLayers:", renderer)
         self.assertIn(".resolvedMaterialPreparationOrder(", initialization)
         self.assertIn("authoredLayerIDs: renderDescriptor.renderOrderLayerIDs", initialization)
         self.assertIn(
@@ -54,9 +55,10 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             "cache: &baseMaterialSelections",
             preflight,
         )
-        self.assertGreaterEqual(
-            preflight.count("resolvedMaterialPreparationLayerIDs else"), 2
+        self.assertEqual(
+            preflight.count("resolvedMaterialPreparationLayerIDs else"), 1
         )
+        self.assertIn("resolvedMaterialPreparationLayers else", preflight)
         self.assertGreaterEqual(
             preflight.count("materialFunctionMutationsByLayerID"), 2
         )

@@ -4805,6 +4805,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与生命周期**：cache 只持有 ready/pending 的观察投影，不拥有 requested input、DecodeRequest、generation、cancel 或 texture lifecycle；stale/cancel 回调仍由 request identity 与 requested generation 拒绝。pending readiness、last-ready previous-current、malformed/unavailable fallback、provider state 与 all-surface submission barrier unchanged；没有新增 media provider、resource registry、clock、renderer、graph/history 或 output owner。
 - **自动门与边界**：`test_scene_media_thumbnail_provider` 2 tests / OK；`test_scene_frame_vm_routing`、`test_scene_source_update_transaction`、`test_scene_frame_context` 共 53 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 live producer、多 surface readiness fault、GPU completion rollback、媒体 ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 provider publication wiring，不外推为媒体视觉 parity 或 V4 收口。
 
+<a id="e-v4-resolved-material-preparation-layer-array"></a>
+### E-V4-RESOLVED-MATERIAL-PREPARATION-LAYER-ARRAY: reuse validated prepared-program layer array
+
+证据等级：`S2 shared prepared-program hot-path wiring`。本批只消除 resolved-material preflight 对 launch-stable order 的重复 layer lookup，不宣称 graph/Program 视觉变化、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 Program/graph preparation 在 launch/revision 完成，普通帧只把 typed values 与 provider state 带入 frame admission。此前 `preflightResolvedMaterialFrameTargets` 每帧从已缓存的 `resolvedMaterialPreparationLayerIDs` 通过 `layersByID.compactMap` 重建 ordered layer array；当前 renderer launch preparation 同时保存 `resolvedMaterialPreparationLayers`，仅在 ID 缺失时置为 nil，preflight 直接复用该 validated array。另一阶段的 preparation IDs 迭代保留，用于 frame plan/world-frame/claim token 的逐帧安全检查。
+- **失败半径与 owner**：array 只持有 launch-owned descriptor layer values，不包含 dynamic snapshot、provider publication、generation、claim 或 frame plan；任何 order/layer identity 不完整仍以 `resolved-material-preparation-order-invalid` 拒绝，visibility、provider readiness、source extent、target/ABI 与 completion/publication 边界不变。没有新增 Program、graph、property/provider registry、renderer 或 output owner。
+- **自动门与边界**：`test_scene_realtime_path_policy`、`test_scene_static_model_pipeline` 与 `test_scene_source_update_transaction` 共 31 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 prepared-program wiring，不外推为视觉 parity、稳定性能或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

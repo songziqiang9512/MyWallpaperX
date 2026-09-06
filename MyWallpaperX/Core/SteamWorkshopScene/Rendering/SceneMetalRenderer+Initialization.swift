@@ -52,13 +52,18 @@ extension SceneMetalRenderer {
             device: device
         )
         self.dependencyRuntime = dependencyRuntime
-        self.resolvedMaterialPreparationLayerIDs = dependencyRuntime
+        let preparationLayerIDs = dependencyRuntime
             .resolvedMaterialPreparationOrder(
                 authoredLayerIDs: renderDescriptor.renderOrderLayerIDs
             )
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
+        self.resolvedMaterialPreparationLayerIDs = preparationLayerIDs
+        self.resolvedMaterialPreparationLayers = preparationLayerIDs.flatMap { ids in
+            let layers = ids.compactMap { byID[$0] }
+            return layers.count == ids.count ? layers : nil
+        }
         self.layersByID = byID
         self.lightLayerIDs = renderDescriptor.layers.compactMap { layer in
             layer.spotLight != nil || layer.directionalLight != nil
