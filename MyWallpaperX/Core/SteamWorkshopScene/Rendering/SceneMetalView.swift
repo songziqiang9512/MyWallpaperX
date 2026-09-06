@@ -57,6 +57,7 @@ class SceneMetalView: NSView {
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     private weak var preparedBaseImages: ScenePreparedBaseImageResources?
     private var deferredBaseImageURLs: [Int: URL] = [:]
+    private var adoptedDeferredBaseImageURLs: [Int: URL] = [:]
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
@@ -157,6 +158,7 @@ class SceneMetalView: NSView {
         renderer.installResolvedMaterialExecutionEvidence()
         self.preparedBaseImages = preparedBaseImages
         deferredBaseImageURLs.removeAll(keepingCapacity: true)
+        adoptedDeferredBaseImageURLs.removeAll(keepingCapacity: true)
         report.append("Scene preview texture load report")
         report.append("camera: projection=cover parallax=\(renderer.renderDescriptor.camera.parallaxEnabled) amount=\(renderer.renderDescriptor.camera.parallaxAmount) delay=\(renderer.renderDescriptor.camera.parallaxDelay) mouseInfluence=\(renderer.renderDescriptor.camera.parallaxMouseInfluence)")
         report.append(SceneCameraShake.reportLine(renderer.renderDescriptor.camera))
@@ -425,10 +427,35 @@ class SceneMetalView: NSView {
                 layerID: layerID
             )
             specializedBaseTextureSamplings[layerID] = loaded.baseTextureSampling
+            adoptedDeferredBaseImageURLs[layerID] = url
             deferredBaseImageURLs.removeValue(forKey: layerID)
             return true
         case .failed:
             return false
+        }
+    }
+
+    /// Rolls back a deferred base-image adoption that has not crossed the
+    /// host's all-surface property/frame barrier.  The host may have already
+    /// adopted a peer surface when a later surface or live-state validation
+    /// fails, so this inverse must be explicit rather than relying on the
+    /// next visibility request to hide the partially adopted texture.
+    func discardPreparedDeferredBaseImages(layerIDs: Set<Int>) {
+        for layerID in layerIDs {
+            guard let url = adoptedDeferredBaseImageURLs.removeValue(
+                forKey: layerID
+            ) else { continue }
+            imageTextures[layerID] = nil
+            specializedBaseTextureSamplings.removeValue(forKey: layerID)
+            deferredBaseImageURLs[layerID] = url
+        }
+    }
+
+    /// Clears rollback records after the property/resource transition has
+    /// crossed the host barrier and become the surface's new committed state.
+    func commitPreparedDeferredBaseImages(layerIDs: Set<Int>) {
+        for layerID in layerIDs {
+            adoptedDeferredBaseImageURLs.removeValue(forKey: layerID)
         }
     }
 

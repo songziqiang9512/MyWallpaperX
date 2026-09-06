@@ -111,6 +111,21 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
         )
         self.assertIn("preparedBaseImages.outcome(", adoption)
         self.assertIn("imageTextures.set(", adoption)
+        self.assertIn(
+            "discardPreparedDeferredBaseImages",
+            promote,
+            "partial multi-surface adoption must roll back before live-state commit",
+        )
+        self.assertIn(
+            "commitPreparedDeferredBaseImages",
+            promote,
+            "adopted resources need an explicit commit boundary",
+        )
+        self.assertIn(
+            "adoptedDeferredBaseImageURLs",
+            self.metal_view,
+            "surface resource ownership must retain a rollback identity",
+        )
 
     def test_live_success_does_not_cancel_an_existing_fallback(self) -> None:
         update = method_body(self.service, "func updateScenePropertyValue(")

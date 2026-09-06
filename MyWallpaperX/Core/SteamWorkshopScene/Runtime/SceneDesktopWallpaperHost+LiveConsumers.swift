@@ -48,11 +48,23 @@ extension SceneDesktopWallpaperHost {
         guard statuses.allSatisfy({ $0 == .ready }), !surfaces.isEmpty else {
             return
         }
-        guard surfaces.values.allSatisfy({ surface in
-            pending.layerIDs.allSatisfy {
+        var adoptedSurfaces: [Surface] = []
+        for surface in surfaces.values {
+            guard pending.layerIDs.allSatisfy({
                 surface.metalView.adoptPreparedDeferredBaseImage(layerID: $0)
+            }) else {
+                surface.metalView.discardPreparedDeferredBaseImages(
+                    layerIDs: pending.layerIDs
+                )
+                adoptedSurfaces.forEach {
+                    $0.metalView.discardPreparedDeferredBaseImages(
+                        layerIDs: pending.layerIDs
+                    )
+                }
+                return
             }
-        }) else { return }
+            adoptedSurfaces.append(surface)
+        }
 
         var candidateLiveState = context.liveState
         guard candidateLiveState.apply(
@@ -63,6 +75,11 @@ extension SceneDesktopWallpaperHost {
         ), soundPlaybackRegistry?.canApply(
             userValues: candidateLiveState.userValues
         ) != false else {
+            adoptedSurfaces.forEach {
+                $0.metalView.discardPreparedDeferredBaseImages(
+                    layerIDs: pending.layerIDs
+                )
+            }
             pendingDeferredLayerVisibilityUpdate = nil
             logDeferredLayerVisibilityTransition(
                 generation: pending.generation,
@@ -73,6 +90,11 @@ extension SceneDesktopWallpaperHost {
         }
         context.liveState = candidateLiveState
         soundPlaybackRegistry?.apply(userValues: candidateLiveState.userValues)
+        adoptedSurfaces.forEach {
+            $0.metalView.commitPreparedDeferredBaseImages(
+                layerIDs: pending.layerIDs
+            )
+        }
         launchContext = context
         guard pendingDeferredLayerVisibilityUpdate?.generation
                 == pending.generation else { return }
