@@ -334,7 +334,8 @@ extension SceneDesktopWallpaperHost {
                     descriptor: launchContext.runtimeInput.renderDescriptor,
                     videoSnapshots: sceneScriptVideoSnapshots,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
-                    runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs
+                    runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs,
+                    awaitingHostFrameOutcome: true
                 )
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
@@ -720,9 +721,7 @@ extension SceneDesktopWallpaperHost {
                 launchContext.sceneScriptCursorProgram
                     .restoreEdgeState(cursorEdgeState)
             }
-            restoreSceneScriptProgramFrameState(
-                launchContext, sceneScriptProgramFrameState
-            )
+            restoreSceneScriptProgramFrameState(launchContext, sceneScriptProgramFrameState)
             restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
             surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
@@ -732,7 +731,7 @@ extension SceneDesktopWallpaperHost {
             surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }
             surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
-            finalizeSceneScriptLayerMutations(launchContext, committing: false)
+            discardSceneScriptFrameOutcome(launchContext)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }

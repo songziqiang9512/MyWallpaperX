@@ -80,6 +80,27 @@ extension SceneDesktopWallpaperHost {
         finalizeSceneScriptLayerMutations(context, committing: false)
     }
 
+    func discardSceneScriptFrameOutcome(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) {
+        finalizeSceneScriptLayerMutations(context, committing: false)
+        discardSceneScriptLayerSnapshot(context)
+    }
+
+    func discardSceneScriptLayerSnapshot(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) {
+        context.propertyVectorScriptProgram.domain?
+            .discardCommittedLayerSnapshot()
+    }
+
+    func finalizeSceneScriptLayerSnapshot(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) {
+        context.propertyVectorScriptProgram.domain?
+            .finalizeCommittedLayerSnapshot()
+    }
+
     func commitSceneScriptLayerMutations(
         _ context: SceneDesktopWallpaperLaunchContext,
         rejectedOwnerTargets: Set<SceneDynamicTarget>
@@ -139,6 +160,7 @@ extension SceneDesktopWallpaperHost {
             context, plan: layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        finalizeSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.commitFrameTransaction()
     }
 
@@ -150,6 +172,7 @@ extension SceneDesktopWallpaperHost {
         // before destroy callbacks so dynamic topology removal cannot be
         // blocked by a provisional owner from the last frame.
         discardSceneScriptLayerMutations(context)
+        discardSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.discardFrameTransaction()
         let hostTime = CACurrentMediaTime()
 #if DEBUG

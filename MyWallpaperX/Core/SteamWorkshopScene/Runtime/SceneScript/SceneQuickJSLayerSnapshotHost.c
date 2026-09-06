@@ -12,15 +12,35 @@ static char *copy_snapshot_string(const char *source, size_t length) {
     return copy;
 }
 
-static void clear_pending_snapshot(MWXSceneQuickJSDomain *domain) {
-    if (domain == NULL || domain->pending_layer_snapshot == NULL) return;
-    for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
-        free(domain->pending_layer_snapshot[index].text);
-        free(domain->pending_layer_snapshot[index].font);
+static void clear_snapshot(
+    MWXSceneQuickJSStagedLayerSnapshot **snapshot,
+    uint32_t layer_count
+) {
+    if (snapshot == NULL || *snapshot == NULL) return;
+    for (uint32_t index = 0; index < layer_count; ++index) {
+        free((*snapshot)[index].text);
+        free((*snapshot)[index].font);
     }
-    free(domain->pending_layer_snapshot);
-    domain->pending_layer_snapshot = NULL;
+    free(*snapshot);
+    *snapshot = NULL;
+}
+
+static void clear_pending_snapshot(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL) return;
+    clear_snapshot(
+        &domain->pending_layer_snapshot,
+        domain->authored_layer_count
+    );
     domain->pending_layer_snapshot_generation = 0;
+}
+
+static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL) return;
+    clear_snapshot(
+        &domain->rollback_layer_snapshot,
+        domain->authored_layer_count
+    );
+    domain->rollback_layer_snapshot_generation = 0;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
@@ -31,7 +51,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (domain == NULL || domain->layers == NULL || domain->callback_active ||
-        domain->pending_layer_snapshot != NULL || generation == 0 ||
+        domain->pending_layer_snapshot != NULL ||
+        domain->rollback_layer_snapshot != NULL || generation == 0 ||
         generation <= domain->layer_snapshot_generation) {
         mwx_scene_quickjs_write_diagnostic(
             diagnostic, diagnostic_capacity, "invalid layer snapshot transaction"
@@ -286,15 +307,37 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         MWXSceneQuickJSStagedLayerSnapshot *staged =
             &domain->pending_layer_snapshot[index];
+        double previous_current_origin[3];
+        double previous_scale[3];
+        double previous_angles[3];
+        double previous_color[3];
+        memcpy(previous_current_origin, record->current_origin,
+               sizeof(previous_current_origin));
+        memcpy(previous_scale, record->scale, sizeof(previous_scale));
+        memcpy(previous_angles, record->angles, sizeof(previous_angles));
+        memcpy(previous_color, record->color, sizeof(previous_color));
+        const bool previous_visible = record->visible;
+        const double previous_alpha = record->alpha;
+        const double previous_point_size = record->point_size;
+        const bool previous_video_available = record->video_available;
+        const double previous_video_duration = record->video_duration;
+        const double previous_video_rate = record->video_rate;
+        const bool previous_video_loop = record->video_loop;
+        const double previous_video_current_time = record->video_current_time;
+        const bool previous_video_is_playing = record->video_is_playing;
+        const uint64_t previous_video_ended_generation =
+            record->video_ended_generation;
         if (staged->text != NULL) {
-            free(record->text);
-            record->text = staged->text;
-            staged->text = NULL;
+            char *candidate = staged->text;
+            staged->text = record->text;
+            staged->text_replaced = true;
+            record->text = candidate;
         }
         if (staged->font != NULL) {
-            free(record->font);
-            record->font = staged->font;
-            staged->font = NULL;
+            char *candidate = staged->font;
+            staged->font = record->font;
+            staged->font_replaced = true;
+            record->font = candidate;
         }
         memcpy(record->current_origin, staged->current_origin,
                sizeof(record->current_origin));
@@ -311,9 +354,27 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->video_current_time = staged->video_current_time;
         record->video_is_playing = staged->video_is_playing;
         record->video_ended_generation = staged->video_ended_generation;
+        memcpy(staged->current_origin, previous_current_origin,
+               sizeof(staged->current_origin));
+        memcpy(staged->scale, previous_scale, sizeof(staged->scale));
+        memcpy(staged->angles, previous_angles, sizeof(staged->angles));
+        memcpy(staged->color, previous_color, sizeof(staged->color));
+        staged->visible = previous_visible;
+        staged->alpha = previous_alpha;
+        staged->point_size = previous_point_size;
+        staged->video_available = previous_video_available;
+        staged->video_duration = previous_video_duration;
+        staged->video_rate = previous_video_rate;
+        staged->video_loop = previous_video_loop;
+        staged->video_current_time = previous_video_current_time;
+        staged->video_is_playing = previous_video_is_playing;
+        staged->video_ended_generation = previous_video_ended_generation;
     }
+    domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
+    domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
+    domain->pending_layer_snapshot = NULL;
+    domain->pending_layer_snapshot_generation = 0;
     domain->layer_snapshot_generation = generation;
-    clear_pending_snapshot(domain);
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -321,4 +382,52 @@ void mwx_scene_quickjs_domain_abort_layer_snapshot(
     MWXSceneQuickJSDomain *domain
 ) {
     clear_pending_snapshot(domain);
+}
+
+bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
+    MWXSceneQuickJSDomain *domain
+) {
+    if (domain == NULL || domain->rollback_layer_snapshot == NULL) {
+        return false;
+    }
+    for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
+        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+        MWXSceneQuickJSStagedLayerSnapshot *saved =
+            &domain->rollback_layer_snapshot[index];
+        if (saved->text_replaced) {
+            free(record->text);
+            record->text = saved->text;
+            saved->text = NULL;
+        }
+        if (saved->font_replaced) {
+            free(record->font);
+            record->font = saved->font;
+            saved->font = NULL;
+        }
+        memcpy(record->current_origin, saved->current_origin,
+               sizeof(record->current_origin));
+        memcpy(record->scale, saved->scale, sizeof(record->scale));
+        memcpy(record->angles, saved->angles, sizeof(record->angles));
+        memcpy(record->color, saved->color, sizeof(record->color));
+        record->visible = saved->visible;
+        record->alpha = saved->alpha;
+        record->point_size = saved->point_size;
+        record->video_available = saved->video_available;
+        record->video_duration = saved->video_duration;
+        record->video_rate = saved->video_rate;
+        record->video_loop = saved->video_loop;
+        record->video_current_time = saved->video_current_time;
+        record->video_is_playing = saved->video_is_playing;
+        record->video_ended_generation = saved->video_ended_generation;
+    }
+    domain->layer_snapshot_generation =
+        domain->rollback_layer_snapshot_generation;
+    clear_rollback_snapshot(domain);
+    return true;
+}
+
+void mwx_scene_quickjs_domain_finalize_layer_snapshot(
+    MWXSceneQuickJSDomain *domain
+) {
+    clear_rollback_snapshot(domain);
 }

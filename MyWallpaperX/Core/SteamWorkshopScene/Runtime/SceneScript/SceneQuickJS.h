@@ -404,6 +404,17 @@ void mwx_scene_quickjs_domain_abort_layer_snapshot(
     MWXSceneQuickJSDomain *domain
 );
 
+/// Restores the last layer snapshot that was committed before the host frame
+/// outcome was known. Returns true when a committed candidate was restored.
+bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
+    MWXSceneQuickJSDomain *domain
+);
+
+/// Drops the rollback copy after the host has accepted the frame submission.
+void mwx_scene_quickjs_domain_finalize_layer_snapshot(
+    MWXSceneQuickJSDomain *domain
+);
+
 MWXSceneQuickJSOwner *mwx_scene_quickjs_owner_create(
     MWXSceneQuickJSDomain *domain,
     const char *source,

@@ -71,6 +71,12 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         events = MEDIA_EVENT_BRIDGE.read_text(encoding="utf-8")
         timer_host = TIMER_HOST.read_text(encoding="utf-8")
         audio_spectrum = AUDIO_SPECTRUM.read_text(encoding="utf-8")
+        scalar_runtime = (
+            SCENE / "Runtime/SceneScript/SceneScriptScalarRuntime.swift"
+        ).read_text(encoding="utf-8")
+        layer_bridge = (
+            SCENE / "Runtime/SceneScript/SceneScriptLayerHandleBridge.swift"
+        ).read_text(encoding="utf-8")
 
         timer_snapshot = driver.index("let sceneScriptProgramTimerFrameState")
         snapshot = driver.index(
@@ -97,6 +103,12 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
             "sceneScriptStorageSession?.discardFrameTransaction()", restore
         )
         commit = driver.index("commitSubmittedSceneFrame(", host_barrier)
+        snapshot_discard = driver.index(
+            "discardSceneScriptFrameOutcome(launchContext)", host_barrier
+        )
+        snapshot_finalize = lifecycle.index(
+            "finalizeSceneScriptLayerSnapshot(context)",
+        )
         timer_discard = driver.index(
             "discardSceneScriptProgramTimerFrameState(", commit
         )
@@ -117,6 +129,10 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertLess(restore, storage_discard)
         self.assertLess(timer_restore, storage_discard)
         self.assertGreater(commit, host_barrier)
+        self.assertGreater(snapshot_discard, restore)
+        self.assertLess(snapshot_discard, commit)
+        self.assertIn("discardSceneScriptFrameOutcome(launchContext)", driver)
+        self.assertGreater(snapshot_finalize, lifecycle.index("commitSceneScriptLayerPlan("))
         self.assertGreater(timer_discard, commit)
         self.assertLess(audio_prepare, cursor_dispatch)
         self.assertLess(host_barrier, audio_commit)
@@ -132,7 +148,12 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
             self.assertIn("consumedMediaThumbnailGenerations", source)
             self.assertIn("appliedUserPropertiesByTarget", source)
             self.assertIn("func frameStateSnapshot()", source)
-            self.assertIn("func restoreFrameState(", source)
+        self.assertIn("func restoreFrameState(", source)
+        self.assertIn("discardCommittedLayerSnapshot()", scalar_runtime)
+        self.assertIn("finalizeCommittedLayerSnapshot()", scalar_runtime)
+        self.assertIn("awaitingHostFrameOutcome: Bool = false", layer_bridge)
+        self.assertIn("if !awaitingHostFrameOutcome", layer_bridge)
+        self.assertIn("awaitingHostFrameOutcome: true", driver)
         self.assertIn("func snapshot() -> Event?", events)
         self.assertIn("mutating func restore(_ snapshot: Event?)", events)
         self.assertIn("struct SceneScriptProgramFrameState: Sendable", events)

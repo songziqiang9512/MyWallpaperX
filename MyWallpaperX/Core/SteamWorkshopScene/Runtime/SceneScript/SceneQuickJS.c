@@ -1095,6 +1095,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         return;
     }
     mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     if (domain->context != NULL) {
         JS_FreeValue(domain->context, domain->vec2_constructor);
         JS_FreeValue(domain->context, domain->vec3_constructor);

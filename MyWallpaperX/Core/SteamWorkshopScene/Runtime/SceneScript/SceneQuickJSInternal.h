@@ -84,6 +84,8 @@ typedef struct MWXSceneQuickJSLayerRecord {
 typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     char *text;
     char *font;
+    bool text_replaced;
+    bool font_replaced;
     double current_origin[3];
     double scale[3];
     double angles[3];
@@ -231,6 +233,8 @@ struct MWXSceneQuickJSDomain {
     uint64_t layer_snapshot_generation;
     MWXSceneQuickJSStagedLayerSnapshot *pending_layer_snapshot;
     uint64_t pending_layer_snapshot_generation;
+    MWXSceneQuickJSStagedLayerSnapshot *rollback_layer_snapshot;
+    uint64_t rollback_layer_snapshot_generation;
     uint64_t next_owner_identity;
     uint64_t callback_epoch;
     bool callback_active;

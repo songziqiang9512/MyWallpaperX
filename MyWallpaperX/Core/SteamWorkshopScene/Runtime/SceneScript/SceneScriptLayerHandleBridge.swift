@@ -526,7 +526,8 @@ nonisolated extension SceneScriptQuickJSDomain {
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
         catalogToken: String? = nil,
-        runtimeFieldLayerIDs: Set<Int>? = nil
+        runtimeFieldLayerIDs: Set<Int>? = nil,
+        awaitingHostFrameOutcome: Bool = false
     ) throws {
         if let catalogToken {
             guard let configured = layerCatalogSignature else {
@@ -597,6 +598,9 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
         layerSnapshotGeneration = pendingGeneration
         committed = true
+        if !awaitingHostFrameOutcome {
+            finalizeCommittedLayerSnapshot()
+        }
     }
 
     func layerSnapshotFailure(

@@ -153,6 +153,33 @@ int main(void) {
     failures += check_number(domain.layers[1].color[0], 0.75, "committed second color");
     failures += check_number(domain.layers[1].current_origin[0], 1, "committed authored origin");
 
+    failures += check(
+        mwx_scene_quickjs_domain_rollback_layer_snapshot(&domain),
+        "rollback committed snapshot",
+        diagnostic
+    );
+    failures += check(domain.layer_snapshot_generation == 7, "rolled back generation", diagnostic);
+    failures += check(strcmp(domain.layers[0].text, "old-a") == 0, "rolled back first text", diagnostic);
+    failures += check_number(domain.layers[0].scale[0], 1, "rolled back first scale");
+    failures += check_number(domain.layers[0].color[0], 1, "rolled back first color");
+    failures += check_number(domain.layers[0].current_origin[0], 0, "rolled back first origin");
+    failures += check(strcmp(domain.layers[1].text, "old-b") == 0, "rolled back second text", diagnostic);
+    failures += check_number(domain.layers[1].scale[0], 1, "rolled back second scale");
+
+    result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+        &domain, 8, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(result == MWX_SCENE_QUICKJS_OK, "begin accepted retry", diagnostic);
+    result = stage_fields(&domain, 0, 2, 0.25, "new-a", diagnostic);
+    failures += check(result == MWX_SCENE_QUICKJS_OK, "stage retry first", diagnostic);
+    result = stage_fields(&domain, 1, 3, 0.75, "new-b", diagnostic);
+    failures += check(result == MWX_SCENE_QUICKJS_OK, "stage retry second", diagnostic);
+    result = mwx_scene_quickjs_domain_commit_layer_snapshot(
+        &domain, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(result == MWX_SCENE_QUICKJS_OK, "commit retry", diagnostic);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(&domain);
+
     result = mwx_scene_quickjs_domain_begin_layer_snapshot(
         &domain, 9, diagnostic, sizeof(diagnostic)
     );
@@ -171,6 +198,7 @@ int main(void) {
     failures += check_number(domain.layers[0].scale[0], 2, "reused scale preserved");
     failures += check(strcmp(domain.layers[1].text, "newer-b") == 0, "updated text after reuse", diagnostic);
     failures += check_number(domain.layers[1].scale[0], 4, "updated scale after reuse");
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(&domain);
 
     result = mwx_scene_quickjs_domain_begin_layer_snapshot(
         &domain, 10, diagnostic, sizeof(diagnostic)

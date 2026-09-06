@@ -713,6 +713,19 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
     }
 
+    func discardCommittedLayerSnapshot() {
+        guard mwx_scene_quickjs_domain_rollback_layer_snapshot(handle) else {
+            return
+        }
+        if layerSnapshotGeneration > 0 {
+            layerSnapshotGeneration -= 1
+        }
+    }
+
+    func finalizeCommittedLayerSnapshot() {
+        mwx_scene_quickjs_domain_finalize_layer_snapshot(handle)
+    }
+
     func installConstructionBoundaryCheck(
         _ check: @escaping @Sendable () throws -> Void
     ) {
