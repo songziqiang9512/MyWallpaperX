@@ -37,6 +37,8 @@ private struct SceneStartupReportBuffer {
 
 class SceneMetalView: NSView {
     private let metalDevice: MTLDevice
+    private let preparedDynamicTextFieldsByLayerID:
+        [Int: Set<SceneDynamicTextField>]
     let renderer: SceneMetalRenderer
     let metalLayer: CAMetalLayer
     private let solidLayerTexture: MTLTexture?
@@ -51,7 +53,8 @@ class SceneMetalView: NSView {
     private var dynamicTextTextures: SceneDynamicTextTextureStore?
     private var pendingDynamicTextUpdate: (
         snapshot: SceneDynamicSnapshot,
-        dynamicLayers: [SceneRenderDescriptor.Layer]
+        dynamicLayers: [SceneRenderDescriptor.Layer],
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
     )?
     private var pendingMediaThumbnailInput: SceneMediaThumbnailInbox.Snapshot?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
@@ -75,6 +78,7 @@ class SceneMetalView: NSView {
         imageLayerPipeline: SceneImageLayerPipeline,
         resolvedMaterialRuntime: SceneResolvedMaterialRuntimeBridge,
         userPropertyTextureURLs: [String: URL] = [:],
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
         frame: NSRect
     ) {
         guard let renderer = SceneMetalRenderer(
@@ -85,6 +89,7 @@ class SceneMetalView: NSView {
             pipelineRepository: pipelineRepository, resolvedMaterialRuntime: resolvedMaterialRuntime
         ) else { return nil }
         metalDevice = renderer.device
+        preparedDynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
         self.renderer = renderer
         mediaThumbnailCoordinator = .init(
             program: baseMaterialProviderBindings, device: renderer.device
@@ -372,7 +377,8 @@ class SceneMetalView: NSView {
             descriptor: renderer.renderDescriptor,
             cacheDirectory: cacheDirectory,
             device: metalDevice,
-            initialTextures: textLoad.textures
+            initialTextures: textLoad.textures,
+            dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID
         )
         dynamicImageTextures = SceneDynamicImageTextureProvider(
             resources: preparedBaseImages.dynamicImageResources
@@ -487,6 +493,8 @@ class SceneMetalView: NSView {
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
+        dynamicTextFieldsByLayerID:
+            [Int: Set<SceneDynamicTextField>] = [:],
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
@@ -569,7 +577,8 @@ class SceneMetalView: NSView {
             // host's all-surface submission barrier.
             pendingDynamicTextUpdate = (
                 snapshot: dynamicValues,
-                dynamicLayers: layerTopology.dynamicLayers
+                dynamicLayers: layerTopology.dynamicLayers,
+                dynamicTextFieldsByLayerID: dynamicTextFieldsByLayerID
             )
         } else {
             particlePlayback?.discardPreparedFrame()
@@ -622,7 +631,9 @@ class SceneMetalView: NSView {
         self.pendingDynamicTextUpdate = nil
         dynamicTextTextures?.update(
             from: pendingDynamicTextUpdate.snapshot,
-            dynamicLayers: pendingDynamicTextUpdate.dynamicLayers
+            dynamicLayers: pendingDynamicTextUpdate.dynamicLayers,
+            dynamicTextFieldsByLayerID:
+                pendingDynamicTextUpdate.dynamicTextFieldsByLayerID
         )
     }
 

@@ -449,6 +449,8 @@ final class SceneDesktopWallpaperHost {
                     launchContext.preparedDeviceResources.imageLayerPipeline,
                 resolvedMaterialRuntime: launchContext.makeResolvedMaterialRuntime(),
                 userPropertyTextureURLs: launchContext.userPropertyTextureURLs,
+                dynamicTextFieldsByLayerID:
+                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 frame: frame
             ) else {
                 continue

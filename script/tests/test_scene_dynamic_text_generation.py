@@ -20,6 +20,10 @@ DRAW_REQUEST_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneImageLayerDrawRequest.swift"
 )
+HOST_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -168,6 +172,25 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             "SceneBaseImageTextureCandidateResolver.sample(",
         ):
             self.assertIn(token, source)
+
+    def test_text_provider_consumes_prepared_target_interest_before_signature_projection(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        for token in (
+            "dynamicTextFieldsByLayerID",
+            "dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]",
+            "dynamicFields: Set<SceneDynamicTextField>",
+            "dynamicFields.contains(.content)",
+            "dynamicFields.contains(.font)",
+            "dynamicFields.contains(.pointSize)",
+            "dynamicFields.contains(.color)",
+            "dynamicFields.contains(.maxWidth)",
+        ):
+            self.assertIn(token, source)
+        host_source = HOST_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("dynamicTextFieldsByLayerID:", host_source)
+        self.assertIn(
+            "launchContext.frameSchema.dynamicTextFieldsByLayerID", host_source
+        )
 
 
 if __name__ == "__main__":

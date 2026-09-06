@@ -680,9 +680,9 @@ extension SceneDesktopWallpaperHost {
 #endif
             let frameOutcome = surface.metalView.renderFrame(
                 timing: timing, dynamicValues: dynamicValues,
-                layerTopology: layerTopology.resolvingDynamicMaterialColors(
-                    from: dynamicValues
-                ),
+                layerTopology: layerTopology.resolvingDynamicMaterialColors(from: dynamicValues),
+                dynamicTextFieldsByLayerID:
+                    launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 materialFunctionMutations: materialFunctionMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,

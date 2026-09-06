@@ -22,6 +22,9 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
     private var cachedDynamicDefinitions: [SceneDynamicTargetDefinition] = []
     private var cachedDefinitionIndexRevision: UInt64?
     private var cachedDefinitionIndex: SceneDynamicSnapshotDefinitionIndex?
+    private var cachedTextTargetRevision: UInt64?
+    private var cachedDynamicTextFieldsByLayerID:
+        [Int: Set<SceneDynamicTextField>] = [:]
 
     /// Static producers are merged once at launch. Dynamic authored layer
     /// definitions are appended only when the layer runtime publishes a new
@@ -57,6 +60,26 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         cachedDefinitionIndexRevision = revision
         cachedDefinitionIndex = index
         return index
+    }
+
+    /// Text provider interest is a launch/prepared projection of the same
+    /// definition owner used by the frame snapshot.  It is refreshed only
+    /// when authored dynamic-layer topology publishes a new revision.
+    var dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] {
+        let revision = dynamicLayerRuntime.authoredDefinitionRevision
+        if cachedTextTargetRevision == revision {
+            return cachedDynamicTextFieldsByLayerID
+        }
+        cachedDynamicTextFieldsByLayerID = dynamicDefinitions.reduce(
+            into: [Int: Set<SceneDynamicTextField>]()
+        ) { result, definition in
+            guard case let .text(layerID, field) = definition.target else {
+                return
+            }
+            result[layerID, default: []].insert(field)
+        }
+        cachedTextTargetRevision = revision
+        return cachedDynamicTextFieldsByLayerID
     }
 
     init(

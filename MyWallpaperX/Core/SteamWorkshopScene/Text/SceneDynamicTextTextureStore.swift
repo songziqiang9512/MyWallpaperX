@@ -10,6 +10,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private let cacheDirectory: URL
     private let device: MTLDevice
     private let authoredLayerIDs: Set<Int>
+    private var dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>]
     private var layersByID: [Int: SceneRenderDescriptor.Layer]
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene.dynamic-text", qos: .userInitiated)
     private let lock = NSLock()
@@ -24,7 +25,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         descriptor: SceneRenderDescriptor,
         cacheDirectory: URL,
         device: MTLDevice,
-        initialTextures: [Int: MTLTexture]
+        initialTextures: [Int: MTLTexture],
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let layers = descriptor.layers.filter {
@@ -37,6 +39,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         self.device = device
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
         authoredLayerIDs = Set(layers.map(\.id))
+        self.dynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
         self.currentTextures = initialTextures
         self.currentRenderSizes = Dictionary(uniqueKeysWithValues: layers.compactMap { layer in
             layer.renderSizeWH.map { (layer.id, $0) }
@@ -44,7 +47,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         for layer in layers {
             generationState.registerInitial(
                 layerID: layer.id,
-                signature: Self.signature(for: layer, snapshot: nil),
+                signature: Self.signature(
+                    for: layer, snapshot: nil,
+                    dynamicFields: dynamicTextFieldsByLayerID[layer.id] ?? []
+                ),
                 isReady: initialTextures[layer.id] != nil
             )
         }
@@ -52,24 +58,34 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     func update(
         from snapshot: SceneDynamicSnapshot,
-        dynamicLayers: [SceneRenderDescriptor.Layer] = []
+        dynamicLayers: [SceneRenderDescriptor.Layer] = [],
+        dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
         let admittedDynamic = dynamicLayers.filter {
             $0.contentKind == "text" && $0.text != nil && $0.textStyle != nil
         }
         let admittedIDs = Set(admittedDynamic.map(\.id))
         lock.lock()
+        for layerID in authoredLayerIDs {
+            self.dynamicTextFieldsByLayerID[layerID] =
+                dynamicTextFieldsByLayerID[layerID] ?? []
+        }
         let retired = Set(layersByID.keys).subtracting(authoredLayerIDs).subtracting(admittedIDs)
         for layerID in retired {
             layersByID.removeValue(forKey: layerID)
             currentTextures.removeValue(forKey: layerID)
             currentRenderSizes.removeValue(forKey: layerID)
+            self.dynamicTextFieldsByLayerID.removeValue(forKey: layerID)
             generationState.unregister(layerID: layerID)
         }
         for layer in admittedDynamic {
             if layersByID[layer.id] == nil {
                 layersByID[layer.id] = layer
-                let signature = Self.signature(for: layer, snapshot: nil)
+                self.dynamicTextFieldsByLayerID[layer.id] = Self.allTextFields
+                let signature = Self.signature(
+                    for: layer, snapshot: nil,
+                    dynamicFields: Self.allTextFields
+                )
                 if let request = generationState.registerDynamic(
                     layerID: layer.id, signature: signature
                 ) {
@@ -81,10 +97,14 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 layersByID[layer.id] = layer
             }
         }
-        let layers = Array(layersByID.values)
+        let layers = layersByID.map { layerID, layer in
+            (layer, dynamicTextFieldsByLayerID[layerID] ?? [])
+        }
         lock.unlock()
-        for layer in layers {
-            let signature = Self.signature(for: layer, snapshot: snapshot)
+        for (layer, dynamicFields) in layers {
+            let signature = Self.signature(
+                for: layer, snapshot: snapshot, dynamicFields: dynamicFields
+            )
             lock.lock()
             let request = generationState.schedule(layerID: layer.id, signature: signature)
             lock.unlock()
@@ -206,24 +226,36 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     private static func signature(
         for layer: SceneRenderDescriptor.Layer,
-        snapshot: SceneDynamicSnapshot?
+        snapshot: SceneDynamicSnapshot?,
+        dynamicFields: Set<SceneDynamicTextField>
     ) -> SceneDynamicTextSignature {
         let authoredStyle = layer.textStyle!
-        let content = stringValue(
-            snapshot?[.text(layerID: layer.id, field: .content)]?.value
-        ) ?? layer.text!
-        let fontPath = stringValue(
-            snapshot?[.text(layerID: layer.id, field: .font)]?.value
-        ).flatMap { $0.isEmpty ? nil : $0 } ?? authoredStyle.fontPath
-        let pointSize = scalarValue(
-            snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value
-        ).map { Float(max(1, min($0, 1_024))) } ?? authoredStyle.pointSize
-        let color = colorValue(
-            snapshot?[.text(layerID: layer.id, field: .color)]?.value
-        ) ?? authoredStyle.colorRGB
+        let content = dynamicFields.contains(.content)
+            ? stringValue(
+                snapshot?[.text(layerID: layer.id, field: .content)]?.value
+            ) ?? layer.text!
+            : layer.text!
+        let fontPath = dynamicFields.contains(.font)
+            ? stringValue(
+                snapshot?[.text(layerID: layer.id, field: .font)]?.value
+            ).flatMap { $0.isEmpty ? nil : $0 } ?? authoredStyle.fontPath
+            : authoredStyle.fontPath
+        let pointSize = dynamicFields.contains(.pointSize)
+            ? scalarValue(
+                snapshot?[.text(layerID: layer.id, field: .pointSize)]?.value
+            ).map { Float(max(1, min($0, 1_024))) } ?? authoredStyle.pointSize
+            : authoredStyle.pointSize
+        let color = dynamicFields.contains(.color)
+            ? colorValue(
+                snapshot?[.text(layerID: layer.id, field: .color)]?.value
+            ) ?? authoredStyle.colorRGB
+            : authoredStyle.colorRGB
         let maxWidth = authoredStyle.limitWidth
-            ? scalarValue(snapshot?[.text(layerID: layer.id, field: .maxWidth)]?.value)
-                .map { Float(max(1, min($0, 16_384))) } ?? authoredStyle.maxWidth
+            ? dynamicFields.contains(.maxWidth)
+                ? scalarValue(
+                    snapshot?[.text(layerID: layer.id, field: .maxWidth)]?.value
+                ).map { Float(max(1, min($0, 16_384))) } ?? authoredStyle.maxWidth
+                : authoredStyle.maxWidth
             : authoredStyle.maxWidth
         return .init(
             content: content,
@@ -233,6 +265,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             maxWidth: maxWidth
         )
     }
+
+    private static let allTextFields: Set<SceneDynamicTextField> = [
+        .content, .font, .pointSize, .color, .maxWidth
+    ]
 
     private static func stringValue(_ value: SceneDynamicValue?) -> String? {
         guard case let .string(string) = value else { return nil }
