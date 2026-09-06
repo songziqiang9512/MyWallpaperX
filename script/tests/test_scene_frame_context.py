@@ -89,6 +89,10 @@ SCALAR_RUNTIME_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptScalarRuntime.swift"
 )
+LOCAL_STORAGE_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptLocalStorage.swift"
+)
 CURSOR_PROGRAM_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
@@ -635,6 +639,26 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(barrier, commit_call)
         self.assertLess(surface_commit, timeline_commit)
         self.assertLess(timeline_commit, video_commit)
+
+    def test_local_storage_transaction_commits_or_discards_with_submission(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        lifecycle = HOST_FRAME_DRIVER_LIFECYCLE_SOURCE.read_text(encoding="utf-8")
+        storage = LOCAL_STORAGE_SOURCE.read_text(encoding="utf-8")
+        begin = frame_driver.index("beginFrameTransaction()")
+        evaluate = frame_driver.index(
+            "launchContext.frameSchema.mediaFrameCoordinator.evaluate("
+        )
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        discard = frame_driver.index("discardFrameTransaction()", barrier)
+        commit_plan = lifecycle.index("commitSceneScriptLayerPlan(")
+        commit = lifecycle.index("commitFrameTransaction()", commit_plan)
+        self.assertLess(begin, evaluate)
+        self.assertLess(evaluate, barrier)
+        self.assertLess(barrier, discard)
+        self.assertGreater(commit, commit_plan)
+        self.assertIn("frameTransactionCandidate", storage)
+        self.assertIn("frameTransactionBase", storage)
+        self.assertIn("frameTransactionCandidate ?? loadIfNeeded()", storage)
 
     def test_shared_layer_alpha_candidate_commits_after_submission_barrier(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

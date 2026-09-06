@@ -150,6 +150,8 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
     private let lock = NSLock()
     private let fileURL: URL
     private var loadState: LoadState = .unloaded
+    private var frameTransactionBase: Envelope?
+    private var frameTransactionCandidate: Envelope?
 
     init(recordID: String, rootDirectory: URL? = nil) {
         let root = rootDirectory ?? Self.defaultRootDirectory()
@@ -167,7 +169,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         do {
-            let current = try loadIfNeeded()
+            let current = try frameTransactionCandidate ?? loadIfNeeded()
             if globalScope { return .success(current.global[key]) }
             guard let screenIdentity else { return .success(nil) }
             return .success(current.screens[screenIdentity]?[key])
@@ -182,7 +184,7 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         guard !mutations.isEmpty else { return }
         lock.lock()
         defer { lock.unlock() }
-        let current = try loadIfNeeded()
+        let current = try frameTransactionCandidate ?? loadIfNeeded()
         var candidate = current
         for mutation in mutations {
             if mutation.globalScope {
@@ -201,8 +203,41 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
         }
         guard candidate != current else { return }
         try Self.validate(candidate)
+        if frameTransactionCandidate != nil {
+            frameTransactionCandidate = candidate
+        } else {
+            loadState = .loaded(candidate)
+            PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
+        }
+    }
+
+    func beginFrameTransaction() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard frameTransactionCandidate == nil else { return false }
+        guard let current = try? loadIfNeeded() else { return false }
+        frameTransactionBase = current
+        frameTransactionCandidate = current
+        return true
+    }
+
+    func commitFrameTransaction() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let candidate = frameTransactionCandidate else { return }
+        let changed = candidate != frameTransactionBase
+        frameTransactionBase = nil
+        frameTransactionCandidate = nil
+        guard changed else { return }
         loadState = .loaded(candidate)
         PersistenceCoordinator.shared.schedule(candidate, for: fileURL)
+    }
+
+    func discardFrameTransaction() {
+        lock.lock()
+        frameTransactionBase = nil
+        frameTransactionCandidate = nil
+        lock.unlock()
     }
 
     private func loadIfNeeded() throws -> Envelope {

@@ -79,6 +79,7 @@ struct SceneDesktopWallpaperLaunchContext {
     let sceneScriptScalarProgram: SceneScriptScalarProgram
     let sceneScriptStringProgram: SceneScriptStringProgram
     let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
+    let sceneScriptStorageSession: SceneScriptLocalStorageSession?
     let frameSchema: SceneDesktopWallpaperLaunchFrameSchema
     let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
     var dynamicDefinitions: [SceneDynamicTargetDefinition] {
@@ -365,9 +366,7 @@ extension SceneDesktopWallpaperHost {
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
-        // User-property visibility stays live for typed consumers; otherwise
-        // live-state rejects atomically and the service relaunches the Scene.
-        // Admission only blocks frame-driven topology changes here.
+        // User-property visibility stays live; admission blocks topology changes.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
         let initiallyInactiveMediaOwners =
             SceneInitialMediaEffectVisibilityProjection.initiallyInactiveOwners(
@@ -738,6 +737,7 @@ extension SceneDesktopWallpaperHost {
             sceneScriptScalarProgram: sceneScriptScalarProgram,
             sceneScriptStringProgram: sceneScriptStringProgram,
             sceneScriptDynamicLayerRuntime: frameSchema.dynamicLayerRuntime,
+            sceneScriptStorageSession: sceneScriptStorageSession,
             frameSchema: frameSchema,
             sceneScriptStatefulTargets: frameSchema.sceneScriptStatefulTargets,
             baseMaterialProviderBindings: baseMaterialProviderBindings,

@@ -90,6 +90,7 @@ extension SceneDesktopWallpaperHost {
             context, plan: layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        context.sceneScriptStorageSession?.commitFrameTransaction()
     }
 
     func teardownSceneScriptOwners(
@@ -100,6 +101,7 @@ extension SceneDesktopWallpaperHost {
         // before destroy callbacks so dynamic topology removal cannot be
         // blocked by a provisional owner from the last frame.
         discardSceneScriptLayerMutations(context)
+        context.sceneScriptStorageSession?.discardFrameTransaction()
         let hostTime = CACurrentMediaTime()
 #if DEBUG
         let wallDate = Self.debugWallDateOverride ?? Date()

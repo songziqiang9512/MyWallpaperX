@@ -143,10 +143,8 @@ extension SceneDesktopWallpaperHost {
         switch attempt {
         case .rendered:
             let cadenceDeadline = scheduledDeadline + sceneFrameInterval
-            // A frame that only narrowly crosses its deadline must not wait for
-            // another complete 60 Hz slot. Realign at the current host time;
-            // fast frames still wait for cadence, while the existing busy gate
-            // continues to enforce single-frame-in-flight graphs.
+            // Realign narrowly late frames at current host time; fast frames
+            // still honor cadence while busy gate keeps history graphs serial.
             nextDeadline = max(cadenceDeadline, now)
         case .busy:
             // History-bearing graphs remain single-frame-in-flight. A short
@@ -333,6 +331,7 @@ extension SceneDesktopWallpaperHost {
             timing: timing,
             surface: sceneScriptSurfaceInput
         )
+        launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
@@ -738,6 +737,7 @@ extension SceneDesktopWallpaperHost {
                 launchContext.sceneScriptCursorProgram
                     .restoreEdgeState(cursorEdgeState)
             }
+            launchContext.sceneScriptStorageSession?.discardFrameTransaction()
             finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
