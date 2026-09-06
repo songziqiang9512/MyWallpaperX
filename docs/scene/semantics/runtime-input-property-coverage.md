@@ -278,7 +278,7 @@ User Property 是 wallpaper 级 key/value，不属于某个单独 layer。一个
 | 官方类型/行为 | 等级 | 当前能力 | 缺口 |
 |---|---|---|---|
 | default/min/max/fraction/precision UI | `L3` | min/max/step/fraction/precision、UI 和持久化；[E-PROPERTY](../../history/scene/runtime-evidence-index.md#e-property) | authored range/step validation 与 live value |
-| numeric target update | `L2` | layer alpha slider 与 exact `brcontraststrength` 已 typed/clamp/live；其余 numeric target 仍重建 | 每个 target 分别补 compiler semantic 与 consumer 后才能升级 |
+| numeric target update | `L3 bounded` | 普通 numeric slider 的 live 更新由现役 resolved-material 动态 uniform 机制统一决定：effect stage 被准入为 resolved 且其 constant 的 dynamic uniform 声明有唯一 userProperty contributor 时，target 自动成为 active live consumer，`applyUserPropertyValues` 接受并在同一 surface/window 上更新。2026-09-06 隔离真实 `3747492842` 探针：`filmgrainintensity`（resolved filmgrain `strength`）live 更新 accepted=true、surface/window 不变；同一样本 `barcount`（layer 265 Simple Audio Bars 的 `Bar Count`）因该 effect 为 `material-variant-envelope-color-contract` visual-failure passthrough 而没有 resolved stage，live 更新 rejected → 回落到整 Scene 重建 | passthrough/fallback effect 的 property key 没有 live consumer，按合同拒绝并重建；每个此类 target 先修 effect 的 Program 准入（V1 shader 正确性）才能升级。现役首断点：workshop 3021673417 Simple Audio Bars 默认 variant（BOTTOM/REPLACE/RESOLUTION=32/BLENDMODE=0）的 color contract 证明 |
 
 <a id="op-user-checkbox"></a>
 ### 5.4 [Checkbox](https://docs.wallpaperengine.io/en/scene/userproperties/checkbox.html)
