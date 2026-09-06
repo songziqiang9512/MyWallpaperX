@@ -197,11 +197,26 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         for token in (
             "private var cachedSnapshot: Snapshot?",
             "private var snapshotDirty = true",
+            "private var preparedFrameSnapshot: Snapshot?",
+            "func prepareFrame() -> Snapshot",
+            "if let preparedFrameSnapshot { return preparedFrameSnapshot }",
+            "func commitPreparedFrame()",
+            "func discardPreparedFrame()",
             "if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }",
             "cachedSnapshot = snapshot",
             "snapshotDirty = true",
         ):
             self.assertIn(token, source)
+
+    def test_text_provider_frame_pin_is_cleared_only_at_host_outcome(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        view = (REPOSITORY_ROOT /
+                "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalView.swift")
+        view_source = view.read_text(encoding="utf-8")
+        self.assertIn("let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()", view_source)
+        self.assertIn("dynamicTextTextures?.discardPreparedFrame()", view_source)
+        self.assertIn("dynamicTextTextures?.commitPreparedFrame()", view_source)
+        self.assertIn("return makeSnapshotLocked()", source)
 
     def test_static_text_layers_leave_generation_state_untouched_after_preparation(self) -> None:
         source = STORE_SOURCE.read_text(encoding="utf-8")

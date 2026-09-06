@@ -19,6 +19,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var currentRenderSizes: [Int: [Float]]
     private var cachedSnapshot: Snapshot?
     private var snapshotDirty = true
+    private var preparedFrameSnapshot: Snapshot?
 #if DEBUG
     private var debugLoggedDynamicLayers: Set<Int> = []
 #endif
@@ -121,9 +122,39 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
     }
 
+    /// Pins the currently published provider view for one host frame. Async
+    /// raster completion may replace `currentTextures` while another surface
+    /// is encoding; the host outcome decides when that replacement becomes
+    /// visible to the next frame.
+    func prepareFrame() -> Snapshot {
+        lock.lock()
+        defer { lock.unlock() }
+        if let preparedFrameSnapshot { return preparedFrameSnapshot }
+        let snapshot = makeSnapshotLocked()
+        preparedFrameSnapshot = snapshot
+        return snapshot
+    }
+
+    func commitPreparedFrame() {
+        lock.lock()
+        preparedFrameSnapshot = nil
+        lock.unlock()
+    }
+
+    func discardPreparedFrame() {
+        lock.lock()
+        preparedFrameSnapshot = nil
+        lock.unlock()
+    }
+
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
+        if let preparedFrameSnapshot { return preparedFrameSnapshot }
+        return makeSnapshotLocked()
+    }
+
+    private func makeSnapshotLocked() -> Snapshot {
         if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }
         let pairs: [(Int, SceneLayerSourcePublication)] = currentTextures.compactMap {
             layerID, texture in

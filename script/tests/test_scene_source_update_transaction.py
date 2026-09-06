@@ -623,14 +623,20 @@ enum Harness {
     def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
         view = VIEW.read_text(encoding="utf-8")
         dynamic_text = DYNAMIC_TEXT.read_text(encoding="utf-8")
-        snapshot = view.index("let dynamicTextSnapshot = dynamicTextTextures?.snapshot()")
-        outcome = view.index("let outcome = renderer.renderFrame(", snapshot)
+        prepare = view.index(
+            "let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()"
+        )
+        local_discard = view.index(
+            "dynamicTextTextures?.discardPreparedFrame()", prepare
+        )
+        outcome = view.index("let outcome = renderer.renderFrame(", prepare)
         submitted = view.index("if outcome.isSubmitted {", outcome)
         pending = view.index("pendingDynamicTextUpdate = (", submitted)
         commit = view.index("func commitPreparedDynamicTextUpdate()")
         update = view.index("dynamicTextTextures?.update(", commit)
 
-        self.assertLess(snapshot, outcome)
+        self.assertLess(prepare, outcome)
+        self.assertLess(outcome, local_discard)
         self.assertLess(outcome, submitted)
         self.assertLess(submitted, pending)
         self.assertLess(commit, update)

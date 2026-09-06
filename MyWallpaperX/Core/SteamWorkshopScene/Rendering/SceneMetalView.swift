@@ -517,7 +517,7 @@ class SceneMetalView: NSView {
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
-        let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
+        let dynamicTextSnapshot = dynamicTextTextures?.prepareFrame()
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
             topology: layerTopology
         )
@@ -582,6 +582,7 @@ class SceneMetalView: NSView {
             )
         } else {
             particlePlayback?.discardPreparedFrame()
+            dynamicTextTextures?.discardPreparedFrame()
             parallaxPointerSmoother.restore(parallaxPointerState)
             pointerState.previous = pointerPrevious
         }
@@ -627,7 +628,10 @@ class SceneMetalView: NSView {
     }
 
     func commitPreparedDynamicTextUpdate() {
-        guard let pendingDynamicTextUpdate else { return }
+        guard let pendingDynamicTextUpdate else {
+            dynamicTextTextures?.commitPreparedFrame()
+            return
+        }
         self.pendingDynamicTextUpdate = nil
         dynamicTextTextures?.update(
             from: pendingDynamicTextUpdate.snapshot,
@@ -635,9 +639,11 @@ class SceneMetalView: NSView {
             dynamicTextFieldsByLayerID:
                 pendingDynamicTextUpdate.dynamicTextFieldsByLayerID
         )
+        dynamicTextTextures?.commitPreparedFrame()
     }
 
     func discardPreparedDynamicTextUpdate() {
         pendingDynamicTextUpdate = nil
+        dynamicTextTextures?.discardPreparedFrame()
     }
 }
