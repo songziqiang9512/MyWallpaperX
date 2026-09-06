@@ -3314,7 +3314,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         )
         self.assertLess(
             frame.index("sceneScriptCursorProgram.dispatch"),
-            frame.index("SceneScriptMediaFrameCoordinator.evaluate"),
+            frame.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate("),
         )
         scalar_ownership = launch[
             launch.index("let sceneScriptScalarTargets ="):
@@ -3342,7 +3342,7 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         self.assertIn("surface: sceneScriptSurfaceInput", frame)
         timeline = frame.index("let timelineValues = launchContext.timelinePlaybackRuntime.values")
         preliminary = frame.index("let preliminaryForSceneScript =")
-        evaluate = frame.index("SceneScriptMediaFrameCoordinator.evaluate(")
+        evaluate = frame.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate(")
         final_snapshot = frame.index(
             "let pendingEvaluation = surface.evaluationTransaction.prepare("
         )

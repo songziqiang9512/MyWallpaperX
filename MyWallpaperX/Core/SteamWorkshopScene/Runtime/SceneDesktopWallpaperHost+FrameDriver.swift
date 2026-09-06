@@ -484,10 +484,7 @@ extension SceneDesktopWallpaperHost {
                 videoCommands: []
             )
         } else {
-            coordinatedSceneScript = SceneScriptMediaFrameCoordinator.evaluate(
-                vectorProgram: launchContext.propertyVectorScriptProgram,
-                stringProgram: launchContext.sceneScriptStringProgram,
-                scalarProgram: launchContext.sceneScriptScalarProgram,
+            coordinatedSceneScript = launchContext.frameSchema.mediaFrameCoordinator.evaluate(
                 vectorInputs: sceneScriptVectorInputs,
                 stringInputs: sceneScriptStringInputs,
                 scalarInputs: sceneScriptInputs,

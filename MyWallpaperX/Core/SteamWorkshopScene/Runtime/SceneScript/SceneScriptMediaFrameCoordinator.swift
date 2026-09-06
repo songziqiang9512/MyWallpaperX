@@ -34,22 +34,27 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
 /// Executes media-bearing owners through one authored-order view of the
 /// existing scalar, String and vector programs. Each program still owns its VM
 /// handle, generation watermark and typed publication; this coordinator only
-/// removes the old family-order dispatch split.
-nonisolated enum SceneScriptMediaFrameCoordinator {
-    static func evaluate(
+/// removes the old family-order dispatch split. The immutable dispatch view is
+/// prepared with the launch programs; events and owner lifecycle stay live in
+/// those programs on every evaluation.
+nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
+    private let vectorProgram: SceneScriptVectorProgram
+    private let stringProgram: SceneScriptStringProgram
+    private let scalarProgram: SceneScriptScalarProgram
+    private let registrations: [SceneScriptMediaOwnerRegistration]
+    private let vectorMediaTargets: Set<SceneDynamicTarget>
+    private let stringMediaTargets: Set<SceneDynamicTarget>
+    private let scalarMediaTargets: Set<SceneDynamicTarget>
+
+    init(
         vectorProgram: SceneScriptVectorProgram,
         stringProgram: SceneScriptStringProgram,
-        scalarProgram: SceneScriptScalarProgram,
-        vectorInputs: [SceneDynamicTarget: SceneDynamicValue],
-        stringInputs: [SceneDynamicTarget: SceneDynamicValue],
-        scalarInputs: [SceneDynamicTarget: SceneDynamicValue],
-        effectivePropertyValues: [String: SceneUserPropertyValue],
-        frame: SceneScriptFrameInput,
-        userPropertiesJSON: String,
-        events: SceneScriptMediaFrameEvents,
-        audioSpectrum: SceneAudioSpectrumSnapshot
-    ) -> SceneScriptMediaFrameCoordinatorResult {
-        let registrations = (
+        scalarProgram: SceneScriptScalarProgram
+    ) {
+        self.vectorProgram = vectorProgram
+        self.stringProgram = stringProgram
+        self.scalarProgram = scalarProgram
+        registrations = (
             vectorProgram.mediaOwnerRegistrations
                 + stringProgram.mediaOwnerRegistrations
                 + scalarProgram.mediaOwnerRegistrations
@@ -59,16 +64,27 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
             }
             return $0.family.rawValue < $1.family.rawValue
         }
-        let vectorMediaTargets = Set(registrations.compactMap {
+        vectorMediaTargets = Set(registrations.compactMap {
             $0.family == .vector ? $0.target : nil
         })
-        let stringMediaTargets = Set(registrations.compactMap {
+        stringMediaTargets = Set(registrations.compactMap {
             $0.family == .string ? $0.target : nil
         })
-        let scalarMediaTargets = Set(registrations.compactMap {
+        scalarMediaTargets = Set(registrations.compactMap {
             $0.family == .scalar ? $0.target : nil
         })
+    }
 
+    func evaluate(
+        vectorInputs: [SceneDynamicTarget: SceneDynamicValue],
+        stringInputs: [SceneDynamicTarget: SceneDynamicValue],
+        scalarInputs: [SceneDynamicTarget: SceneDynamicValue],
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        frame: SceneScriptFrameInput,
+        userPropertiesJSON: String,
+        events: SceneScriptMediaFrameEvents,
+        audioSpectrum: SceneAudioSpectrumSnapshot
+    ) -> SceneScriptMediaFrameCoordinatorResult {
         var vector = VectorAccumulator()
         var string = StringAccumulator()
         var scalar = ScalarAccumulator()
@@ -204,7 +220,7 @@ nonisolated enum SceneScriptMediaFrameCoordinator {
         )
     }
 
-    private static func input(
+    private func input(
         _ target: SceneDynamicTarget,
         from inputs: [SceneDynamicTarget: SceneDynamicValue]
     ) -> [SceneDynamicTarget: SceneDynamicValue] {

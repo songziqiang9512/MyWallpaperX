@@ -165,7 +165,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         publication = render.index(".publishLayerSnapshot(")
         cursor_batch = render.index("let cursorBatch:")
         cursor = render.index("sceneScriptCursorProgram.dispatch(")
-        media_callback = render.index("SceneScriptMediaFrameCoordinator.evaluate(")
+        media_callback = render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate(")
         owner_preflight = render.index(
             ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
         )
@@ -290,7 +290,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             "SceneScriptMediaThumbnailEventInput(snapshot: mediaInput)"
         )
         media_vm_position = host_render.index(
-            "SceneScriptMediaFrameCoordinator.evaluate("
+            "launchContext.frameSchema.mediaFrameCoordinator.evaluate("
         )
         surface_loop_position = host_render.index(
             "for (displayID, surface) in surfaces"

@@ -1419,10 +1419,12 @@ enum Harness {
             thumbnail: .init(hasThumbnail: true, generation: 1),
             timeline: .init(position: 12.5, duration: 90, generation: 1)
         )
-        let orderedResult = SceneScriptMediaFrameCoordinator.evaluate(
+        let orderedCoordinator = SceneScriptMediaFrameCoordinator(
             vectorProgram: orderedVector,
             stringProgram: orderedString,
-            scalarProgram: orderedScalar,
+            scalarProgram: orderedScalar
+        )
+        let orderedResult = orderedCoordinator.evaluate(
             vectorInputs: [
                 .layer(layerID: 42, field: .origin): .vector3(10, 20, 30)
             ],
@@ -1432,16 +1434,38 @@ enum Harness {
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
-        let orderedDuplicate = SceneScriptMediaFrameCoordinator.evaluate(
-            vectorProgram: orderedVector,
-            stringProgram: orderedString,
-            scalarProgram: orderedScalar,
+        let orderedDuplicate = orderedCoordinator.evaluate(
             vectorInputs: [
                 .layer(layerID: 42, field: .origin): .vector3(10, 20, 30)
             ],
             stringInputs: [stringTarget: .string("Placeholder")],
             scalarInputs: [animatedAlphaTarget: .scalar(0.75)],
             effectivePropertyValues: [:], frame: frame,
+            userPropertiesJSON: "{}", events: orderedEvents,
+            audioSpectrum: .silent
+        )
+        let orderedNextGeneration = orderedCoordinator.evaluate(
+            vectorInputs: [.layer(layerID: 42, field: .origin): .vector3(40, 50, 60)],
+            stringInputs: [stringTarget: .string("Changed input")],
+            scalarInputs: [animatedAlphaTarget: .scalar(0.3)],
+            effectivePropertyValues: [:], frame: playbackFrame,
+            userPropertiesJSON: "{}",
+            events: .init(
+                playback: .init(state: 0, generation: 2),
+                properties: stringEvent,
+                thumbnail: .init(hasThumbnail: false, generation: 2),
+                timeline: .init(position: 20, duration: 100, generation: 2)
+            ),
+            audioSpectrum: .silent
+        )
+        orderedVector.invalidate()
+        orderedString.invalidate()
+        orderedScalar.invalidate()
+        let orderedInvalidated = orderedCoordinator.evaluate(
+            vectorInputs: [.layer(layerID: 42, field: .origin): .vector3(70, 80, 90)],
+            stringInputs: [stringTarget: .string("Stale owner")],
+            scalarInputs: [animatedAlphaTarget: .scalar(0.9)],
+            effectivePropertyValues: [:], frame: playbackFrame,
             userPropertiesJSON: "{}", events: orderedEvents,
             audioSpectrum: .silent
         )
@@ -1677,6 +1701,22 @@ enum Harness {
                 $0.fields == [.visibility] && !$0.visible
             },
             "orderedDuplicateLayerMutations": orderedDuplicate.layerMutations.count,
+            "orderedNextGenerationTrace":
+                string(orderedNextGeneration.string.values[stringTarget]),
+            "orderedNextGenerationVector": vector(orderedNextGeneration.vector.values[
+                .layer(layerID: 42, field: .origin)
+            ]),
+            "orderedNextGenerationScalar": scalar(orderedNextGeneration.scalar.values[
+                animatedAlphaTarget
+            ]),
+            "orderedNextGenerationLayerMutations": orderedNextGeneration.layerMutations.count,
+            "orderedInvalidatedValues": orderedInvalidated.vector.values.count
+                + orderedInvalidated.string.values.count
+                + orderedInvalidated.scalar.values.count,
+            "orderedInvalidatedFailures": orderedInvalidated.vector.failures.count
+                + orderedInvalidated.string.failures.count
+                + orderedInvalidated.scalar.failures.count,
+            "orderedInvalidatedLayerMutations": orderedInvalidated.layerMutations.count,
             "audioScaleBindings": audioScaleProgram.bindings.count,
             "audioScaleDemand": audioScaleProgram.hasAudioConsumers,
             "audioScaleValue": vector(audioScaleResult.values[
@@ -2440,6 +2480,20 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["orderedLayerMutationOrder"], [10, 42, 77])
         self.assertEqual(value["orderedLayerMutationFields"], [True, True, True])
         self.assertEqual(value["orderedDuplicateLayerMutations"], 0)
+
+    def test_prepared_media_dispatch_keeps_generation_inputs_and_lifecycle_live(self) -> None:
+        value = self.result()
+        self.assertEqual(
+            value["orderedNextGenerationTrace"],
+            "sIsPsRsHsLsUvIvPvRvHvLvUtItPtRtHtLtU"
+            + "sUvUtU" + "sPsHsLsUvPvHvLvUtPtHtLtU",
+        )
+        self.assertEqual(value["orderedNextGenerationVector"], [40, 50, 60])
+        self.assertEqual(value["orderedNextGenerationScalar"], 0.3)
+        self.assertEqual(value["orderedNextGenerationLayerMutations"], 0)
+        self.assertEqual(value["orderedInvalidatedValues"], 0)
+        self.assertEqual(value["orderedInvalidatedFailures"], 3)
+        self.assertEqual(value["orderedInvalidatedLayerMutations"], 0)
 
     def test_audio_buffers_update_generic_vec3_owner(self) -> None:
         value = self.result()

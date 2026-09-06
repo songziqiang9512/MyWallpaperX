@@ -9,6 +9,7 @@ import Foundation
 nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Sendable {
     let dynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
+    let mediaFrameCoordinator: SceneScriptMediaFrameCoordinator
     private let launchDefinitions: [SceneDynamicTargetDefinition]
     private var cachedDefinitionRevision: UInt64?
     private var cachedDynamicDefinitions: [SceneDynamicTargetDefinition] = []
@@ -64,6 +65,11 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         timelineProgram: SceneTimelineProgram,
         textScriptProgram: SceneTextScriptProgram
     ) {
+        mediaFrameCoordinator = .init(
+            vectorProgram: propertyVectorScriptProgram,
+            stringProgram: sceneScriptStringProgram,
+            scalarProgram: sceneScriptScalarProgram
+        )
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,

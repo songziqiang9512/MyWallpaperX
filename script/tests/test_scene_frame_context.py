@@ -556,7 +556,7 @@ class SceneFrameContextTests(unittest.TestCase):
             "SceneScriptMediaTimelineEventInput(snapshot: mediaInput)", render_position
         )
         media_vm_position = frame_driver.index(
-            "SceneScriptMediaFrameCoordinator.evaluate(", render_position
+            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(", render_position
         )
         snapshot_position = frame_driver.index(
             "surface.evaluationTransaction.prepare", broadcast_position
@@ -680,10 +680,10 @@ class SceneFrameContextTests(unittest.TestCase):
             bounded_ownership,
         )
         self.assertIn("sceneScriptCursorProgram.dispatch(", host_render)
-        self.assertIn("SceneScriptMediaFrameCoordinator.evaluate(", host_render)
+        self.assertIn("launchContext.frameSchema.mediaFrameCoordinator.evaluate(", host_render)
         self.assertLess(
             host_render.index("sceneScriptCursorProgram.dispatch("),
-            host_render.index("SceneScriptMediaFrameCoordinator.evaluate("),
+            host_render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate("),
         )
         self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
         self.assertIn("PendingEvaluation", host_render)
