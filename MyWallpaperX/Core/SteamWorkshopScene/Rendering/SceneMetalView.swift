@@ -475,10 +475,6 @@ class SceneMetalView: NSView {
         )
         let cameraFrame = renderer.makeCameraFrame(frameContext: frameContext)
         pointerState.previous = pointerState.current
-        let particleBatches = advanceParticles(
-            timing: timing, dynamicValues: dynamicValues,
-            frameContext: frameContext, cameraFrame: cameraFrame
-        )
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
             dynamicLayers: layerTopology.dynamicLayers
@@ -509,7 +505,12 @@ class SceneMetalView: NSView {
             spriteAnimations: spriteAnimations,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
-            particleBatches: particleBatches,
+            particleBatchesProvider: {
+                advanceParticles(
+                    timing: timing, dynamicValues: dynamicValues,
+                    frameContext: frameContext, cameraFrame: cameraFrame
+                )
+            },
             particlePipeline: particlePlayback?.pipeline,
             offscreenTexturePool: offscreenTexturePool,
             frameContext: frameContext,

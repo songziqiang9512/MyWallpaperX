@@ -713,9 +713,8 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
-            // The shared clock is part of the same frame transaction as every
-            // typed producer. A deferred/dropped surface must not consume a
-            // frame index or move the host-time anchor before publication.
+            // Shared clock is part of the frame transaction; a deferred/dropped
+            // surface must not consume a frame index or move the host-time anchor.
             sceneClock.restore(clockState)
             launchContext.timelinePlaybackRuntime.restoreObservationState(
                 timelineObservationState

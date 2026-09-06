@@ -55,7 +55,7 @@ struct SceneMetalRenderer {
         spriteAnimations: [Int: SceneSpriteAnimation],
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
-        particleBatches: [SceneParticleDrawBatch],
+        particleBatchesProvider: () -> [SceneParticleDrawBatch],
         particlePipeline: SceneParticleMetalPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
         frameContext: SceneFrameContext,
@@ -69,29 +69,6 @@ struct SceneMetalRenderer {
     ) -> FrameOutcome {
         var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
         var didCommitParticleSubmission = false
-        defer {
-            if !didCommitParticleSubmission {
-                if let commandBuffer = particleSubmissionCommandBuffer,
-                   commandBuffer.status == .notEnqueued {
-                    // A command accepted by Metal owns every marked slot
-                    // until its completion handler fires. Only the
-                    // pre-enqueue window may be rolled back after a
-                    // synchronous renderer failure.
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
-                            on: commandBuffer
-                        )
-                    }
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                } else if particleSubmissionCommandBuffer == nil {
-                    particleBatches.forEach {
-                        _ = $0.instanceBuffer.cancelPending()
-                    }
-                }
-            }
-        }
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {
             return .deferred(reasonCode: "resolved-material-frame-in-flight")
         }
@@ -198,7 +175,6 @@ struct SceneMetalRenderer {
             worldFramesByLayerID: frameWorldFrames,
             dynamicLayerColors: dynamicLightColors
         )
-        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
@@ -223,6 +199,30 @@ struct SceneMetalRenderer {
             return .deferred(reasonCode: reasonCode)
         case let .rejected(reasonCode):
             return .dropped(reasonCode: reasonCode)
+        }
+        let particleBatches = particleBatchesProvider()
+        let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
+        defer {
+            if !didCommitParticleSubmission {
+                if let commandBuffer = particleSubmissionCommandBuffer,
+                   commandBuffer.status == .notEnqueued {
+                    // A command accepted by Metal owns every marked slot until its
+                    // completion handler. Only the pre-enqueue window may be rolled
+                    // back after a synchronous renderer failure.
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelUncommittedSubmission(
+                            on: commandBuffer
+                        )
+                    }
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                } else if particleSubmissionCommandBuffer == nil {
+                    particleBatches.forEach {
+                        _ = $0.instanceBuffer.cancelPending()
+                    }
+                }
+            }
         }
         var stopsAfterClaimedFailure = false
         let mainPass = SceneMainPassEncoder(

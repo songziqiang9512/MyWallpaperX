@@ -615,7 +615,10 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("dynamicValues: dynamicValues", view)
         self.assertGreaterEqual(view.count("timing.simulationFrameTime"), 1)
         self.assertIn("let cameraFrame = renderer.makeCameraFrame", view)
-        self.assertIn("let particleBatches = advanceParticles(", view)
+        particle_advance = view.index("advanceParticles(")
+        renderer_call = view.index("renderer.renderFrame(")
+        self.assertLess(renderer_call, particle_advance)
+        self.assertIn("particleBatchesProvider: {", view)
         self.assertGreaterEqual(view.count("cameraFrame: cameraFrame"), 2)
         self.assertNotIn("min(max(frameDelta, 0), 0.25)", particle_playback)
         self.assertNotIn("displayTimer", view)
@@ -825,7 +828,8 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertLess(snapshot, advance)
         self.assertLess(advance, barrier)
         self.assertLess(restore, pointer_restore)
-        self.assertIn("A deferred/dropped surface must not consume a", render)
+        self.assertIn("deferred/dropped", render)
+        self.assertIn("must not consume a frame index", render)
         self.assertIn("frame index or move the host-time anchor", render)
 
     def test_timeline_observation_rolls_back_with_surface_submission(self) -> None:

@@ -2249,6 +2249,13 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 自动门：`python3.12 -m unittest script.tests.test_scene_layer_parallax script.tests.test_scene_frame_context script.tests.test_scene_frame_vm_routing script.tests.test_scene_realtime_path_policy` **50/50**；parallax harness 证明 advance 后 restore 再次 advance 与第一次结果一致；frame-driver 顺序门锁定 host snapshot→surface loop→submission barrier→restore，且 pointer previous-history 也在同一 restore 区域；`git diff --check` 通过；checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组、code-health 与 Debug build 均通过。
 - 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion与GPU completion后的回滚仍可能在 surface outcome 前推进，不外推 parallax ROI、视觉 parity、稳定性能、官方 timing 或 V4 完成。
 
+<a id="e-v4-particle-preflight-admission"></a>
+### E-V4-PARTICLE-PREFLIGHT-ADMISSION: delay particle simulation until shared material preflight
+
+- 实现：`SceneMetalView.renderFrame` 将既有 `advanceParticles` 作为 provider closure 传给唯一 `SceneMetalRenderer`；renderer 仍先创建 command buffer、执行 resolved-material frame admission 与 resource/target 合同检查，只有 admission `ready` 后才请求并推进 `SceneParticlePlaybackState`，然后复用原有 particle batch、instance-buffer submission transaction 与 Metal encode。没有复制 simulator、没有第二个 particle owner，也没有改变粒子 authored order 或 compositor。
+- 自动门：`python3.12 -m unittest script.tests.test_scene_frame_context script.tests.test_scene_frame_vm_routing` **38/38**；frame harness 锁定 `renderer.renderFrame` 调用先于 `advanceParticles` provider，且 provider 参数沿唯一 renderer；`git diff --check` 通过。checkpoint 选出的 realtime/frame/rendering/runtime-input 组、code-health 与 Debug build 均通过。
+- 边界：该顺序只避免 drawable/command-buffer/resolved-material preflight 的已知 defer/reject 在粒子模拟前推进；forward provider、graph encode、seal 或 GPU completion 失败后的 simulator/child state 仍未回滚，也没有新增真实 dropped-surface fault、粒子 ROI/视觉 parity、稳定性能或完整样本证据，不外推 V4 完成。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 
