@@ -316,7 +316,10 @@ extension SceneDesktopWallpaperHost {
             sceneScriptValues: boundedSceneScriptValues
         ).snapshot
         let userPropertiesJSON = launchContext.propertyVectorScriptProgram
-            .userPropertiesJSON(effectiveValues: launchContext.liveState.effectiveValues)
+            .userPropertiesJSON(
+                effectiveValues: launchContext.liveState.effectiveValues,
+                revision: launchContext.liveState.revision
+            )
         let sceneScriptSurfaceInput = surfaces.count == 1
             ? surfaces.values.first?.metalView.sceneScriptSurfaceInput(
                 timing: timing,

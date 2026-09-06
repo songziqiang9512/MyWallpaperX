@@ -28,6 +28,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var appliedUserPropertiesByTarget:
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
+    private var cachedUserPropertiesJSONRevision: UInt64?
+    private var cachedUserPropertiesJSON: String?
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
@@ -281,7 +283,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
         mediaTimelineEvent: SceneScriptMediaTimelineEventInput? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
-        interruptBudget: UInt64? = nil
+        interruptBudget: UInt64? = nil,
+        userPropertiesJSON: String? = nil
     ) -> SceneScriptVectorFrameResult {
         let observedMediaEvent = observedMediaThumbnailEvent.observe(
             mediaThumbnailEvent
@@ -295,9 +298,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         let observedTimelineEvent = observedMediaTimelineEvent.observe(
             mediaTimelineEvent
         )
-        let userJSON = userPropertiesJSON(
-            effectiveValues: effectivePropertyValues
-        )
+        let userJSON = userPropertiesJSON ?? SceneScriptPropertyInputCodec
+            .userPropertiesJSON(
+                values: effectivePropertyValues,
+                kinds: userPropertyKinds
+            )
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
@@ -733,12 +738,20 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     }
 
     func userPropertiesJSON(
-        effectiveValues: [String: SceneUserPropertyValue]
+        effectiveValues: [String: SceneUserPropertyValue],
+        revision: UInt64
     ) -> String {
-        SceneScriptPropertyInputCodec.userPropertiesJSON(
+        if let cached = cachedUserPropertiesJSON,
+           cachedUserPropertiesJSONRevision == revision {
+            return cached
+        }
+        let encoded = SceneScriptPropertyInputCodec.userPropertiesJSON(
             values: effectiveValues,
             kinds: userPropertyKinds
         )
+        cachedUserPropertiesJSON = encoded
+        cachedUserPropertiesJSONRevision = revision
+        return encoded
     }
 
     func invalidate() {

@@ -220,6 +220,12 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("vectorProgram.evaluate(", media_frame)
         self.assertIn("stringProgram.evaluate(", media_frame)
         self.assertIn("scalarProgram.evaluate(", media_frame)
+        # The host encodes user properties once per frame; the coordinator
+        # must pass that string through instead of letting each program
+        # re-encode the full dictionary.
+        self.assertGreaterEqual(
+            media_frame.count("userPropertiesJSON: userPropertiesJSON"), 2
+        )
 
     def test_layer_catalog_is_configured_once_per_snapshot(self) -> None:
         handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")

@@ -7,6 +7,10 @@ nonisolated struct ScenePropertyLiveUpdateState {
         [String: Set<SceneDynamicTarget>]
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
+    /// Monotonic content revision. Bumped only when `effectiveValues` is
+    /// replaced by a successful apply; consumers may key prepared encodings
+    /// (for example the per-frame user-properties JSON) on this value.
+    private(set) var revision: UInt64 = 0
 
     nonisolated init(
         program: ScenePropertyBindingProgram,
@@ -87,6 +91,7 @@ nonisolated struct ScenePropertyLiveUpdateState {
 
         effectiveValues = candidateEffectiveValues
         userValues = evaluation.userValues
+        revision &+= 1
         return true
     }
 

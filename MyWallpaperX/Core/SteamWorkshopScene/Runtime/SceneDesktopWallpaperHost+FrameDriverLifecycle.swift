@@ -116,7 +116,10 @@ extension SceneDesktopWallpaperHost {
             wallDate: wallDate
         ))
         let userPropertiesJSON = context.propertyVectorScriptProgram
-            .userPropertiesJSON(effectiveValues: context.liveState.effectiveValues)
+            .userPropertiesJSON(
+                effectiveValues: context.liveState.effectiveValues,
+                revision: context.liveState.revision
+            )
         let outcomes = context.sceneScriptScalarProgram.teardown(
             frame: frame,
             effectivePropertyValues: context.liveState.effectiveValues,

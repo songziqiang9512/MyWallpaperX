@@ -91,10 +91,12 @@ enum Harness {
         let singleUpdatedAllTargets = scalar(state, alphaOne) == 0.75
             && scalar(state, alphaTwo) == 0.75
             && vector(state, color) == [0.1, 0.2, 0.3]
+        let revisionBumpedAfterAcceptedApply = state.revision == 1
 
         let beforeMissing = state
         let missingRejected = !state.apply(.number(0.4), forPropertyKey: "missing")
         let missingWasAtomic = unchanged(state, from: beforeMissing)
+        let revisionUnchangedAfterRejectedApply = state.revision == 1
 
         let beforeTypeFailure = state
         let badTypeRejected = !state.apply(.string("0.2"), forPropertyKey: "opacity")
@@ -161,11 +163,13 @@ enum Harness {
         let missingResetDefaultWasAtomic = unchanged(state, from: beforeMissingResetDefault)
 
         let beforeNoOp = state
+        let revisionBeforeNoOp = state.revision
         let noOpAccepted = state.apply(
             replacements: ["opacity": .number(0.99)],
             changedPropertyKeys: []
         )
         let noOpIgnoredReplacements = unchanged(state, from: beforeNoOp)
+        let revisionUnchangedAfterNoOp = state.revision == revisionBeforeNoOp
 
         let rebuildProgram = program(
             bindings: [("opacity", alphaOne, .scalar, .scalar(0.1))],
@@ -605,6 +609,11 @@ enum Harness {
 
         let payload: [String: Bool] = [
             "initialEvaluatedAllTargets": initialEvaluatedAllTargets,
+            "revisionBumpedAfterAcceptedApply":
+                revisionBumpedAfterAcceptedApply,
+            "revisionUnchangedAfterRejectedApply":
+                revisionUnchangedAfterRejectedApply,
+            "revisionUnchangedAfterNoOp": revisionUnchangedAfterNoOp,
             "singleAccepted": singleAccepted,
             "singleUpdatedAllTargets": singleUpdatedAllTargets,
             "missingRejected": missingRejected,
@@ -758,6 +767,9 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
 
     def test_initialization_and_single_key_fan_out(self) -> None:
         self.assertTrue(self.result["initialEvaluatedAllTargets"])
+        self.assertTrue(self.result["revisionBumpedAfterAcceptedApply"])
+        self.assertTrue(self.result["revisionUnchangedAfterRejectedApply"])
+        self.assertTrue(self.result["revisionUnchangedAfterNoOp"])
         self.assertTrue(self.result["singleAccepted"])
         self.assertTrue(self.result["singleUpdatedAllTargets"])
 

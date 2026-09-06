@@ -115,7 +115,8 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
                     mediaTimelineEvent: events.timeline,
-                    audioSpectrum: audioSpectrum
+                    audioSpectrum: audioSpectrum,
+                    userPropertiesJSON: userPropertiesJSON
                 )
                 appendSideEffects(
                     materialFunctions: frameResult.materialFunctionMutations,
@@ -170,7 +171,8 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             inputs: vectorInputs.filter { !vectorMediaTargets.contains($0.key) },
             effectivePropertyValues: effectivePropertyValues,
             frame: frame,
-            audioSpectrum: audioSpectrum
+            audioSpectrum: audioSpectrum,
+            userPropertiesJSON: userPropertiesJSON
         )
         appendSideEffects(
             materialFunctions: remainingVector.materialFunctionMutations,
