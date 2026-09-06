@@ -11,9 +11,25 @@ nonisolated extension SceneScriptQuickJSDomain {
     func publishLayerRuntimeFields(
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
-        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]
+        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        runtimeFieldLayerIDs: Set<Int>? = nil
     ) throws {
         for (index, layer) in descriptor.layers.enumerated() {
+            if let runtimeFieldLayerIDs,
+               !runtimeFieldLayerIDs.contains(layer.id),
+               videoSnapshots[layer.id] == nil {
+                var diagnostic = [CChar](repeating: 0, count: 512)
+                let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+                    handle,
+                    UInt32(index),
+                    &diagnostic,
+                    diagnostic.count
+                )
+                guard result == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(result, diagnostic: diagnostic)
+                }
+                continue
+            }
             let scale = layerVector3(
                 layerID: layer.id, field: .scale,
                 authored: layer.scaleXYZ, fallback: [1, 1, 1],

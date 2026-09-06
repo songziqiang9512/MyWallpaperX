@@ -25,6 +25,8 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
     private var cachedTextTargetRevision: UInt64?
     private var cachedDynamicTextFieldsByLayerID:
         [Int: Set<SceneDynamicTextField>] = [:]
+    private var cachedRuntimeFieldLayerRevision: UInt64?
+    private var cachedRuntimeFieldLayerIDs: Set<Int> = []
 
     /// Static producers are merged once at launch. Dynamic authored layer
     /// definitions are appended only when the layer runtime publishes a new
@@ -80,6 +82,31 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         }
         cachedTextTargetRevision = revision
         return cachedDynamicTextFieldsByLayerID
+    }
+
+    /// Only layers whose runtime fields may be authored by a dynamic
+    /// definition need a fresh Swift/C payload each frame. Static layers are
+    /// explicitly marked as reusing their committed C snapshot fields. The
+    /// set is revision-scoped because SceneScript may publish a new dynamic
+    /// target when a topology transaction commits.
+    var sceneScriptRuntimeFieldLayerIDs: Set<Int> {
+        let revision = dynamicLayerRuntime.authoredDefinitionRevision
+        if cachedRuntimeFieldLayerRevision == revision {
+            return cachedRuntimeFieldLayerIDs
+        }
+        cachedRuntimeFieldLayerIDs = dynamicDefinitions.reduce(
+            into: Set<Int>()
+        ) { result, definition in
+            switch definition.target {
+            case let .layer(layerID, _), let .text(layerID, _):
+                result.insert(layerID)
+            case .scene, .camera, .effectVisibility, .effectConstant,
+                 .materialConstant, .particle, .scriptInstanceProperty:
+                break
+            }
+        }
+        cachedRuntimeFieldLayerRevision = revision
+        return cachedRuntimeFieldLayerIDs
     }
 
     init(

@@ -333,8 +333,8 @@ extension SceneDesktopWallpaperHost {
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
                     videoSnapshots: sceneScriptVideoSnapshots,
-                    catalogToken: launchContext.frameSchema
-                        .sceneScriptLayerCatalogToken
+                    catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
+                    runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs
                 )
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {

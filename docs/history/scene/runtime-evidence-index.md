@@ -4850,6 +4850,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：该方法仍是 `SceneDynamicSnapshot` 的只读 projection，不建立第二 property registry 或 state store；surface transaction 的 `lastSnapshot`、generation、prepare/commit barrier、SceneScript source priority、authored fallback、Program/GraphExecutor 与唯一 compositor/output owner 不变。
 - **自动门与边界**：`test_scene_surface_evaluation_transaction`、`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_realtime_path_policy` 共 42 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过（最终源码 `BUILD SUCCEEDED`）。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed snapshot stateful projection wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
 
+<a id="e-v4-scenescript-layer-snapshot-static-reuse"></a>
+### E-V4-SCENESCRIPT-LAYER-SNAPSHOT-STATIC-REUSE: 静态 layer runtime fields 复用
+
+证据等级：`S2 shared SceneScript snapshot hot-path wiring`。本批只收口普通帧对静态 authored layer runtime fields 的重复 Swift/C observation 构造，不宣称真实样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：普通帧不得为没有动态 owner 的 layer 重建完整 observation。此前 `publishLayerRuntimeFields` 对 descriptor 的每个 layer 都构造 scale/angles/color 数组、复制 text/font，并调用 C staged update；当前 `SceneDesktopWallpaperLaunchFrameSchema` 按 authored-definition revision 准备需要动态 runtime-field payload 的 layer identity，FrameDriver 把该集合和 video snapshot 交给同一 `publishLayerSnapshot` transaction。QuickJS C snapshot begin 复制上一份 committed scale/angles/color/visibility/alpha/text-size/video numeric state，静态 layer 通过显式 `reuse_layer_runtime_fields` mark；只有动态 target 或 video provider 才重新走 typed Swift/C payload。每代 current origin 仍从 authored origin 重置，避免 stale transform 泄漏。
+- **失败半径与 owner**：复用只发生在既有 QuickJS layer snapshot transaction 内，不保存第二份 Swift property state、provider、clock 或 renderer；每个 configured layer 仍必须显式 update/reuse，漏标记、非法输入、generation、catalog、abort/commit 门继续 fail closed。动态 text/video、SceneScript callback、下一帧 previous-current、Program/GraphExecutor、Metal encode、GPU completion/publication 与唯一 compositor/output owner 不变。
+- **自动门与边界**：QuickJS snapshot atomicity（含 reuse 后 commit/abort/incomplete）、frame VM routing、property vector SceneScript harness 共 25 tests / OK；code-health 为 902 Swift / 16 locked legacy / 184 warnings / PASS，`git diff --check` 通过，checkpoint Debug build `BUILD SUCCEEDED`。尚未用改后 signed sample 重跑 CPU/pre-encode、真实 provider completion fault、ROI、稳定性能或长稳；最高只支持 `S2` 共享 snapshot hot-path wiring，不外推为性能收益已量化、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

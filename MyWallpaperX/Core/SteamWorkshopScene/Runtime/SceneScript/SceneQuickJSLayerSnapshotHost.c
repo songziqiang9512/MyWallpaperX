@@ -60,14 +60,49 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     }
     for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
-        memcpy(
-            pending[index].current_origin,
-            domain->layers[index].authored_origin,
-            sizeof(pending[index].current_origin)
-        );
+        MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+        memcpy(pending[index].current_origin, record->authored_origin,
+               sizeof(pending[index].current_origin));
+        memcpy(pending[index].scale, record->scale,
+               sizeof(pending[index].scale));
+        memcpy(pending[index].angles, record->angles,
+               sizeof(pending[index].angles));
+        memcpy(pending[index].color, record->color,
+               sizeof(pending[index].color));
+        pending[index].visible = record->visible;
+        pending[index].alpha = record->alpha;
+        pending[index].point_size = record->point_size;
+        pending[index].video_available = record->video_available;
+        pending[index].video_duration = record->video_duration;
+        pending[index].video_rate = record->video_rate;
+        pending[index].video_loop = record->video_loop;
+        pending[index].video_current_time = record->video_current_time;
+        pending[index].video_is_playing = record->video_is_playing;
+        pending[index].video_ended_generation = record->video_ended_generation;
     }
     domain->pending_layer_snapshot = pending;
     domain->pending_layer_snapshot_generation = generation;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active ||
+        domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        !domain->layers[layer_index].configured) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid reused layer runtime fields"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    domain->pending_layer_snapshot[layer_index].runtime_fields_staged = true;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -251,12 +286,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         MWXSceneQuickJSStagedLayerSnapshot *staged =
             &domain->pending_layer_snapshot[index];
-        free(record->text);
-        free(record->font);
-        record->text = staged->text;
-        record->font = staged->font;
-        staged->text = NULL;
-        staged->font = NULL;
+        if (staged->text != NULL) {
+            free(record->text);
+            record->text = staged->text;
+            staged->text = NULL;
+        }
+        if (staged->font != NULL) {
+            free(record->font);
+            record->font = staged->font;
+            staged->font = NULL;
+        }
         memcpy(record->current_origin, staged->current_origin,
                sizeof(record->current_origin));
         memcpy(record->scale, staged->scale, sizeof(record->scale));

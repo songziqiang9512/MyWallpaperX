@@ -525,7 +525,8 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
-        catalogToken: String? = nil
+        catalogToken: String? = nil,
+        runtimeFieldLayerIDs: Set<Int>? = nil
     ) throws {
         if let catalogToken {
             guard let configured = layerCatalogSignature else {
@@ -564,7 +565,8 @@ nonisolated extension SceneScriptQuickJSDomain {
         try publishLayerRuntimeFields(
             snapshot,
             descriptor: descriptor,
-            videoSnapshots: videoSnapshots
+            videoSnapshots: videoSnapshots,
+            runtimeFieldLayerIDs: runtimeFieldLayerIDs
         )
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],

@@ -319,6 +319,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     size_t diagnostic_capacity
 );
 
+/// Marks one layer's previously committed runtime fields as unchanged for the
+/// current snapshot transaction.  The transaction still requires an explicit
+/// mark for every configured layer, but callers do not need to rebuild the
+/// typed Swift/C payload for layers with no dynamic owner.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
