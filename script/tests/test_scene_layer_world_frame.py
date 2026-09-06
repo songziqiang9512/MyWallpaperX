@@ -230,6 +230,13 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
         self.assertAlmostEqual(child[3], 2 + 4 * 0.9689124, places=5)
         self.assertAlmostEqual(child[4], 3, places=5)
 
+    def test_dynamic_world_frame_uses_snapshot_transform_index(self) -> None:
+        resolver = (
+            SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("snapshot.dynamicTransformLayerIDsForFrame", resolver)
+        self.assertIn("guard let layer = byID[layerID]", resolver)
+
 
 if __name__ == "__main__":
     unittest.main()

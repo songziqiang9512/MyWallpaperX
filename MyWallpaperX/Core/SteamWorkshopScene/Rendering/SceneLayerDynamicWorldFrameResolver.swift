@@ -11,7 +11,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
         dynamicLayerIDs: Set<Int> = []
     ) -> [Int: simd_float4x4] {
         var overrides: [Int: SceneLayerWorldFrameResolver.TransformOverride] = [:]
-        for layer in descriptor.layers {
+        for layerID in snapshot.dynamicTransformLayerIDsForFrame {
+            guard let layer = byID[layerID] else { continue }
             let origin = value(layerID: layer.id, field: .origin, snapshot: snapshot)
             let scale = value(layerID: layer.id, field: .scale, snapshot: snapshot)
             let angles = value(layerID: layer.id, field: .angles, snapshot: snapshot)

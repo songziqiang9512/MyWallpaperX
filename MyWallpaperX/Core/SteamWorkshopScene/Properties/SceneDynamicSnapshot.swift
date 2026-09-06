@@ -241,8 +241,13 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
     private let authoredValues: [SceneDynamicTarget: SceneDynamicValue]
     private let userPropertyNumericRanges:
         [SceneDynamicTarget: ClosedRange<Double>]
+    private let dynamicTransformLayerIDs: Set<Int>
 
     nonisolated var count: Int { values.count }
+
+    nonisolated var dynamicTransformLayerIDsForFrame: Set<Int> {
+        dynamicTransformLayerIDs
+    }
 
     nonisolated subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? {
         values[target]
@@ -352,6 +357,13 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         self.values = values
         self.authoredValues = authoredValues
         self.userPropertyNumericRanges = userPropertyNumericRanges
+        self.dynamicTransformLayerIDs = Set(values.compactMap { target, resolved in
+            guard resolved.source != .authored,
+                  case let .layer(layerID, field) = target,
+                  field == .origin || field == .scale || field == .angles,
+                  case .vector3 = resolved.value else { return nil }
+            return layerID
+        })
     }
 }
 

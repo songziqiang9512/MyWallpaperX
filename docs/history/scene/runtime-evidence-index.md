@@ -4787,6 +4787,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失效与失败半径**：dynamic layer 增删、顺序、asset/path 或 light-role 变化会推进 topology revision 并重建 projection；value-only transform/visibility/color 不改变 candidate index。缺失/未知 layer ID 仍按既有局部跳过，light color 的 finite/source fallback、world-frame parent semantics、source publication、Program/GraphExecutor、generation/completion 与唯一 output owner不变。
 - **自动门与边界**：`test_scene_realtime_path_policy`、`test_scene_script_dynamic_layer_runtime` 与 `test_scene_source_update_transaction` 共 33 tests / OK，`test_scene_static_model_pipeline`、`test_scene_static_model_rendering` 与 realtime policy light wiring 共 23 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 dynamic-layer CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 topology candidate wiring，不外推为视觉 parity、稳定帧性能或 V4 收口。
 
+<a id="e-v4-typed-world-frame-target-index"></a>
+### E-V4-TYPED-WORLD-FRAME-TARGET-INDEX: typed snapshot transform target index
+
+证据等级：`S2 shared typed world-frame hot-path wiring`。本批只收口 layer world-frame resolver 的全 descriptor transform probe，不宣称真实构图改善、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 `SceneDynamicSnapshot` 先承载 typed frame values，再由现有 world-frame consumer 读取动态 transform。此前 `SceneLayerDynamicWorldFrameResolver` 每帧遍历 descriptor 全部 layers，并对每个 layer 的 origin/scale/angles 做三次 snapshot lookup；当前 `SceneDynamicSnapshot` 构造时从 resolved values 记录 source 非 authored 且 field 为 origin/scale/angles 的 layer ID，resolver 只遍历该集合并从 prepared `byID` 获取 layer，再复用同一 `value` helper 与 canonical `SceneLayerWorldFrameResolver`。
+- **失败半径与生命周期**：target identity/index 是 snapshot 派生数据，不成为第二 property registry；`replacingIdentity`、empty snapshot 与 per-surface generation 仍通过同一 initializer 生成索引。未知 target、错误类型、非 finite 或 authored source 不进入集合；无动态 transform 时直接保留 static frames，已有 parent/attachment hierarchy、dynamic script root local-frame path、Program/GraphExecutor、publication/completion 与唯一 output owner 不变。
+- **自动门与边界**：`test_scene_layer_world_frame`、`test_scene_dynamic_snapshot` 与 `test_scene_dynamic_layer_values` 共 24 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed world-frame wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 
