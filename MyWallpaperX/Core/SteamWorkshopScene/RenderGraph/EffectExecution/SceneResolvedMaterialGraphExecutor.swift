@@ -624,6 +624,102 @@ final class SceneResolvedMaterialGraphExecutor {
         }
     }
 
+    /// Records the bounded evidence-window proof that a prepared Program's
+    /// reflected audio host array was encoded from this frame's shared
+    /// snapshot. Ordinary playback never enters this loop; the deduplication
+    /// key keeps a long evidence run to one silent and one non-silent
+    /// observation per reflected array.
+    func recordTypedAudioSpectrumUniformConsumptions(
+        program: SceneResolvedMaterialProgram,
+        effect: Graph.EffectKey,
+        nodeIndex: Int,
+        frameIndex: UInt64,
+        audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
+    ) {
+        guard capturesExecutionDiagnostics else { return }
+        for uniform in program.resolvedUniforms {
+            let side: String
+            let expected: [Float]
+            let count: Int
+            switch uniform.source {
+            case let .host(.audioSpectrumLeft(value)):
+                side = "left"
+                count = value
+                expected = switch count {
+                case 16: audioSpectrum.left16
+                case 32: audioSpectrum.left32
+                case 64: audioSpectrum.left64
+                default: []
+                }
+            case let .host(.audioSpectrumRight(value)):
+                side = "right"
+                count = value
+                expected = switch count {
+                case 16: audioSpectrum.right16
+                case 32: audioSpectrum.right32
+                case 64: audioSpectrum.right64
+                default: []
+                }
+            default:
+                continue
+            }
+            guard uniform.field.type == .float,
+                  uniform.field.arrayCount == count,
+                  expected.count == count,
+                  uniform.encodedValue.count
+                    == count * MemoryLayout<Float>.stride else {
+                continue
+            }
+            let encoded: [Float] = uniform.encodedValue.withUnsafeBytes { bytes in
+                (0 ..< count).map {
+                    bytes.loadUnaligned(
+                        fromByteOffset: $0 * MemoryLayout<Float>.stride,
+                        as: Float.self
+                    )
+                }
+            }
+            guard encoded.count == expected.count,
+                  zip(encoded, expected).allSatisfy({
+                      $0.bitPattern == $1.bitPattern
+                  }),
+                  encoded.allSatisfy(\.isFinite) else {
+                continue
+            }
+            let nonZeroCount = encoded.filter { $0 > 0 }.count
+            let state = nonZeroCount > 0 ? "nonzero" : "silent"
+            let identity = [
+                "audio-spectrum", String(effect.layerID),
+                String(effect.effectIndex), effect.descriptorID,
+                String(nodeIndex), uniform.field.name, side,
+                String(count), state,
+            ].joined(separator: "\u{1f}")
+            typedUniformPublicationLock.lock()
+            let inserted = typedUniformPublicationIdentities.insert(identity).inserted
+            typedUniformPublicationLock.unlock()
+            guard inserted else { continue }
+            NSLog(
+                "MWX typed input consumption: channel=audio-spectrum "
+                    + "consumer=material-uniform layer=%d effect=%d "
+                    + "descriptor=%@ node=%d uniform=%@ side=%@ count=%d "
+                    + "frame=%llu generation=%llu state=%@ nonZero=%d "
+                    + "first=%.9g peak=%.9g",
+                effect.layerID,
+                effect.effectIndex,
+                effect.descriptorID,
+                nodeIndex,
+                uniform.field.name,
+                side,
+                count,
+                frameIndex,
+                audioSpectrum.generation,
+                state,
+                nonZeroCount,
+                encoded.first ?? 0,
+                encoded.max() ?? 0
+            )
+        }
+    }
+
     func recordTypedUserPropertyBoolActivationPublication(
         activation: SceneResolvedMaterialStageActivationPolicy,
         decision: SceneResolvedMaterialStageActivationPolicy.Decision,

@@ -10,6 +10,10 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
 
     var frameIndex: UInt64 { frameInputs.frameIndex }
 
+    var audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs {
+        frameInputs.audioSpectrum
+    }
+
     var textureRegistrySnapshot: SceneFrameTextureRegistrySnapshot {
         textureSnapshot
     }

@@ -26,7 +26,8 @@ extension SceneAuthoredShaderFrameInputs {
             left32: spectrum.left32,
             right32: spectrum.right32,
             left64: spectrum.left64,
-            right64: spectrum.right64
+            right64: spectrum.right64,
+            generation: spectrum.generation
         )
     }
 }

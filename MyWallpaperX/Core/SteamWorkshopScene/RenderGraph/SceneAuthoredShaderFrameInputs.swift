@@ -9,6 +9,27 @@ nonisolated struct SceneAuthoredShaderAudioSpectrumInputs: Equatable, Sendable {
     let right32: [Float]
     let left64: [Float]
     let right64: [Float]
+    /// Producer generation carried through the authored frame snapshot so
+    /// evidence can join a consumed uniform to the exact published input.
+    let generation: UInt64
+
+    init(
+        left16: [Float],
+        right16: [Float],
+        left32: [Float],
+        right32: [Float],
+        left64: [Float],
+        right64: [Float],
+        generation: UInt64 = 0
+    ) {
+        self.left16 = left16
+        self.right16 = right16
+        self.left32 = left32
+        self.right32 = right32
+        self.left64 = left64
+        self.right64 = right64
+        self.generation = generation
+    }
 
     static let silent = Self(
         left16: Array(repeating: 0, count: 16),
@@ -16,7 +37,8 @@ nonisolated struct SceneAuthoredShaderAudioSpectrumInputs: Equatable, Sendable {
         left32: Array(repeating: 0, count: 32),
         right32: Array(repeating: 0, count: 32),
         left64: Array(repeating: 0, count: 64),
-        right64: Array(repeating: 0, count: 64)
+        right64: Array(repeating: 0, count: 64),
+        generation: 0
     )
 }
 

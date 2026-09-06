@@ -29,6 +29,14 @@ ENGINE_SPECTRUM_SOURCE = (
 DEBUG_FIXTURE_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/App/DebugScenePlaybackRunner+AudioSpectrum.swift"
 )
+GRAPH_EXECUTOR_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor.swift"
+)
+GRAPH_PREPARATION_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/SceneResolvedMaterialGraphExecutor+Preparation.swift"
+)
 
 HARNESS = r'''
 import Foundation
@@ -792,6 +800,33 @@ class SceneAudioSpectrumWiringTests(unittest.TestCase):
             r"if self\.sceneEnabled != sceneEnabled \{\s*"
             r"self\.clearSceneLevels\(\)",
             "锁屏/休眠/暂停撤销 Scene consumer 时必须由唯一 service 归零",
+        )
+
+    def test_debug_audio_consumption_proof_joins_encoded_uniform_to_snapshot(self) -> None:
+        source = GRAPH_EXECUTOR_SOURCE.read_text(encoding="utf-8")
+        preparation = GRAPH_PREPARATION_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "func recordTypedAudioSpectrumUniformConsumptions(",
+            source,
+        )
+        self.assertIn(
+            "audioSpectrum.generation",
+            source,
+            "consumer evidence must retain the producer generation",
+        )
+        self.assertIn(
+            "zip(encoded, expected).allSatisfy",
+            source,
+            "evidence must prove the bytes sent to the uniform match the shared snapshot",
+        )
+        self.assertIn(
+            "MWX typed input consumption: channel=audio-spectrum",
+            source,
+        )
+        self.assertIn(
+            "recordTypedAudioSpectrumUniformConsumptions(",
+            preparation,
+            "the proof must run at the existing prepared Program consumer boundary",
         )
 
 

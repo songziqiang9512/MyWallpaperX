@@ -341,6 +341,13 @@ extension SceneResolvedMaterialGraphExecutor {
                     nodeIndex: nodeIndex,
                     frameInputs: frameInputs
                 )
+                recordTypedAudioSpectrumUniformConsumptions(
+                    program: program,
+                    effect: node.effect,
+                    nodeIndex: nodeIndex,
+                    frameIndex: frame.frameIndex,
+                    audioSpectrum: frame.audioSpectrum
+                )
                 if capturesExecutionDiagnostics {
                     SceneResolvedMaterialGenericShaderArtifactCache.recordExecution(
                         routeDecision: program.routeDecision,
