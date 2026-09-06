@@ -577,6 +577,14 @@ class SceneMetalView: NSView {
         renderer.discardFrameTexturePublication()
     }
 
+    func commitPreparedMaterialAssetFrame() {
+        renderer.commitResolvedMaterialAssetFrame()
+    }
+
+    func discardPreparedMaterialAssetFrame() {
+        renderer.discardResolvedMaterialAssetFrame()
+    }
+
     func commitPreparedDynamicTextUpdate() {
         guard let pendingDynamicTextUpdate else { return }
         self.pendingDynamicTextUpdate = nil

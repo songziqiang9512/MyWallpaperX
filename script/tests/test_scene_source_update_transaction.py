@@ -25,6 +25,11 @@ SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
 TEXTURE_REGISTRY = SCENE / "Resources/SceneFrameTextureRegistry.swift"
 TEXTURE_FRAME = SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
+ASSET_CATALOG = SCENE / "Resources/SceneMaterialAssetTextureCatalog.swift"
+RUNTIME_BRIDGE = SCENE / (
+    "Runtime/ResolvedMaterialExecution/SceneResolvedMaterialRuntimeBridge.swift"
+)
+GRAPH_COMPOSITION = SCENE / "Rendering/SceneResolvedMaterialGraphComposition.swift"
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
@@ -549,7 +554,7 @@ enum Harness {
         self.assertIn("textureRegistry.discardFramePublication()", texture_frame)
         source_transaction = renderer.index("let sourceUpdateTransaction =")
         renderer_defer = renderer.index("Unsubmitted source and registry state", source_transaction)
-        self.assertIn("textureRegistry.discardFramePublication()", renderer[renderer_defer:])
+        self.assertIn("discardUnsubmittedFrameResources()", renderer[renderer_defer:])
         self.assertLess(renderer.index("commandBuffer.commit()"), renderer.index("didCommitParticleSubmission = true"))
 
         view_commit = view.index("func commitPreparedFrameTexturePublication()")
@@ -557,12 +562,59 @@ enum Harness {
         self.assertIn("renderer.commitFrameTexturePublication()", view[view_commit:])
         self.assertIn("renderer.discardFrameTexturePublication()", view[view_discard:])
         barrier = frame_driver.index("let allSurfacesSubmitted =")
+        barrier_discard_asset = frame_driver.index(
+            "discardPreparedMaterialAssetFrame()", barrier
+        )
         barrier_discard = frame_driver.index("discardPreparedFrameTexturePublication()", barrier)
+        barrier_commit_asset = frame_driver.index(
+            "commitPreparedMaterialAssetFrame()", barrier
+        )
         barrier_commit = frame_driver.index("commitPreparedFrameTexturePublication()", barrier)
         frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(barrier_discard_asset, barrier_discard)
+        self.assertLess(barrier_commit_asset, barrier_commit)
         self.assertLess(barrier, barrier_discard)
         self.assertLess(barrier, barrier_commit)
         self.assertLess(barrier_commit, frame_commit)
+
+    def test_animated_asset_cursor_waits_for_host_submission_barrier(self) -> None:
+        catalog = ASSET_CATALOG.read_text(encoding="utf-8")
+        bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
+        composition = GRAPH_COMPOSITION.read_text(encoding="utf-8")
+        texture_frame = TEXTURE_FRAME.read_text(encoding="utf-8")
+        view = VIEW.read_text(encoding="utf-8")
+        renderer = RENDERER.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
+
+        states = catalog.index("func states(sceneTime:")
+        self.assertIn("if frameCursorBaseline != nil { commitFrame() }", catalog[states:])
+        self.assertIn("frameCursorBaseline = cursors", catalog[states:])
+        self.assertIn("func commitFrame()", catalog)
+        discard = catalog.index("func discardFrame()")
+        self.assertIn("cursors = frameCursorBaseline", catalog[discard:])
+        self.assertIn("assetProvider.commitFrame()", bridge)
+        self.assertIn("assetProvider.discardFrame()", bridge)
+        self.assertIn("resolvedMaterialRuntime?.commitResolvedAssetFrame()", composition)
+        self.assertIn("resolvedMaterialRuntime?.discardResolvedAssetFrame()", composition)
+
+        self.assertIn("imageCompositor.commitResolvedMaterialAssetFrame()", texture_frame)
+        self.assertIn("imageCompositor.discardResolvedMaterialAssetFrame()", texture_frame)
+        helper = texture_frame.index("func discardUnsubmittedFrameResources()")
+        self.assertLess(
+            texture_frame.index("discardResolvedMaterialAssetFrame()", helper),
+            texture_frame.index("discardFrameTexturePublication()", helper),
+        )
+        self.assertIn("renderer.commitResolvedMaterialAssetFrame()", view)
+        self.assertIn("renderer.discardResolvedMaterialAssetFrame()", view)
+        self.assertIn("discardUnsubmittedFrameResources()", renderer)
+
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        discard_asset = frame_driver.index("discardPreparedMaterialAssetFrame()", barrier)
+        discard_registry = frame_driver.index("discardPreparedFrameTexturePublication()", barrier)
+        commit_asset = frame_driver.index("commitPreparedMaterialAssetFrame()", barrier)
+        commit_registry = frame_driver.index("commitPreparedFrameTexturePublication()", barrier)
+        self.assertLess(discard_asset, discard_registry)
+        self.assertLess(commit_asset, commit_registry)
 
 if __name__ == "__main__":
     unittest.main()

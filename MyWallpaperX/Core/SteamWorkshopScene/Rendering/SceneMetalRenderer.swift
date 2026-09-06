@@ -82,7 +82,7 @@ struct SceneMetalRenderer {
         // Unsubmitted source and registry state roll back together.
         defer {
             sourceUpdateTransaction.cancel()
-            if !didCommitParticleSubmission { textureRegistry.discardFramePublication() }
+            if !didCommitParticleSubmission { discardUnsubmittedFrameResources() }
         }
         // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []

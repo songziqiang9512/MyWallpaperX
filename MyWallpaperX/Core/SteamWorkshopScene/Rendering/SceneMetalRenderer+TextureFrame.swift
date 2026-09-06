@@ -1,12 +1,25 @@
 import Metal
 
 extension SceneMetalRenderer {
+    func commitResolvedMaterialAssetFrame() {
+        imageCompositor.commitResolvedMaterialAssetFrame()
+    }
+
+    func discardResolvedMaterialAssetFrame() {
+        imageCompositor.discardResolvedMaterialAssetFrame()
+    }
+
     func commitFrameTexturePublication() {
         textureRegistry.commitFramePublication()
     }
 
     func discardFrameTexturePublication() {
         textureRegistry.discardFramePublication()
+    }
+
+    func discardUnsubmittedFrameResources() {
+        discardResolvedMaterialAssetFrame()
+        discardFrameTexturePublication()
     }
 
     func beginTextureFrame(

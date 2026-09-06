@@ -554,6 +554,14 @@ extension SceneImageLayerCompositor {
         resolvedMaterialRuntime?.resolvedAssetStates(sceneTime: sceneTime) ?? [:]
     }
 
+    func commitResolvedMaterialAssetFrame() {
+        resolvedMaterialRuntime?.commitResolvedAssetFrame()
+    }
+
+    func discardResolvedMaterialAssetFrame() {
+        resolvedMaterialRuntime?.discardResolvedAssetFrame()
+    }
+
     func resolvedMaterialSystemProviderBlocks(
         _ snapshot: SceneMediaThumbnailTextureStore.Snapshot
     ) -> [

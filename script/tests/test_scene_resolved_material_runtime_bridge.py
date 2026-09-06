@@ -1003,6 +1003,9 @@ struct SceneMaterialAssetTextureCatalog {
         ) -> [SceneAssetTextureIdentity: SceneTextureProviderState] {
             catalog.states
         }
+
+        func commitFrame() {}
+        func discardFrame() {}
     }
 
     let states: [SceneAssetTextureIdentity: SceneTextureProviderState]

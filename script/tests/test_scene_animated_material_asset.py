@@ -106,6 +106,30 @@ private enum Main {
         let laterStates = provider.states(sceneTime: 0.02)
         let wrapStates = provider.states(sceneTime: 1.001)
         let independentStates = catalog.makeFrameProvider().states(sceneTime: 0.02)
+        let transactionalProvider = catalog.makeFrameProvider()
+        guard let transactionalAccepted = publication(
+                  transactionalProvider.states(sceneTime: 0), first
+              ) else {
+            throw NSError(domain: "animated-provider", code: 3)
+        }
+        transactionalProvider.commitFrame()
+        guard let transactionalDiscarded = publication(
+                  transactionalProvider.states(sceneTime: 0.02), first
+              ) else {
+            throw NSError(domain: "animated-provider", code: 4)
+        }
+        transactionalProvider.discardFrame()
+        guard let transactionalRetry = publication(
+                  transactionalProvider.states(sceneTime: 0.02), first
+              ) else {
+            throw NSError(domain: "animated-provider", code: 5)
+        }
+        transactionalProvider.commitFrame()
+        guard let transactionalAfterCommit = publication(
+                  transactionalProvider.states(sceneTime: 1.001), first
+              ) else {
+            throw NSError(domain: "animated-provider", code: 6)
+        }
         guard let frame0 = publication(frame0States, first),
               let stable = publication(stableStates, first),
               let later = publication(laterStates, first),
@@ -262,6 +286,14 @@ private enum Main {
             "perSurfaceIndependent": independent.contentGeneration == 1
                 && independent.candidate.uvTransform
                     == later.candidate.uvTransform,
+            "discardRestoresAnimatedCursor": transactionalRetry
+                    .isSameAtom(as: transactionalDiscarded)
+                && transactionalRetry.contentGeneration
+                    == transactionalDiscarded.contentGeneration,
+            "commitPersistsAnimatedCursor": transactionalAccepted
+                    .contentGeneration < transactionalRetry.contentGeneration
+                && transactionalAfterCommit.contentGeneration
+                    > transactionalRetry.contentGeneration,
             "zeroDurationEffectiveFrame": zeroStable.isSameAtom(as: zeroFrame0)
                 && zeroBeforeBoundary.isSameAtom(as: zeroFrame0)
                 && zeroAfterBoundary.contentGeneration

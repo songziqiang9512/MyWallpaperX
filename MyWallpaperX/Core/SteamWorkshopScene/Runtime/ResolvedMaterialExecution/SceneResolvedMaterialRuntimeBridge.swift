@@ -205,6 +205,14 @@ final class SceneResolvedMaterialRuntimeBridge {
         assetProvider.states(sceneTime: sceneTime)
     }
 
+    func commitResolvedAssetFrame() {
+        assetProvider.commitFrame()
+    }
+
+    func discardResolvedAssetFrame() {
+        assetProvider.discardFrame()
+    }
+
     var userPropertyDemands: Set<SceneUserPropertyTextureIdentity> {
         catalog.userPropertyDemands
     }

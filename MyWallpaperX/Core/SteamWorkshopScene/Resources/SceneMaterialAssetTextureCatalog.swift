@@ -35,6 +35,7 @@ final class SceneMaterialAssetTextureCatalog {
         ]
         private let definitions: [SceneAssetTextureIdentity: AnimatedDefinition]
         private var cursors: [SceneAssetTextureIdentity: Cursor] = [:]
+        private var frameCursorBaseline: [SceneAssetTextureIdentity: Cursor]?
 
         fileprivate init(
             staticStates: [SceneAssetTextureIdentity: SceneTextureProviderState],
@@ -47,12 +48,28 @@ final class SceneMaterialAssetTextureCatalog {
         func states(sceneTime: TimeInterval) -> [
             SceneAssetTextureIdentity: SceneTextureProviderState
         ] {
+            // Direct provider callers historically advance one observation at a
+            // time. Product callers explicitly resolve this frame at the host
+            // submission barrier; preserve the former behavior for the latter
+            // only when an earlier frame was not resolved.
+            if frameCursorBaseline != nil { commitFrame() }
+            frameCursorBaseline = cursors
             var result = staticStates
             for identity in definitions.keys.sorted(by: SceneMaterialAssetTextureCatalog.less) {
                 guard let definition = definitions[identity] else { continue }
                 result[identity] = state(definition, sceneTime: sceneTime)
             }
             return result
+        }
+
+        func commitFrame() {
+            frameCursorBaseline = nil
+        }
+
+        func discardFrame() {
+            guard let frameCursorBaseline else { return }
+            cursors = frameCursorBaseline
+            self.frameCursorBaseline = nil
         }
 
         private func state(

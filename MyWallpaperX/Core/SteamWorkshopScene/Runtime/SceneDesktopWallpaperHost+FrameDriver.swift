@@ -719,7 +719,6 @@ extension SceneDesktopWallpaperHost {
             for (displayID, previous) in pointerPreviousStates {
                 surfaces[displayID]?.metalView.restorePointerPrevious(previous)
             }
-            // Restore the cursor pre-dispatch snapshot and preserve edge events.
             for (displayID, batch) in cursorPreparation.drainedPointerBatches {
                 surfaces[displayID]?.metalView
                     .restoreSceneScriptPointerEvents(batch)
@@ -729,6 +728,7 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
             surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }
             surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
@@ -737,6 +737,7 @@ extension SceneDesktopWallpaperHost {
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedMaterialAssetFrame() }
         surfaces.values.forEach { $0.metalView.commitPreparedFrameTexturePublication() }
         surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }
         surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
