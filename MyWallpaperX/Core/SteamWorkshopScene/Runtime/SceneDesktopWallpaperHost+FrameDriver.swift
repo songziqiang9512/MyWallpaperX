@@ -228,7 +228,8 @@ extension SceneDesktopWallpaperHost {
         }
 #endif
         let definitionIndex = launchContext.dynamicDefinitionIndex
-        let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
+        let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()
+        let audioSpectrum = audioSpectrumFrame.snapshot
         let timelineObservationState = launchContext.timelinePlaybackRuntime
             .observationSnapshot()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
@@ -751,6 +752,7 @@ extension SceneDesktopWallpaperHost {
             layerPlan: admission.layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)
         discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
         return .rendered
     }

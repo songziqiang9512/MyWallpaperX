@@ -2357,6 +2357,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：all-surface failure 恢复 timer slots 与 runtime anchor，并先释放当前 owner 的 provisional callback references，再 duplicate snapshot references；slot 创建、取消、one-shot consume 与 interval reschedule 因而不会穿过 submission barrier。OOM/无效 owner 导致 snapshot 缺失时现有 owner callback 仍按原 fail-closed/disabled contract 处理；任意 JS heap/global callback state、Promise/job queue、异步 writer 与 GPU completion 不伪造回滚，普通 timer/provider 失败仍限于 owner。
 - **自动门与边界**：`test_scene_script_quickjs` C harness 新增 one-shot timer consume→restore、active slot count 与 snapshot lifetime 正反门；`test_scene_source_update_transaction`/SceneScript lifecycle focused gates、code-health、`git diff --check` 与 checkpoint Debug build需以最终源码复核。未注入真实 multi-surface timer drop，未证明 callback heap rollback、Promise/job queue rollback、视觉 ROI、完整 sample、稳定性能或 official parity；最高支持 `S2` shared lifecycle wiring。
 
+<a id="e-v4-audio-spectrum-submission-barrier"></a>
+### E-V4-AUDIO-SPECTRUM-SUBMISSION-BARRIER: stale audio silence follows the host submission barrier
+
+证据等级：`S2 shared provider-publication wiring`。本批只收口音频 inbox 在 stale-to-silent 读取时提前推进 shared generation 的共享断点；不宣称真实多屏 fault、GPU completion rollback、音频视觉 ROI、稳定性能或官方 FFT parity。
+
+- **目标合同、首断点与共享实现**：目标链要求 audio producer 的 generation/publication 与 typed frame outcome 对齐。此前 `SceneAudioSpectrumInbox.latest()` 在读取过期快照时直接写入 silent snapshot、清空 publication timestamp 并推进 `nextGeneration`，host 后续才知道 surface 是否全部 submitted。当前 inbox 提供 `prepareFrame()`，stale publication 只形成 frame-local silent candidate；host 成功越过现有 all-surface barrier 后调用 `commitFrame`，共享音频 snapshot、consumer demand、Program/GraphExecutor、GPU publication/compositor 与唯一输出 owner不变。
+- **失败半径与并发恢复**：deferred/dropped frame 不推进 stale silent generation，下一次 retry 仍看到同一 source generation；commit 同时校验 source generation 与 publication timestamp，producer 在 prepare 与 commit 之间发布新快照时，晚到的 silent candidate 被拒绝，不覆盖新 publication。普通非法/无权限/停采集仍由既有 inbox 稳定零输入与 demand lifecycle处理。
+- **自动门与边界**：`test_scene_audio_spectrum_input` 新增 stale candidate→same-source retry→commit harness；`test_scene_audio_demand` 与 `test_scene_source_update_transaction` 锁定 host 单次采样、prepare/commit barrier 顺序和 source identity guard。focused audio/source tests 通过；本批尚未跑真实 multi-surface stale fault、GPU completion fault、音频 ROI、完整样本、稳定帧时间或 official parity，最高支持 `S2` shared provider-publication wiring。
+
 <a id="e-audio-input"></a>
 ### E-AUDIO-INPUT: Scene 16/32/64 频段音频频谱输入管线
 

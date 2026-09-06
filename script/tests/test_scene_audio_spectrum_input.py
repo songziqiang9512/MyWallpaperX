@@ -198,6 +198,9 @@ enum Harness {
         staleClock.now += 0.25
         let beforeDeadline = staleInbox.latest()
         staleClock.now += 0.02
+        let staleCandidate = staleInbox.prepareFrame()
+        let retryBeforeCommit = staleInbox.prepareFrame()
+        staleInbox.commitFrame(staleCandidate)
         let afterDeadline = staleInbox.latest()
 
         return [
@@ -228,6 +231,10 @@ enum Harness {
             "afterResetIsSilent": afterReset.isSilent,
             "afterResetDemandIsNone": !inbox.captureDemand.requiresSpectrum && !inbox.captureDemand.includesCurrentProcessOutput,
             "beforeStaleDeadlineIsSilent": beforeDeadline.isSilent,
+            "staleCandidateIsSilent": staleCandidate.snapshot.isSilent,
+            "staleCandidateSourceGeneration": staleCandidate.sourceGeneration,
+            "staleRetrySourceGeneration": retryBeforeCommit.sourceGeneration,
+            "staleRetryRemainsPending": retryBeforeCommit.expiresStalePublication,
             "afterStaleDeadlineIsSilent": afterDeadline.isSilent,
             "staleRevocationGeneration": afterDeadline.generation,
         ]
@@ -562,6 +569,13 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             inbox["afterStaleDeadlineIsSilent"],
             "producer 停止发布后必须归零，不能留下被 Scroll 平移的静态波形",
         )
+        self.assertTrue(inbox["staleCandidateIsSilent"])
+        self.assertEqual(
+            inbox["staleCandidateSourceGeneration"],
+            inbox["staleRetrySourceGeneration"],
+            "dropped stale candidate 不得提前改写 shared generation",
+        )
+        self.assertTrue(inbox["staleRetryRemainsPending"])
         self.assertGreater(
             inbox["staleRevocationGeneration"],
             1,

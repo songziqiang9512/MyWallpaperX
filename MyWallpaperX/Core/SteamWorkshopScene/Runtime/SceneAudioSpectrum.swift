@@ -139,6 +139,17 @@ nonisolated struct SceneAudioSpectrumCaptureToken: Equatable, Sendable {
 final class SceneAudioSpectrumInbox: @unchecked Sendable {
     static let shared = SceneAudioSpectrumInbox()
 
+    /// A frame-local read of the shared inbox.  When a producer has stopped
+    /// publishing, the consumer may need a silent candidate, but the
+    /// generation/last-publication transition must not become visible until
+    /// the host submission barrier succeeds.
+    nonisolated struct FrameSnapshot: Sendable {
+        let snapshot: SceneAudioSpectrumSnapshot
+        let sourceGeneration: UInt64
+        fileprivate let sourcePublishedAtUptime: TimeInterval?
+        let expiresStalePublication: Bool
+    }
+
     /// At the expected 30 Hz producer cadence this permits eight missed
     /// publications. A stopped tap therefore becomes silence before a frozen
     /// spectrum can read as an authored static wave, without inventing motion.
@@ -187,27 +198,70 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
 
     /// 当前最近一帧快照。无数据时返回稳定零输入。
     func latest() -> SceneAudioSpectrumSnapshot {
+        let frame = prepareFrame()
+        commitFrame(frame)
+        return frame.snapshot
+    }
+
+    /// Reads the current snapshot and, when it is stale, returns a silent
+    /// candidate without mutating the shared publication.  The caller must
+    /// commit the candidate only after its frame crosses the host barrier.
+    func prepareFrame() -> FrameSnapshot {
         let now = uptime()
         os_unfair_lock_lock(&lock)
         defer { os_unfair_lock_unlock(&lock) }
+        let expiresStalePublication: Bool
         if let publishedAtUptime,
            now >= publishedAtUptime,
            now - publishedAtUptime >= Self.maximumSnapshotAge {
-            if !snapshot.isSilent {
-                snapshot = SceneAudioSpectrumSnapshot(
-                    left: SceneAudioSpectrumSnapshot.silent.left,
-                    right: SceneAudioSpectrumSnapshot.silent.right,
-                    left32: SceneAudioSpectrumSnapshot.silent.left32,
-                    right32: SceneAudioSpectrumSnapshot.silent.right32,
-                    left64: SceneAudioSpectrumSnapshot.silent.left64,
-                    right64: SceneAudioSpectrumSnapshot.silent.right64,
-                    generation: nextGeneration
-                )
-                nextGeneration &+= 1
-            }
-            self.publishedAtUptime = nil
+            expiresStalePublication = !snapshot.isSilent
+        } else {
+            expiresStalePublication = false
         }
-        return snapshot
+        let candidate = expiresStalePublication
+            ? SceneAudioSpectrumSnapshot(
+                left: SceneAudioSpectrumSnapshot.silent.left,
+                right: SceneAudioSpectrumSnapshot.silent.right,
+                left32: SceneAudioSpectrumSnapshot.silent.left32,
+                right32: SceneAudioSpectrumSnapshot.silent.right32,
+                left64: SceneAudioSpectrumSnapshot.silent.left64,
+                right64: SceneAudioSpectrumSnapshot.silent.right64,
+                generation: nextGeneration
+            )
+            : snapshot
+        return FrameSnapshot(
+            snapshot: candidate,
+            sourceGeneration: snapshot.generation,
+            sourcePublishedAtUptime: publishedAtUptime,
+            expiresStalePublication: expiresStalePublication
+        )
+    }
+
+    /// Publishes a prepared stale-to-silent transition only when the source
+    /// observed by `prepareFrame` is still current.  A concurrent producer
+    /// publication therefore wins and is never overwritten by a late frame
+    /// commit.
+    func commitFrame(_ frame: FrameSnapshot) {
+        guard frame.expiresStalePublication else { return }
+        os_unfair_lock_lock(&lock)
+        guard snapshot.generation == frame.sourceGeneration,
+              publishedAtUptime == frame.sourcePublishedAtUptime,
+              !snapshot.isSilent else {
+            os_unfair_lock_unlock(&lock)
+            return
+        }
+        snapshot = SceneAudioSpectrumSnapshot(
+            left: SceneAudioSpectrumSnapshot.silent.left,
+            right: SceneAudioSpectrumSnapshot.silent.right,
+            left32: SceneAudioSpectrumSnapshot.silent.left32,
+            right32: SceneAudioSpectrumSnapshot.silent.right32,
+            left64: SceneAudioSpectrumSnapshot.silent.left64,
+            right64: SceneAudioSpectrumSnapshot.silent.right64,
+            generation: nextGeneration
+        )
+        nextGeneration &+= 1
+        publishedAtUptime = nil
+        os_unfair_lock_unlock(&lock)
     }
 
     /// 由采集侧发布一帧。长度或数值非法时 `SceneAudioSpectrumSnapshot` 会归零。

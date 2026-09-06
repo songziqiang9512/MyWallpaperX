@@ -234,10 +234,16 @@ enum AudioCaptureDemandHarness {
             HOST_SOURCE.read_text(encoding="utf-8")
             + FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         )
-        self.assertIn("let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()", source)
+        self.assertIn(
+            "let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()",
+            source,
+        )
+        self.assertIn("let audioSpectrum = audioSpectrumFrame.snapshot", source)
         # 采样必须在 surface 循环之外：频谱是 host-shared 输入，
         # 同一帧内所有屏幕必须看到同一份数据。
-        sample_index = source.index("let audioSpectrum = SceneAudioSpectrumInbox")
+        sample_index = source.index(
+            "let audioSpectrumFrame = SceneAudioSpectrumInbox"
+        )
         loop_index = source.index("for (displayID, surface) in surfaces", sample_index)
         self.assertLess(
             sample_index,

@@ -30,6 +30,7 @@ MEDIA_EVENT_BRIDGE = SCENE / (
     "Runtime/SceneScript/SceneScriptMediaEventBridge.swift"
 )
 TIMER_HOST = SCENE / "Runtime/SceneScript/SceneQuickJSTimerHost.c"
+AUDIO_SPECTRUM = SCENE / "Runtime/SceneAudioSpectrum.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
@@ -53,6 +54,7 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         vector = VECTOR_PROGRAM.read_text(encoding="utf-8")
         events = MEDIA_EVENT_BRIDGE.read_text(encoding="utf-8")
         timer_host = TIMER_HOST.read_text(encoding="utf-8")
+        audio_spectrum = AUDIO_SPECTRUM.read_text(encoding="utf-8")
 
         timer_snapshot = driver.index("let sceneScriptProgramTimerFrameState")
         snapshot = driver.index(
@@ -82,6 +84,13 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         timer_discard = driver.index(
             "discardSceneScriptProgramTimerFrameState(", commit
         )
+        audio_prepare = driver.index(
+            "let audioSpectrumFrame = SceneAudioSpectrumInbox.shared.prepareFrame()"
+        )
+        audio_commit = driver.index(
+            "SceneAudioSpectrumInbox.shared.commitFrame(audioSpectrumFrame)",
+            commit,
+        )
         self.assertLess(snapshot, cursor_dispatch)
         self.assertLess(timer_snapshot, snapshot)
         self.assertLess(timer_guard, cursor_dispatch)
@@ -93,6 +102,13 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertLess(timer_restore, storage_discard)
         self.assertGreater(commit, host_barrier)
         self.assertGreater(timer_discard, commit)
+        self.assertLess(audio_prepare, cursor_dispatch)
+        self.assertLess(host_barrier, audio_commit)
+        self.assertLess(commit, audio_commit)
+        self.assertIn("struct FrameSnapshot", audio_spectrum)
+        self.assertIn("func prepareFrame()", audio_spectrum)
+        self.assertIn("func commitFrame(_ frame: FrameSnapshot)", audio_spectrum)
+        self.assertIn("sourceGeneration", audio_spectrum)
 
         self.assertIn("frameStateSnapshot()", lifecycle)
         self.assertIn("func restoreSceneScriptProgramFrameState(", lifecycle)
