@@ -1064,6 +1064,45 @@ enum Harness {
             && oldLifecycleVideo.resourceGeneration == rebuiltVideo.resourceGeneration
             && oldLifecycleVideo.publication.texture === replacementDynamicTexture
 
+        let rollbackRegistry = SceneFrameTextureRegistry()
+        let rollbackRequest = SceneFrameTextureIdentity.layerSource(21)
+        let rollbackInitial = publication(
+            dynamicTexture,
+            generation: 50,
+            requestIdentity: rollbackRequest
+        )
+        rollbackRegistry.beginFrame(
+            layerSources: [21: dynamicTexture],
+            explicitLayerSources: [21: rollbackInitial]
+        )
+        let rollbackInitialResource = rollbackRegistry.resource(
+            for: rollbackRequest
+        )!
+        rollbackRegistry.commitFramePublication()
+        rollbackRegistry.beginFrame(
+            layerSources: [21: replacementDynamicTexture],
+            explicitLayerSources: [
+                21: publication(
+                    replacementDynamicTexture,
+                    generation: 51,
+                    requestIdentity: rollbackRequest
+                )
+            ]
+        )
+        rollbackRegistry.discardFramePublication()
+        rollbackRegistry.beginFrame(
+            layerSources: [21: dynamicTexture],
+            explicitLayerSources: [21: rollbackInitial]
+        )
+        let rollbackRestoredResource = rollbackRegistry.resource(
+            for: rollbackRequest
+        )!
+        let framePublicationDiscardRestoresPrevious =
+            rollbackRestoredResource.publication.texture === dynamicTexture
+            && rollbackRestoredResource.publication.contentGeneration == 50
+            && rollbackRestoredResource.resourceGeneration
+                == rollbackInitialResource.resourceGeneration
+
         let directSampling = SceneTextureSampling.linearClamp
         let programSamplerAdmissionIsBounded =
             directSampling.rawFlags == nil
@@ -1155,6 +1194,8 @@ enum Harness {
             "assetAbsentIsExplicit": assetAbsentIsExplicit,
             "exactRequestMismatchRejected": exactRequestMismatchRejected,
             "videoLifecycleGenerationIsAtomic": videoLifecycleGenerationIsAtomic,
+            "framePublicationDiscardRestoresPrevious":
+                framePublicationDiscardRestoresPrevious,
             "programSamplerAdmissionIsBounded": programSamplerAdmissionIsBounded,
             "explicitContentGenerationAdvanced":
                 secondDynamic.generation > firstDynamic.generation,
@@ -1291,6 +1332,9 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "videoLifecycleGenerationIsAtomic",
         ):
             self.assertTrue(self.result[key], key)
+
+    def test_frame_publication_discard_restores_previous_generation(self) -> None:
+        self.assertTrue(self.result["framePublicationDiscardRestoresPrevious"])
 
     def test_system_provider_lookup_is_purpose_qualified(self) -> None:
         self.assertTrue(self.result["systemPurposesDoNotAlias"])

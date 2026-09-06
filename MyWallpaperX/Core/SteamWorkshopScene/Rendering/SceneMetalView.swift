@@ -569,6 +569,14 @@ class SceneMetalView: NSView {
         pendingMediaThumbnailInput = nil
     }
 
+    func commitPreparedFrameTexturePublication() {
+        renderer.commitFrameTexturePublication()
+    }
+
+    func discardPreparedFrameTexturePublication() {
+        renderer.discardFrameTexturePublication()
+    }
+
     func commitPreparedDynamicTextUpdate() {
         guard let pendingDynamicTextUpdate else { return }
         self.pendingDynamicTextUpdate = nil

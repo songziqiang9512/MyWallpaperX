@@ -112,6 +112,13 @@ final class SceneFrameTextureRegistry {
         SceneFrameTextureIdentity: PersistentEntry
     ] = [:]
     private var resourceGeneration: UInt64 = 0
+    private struct FramePublicationBaseline {
+        let persistentEntries: [SceneFrameTextureIdentity: PersistentEntry]
+        let priorFrameEntries: [SceneFrameTextureIdentity: PersistentEntry]
+        let committedPublications: [SceneFrameTextureIdentity: PersistentEntry]
+        let resourceGeneration: UInt64
+    }
+    private var framePublicationBaseline: FramePublicationBaseline?
     private(set) var frameEpoch: UInt64 = 0
     private(set) var frameIndex: UInt64 = 0
 
@@ -133,6 +140,15 @@ final class SceneFrameTextureRegistry {
             SceneSystemProviderTextureIdentity: SceneTextureProviderState
         ] = [:]
     ) -> UInt64 {
+        if framePublicationBaseline != nil {
+            commitFramePublication()
+        }
+        framePublicationBaseline = FramePublicationBaseline(
+            persistentEntries: persistentEntries,
+            priorFrameEntries: priorFrameEntries,
+            committedPublications: committedPublications,
+            resourceGeneration: resourceGeneration
+        )
         frameEpoch &+= 1
         self.frameIndex = frameIndex
         entries.removeAll(keepingCapacity: true)
@@ -197,6 +213,25 @@ final class SceneFrameTextureRegistry {
             publish(state, for: .system(systemIdentity))
         }
         return frameEpoch
+    }
+
+    /// Keeps the current frame's provider publications visible to the next
+    /// frame only after the host accepts every surface submission.
+    func commitFramePublication() {
+        framePublicationBaseline = nil
+    }
+
+    /// Restores the last accepted publication set after a local or host-level
+    /// frame failure. The frame epoch remains monotonic, so stale candidates
+    /// cannot cross the next frame's identity boundary.
+    func discardFramePublication() {
+        guard let baseline = framePublicationBaseline else { return }
+        persistentEntries = baseline.persistentEntries
+        priorFrameEntries = baseline.priorFrameEntries
+        committedPublications = baseline.committedPublications
+        resourceGeneration = baseline.resourceGeneration
+        entries.removeAll(keepingCapacity: true)
+        framePublicationBaseline = nil
     }
 
     func set(

@@ -1,6 +1,14 @@
 import Metal
 
 extension SceneMetalRenderer {
+    func commitFrameTexturePublication() {
+        textureRegistry.commitFramePublication()
+    }
+
+    func discardFrameTexturePublication() {
+        textureRegistry.discardFramePublication()
+    }
+
     func beginTextureFrame(
         _ imageTextures: SceneBaseImageTextureSnapshot,
         _ userPropertyTextures: [String: MTLTexture],

@@ -79,9 +79,12 @@ struct SceneMetalRenderer {
         }
         particleSubmissionCommandBuffer = commandBuffer
         let sourceUpdateTransaction = SceneSourceUpdateTransaction()
-        // Failure abandons this not-enqueued buffer; only success arms,
-        // commits, and submits the source transaction as one contract.
-        defer { sourceUpdateTransaction.cancel() }
+        // Unsubmitted source and registry state roll back together.
+        defer {
+            sourceUpdateTransaction.cancel()
+            if !didCommitParticleSubmission { textureRegistry.discardFramePublication() }
+        }
+        // Submitted candidates remain provisional until the host barrier.
         var frameDepthLeases: [SceneParticleDepthTargetLease] = []
         defer { frameDepthLeases.forEach { $0.cancel() } }
         var staticModelDepthLease: SceneParticleDepthTargetLease?
@@ -91,9 +94,6 @@ struct SceneMetalRenderer {
             frameIndex: frameContext.frameIndex
         )
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
-        // A normal frame has no topology mutation. Reuse the launch-scoped
-        // descriptor indexes and static world frames; a dynamic projection is
-        // rebuilt only when its runtime topology revision changes.
         let frameDescriptor: SceneRenderDescriptor
         let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
         let frameStaticWorldFrames: [Int: simd_float4x4]

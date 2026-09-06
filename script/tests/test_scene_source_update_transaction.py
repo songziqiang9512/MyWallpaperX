@@ -23,6 +23,8 @@ FRAME_DRIVER = SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
+TEXTURE_REGISTRY = SCENE / "Resources/SceneFrameTextureRegistry.swift"
+TEXTURE_FRAME = SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
@@ -165,7 +167,7 @@ enum Harness {
             "let sourceUpdateTransaction = SceneSourceUpdateTransaction()"
         )
         deferred_cancel = source.index(
-            "defer { sourceUpdateTransaction.cancel() }", transaction
+            "defer {\n            sourceUpdateTransaction.cancel()", transaction
         )
         source_updates = source.index(
             "encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)",
@@ -523,6 +525,40 @@ enum Harness {
         barrier_commit = frame_driver.index(
             "commitPreparedMediaThumbnailUpdate()", barrier
         )
+        frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(barrier, barrier_discard)
+        self.assertLess(barrier, barrier_commit)
+        self.assertLess(barrier_commit, frame_commit)
+
+    def test_frame_texture_publication_waits_for_host_submission_barrier(self) -> None:
+        registry = TEXTURE_REGISTRY.read_text(encoding="utf-8")
+        texture_frame = TEXTURE_FRAME.read_text(encoding="utf-8")
+        renderer = RENDERER.read_text(encoding="utf-8")
+        view = VIEW.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
+
+        begin = registry.index("func beginFrame(")
+        commit = registry.index("func commitFramePublication()", begin)
+        discard = registry.index("func discardFramePublication()", commit)
+        self.assertIn("framePublicationBaseline = FramePublicationBaseline(", registry[begin:commit])
+        self.assertIn("if framePublicationBaseline != nil", registry[begin:commit])
+        self.assertIn("committedPublications = baseline.committedPublications", registry[discard:])
+        self.assertIn("entries.removeAll(keepingCapacity: true)", registry[discard:])
+
+        self.assertIn("textureRegistry.commitFramePublication()", texture_frame)
+        self.assertIn("textureRegistry.discardFramePublication()", texture_frame)
+        source_transaction = renderer.index("let sourceUpdateTransaction =")
+        renderer_defer = renderer.index("Unsubmitted source and registry state", source_transaction)
+        self.assertIn("textureRegistry.discardFramePublication()", renderer[renderer_defer:])
+        self.assertLess(renderer.index("commandBuffer.commit()"), renderer.index("didCommitParticleSubmission = true"))
+
+        view_commit = view.index("func commitPreparedFrameTexturePublication()")
+        view_discard = view.index("func discardPreparedFrameTexturePublication()")
+        self.assertIn("renderer.commitFrameTexturePublication()", view[view_commit:])
+        self.assertIn("renderer.discardFrameTexturePublication()", view[view_discard:])
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        barrier_discard = frame_driver.index("discardPreparedFrameTexturePublication()", barrier)
+        barrier_commit = frame_driver.index("commitPreparedFrameTexturePublication()", barrier)
         frame_commit = frame_driver.index("commitSubmittedSceneFrame(", barrier)
         self.assertLess(barrier, barrier_discard)
         self.assertLess(barrier, barrier_commit)

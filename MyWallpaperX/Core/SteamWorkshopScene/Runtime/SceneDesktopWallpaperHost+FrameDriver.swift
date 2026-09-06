@@ -708,8 +708,7 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
-            // Shared clock is part of the frame transaction; a deferred/dropped
-            // surface must not consume a frame index or move the host-time anchor.
+            // A deferred/dropped surface must not consume a frame index or move the host-time anchor.
             sceneClock.restore(clockState)
             launchContext.timelinePlaybackRuntime.restoreObservationState(
                 timelineObservationState
@@ -720,9 +719,7 @@ extension SceneDesktopWallpaperHost {
             for (displayID, previous) in pointerPreviousStates {
                 surfaces[displayID]?.metalView.restorePointerPrevious(previous)
             }
-            // Cursor producer advanced before outcome; deferred frames restore
-            // the pre-dispatch snapshot, reinsert drained batches, and preserve
-            // every press/release/click edge for the same input.
+            // Restore the cursor pre-dispatch snapshot and preserve edge events.
             for (displayID, batch) in cursorPreparation.drainedPointerBatches {
                 surfaces[displayID]?.metalView
                     .restoreSceneScriptPointerEvents(batch)
@@ -732,6 +729,7 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
             surfaces.values.forEach { $0.metalView.discardPreparedMediaThumbnailUpdate() }
             surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
@@ -739,6 +737,7 @@ extension SceneDesktopWallpaperHost {
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedFrameTexturePublication() }
         surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }
         surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
         surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
