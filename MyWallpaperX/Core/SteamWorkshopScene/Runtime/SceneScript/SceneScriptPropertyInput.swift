@@ -216,3 +216,42 @@ nonisolated enum SceneScriptPropertyInputCodec {
         return String(decoding: data, as: UTF8.self)
     }
 }
+
+/// Per-owner derived input cache.  The live property values remain owned by
+/// `ScenePropertyLiveUpdateState`; this cache stores only the encoded JSON
+/// projection and is invalidated by that state's monotonic revision.  Calls
+/// without a revision deliberately stay uncached for compatibility with
+/// standalone evaluators and tests that do not have a live-state owner.
+nonisolated struct SceneScriptPropertyInputJSONCache {
+    private var revision: UInt64?
+    private var encodedByTarget: [SceneDynamicTarget: String] = [:]
+
+    mutating func value(
+        for target: SceneDynamicTarget,
+        inputs: [String: SceneScriptPropertyInput],
+        effectiveValues: [String: SceneUserPropertyValue],
+        revision: UInt64?
+    ) -> String? {
+        guard let revision else {
+            return SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                inputs,
+                effectiveValues: effectiveValues
+            )
+        }
+        if self.revision != revision {
+            self.revision = revision
+            encodedByTarget.removeAll(keepingCapacity: true)
+        }
+        if let encoded = encodedByTarget[target] {
+            return encoded
+        }
+        guard let encoded = SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+            inputs,
+            effectiveValues: effectiveValues
+        ) else {
+            return nil
+        }
+        encodedByTarget[target] = encoded
+        return encoded
+    }
+}

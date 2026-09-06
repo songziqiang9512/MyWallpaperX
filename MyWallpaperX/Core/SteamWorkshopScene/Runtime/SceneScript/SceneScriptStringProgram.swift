@@ -68,6 +68,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var appliedUserPropertiesByTarget:
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
+    private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: \.hasAudioRegistration)
@@ -323,6 +324,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        propertyRevision: UInt64? = nil,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
@@ -355,11 +357,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             guard let input = inputs[binding.target],
                   case let .string(inputString) = input else { continue }
             guard let propertyInputs = propertyInputsByTarget[binding.target],
-                  let propertiesJSON =
-                      SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-                          propertyInputs,
-                          effectiveValues: effectivePropertyValues
-                      ) else {
+                  let propertiesJSON = scriptPropertiesJSONCache.value(
+                      for: binding.target,
+                      inputs: propertyInputs,
+                      effectiveValues: effectivePropertyValues,
+                      revision: propertyRevision
+                  ) else {
                 failures[binding.target] = .invalidArgument(
                     "SceneScript properties unavailable"
                 )

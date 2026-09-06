@@ -628,23 +628,28 @@ enum Harness {
         )
         let dynamicScalarFirst = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
-            effectivePropertyValues: ["renamedProperty": .number(0.2)]
+            effectivePropertyValues: ["renamedProperty": .number(0.2)],
+            propertyRevision: 1
         )
         let dynamicScalarStable = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
-            effectivePropertyValues: ["renamedProperty": .number(0.2)]
+            effectivePropertyValues: ["renamedProperty": .number(0.2)],
+            propertyRevision: 1
         )
         let dynamicScalarChanged = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
-            effectivePropertyValues: ["renamedProperty": .number(0.35)]
+            effectivePropertyValues: ["renamedProperty": .number(0.35)],
+            propertyRevision: 2
         )
         let dynamicScalarWrongType = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
-            effectivePropertyValues: ["renamedProperty": .string("wrong")]
+            effectivePropertyValues: ["renamedProperty": .string("wrong")],
+            propertyRevision: 3
         )
         let dynamicScalarRecovered = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
-            effectivePropertyValues: ["renamedProperty": .number(0.4)]
+            effectivePropertyValues: ["renamedProperty": .number(0.4)],
+            propertyRevision: 4
         )
         let dynamicScalarFallbackProgram = SceneScriptScalarProgram.compile(
             domain: domain,

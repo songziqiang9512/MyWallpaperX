@@ -29,16 +29,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
+    private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
     }
-
     var livePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
             $0.formUnion($1.livePropertyInputTargets)
         }
     }
-
     var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
             if !disabledTargets.contains($1.definition.target) {
@@ -46,7 +45,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             }
         }
     }
-
     private init(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -63,7 +61,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
         )
     }
-
     static func compile(
         domain: SceneScriptQuickJSDomain?,
         descriptor: SceneRenderDescriptor,
@@ -276,6 +273,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
+        propertyRevision: UInt64? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
@@ -314,9 +312,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             if disabledTargets.contains(target) { continue }
             guard let input = inputs[target],
                   input.valueType == binding.definition.valueType,
-                  let propertiesJSON = SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-                      binding.properties,
-                      effectiveValues: effectivePropertyValues
+                  let propertiesJSON = scriptPropertiesJSONCache.value(
+                      for: target,
+                      inputs: binding.properties,
+                      effectiveValues: effectivePropertyValues,
+                      revision: propertyRevision
                   ) else { continue }
             let changedUserPropertiesJSON =
                 SceneScriptPropertyInputCodec.changedUserPropertiesJSON(

@@ -69,6 +69,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var appliedUserPropertiesByTarget:
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
+    private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
 
     var hasAudioConsumers: Bool {
         bindings.contains(where: \.hasAudioRegistration)
@@ -285,6 +286,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         frame: SceneScriptFrameInput,
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
+        propertyRevision: UInt64? = nil,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
@@ -316,11 +318,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
             guard let propertyInputs = propertyInputsByTarget[binding.target],
-                  let propertiesJSON =
-                    SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-                        propertyInputs,
-                        effectiveValues: effectivePropertyValues
-                    ) else {
+                  let propertiesJSON = scriptPropertiesJSONCache.value(
+                      for: binding.target,
+                      inputs: propertyInputs,
+                      effectiveValues: effectivePropertyValues,
+                      revision: propertyRevision
+                  ) else {
                 failures[binding.target] = .invalidArgument(
                     "SceneScript properties unavailable"
                 )

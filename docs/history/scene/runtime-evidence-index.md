@@ -2312,6 +2312,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：drawable/preflight/seal 或任一 surface outcome 非 `submitted` 时，pending input 被清除且不会启动该帧 thumbnail decode；上一份 ready/current 保留，下一帧继续从同一 inbox generation 重试。成功 barrier 才开始现有异步 request；generation cancellation、stale completion、teardown/weak queue 和 missing/clear fallback 继续由 `SceneMediaThumbnailTextureStore` 处理。
 - **自动门与边界**：`test_scene_frame_vm_routing`、`test_scene_frame_context`、`test_scene_source_update_transaction` 与既有 `test_scene_media_thumbnail_provider` 合计 **51 tests / OK**；code-health（902 Swift、16 locked legacy、182 warnings）通过，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未注入真实 multi-surface deferred/dropped、GPU completion、decode/upload fault 或 live media producer，故保持 `S2`；不外推 thumbnail 视觉 ROI、稳定性能、完整 media API、149 corpus、官方 parity 或 V4 完成。
 
+<a id="e-v4-scenescript-property-json-revision-cache"></a>
+### E-V4-SCENESCRIPT-PROPERTY-JSON-REVISION-CACHE: reuse typed owner property projections within a live-state revision
+
+证据等级：`S2 shared typed input hot-path wiring`。本批只收口现有 authored property → typed live-state → SceneScript owner 的派生 JSON 编码重复，不宣称真实 signed sample CPU trace、完整 multi-owner benchmark、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：`ScenePropertyLiveUpdateState.revision` 仍是 live property values 的唯一成功-apply revision，只有 accepted typed replacement 才递增；此前 scalar/string/vector Program 在作者顺序协调器的每次 owner evaluation 中都调用 `SceneScriptPropertyInputCodec.scriptPropertiesJSON`，同一 revision 也重复 JSONSerialization。当前三个现有 Program 各持有按 `SceneDynamicTarget` 索引的派生 JSON cache，host 将同一 revision 透传到 `SceneScriptMediaFrameCoordinator`；same-revision evaluation 复用编码字符串，revision 改变清空 cache 并从当前 effective values 重建，无 revision 的 standalone evaluator 保持未缓存兼容语义。property values、QuickJS owner handles、event/generation watermark、typed snapshot、Program/GraphExecutor、publication/compositor 与失败 fallback owner 均不迁移。
+- **失败半径与恢复**：cache 只保存 JSON projection，不保存或覆盖 property source/value；revision mismatch、standalone call、缺失/非法 value 或 program 重建都会回到既有 codec 解析与 `.invalidArgument`/previous-current 路径。跨 revision 的 newSlider value、wrong-type rejection 与 recovery 仍必须沿原 producer→typed input→VM consumer 顺序生效，不能因旧字符串残留吞掉更新。
+- **自动门与边界**：`test_scene_property_vector_script` 将 scalar owner 的 same-revision stable、revision 递进后的 value change、wrong-type rejection 与 recovery 接入实际 harness；相关 `test_scene_script_string_lifecycle`、`test_scene_frame_vm_routing`、`test_scene_frame_context` 通过，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、完整 multi-owner benchmark、GPU completion、视觉 ROI 或 provider breadth，故最高只到 `S2`。
+
 <a id="e-v4-media-thumbnail-value-only-invalidation"></a>
 ### E-V4-MEDIA-THUMBNAIL-VALUE-ONLY-INVALIDATION: color-only media publications reuse ready texture atoms
 

@@ -82,6 +82,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String,
+        propertyRevision: UInt64? = nil,
         events: SceneScriptMediaFrameEvents,
         audioSpectrum: SceneAudioSpectrumSnapshot
     ) -> SceneScriptMediaFrameCoordinatorResult {
@@ -111,6 +112,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     inputs: input(registration.target, from: vectorInputs),
                     effectivePropertyValues: effectivePropertyValues,
                     frame: frame,
+                    propertyRevision: propertyRevision,
                     mediaThumbnailEvent: events.thumbnail,
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
@@ -130,6 +132,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                 let frameResult = stringProgram.evaluate(
                     inputs: input(registration.target, from: stringInputs),
                     effectivePropertyValues: effectivePropertyValues,
+                    propertyRevision: propertyRevision,
                     frame: frame,
                     userPropertiesJSON: userPropertiesJSON,
                     mediaThumbnailEvent: events.thumbnail,
@@ -150,6 +153,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     inputs: input(registration.target, from: scalarInputs),
                     frame: frame,
                     effectivePropertyValues: effectivePropertyValues,
+                    propertyRevision: propertyRevision,
                     userPropertiesJSON: userPropertiesJSON,
                     mediaThumbnailEvent: events.thumbnail,
                     mediaPlaybackEvent: events.playback,
@@ -171,6 +175,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             inputs: vectorInputs.filter { !vectorMediaTargets.contains($0.key) },
             effectivePropertyValues: effectivePropertyValues,
             frame: frame,
+            propertyRevision: propertyRevision,
             audioSpectrum: audioSpectrum,
             userPropertiesJSON: userPropertiesJSON
         )
@@ -185,6 +190,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         let remainingString = stringProgram.evaluate(
             inputs: stringInputs.filter { !stringMediaTargets.contains($0.key) },
             effectivePropertyValues: effectivePropertyValues,
+            propertyRevision: propertyRevision,
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
             audioSpectrum: audioSpectrum
@@ -200,6 +206,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             inputs: scalarInputs.filter { !scalarMediaTargets.contains($0.key) },
             frame: frame,
             effectivePropertyValues: effectivePropertyValues,
+            propertyRevision: propertyRevision,
             userPropertiesJSON: userPropertiesJSON,
             audioSpectrum: audioSpectrum
         )

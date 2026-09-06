@@ -469,7 +469,7 @@ extension SceneDesktopWallpaperHost {
                 scalarInputs: sceneScriptInputs,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
                 frame: sceneScriptFrame,
-                userPropertiesJSON: userPropertiesJSON,
+                userPropertiesJSON: userPropertiesJSON, propertyRevision: launchContext.liveState.revision,
                 events: sceneScriptMediaEvents,
                 audioSpectrum: audioSpectrum
             )
