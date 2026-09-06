@@ -219,6 +219,49 @@ enum Harness {
             mediaPlaybackEvent: .init(state: 0, generation: 0)
         )
 
+        let transactionProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "mediaColor",
+                source: mediaColorSource,
+                value: "0.2 0.4 0.6",
+                wrapperKeys: ["script", "scriptproperties", "value"],
+                properties: [
+                    "topColor": .object([
+                        "user": .string("fixtureAccent"),
+                        "value": .string("0.2 0.4 0.6"),
+                    ])
+                ]
+            )],
+            userPropertyDefinitions: [],
+            generation: 29
+        )
+        let transactionState = transactionProgram.frameStateSnapshot()
+        let transactionFirst = transactionProgram.evaluate(
+            inputs: mediaInput,
+            effectivePropertyValues: [:],
+            frame: mediaFrame,
+            mediaThumbnailEvent: .init(
+                hasThumbnail: true,
+                secondaryColor: .init(0.8, 0.2, 0.1),
+                generation: 12
+            ),
+            mediaPlaybackEvent: .init(state: 1, generation: 12)
+        )
+        transactionProgram.restoreFrameState(transactionState)
+        let transactionRetry = transactionProgram.evaluate(
+            inputs: mediaInput,
+            effectivePropertyValues: [:],
+            frame: mediaFrame,
+            mediaThumbnailEvent: .init(
+                hasThumbnail: true,
+                secondaryColor: .init(0.8, 0.2, 0.1),
+                generation: 12
+            ),
+            mediaPlaybackEvent: .init(state: 1, generation: 12)
+        )
+
         let rollbackTarget = passTarget("mediaRollback")
         let rollbackPeerTarget = passTarget("mediaRollbackPeer")
         let rollbackProgram = SceneScriptVectorProgram.compile(
@@ -532,6 +575,18 @@ enum Harness {
             "stale": vector(stale.values[mediaTarget]),
             "conflict": vector(conflict.values[mediaTarget]),
             "zeroGeneration": vector(zeroGeneration.values[mediaTarget]),
+            "transactionFirstValue": vector(
+                transactionFirst.values[mediaTarget]
+            ),
+            "transactionRetryValue": vector(
+                transactionRetry.values[mediaTarget]
+            ),
+            "transactionFirstFailures": transactionFirst.failures.count,
+            "transactionRetryFailures": transactionRetry.failures.count,
+            "transactionFirstMutations": transactionFirst.materialFunctionMutations.count
+                + transactionFirst.layerMutations.count,
+            "transactionRetryMutations": transactionRetry.materialFunctionMutations.count
+                + transactionRetry.layerMutations.count,
             "retryFailures": missingInput.failures.count
                 + retryStart.failures.count
                 + retryMidpoint.failures.count
@@ -865,6 +920,8 @@ class SceneVectorMediaEventTests(unittest.TestCase):
         for key in ("stale", "conflict", "zeroGeneration"):
             self.assertEqual(value[key], [0.1, 0.3, 1])
         self.assertEqual(value["retryFailures"], 0)
+        self.assertEqual(value["transactionFirstValue"], [0.2, 0.4, 0.6])
+        self.assertEqual(value["transactionRetryValue"], [0.8, 0.2, 0.1])
         self.assertEqual(value["propertyRecovered"], [7, 2250, 0])
         self.assertTrue(value["propertyOnlyMediaOwnerTarget"])
         self.assertTrue(value["propertyOnlyThumbnailTargetsEmpty"])

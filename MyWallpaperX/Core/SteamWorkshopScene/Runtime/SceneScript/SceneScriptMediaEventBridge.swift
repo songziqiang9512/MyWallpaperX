@@ -310,6 +310,12 @@ nonisolated struct SceneScriptObservedEvent<Event: SceneScriptGeneratedEvent>:
     Sendable {
     private var latest: Event?
 
+    func snapshot() -> Event? { latest }
+
+    mutating func restore(_ snapshot: Event?) {
+        latest = snapshot
+    }
+
     mutating func observe(_ event: Event?) -> Event? {
         guard let event, event.generation > 0 else { return nil }
         guard let latest else {
@@ -325,6 +331,19 @@ nonisolated struct SceneScriptObservedEvent<Event: SceneScriptGeneratedEvent>:
         }
         return event
     }
+}
+
+nonisolated struct SceneScriptProgramFrameState: Sendable {
+    let observedMediaThumbnailEvent: SceneScriptMediaThumbnailEventInput?
+    let observedMediaPlaybackEvent: SceneScriptMediaPlaybackEventInput?
+    let observedMediaPropertiesEvent: SceneScriptMediaPropertiesEventInput?
+    let observedMediaTimelineEvent: SceneScriptMediaTimelineEventInput?
+    let consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64]
+    let consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64]
+    let consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64]
+    let consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64]
+    let appliedUserPropertiesByTarget:
+        [SceneDynamicTarget: [String: SceneUserPropertyValue]]
 }
 
 nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {

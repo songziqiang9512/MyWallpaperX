@@ -1,5 +1,4 @@
 import Foundation
-
 /// Generic typed vector VM route. Admission is based only on the
 /// loss-preserving binding owner/path/type and descriptor identity. JavaScript
 /// semantics remain owned by QuickJS; there is no source-shape interpreter.
@@ -30,7 +29,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
-
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
     }
@@ -756,6 +754,14 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
 
     func invalidate() {
         bindings.forEach { $0.owner.invalidate() }
+    }
+
+    func frameStateSnapshot() -> SceneScriptProgramFrameState {
+        .init(observedMediaThumbnailEvent: observedMediaThumbnailEvent.snapshot(), observedMediaPlaybackEvent: observedMediaPlaybackEvent.snapshot(), observedMediaPropertiesEvent: observedMediaPropertiesEvent.snapshot(), observedMediaTimelineEvent: observedMediaTimelineEvent.snapshot(), consumedMediaThumbnailGenerations: consumedMediaThumbnailGenerations, consumedMediaPlaybackGenerations: consumedMediaPlaybackGenerations, consumedMediaPropertiesGenerations: consumedMediaPropertiesGenerations, consumedMediaTimelineGenerations: consumedMediaTimelineGenerations, appliedUserPropertiesByTarget: appliedUserPropertiesByTarget)
+    }
+
+    func restoreFrameState(_ state: SceneScriptProgramFrameState) {
+        observedMediaThumbnailEvent.restore(state.observedMediaThumbnailEvent); observedMediaPlaybackEvent.restore(state.observedMediaPlaybackEvent); observedMediaPropertiesEvent.restore(state.observedMediaPropertiesEvent); observedMediaTimelineEvent.restore(state.observedMediaTimelineEvent); consumedMediaThumbnailGenerations = state.consumedMediaThumbnailGenerations; consumedMediaPlaybackGenerations = state.consumedMediaPlaybackGenerations; consumedMediaPropertiesGenerations = state.consumedMediaPropertiesGenerations; consumedMediaTimelineGenerations = state.consumedMediaTimelineGenerations; appliedUserPropertiesByTarget = state.appliedUserPropertiesByTarget
     }
 
     func finalizeLayerMutations(

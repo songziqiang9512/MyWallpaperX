@@ -20,6 +20,15 @@ UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 UTILITY_LAYER = SCENE / "Rendering/SceneUtilityLayerRenderer.swift"
 VIEW = SCENE / "Rendering/SceneMetalView.swift"
 FRAME_DRIVER = SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+FRAME_DRIVER_LIFECYCLE = SCENE / (
+    "Runtime/SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
+)
+SCALAR_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptScalarProgram.swift"
+STRING_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptStringProgram.swift"
+VECTOR_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptVectorProgram.swift"
+MEDIA_EVENT_BRIDGE = SCENE / (
+    "Runtime/SceneScript/SceneScriptMediaEventBridge.swift"
+)
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
@@ -35,6 +44,48 @@ GRAPH_COMPOSITION = SCENE / "Rendering/SceneResolvedMaterialGraphComposition.swi
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
+    def test_scene_script_program_state_retries_after_host_drop(self) -> None:
+        driver = FRAME_DRIVER.read_text(encoding="utf-8")
+        lifecycle = FRAME_DRIVER_LIFECYCLE.read_text(encoding="utf-8")
+        scalar = SCALAR_PROGRAM.read_text(encoding="utf-8")
+        string = STRING_PROGRAM.read_text(encoding="utf-8")
+        vector = VECTOR_PROGRAM.read_text(encoding="utf-8")
+        events = MEDIA_EVENT_BRIDGE.read_text(encoding="utf-8")
+
+        snapshot = driver.index("let sceneScriptProgramFrameState")
+        cursor_dispatch = driver.index(
+            "launchContext.sceneScriptCursorProgram.dispatch(", snapshot
+        )
+        coordinator = driver.index(
+            "launchContext.frameSchema.mediaFrameCoordinator.evaluate(",
+            cursor_dispatch,
+        )
+        host_barrier = driver.index("let allSurfacesSubmitted", coordinator)
+        restore = driver.index(
+            "restoreSceneScriptProgramFrameState(", host_barrier
+        )
+        storage_discard = driver.index(
+            "sceneScriptStorageSession?.discardFrameTransaction()", restore
+        )
+        commit = driver.index("commitSubmittedSceneFrame(", host_barrier)
+        self.assertLess(snapshot, cursor_dispatch)
+        self.assertLess(cursor_dispatch, coordinator)
+        self.assertLess(coordinator, host_barrier)
+        self.assertLess(host_barrier, restore)
+        self.assertLess(restore, storage_discard)
+        self.assertGreater(commit, host_barrier)
+
+        self.assertIn("frameStateSnapshot()", lifecycle)
+        self.assertIn("func restoreSceneScriptProgramFrameState(", lifecycle)
+        for source in (scalar, string, vector):
+            self.assertIn("consumedMediaThumbnailGenerations", source)
+            self.assertIn("appliedUserPropertiesByTarget", source)
+            self.assertIn("func frameStateSnapshot()", source)
+            self.assertIn("func restoreFrameState(", source)
+        self.assertIn("func snapshot() -> Event?", events)
+        self.assertIn("mutating func restore(_ snapshot: Event?)", events)
+        self.assertIn("struct SceneScriptProgramFrameState: Sendable", events)
+
     def test_transaction_rolls_back_in_reverse_once_and_commit_closes_it(self) -> None:
         if shutil.which("swiftc") is None:
             self.skipTest("swiftc is unavailable")

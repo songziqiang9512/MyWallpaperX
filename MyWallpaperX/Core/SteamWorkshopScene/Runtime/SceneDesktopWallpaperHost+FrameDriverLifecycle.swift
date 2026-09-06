@@ -1,7 +1,35 @@
 import AppKit
 import QuartzCore
 
+/// A frame may execute VM callbacks before every surface has admitted its
+/// command buffer. Keep the callback watermarks and live-property edge state
+/// provisional until the host barrier succeeds.
+struct SceneScriptProgramFrameStates {
+    let scalar: SceneScriptProgramFrameState
+    let string: SceneScriptProgramFrameState
+    let vector: SceneScriptProgramFrameState
+}
+
 extension SceneDesktopWallpaperHost {
+    func sceneScriptProgramFrameState(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) -> SceneScriptProgramFrameStates {
+        .init(
+            scalar: context.sceneScriptScalarProgram.frameStateSnapshot(),
+            string: context.sceneScriptStringProgram.frameStateSnapshot(),
+            vector: context.propertyVectorScriptProgram.frameStateSnapshot()
+        )
+    }
+
+    func restoreSceneScriptProgramFrameState(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        _ state: SceneScriptProgramFrameStates
+    ) {
+        context.sceneScriptScalarProgram.restoreFrameState(state.scalar)
+        context.sceneScriptStringProgram.restoreFrameState(state.string)
+        context.propertyVectorScriptProgram.restoreFrameState(state.vector)
+    }
+
     func finalizeSceneScriptLayerMutations(
         _ context: SceneDesktopWallpaperLaunchContext,
         committing: Bool,

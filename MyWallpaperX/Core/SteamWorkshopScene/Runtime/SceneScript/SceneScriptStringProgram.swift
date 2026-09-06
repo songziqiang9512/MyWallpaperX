@@ -617,6 +617,14 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
 
     func invalidate() { bindings.forEach { $0.invalidate() } }
 
+    func frameStateSnapshot() -> SceneScriptProgramFrameState {
+        .init(observedMediaThumbnailEvent: observedMediaThumbnailEvent.snapshot(), observedMediaPlaybackEvent: observedMediaPlaybackEvent.snapshot(), observedMediaPropertiesEvent: observedMediaPropertiesEvent.snapshot(), observedMediaTimelineEvent: observedMediaTimelineEvent.snapshot(), consumedMediaThumbnailGenerations: consumedMediaThumbnailGenerations, consumedMediaPlaybackGenerations: consumedMediaPlaybackGenerations, consumedMediaPropertiesGenerations: consumedMediaPropertiesGenerations, consumedMediaTimelineGenerations: consumedMediaTimelineGenerations, appliedUserPropertiesByTarget: appliedUserPropertiesByTarget)
+    }
+
+    func restoreFrameState(_ state: SceneScriptProgramFrameState) {
+        observedMediaThumbnailEvent.restore(state.observedMediaThumbnailEvent); observedMediaPlaybackEvent.restore(state.observedMediaPlaybackEvent); observedMediaPropertiesEvent.restore(state.observedMediaPropertiesEvent); observedMediaTimelineEvent.restore(state.observedMediaTimelineEvent); consumedMediaThumbnailGenerations = state.consumedMediaThumbnailGenerations; consumedMediaPlaybackGenerations = state.consumedMediaPlaybackGenerations; consumedMediaPropertiesGenerations = state.consumedMediaPropertiesGenerations; consumedMediaTimelineGenerations = state.consumedMediaTimelineGenerations; appliedUserPropertiesByTarget = state.appliedUserPropertiesByTarget
+    }
+
     func finalizeLayerMutations(
         committing: Bool,
         rejectedOwnerTargets: Set<SceneDynamicTarget> = []

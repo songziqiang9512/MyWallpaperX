@@ -23,7 +23,6 @@ extension SceneDesktopWallpaperHost {
               value >= 0 else { return nil }
         return value
     }()
-
     static let debugWallDateOverride: Date? = {
         guard usesDebugEvidenceWindow,
               let rawValue = ProcessInfo.processInfo.environment[
@@ -32,7 +31,6 @@ extension SceneDesktopWallpaperHost {
         return ISO8601DateFormatter().date(from: rawValue)
     }()
 #endif
-
     func teardownSurfaces(
         clearContext: Bool,
         reason: SceneGraphExecutionResetReason
@@ -160,7 +158,6 @@ extension SceneDesktopWallpaperHost {
         }
         armFrameDriver(at: nextDeadline)
     }
-
     private func armFrameDriver(at deadline: CFTimeInterval) {
         frameTimer?.invalidate()
         frameDriverDeadline = deadline
@@ -177,7 +174,6 @@ extension SceneDesktopWallpaperHost {
         RunLoop.main.add(timer, forMode: .common)
         frameTimer = timer
     }
-
     private func renderFrame() -> SceneFrameDriverAttempt {
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
         promotePendingDeferredLayerVisibilityIfReady()
@@ -358,6 +354,9 @@ extension SceneDesktopWallpaperHost {
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure
         )
         let cursorBatch = cursorPreparation.batch
+        let sceneScriptProgramFrameState = self.sceneScriptProgramFrameState(
+            launchContext
+        )
         let cursorResult: SceneScriptCursorFrameResult
         var cursorEdgeState: SceneScriptCursorEdgeState?
         if let failure = sceneScriptLayerSnapshotFailure {
@@ -724,6 +723,9 @@ extension SceneDesktopWallpaperHost {
                 launchContext.sceneScriptCursorProgram
                     .restoreEdgeState(cursorEdgeState)
             }
+            restoreSceneScriptProgramFrameState(
+                launchContext, sceneScriptProgramFrameState
+            )
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
             surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
@@ -754,7 +756,6 @@ extension SceneDesktopWallpaperHost {
         )
         return .rendered
     }
-
 #if DEBUG
     private func logDebugDynamicLayerVisibilityIfChanged(
         descriptor: SceneRenderDescriptor,
@@ -786,7 +787,6 @@ extension SceneDesktopWallpaperHost {
         }
     }
 #endif
-
     func updateMouseLocations() {
 #if DEBUG
         if let debugPointerOverride {
