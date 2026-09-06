@@ -46,6 +46,14 @@ final class SceneVideoTextureSource {
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
     private var pendingFrameIndex: UInt64?
+    private struct FramePreparationSnapshot {
+        let lifecycle: SceneVideoProviderLifecycleState
+        let hasStarted: Bool
+        let needsPlayerAnchor: Bool
+        let playbackBarrier: UInt64
+        let currentCVMetalTexture: CVMetalTexture?
+    }
+    private var pendingPreparationSnapshot: FramePreparationSnapshot?
     private var hasStarted = false
     private var needsPlayerAnchor = true
     private var playbackBarrier: UInt64 = 0
@@ -150,6 +158,13 @@ final class SceneVideoTextureSource {
         pendingFrame = nil
         pendingFrameIndex = nil
         guard player.currentItem != nil else { return nil }
+        pendingPreparationSnapshot = .init(
+            lifecycle: lifecycle,
+            hasStarted: hasStarted,
+            needsPlayerAnchor: needsPlayerAnchor,
+            playbackBarrier: playbackBarrier,
+            currentCVMetalTexture: currentCVMetalTexture
+        )
         if !hasStarted {
             lifecycle.start(
                 sceneTime: timing.sceneTime,
@@ -231,6 +246,7 @@ final class SceneVideoTextureSource {
         defer {
             pendingFrame = nil
             pendingFrameIndex = nil
+            pendingPreparationSnapshot = nil
         }
         guard let pendingFrame else {
             // A successful host submission may have used the previous frame
@@ -248,13 +264,24 @@ final class SceneVideoTextureSource {
 
     func discardPreparedFrame() {
         guard let frameIndex = pendingFrameIndex else { return }
+        let preparation = pendingPreparationSnapshot
         pendingFrame = nil
         pendingFrameIndex = nil
+        pendingPreparationSnapshot = nil
         lifecycle.discardPlannedFrame(frameIndex: frameIndex)
+        if let preparation {
+            lifecycle = preparation.lifecycle
+            hasStarted = preparation.hasStarted
+            needsPlayerAnchor = preparation.needsPlayerAnchor
+            playbackBarrier = preparation.playbackBarrier
+            currentCVMetalTexture = preparation.currentCVMetalTexture
+        }
         // AVPlayer may have advanced while the candidate was being encoded.
         // Re-anchor on the next attempt so a rejected surface cannot move the
         // provider clock ahead of the last submitted content.
-        markPlayerAnchorRequired()
+        if preparation?.hasStarted ?? true {
+            markPlayerAnchorRequired()
+        }
     }
 
     func playbackSnapshot(
@@ -401,6 +428,7 @@ final class SceneVideoTextureSource {
         lastFrame = nil
         pendingFrame = nil
         pendingFrameIndex = nil
+        pendingPreparationSnapshot = nil
         CVMetalTextureCacheFlush(textureCache, 0)
         try? FileManager.default.removeItem(at: temporaryFileURL)
     }

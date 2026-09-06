@@ -377,6 +377,16 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             current_frame,
             "a no-buffer plan must remain discardable when another surface drops",
         )
+        for token in (
+            "pendingPreparationSnapshot",
+            "lifecycle: lifecycle",
+            "hasStarted: hasStarted",
+            "needsPlayerAnchor: needsPlayerAnchor",
+            "playbackBarrier: playbackBarrier",
+            "currentCVMetalTexture: currentCVMetalTexture",
+        ):
+            with self.subTest(snapshot=token):
+                self.assertIn(token, current_frame)
 
         commit = swift_block(self.source, "func commitPreparedFrame()")
         self.assertIsNotNone(commit)
@@ -394,6 +404,16 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             discard,
             "a dropped surface must make the no-buffer plan retryable",
         )
+        for token in (
+            "lifecycle = preparation.lifecycle",
+            "hasStarted = preparation.hasStarted",
+            "needsPlayerAnchor = preparation.needsPlayerAnchor",
+            "playbackBarrier = preparation.playbackBarrier",
+            "currentCVMetalTexture = preparation.currentCVMetalTexture",
+            "if preparation?.hasStarted ?? true",
+        ):
+            with self.subTest(restore=token):
+                self.assertIn(token, discard)
 
     def test_stop_is_idempotent_and_releases_all_owned_resources(self) -> None:
         stop = swift_block(self.source, "func stop(")
