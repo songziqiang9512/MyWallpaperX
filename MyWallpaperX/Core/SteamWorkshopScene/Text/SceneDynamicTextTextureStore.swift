@@ -68,9 +68,13 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
         let admittedIDs = Set(admittedDynamic.map(\.id))
         lock.lock()
+        var signatureRefreshLayerIDs: Set<Int> = []
         for layerID in authoredLayerIDs {
-            self.dynamicTextFieldsByLayerID[layerID] =
-                dynamicTextFieldsByLayerID[layerID] ?? []
+            let nextFields = dynamicTextFieldsByLayerID[layerID] ?? []
+            if self.dynamicTextFieldsByLayerID[layerID] != nextFields {
+                signatureRefreshLayerIDs.insert(layerID)
+                self.dynamicTextFieldsByLayerID[layerID] = nextFields
+            }
         }
         let retired = Set(layersByID.keys).subtracting(authoredLayerIDs).subtracting(admittedIDs)
         for layerID in retired {
@@ -105,6 +109,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
         lock.unlock()
         for (layer, dynamicFields) in layers {
+            guard !dynamicFields.isEmpty
+                || signatureRefreshLayerIDs.contains(layer.id) else { continue }
             let signature = Self.signature(
                 for: layer, snapshot: snapshot, dynamicFields: dynamicFields
             )

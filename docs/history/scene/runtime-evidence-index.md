@@ -2357,6 +2357,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：cache 只持有已发布的 immutable publication value，不持有 in-flight signature、requested generation、async task 或 dynamic snapshot；stale/failed raster 不改变 cache，下一次成功 finish 才发布新 texture/generation。dynamic-layer unregister 同时移除 current texture/render size/generation 并使 cache 失效；host surface deferred/dropped 仍 discard pending dynamic-text update，不会提前改变 store cache。teardown 仍由同一 store deinit/reset owner 收口，previous-current/ready fallback 与 terminal compositor 不变。
 - **自动门与边界**：`test_scene_dynamic_text_generation`、`test_scene_property_vector_script`、`test_scene_script_string_lifecycle`、`test_scene_frame_vm_routing` 与 `test_scene_frame_context` 共 **66 tests / OK**；source gate 锁定 cache hit、accepted completion/retirement invalidation 与现有 provider publication metadata，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、异步 text completion fault、多 surface runtime fault、文本 ROI 或视觉 parity，故最高只到 `S2`。
 
+<a id="e-v4-dynamic-text-static-signature-bypass"></a>
+### E-V4-DYNAMIC-TEXT-STATIC-SIGNATURE-BYPASS: skip stable authored text projection work
+
+证据等级：`S2 shared provider typed input hot-path wiring`。本批收口 authored text layer 没有动态 text target 时每个成功帧仍构造 signature、访问 generation state 的共享 CPU/pre-encode 成本；不宣称真实 signed sample CPU trace、异步 completion fault、文本 ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：`SceneDynamicTextTextureStore` 仍由现有 `SceneDynamicSnapshot`、generation state、async `SceneTextTextureLoader`、layer-source publication 与 `SceneFrameLayerTextureAssembly` 组成唯一 text provider chain。上一批已准备 `layerID → Set<SceneDynamicTextField>` interest；此前 update 仍为所有 layer 生成 signature 并调用 `generationState.schedule`，即便 authored layer interest 为空且 descriptor/text style 未改变。当前 update 对 interest 为空且未发生 interest revision 的 authored layer直接跳过；dynamic layer 与声明字段的 authored layer继续读取当前 typed snapshot，interest 从非空变为空或反向变化时记录 `signatureRefreshLayerIDs`，强制重算一次，保持 authored fallback 与 dynamic value 变更语义。没有新增 generation、provider、resource、graph 或 compositor owner。
+- **失败半径与恢复**：bypass 不改变 ready/requested/rendering generation、texture、publication、async task 或 snapshot cache；field-interest revision 的强制刷新仍沿现有 schedule/cancel/stale completion/previous-current 路径。动态 layer retirement、surface deferred/dropped、teardown 与 all-surface commit/discard 继续由原 owner 处理；missing/invalid typed value 仍回退 authored field。
+- **自动门与边界**：`test_scene_dynamic_text_generation`、`test_scene_property_vector_script`、`test_scene_script_string_lifecycle`、`test_scene_frame_vm_routing` 与 `test_scene_frame_context` 共 **67 tests / OK**；source gate 锁定 empty-interest bypass 与 revision refresh 正反门，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、异步 text completion fault、多 surface runtime fault、文本 ROI 或视觉 parity，故最高只到 `S2`。
+
 <a id="e-v4-media-thumbnail-value-only-invalidation"></a>
 ### E-V4-MEDIA-THUMBNAIL-VALUE-ONLY-INVALIDATION: color-only media publications reuse ready texture atoms
 

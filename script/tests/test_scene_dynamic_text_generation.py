@@ -203,6 +203,18 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         ):
             self.assertIn(token, source)
 
+    def test_static_text_layers_leave_generation_state_untouched_after_preparation(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("var signatureRefreshLayerIDs: Set<Int> = []", source)
+        self.assertIn(
+            "guard !dynamicFields.isEmpty",
+            source,
+        )
+        self.assertIn(
+            "|| signatureRefreshLayerIDs.contains(layer.id) else { continue }",
+            source,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
