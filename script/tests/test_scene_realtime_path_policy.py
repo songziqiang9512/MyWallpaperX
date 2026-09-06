@@ -160,6 +160,23 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("guard let index = layerIndicesByID[layer.id]", cache)
         self.assertNotIn("descriptor.layers.firstIndex(where:", cache)
 
+    def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
+        visibility = (
+            SCENE / "Rendering/SceneLayerVisibility.swift"
+        ).read_text(encoding="utf-8")
+        renderer = (
+            SCENE / "Rendering/SceneMetalRenderer.swift"
+        ).read_text(encoding="utf-8")
+        preflight = (
+            SCENE / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "layersByID: [Int: SceneRenderDescriptor.Layer]",
+            visibility,
+        )
+        self.assertIn("layersByID: frameLayersByID", renderer)
+        self.assertIn("layersByID: layersByID", preflight)
+
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (
             SCENE

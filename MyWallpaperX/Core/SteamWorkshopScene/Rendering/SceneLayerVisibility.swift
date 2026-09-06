@@ -14,6 +14,18 @@ enum SceneLayerVisibility {
         snapshot: SceneDynamicSnapshot
     ) -> Set<Int> {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        return visibleLayerIDs(
+            in: descriptor,
+            layersByID: layersByID,
+            snapshot: snapshot
+        )
+    }
+
+    nonisolated static func visibleLayerIDs(
+        in descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        snapshot: SceneDynamicSnapshot
+    ) -> Set<Int> {
         return Set(descriptor.layers.compactMap { layer in
             isEffectivelyVisible(layer, layersByID: layersByID, snapshot: snapshot)
                 ? layer.id : nil

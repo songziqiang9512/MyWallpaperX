@@ -125,8 +125,9 @@ struct SceneMetalRenderer {
 #if DEBUG
         let dynamicVisibleLayerCount = dynamicLayerIDs.intersection(
             SceneLayerVisibility.visibleLayerIDs(
-                in: frameDescriptor, snapshot: frameContext.dynamicValues
-            )
+                in: frameDescriptor,
+                layersByID: frameLayersByID,
+                snapshot: frameContext.dynamicValues)
         ).count
         let dynamicSourcePublicationCount = dynamicLayerIDs.reduce(into: 0) {
             count, layerID in
@@ -150,9 +151,8 @@ struct SceneMetalRenderer {
             frameLayersByID[$0]
         }
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: frameDescriptor,
-            snapshot: frameContext.dynamicValues
-        )
+            in: frameDescriptor, layersByID: frameLayersByID,
+            snapshot: frameContext.dynamicValues)
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
         let dynamicLightColors = Dictionary(uniqueKeysWithValues:

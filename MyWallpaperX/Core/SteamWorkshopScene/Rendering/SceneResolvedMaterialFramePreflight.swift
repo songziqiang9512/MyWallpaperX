@@ -142,6 +142,7 @@ extension SceneMetalRenderer {
             imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
         let frameVisibleRootLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: renderDescriptor,
+            layersByID: layersByID,
             snapshot: frameContext.dynamicValues
         )
         let activeExecutionLayerIDs = dependencyRuntime
