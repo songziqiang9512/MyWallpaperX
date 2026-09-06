@@ -36,6 +36,7 @@ SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
 PARTICLE_VIEW = SCENE / "Rendering/SceneMetalView+ParticlePlayback.swift"
 DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
+DYNAMIC_IMAGE_PROVIDER = SCENE / "Resources/SceneDynamicImageTextureProvider.swift"
 TEXTURE_REGISTRY = SCENE / "Resources/SceneFrameTextureRegistry.swift"
 TEXTURE_FRAME = SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 ASSET_CATALOG = SCENE / "Resources/SceneMaterialAssetTextureCatalog.swift"
@@ -46,6 +47,21 @@ GRAPH_COMPOSITION = SCENE / "Rendering/SceneResolvedMaterialGraphComposition.swi
 
 
 class SceneSourceUpdateTransactionTests(unittest.TestCase):
+    def test_dynamic_image_provider_reuses_publications_for_value_only_updates(self) -> None:
+        source = DYNAMIC_IMAGE_PROVIDER.read_text(encoding="utf-8")
+        for token in (
+            "private var cachedRevision: UInt64?",
+            "private var cachedSnapshot: SceneDynamicImageTextureProviderSnapshot?",
+            "topology: SceneScriptLayerTopologySnapshot",
+            "if cachedRevision == topology.topologyRevision, let cachedSnapshot",
+            "cachedRevision = topology.topologyRevision",
+            "cachedSnapshot = snapshot",
+        ):
+            self.assertIn(token, source)
+        view = VIEW.read_text(encoding="utf-8")
+        self.assertIn("dynamicImageTextures?.snapshot(", view)
+        self.assertIn("topology: layerTopology", view)
+
     def test_scene_script_program_state_retries_after_host_drop(self) -> None:
         driver = FRAME_DRIVER.read_text(encoding="utf-8")
         lifecycle = FRAME_DRIVER_LIFECYCLE.read_text(encoding="utf-8")

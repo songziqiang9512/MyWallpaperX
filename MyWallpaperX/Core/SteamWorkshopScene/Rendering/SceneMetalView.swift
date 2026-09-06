@@ -519,7 +519,7 @@ class SceneMetalView: NSView {
         pointerState.previous = pointerState.current
         let dynamicTextSnapshot = dynamicTextTextures?.snapshot()
         let dynamicImageSnapshot = dynamicImageTextures?.snapshot(
-            dynamicLayers: layerTopology.dynamicLayers
+            topology: layerTopology
         )
         let frameImageTextures = SceneFrameLayerTextureAssembly.make(
             base: imageTextures, dynamicImage: dynamicImageSnapshot,

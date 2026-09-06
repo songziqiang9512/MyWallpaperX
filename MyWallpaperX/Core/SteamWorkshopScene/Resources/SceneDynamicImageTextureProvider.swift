@@ -10,17 +10,22 @@ struct SceneDynamicImageTextureProviderSnapshot {
 /// metadata remain on the canonical texture candidate.
 final class SceneDynamicImageTextureProvider {
     private let resources: [String: ScenePreparedDynamicImageResource]
+    private var cachedRevision: UInt64?
+    private var cachedSnapshot: SceneDynamicImageTextureProviderSnapshot?
 
     init(resources: [String: ScenePreparedDynamicImageResource]) {
         self.resources = resources
     }
 
     func snapshot(
-        dynamicLayers: [SceneRenderDescriptor.Layer]
+        topology: SceneScriptLayerTopologySnapshot
     ) -> SceneDynamicImageTextureProviderSnapshot {
+        if cachedRevision == topology.topologyRevision, let cachedSnapshot {
+            return cachedSnapshot
+        }
         var layerSources: [Int: SceneLayerSourcePublication] = [:]
         var pending: Set<Int> = []
-        for layer in dynamicLayers where layer.contentKind == "image" {
+        for layer in topology.dynamicLayers where layer.contentKind == "image" {
             guard let modelPath = layer.imagePath,
                   let resource = resources[modelPath.lowercased()],
                   let candidate = resource.loaded.candidate,
@@ -39,9 +44,12 @@ final class SceneDynamicImageTextureProvider {
             }
             layerSources[layer.id] = layerSource
         }
-        return .init(
+        let snapshot = SceneDynamicImageTextureProviderSnapshot(
             layerSources: layerSources,
             pendingLayerSourceIDs: pending
         )
+        cachedRevision = topology.topologyRevision
+        cachedSnapshot = snapshot
+        return snapshot
     }
 }
