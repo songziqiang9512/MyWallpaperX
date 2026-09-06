@@ -236,6 +236,8 @@ extension SceneDesktopWallpaperHost {
 #endif
         let definitionIndex = launchContext.dynamicDefinitionIndex
         let audioSpectrum = SceneAudioSpectrumInbox.shared.latest()
+        let timelineObservationState = launchContext.timelinePlaybackRuntime
+            .observationSnapshot()
         let timelineValues = launchContext.timelinePlaybackRuntime.values(
             sceneTime: timing.sceneTime
         )
@@ -709,6 +711,9 @@ extension SceneDesktopWallpaperHost {
             // typed producer. A deferred/dropped surface must not consume a
             // frame index or move the host-time anchor before publication.
             sceneClock.restore(clockState)
+            launchContext.timelinePlaybackRuntime.restoreObservationState(
+                timelineObservationState
+            )
             // The cursor producer advanced before the outcome was known.
             // A deferred/dropped frame must not consume pointer events or
             // advance edge state: re-insert the drained batches and restore

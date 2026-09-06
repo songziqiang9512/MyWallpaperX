@@ -28,6 +28,18 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     private var states: [SceneDynamicTarget: State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
 
+    /// Frame-local observation state is separate from playback command state.
+    /// The host snapshots it before evaluating a frame and restores it when no
+    /// surface crosses the submission barrier, so a dropped frame cannot
+    /// consume a next-frame event that was never displayed.
+    nonisolated struct ObservationState: Equatable, Sendable {
+        fileprivate let pendingNextFrameObservations: Set<SceneDynamicTarget>
+
+        fileprivate init(pendingNextFrameObservations: Set<SceneDynamicTarget>) {
+            self.pendingNextFrameObservations = pendingNextFrameObservations
+        }
+    }
+
     init(program: SceneTimelineProgram) {
         bindings = Dictionary(
             uniqueKeysWithValues: program.bindings.map { ($0.target, $0) }
@@ -38,6 +50,16 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0)
             return (binding.target, state)
         })
+    }
+
+    nonisolated func observationSnapshot() -> ObservationState {
+        ObservationState(
+            pendingNextFrameObservations: pendingNextFrameObservations
+        )
+    }
+
+    nonisolated func restoreObservationState(_ state: ObservationState) {
+        pendingNextFrameObservations = state.pendingNextFrameObservations
     }
 
     func values(sceneTime: Double) -> [SceneDynamicTarget: SceneDynamicValue] {

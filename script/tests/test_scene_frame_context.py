@@ -828,6 +828,21 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("A deferred/dropped surface must not consume a", render)
         self.assertIn("frame index or move the host-time anchor", render)
 
+    def test_timeline_observation_rolls_back_with_surface_submission(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        render = swift_body(frame_driver, "private func renderFrame()")
+        snapshot = render.index("let timelineObservationState =")
+        values = render.index("timelinePlaybackRuntime.values(", snapshot)
+        barrier = render.index("let allSurfacesSubmitted =", values)
+        restore = render.index(
+            "timelinePlaybackRuntime.restoreObservationState(", barrier
+        )
+        self.assertLess(snapshot, values)
+        self.assertLess(values, barrier)
+        self.assertLess(
+            restore, render.index("restoreSceneScriptPointerEvents", restore)
+        )
+
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
         engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")

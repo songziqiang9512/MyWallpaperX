@@ -2235,6 +2235,13 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 自动门：`python3.12 -m unittest script.tests.test_scene_frame_context` **28/28**；checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组 **7 modules / ALL OK**；`script/check_code_health.py --check --base-ref HEAD` 通过（902 Swift、16 locked legacy、182 warnings）；checkpoint Debug build `BUILD SUCCEEDED`；`git diff --check` 通过。Swift harness 先对同一时间尝试推进后 restore，再重试，证明失败尝试不消耗 frame index 或 host anchor；frame-driver 顺序门锁定 snapshot→advance→submission barrier→restore→其他 producer rollback。
 - 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion 和 GPU completion 后的回滚仍可能在 surface outcome 前推进，不外推视觉 parity、稳定性能、官方 timing 或 V4 完成。
 
+<a id="e-v4-timeline-observation-submission-barrier"></a>
+### E-V4-TIMELINE-OBSERVATION-SUBMISSION-BARRIER: Timeline next-frame observation rollback
+
+- 实现：`SceneTimelinePlaybackRuntime.values(sceneTime:)` 仍负责从共享绝对 `SceneClock` 求值，但 host 在调用前保存其 pending `next-frame` observation set；非全部 surface `submitted` 时，在既有 clock restore 与 pointer/evaluation/layer-mutation rollback 中恢复该 set。Timeline playback command 的 `states` 仍只在 `commitSubmittedSceneFrame` 中通过原有 `apply` 更新；没有新增 Timeline、clock、property/provider、renderer 或 output owner。
+- 自动门：`python3.12 -m unittest script.tests.test_scene_timeline_runtime script.tests.test_scene_frame_context` **40/40**；新增 harness 证明 observation 标记会被一次 `values` 消费、随后 restore 回原状态；frame-driver 顺序门锁定 observation snapshot→values→submission barrier→restore。checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组、code-health（902 Swift、16 locked legacy、182 warnings）与 Debug build 均通过，`git diff --check` 通过。
+- 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion仍可能在 surface outcome 前推进，不外推视觉 parity、稳定性能、官方 timing 或 V4 完成。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 

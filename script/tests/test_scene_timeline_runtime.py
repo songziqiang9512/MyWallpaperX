@@ -422,6 +422,13 @@ enum Harness {
             [.init(target: pausedTarget, command: .play)],
             sceneTime: 5
         )
+        let observationState = playback.observationSnapshot()
+        _ = playback.values(sceneTime: 5.5)
+        let observationConsumed = playback.observationSnapshot()
+        playback.restoreObservationState(observationState)
+        let observationRestored = playback.observationSnapshot()
+        playbackPayload["observationChanged"] = observationState != observationConsumed
+        playbackPayload["observationRestored"] = observationState == observationRestored
         playbackPayload["played"] = playbackScalar(6, pausedTarget) ?? -1
         _ = playback.apply(
             [.init(target: pausedTarget, command: .pause)],
@@ -533,6 +540,8 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(playback["paused"], 1.0)
         self.assertAlmostEqual(playback["autoplay"], 1.0)
         self.assertAlmostEqual(playback["played"], 0.5)
+        self.assertTrue(playback["observationChanged"])
+        self.assertTrue(playback["observationRestored"])
 
         self.assertAlmostEqual(playback["held"], 0.5)
         self.assertAlmostEqual(playback["stopped"], 1.0)
