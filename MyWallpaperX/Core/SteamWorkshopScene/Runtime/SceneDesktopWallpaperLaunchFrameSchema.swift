@@ -10,6 +10,13 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
     let dynamicLayerRuntime: SceneScriptDynamicLayerRuntime
     let sceneScriptStatefulTargets: Set<SceneDynamicTarget>
     let mediaFrameCoordinator: SceneScriptMediaFrameCoordinator
+    /// Launch-frozen QuickJS layer catalog identity. The frame driver publishes
+    /// the runtime descriptor every frame, so the schema verifies once at
+    /// launch that it matches the catalog configured on the shared domain and
+    /// then hands the domain's own signature back as an O(1) frame token.
+    /// `nil` keeps the pre-existing per-frame revalidation for catalogs whose
+    /// launch projections already differ.
+    let sceneScriptLayerCatalogToken: String?
     private let launchDefinitions: [SceneDynamicTargetDefinition]
     private var cachedDefinitionRevision: UInt64?
     private var cachedDynamicDefinitions: [SceneDynamicTargetDefinition] = []
@@ -70,6 +77,15 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
             stringProgram: sceneScriptStringProgram,
             scalarProgram: sceneScriptScalarProgram
         )
+        let configuredCatalogSignature = propertyVectorScriptProgram.domain?
+            .layerCatalogSignature
+        if let configuredCatalogSignature,
+           configuredCatalogSignature == SceneScriptQuickJSDomain
+               .catalogSignature(for: runtimeInput.renderDescriptor) {
+            sceneScriptLayerCatalogToken = configuredCatalogSignature
+        } else {
+            sceneScriptLayerCatalogToken = nil
+        }
         let dynamicLayerRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: runtimeInput.renderDescriptor,
             authoredMutationLayerIDs: sceneScriptOwnerLayerIDs,

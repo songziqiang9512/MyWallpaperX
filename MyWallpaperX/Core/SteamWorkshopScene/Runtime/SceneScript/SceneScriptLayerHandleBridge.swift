@@ -420,6 +420,21 @@ private nonisolated extension String {
 /// handle projection. This is not a second property store: every frame starts
 /// from descriptor-authored origins and overlays only resolved current values.
 nonisolated extension SceneScriptQuickJSDomain {
+    /// Launch-stable catalog identity: index, id, parent, name, authored
+    /// origin and text mutability of every descriptor layer. This signature
+    /// is only built at load/configuration time; the per-frame snapshot path
+    /// compares the launch-frozen token instead of rescanning the catalog.
+    nonisolated static func catalogSignature(
+        for descriptor: SceneRenderDescriptor
+    ) -> String {
+        descriptor.layers.enumerated().map { index, layer in
+            let origin = layer.originXYZ ?? [0, 0, 0]
+            let textMutable = layer.contentKind == "text"
+                && layer.text != nil && layer.textStyle != nil
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):text=\(textMutable)"
+        }.joined(separator: "|")
+    }
+
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {
         let layerIDs = Set(descriptor.layers.map(\.id))
         guard descriptor.layers.count <= 4096,
@@ -446,12 +461,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                 "SceneScript layer catalog exceeds its identity contract"
             )
         }
-        let signature = descriptor.layers.enumerated().map { index, layer in
-            let origin = layer.originXYZ ?? [0, 0, 0]
-            let textMutable = layer.contentKind == "text"
-                && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):text=\(textMutable)"
-        }.joined(separator: "|")
+        let signature = Self.catalogSignature(for: descriptor)
         if let configured = layerCatalogSignature {
             guard configured == signature else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
@@ -514,9 +524,23 @@ nonisolated extension SceneScriptQuickJSDomain {
     func publishLayerSnapshot(
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
-        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]
+        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        catalogToken: String? = nil
     ) throws {
-        try configureLayerCatalog(descriptor)
+        if let catalogToken {
+            guard let configured = layerCatalogSignature else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer catalog not configured"
+                )
+            }
+            guard configured == catalogToken else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer catalog identity changed"
+                )
+            }
+        } else {
+            try configureLayerCatalog(descriptor)
+        }
         guard layerSnapshotGeneration < UInt64.max else {
             throw SceneScriptScalarRuntimeFailure.staleOwner
         }

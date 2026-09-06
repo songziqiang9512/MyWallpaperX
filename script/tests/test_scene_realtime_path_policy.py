@@ -196,8 +196,8 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         architecture = (
             ROOT / "docs/scene/runtime-architecture.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("一条最短产品播放链", agents)
-        self.assertIn("正常帧不得重新解析、编译、建图", agents)
+        self.assertIn("目标主链只有一条", agents)
+        self.assertIn("普通帧不得重新解析、编译、建图", agents)
         self.assertIn("任何逐帧 JSON 编码", architecture)
 
     def test_unique_output_owner_has_no_unowned_clear_present_bypass(self) -> None:
@@ -237,7 +237,11 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertNotIn("finishUnsubmittedCommandBuffer", renderer)
         self.assertIn("return .submitted", renderer)
         self.assertIn(") -> SceneMetalRenderer.FrameOutcome", view)
-        self.assertIn("return renderer.renderFrame(", view)
+        self.assertIn("let outcome = renderer.renderFrame(", view)
+        self.assertIn("if outcome.isSubmitted {", view)
+        self.assertIn("$0.commitPreparedFrame()", view)
+        self.assertIn("$0.discardPreparedFrame()", view)
+        self.assertIn("return outcome", view)
         self.assertIn(
             ") -> SceneMetalRenderer.ResolvedMaterialFrameAdmission",
             preflight,

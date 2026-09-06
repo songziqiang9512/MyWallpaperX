@@ -123,6 +123,16 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             launch,
         )
         self.assertIn("+ sceneScriptFallbackDefinitions", launch_schema)
+        # Launch-frozen catalog token: the schema verifies once at launch that
+        # the runtime descriptor matches the domain-configured catalog and
+        # freezes the token; the frame driver must pass it per snapshot.
+        self.assertIn("sceneScriptLayerCatalogToken", launch_schema)
+        self.assertIn(
+            "SceneScriptQuickJSDomain\n"
+            "               .catalogSignature(for: runtimeInput.renderDescriptor)",
+            launch_schema,
+        )
+        self.assertIn("catalogToken: launchContext.frameSchema", frame)
         self.assertIn("fallbackCatalog.targets.isDisjoint(", launch)
         self.assertIn("activeBindings=", startup_report)
         self.assertIn("mediaThumbnailTargets.count", startup_report)
@@ -220,6 +230,20 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         runtime = swift_body(runtime_fields, "func publishLayerRuntimeFields(")
         self.assertEqual(snapshot.count("configureLayerCatalog(descriptor)"), 1)
         self.assertNotIn("configureLayerCatalog(descriptor)", runtime)
+        # The per-frame snapshot path must not rescan the layer catalog: a
+        # launch-frozen token is compared instead, and configure only runs
+        # for the token-less bootstrap path.
+        self.assertIn(
+            "videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]",
+            handle[handle.index("func publishLayerSnapshot("):],
+        )
+        self.assertIn("catalogToken: String? = nil", handle)
+        self.assertIn(
+            "guard configured == catalogToken else", snapshot
+        )
+        self.assertIn(
+            '"SceneScript layer catalog identity changed"', snapshot
+        )
 
     def test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan(self) -> None:
         handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")

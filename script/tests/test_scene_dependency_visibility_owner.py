@@ -81,6 +81,33 @@ enum Harness {
             frame: frame
         )
 
+        let catalogToken = positiveCandidate.domain?.layerCatalogSignature
+        let tokenResolution = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 3, generation: 3,
+            definitions: positiveCandidate.vectorProgram.definitions
+        )
+        var tokenPublishSucceeded = false
+        do {
+            try positiveCandidate.domain?.publishLayerSnapshot(
+                tokenResolution.snapshot,
+                descriptor: descriptor,
+                catalogToken: catalogToken
+            )
+            tokenPublishSucceeded = true
+        } catch {}
+        var tokenFailureCode = ""
+        var tokenFailureMessage = ""
+        do {
+            try positiveCandidate.domain?.publishLayerSnapshot(
+                tokenResolution.snapshot,
+                descriptor: descriptor,
+                catalogToken: "stale|catalog|token"
+            )
+        } catch let failure as SceneScriptScalarRuntimeFailure {
+            tokenFailureCode = failure.code
+            tokenFailureMessage = failureMessage(failure)
+        } catch {}
+
         let mutableHandleProjection = SceneScriptVectorProgram.project(
             descriptor: descriptor,
             scriptBindings: [binding(source: mutableHandleSource)]
@@ -109,6 +136,12 @@ enum Harness {
             "disabledValuePublished": disabled.values[target] != nil,
             "disabledFailures": disabled.failures.count,
             "mutableHandleProjected": mutableHandleProjection.targets.contains(target),
+            "catalogSignatureMatchesToken":
+                SceneScriptQuickJSDomain.catalogSignature(for: descriptor)
+                    == catalogToken,
+            "tokenPublishSucceeded": tokenPublishSucceeded,
+            "tokenFailureCode": tokenFailureCode,
+            "tokenFailureMessage": tokenFailureMessage,
         ]
         let data = try JSONSerialization.data(
             withJSONObject: payload,
@@ -330,6 +363,15 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
 
     def test_direct_mutable_owner_handles_remain_outside_profile(self) -> None:
         self.assertFalse(self.value["mutableHandleProjected"])
+
+    def test_launch_frozen_catalog_token_gates_snapshot_publication(self) -> None:
+        self.assertTrue(self.value["catalogSignatureMatchesToken"])
+        self.assertTrue(self.value["tokenPublishSucceeded"])
+        self.assertEqual(self.value["tokenFailureCode"], "invalid-argument")
+        self.assertIn(
+            "layer catalog identity changed",
+            self.value["tokenFailureMessage"],
+        )
 
     def test_typed_visibility_owner_reaches_program_admission_and_frame_gate(
         self,

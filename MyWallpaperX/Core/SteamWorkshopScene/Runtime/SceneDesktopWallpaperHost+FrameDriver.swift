@@ -335,7 +335,9 @@ extension SceneDesktopWallpaperHost {
                 .publishLayerSnapshot(
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
-                    videoSnapshots: sceneScriptVideoSnapshots
+                    videoSnapshots: sceneScriptVideoSnapshots,
+                    catalogToken: launchContext.frameSchema
+                        .sceneScriptLayerCatalogToken
                 )
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
