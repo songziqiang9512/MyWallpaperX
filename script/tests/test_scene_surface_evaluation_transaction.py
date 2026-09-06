@@ -272,6 +272,14 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
             transaction,
         )
 
+    def test_previous_value_projection_reads_requested_target_identity(self) -> None:
+        source = (SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("for target in targets", source)
+        self.assertIn("guard let resolved = values[target]", source)
+        self.assertNotIn("values.reduce(into:", source)
+
 
 if __name__ == "__main__":
     unittest.main()

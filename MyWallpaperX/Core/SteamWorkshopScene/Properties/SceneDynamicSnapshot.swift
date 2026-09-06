@@ -267,11 +267,13 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         for targets: Set<SceneDynamicTarget>,
         source: SceneDynamicSource? = nil
     ) -> [SceneDynamicTarget: SceneDynamicValue] {
-        values.reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) {
-            guard targets.contains($1.key),
-                  source == nil || source == $1.value.source else { return }
-            $0[$1.key] = $1.value.value
+        var result: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        for target in targets {
+            guard let resolved = values[target],
+                  source == nil || source == resolved.source else { continue }
+            result[target] = resolved.value
         }
+        return result
     }
 
     nonisolated func userPropertyNumericRange(

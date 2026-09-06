@@ -4841,6 +4841,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：candidate set 只是 definition-index 派生的 immutable identity projection，不承载动态值、source priority、generation、provider 或 publication；无动态 candidate、authored fallback、错误类型、非 finite、duplicate/invalid definition 仍不会进入 world-frame override。`SceneLayerDynamicWorldFrameResolver`、parent/attachment hierarchy、dynamic script root fast path、Program/GraphExecutor 与唯一 compositor/output owner 不变。
 - **自动门与边界**：`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_realtime_path_policy` 共 31 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过（最终源码 `BUILD SUCCEEDED`）。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed world-frame candidate wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
 
+<a id="e-v4-typed-snapshot-stateful-target-projection"></a>
+### E-V4-TYPED-SNAPSHOT-STATEFUL-TARGET-PROJECTION: target-scoped previous-current projection
+
+证据等级：`S2 shared typed snapshot stateful projection wiring`。本批只收口 SceneScript previous-current 回读对完整 resolved map 的共享 CPU 扫描，不宣称真实 SceneScript 视觉、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 stateful SceneScript producer 读取前一帧已提交的 typed target value，再沿同一 snapshot/Program/VM 链进入下一帧。此前 `SceneDynamicSnapshot.values(for:source:)` 先遍历整个 `values` map，再用 target set 过滤；当前 projection 按请求的 target identity 直接查找 dictionary，并继续按 source 过滤，将缺失 target 保持为缺失。
+- **失败半径与 owner**：该方法仍是 `SceneDynamicSnapshot` 的只读 projection，不建立第二 property registry 或 state store；surface transaction 的 `lastSnapshot`、generation、prepare/commit barrier、SceneScript source priority、authored fallback、Program/GraphExecutor 与唯一 compositor/output owner 不变。
+- **自动门与边界**：`test_scene_surface_evaluation_transaction`、`test_scene_dynamic_snapshot`、`test_scene_layer_world_frame`、`test_scene_realtime_path_policy` 共 42 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过（最终源码 `BUILD SUCCEEDED`）。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 typed snapshot stateful projection wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 
