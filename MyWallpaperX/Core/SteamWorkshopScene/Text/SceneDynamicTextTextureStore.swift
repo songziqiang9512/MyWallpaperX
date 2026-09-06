@@ -17,6 +17,8 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var generationState = SceneDynamicTextGenerationState()
     private var currentTextures: [Int: MTLTexture]
     private var currentRenderSizes: [Int: [Float]]
+    private var cachedSnapshot: Snapshot?
+    private var snapshotDirty = true
 #if DEBUG
     private var debugLoggedDynamicLayers: Set<Int> = []
 #endif
@@ -76,6 +78,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             currentTextures.removeValue(forKey: layerID)
             currentRenderSizes.removeValue(forKey: layerID)
             self.dynamicTextFieldsByLayerID.removeValue(forKey: layerID)
+            snapshotDirty = true
             generationState.unregister(layerID: layerID)
         }
         for layer in admittedDynamic {
@@ -115,6 +118,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     func snapshot() -> Snapshot {
         lock.lock()
         defer { lock.unlock() }
+        if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }
         let pairs: [(Int, SceneLayerSourcePublication)] = currentTextures.compactMap {
             layerID, texture in
             guard let generation = generationState.readyGeneration(layerID: layerID),
@@ -145,7 +149,10 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             return (layerID, layerSource)
         }
         let layerSources = Dictionary(uniqueKeysWithValues: pairs)
-        return Snapshot(layerSources: layerSources)
+        let snapshot = Snapshot(layerSources: layerSources)
+        cachedSnapshot = snapshot
+        snapshotDirty = false
+        return snapshot
     }
 
     deinit {
@@ -190,6 +197,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         if completion.accepted, let rendered {
             currentTextures[request.layerID] = rendered.texture
             currentRenderSizes[request.layerID] = rendered.renderSizeWH
+            snapshotDirty = true
 #if DEBUG
             if debugLoggedDynamicLayers.insert(request.layerID).inserted {
                 debugPublication = (

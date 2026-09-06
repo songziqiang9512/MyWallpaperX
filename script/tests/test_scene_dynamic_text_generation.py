@@ -159,7 +159,7 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             "content: .color(.resolved(.premultipliedAlpha))",
             "SceneLayerSourcePublication(",
             "renderSizeWH: renderSizeWH",
-            "return Snapshot(layerSources: layerSources)",
+            "let snapshot = Snapshot(layerSources: layerSources)",
         ):
             self.assertIn(token, source)
         self.assertNotIn("let renderSizes:", source)
@@ -191,6 +191,17 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
         self.assertIn(
             "launchContext.frameSchema.dynamicTextFieldsByLayerID", host_source
         )
+
+    def test_text_provider_reuses_ready_publication_snapshot_until_completion_or_retirement(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        for token in (
+            "private var cachedSnapshot: Snapshot?",
+            "private var snapshotDirty = true",
+            "if !snapshotDirty, let cachedSnapshot { return cachedSnapshot }",
+            "cachedSnapshot = snapshot",
+            "snapshotDirty = true",
+        ):
+            self.assertIn(token, source)
 
 
 if __name__ == "__main__":
