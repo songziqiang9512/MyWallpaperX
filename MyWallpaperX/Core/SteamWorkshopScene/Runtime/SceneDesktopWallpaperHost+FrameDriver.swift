@@ -1,19 +1,16 @@
 import AppKit
 import QuartzCore
-
 private let sceneFrameInterval: TimeInterval = 1.0 / 60.0
 private let sceneBusyFrameRetryInterval = max(
     0.001,
     sceneFrameInterval / 8.0
 )
-
 private enum SceneFrameDriverAttempt {
     case rendered
     case busy
     case dropped
     case inactive
 }
-
 extension SceneDesktopWallpaperHost {
 #if DEBUG
     static let debugSceneTimeOverride: TimeInterval? = {
@@ -708,6 +705,7 @@ extension SceneDesktopWallpaperHost {
         let allSurfacesSubmitted = frameOutcomes.count == surfaces.count
             && frameOutcomes.allSatisfy(\.isSubmitted)
         guard allSurfacesSubmitted else {
+            // A deferred/dropped surface must not consume a frame index or move the host-time anchor.
             sceneClock.restore(clockState)
             launchContext.timelinePlaybackRuntime.restoreObservationState(
                 timelineObservationState
@@ -727,6 +725,7 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
@@ -737,6 +736,7 @@ extension SceneDesktopWallpaperHost {
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedParticleFrame() }
         surfaces.values.forEach { $0.metalView.commitPreparedMaterialAssetFrame() }
         surfaces.values.forEach { $0.metalView.commitPreparedFrameTexturePublication() }
         surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }

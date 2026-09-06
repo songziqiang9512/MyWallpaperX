@@ -1,6 +1,14 @@
 import Foundation
 
 extension SceneMetalView {
+    func commitPreparedParticleFrame() {
+        particlePlayback?.commitPreparedFrame()
+    }
+
+    func discardPreparedParticleFrame() {
+        particlePlayback?.discardPreparedFrame()
+    }
+
     var hasParticleAudioConsumer: Bool {
         particlePlayback?.hasAudioConsumer == true
     }
@@ -12,6 +20,7 @@ extension SceneMetalView {
         cameraFrame: SceneParticleCameraFrame
     ) -> [SceneParticleDrawBatch] {
         guard let particlePlayback else { return [] }
+        particlePlayback.prepareFrame()
         return particlePlayback.advance(
             by: timing.simulationFrameTime,
             dynamicValues: dynamicValues,

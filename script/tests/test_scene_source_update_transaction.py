@@ -22,6 +22,8 @@ VIEW = SCENE / "Rendering/SceneMetalView.swift"
 FRAME_DRIVER = SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
+PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
+PARTICLE_VIEW = SCENE / "Rendering/SceneMetalView+ParticlePlayback.swift"
 DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
 TEXTURE_REGISTRY = SCENE / "Resources/SceneFrameTextureRegistry.swift"
 TEXTURE_FRAME = SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
@@ -447,6 +449,8 @@ enum Harness {
         view = VIEW.read_text(encoding="utf-8")
         puppet = PUPPET.read_text(encoding="utf-8")
         sprite = SPRITE.read_text(encoding="utf-8")
+        particle_playback = PARTICLE_PLAYBACK.read_text(encoding="utf-8")
+        particle_view = PARTICLE_VIEW.read_text(encoding="utf-8")
 
         source_closure = view.split("encodeSourceUpdates:", maxsplit=1)[1]
         source_closure = source_closure.split(
@@ -473,9 +477,21 @@ enum Harness {
         self.assertIn("func discardPreparedSpriteFrames()", view)
         frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
         barrier = frame_driver.index("let allSurfacesSubmitted =")
+        self.assertIn("func prepareFrame()", particle_playback)
+        self.assertIn("func commitPreparedFrame()", particle_playback)
+        self.assertIn("func discardPreparedFrame()", particle_playback)
+        self.assertIn("particlePlayback.prepareFrame()", particle_view)
+        self.assertIn("particlePlayback?.discardPreparedFrame()", view)
+        self.assertIn("func commitPreparedParticleFrame()", particle_view)
+        self.assertIn("func discardPreparedParticleFrame()", particle_view)
+        particle_discard = frame_driver.index("discardPreparedParticleFrame()", barrier)
         sprite_discard = frame_driver.index("discardPreparedSpriteFrames()", barrier)
         asset_discard = frame_driver.index("discardPreparedMaterialAssetFrame()", barrier)
+        self.assertLess(particle_discard, sprite_discard)
         self.assertLess(sprite_discard, asset_discard)
+        particle_commit = frame_driver.index("commitPreparedParticleFrame()", barrier)
+        asset_commit = frame_driver.index("commitPreparedMaterialAssetFrame()", barrier)
+        self.assertLess(particle_commit, asset_commit)
 
     def test_dynamic_text_provider_publishes_only_after_frame_submission(self) -> None:
         view = VIEW.read_text(encoding="utf-8")

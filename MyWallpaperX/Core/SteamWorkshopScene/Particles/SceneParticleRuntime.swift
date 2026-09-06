@@ -5,6 +5,22 @@ import Metal
 /// Particle positions and sizes stay in the author-defined layer-local coordinate system.
 /// The renderer applies the layer world frame, Y-axis convention, and layer scale once.
 final class SceneParticleRuntime {
+    struct FrameSnapshot {
+        struct LayerSnapshot {
+            struct RootSnapshot {
+                let simulator: SceneParticleSimulator
+                let simulatorFrame: SceneParticleSimulator.FrameSnapshot
+                let instances: [SceneParticleGPUInstance]
+                let ropeTrailHistory: SceneParticleRopeTrailHistory?
+            }
+
+            let root: RootSnapshot?
+            let child: SceneParticleChildRuntime.FrameSnapshot?
+        }
+
+        let layers: [LayerSnapshot]
+    }
+
     private let device: MTLDevice
     private var layers: [SceneParticleLayerRuntime] = []
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
@@ -314,6 +330,39 @@ final class SceneParticleRuntime {
             layers[index].rootRender = root
         }
         return batches
+    }
+
+    func frameSnapshot() -> FrameSnapshot {
+        FrameSnapshot(layers: layers.map { layer in
+            let root = layer.rootRender.map {
+                FrameSnapshot.LayerSnapshot.RootSnapshot(
+                    simulator: $0.simulator,
+                    simulatorFrame: $0.simulator.frameSnapshot(),
+                    instances: $0.instances,
+                    ropeTrailHistory: $0.ropeTrailHistory
+                )
+            }
+            return FrameSnapshot.LayerSnapshot(
+                root: root,
+                child: layer.childRuntime?.frameSnapshot()
+            )
+        })
+    }
+
+    func restoreFrame(_ snapshot: FrameSnapshot) {
+        guard snapshot.layers.count == layers.count else { return }
+        for index in layers.indices {
+            if let rootSnapshot = snapshot.layers[index].root,
+               var root = layers[index].rootRender {
+                rootSnapshot.simulator.restoreFrame(rootSnapshot.simulatorFrame)
+                root.instances = rootSnapshot.instances
+                root.ropeTrailHistory = rootSnapshot.ropeTrailHistory
+                layers[index].rootRender = root
+            }
+            if let childSnapshot = snapshot.layers[index].child {
+                layers[index].childRuntime?.restoreFrame(childSnapshot)
+            }
+        }
     }
 
     /// Ends this launch-scoped runtime atomically. Root and child systems are

@@ -341,6 +341,8 @@ enum Harness {
             try printJSON(syntheticLifecycle())
         case "playback-delta-synthetic":
             try printJSON(playbackDeltaBounds())
+        case "frame-transaction-synthetic":
+            try printJSON(frameTransactionBounds())
         case "synthetic":
             try printJSON(synthetic())
         default:
@@ -393,6 +395,36 @@ enum Harness {
             "slowFrame": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(0.25),
             "negative": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(-1),
             "nonFinite": SceneParticlePlaybackState.boundedRealtimeSimulationDelta(.infinity),
+        ]
+    }
+
+    private static func frameTransactionBounds() -> [String: Any] {
+        let definition = SceneParticleDefinitionParser().parse(root: [
+            "material": "materials/unused.json",
+            "maxcount": 8,
+            "emitter": [[
+                "name": "sphererandom", "rate": 30,
+                "distancemin": 0, "distancemax": 0,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 2, "max": 2],
+                ["name": "velocityrandom", "min": "-1 2 0", "max": "1 3 0"],
+            ],
+            "renderer": [["name": "sprite"]],
+        ])
+        var retry = SceneParticleSimulator(definition: definition, seed: 17)
+        retry.advance(by: 1.0 / 60.0)
+        let snapshot = retry.frameSnapshot()
+        retry.advance(by: 1.0 / 60.0)
+        retry.restoreFrame(snapshot)
+        retry.advance(by: 1.0 / 60.0)
+        var expected = SceneParticleSimulator(definition: definition, seed: 17)
+        expected.advance(by: 1.0 / 60.0)
+        expected.advance(by: 1.0 / 60.0)
+        return [
+            "sameParticles": retry.particles == expected.particles,
+            "sameTime": retry.simulationTime == expected.simulationTime,
+            "sameRandom": retry.random.state == expected.random.state,
         ]
     }
 
@@ -2791,6 +2823,12 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(result["slowFrame"], 1 / 30)
         self.assertEqual(result["negative"], 0)
         self.assertEqual(result["nonFinite"], 0)
+
+    def test_particle_frame_transaction_restores_simulation_and_random_state(self) -> None:
+        result = self.run_harness("frame-transaction-synthetic")
+        self.assertTrue(result["sameParticles"])
+        self.assertTrue(result["sameTime"])
+        self.assertTrue(result["sameRandom"])
 
     def test_velocity_random_uses_official_zero_for_each_omitted_endpoint(self) -> None:
         result = self.run_harness("velocity-defaults-synthetic")

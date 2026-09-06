@@ -7,6 +7,24 @@ import Foundation
 /// system. Making the simulator itself a value copied its particle buffers through
 /// those records and forced Array COW checks throughout every operator hot path.
 nonisolated final class SceneParticleSimulator: @unchecked Sendable {
+    struct FrameSnapshot {
+        let particles: [SceneParticleState]
+        let birthEvents: [SceneParticleState]
+        let deathEvents: [SceneParticleState]
+        let simulationTime: Double
+        let activeInstanceOverride: SceneParticleInstanceOverride?
+        let emitters: [SceneParticleEmitterState]
+        let random: SceneParticleRandomGenerator
+        let accumulator: Double
+        let nextParticleID: UInt64
+        let normalizedLives: [Double]
+        let dynamicControlPoints: [Int: SIMD3<Double>]
+        let audioInput: SceneParticleAudioInput
+        let eventColorContext: SceneParticleEventColorContext
+        let stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
+        let positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
+    }
+
     let fixedTimeStep: Double
     let maximumParticleCount: Int
     let diagnostics: [SceneParticleSimulationDiagnostic]
@@ -127,6 +145,47 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     nonisolated func consumeStepSnapshots() -> [SceneParticleStepSnapshot] {
         stepSnapshotRecorder?.consume() ?? []
+    }
+
+    /// Captures mutable simulation state before a frame is admitted. The
+    /// runtime keeps immutable definition/operator data shared; only the
+    /// frame-varying state is copied and can be restored on host rejection.
+    nonisolated func frameSnapshot() -> FrameSnapshot {
+        FrameSnapshot(
+            particles: particles,
+            birthEvents: birthEvents,
+            deathEvents: deathEvents,
+            simulationTime: simulationTime,
+            activeInstanceOverride: activeInstanceOverride,
+            emitters: emitters,
+            random: random,
+            accumulator: accumulator,
+            nextParticleID: nextParticleID,
+            normalizedLives: normalizedLives,
+            dynamicControlPoints: dynamicControlPoints,
+            audioInput: audioInput,
+            eventColorContext: eventColorContext,
+            stepSnapshotRecorder: stepSnapshotRecorder,
+            positionOscillationCache: positionOscillationCache
+        )
+    }
+
+    nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
+        particles = snapshot.particles
+        birthEvents = snapshot.birthEvents
+        deathEvents = snapshot.deathEvents
+        simulationTime = snapshot.simulationTime
+        activeInstanceOverride = snapshot.activeInstanceOverride
+        emitters = snapshot.emitters
+        random = snapshot.random
+        accumulator = snapshot.accumulator
+        nextParticleID = snapshot.nextParticleID
+        normalizedLives = snapshot.normalizedLives
+        dynamicControlPoints = snapshot.dynamicControlPoints
+        audioInput = snapshot.audioInput
+        eventColorContext = snapshot.eventColorContext
+        stepSnapshotRecorder = snapshot.stepSnapshotRecorder
+        positionOscillationCache = snapshot.positionOscillationCache
     }
 
     nonisolated func updateFollowEventColor(_ color: SIMD3<Double>) {

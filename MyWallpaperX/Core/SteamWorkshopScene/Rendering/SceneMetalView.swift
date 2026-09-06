@@ -545,6 +545,7 @@ class SceneMetalView: NSView {
                 dynamicLayers: layerTopology.dynamicLayers
             )
         } else {
+            particlePlayback?.discardPreparedFrame()
             parallaxPointerSmoother.restore(parallaxPointerState)
             pointerState.previous = pointerPrevious
         }

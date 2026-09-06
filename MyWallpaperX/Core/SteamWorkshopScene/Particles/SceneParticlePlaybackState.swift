@@ -2,6 +2,11 @@ import Foundation
 import Metal
 
 final class SceneParticlePlaybackState {
+    private struct FrameTransaction {
+        let runtime: SceneParticleRuntime.FrameSnapshot
+        let batches: [SceneParticleDrawBatch]
+    }
+
     private nonisolated static let maximumRealtimeSimulationDelta: TimeInterval = 2.0 / 60.0
 
     let lifecycleIdentity = UUID()
@@ -12,6 +17,7 @@ final class SceneParticlePlaybackState {
     let pointerControlPointLayerIDs: Set<Int>
     private(set) var batches: [SceneParticleDrawBatch]
     private var didTeardown = false
+    private var frameTransaction: FrameTransaction?
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
     var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
         runtime.lifecycleSnapshot
@@ -64,6 +70,28 @@ final class SceneParticlePlaybackState {
         return batches
     }
 
+    /// Begins a host-frame transaction before simulation mutates its live
+    /// producer state. The host commits it only after every surface submits;
+    /// a deferred/dropped surface restores the prior particle timeline.
+    func prepareFrame() {
+        guard !didTeardown, frameTransaction == nil else { return }
+        frameTransaction = FrameTransaction(
+            runtime: runtime.frameSnapshot(),
+            batches: batches
+        )
+    }
+
+    func commitPreparedFrame() {
+        frameTransaction = nil
+    }
+
+    func discardPreparedFrame() {
+        guard let frameTransaction else { return }
+        runtime.restoreFrame(frameTransaction.runtime)
+        batches = frameTransaction.batches
+        self.frameTransaction = nil
+    }
+
     /// Product playback drops overdue wall-clock debt instead of recursively making
     /// an already slow frame run an unbounded number of fixed simulation steps.
     nonisolated static func boundedRealtimeSimulationDelta(
@@ -78,6 +106,7 @@ final class SceneParticlePlaybackState {
     func teardown(reason: String) -> SceneParticlePlaybackTeardownObservation? {
         guard !didTeardown else { return nil }
         didTeardown = true
+        frameTransaction = nil
         let observation = SceneParticlePlaybackTeardownObservation(
             lifecycleIdentity: lifecycleIdentity,
             reason: reason,

@@ -3,6 +3,26 @@ import Metal
 
 /// Executes strict children up to depth two. Unsupported declarations stay diagnostic.
 final class SceneParticleChildRuntime {
+    struct FrameSnapshot {
+        struct SystemSnapshot {
+            let id: UInt64
+            let templateIndex: Int
+            let depth: Int
+            let spawnScopeID: UInt64?
+            let parentParticleID: UInt64?
+            let emissionCompletionTime: Double?
+            let isWorldSpace: Bool
+            let origin: SIMD3<Double>
+            let particleOrigins: [UInt64: SIMD3<Double>]
+            let simulator: SceneParticleSimulator
+            let simulatorFrame: SceneParticleSimulator.FrameSnapshot
+        }
+
+        let systems: [SystemSnapshot]
+        let nextSeed: UInt64
+        let nextSystemID: UInt64
+    }
+
     private struct TemplateSelectionKey: Hashable {
         let trigger: SceneParticleChildTrigger
         let depth: Int
@@ -190,6 +210,49 @@ final class SceneParticleChildRuntime {
             bufferFailurePaths: failures,
             limitationDetails: limitations.sorted()
         )
+    }
+
+    func frameSnapshot() -> FrameSnapshot {
+        FrameSnapshot(
+            systems: systems.map {
+                .init(
+                    id: $0.id,
+                    templateIndex: $0.templateIndex,
+                    depth: $0.depth,
+                    spawnScopeID: $0.spawnScopeID,
+                    parentParticleID: $0.parentParticleID,
+                    emissionCompletionTime: $0.emissionCompletionTime,
+                    isWorldSpace: $0.isWorldSpace,
+                    origin: $0.origin,
+                    particleOrigins: $0.particleOrigins,
+                    simulator: $0.simulator,
+                    simulatorFrame: $0.simulator.frameSnapshot()
+                )
+            },
+            nextSeed: nextSeed,
+            nextSystemID: nextSystemID
+        )
+    }
+
+    func restoreFrame(_ snapshot: FrameSnapshot) {
+        systems = snapshot.systems.map {
+            $0.simulator.restoreFrame($0.simulatorFrame)
+            return SceneParticleChildSystem(
+                id: $0.id,
+                templateIndex: $0.templateIndex,
+                depth: $0.depth,
+                spawnScopeID: $0.spawnScopeID,
+                parentParticleID: $0.parentParticleID,
+                emissionCompletionTime: $0.emissionCompletionTime,
+                isWorldSpace: $0.isWorldSpace,
+                origin: $0.origin,
+                particleOrigins: $0.particleOrigins,
+                simulator: $0.simulator
+            )
+        }
+        nextSeed = snapshot.nextSeed
+        nextSystemID = snapshot.nextSystemID
+        instanceScratch.removeAll(keepingCapacity: true)
     }
 
     func teardown() {
