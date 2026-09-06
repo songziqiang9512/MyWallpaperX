@@ -46,6 +46,7 @@ struct SceneTextureCandidate {
 struct SceneSystemProviderTextureIdentity: Hashable {
     let name: String
     let purpose: SceneTextureLoadPurpose
+    var reportToken: String { name }
 }
 struct SceneUserPropertyTextureIdentity: Hashable {
     let propertyKey: String

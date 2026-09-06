@@ -165,6 +165,7 @@ final class SceneResolvedMaterialRuntimeBridge {
     }
 
     private let catalog: SceneResolvedMaterialRuntimeCatalog
+    private let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
     private let capabilities: SceneResolvedMaterialExecutionCapabilityCatalog
     private let assetProvider: SceneMaterialAssetTextureCatalog.FrameProvider
     private let submissions: SceneResolvedMaterialSubmissionCoordinator
@@ -188,6 +189,9 @@ final class SceneResolvedMaterialRuntimeBridge {
         logSink: @escaping LogSink = { NSLog("%@", $0) }
     ) {
         self.catalog = catalog
+        self.orderedSystemProviderDemands = catalog.systemProviderDemands.sorted(by: {
+            $0.reportToken < $1.reportToken
+        })
         self.capabilities = capabilities
         assetProvider = assets.makeFrameProvider()
         submissions = .init(
@@ -258,9 +262,7 @@ final class SceneResolvedMaterialRuntimeBridge {
         var blocks: [
             SceneSystemProviderTextureIdentity: SceneFrameTextureRegistry.ProviderStatus
         ] = [:]
-        for identity in catalog.systemProviderDemands.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) {
+        for identity in orderedSystemProviderDemands {
             guard let state = snapshot.providerStates[identity] else {
                 blocks[identity] = .unavailable
                 continue

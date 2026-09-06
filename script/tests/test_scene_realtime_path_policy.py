@@ -174,6 +174,32 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             renderer,
         )
 
+    def test_system_provider_demand_order_is_prepared(self) -> None:
+        bindings = (
+            SCENE / "Runtime/SceneBaseMaterialProviderBindingProgram.swift"
+        ).read_text(encoding="utf-8")
+        texture_frame = (
+            SCENE / "Rendering/SceneMetalRenderer+TextureFrame.swift"
+        ).read_text(encoding="utf-8")
+        bridge = (
+            SCENE / "Runtime/ResolvedMaterialExecution/"
+            "SceneResolvedMaterialRuntimeBridge.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("let orderedSystemProviderDemands:", bindings)
+        self.assertIn(
+            "baseMaterialProviderBindings.orderedSystemProviderDemands",
+            texture_frame,
+        )
+        self.assertIn("private let orderedSystemProviderDemands:", bridge)
+        self.assertIn(
+            "for identity in orderedSystemProviderDemands",
+            bridge,
+        )
+        self.assertEqual(
+            bridge.count("catalog.systemProviderDemands.sorted(by:"),
+            1,
+        )
+
     def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
         visibility = (
             SCENE / "Rendering/SceneLayerVisibility.swift"

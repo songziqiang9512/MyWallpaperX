@@ -125,6 +125,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
 
     let baseMaterialBindings: [Int: BaseMaterialBinding]
     let rejectedBaseMaterialReasons: [Int: String]
+    let orderedSystemProviderDemands: [SceneSystemProviderTextureIdentity]
 
     nonisolated init(
         baseMaterialBindings: [Int: BaseMaterialBinding],
@@ -132,6 +133,11 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     ) {
         self.baseMaterialBindings = baseMaterialBindings
         self.rejectedBaseMaterialReasons = rejectedBaseMaterialReasons
+        self.orderedSystemProviderDemands = Set(
+            baseMaterialBindings.values.compactMap {
+                $0.provider.systemProviderIdentity
+            }
+        ).sorted(by: { $0.reportToken < $1.reportToken })
     }
 
     static let empty = SceneBaseMaterialProviderBindingProgram(
@@ -151,9 +157,7 @@ nonisolated struct SceneBaseMaterialProviderBindingProgram {
     }
 
     var systemProviderDemands: Set<SceneSystemProviderTextureIdentity> {
-        Set(baseMaterialBindings.values.compactMap {
-            $0.provider.systemProviderIdentity
-        })
+        Set(orderedSystemProviderDemands)
     }
 
     var userPropertyDemands: Set<SceneUserPropertyTextureIdentity> {

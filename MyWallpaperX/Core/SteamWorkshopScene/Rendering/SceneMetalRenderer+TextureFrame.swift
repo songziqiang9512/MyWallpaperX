@@ -42,9 +42,8 @@ extension SceneMetalRenderer {
             userPropertyStates: userPropertyStates,
             systemProviderStates: mediaThumbnail.providerStates
         )
-        for identity in baseMaterialProviderBindings.systemProviderDemands.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) where mediaThumbnail.providerStates[identity] == nil {
+        for identity in baseMaterialProviderBindings.orderedSystemProviderDemands
+            where mediaThumbnail.providerStates[identity] == nil {
             textureRegistry.set(.unavailable, for: .system(identity))
         }
         for (identity, status) in imageCompositor
