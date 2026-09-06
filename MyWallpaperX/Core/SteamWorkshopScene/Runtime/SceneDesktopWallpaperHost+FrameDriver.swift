@@ -734,11 +734,13 @@ extension SceneDesktopWallpaperHost {
                     .restoreEdgeState(cursorEdgeState)
             }
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            surfaces.values.forEach { $0.metalView.discardPreparedVideoFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedDynamicTextUpdate() }
             finalizeSceneScriptLayerMutations(launchContext, committing: false)
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
+        surfaces.values.forEach { $0.metalView.commitPreparedVideoFrames() }
         surfaces.values.forEach { $0.metalView.commitPreparedDynamicTextUpdate() }
         commitSubmittedSceneFrame(
             launchContext,

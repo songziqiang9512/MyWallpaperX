@@ -536,7 +536,6 @@ class SceneMetalView: NSView {
             to: drawable
         )
         if outcome.isSubmitted {
-            videoTextureSources.values.forEach { $0.commitPreparedFrame() }
             // Dynamic text is asynchronous; stage its next request for the
             // host's all-surface submission barrier.
             pendingDynamicTextUpdate = (
@@ -546,9 +545,16 @@ class SceneMetalView: NSView {
         } else {
             parallaxPointerSmoother.restore(parallaxPointerState)
             pointerState.previous = pointerPrevious
-            videoTextureSources.values.forEach { $0.discardPreparedFrame() }
         }
         return outcome
+    }
+
+    func commitPreparedVideoFrames() {
+        videoTextureSources.values.forEach { $0.commitPreparedFrame() }
+    }
+
+    func discardPreparedVideoFrames() {
+        videoTextureSources.values.forEach { $0.discardPreparedFrame() }
     }
 
     func commitPreparedDynamicTextUpdate() {

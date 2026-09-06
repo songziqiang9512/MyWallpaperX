@@ -644,11 +644,16 @@ class SceneFrameContextTests(unittest.TestCase):
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
         render = swift_body(frame_driver, "private func renderFrame()")
         barrier = render.index("let allSurfacesSubmitted =")
+        video_discard = render.index("discardPreparedVideoFrames()", barrier)
         discard = render.index("discardPreparedDynamicTextUpdate()", barrier)
+        video_commit = render.index("commitPreparedVideoFrames()", barrier)
         commit = render.index("commitPreparedDynamicTextUpdate()", barrier)
         frame_commit = render.index("commitSubmittedSceneFrame(", barrier)
+        self.assertLess(barrier, video_discard)
         self.assertLess(barrier, discard)
+        self.assertLess(barrier, video_commit)
         self.assertLess(barrier, commit)
+        self.assertLess(video_commit, commit)
         self.assertLess(commit, frame_commit)
 
     def test_local_storage_transaction_commits_or_discards_with_submission(self) -> None:

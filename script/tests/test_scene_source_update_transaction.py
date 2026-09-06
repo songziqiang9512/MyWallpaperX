@@ -19,6 +19,7 @@ EFFECT_EXECUTION = SCENE / "Rendering/SceneMetalRenderer+EffectExecution.swift"
 UTILITY_PLAN = SCENE / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 UTILITY_LAYER = SCENE / "Rendering/SceneUtilityLayerRenderer.swift"
 VIEW = SCENE / "Rendering/SceneMetalView.swift"
+FRAME_DRIVER = SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 DYNAMIC_TEXT = SCENE / "Text/SceneDynamicTextTextureStore.swift"
@@ -479,6 +480,25 @@ enum Harness {
         self.assertIn("Dynamic text is asynchronous", view)
         self.assertIn("private var generationState", dynamic_text)
         self.assertIn("generationState.finish(request", dynamic_text)
+
+    def test_video_provider_publication_waits_for_host_submission_barrier(self) -> None:
+        view = VIEW.read_text(encoding="utf-8")
+        frame_driver = FRAME_DRIVER.read_text(encoding="utf-8")
+        outcome = view.index("let outcome = renderer.renderFrame(")
+        submitted = view.index("if outcome.isSubmitted {", outcome)
+        video_commit = view.index("func commitPreparedVideoFrames()")
+        video_discard = view.index("func discardPreparedVideoFrames()")
+        self.assertNotIn("commitPreparedFrame()", view[outcome:submitted])
+        self.assertNotIn("discardPreparedFrame()", view[outcome:submitted])
+        self.assertIn("videoTextureSources.values.forEach { $0.commitPreparedFrame() }", view[video_commit:])
+        self.assertIn("videoTextureSources.values.forEach { $0.discardPreparedFrame() }", view[video_discard:])
+        barrier = frame_driver.index("let allSurfacesSubmitted =")
+        discard = frame_driver.index("discardPreparedVideoFrames()", barrier)
+        commit = frame_driver.index("commitPreparedVideoFrames()", barrier)
+        dynamic_commit = frame_driver.index("commitPreparedDynamicTextUpdate()", barrier)
+        self.assertLess(barrier, discard)
+        self.assertLess(barrier, commit)
+        self.assertLess(commit, dynamic_commit)
 
 if __name__ == "__main__":
     unittest.main()
