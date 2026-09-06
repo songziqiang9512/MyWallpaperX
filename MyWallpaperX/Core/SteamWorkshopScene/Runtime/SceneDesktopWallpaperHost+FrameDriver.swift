@@ -395,35 +395,25 @@ extension SceneDesktopWallpaperHost {
                 failure.code
             )
         }
-        let projectedSceneScriptVectorInputs =
-            launchContext.propertyVectorScriptProgram.bindings.reduce(
-                into: [SceneDynamicTarget: SceneDynamicValue]()
-            ) { inputs, binding in
-                let target = binding.definition.target
-                guard let resolved = preliminaryForSceneScript[target],
-                      resolved.value.valueType == binding.definition.valueType else {
-                    return
-                }
-                inputs[target] = resolved.value
-            }
+        let projectedSceneScriptVectorInputs = preliminaryForSceneScript
+            .typedValues(
+                for: launchContext.propertyVectorScriptProgram.inputTargets,
+                valueTypes:
+                    launchContext.propertyVectorScriptProgram.inputValueTypes
+            )
         let sceneScriptVectorInputs = launchContext.sceneScriptVectorMediaRoute
             .admittedVectorInputs(
                 projectedSceneScriptVectorInputs,
                 mediaOwnerTargets: launchContext.propertyVectorMediaTargets
             )
-        let sceneScriptStringInputs = launchContext.sceneScriptStringProgram.bindings
-            .reduce(into: [SceneDynamicTarget: SceneDynamicValue]()) { inputs, binding in
-                guard let resolved = preliminaryForSceneScript[binding.target],
-                      case .string = resolved.value else { return }
-                inputs[binding.target] = resolved.value
-            }
-        let sceneScriptInputs = launchContext.sceneScriptScalarProgram.bindings.reduce(
-            into: [SceneDynamicTarget: SceneDynamicValue]()
-        ) { inputs, binding in
-            guard let resolved = preliminaryForSceneScript[binding.target],
-                  case .scalar = resolved.value else { return }
-            inputs[binding.target] = resolved.value
-        }
+        let sceneScriptStringInputs = preliminaryForSceneScript.typedValues(
+            for: launchContext.sceneScriptStringProgram.inputTargets,
+            valueTypes: launchContext.sceneScriptStringProgram.inputValueTypes
+        )
+        let sceneScriptInputs = preliminaryForSceneScript.typedValues(
+            for: launchContext.sceneScriptScalarProgram.inputTargets,
+            valueTypes: launchContext.sceneScriptScalarProgram.inputValueTypes
+        )
         let coordinatedSceneScript: SceneScriptMediaFrameCoordinatorResult
         if let failure = sceneScriptLayerSnapshotFailure {
             coordinatedSceneScript = .init(

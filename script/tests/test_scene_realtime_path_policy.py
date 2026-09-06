@@ -200,6 +200,25 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             1,
         )
 
+    def test_scene_script_inputs_use_program_owned_typed_lanes(self) -> None:
+        frame_driver = (
+            SCENE / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        ).read_text(encoding="utf-8")
+        snapshot = (
+            SCENE / "Properties/SceneDynamicSnapshot.swift"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(frame_driver.count(".typedValues("), 3)
+        self.assertIn("propertyVectorScriptProgram.inputTargets", frame_driver)
+        self.assertIn("sceneScriptStringProgram.inputTargets", frame_driver)
+        self.assertIn("sceneScriptScalarProgram.inputTargets", frame_driver)
+        self.assertIn("nonisolated func typedValues", snapshot)
+        self.assertNotIn(
+            "propertyVectorScriptProgram.bindings.reduce",
+            frame_driver,
+        )
+        self.assertNotIn("sceneScriptStringProgram.bindings\n            .reduce", frame_driver)
+        self.assertNotIn("sceneScriptScalarProgram.bindings.reduce", frame_driver)
+
     def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
         visibility = (
             SCENE / "Rendering/SceneLayerVisibility.swift"

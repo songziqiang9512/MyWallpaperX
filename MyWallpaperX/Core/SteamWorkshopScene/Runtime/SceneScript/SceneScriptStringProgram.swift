@@ -42,6 +42,8 @@ nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
 nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptStringOwner]
+    let inputTargets: Set<SceneDynamicTarget>
+    let inputValueTypes: Set<SceneDynamicValueType>
     private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
@@ -277,6 +279,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         generation: UInt64
     ) {
         self.bindings = bindings
+        inputTargets = Set(bindings.map(\.target))
+        inputValueTypes = [.string]
         bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map {
             ($0.element.target, $0.offset)
         })

@@ -265,6 +265,15 @@ enum Harness {
             ],
             timelineValues: [dynamicOrigin: .vector3(10, 20, 30)]
         )
+        let scalarProjection = first.snapshot.typedValues(
+            for: Set([alpha, vector]), valueTypes: [.scalar]
+        )
+        let vectorProjection = first.snapshot.typedValues(
+            for: Set([alpha, vector]), valueTypes: [.vector2]
+        )
+        let stringProjection = first.snapshot.typedValues(
+            for: Set([text, alpha]), valueTypes: [.string]
+        )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -276,6 +285,15 @@ enum Harness {
             "alpha": resolved(first.snapshot[alpha]),
             "text": resolved(first.snapshot[text]),
             "vector": resolved(first.snapshot[vector]),
+            "typedScalarTargets": scalarProjection.count,
+            "typedScalarHasAlpha": scalarProjection[alpha] != nil,
+            "typedScalarHasVector": scalarProjection[vector] != nil,
+            "typedVectorTargets": vectorProjection.count,
+            "typedVectorHasVector": vectorProjection[vector] != nil,
+            "typedVectorHasAlpha": vectorProjection[alpha] != nil,
+            "typedStringTargets": stringProjection.count,
+            "typedStringHasText": stringProjection[text] != nil,
+            "typedStringHasAlpha": stringProjection[alpha] != nil,
             "duplicateMissing": first.snapshot[duplicate] == nil,
             "mismatchMissing": first.snapshot[authoredMismatch] == nil,
             "nonFiniteMissing": first.snapshot[authoredNonFinite] == nil,
@@ -384,6 +402,17 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
     def test_invalid_higher_priority_value_keeps_last_valid_value(self) -> None:
         self.assertEqual(self.result["vector"], ["vector2(3.0, 4.0)", "timeline"])
 
+    def test_typed_program_lanes_filter_without_rebuilding_full_snapshot(self) -> None:
+        self.assertEqual(self.result["typedScalarTargets"], 1)
+        self.assertTrue(self.result["typedScalarHasAlpha"])
+        self.assertFalse(self.result["typedScalarHasVector"])
+        self.assertEqual(self.result["typedVectorTargets"], 1)
+        self.assertTrue(self.result["typedVectorHasVector"])
+        self.assertFalse(self.result["typedVectorHasAlpha"])
+        self.assertEqual(self.result["typedStringTargets"], 1)
+        self.assertTrue(self.result["typedStringHasText"])
+        self.assertFalse(self.result["typedStringHasAlpha"])
+
     def test_duplicate_and_invalid_definitions_fail_closed(self) -> None:
         self.assertTrue(self.result["duplicateMissing"])
         self.assertTrue(self.result["mismatchMissing"])
@@ -438,6 +467,7 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         )
         self.assertIn("fileprivate let authoredValueLanes", source)
         self.assertIn("fileprivate let userPropertyNumericRanges", source)
+        self.assertIn("nonisolated func typedValues", source)
         self.assertIn("authoredValues: index.authoredValueLanes", source)
         self.assertIn(
             "userPropertyNumericRanges: index.userPropertyNumericRanges",

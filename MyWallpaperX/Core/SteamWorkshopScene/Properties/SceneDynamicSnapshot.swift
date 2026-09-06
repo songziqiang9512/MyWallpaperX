@@ -276,6 +276,25 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         return result
     }
 
+    /// Projects only the prepared Program input lanes from this snapshot.
+    /// Definitions already establish the accepted value types; keeping the
+    /// filter here makes every typed consumer use the same producer channel
+    /// without exposing or rebuilding the complete resolved map.
+    nonisolated func typedValues(
+        for targets: Set<SceneDynamicTarget>,
+        valueTypes: Set<SceneDynamicValueType>,
+        source: SceneDynamicSource? = nil
+    ) -> [SceneDynamicTarget: SceneDynamicValue] {
+        var result: [SceneDynamicTarget: SceneDynamicValue] = [:]
+        for target in targets {
+            guard let resolved = values[target],
+                  valueTypes.contains(resolved.value.valueType),
+                  source == nil || source == resolved.source else { continue }
+            result[target] = resolved.value
+        }
+        return result
+    }
+
     nonisolated func userPropertyNumericRange(
         for target: SceneDynamicTarget
     ) -> ClosedRange<Double>? {

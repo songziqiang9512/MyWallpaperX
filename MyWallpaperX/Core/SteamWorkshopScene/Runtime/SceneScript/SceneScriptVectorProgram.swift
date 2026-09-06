@@ -5,6 +5,7 @@ import Foundation
 nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private(set) var definitions: [SceneDynamicTargetDefinition]
     private(set) var bindings: [SceneScriptVectorBinding]
+    let inputTargets: Set<SceneDynamicTarget>, inputValueTypes: Set<SceneDynamicValueType>
     private var bindingIndicesByTarget: [SceneDynamicTarget: Int] = [:]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
@@ -50,9 +51,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     ) {
         self.domain = domain
         self.descriptor = descriptor
-        self.bindings = bindings
-        self.generation = generation
-        definitions = bindings.map(\.definition)
+        self.bindings = bindings; self.generation = generation; definitions = bindings.map(\.definition)
+        inputTargets = Set(bindings.map { $0.definition.target }); inputValueTypes = Set(bindings.map { $0.definition.valueType })
         bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map { ($0.element.definition.target, $0.offset) })
         userPropertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }

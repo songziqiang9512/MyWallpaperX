@@ -42,6 +42,8 @@ nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
 nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptScalarOwner]
+    let inputTargets: Set<SceneDynamicTarget>
+    let inputValueTypes: Set<SceneDynamicValueType>
     private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
@@ -113,6 +115,8 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) {
         self.domain = domain
         self.bindings = bindings
+        inputTargets = Set(bindings.map(\.target))
+        inputValueTypes = [.scalar]
         bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map {
             ($0.element.target, $0.offset)
         })
