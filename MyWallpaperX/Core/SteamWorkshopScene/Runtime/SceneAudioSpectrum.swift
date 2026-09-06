@@ -392,8 +392,9 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
     }
 
     /// Atomically updates Scene demand and the capture scope needed by that
-    /// demand. A scope change while demand remains active still notifies the
-    /// observer so the single system tap can be restarted with the new scope.
+    /// demand. Every capture-lifecycle transition gets a fresh scope epoch,
+    /// including stop -> start with the same process-inclusion policy, so a
+    /// delayed callback from a retired tap cannot publish into the new demand.
     func setDemand(
         _ demanded: Bool,
         requiresCurrentProcessAudioCapture: Bool
@@ -401,10 +402,11 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
         os_unfair_lock_lock(&lock)
         let requestedIncludesCurrentProcessOutput = demanded
             && requiresCurrentProcessAudioCapture
-        let sourceScopeChanged = demand.includesCurrentProcessOutput
-            != requestedIncludesCurrentProcessOutput
+        let captureLifecycleChanged = demand.requiresSpectrum != demanded
+            || demand.includesCurrentProcessOutput
+                != requestedIncludesCurrentProcessOutput
         let requestedScopeEpoch: UInt64
-        if sourceScopeChanged {
+        if captureLifecycleChanged {
             requestedScopeEpoch = nextCaptureScopeEpoch
             nextCaptureScopeEpoch &+= 1
         } else {
@@ -420,7 +422,7 @@ final class SceneAudioSpectrumInbox: @unchecked Sendable {
             return
         }
         demand = requestedDemand
-        if !requestedDemand.requiresSpectrum || sourceScopeChanged {
+        if !requestedDemand.requiresSpectrum || captureLifecycleChanged {
             snapshot = .silent
             publishedAtUptime = nil
             hasLoggedNonSilentPublication = false

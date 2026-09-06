@@ -2375,6 +2375,14 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与并发恢复**：deferred/dropped frame 不推进 stale silent generation，下一次 retry 仍看到同一 source generation；commit 同时校验 source generation 与 publication timestamp，producer 在 prepare 与 commit 之间发布新快照时，晚到的 silent candidate 被拒绝，不覆盖新 publication。普通非法/无权限/停采集仍由既有 inbox 稳定零输入与 demand lifecycle处理。
 - **自动门与边界**：`test_scene_audio_spectrum_input` 新增 stale candidate→same-source retry→commit harness；`test_scene_audio_demand` 与 `test_scene_source_update_transaction` 锁定 host 单次采样、prepare/commit barrier 顺序和 source identity guard。focused audio/source tests 通过；本批尚未跑真实 multi-surface stale fault、GPU completion fault、音频 ROI、完整样本、稳定帧时间或 official parity，最高支持 `S2` shared provider-publication wiring。
 
+<a id="e-v4-audio-capture-demand-epoch"></a>
+### E-V4-AUDIO-CAPTURE-DEMAND-EPOCH: capture demand stop/start receives a fresh scope identity
+
+证据等级：`S2 shared provider lifecycle identity wiring`。本项修复同一 include-current-process 策略下 demand stop→start 复用旧 `scopeEpoch` 的共享首断点；不宣称新的真实音频视觉或性能结果。
+
+- **目标合同、首断点与共享实现**：`SceneAudioSpectrumInbox` 的 capture token 必须绑定当前 demand 生命周期与 process-inclusion scope。此前 `setDemand(false)` 后再次 `setDemand(true, requiresCurrentProcessAudioCapture: false)` 不改变 include 标志，因而复用了旧 epoch，退休 tap 的迟到 publication 可能在新 demand 开启后被接受。当前所有 capture-lifecycle transition（demand enable/disable 与 include/exclude scope）都取得递增 `scopeEpoch`，新 demand 同时清空 snapshot；`publishSystemCapture` 继续以 `requiresSpectrum`、epoch 与 include 标志三者拒绝 stale token，没有新增 inbox、FFT、service、renderer 或 compositor owner。
+- **自动门与边界**：`test_scene_audio_capture_scope`、`test_scene_audio_spectrum_input` 与 `test_scene_audio_demand` 共 45 tests / OK，`git diff --check` 通过。没有真实 tap stop/start 注入、GPU completion、multi-surface fault、OOM/device-loss 或 fresh Scene run，因此最高结论保持 `S2` shared provider lifecycle identity wiring，不外推 `S4` 视觉、稳定性能或 V4 完成。
+
 <a id="e-audio-input"></a>
 ### E-AUDIO-INPUT: Scene 16/32/64 频段音频频谱输入管线
 

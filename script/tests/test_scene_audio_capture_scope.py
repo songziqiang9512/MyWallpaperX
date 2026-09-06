@@ -92,6 +92,18 @@ enum Harness {
         publish(inbox, token: secondExcludeToken)
         let undemandedRejected = inbox.latest()
 
+        inbox.setDemand(true, requiresCurrentProcessAudioCapture: false)
+        let reenabledDemand = inbox.captureDemand
+        let reenabledCleared = inbox.latest()
+        publish(inbox, token: secondExcludeToken)
+        let staleAfterReenableRejected = inbox.latest()
+        let reenabledToken = SceneAudioSpectrumCaptureToken(
+            scopeEpoch: reenabledDemand.scopeEpoch,
+            includesCurrentProcessOutput: false
+        )
+        publish(inbox, token: reenabledToken)
+        let reenabledAccepted = inbox.latest()
+
         let payload: [String: Any] = [
             "excludeAccepted": !excludeAccepted.isSilent,
             "includeEpochAdvanced": includeDemand.scopeEpoch > excludeDemand.scopeEpoch,
@@ -105,6 +117,11 @@ enum Harness {
             "secondExcludeAccepted": !secondExcludeAccepted.isSilent,
             "duplicateWasQuiet": duplicateWasQuiet,
             "undemandedRejected": undemandedRejected.isSilent,
+            "reenableEpochAdvanced":
+                reenabledDemand.scopeEpoch > secondExcludeDemand.scopeEpoch,
+            "reenabledCleared": reenabledCleared.isSilent,
+            "staleAfterReenableRejected": staleAfterReenableRejected.isSilent,
+            "reenabledAccepted": !reenabledAccepted.isSilent,
             "acceptedGenerations": [
                 excludeAccepted.generation,
                 includeAccepted.generation,
@@ -153,6 +170,9 @@ class SceneAudioCaptureScopeTests(unittest.TestCase):
             "staleIncludeRejected",
             "secondExcludeAccepted",
             "undemandedRejected",
+            "reenabledCleared",
+            "staleAfterReenableRejected",
+            "reenabledAccepted",
         ):
             self.assertTrue(self.payload[key], key)
 
@@ -160,6 +180,7 @@ class SceneAudioCaptureScopeTests(unittest.TestCase):
         self.assertTrue(self.payload["includeEpochAdvanced"])
         self.assertTrue(self.payload["excludeEpochAdvancedAgain"])
         self.assertTrue(self.payload["duplicateWasQuiet"])
+        self.assertTrue(self.payload["reenableEpochAdvanced"])
 
     def test_rejected_tokens_do_not_consume_snapshot_generations(self) -> None:
         self.assertEqual(self.payload["acceptedGenerations"], [1, 2, 3])
