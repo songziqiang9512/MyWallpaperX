@@ -145,7 +145,7 @@ final class SceneVideoTextureSource {
     /// content generation or replace the last-ready frame.
     func prepareFrame(for timing: SceneFrameTiming) -> Frame? {
         if pendingFrameIndex == timing.frameIndex {
-            return pendingFrame
+            return pendingFrame ?? lastFrame
         }
         pendingFrame = nil
         pendingFrameIndex = nil
@@ -163,6 +163,11 @@ final class SceneVideoTextureSource {
             sceneTime: timing.sceneTime,
             hostTime: timing.hostTime
         )
+        // Keep even a last-ready fallback behind the host's submission
+        // barrier. If another surface rejects this frame, the lifecycle plan
+        // must be discarded so the same frame index can retry decoding after
+        // AVPlayer publishes a buffer.
+        pendingFrameIndex = timing.frameIndex
         guard plan.shouldDecode else { return lastFrame }
         guard item.status == .readyToPlay else {
             markPlayerAnchorRequired()
@@ -218,19 +223,27 @@ final class SceneVideoTextureSource {
         needsPlayerAnchor = false
         if !lifecycle.isPlaying { player.pause() }
         pendingFrame = frame
-        pendingFrameIndex = timing.frameIndex
         return frame
     }
 
     func commitPreparedFrame() {
-        guard let pendingFrame,
-              let frameIndex = pendingFrameIndex,
-              lifecycle.didPublish(frameIndex: frameIndex) != nil else {
+        guard let frameIndex = pendingFrameIndex else { return }
+        defer {
+            pendingFrame = nil
+            pendingFrameIndex = nil
+        }
+        guard let pendingFrame else {
+            // A successful host submission may have used the previous frame
+            // while this provider had no new buffer. The plan was consumed;
+            // do not leave same-index deduplication armed for later retries.
+            lifecycle.discardPlannedFrame(frameIndex: frameIndex)
+            return
+        }
+        guard lifecycle.didPublish(frameIndex: frameIndex) != nil else {
+            lifecycle.discardPlannedFrame(frameIndex: frameIndex)
             return
         }
         lastFrame = pendingFrame
-        self.pendingFrame = nil
-        pendingFrameIndex = nil
     }
 
     func discardPreparedFrame() {

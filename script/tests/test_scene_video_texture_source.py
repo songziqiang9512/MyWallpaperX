@@ -363,6 +363,38 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "a missing first buffer must retain the retry barrier",
         )
 
+    def test_last_ready_fallback_stays_inside_the_submission_transaction(self) -> None:
+        current_frame = swift_block(self.source, "func prepareFrame(")
+        self.assertIsNotNone(current_frame)
+        assert current_frame is not None
+        self.assertIn(
+            "return pendingFrame ?? lastFrame",
+            current_frame,
+            "shared sources must reuse the last-ready frame for peer surfaces",
+        )
+        self.assertIn(
+            "pendingFrameIndex = timing.frameIndex",
+            current_frame,
+            "a no-buffer plan must remain discardable when another surface drops",
+        )
+
+        commit = swift_block(self.source, "func commitPreparedFrame()")
+        self.assertIsNotNone(commit)
+        assert commit is not None
+        self.assertIn(
+            "lifecycle.discardPlannedFrame(frameIndex: frameIndex)",
+            commit,
+            "a submitted last-ready fallback must not arm same-frame deduplication",
+        )
+        discard = swift_block(self.source, "func discardPreparedFrame()")
+        self.assertIsNotNone(discard)
+        assert discard is not None
+        self.assertIn(
+            "lifecycle.discardPlannedFrame(frameIndex: frameIndex)",
+            discard,
+            "a dropped surface must make the no-buffer plan retryable",
+        )
+
     def test_stop_is_idempotent_and_releases_all_owned_resources(self) -> None:
         stop = swift_block(self.source, "func stop(")
         self.assertIsNotNone(
