@@ -234,7 +234,7 @@ struct SceneMetalRenderer {
         var forwardGraphProviderLayerIDs: Set<Int> = []
         if let imagePipeline {
             if let prepared = prepareForwardDependencyProviders(
-                orderedLayers: orderedLayers,
+                orderedLayers: orderedLayers, layersByID: frameLayersByID,
                 imageTextures: imageTextures,
                 imagePipeline: imagePipeline,
                 frameContext: frameContext,

@@ -117,6 +117,7 @@ extension SceneMetalRenderer {
     /// remain offscreen and preserve authored final composition order.
     func prepareForwardDependencyProviders(
         orderedLayers: [SceneRenderDescriptor.Layer],
+        layersByID: [Int: SceneRenderDescriptor.Layer],
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,
         frameContext: SceneFrameContext,
@@ -139,9 +140,6 @@ extension SceneMetalRenderer {
                     activeStaticModelConsumerLayerIDs:
                         activeStaticModelConsumerLayerIDs
                 ) else { return nil }
-        let layersByID = Dictionary(uniqueKeysWithValues: orderedLayers.map {
-            ($0.id, $0)
-        })
         let preparationLayers = preparationLayerIDs.compactMap {
             layersByID[$0]
         }

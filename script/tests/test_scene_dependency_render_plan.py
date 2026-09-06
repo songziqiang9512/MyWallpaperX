@@ -23,6 +23,9 @@ STATIC_MODEL_DEPENDENCY_RUNTIME_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+StaticModel.swift"
 )
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER_INITIALIZATION_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+Initialization.swift"
+)
 DEPENDENCY_PROVIDER_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneMetalRenderer+DependencyProviders.swift"
 )
@@ -2274,6 +2277,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         launch = LAUNCH_SOURCE.read_text(encoding="utf-8")
         catalog = ADMISSION_CATALOG_SOURCE.read_text(encoding="utf-8")
         renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+        renderer_initialization = METAL_RENDERER_INITIALIZATION_SOURCE.read_text(
+            encoding="utf-8"
+        )
         dependency_provider = DEPENDENCY_PROVIDER_SOURCE.read_text(encoding="utf-8")
         dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
         static_model_dependency_runtime = (
@@ -2302,7 +2308,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertIn(
             "verifiedXRayStageKeys: effectAdmissionCatalog.verifiedXRayStageKeys",
-            renderer,
+            renderer_initialization,
         )
         self.assertIn(
             "verifiedXRayStageKeys: verifiedXRayStageKeys",
@@ -2376,6 +2382,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertLess(forward_preparation, authored_loop)
         prepass = renderer[forward_preparation:authored_loop]
         self.assertIn("framePlans: resolvedMaterialFrameTargetPlans", prepass)
+        self.assertIn("layersByID: frameLayersByID", prepass)
         self.assertIn(
             ".forwardDependencyPreparationOrder(\n"
             "                    authoredLayerIDs: orderedLayers.map(\\.id),\n"

@@ -4814,6 +4814,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：array 只持有 launch-owned descriptor layer values，不包含 dynamic snapshot、provider publication、generation、claim 或 frame plan；任何 order/layer identity 不完整仍以 `resolved-material-preparation-order-invalid` 拒绝，visibility、provider readiness、source extent、target/ABI 与 completion/publication 边界不变。没有新增 Program、graph、property/provider registry、renderer 或 output owner。
 - **自动门与边界**：`test_scene_realtime_path_policy`、`test_scene_static_model_pipeline` 与 `test_scene_source_update_transaction` 共 31 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 prepared-program wiring，不外推为视觉 parity、稳定性能或 V4 收口。
 
+<a id="e-v4-forward-provider-prepared-index-reuse"></a>
+### E-V4-FORWARD-PROVIDER-PREPARED-INDEX-REUSE: forward dependency provider 复用当前 frame layer index
+
+证据等级：`S2 shared provider preparation hot-path wiring`。本批只消除 forward provider preparation 对当前 frame layer dictionary 的重复构造，不宣称 provider 视觉、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 prepared topology/descriptor 先进入 frame-owned index，再由 provider graph/static capture 与唯一 compositor 消费。此前 `prepareForwardDependencyProviders` 已收到 renderer 物化的 `orderedLayers`，却每帧再次 `Dictionary(uniqueKeysWithValues:)` 构造 layer map，随后只用于按既有 forward preparation order 取 provider。当前函数额外接收 renderer 当前 `frameLayersByID`，直接用该 prepared map 选择 `preparationLayers`；ordered layer IDs 仍作为 dependency runtime 的 authored-order 输入。
+- **失败半径与 owner**：map 只读借用当前 frame projection，不缓存 provider readiness、claim token、generation、graph output 或 texture publication。ID 缺失仍由 `preparationLayers.count` mismatch 局部拒绝，graph/static provider capture、external dependency、source extent、Program/GraphExecutor、completion/publication 与 host barrier 不变；没有新增 provider registry、renderer、graph/history 或 output owner。
+- **自动门与边界**：`test_scene_dependency_render_plan`、`test_scene_realtime_path_policy` 与 `test_scene_source_update_transaction` 共 44 tests / OK；其中一处关于 verified XRay owner 的静态断言同步到现行 `SceneMetalRenderer+Initialization.swift` 文件位置，未放宽行为门；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 signed sample CPU/pre-encode trace、provider readiness fault、GPU completion rollback、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 provider preparation wiring，不外推为视觉 parity、稳定性能或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 
