@@ -60,6 +60,10 @@ extension SceneMetalRenderer {
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
         self.layersByID = byID
+        self.lightLayerIDs = renderDescriptor.layers.compactMap { layer in
+            layer.spotLight != nil || layer.directionalLight != nil
+                ? layer.id : nil
+        }
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,

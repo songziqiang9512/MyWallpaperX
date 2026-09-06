@@ -13,6 +13,7 @@ struct SceneMetalRenderer {
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
     let layersByID: [Int: SceneRenderDescriptor.Layer]
+    let lightLayerIDs: [Int]
     let utilityPlansByTriggerLayerID: [Int: [SceneUtilityLayerRuntimePlan]]
     let utilityCaptureLayerIDs: Set<Int>
     let effectAdmissionCatalog: SceneEffectAdmissionCatalog
@@ -98,6 +99,7 @@ struct SceneMetalRenderer {
         let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
         let frameStaticWorldFrames: [Int: simd_float4x4]
         let authoredLayerIDs: [Int]
+        let frameDynamicLayerIDs: Set<Int>; let frameLightLayerIDs: [Int]
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
                 || layerTopology.renderOrderLayerIDs
@@ -109,27 +111,28 @@ struct SceneMetalRenderer {
             frameLayersByID = projection.layersByID
             frameStaticWorldFrames = projection.staticWorldFrames
             authoredLayerIDs = projection.authoredLayerIDs
+            frameDynamicLayerIDs = projection.dynamicLayerIDs; frameLightLayerIDs = projection.lightLayerIDs
         } else {
             frameDescriptor = renderDescriptor
             frameLayersByID = layersByID
             frameStaticWorldFrames = worldFramesByLayerID
             authoredLayerIDs = renderDescriptor.renderOrderLayerIDs
+            frameDynamicLayerIDs = []; frameLightLayerIDs = lightLayerIDs
         }
-        let dynamicLayerIDs = Set(layerTopology?.dynamicLayers.map(\.id) ?? [])
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: frameDescriptor, byID: frameLayersByID,
             snapshot: frameContext.dynamicValues,
             staticFrames: frameStaticWorldFrames,
-            dynamicLayerIDs: dynamicLayerIDs
+            dynamicLayerIDs: frameDynamicLayerIDs
         )
 #if DEBUG
-        let dynamicVisibleLayerCount = dynamicLayerIDs.intersection(
+        let dynamicVisibleLayerCount = frameDynamicLayerIDs.intersection(
             SceneLayerVisibility.visibleLayerIDs(
                 in: frameDescriptor,
                 layersByID: frameLayersByID,
                 snapshot: frameContext.dynamicValues)
         ).count
-        let dynamicSourcePublicationCount = dynamicLayerIDs.reduce(into: 0) {
+        let dynamicSourcePublicationCount = frameDynamicLayerIDs.reduce(into: 0) {
             count, layerID in
             guard let texture = imageTextures[layerID],
                   imageTextures.explicitLayerSourcePublication(
@@ -155,11 +158,8 @@ struct SceneMetalRenderer {
             snapshot: frameContext.dynamicValues)
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
-        let dynamicLightColors = Dictionary(uniqueKeysWithValues:
-            frameDescriptor.layers.compactMap { layer -> (Int, SIMD3<Float>)? in
-                guard layer.spotLight != nil || layer.directionalLight != nil else {
-                    return nil
-                }
+        let dynamicLightColors = Dictionary(uniqueKeysWithValues: frameLightLayerIDs.compactMap { layerID -> (Int, SIMD3<Float>)? in
+                guard let layer = frameLayersByID[layerID] else { return nil }
                 return (
                     layer.id,
                     SceneDynamicLayerValues.color(
@@ -569,7 +569,7 @@ struct SceneMetalRenderer {
                     )
                 )
 #if DEBUG
-                if dynamicLayerIDs.contains(layer.id) {
+                if frameDynamicLayerIDs.contains(layer.id) {
                     if drawOutcome.encoded {
                         dynamicEncodedLayerCount += 1
                     }
@@ -783,13 +783,13 @@ struct SceneMetalRenderer {
 #if DEBUG
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
            frameContext.frameIndex <= 2,
-           !dynamicLayerIDs.isEmpty {
+           !frameDynamicLayerIDs.isEmpty {
             NSLog(
                 "MWX DEBUG SCENE: phase=dynamic-layer-render frame=%llu topologyRevision=%llu cacheHit=%@ descriptor=%d visible=%d sourcePublications=%d encoded=%d passthrough=%d",
                 frameContext.frameIndex,
                 layerTopology?.topologyRevision ?? 0,
                 String(dynamicLayerTopologyCache.lastResolveWasCacheHit),
-                dynamicLayerIDs.count,
+                frameDynamicLayerIDs.count,
                 dynamicVisibleLayerCount,
                 dynamicSourcePublicationCount,
                 dynamicEncodedLayerCount,

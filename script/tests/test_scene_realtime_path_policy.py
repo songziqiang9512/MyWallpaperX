@@ -159,6 +159,8 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         self.assertIn("let layerIndicesByID: [Int: Int]", cache)
         self.assertIn("guard let index = layerIndicesByID[layer.id]", cache)
         self.assertNotIn("descriptor.layers.firstIndex(where:", cache)
+        self.assertIn("let dynamicLayerIDs: Set<Int>", cache)
+        self.assertIn("let lightLayerIDs: [Int]", cache)
 
     def test_frame_visibility_reuses_prepared_layer_index(self) -> None:
         visibility = (
@@ -176,6 +178,8 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         )
         self.assertIn("layersByID: frameLayersByID", renderer)
         self.assertIn("layersByID: layersByID", preflight)
+        self.assertIn("frameDynamicLayerIDs = projection.dynamicLayerIDs", renderer)
+        self.assertIn("frameLightLayerIDs = projection.lightLayerIDs", renderer)
 
     def test_normal_product_frames_skip_execution_diagnostics(self) -> None:
         coordinator = (

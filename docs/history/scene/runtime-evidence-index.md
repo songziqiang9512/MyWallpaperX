@@ -4778,6 +4778,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失效与失败半径**：dynamic layer 增删、顺序、identity 或其他 topology 变化仍由既有 `topologyRevision` 使 projection 重建；transform/visibility/color 等 value-only 变化不改变 revision，仍只在当前 surface projection 中生效。未知 layer ID 仍局部跳过，不扩大失败半径；static world frames、authored order、Program/GraphExecutor、resource publication 与唯一 output owner 不变。
 - **自动门与边界**：`test_scene_realtime_path_policy`、`test_scene_script_dynamic_layer_runtime` 与 `test_scene_source_update_transaction` 共 32 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 dynamic-layer CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；因此最高只支持 `S2` 共享 topology wiring，不外推为 O(1) 全路径、视觉 parity 或 V4 收口。
 
+<a id="e-v4-dynamic-layer-topology-candidate-index"></a>
+### E-V4-DYNAMIC-LAYER-TOPOLOGY-CANDIDATE-INDEX: topology revision 的 dynamic/light candidate index
+
+证据等级：`S2 shared topology candidate wiring`。本批只把 topology-stable candidate identity 从普通帧重新发现移到 revision projection，不宣称动态层视觉改善、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 prepared topology 只在 load/generation/invalidation 准备，普通帧将 typed values 送入现有 world-frame/light/compositor consumer。此前 renderer 每帧从 `layerTopology.dynamicLayers` 重新建立 `dynamicLayerIDs`，并扫描 `frameDescriptor.layers` 找出 spot/directional light candidate。当前 `SceneDynamicLayerRenderTopologyCache.Projection` 在 topology revision 记录 `dynamicLayerIDs` 与 `lightLayerIDs`；renderer 在 dynamic projection 命中时复用它们，静态 descriptor 则使用 renderer launch-owned `lightLayerIDs`，随后仍逐帧读取动态颜色与 snapshot。
+- **失效与失败半径**：dynamic layer 增删、顺序、asset/path 或 light-role 变化会推进 topology revision 并重建 projection；value-only transform/visibility/color 不改变 candidate index。缺失/未知 layer ID 仍按既有局部跳过，light color 的 finite/source fallback、world-frame parent semantics、source publication、Program/GraphExecutor、generation/completion 与唯一 output owner不变。
+- **自动门与边界**：`test_scene_realtime_path_policy`、`test_scene_script_dynamic_layer_runtime` 与 `test_scene_source_update_transaction` 共 33 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 dynamic-layer CPU/pre-encode trace、GPU completion fault、ROI、长稳性能或官方视觉对照；最高只支持 `S2` 共享 topology candidate wiring，不外推为视觉 parity、稳定帧性能或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

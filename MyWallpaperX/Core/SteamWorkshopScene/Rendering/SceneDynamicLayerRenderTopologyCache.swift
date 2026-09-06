@@ -10,6 +10,8 @@ final class SceneDynamicLayerRenderTopologyCache {
         let layerIndicesByID: [Int: Int]
         let staticWorldFrames: [Int: simd_float4x4]
         let authoredLayerIDs: [Int]
+        let dynamicLayerIDs: Set<Int>
+        let lightLayerIDs: [Int]
 
         /// Dynamic layer values are surface/frame scoped. Keep the complete
         /// value record out of the revision cache so two surfaces cannot
@@ -30,7 +32,9 @@ final class SceneDynamicLayerRenderTopologyCache {
                 layersByID: layersByID,
                 layerIndicesByID: layerIndicesByID,
                 staticWorldFrames: staticWorldFrames,
-                authoredLayerIDs: authoredLayerIDs
+                authoredLayerIDs: authoredLayerIDs,
+                dynamicLayerIDs: dynamicLayerIDs,
+                lightLayerIDs: lightLayerIDs
             )
         }
     }
@@ -57,6 +61,11 @@ final class SceneDynamicLayerRenderTopologyCache {
                 ($0.element.id, $0.offset)
             }
         )
+        let dynamicLayerIDs = Set(topology.dynamicLayers.map(\.id))
+        let lightLayerIDs = descriptor.layers.compactMap { layer in
+            layer.spotLight != nil || layer.directionalLight != nil
+                ? layer.id : nil
+        }
         let projection = Projection(
             descriptor: descriptor,
             layersByID: layersByID,
@@ -64,7 +73,9 @@ final class SceneDynamicLayerRenderTopologyCache {
             staticWorldFrames: SceneLayerWorldFrameResolver.compute(
                 descriptor: descriptor, byID: layersByID
             ),
-            authoredLayerIDs: descriptor.renderOrderLayerIDs
+            authoredLayerIDs: descriptor.renderOrderLayerIDs,
+            dynamicLayerIDs: dynamicLayerIDs,
+            lightLayerIDs: lightLayerIDs
         )
         revision = topology.topologyRevision
         self.projection = projection
