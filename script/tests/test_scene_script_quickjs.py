@@ -2075,6 +2075,46 @@ int main(void) {
         mwx_scene_quickjs_owner_active_timer_count(timer_owner) == 2,
         "cancelled timer removed", ""
     );
+    const char *timer_snapshot_source =
+        "export function init(value){engine.setTimeout(()=>{},0.1);return value;}"
+        "export function update(value){return value;}";
+    MWXSceneQuickJSOwner *timer_snapshot_owner = mwx_scene_quickjs_owner_create(
+        domain, timer_snapshot_source, strlen(timer_snapshot_source),
+        37, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        timer_snapshot_owner != NULL, "timer snapshot owner compile", diagnostic
+    );
+    failures += update_at(
+        timer_snapshot_owner, 37, 1, 0, 0,
+        MWX_SCENE_QUICKJS_OK, 1, "timer snapshot initialization"
+    );
+    MWXSceneQuickJSTimerFrameSnapshot *timer_snapshot =
+        mwx_scene_quickjs_owner_timer_snapshot(timer_snapshot_owner);
+    failures += check(
+        timer_snapshot != NULL, "timer frame snapshot allocates", ""
+    );
+    failures += update_at(
+        timer_snapshot_owner, 37, 1, 0.2, 0.2,
+        MWX_SCENE_QUICKJS_OK, 1, "timer snapshot consumes provisional timer"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_snapshot_owner) == 0,
+        "provisional timer is consumed", ""
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_timer_restore(
+            timer_snapshot_owner, timer_snapshot
+        ),
+        "timer frame restore succeeds", ""
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_active_timer_count(timer_snapshot_owner) == 1,
+        "dropped frame restores timer", ""
+    );
+    mwx_scene_quickjs_owner_timer_snapshot_destroy(
+        timer_snapshot, timer_snapshot_owner
+    );
     failures += update_at(
         timer_owner, 30, 1, 0.04, 0.04,
         MWX_SCENE_QUICKJS_OK, 1, "timers wait for delay"
@@ -3070,6 +3110,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(job_budget);
     mwx_scene_quickjs_owner_destroy(timer_promise);
     mwx_scene_quickjs_owner_destroy(timer_owner);
+    mwx_scene_quickjs_owner_destroy(timer_snapshot_owner);
     mwx_scene_quickjs_owner_destroy(interval_owner);
     mwx_scene_quickjs_owner_destroy(timer_cancel_owner);
     mwx_scene_quickjs_owner_destroy(timer_cancel_intruder);

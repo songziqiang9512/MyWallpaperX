@@ -136,6 +136,13 @@ typedef struct MWXSceneQuickJSTimerRecord {
     bool active;
 } MWXSceneQuickJSTimerRecord;
 
+struct MWXSceneQuickJSTimerFrameSnapshot {
+    uint64_t next_timer_identity;
+    double timer_runtime;
+    bool timer_runtime_initialized;
+    MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
+};
+
 typedef struct MWXSceneQuickJSRejectionRecord {
     JSValue promise;
     JSValue reason;
@@ -424,6 +431,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_run_due_timers(
     size_t diagnostic_capacity
 );
 void mwx_scene_quickjs_destroy_timer_host(MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
+    MWXSceneQuickJSOwner *owner
+);
+bool mwx_scene_quickjs_owner_timer_restore(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot
+);
+void mwx_scene_quickjs_owner_timer_snapshot_destroy(
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot,
+    MWXSceneQuickJSOwner *owner
+);
 void mwx_scene_quickjs_install_job_host(MWXSceneQuickJSDomain *domain);
 MWXSceneQuickJSResult mwx_scene_quickjs_drain_jobs(
     MWXSceneQuickJSOwner *owner,

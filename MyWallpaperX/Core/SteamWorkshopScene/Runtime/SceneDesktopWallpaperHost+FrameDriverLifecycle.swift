@@ -10,6 +10,13 @@ struct SceneScriptProgramFrameStates {
     let vector: SceneScriptProgramFrameState
 }
 
+struct SceneScriptProgramTimerFrameStates {
+    let scalar: SceneScriptProgramTimerFrameState
+    let string: SceneScriptProgramTimerFrameState
+    let vector: SceneScriptProgramTimerFrameState
+    let cursor: SceneScriptProgramTimerFrameState
+}
+
 extension SceneDesktopWallpaperHost {
     func sceneScriptProgramFrameState(
         _ context: SceneDesktopWallpaperLaunchContext
@@ -29,6 +36,20 @@ extension SceneDesktopWallpaperHost {
         context.sceneScriptStringProgram.restoreFrameState(state.string)
         context.propertyVectorScriptProgram.restoreFrameState(state.vector)
     }
+
+    func sceneScriptProgramTimerFrameState(
+        _ context: SceneDesktopWallpaperLaunchContext
+    ) -> SceneScriptProgramTimerFrameStates { .init(scalar: context.sceneScriptScalarProgram.timerFrameStateSnapshot(), string: context.sceneScriptStringProgram.timerFrameStateSnapshot(), vector: context.propertyVectorScriptProgram.timerFrameStateSnapshot(), cursor: context.sceneScriptCursorProgram.timerFrameStateSnapshot()) }
+
+    func restoreSceneScriptProgramTimerFrameState(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        _ state: SceneScriptProgramTimerFrameStates
+    ) { context.sceneScriptScalarProgram.restoreTimerFrameState(state.scalar); context.sceneScriptStringProgram.restoreTimerFrameState(state.string); context.propertyVectorScriptProgram.restoreTimerFrameState(state.vector); context.sceneScriptCursorProgram.restoreTimerFrameState(state.cursor) }
+
+    func discardSceneScriptProgramTimerFrameState(
+        _ context: SceneDesktopWallpaperLaunchContext,
+        _ state: SceneScriptProgramTimerFrameStates
+    ) { context.sceneScriptScalarProgram.discardTimerFrameState(state.scalar); context.sceneScriptStringProgram.discardTimerFrameState(state.string); context.propertyVectorScriptProgram.discardTimerFrameState(state.vector); context.sceneScriptCursorProgram.discardTimerFrameState(state.cursor) }
 
     func finalizeSceneScriptLayerMutations(
         _ context: SceneDesktopWallpaperLaunchContext,

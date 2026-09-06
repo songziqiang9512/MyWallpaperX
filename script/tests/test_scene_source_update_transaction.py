@@ -29,6 +29,7 @@ VECTOR_PROGRAM = SCENE / "Runtime/SceneScript/SceneScriptVectorProgram.swift"
 MEDIA_EVENT_BRIDGE = SCENE / (
     "Runtime/SceneScript/SceneScriptMediaEventBridge.swift"
 )
+TIMER_HOST = SCENE / "Runtime/SceneScript/SceneQuickJSTimerHost.c"
 PUPPET = SCENE / "Rendering/ScenePuppetPlaybackState.swift"
 SPRITE = SCENE / "Resources/SceneMultiImageSpritePlayback.swift"
 PARTICLE_PLAYBACK = SCENE / "Particles/SceneParticlePlaybackState.swift"
@@ -51,8 +52,15 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         string = STRING_PROGRAM.read_text(encoding="utf-8")
         vector = VECTOR_PROGRAM.read_text(encoding="utf-8")
         events = MEDIA_EVENT_BRIDGE.read_text(encoding="utf-8")
+        timer_host = TIMER_HOST.read_text(encoding="utf-8")
 
-        snapshot = driver.index("let sceneScriptProgramFrameState")
+        timer_snapshot = driver.index("let sceneScriptProgramTimerFrameState")
+        snapshot = driver.index(
+            "let sceneScriptProgramFrameState", timer_snapshot
+        )
+        timer_guard = driver.index(
+            "sceneScriptProgramTimerFrameState.scalar.isComplete"
+        )
         cursor_dispatch = driver.index(
             "launchContext.sceneScriptCursorProgram.dispatch(", snapshot
         )
@@ -64,16 +72,27 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         restore = driver.index(
             "restoreSceneScriptProgramFrameState(", host_barrier
         )
+        timer_restore = driver.index(
+            "restoreSceneScriptProgramTimerFrameState(", host_barrier
+        )
         storage_discard = driver.index(
             "sceneScriptStorageSession?.discardFrameTransaction()", restore
         )
         commit = driver.index("commitSubmittedSceneFrame(", host_barrier)
+        timer_discard = driver.index(
+            "discardSceneScriptProgramTimerFrameState(", commit
+        )
         self.assertLess(snapshot, cursor_dispatch)
+        self.assertLess(timer_snapshot, snapshot)
+        self.assertLess(timer_guard, cursor_dispatch)
+        self.assertLess(timer_snapshot, cursor_dispatch)
         self.assertLess(cursor_dispatch, coordinator)
         self.assertLess(coordinator, host_barrier)
         self.assertLess(host_barrier, restore)
         self.assertLess(restore, storage_discard)
+        self.assertLess(timer_restore, storage_discard)
         self.assertGreater(commit, host_barrier)
+        self.assertGreater(timer_discard, commit)
 
         self.assertIn("frameStateSnapshot()", lifecycle)
         self.assertIn("func restoreSceneScriptProgramFrameState(", lifecycle)
@@ -85,6 +104,10 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertIn("func snapshot() -> Event?", events)
         self.assertIn("mutating func restore(_ snapshot: Event?)", events)
         self.assertIn("struct SceneScriptProgramFrameState: Sendable", events)
+        self.assertIn("struct SceneScriptProgramTimerFrameState", events)
+        self.assertIn("mwx_scene_quickjs_owner_timer_snapshot", timer_host)
+        self.assertIn("mwx_scene_quickjs_owner_timer_restore", timer_host)
+        self.assertIn("mwx_scene_quickjs_owner_timer_snapshot_destroy", timer_host)
 
     def test_transaction_rolls_back_in_reverse_once_and_commit_closes_it(self) -> None:
         if shutil.which("swiftc") is None:

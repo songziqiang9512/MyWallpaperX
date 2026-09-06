@@ -706,6 +706,20 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         domain.discardStorage(owner: handle)
     }
 
+    func timerFrameSnapshot() -> OpaquePointer? {
+        mwx_scene_quickjs_owner_timer_snapshot(handle)
+    }
+
+    func restoreTimerFrame(_ snapshot: OpaquePointer?) {
+        guard let snapshot else { return }
+        _ = mwx_scene_quickjs_owner_timer_restore(handle, snapshot)
+    }
+
+    func discardTimerFrame(_ snapshot: OpaquePointer?) {
+        guard let snapshot else { return }
+        mwx_scene_quickjs_owner_timer_snapshot_destroy(snapshot, handle)
+    }
+
     func teardown(
         frame: SceneScriptFrameInput,
         scriptPropertiesJSON: String,

@@ -3,9 +3,12 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef struct MWXSceneQuickJSDomain MWXSceneQuickJSDomain;
 typedef struct MWXSceneQuickJSOwner MWXSceneQuickJSOwner;
+typedef struct MWXSceneQuickJSTimerFrameSnapshot
+    MWXSceneQuickJSTimerFrameSnapshot;
 typedef int (*MWXSceneQuickJSCancellationCheck)(void *opaque);
 typedef enum MWXSceneQuickJSStorageReadResult {
     MWX_SCENE_QUICKJS_STORAGE_READ_ERROR = -1,
@@ -556,6 +559,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_lifecycle_snapshot(
 );
 
 uint32_t mwx_scene_quickjs_owner_active_timer_count(
+    MWXSceneQuickJSOwner *owner
+);
+MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
+    MWXSceneQuickJSOwner *owner
+);
+bool mwx_scene_quickjs_owner_timer_restore(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot
+);
+void mwx_scene_quickjs_owner_timer_snapshot_destroy(
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot,
     MWXSceneQuickJSOwner *owner
 );
 

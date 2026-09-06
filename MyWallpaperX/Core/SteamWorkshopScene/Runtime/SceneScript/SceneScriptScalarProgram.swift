@@ -700,6 +700,10 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         observedMediaThumbnailEvent.restore(state.observedMediaThumbnailEvent); observedMediaPlaybackEvent.restore(state.observedMediaPlaybackEvent); observedMediaPropertiesEvent.restore(state.observedMediaPropertiesEvent); observedMediaTimelineEvent.restore(state.observedMediaTimelineEvent); consumedMediaThumbnailGenerations = state.consumedMediaThumbnailGenerations; consumedMediaPlaybackGenerations = state.consumedMediaPlaybackGenerations; consumedMediaPropertiesGenerations = state.consumedMediaPropertiesGenerations; consumedMediaTimelineGenerations = state.consumedMediaTimelineGenerations; appliedUserPropertiesByTarget = state.appliedUserPropertiesByTarget
     }
 
+    func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.timerFrameSnapshot() }) }
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.restoreTimerFrame($0.1) } }
+    func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.discardTimerFrame($0.1) } }
+
     func finalizeLayerMutations(
         committing: Bool,
         rejectedOwnerTargets: Set<SceneDynamicTarget> = []

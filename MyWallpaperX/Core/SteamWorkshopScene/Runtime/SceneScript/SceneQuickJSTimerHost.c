@@ -1,6 +1,7 @@
 #include "SceneQuickJSInternal.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 static MWXSceneQuickJSOwner *active_owner(JSContext *context) {
@@ -267,6 +268,70 @@ uint32_t mwx_scene_quickjs_owner_active_timer_count(
         if (owner->timers[index].active) count += 1;
     }
     return count;
+}
+
+MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
+    MWXSceneQuickJSOwner *owner
+) {
+    if (owner == NULL || owner->domain == NULL || owner->domain->context == NULL) {
+        return NULL;
+    }
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot = calloc(1, sizeof(*snapshot));
+    if (snapshot == NULL) return NULL;
+    snapshot->next_timer_identity = owner->next_timer_identity;
+    snapshot->timer_runtime = owner->timer_runtime;
+    snapshot->timer_runtime_initialized = owner->timer_runtime_initialized;
+    for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
+        snapshot->timers[index] = owner->timers[index];
+        if (owner->timers[index].active) {
+            snapshot->timers[index].callback = JS_DupValue(
+                owner->domain->context, owner->timers[index].callback
+            );
+        } else {
+            snapshot->timers[index].callback = JS_UNDEFINED;
+        }
+    }
+    return snapshot;
+}
+
+bool mwx_scene_quickjs_owner_timer_restore(
+    MWXSceneQuickJSOwner *owner,
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot
+) {
+    if (owner == NULL || snapshot == NULL || owner->domain == NULL ||
+        owner->domain->context == NULL) return false;
+    for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
+        deactivate_timer(owner, &owner->timers[index]);
+        owner->timers[index] = snapshot->timers[index];
+        if (snapshot->timers[index].active) {
+            owner->timers[index].callback = JS_DupValue(
+                owner->domain->context, snapshot->timers[index].callback
+            );
+        } else {
+            owner->timers[index].callback = JS_UNDEFINED;
+        }
+    }
+    owner->next_timer_identity = snapshot->next_timer_identity;
+    owner->timer_runtime = snapshot->timer_runtime;
+    owner->timer_runtime_initialized = snapshot->timer_runtime_initialized;
+    return true;
+}
+
+void mwx_scene_quickjs_owner_timer_snapshot_destroy(
+    MWXSceneQuickJSTimerFrameSnapshot *snapshot,
+    MWXSceneQuickJSOwner *owner
+) {
+    if (snapshot == NULL) return;
+    if (owner != NULL && owner->domain != NULL && owner->domain->context != NULL) {
+        for (size_t index = 0; index < MWX_SCENE_QUICKJS_MAX_TIMERS; ++index) {
+            if (snapshot->timers[index].active) {
+                JS_FreeValue(
+                    owner->domain->context, snapshot->timers[index].callback
+                );
+            }
+        }
+    }
+    free(snapshot);
 }
 
 void mwx_scene_quickjs_destroy_timer_host(MWXSceneQuickJSOwner *owner) {

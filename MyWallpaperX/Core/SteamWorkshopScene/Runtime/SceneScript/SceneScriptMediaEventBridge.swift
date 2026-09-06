@@ -346,6 +346,11 @@ nonisolated struct SceneScriptProgramFrameState: Sendable {
         [SceneDynamicTarget: [String: SceneUserPropertyValue]]
 }
 
+nonisolated struct SceneScriptProgramTimerFrameState: @unchecked Sendable {
+    let snapshots: [OpaquePointer?]
+    var isComplete: Bool { snapshots.allSatisfy { $0 != nil } }
+}
+
 nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let materialFunctions: [SceneScriptMaterialFunctionMutation]
     let animations: [SceneTimelinePlaybackMutation]

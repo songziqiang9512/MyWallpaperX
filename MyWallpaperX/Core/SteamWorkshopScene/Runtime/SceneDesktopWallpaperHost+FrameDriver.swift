@@ -178,9 +178,11 @@ extension SceneDesktopWallpaperHost {
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
         promotePendingDeferredLayerVisibilityIfReady()
         guard let launchContext else { return .inactive }
+        let sceneScriptProgramTimerFrameState = self.sceneScriptProgramTimerFrameState(launchContext)
+        guard sceneScriptProgramTimerFrameState.scalar.isComplete && sceneScriptProgramTimerFrameState.string.isComplete && sceneScriptProgramTimerFrameState.vector.isComplete && sceneScriptProgramTimerFrameState.cursor.isComplete else { discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState); return .dropped }
         guard surfaces.values.allSatisfy({
             !$0.metalView.shouldDeferResolvedMaterialFrame
-        }) else {
+        }) else { discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
             return .busy
         }
 #if DEBUG
@@ -720,6 +722,7 @@ extension SceneDesktopWallpaperHost {
             restoreSceneScriptProgramFrameState(
                 launchContext, sceneScriptProgramFrameState
             )
+            restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
             surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
@@ -748,6 +751,7 @@ extension SceneDesktopWallpaperHost {
             layerPlan: admission.layerPlan,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        discardSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
         return .rendered
     }
 #if DEBUG

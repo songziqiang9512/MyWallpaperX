@@ -132,6 +132,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         previousPrimaryButtonIsDown = state.previousPrimaryButtonIsDown
     }
 
+    func timerFrameStateSnapshot() -> SceneScriptProgramTimerFrameState { .init(snapshots: bindings.map { $0.owner.timerFrameSnapshot() }) }
+    func restoreTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.restoreTimerFrame($0.1) } }
+    func discardTimerFrameState(_ state: SceneScriptProgramTimerFrameState) { zip(bindings, state.snapshots).forEach { $0.0.owner.discardTimerFrame($0.1) } }
+
     private init(
         bindings: [SceneScriptCursorBinding],
         generation: UInt64

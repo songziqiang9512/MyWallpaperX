@@ -835,7 +835,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 | bounded text `new Date()`/getter | `L3 bounded` | 同帧 wall date 注入纯 Swift AST evaluator；Gregorian 当前时区，尚无 locale/DST/离线 clock adapter/Windows golden |
 | user/cursor/audio/media events | `L3 bounded` | Vec3 user-property delta、五个cursor callback、AudioBuffers与thumbnail presence+五色/playback/properties event已有typed generation/owner执行门；thumbnail event五个字段均为冻结finite Vec3，缺字段归零，generation 0/stale/same-generation conflict拒绝，缺输入不消费而可同代重试。同一owner内固定先派发已导出的playback/thumbnail（String另含properties）再`update`；跨类型全局顺序、有序sub-frame queue、status/timeline与完整multi-surface顺序仍缺 |
 | component/object/particle API | `L0` | typed handles、只允许作者目标、失效语义 |
-| timer/timeout/interval | `L3 bounded / S3 executed` | callback-scoped scene-time scheduler、返回函数取消、32槽owner预算、长帧不追赶、同runtime幂等、Promise resolve、异常/跨owner隔离与destroy释放已有正反执行门；stop/switch产品运行记录归零。真实corpus无consumer，pause/resume、seek、帧聚合预算与官方动态对照仍缺 |
+| timer/timeout/interval | `L3 bounded / S3 executed` | callback-scoped scene-time scheduler、返回函数取消、32槽owner预算、长帧不追赶、同runtime幂等、Promise resolve、异常/跨owner隔离与destroy释放已有正反执行门；host 现在在 cursor/VM 到 all-surface submission barrier 间以 C snapshot 保存 slot、remaining/interval、identity counter 与 runtime anchor，失败恢复并销毁 snapshot，成功后释放 snapshot。stop/switch产品运行记录归零。真实corpus无consumer，任意JS heap/global callback state、Promise/job queue rollback、pause/resume、seek、帧聚合预算与官方动态对照仍缺 |
 
 ### 6.2 User Properties
 
