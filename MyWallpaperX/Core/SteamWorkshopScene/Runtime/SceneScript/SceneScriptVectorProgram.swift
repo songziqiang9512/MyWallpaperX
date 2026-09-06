@@ -5,6 +5,7 @@ import Foundation
 nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private(set) var definitions: [SceneDynamicTargetDefinition]
     private(set) var bindings: [SceneScriptVectorBinding]
+    private var bindingIndicesByTarget: [SceneDynamicTarget: Int] = [:]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
     let descriptor: SceneRenderDescriptor
@@ -13,20 +14,15 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var reportedTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioTargets: Set<SceneDynamicTarget> = []
     private var reportedAudioValueTargets: Set<SceneDynamicTarget> = []
-    private var observedMediaThumbnailEvent =
-        SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
-    private var observedMediaPlaybackEvent =
-        SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
-    private var observedMediaPropertiesEvent =
-        SceneScriptObservedEvent<SceneScriptMediaPropertiesEventInput>()
-    private var observedMediaTimelineEvent =
-        SceneScriptObservedEvent<SceneScriptMediaTimelineEventInput>()
+    private var observedMediaThumbnailEvent = SceneScriptObservedEvent<SceneScriptMediaThumbnailEventInput>()
+    private var observedMediaPlaybackEvent = SceneScriptObservedEvent<SceneScriptMediaPlaybackEventInput>()
+    private var observedMediaPropertiesEvent = SceneScriptObservedEvent<SceneScriptMediaPropertiesEventInput>()
+    private var observedMediaTimelineEvent = SceneScriptObservedEvent<SceneScriptMediaTimelineEventInput>()
     private var consumedMediaThumbnailGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64] = [:]
     private var consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64] = [:]
-    private var appliedUserPropertiesByTarget:
-        [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
+    private var appliedUserPropertiesByTarget: [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
@@ -57,6 +53,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         self.bindings = bindings
         self.generation = generation
         definitions = bindings.map(\.definition)
+        bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map { ($0.element.definition.target, $0.offset) })
         userPropertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
         )
@@ -264,6 +261,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 dynamicImageReferences: candidate.dynamicImageReferences,
                 owner: owner
             ))
+            bindingIndicesByTarget[target] = bindings.count - 1
         }
         definitions = bindings.map(\.definition)
         return failures
@@ -274,6 +272,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         effectivePropertyValues: [String: SceneUserPropertyValue],
         frame: SceneScriptFrameInput,
         propertyRevision: UInt64? = nil,
+        targetFilter: SceneDynamicTarget? = nil,
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
@@ -307,7 +306,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        for binding in bindings {
+        let selectedBindings = targetFilter.flatMap { bindingIndicesByTarget[$0].map { [bindings[$0]] } } ?? bindings
+        for binding in selectedBindings {
             let target = binding.definition.target
             if disabledTargets.contains(target) { continue }
             guard let input = inputs[target],

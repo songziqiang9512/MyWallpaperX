@@ -42,6 +42,7 @@ nonisolated struct SceneScriptStringProgramConstruction: @unchecked Sendable {
 nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptStringOwner]
+    private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
     private let propertyInputsByTarget:
@@ -276,6 +277,9 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         generation: UInt64
     ) {
         self.bindings = bindings
+        bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map {
+            ($0.element.target, $0.offset)
+        })
         self.authoredOrdinals = authoredOrdinals
         self.propertyInputsByTarget = propertyInputsByTarget
         userPropertyKinds = Dictionary(
@@ -325,6 +329,7 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
+        targetFilter: SceneDynamicTarget? = nil,
         frame: SceneScriptFrameInput,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
@@ -352,7 +357,10 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         var animations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        for binding in bindings {
+        let selectedBindings = targetFilter.flatMap {
+            bindingIndicesByTarget[$0].map { [bindings[$0]] }
+        } ?? bindings
+        for binding in selectedBindings {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .string(inputString) = input else { continue }

@@ -445,6 +445,15 @@ enum Harness {
             ],
             frame: frame
         )
+        let targetFilteredResult = program.evaluate(
+            inputs: [
+                .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
+                .layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5),
+            ],
+            effectivePropertyValues: ["x1": .number(40), "y1": .number(2100), "size": .number(1.25)],
+            frame: frame,
+            targetFilter: .layer(layerID: 10, field: .scale)
+        )
         let passVectorTarget = SceneDynamicTarget.effectConstant(
             layerID: 10, effectIndex: 0, passIndex: 0, name: "scale"
         )
@@ -1527,6 +1536,10 @@ enum Harness {
             "bindings": program.bindings.count,
             "origin": vector(result.values[.layer(layerID: 10, field: .origin)]),
             "scale": vector(result.values[.layer(layerID: 10, field: .scale)]),
+            "targetFilteredValueCount": targetFilteredResult.values.count,
+            "targetFilteredOriginPublished": targetFilteredResult.values[
+                .layer(layerID: 10, field: .origin)
+            ] != nil,
             "angleValue": vector(result.values[angleTarget]),
             "angleFailure": result.failures[angleTarget]?.code ?? "",
             "failures": result.failures.count,
@@ -2354,6 +2367,8 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["bindings"], 3)
         self.assertEqual(value["origin"], [40, 2100, 0])
         self.assertEqual(value["scale"], [1.25, 1.25, 1.25])
+        self.assertEqual(value["targetFilteredValueCount"], 1)
+        self.assertFalse(value["targetFilteredOriginPublished"])
         self.assertEqual(value["failures"], 0)
         self.assertEqual(value["mutations"], [
             {"layerID": 10, "effectIndex": 0, "name": "clearHistory"},

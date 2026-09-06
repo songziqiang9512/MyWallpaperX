@@ -42,6 +42,7 @@ nonisolated struct SceneScriptScalarProgramConstruction: @unchecked Sendable {
 nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     let definitions: [SceneDynamicTargetDefinition]
     let bindings: [SceneScriptScalarOwner]
+    private let bindingIndicesByTarget: [SceneDynamicTarget: Int]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
     private let authoredOrdinals: [SceneDynamicTarget: Int]
@@ -112,6 +113,9 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
     ) {
         self.domain = domain
         self.bindings = bindings
+        bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map {
+            ($0.element.target, $0.offset)
+        })
         self.generation = generation
         self.propertyInputsByTarget = propertyInputsByTarget
         self.livePropertyInputTargetsByTarget = livePropertyInputTargetsByTarget
@@ -287,6 +291,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         frame: SceneScriptFrameInput,
         effectivePropertyValues: [String: SceneUserPropertyValue] = [:],
         propertyRevision: UInt64? = nil,
+        targetFilter: SceneDynamicTarget? = nil,
         userPropertiesJSON: String = "{}",
         mediaThumbnailEvent: SceneScriptMediaThumbnailEventInput? = nil,
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
@@ -313,7 +318,10 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        for binding in bindings {
+        let selectedBindings = targetFilter.flatMap {
+            bindingIndicesByTarget[$0].map { [bindings[$0]] }
+        } ?? bindings
+        for binding in selectedBindings {
             if disabledTargets.contains(binding.target) { continue }
             guard let input = inputs[binding.target],
                   case let .scalar(value) = input else { continue }
