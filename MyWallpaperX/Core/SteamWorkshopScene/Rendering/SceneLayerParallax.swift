@@ -73,6 +73,23 @@ nonisolated enum SceneLayerParallax {
 }
 
 nonisolated struct SceneParallaxPointerSmoother: Sendable {
+    nonisolated struct State: Equatable, Sendable {
+        fileprivate let current: SIMD2<Float>
+        fileprivate let target: SIMD2<Float>
+        fileprivate let delayedTime: Double
+        fileprivate let lastInputTimestamp: Double?
+
+        fileprivate init(
+            current: SIMD2<Float>, target: SIMD2<Float>, delayedTime: Double,
+            lastInputTimestamp: Double?
+        ) {
+            self.current = current
+            self.target = target
+            self.delayedTime = delayedTime
+            self.lastInputTimestamp = lastInputTimestamp
+        }
+    }
+
     private let delay: Double
     private var current = SIMD2<Float>.zero
     private var target = SIMD2<Float>.zero
@@ -81,6 +98,22 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
 
     nonisolated init(delay: Float) {
         self.delay = max(0, Double(delay))
+    }
+
+    nonisolated func snapshot() -> State {
+        State(
+            current: current,
+            target: target,
+            delayedTime: delayedTime,
+            lastInputTimestamp: lastInputTimestamp
+        )
+    }
+
+    nonisolated mutating func restore(_ state: State) {
+        current = state.current
+        target = state.target
+        delayedTime = state.delayedTime
+        lastInputTimestamp = state.lastInputTimestamp
     }
 
     nonisolated mutating func setTarget(_ value: SIMD2<Float>, timestamp: Double) {

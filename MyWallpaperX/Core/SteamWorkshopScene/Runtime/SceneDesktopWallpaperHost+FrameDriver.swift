@@ -623,6 +623,9 @@ extension SceneDesktopWallpaperHost {
             [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
+        let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map {
+            ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother())
+        })
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {
@@ -714,6 +717,9 @@ extension SceneDesktopWallpaperHost {
             launchContext.timelinePlaybackRuntime.restoreObservationState(
                 timelineObservationState
             )
+            for (displayID, state) in parallaxPointerStates {
+                surfaces[displayID]?.metalView.restoreParallaxPointerSmoother(state)
+            }
             // The cursor producer advanced before the outcome was known.
             // A deferred/dropped frame must not consume pointer events or
             // advance edge state: re-insert the drained batches and restore

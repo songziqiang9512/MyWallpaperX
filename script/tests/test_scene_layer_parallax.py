@@ -61,7 +61,11 @@ enum Harness {
         let smoothFirst = smoother.advance(delta: 0.25)
         let smoothSecond = smoother.advance(delta: 0.25)
         smoother.setTarget(SIMD2(-1, 1), timestamp: 0.5)
+        let rollbackState = smoother.snapshot()
         let smoothAfterInput = smoother.advance(delta: 0.25)
+        let smoothAdvanced = smoother.advance(delta: 0.25)
+        smoother.restore(rollbackState)
+        let smoothRestored = smoother.advance(delta: 0.25)
 
         let result: [String: Any] = [
             "root": vector(SceneLayerParallax.resolve(layerID: 1, nodesByID: nodes)?.depth),
@@ -98,7 +102,9 @@ enum Harness {
             )),
             "smoothFirst": vector(smoothFirst),
             "smoothSecond": vector(smoothSecond),
-            "smoothAfterInput": vector(smoothAfterInput)
+            "smoothAfterInput": vector(smoothAfterInput),
+            "smoothAdvanced": vector(smoothAdvanced),
+            "smoothRestored": vector(smoothRestored)
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -160,6 +166,7 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertEqual(self.result["smoothFirst"], [0.25, -0.25])
         self.assertEqual(self.result["smoothSecond"], [0.625, -0.625])
         self.assertEqual(self.result["smoothAfterInput"], [0.21875, -0.21875])
+        self.assertEqual(self.result["smoothRestored"], [0.21875, -0.21875])
 
 
 if __name__ == "__main__":

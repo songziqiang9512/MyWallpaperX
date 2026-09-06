@@ -843,6 +843,17 @@ class SceneFrameContextTests(unittest.TestCase):
             restore, render.index("restoreSceneScriptPointerEvents", restore)
         )
 
+    def test_parallax_smoother_rolls_back_with_surface_submission(self) -> None:
+        frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        render = frame_driver
+        snapshot = render.index("let parallaxPointerStates =")
+        render_loop = render.index("for (displayID, surface) in surfaces", snapshot)
+        barrier = render.index("let allSurfacesSubmitted =", render_loop)
+        restore = render.index("restoreParallaxPointerSmoother", barrier)
+        self.assertLess(snapshot, render_loop)
+        self.assertLess(render_loop, barrier)
+        self.assertLess(restore, render.index("restoreSceneScriptPointerEvents", restore))
+
     def test_global_playback_control_delegates_active_scene_state(self) -> None:
         playback_control = PLAYBACK_CONTROL_SOURCE.read_text(encoding="utf-8")
         engine = WALLPAPER_ENGINE_SOURCE.read_text(encoding="utf-8")

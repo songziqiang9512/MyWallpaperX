@@ -433,6 +433,16 @@ class SceneMetalView: NSView {
         mediaThumbnailCoordinator.update(from: input)
     }
 
+    func snapshotParallaxPointerSmoother() -> SceneParallaxPointerSmoother.State {
+        parallaxPointerSmoother.snapshot()
+    }
+
+    func restoreParallaxPointerSmoother(
+        _ state: SceneParallaxPointerSmoother.State
+    ) {
+        parallaxPointerSmoother.restore(state)
+    }
+
     func renderFrame(
         timing: SceneFrameTiming, dynamicValues: SceneDynamicSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot,
@@ -447,6 +457,7 @@ class SceneMetalView: NSView {
             return .deferred(reasonCode: "drawable-unavailable")
         }
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+        let parallaxPointerState = parallaxPointerSmoother.snapshot()
         let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
         let frameContext = makeFrameContext(
             timing: timing, dynamicValues: dynamicValues,
@@ -520,6 +531,7 @@ class SceneMetalView: NSView {
                 dynamicLayers: layerTopology.dynamicLayers
             )
         } else {
+            parallaxPointerSmoother.restore(parallaxPointerState)
             videoTextureSources.values.forEach { $0.discardPreparedFrame() }
         }
         return outcome

@@ -2242,6 +2242,13 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 自动门：`python3.12 -m unittest script.tests.test_scene_timeline_runtime script.tests.test_scene_frame_context` **40/40**；新增 harness 证明 observation 标记会被一次 `values` 消费、随后 restore 回原状态；frame-driver 顺序门锁定 observation snapshot→values→submission barrier→restore。checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组、code-health（902 Swift、16 locked legacy、182 warnings）与 Debug build 均通过，`git diff --check` 通过。
 - 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion仍可能在 surface outcome 前推进，不外推视觉 parity、稳定性能、官方 timing 或 V4 完成。
 
+<a id="e-v4-parallax-submission-barrier"></a>
+### E-V4-PARALLAX-SUBMISSION-BARRIER: Camera Parallax pointer smoother rollback
+
+- 实现：`SceneParallaxPointerSmoother` 暴露轻量 frame-local state snapshot/restore；`SceneMetalView.renderFrame` 在 `advance` 前保存，非 `submitted` outcome 立即恢复；host 在多 surface submission barrier 失败时按 display identity 再恢复所有 surface 的 pre-frame state。pointer target 的输入事件仍由现有 surface pointer owner 写入，parallax 仍由同一 `SceneFrameContext` 进入唯一 renderer/compositor，没有新增 pointer、parallax、clock 或 output owner。
+- 自动门：`python3.12 -m unittest script.tests.test_scene_layer_parallax script.tests.test_scene_frame_context script.tests.test_scene_frame_vm_routing script.tests.test_scene_realtime_path_policy` **51/51**；parallax harness 证明 advance 后 restore 再次 advance 与第一次结果一致；frame-driver 顺序门锁定 host snapshot→surface loop→submission barrier→restore。`git diff --check` 通过；checkpoint 选出的 realtime/frame/context/cursor/runtime-input 组、code-health 与 Debug build 均通过。
+- 边界：本批没有增加会强制真实 surface `deferred/dropped` 的 debug fault，也没有改变 renderer outcome，因此没有 fresh GPU completion 或 multi-surface timing 运行证据。该项只达到 `S2 shared frame-lifecycle wiring`；particle advance、VM/localStorage/C heap 副作用、video decode completion、异步 text raster completion与GPU completion后的回滚仍可能在 surface outcome 前推进，不外推 parallax ROI、视觉 parity、稳定性能、官方 timing 或 V4 完成。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 
