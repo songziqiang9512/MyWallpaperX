@@ -2312,6 +2312,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：drawable/preflight/seal 或任一 surface outcome 非 `submitted` 时，pending input 被清除且不会启动该帧 thumbnail decode；上一份 ready/current 保留，下一帧继续从同一 inbox generation 重试。成功 barrier 才开始现有异步 request；generation cancellation、stale completion、teardown/weak queue 和 missing/clear fallback 继续由 `SceneMediaThumbnailTextureStore` 处理。
 - **自动门与边界**：`test_scene_frame_vm_routing`、`test_scene_frame_context`、`test_scene_source_update_transaction` 与既有 `test_scene_media_thumbnail_provider` 合计 **51 tests / OK**；code-health（902 Swift、16 locked legacy、182 warnings）通过，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未注入真实 multi-surface deferred/dropped、GPU completion、decode/upload fault 或 live media producer，故保持 `S2`；不外推 thumbnail 视觉 ROI、稳定性能、完整 media API、149 corpus、官方 parity 或 V4 完成。
 
+<a id="e-v4-media-thumbnail-value-only-invalidation"></a>
+### E-V4-MEDIA-THUMBNAIL-VALUE-ONLY-INVALIDATION: color-only media publications reuse ready texture atoms
+
+证据等级：`S2 shared provider invalidation wiring`。本批只收口 artwork 与派生颜色共用 inbox generation 时，resource owner 不应把 value-only 颜色变化扩大为 decode/upload invalidation；不宣称 live platform producer、真实 multi-surface fault、异步 completion rollback、thumbnail ROI 或视觉 parity。
+
+- **目标合同、首断点与共享实现**：`SceneMediaThumbnailInbox` 仍由单一 producer snapshot 保持 artwork、五色、presence 与 generation 的事件顺序。此前 `SceneMediaThumbnailTextureStore.update` 只按 generation 去重，encoded current 不变而颜色改变时仍取消/排队 decode；当前在 current bytes 等于上一份成功 encoded source、current publication 仍为 `.present` 且已有 current texture 的 value-only 条件下，直接推进 `readyGeneration` 并保留 current/previous texture/publication atom，pending request 不建立；malformed/clear/empty/partial/unavailable 不满足快路，继续沿原 decode/failure/last-ready 合同。
+- **失败半径与恢复**：同图换色只改变 provider/publication generation，纹理 identity、purpose、sampling、current/previous 候选与 terminal compositor owner 不变；未成功的 malformed replacement、clear 或未完整的 current purpose 不会因历史 `lastSuccessfulEncodedCurrent` 被误判为可复用。后续真正 encoded source 变化仍走既有 request cancellation、stale completion、previous rotation、clear/recovery 与 frame registry publication。
+- **自动门与边界**：`test_scene_media_thumbnail_provider` 的同图换色 fixture 证明 generation=2、无 pending、current texture identity 保持、preserved current 存在且 decode count=1；该 focused module 2 tests OK，`test_scene_frame_vm_routing` + `test_scene_frame_context` 41 tests OK，code-health 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 与 checkpoint Debug build **BUILD SUCCEEDED**。未做真实 live producer、multi-surface/decode-upload completion fault、GPU rollback、thumbnail ROI/视觉 parity，故最高只到 `S2`。
+
 <a id="e-v4-frame-texture-publication-submission-barrier"></a>
 ### E-V4-FRAME-TEXTURE-PUBLICATION-SUBMISSION-BARRIER: frame texture publications follow the host barrier
 

@@ -252,6 +252,20 @@ store.update(from: inbox.latest())
 let initialPending = store.snapshot()
 decodingQueue.resume()
 let third = waitFor(store, generation: 3)
+let colorOnlyInbox = SceneMediaThumbnailInbox()
+let colorOnlyCounter = DecodeCounter()
+let colorOnlyStore = SceneMediaThumbnailTextureStore(
+    device: device,
+    decodingQueue: DispatchQueue(label: "fixture.media-thumbnail-color-only"),
+    imageDecoder: colorOnlyCounter.decode
+)
+_ = colorOnlyInbox.publish(c)
+colorOnlyStore.update(from: colorOnlyInbox.latest())
+let colorOnlyFirst = waitFor(colorOnlyStore, generation: 1)
+let colorOnlyTexture = colorOnlyFirst.current?.texture
+_ = colorOnlyInbox.publish(c, primaryColor: SIMD3(0.2, 0.3, 0.4))
+colorOnlyStore.update(from: colorOnlyInbox.latest())
+let colorOnlySecond = colorOnlyStore.snapshot()
 let colorSystemIdentity = SceneSystemProviderTextureIdentity(
     name: SceneBaseMaterialProviderBindingProgram.currentIdentity,
     purpose: .premultipliedColor
@@ -931,6 +945,12 @@ let result: [String: Any] = [
         && third.preservedCurrent?.candidate.generation
             == .provider(contentGeneration: third.generation),
     "rapidDecodeCount": rapidDecodeCount,
+    "colorOnlyGeneration": colorOnlySecond.generation,
+    "colorOnlyNoPending": colorOnlySecond.pendingGeneration == nil
+        && colorOnlySecond.pendingIdentities.isEmpty,
+    "colorOnlyRetainsTexture": colorOnlySecond.current?.texture === colorOnlyTexture
+        && colorOnlySecond.preservedCurrent != nil,
+    "colorOnlyDecodeCount": colorOnlyCounter.value,
     "duplicateAccepted": duplicateAccepted,
     "duplicateGenerationStable": duplicateGeneration == 3,
     "oversizedRejected": oversizedRejected,
@@ -1409,6 +1429,10 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["currentPublicationPremultiplied"])
         self.assertTrue(result["preservedPublicationData"])
         self.assertEqual(result["rapidDecodeCount"], 1)
+        self.assertEqual(result["colorOnlyGeneration"], 2)
+        self.assertTrue(result["colorOnlyNoPending"])
+        self.assertTrue(result["colorOnlyRetainsTexture"])
+        self.assertEqual(result["colorOnlyDecodeCount"], 1)
         self.assertTrue(result["duplicateAccepted"])
         self.assertTrue(result["duplicateGenerationStable"])
         self.assertTrue(result["oversizedRejected"])

@@ -126,6 +126,23 @@ final class SceneMediaThumbnailTextureStore: @unchecked Sendable {
         }
         requestedGeneration = input.generation
         pendingRequest?.cancel()
+
+        // Artwork and its derived colors share the inbox generation so the
+        // authored media event remains ordered.  A color-only publication is
+        // nevertheless value-only for this resource owner: retain the last
+        // decoded atoms and advance their publication generation without
+        // re-decoding or reopening a pending provider window.
+        if let current = input.current,
+           current == lastSuccessfulEncodedCurrent,
+           case .present = currentAvailability,
+           !currentTextures.isEmpty,
+           !lastSuccessfulTextures.isEmpty {
+            pendingRequest = nil
+            readyGeneration = input.generation
+            reportedPendingGeneration = nil
+            lock.unlock()
+            return
+        }
         let request = DecodeRequest(
             input: input,
             willRotatePrevious: input.current != nil
