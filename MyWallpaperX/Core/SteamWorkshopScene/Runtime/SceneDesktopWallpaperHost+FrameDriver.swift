@@ -604,19 +604,13 @@ extension SceneDesktopWallpaperHost {
             admittedValues(sceneScriptVectorResult.values),
             uniquingKeysWith: { _, genericValue in genericValue }
         )
-        let materialFunctionMutations = admittedOwnerEffects.flatMap(
-            \.materialFunctionMutations
-        )
-        var pendingSurfaceEvaluations:
-            [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
+        let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
+        var pendingSurfaceEvaluations: [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
-        let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map {
-            ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother())
-        })
-        let pointerPreviousStates = Dictionary(uniqueKeysWithValues: surfaces.map {
-            ($0.key, $0.value.metalView.snapshotPointerPrevious())
-        })
+        var sharedSurfaceResolution: SceneDynamicSnapshotResolution?
+        let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother()) })
+        let pointerPreviousStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotPointerPrevious()) })
         for (displayID, surface) in surfaces {
             guard let mediaThumbnailSnapshot =
                 mediaThumbnailSnapshots[displayID] else {
@@ -628,12 +622,18 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
-            let pendingEvaluation = surface.evaluationTransaction.prepare(
+            let pendingEvaluation = sharedSurfaceResolution.map {
+                surface.evaluationTransaction.prepare(
+                    frameIndex: timing.frameIndex, resolution: $0
+                )
+            } ?? surface.evaluationTransaction.prepare(
                 frameIndex: timing.frameIndex, index: definitionIndex,
                 userValues: launchContext.liveState.userValues,
                 timelineValues: timelineValues,
                 sceneScriptValues: commonSceneScriptValues
             )
+            sharedSurfaceResolution = sharedSurfaceResolution
+                ?? pendingEvaluation.resolution
             pendingSurfaceEvaluations.append((surface, pendingEvaluation))
             let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
 #if DEBUG

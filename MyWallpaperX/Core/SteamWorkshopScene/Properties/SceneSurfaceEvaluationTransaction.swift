@@ -69,7 +69,7 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
     /// Resolves a candidate without publishing it. The host commits the
     /// candidate only after every surface has submitted the same frame, so a
     /// drawable/preflight failure cannot become SceneScript `previous-current`.
-    nonisolated func prepare(
+    nonisolated mutating func prepare(
         frameIndex: UInt64,
         index: SceneDynamicSnapshotDefinitionIndex,
         userValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
@@ -84,6 +84,15 @@ nonisolated struct SceneSurfaceEvaluationTransaction {
             timelineValues: timelineValues,
             sceneScriptValues: sceneScriptValues
         )
+        return prepare(frameIndex: frameIndex, resolution: resolution)
+    }
+
+    /// Reuses a host-shared typed payload while retaining this surface's own
+    /// generation/last-snapshot publication state.
+    nonisolated mutating func prepare(
+        frameIndex: UInt64,
+        resolution: SceneDynamicSnapshotResolution
+    ) -> PendingEvaluation {
         let nextGeneration: UInt64
         if let lastSnapshot {
             nextGeneration = lastSnapshot.hasSameValuePayload(as: resolution.snapshot)

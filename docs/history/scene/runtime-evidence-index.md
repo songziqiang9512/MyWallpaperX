@@ -4759,3 +4759,12 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 2. 一个证据包只能证明标题和边界中写明的子集；不能横向给同名但未消费的官方能力升级。报告的 non-black、exit 0、loaded/route/claim count、矩阵计数和进程存活只能作诊断，不能代替目标 ROI 或官方视觉 golden。
 3. 先在稳定源码上完成一次终审，再生成新的隔离报告，最后同步本页、受影响专题表和总台账；只有该批另有明确登记的现役计划时才同步计划。不得用移动快照上的连续审计或旧 App/旧报告替代最终运行证据。
 4. 报告丢失、样本集变化或 App 身份变化时，保留历史数字但不得写成当前已复核事实。
+
+<a id="e-v4-multi-surface-typed-snapshot-resolution-reuse"></a>
+### E-V4-MULTI-SURFACE-TYPED-SNAPSHOT-RESOLUTION-REUSE: 多 surface 复用 typed resolution，保留独立 publication state
+
+证据等级：`S2 shared typed snapshot hot-path wiring`。本批只收口同一 host frame 在多 surface 上重复解析 `SceneDynamicSnapshot` 的共享 CPU/pre-encode 首断点，不宣称真实多屏视觉、GPU completion fault、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 authored data 经 loss-preserving IR、prepared definition index 与 typed frame update 后进入现有 Program/GraphExecutor 和唯一 compositor；同一 host frame 的输入 dictionary、timeline/SceneScript values 与 prepared definition index 对所有 surface 相同。此前每个 `SceneSurfaceEvaluationTransaction.prepare` 都重复调用 resolver，重建同一 typed payload。当前 frame driver 保留每个 surface 的 transaction owner：首个可用 surface 解析 `SceneDynamicSnapshotResolution`，后续 surface 直接复用该 payload；每个 transaction 随后独立比较自己的 `lastSnapshot`，计算 generation 与 `PendingEvaluation`，并沿既有 all-surface submission barrier commit。
+- **失败半径与生命周期**：首个 surface 若因媒体缩略图未 ready 而跳过，`sharedSurfaceResolution` 仍为空，后续可用 surface 正常解析；一旦 payload 建立，后续 surface 只复用 typed resolution，不共享 generation/lastSnapshot。prepare 后 deferred/dropped 仍不 commit，previous-current 与 generation 不推进；host debug drop 仍只清空 consumer `dynamicValues`，不伪造 surface publication。没有新增 resolver、property/provider、clock、graph/history、resource registry 或 output owner。
+- **自动门与边界**：`test_scene_surface_evaluation_transaction`、`test_scene_frame_context`、dynamic text generation、SceneScript property/frame routing 与 source-update 定向组合共 89 tests / OK；code-health、`git diff --check` 与 checkpoint Debug build 均通过。未做真实 multi-surface CPU/pre-encode trace、GPU completion rollback、provider readiness fault、可见 ROI、稳定帧性能或官方多屏策略对照；因此最高只支持 `S2` 共享热路径 wiring，不外推为 multi-surface parity 或 V4 收口。
