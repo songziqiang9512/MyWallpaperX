@@ -12,13 +12,13 @@ nonisolated extension SceneScriptQuickJSDomain {
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
         videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
-        runtimeFieldLayerIDs: Set<Int>? = nil
+        runtimeFieldLayerIDs: Set<Int>? = nil,
+        diagnostic: inout [CChar]
     ) throws {
         for (index, layer) in descriptor.layers.enumerated() {
             if let runtimeFieldLayerIDs,
                !runtimeFieldLayerIDs.contains(layer.id),
                videoSnapshots[layer.id] == nil {
-                var diagnostic = [CChar](repeating: 0, count: 512)
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
                     handle,
                     UInt32(index),
@@ -64,7 +64,6 @@ nonisolated extension SceneScriptQuickJSDomain {
                 authored: layer.textStyle?.colorRGB ?? layer.colorRGB,
                 fallback: [1, 1, 1], snapshot: snapshot
             )
-            var diagnostic = [CChar](repeating: 0, count: 512)
             let result = text.withCString { textPointer in
                 font.withCString { fontPointer in
                     scale.withUnsafeBufferPointer { scalePointer in

@@ -566,7 +566,8 @@ nonisolated extension SceneScriptQuickJSDomain {
             snapshot,
             descriptor: descriptor,
             videoSnapshots: videoSnapshots,
-            runtimeFieldLayerIDs: runtimeFieldLayerIDs
+            runtimeFieldLayerIDs: runtimeFieldLayerIDs,
+            diagnostic: &diagnostic
         )
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
