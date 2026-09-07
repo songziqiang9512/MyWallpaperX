@@ -2844,6 +2844,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         execution_plan_source = (
             SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift"
         ).read_text(encoding="utf-8")
+        emitter_plan_source = (
+            SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift"
+        ).read_text(encoding="utf-8")
+        random_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("operatorExecutionPlans", simulator_source)
         self.assertIn("SceneParticleOperatorExecutionPlan(", simulator_source)
@@ -2865,6 +2871,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("collisionPlane", simulator_source)
         self.assertIn("controlPointForce", simulator_source)
         self.assertIn("reduceMovement", simulator_source)
+        self.assertIn("emitterSpawnPlans", simulator_source)
+        self.assertIn("SceneParticleEmitterSpawnPlan.init", simulator_source)
         self.assertIn("let alphaFade:", execution_plan_source)
         self.assertIn("let boids:", execution_plan_source)
         self.assertIn("let vortex:", execution_plan_source)
@@ -2872,7 +2880,12 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("let velocityRemap:", execution_plan_source)
         self.assertIn("let collisionPlane:", execution_plan_source)
         self.assertIn("if let controlPointsByID", emitter_control_point_source)
+        self.assertIn("preparedOrigin", emitter_control_point_source)
         self.assertIn("if controlPointsByID.isEmpty", control_point_source)
+        self.assertIn("SceneParticleEmitterSpawnPlan", emitter_plan_source)
+        self.assertIn("let directions = plan.directions", random_source)
+        self.assertIn("let minimum = plan.sphereDistanceMinimum", random_source)
+        self.assertIn("let minimum = plan.boxDistanceMinimum", random_source)
         self.assertNotIn(
             "controlPointsByID?[source]\\n            ?? controlPoints.first",
             control_point_source,

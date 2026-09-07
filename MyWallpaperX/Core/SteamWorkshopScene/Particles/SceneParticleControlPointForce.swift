@@ -226,9 +226,11 @@ nonisolated extension SceneParticleDefinition {
         instanceOverride: SceneParticleInstanceOverride?,
         dynamicControlPoints: [Int: SIMD3<Double>],
         controlPointsByID: [Int: SceneParticleControlPoint]? = nil,
-        controlPointSourcesAreValid: Bool? = nil
+        controlPointSourcesAreValid: Bool? = nil,
+        preparedOrigin: SIMD3<Double>? = nil
     ) -> SceneParticleEmitterControlPointFrame? {
-        let localOrigin = SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
+        let localOrigin = preparedOrigin
+            ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
         guard let source = emitter.controlPoint else {
             return .init(origin: localOrigin, angles: .zero)
         }

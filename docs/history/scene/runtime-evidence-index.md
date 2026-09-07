@@ -2330,6 +2330,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：plan 不保存粒子状态、audio snapshot、instance override、dynamic control point 或 frame outcome；malformed/unsupported/未准入 operator 仍按原局部 no-op，boids 的 O(n²) neighbor traversal、simulator snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
 - **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。既有 alpha fade、boids、vortex、cap velocity、remap value、collision plane 的正反输入与 fixed-step 分步一致性保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
 
+<a id="e-v4-particle-emitter-spawn-preparation"></a>
+### E-V4-PARTICLE-EMITTER-SPAWN-PREPARATION: reuse prepared emitter spawn inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口 particle spawn 对 authored emitter 向量、距离范围、速度范围和 admission 的重复投影，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：authored emitter 仍按 definition order 进入同一 simulator；control-point dynamic position、instance override、audio gate、layer-image map、random sequence、particle state 与 operator order 必须保持实时。此前每次 `makeParticle`/random offset 都重新从 `SceneParticleEmitter` 投影 origin、directions/sign、sphere/box bounds 与 bounded speed；当前 `SceneParticleEmitterSpawnPlan` 在 simulator 初始化时准备这些 launch-stable inputs，spawn 只消费 plan，并把 origin 传入既有 `emitterControlPointFrame`。
+- **失败半径与 owner**：plan 不保存动态 control point、override、provider snapshot、clock、RNG 或 frame outcome；unsupported/malformed emitter、缺失 speed range、未准入 directions/sign 仍沿原局部 no-op/fail-closed。未提供 `preparedOrigin` 的兼容调用保留原 authored projection；periodic emission admission、particle transaction、child runtime、instance-buffer submission、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。既有 sphere/box/layer-image spawn、invalid input、control-point frame 与 fixed-step 正反门保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 

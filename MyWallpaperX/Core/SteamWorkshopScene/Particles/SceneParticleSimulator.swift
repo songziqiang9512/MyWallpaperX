@@ -60,6 +60,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// each emitted particle does not repeat the same definition-wide scans.
     let positionAroundControlPointPlans:
         [SceneParticlePositionAroundControlPointPlan?]
+    /// Launch-stable emitter vectors, ranges and admission results. Dynamic
+    /// control-point/instance values and random state remain frame-local.
+    private let emitterSpawnPlans: [SceneParticleEmitterSpawnPlan]
     /// Only these operators own per-particle oscillation cache entries. Keeping
     /// the indices prepared avoids scanning every operator for each death.
     private let positionOscillationOperatorIndices: [Int]
@@ -128,6 +131,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             else { return nil }
             return initializer.positionAroundControlPointPlan
         }
+        emitterSpawnPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
         }
@@ -288,6 +292,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private nonisolated func emit(index: Int, duration: Double) {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
+        let spawnPlan = emitterSpawnPlans[index]
         guard let audioScale = emissionAudioScale(for: emitter) else { return }
         if emitter.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
@@ -320,7 +325,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         }
         count = min(count, maximumParticleCount - particles.count)
         for _ in 0..<count {
-            if let particle = makeParticle(emitter) {
+            if let particle = makeParticle(emitter, spawnPlan: spawnPlan) {
                 particles.append(particle)
                 birthEvents.append(particle)
             }
@@ -328,21 +333,25 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     }
 
     private nonisolated func makeParticle(
-        _ emitter: SceneParticleEmitter
+        _ emitter: SceneParticleEmitter,
+        spawnPlan: SceneParticleEmitterSpawnPlan
     ) -> SceneParticleState? {
         guard let frame = definition.emitterControlPointFrame(
             for: emitter, instanceOverride: activeInstanceOverride,
             dynamicControlPoints: dynamicControlPoints,
             controlPointsByID: controlPointsByID,
-            controlPointSourcesAreValid: controlPointSourcesAreValid
-        ), emitter.hasBoundedDirectionsAndSign else { return nil }
+            controlPointSourcesAreValid: controlPointSourcesAreValid,
+            preparedOrigin: spawnPlan.origin
+        ), spawnPlan.hasBoundedDirectionsAndSign,
+              let speedMinimum = spawnPlan.speedMinimum,
+              let speedMaximum = spawnPlan.speedMaximum else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
         switch emitter.kind {
         case .sphereRandom:
-            relative = randomSphereOffset(emitter)
+            relative = randomSphereOffset(spawnPlan)
         case .boxRandom:
-            relative = randomBoxOffset(emitter)
+            relative = randomBoxOffset(spawnPlan)
         case .layerImage:
             guard let point = layerImageEmissionMap?.sample(using: &random) else { return nil }
             relative = point
@@ -350,8 +359,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             return nil
         }
         let position = frame.position(for: relative)
-        guard let speedRange = emitter.boundedSpeedRange else { return nil }
-        let speed = random.value(speedRange.lowerBound, speedRange.upperBound)
+        let speed = random.value(speedMinimum, speedMaximum)
         let length = SceneParticleSimulationMath.length(relative)
         if speed != 0, length > 1e-12 { velocity += relative / length * speed }
 

@@ -19,6 +19,54 @@ nonisolated struct SceneParticlePeriodicEmissionPlan: Sendable {
     let maximumDelay: Double
 }
 
+/// Launch-stable emitter inputs used while creating particles. Dynamic control
+/// points, instance overrides and the random generator remain live; this plan
+/// only removes repeated authored vector/scalar projection from each spawn.
+nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
+    let origin: SIMD3<Double>
+    let directions: SIMD3<Double>
+    let sign: SIMD3<Double>
+    let sphereDistanceMinimum: Double
+    let sphereDistanceMaximum: Double
+    let boxDistanceMinimum: SIMD3<Double>
+    let boxDistanceMaximum: SIMD3<Double>
+    let speedMinimum: Double?
+    let speedMaximum: Double?
+    let hasBoundedDirectionsAndSign: Bool
+
+    nonisolated init(_ value: SceneParticleEmitter) {
+        origin = SceneParticleSimulationMath.vector(value.origin, fallback: .zero)
+        directions = SceneParticleSimulationMath.vector(
+            value.directions, fallback: SIMD3(1, 1, 0)
+        )
+        sign = SceneParticleSimulationMath.vector(value.sign, fallback: .zero)
+
+        let sphereMinimum = max(
+            0,
+            SceneParticleSimulationMath.scalar(value.distanceMinimum, fallback: 0)
+        )
+        sphereDistanceMinimum = sphereMinimum
+        sphereDistanceMaximum = max(
+            sphereMinimum,
+            SceneParticleSimulationMath.scalar(value.distanceMaximum, fallback: 256)
+        )
+        boxDistanceMinimum = SceneParticleSimulationMath.vector(
+            value.distanceMinimum, fallback: .zero
+        )
+        boxDistanceMaximum = SceneParticleSimulationMath.vector(
+            value.distanceMaximum, fallback: SIMD3(repeating: 256)
+        )
+        if let range = value.boundedSpeedRange {
+            speedMinimum = range.lowerBound
+            speedMaximum = range.upperBound
+        } else {
+            speedMinimum = nil
+            speedMaximum = nil
+        }
+        hasBoundedDirectionsAndSign = value.hasBoundedDirectionsAndSign
+    }
+}
+
 nonisolated struct SceneParticleEmitterState: Sendable {
     var elapsed = 0.0
     var remainder = 0.0

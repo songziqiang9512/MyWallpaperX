@@ -85,11 +85,9 @@ extension SceneParticleSimulator {
     }
 
     nonisolated func randomSphereOffset(
-        _ emitter: SceneParticleEmitter
+        _ plan: SceneParticleEmitterSpawnPlan
     ) -> SIMD3<Double> {
-        let directions = SceneParticleSimulationMath.vector(
-            emitter.directions, fallback: SIMD3(1, 1, 0)
-        )
+        let directions = plan.directions
         var unit = SIMD3<Double>.zero
         var foundDirection = false
         for _ in 0..<8 {
@@ -106,13 +104,8 @@ extension SceneParticleSimulator {
         }
         if !foundDirection { unit = SIMD3(1, 0, 0) }
         let dimensions = max((0..<3).filter { abs(directions[$0]) > 1e-6 }.count, 1)
-        let minimum = max(
-            0, SceneParticleSimulationMath.scalar(emitter.distanceMinimum, fallback: 0)
-        )
-        let maximum = max(
-            minimum,
-            SceneParticleSimulationMath.scalar(emitter.distanceMaximum, fallback: 256)
-        )
+        let minimum = plan.sphereDistanceMinimum
+        let maximum = plan.sphereDistanceMaximum
         let radius = pow(
             random.value(pow(minimum, Double(dimensions)), pow(maximum, Double(dimensions))),
             1 / Double(dimensions)
@@ -120,7 +113,7 @@ extension SceneParticleSimulator {
         var absoluteDirections = directions
         for component in 0..<3 { absoluteDirections[component] = abs(absoluteDirections[component]) }
         var result = unit * absoluteDirections * radius
-        let sign = SceneParticleSimulationMath.vector(emitter.sign, fallback: .zero)
+        let sign = plan.sign
         for component in 0..<3 where abs(sign[component]) > 1e-6 {
             result[component] = abs(result[component]) * (sign[component] < 0 ? -1 : 1)
         }
@@ -128,18 +121,11 @@ extension SceneParticleSimulator {
     }
 
     nonisolated func randomBoxOffset(
-        _ emitter: SceneParticleEmitter
+        _ plan: SceneParticleEmitterSpawnPlan
     ) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(
-            emitter.distanceMinimum,
-            fallback: .zero
-        )
-        let maximum = SceneParticleSimulationMath.vector(
-            emitter.distanceMaximum, fallback: SIMD3(repeating: 256)
-        )
-        let direction = SceneParticleSimulationMath.vector(
-            emitter.directions, fallback: SIMD3(1, 1, 0)
-        )
+        let minimum = plan.boxDistanceMinimum
+        let maximum = plan.boxDistanceMaximum
+        let direction = plan.directions
         return SIMD3(
             randomBoxComponent(minimum.x, maximum.x),
             randomBoxComponent(minimum.y, maximum.y),
