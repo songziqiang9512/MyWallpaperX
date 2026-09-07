@@ -311,6 +311,24 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         }
         return result
     }
+
+    nonisolated func particleControlPointAngles(layerID: Int) -> [Int: SIMD3<Double>] {
+        var result: [Int: SIMD3<Double>] = [:]
+        for index in 0 ..< 8 {
+            guard let resolved = self[.particle(layerID: layerID, field: .controlPointAngles(index))],
+                  case let .vector3(x, y, z) = resolved.value,
+                  x.isFinite, y.isFinite, z.isFinite,
+                  abs(x) <= 1_000_000, abs(y) <= 1_000_000,
+                  abs(z) <= 1_000_000 else { continue }
+            let turn = 2 * Double.pi
+            result[index] = SIMD3(
+                x.remainder(dividingBy: turn),
+                y.remainder(dividingBy: turn),
+                z.remainder(dividingBy: turn)
+            )
+        }
+        return result
+    }
     nonisolated func particleInstanceValues(layerID: Int) -> SceneDynamicParticleValues? {
         func scalar(_ field: SceneDynamicParticleField) -> Double? {
             guard let resolved = self[.particle(layerID: layerID, field: field)],

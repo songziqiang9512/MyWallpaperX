@@ -338,6 +338,8 @@ enum Harness {
             try printJSON(syntheticVelocityDefaults())
         case "child-pointer-control-point-synthetic":
             try printJSON(syntheticChildPointerControlPoint())
+        case "dynamic-control-point-angle-synthetic":
+            try printJSON(syntheticDynamicControlPointAngle())
         case "lifecycle-synthetic":
             try printJSON(syntheticLifecycle())
         case "playback-delta-synthetic":
@@ -517,6 +519,86 @@ enum Harness {
                 pointer: nil, dynamic: SIMD3(10, 0, 0)
             ),
             "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
+        ]
+    }
+
+    private static func syntheticDynamicControlPointAngle() throws -> [String: Any] {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mwx-particle-dynamic-cp-angle-\(UUID().uuidString)", isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try writePNG(directory.appendingPathComponent("materials/shared.png"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 0, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "distancemin": 0, "distancemax": 0, "controlpoint": 1,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "velocityrandom", "min": [1, 0, 0], "max": [1, 0, 0]],
+            ],
+            "renderer": [["name": "sprite"]],
+            "children": [[
+                "name": "particles/angle-child.json", "type": "eventfollow", "maxcount": 1,
+            ]],
+        ], to: directory.appendingPathComponent("particles/root.json"))
+        try writeJSON([
+            "material": "materials/shared.json", "maxcount": 1,
+            "controlpoint": [["id": 1, "flags": 0, "offset": "0 0 0"]],
+            "emitter": [[
+                "name": "sphererandom", "rate": 0, "instantaneous": 1,
+                "distancemin": 0, "distancemax": 0, "controlpoint": 1,
+            ]],
+            "initializer": [
+                ["name": "lifetimerandom", "min": 10, "max": 10],
+                ["name": "velocityrandom", "min": [1, 0, 0], "max": [1, 0, 0]],
+            ],
+            "renderer": [["name": "sprite"]],
+        ], to: directory.appendingPathComponent("particles/angle-child.json"))
+        let descriptor = SceneRenderDescriptor(
+            layers: [layer(180, "particles/root.json")],
+            renderOrderLayerIDs: [180],
+            materialPasses: [.init(
+                materialPath: "materials/shared.json", shaderPath: "genericparticle",
+                texturePaths: ["shared.png"], blending: "additive"
+            )]
+        )
+        guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+        let target = SceneDynamicTarget.particle(
+            layerID: 180, field: .controlPointAngles(1)
+        )
+        let definition = SceneDynamicTargetDefinition(
+            target: target, valueType: .vector3, authoredValue: .vector3(0, 0, 0)
+        )
+        let resolver = SceneDynamicSnapshotResolver()
+        func snapshot(_ value: SceneDynamicValue) -> SceneDynamicSnapshot {
+            resolver.resolve(
+                frameIndex: 1, generation: 1, definitions: [definition],
+                timelineValues: [target: value]
+            ).snapshot
+        }
+        func velocities(_ values: SceneDynamicSnapshot) -> [[Float]] {
+            let runtime = SceneParticleRuntime(
+                descriptor: descriptor, cacheDirectory: directory, device: device
+            )
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<2 {
+                batches = runtime.advance(by: 1.0 / 60.0, dynamicValues: values)
+            }
+            return [
+                batches.first { $0.particlePath == "particles/root.json" }?.instances.first
+                    .map { [$0.velocityAndTrail.x, $0.velocityAndTrail.y] } ?? [],
+                batches.first { $0.particlePath == "particles/angle-child.json" }?.instances.first
+                    .map { [$0.velocityAndTrail.x, $0.velocityAndTrail.y] } ?? [],
+            ]
+        }
+        return [
+            "dynamic": velocities(snapshot(.vector3(0, 0, Double.pi / 2))),
+            "fallback": velocities(.empty(frameIndex: 0)),
+            "malformed": velocities(snapshot(.vector2(0, 1))),
         ]
     }
 
@@ -2906,6 +2988,16 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(result["dynamicInsideScaled"][0], 2.5, places=5)
         self.assertEqual(result["dynamicInsideScaled"][1:], [0, 0])
         self.assertEqual(result["pointerDemandLayerIDs"], [18])
+
+    def test_dynamic_control_point_angles_reach_root_and_child_emitters(self) -> None:
+        result = self.run_harness("dynamic-control-point-angle-synthetic")
+        for velocity in result["dynamic"]:
+            self.assertAlmostEqual(velocity[0], 0, places=5)
+            self.assertAlmostEqual(velocity[1], 1, places=5)
+        for velocity in result["fallback"]:
+            self.assertAlmostEqual(velocity[0], 1, places=5)
+            self.assertAlmostEqual(velocity[1], 0, places=5)
+        self.assertEqual(result["malformed"], result["fallback"])
 
     def test_host_pointer_projection_is_gated_by_prepared_particle_demand(self) -> None:
         pointer = (

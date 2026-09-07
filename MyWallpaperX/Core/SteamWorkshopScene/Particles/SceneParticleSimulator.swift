@@ -19,6 +19,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let nextParticleID: UInt64
         let normalizedLives: [Double]
         let dynamicControlPoints: [Int: SIMD3<Double>]
+        let dynamicControlPointAngles: [Int: SIMD3<Double>]
         let audioInput: SceneParticleAudioInput
         let eventColorContext: SceneParticleEventColorContext
         let stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
@@ -77,6 +78,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     private var nextParticleID: UInt64 = 0
     private var normalizedLives: [Double] = []
     var dynamicControlPoints: [Int: SIMD3<Double>] = [:]
+    var dynamicControlPointAngles: [Int: SIMD3<Double>] = [:]
     var audioInput = SceneParticleAudioInput.silent
     var eventColorContext: SceneParticleEventColorContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
@@ -164,10 +166,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     nonisolated func advance(
         by duration: Double,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
+        dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         dynamicInstanceOverride: SceneParticleInstanceOverride? = nil,
         audioInput: SceneParticleAudioInput = .silent
     ) {
         self.dynamicControlPoints = dynamicControlPoints
+        self.dynamicControlPointAngles = dynamicControlPointAngles
         activeInstanceOverride = dynamicInstanceOverride ?? instanceOverride
         self.audioInput = audioInput
         guard duration.isFinite, duration > 0 else { return }
@@ -210,6 +214,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             nextParticleID: nextParticleID,
             normalizedLives: normalizedLives,
             dynamicControlPoints: dynamicControlPoints,
+            dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
             eventColorContext: eventColorContext,
             stepSnapshotRecorder: stepSnapshotRecorder,
@@ -229,6 +234,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         nextParticleID = snapshot.nextParticleID
         normalizedLives = snapshot.normalizedLives
         dynamicControlPoints = snapshot.dynamicControlPoints
+        dynamicControlPointAngles = snapshot.dynamicControlPointAngles
         audioInput = snapshot.audioInput
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
@@ -345,6 +351,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         guard let frame = definition.emitterControlPointFrame(
             for: emitter, instanceOverride: activeInstanceOverride,
             dynamicControlPoints: dynamicControlPoints,
+            dynamicControlPointAngles: dynamicControlPointAngles,
             controlPointsByID: controlPointsByID,
             controlPointSourcesAreValid: controlPointSourcesAreValid,
             preparedOrigin: spawnPlan.origin

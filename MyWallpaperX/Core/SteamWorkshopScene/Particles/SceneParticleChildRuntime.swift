@@ -154,6 +154,7 @@ final class SceneParticleChildRuntime {
         parentParticles: [SceneParticleState],
         pointerLocalPosition: SIMD3<Double>? = nil,
         dynamicControlPoints: [Int: SIMD3<Double>] = [:],
+        dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         audioInput: SceneParticleAudioInput = .silent
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
@@ -162,6 +163,7 @@ final class SceneParticleChildRuntime {
             rootParticles: parentParticles,
             pointerLocalPosition: pointerLocalPosition,
             dynamicControlPoints: dynamicControlPoints,
+            dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput
         )
         spawn(
@@ -181,6 +183,7 @@ final class SceneParticleChildRuntime {
             parentFrames: parentFrames,
             pointerLocalPosition: pointerLocalPosition,
             dynamicControlPoints: dynamicControlPoints,
+            dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
             limitations: &limitations
         )
@@ -280,6 +283,7 @@ final class SceneParticleChildRuntime {
         rootParticles: [SceneParticleState],
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
+        dynamicControlPointAngles: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput
     ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
@@ -304,6 +308,7 @@ final class SceneParticleChildRuntime {
                     pointerLocalPosition: pointerLocalPosition,
                     dynamicControlPoints: dynamicControlPoints
                 ),
+                dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput
             )
             let births = systems[index].simulator.consumeBirthEvents()
@@ -329,6 +334,7 @@ final class SceneParticleChildRuntime {
         parentFrames: [SceneParticleChildParentFrame],
         pointerLocalPosition: SIMD3<Double>?,
         dynamicControlPoints: [Int: SIMD3<Double>],
+        dynamicControlPointAngles: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput,
         limitations: inout Set<String>
     ) {
@@ -365,6 +371,7 @@ final class SceneParticleChildRuntime {
                     pointerLocalPosition: pointerLocalPosition,
                     dynamicControlPoints: dynamicControlPoints
                 ),
+                dynamicControlPointAngles: dynamicControlPointAngles,
                 audioInput: audioInput
             )
             let births = systems[index].simulator.consumeBirthEvents()

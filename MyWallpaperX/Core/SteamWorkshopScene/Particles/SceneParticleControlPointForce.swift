@@ -225,6 +225,7 @@ nonisolated extension SceneParticleDefinition {
         for emitter: SceneParticleEmitter,
         instanceOverride: SceneParticleInstanceOverride?,
         dynamicControlPoints: [Int: SIMD3<Double>],
+        dynamicControlPointAngles: [Int: SIMD3<Double>] = [:],
         controlPointsByID: [Int: SceneParticleControlPoint]? = nil,
         controlPointSourcesAreValid: Bool? = nil,
         preparedOrigin: SIMD3<Double>? = nil
@@ -247,7 +248,9 @@ nonisolated extension SceneParticleDefinition {
             point = controlPoints.first(where: { $0.id == source })
         }
         let angleOverride = instanceOverride?.controlPointAngles[source]
-        let usesAngles = point?.hasAuthoredAngles == true || angleOverride != nil
+        let dynamicAngle = dynamicControlPointAngles[source]
+        let usesAngles = point?.hasAuthoredAngles == true
+            || angleOverride != nil || dynamicAngle != nil
         var translation = SceneParticleSimulationMath.vector(point?.offset, fallback: .zero)
         var angles = SIMD3<Double>.zero
         if usesAngles {
@@ -260,7 +263,10 @@ nonisolated extension SceneParticleDefinition {
                 translation = offset
                 angles = defaultAngles
             }
-            if let angleOverride {
+            if let dynamicAngle {
+                guard dynamicAngle.isBounded else { return nil }
+                angles = dynamicAngle.normalizedAngles
+            } else if let angleOverride {
                 guard let value = angleOverride.boundedStaticVector else { return nil }
                 angles = value.normalizedAngles
             }

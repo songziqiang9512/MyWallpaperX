@@ -263,6 +263,9 @@ final class SceneParticleRuntime {
             var controlPoints = dynamicValues.particleControlPoints(
                 layerID: layerID
             )
+            let controlPointAngles = dynamicValues.particleControlPointAngles(
+                layerID: layerID
+            )
             if var root = layers[index].rootRender {
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
@@ -276,6 +279,7 @@ final class SceneParticleRuntime {
                 root.simulator.advance(
                     by: frameDelta,
                     dynamicControlPoints: controlPoints,
+                    dynamicControlPointAngles: controlPointAngles,
                     dynamicInstanceOverride: instanceOverride,
                     audioInput: audioInput
                 )
@@ -292,6 +296,7 @@ final class SceneParticleRuntime {
                     parentParticles: parentParticles,
                     pointerLocalPosition: pointerLocalPositions[layerID],
                     dynamicControlPoints: controlPoints,
+                    dynamicControlPointAngles: controlPointAngles,
                     audioInput: audioInput
                 )
                 batches.append(contentsOf: result.batches)
