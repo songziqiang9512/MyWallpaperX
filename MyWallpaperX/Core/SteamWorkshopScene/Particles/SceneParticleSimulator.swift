@@ -294,21 +294,21 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         if case .unsupported = emitter.kind { return }
         let spawnPlan = emitterSpawnPlans[index]
         guard let audioScale = emissionAudioScale(for: emitter) else { return }
-        if emitter.usesRandomPeriodicEmission,
+        if spawnPlan.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
         let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))
         guard let activeDuration = emitters[index].scheduledActiveDuration(
-            for: emitter, stepDuration: duration, rateScale: rateScale
+            plan: spawnPlan, stepDuration: duration, rateScale: rateScale
         ) else { return }
 
         var count = 0
-        if !emitters[index].emittedInstantaneous, (emitter.instantaneousCount ?? 0) > 0 {
-            count = max(0, emitter.instantaneousCount ?? 0)
+        if !emitters[index].emittedInstantaneous, (spawnPlan.instantaneousCount ?? 0) > 0 {
+            count = max(0, spawnPlan.instantaneousCount ?? 0)
             emitters[index].emittedInstantaneous = true
         } else {
             // Event-child rate emission ends at the bounded window; bursts already fired.
             if let deadline = emissionDeadline, simulationTime + 1e-12 >= deadline { return }
-            let authoredRate = emitter.rate ?? 5
+            let authoredRate = spawnPlan.rate ?? 5
             let countScale = definition.flags.disablesCountOverrides
                 ? 1
                 : max(0, overrideScalar(activeInstanceOverride?.count))
@@ -320,7 +320,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             emitters[index].remainder -= integral
             count = Int(min(integral, Double(maximumParticleCount)))
             count = emitters[index].boundedRateEmissionCount(
-                count, limitsToOnePerFrame: emitter.limitsToOnePerFrame
+                count, limitsToOnePerFrame: spawnPlan.limitsToOnePerFrame
             )
         }
         count = min(count, maximumParticleCount - particles.count)

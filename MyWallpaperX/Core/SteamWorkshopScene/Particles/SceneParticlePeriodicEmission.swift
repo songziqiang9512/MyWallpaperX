@@ -1,12 +1,12 @@
 import Foundation
 
-nonisolated enum SceneParticleInitialDelayAdmission {
+nonisolated enum SceneParticleInitialDelayAdmission: Sendable {
     case disabled
     case supported(Double)
     case unsupported
 }
 
-nonisolated enum SceneParticlePeriodicEmissionAdmission {
+nonisolated enum SceneParticlePeriodicEmissionAdmission: Sendable {
     case disabled
     case supported(SceneParticlePeriodicEmissionPlan)
     case unsupported
@@ -33,6 +33,13 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let speedMinimum: Double?
     let speedMaximum: Double?
     let hasBoundedDirectionsAndSign: Bool
+    let initialDelayAdmission: SceneParticleInitialDelayAdmission
+    let periodicEmissionAdmission: SceneParticlePeriodicEmissionAdmission
+    let rate: Double?
+    let instantaneousCount: Int?
+    let duration: Double?
+    let usesRandomPeriodicEmission: Bool
+    let limitsToOnePerFrame: Bool
 
     nonisolated init(_ value: SceneParticleEmitter) {
         origin = SceneParticleSimulationMath.vector(value.origin, fallback: .zero)
@@ -64,6 +71,13 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             speedMaximum = nil
         }
         hasBoundedDirectionsAndSign = value.hasBoundedDirectionsAndSign
+        initialDelayAdmission = value.initialDelayAdmission
+        periodicEmissionAdmission = value.periodicEmissionAdmission
+        rate = value.rate
+        instantaneousCount = value.instantaneousCount
+        duration = value.duration
+        usesRandomPeriodicEmission = value.usesRandomPeriodicEmission
+        limitsToOnePerFrame = value.limitsToOnePerFrame
     }
 }
 
@@ -99,26 +113,28 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     }
 
     nonisolated mutating func scheduledActiveDuration(
-        for emitter: SceneParticleEmitter,
+        plan: SceneParticleEmitterSpawnPlan,
         stepDuration: Double,
         rateScale: Double
     ) -> Double? {
         let scheduled = activeDurationAfterInitialDelay(
-            for: emitter, stepDuration: stepDuration
+            admission: plan.initialDelayAdmission, stepDuration: stepDuration
         )
         guard scheduled > 0 else { return nil }
         elapsed += scheduled * rateScale
-        if let limit = emitter.duration,
+        if let limit = plan.duration,
            limit > 0, elapsed > limit + 1e-12 { return nil }
-        let active = periodicActiveDuration(for: emitter, stepDuration: scheduled)
+        let active = periodicActiveDuration(
+            admission: plan.periodicEmissionAdmission, stepDuration: scheduled
+        )
         return active > 0 ? active : nil
     }
 
     private nonisolated mutating func activeDurationAfterInitialDelay(
-        for emitter: SceneParticleEmitter,
+        admission: SceneParticleInitialDelayAdmission,
         stepDuration: Double
     ) -> Double {
-        switch emitter.initialDelayAdmission {
+        switch admission {
         case .disabled:
             return stepDuration
         case .unsupported:
@@ -134,10 +150,10 @@ nonisolated struct SceneParticleEmitterState: Sendable {
     }
 
     private nonisolated mutating func periodicActiveDuration(
-        for emitter: SceneParticleEmitter,
+        admission: SceneParticlePeriodicEmissionAdmission,
         stepDuration: Double
     ) -> Double {
-        switch emitter.periodicEmissionAdmission {
+        switch admission {
         case .disabled:
             return stepDuration
         case .unsupported:
