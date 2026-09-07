@@ -50,6 +50,8 @@
 
 当前 after 截图显示黑线直接叠在人物面部、躯干及右下枝条区域，而 authored 参考截图没有同样的整段黑色笔画；这使“重组 source 已含黑线”与“后续 opacity/shake/waterwaves/foliagesway mask/effect 错误消费 source”仍需隔离，尚不能关闭任一 owner。下一次实验应只比较重组 source 的 publication 与 effect graph consumer，不通过关闭作者效果来伪造验收。
 
+`f03b8125` 之后的隔离运行终于取得 source-stage 证据：layer21 publication 为物理纹理 `1804×4096`、logical extent `3874×8793.740`、generation `20`；同一运行的 authored layer 仍是 `3874×2000`，而正常 Puppet layer794 为 `555×310` logical `554.799×310`。这证明当前 Puppet coverage 被直接当作 source logical extent 发布，导致 Puppet layer21 的 source geometry/effect extent 与 authored 尺寸显著不一致；但尚未证明应把 effect extent 改回 authored 尺寸，因 model placement 仍需要 coverage 防止缺块。下一步应拆分 coverage（model geometry）与 effect logical extent 两个职责，先补正反测试再改 owner。
+
 ## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
 
 `3780119725` 人物 layer21 的重组覆盖范围为 3874×6279，上传纹理为 2527×4096，但作者 atlas/layer 声明为 3874×2000。动画 layer1221 不在当前 bounded profile，已有逻辑成功生成 bind-pose fallback。首断点在 `SceneMetalView`：只有可缓存的静态重组或 active playback 才调用 `setPuppetSource`；这个有动画声明却降级为 bind-pose 的结果没有 cache identity，被错误送进 base atlas publication，旧高度继续驱动 model/effect source。现在只以成功重组返回的 coverage 决定既有 Puppet source publication，不再以 cache/playback 资格为门；缓存复用条件不变，解析、重组与 budget 全部仍在 load。
