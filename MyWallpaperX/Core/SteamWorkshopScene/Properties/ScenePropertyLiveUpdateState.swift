@@ -5,6 +5,10 @@ nonisolated struct ScenePropertyLiveUpdateState {
     let activeConsumerTargets: Set<SceneDynamicTarget>
     let scriptUserPropertyConsumerTargetsByKey:
         [String: Set<SceneDynamicTarget>]
+    private let validation: ScenePropertyBindingProgramValidation
+    private let instructionsByPropertyKey:
+        [String: [ScenePropertyBindingInstruction]]
+    private let rebuildRequiredKeys: Set<String>
     private(set) var effectiveValues: [String: SceneUserPropertyValue]
     private(set) var userValues: [SceneDynamicTarget: SceneDynamicValue]
     /// Monotonic content revision. Bumped only when `effectiveValues` is
@@ -23,8 +27,18 @@ nonisolated struct ScenePropertyLiveUpdateState {
         self.activeConsumerTargets = activeConsumerTargets
         self.scriptUserPropertyConsumerTargetsByKey =
             scriptUserPropertyConsumerTargetsByKey
+        let validation = ScenePropertyBindingProgramValidator().validate(program)
+        self.validation = validation
+        self.instructionsByPropertyKey = Dictionary(
+            grouping: validation.instructions,
+            by: \.propertyKey
+        )
+        self.rebuildRequiredKeys = Set(program.rebuildRequiredPropertyKeys)
         self.effectiveValues = effectiveValues
-        self.userValues = program.evaluate(effectiveValues: effectiveValues).userValues
+        self.userValues = program.evaluate(
+            effectiveValues: effectiveValues,
+            validation: validation
+        ).userValues
     }
 
     @discardableResult
@@ -48,15 +62,13 @@ nonisolated struct ScenePropertyLiveUpdateState {
     ) -> Bool {
         guard !changedPropertyKeys.isEmpty else { return true }
 
-        let rebuildRequiredKeys = Set(program.rebuildRequiredPropertyKeys)
         guard rebuildRequiredKeys.isDisjoint(with: changedPropertyKeys) else {
             return false
         }
 
-        let instructionsByKey = Dictionary(grouping: program.instructions, by: \.propertyKey)
         var expectedTargets: Set<SceneDynamicTarget> = []
         for propertyKey in changedPropertyKeys {
-            let instructions = instructionsByKey[propertyKey] ?? []
+            let instructions = instructionsByPropertyKey[propertyKey] ?? []
             let scriptTargets =
                 scriptUserPropertyConsumerTargetsByKey[propertyKey] ?? []
             let consumerTargets = Set(instructions.map(\.target))
@@ -84,7 +96,15 @@ nonisolated struct ScenePropertyLiveUpdateState {
             }
         }
 
-        let evaluation = program.evaluate(effectiveValues: candidateEffectiveValues)
+        // A UI resend of the current value is a successful no-op.  Keep the
+        // typed payload and revision stable so downstream JSON/VM/provider
+        // consumers do not observe a false invalidation.
+        guard candidateEffectiveValues != effectiveValues else { return true }
+
+        let evaluation = program.evaluate(
+            effectiveValues: candidateEffectiveValues,
+            validation: validation
+        )
         guard expectedTargets.allSatisfy({ evaluation.userValues[$0] != nil }) else {
             return false
         }

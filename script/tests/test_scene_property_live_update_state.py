@@ -171,6 +171,15 @@ enum Harness {
         let noOpIgnoredReplacements = unchanged(state, from: beforeNoOp)
         let revisionUnchangedAfterNoOp = state.revision == revisionBeforeNoOp
 
+        let beforeSameValue = state
+        let revisionBeforeSameValue = state.revision
+        let sameValueAccepted = state.apply(
+            replacements: ["opacity": .number(0.5)],
+            changedPropertyKeys: ["opacity"]
+        )
+        let sameValueIgnored = unchanged(state, from: beforeSameValue)
+            && state.revision == revisionBeforeSameValue
+
         let rebuildProgram = program(
             bindings: [("opacity", alphaOne, .scalar, .scalar(0.1))],
             rebuildRequiredKeys: ["opacity"]
@@ -638,6 +647,8 @@ enum Harness {
             "missingResetDefaultWasAtomic": missingResetDefaultWasAtomic,
             "noOpAccepted": noOpAccepted,
             "noOpIgnoredReplacements": noOpIgnoredReplacements,
+            "sameValueAccepted": sameValueAccepted,
+            "sameValueIgnored": sameValueIgnored,
             "rebuildRejected": rebuildRejected,
             "rebuildWasAtomic": rebuildWasAtomic,
             "mixedRejected": mixedRejected,
@@ -773,6 +784,26 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["singleAccepted"])
         self.assertTrue(self.result["singleUpdatedAllTargets"])
 
+    def test_live_updates_reuse_launch_validation_indexes(self) -> None:
+        source = (
+            SOURCE_ROOT / "Properties/ScenePropertyLiveUpdateState.swift"
+        ).read_text(encoding="utf-8")
+        program_source = (
+            SOURCE_ROOT / "Properties/ScenePropertyBindingProgram.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("private let validation:", source)
+        self.assertIn("private let instructionsByPropertyKey:", source)
+        self.assertIn("private let rebuildRequiredKeys:", source)
+        self.assertIn(
+            "effectiveValues: candidateEffectiveValues,\n            validation: validation",
+            source,
+        )
+        self.assertEqual(source.count("ScenePropertyBindingProgramValidator().validate(program)"), 1)
+        self.assertIn(
+            "validation: ScenePropertyBindingProgramValidation",
+            program_source,
+        )
+
     def test_missing_instruction_and_invalid_values_fail_atomically(self) -> None:
         self.assertTrue(self.result["missingRejected"])
         self.assertTrue(self.result["missingWasAtomic"])
@@ -796,6 +827,8 @@ class ScenePropertyLiveUpdateStateTests(unittest.TestCase):
         self.assertTrue(self.result["resetAppliedOnlyChangedKeys"])
         self.assertTrue(self.result["noOpAccepted"])
         self.assertTrue(self.result["noOpIgnoredReplacements"])
+        self.assertTrue(self.result["sameValueAccepted"])
+        self.assertTrue(self.result["sameValueIgnored"])
 
     def test_bulk_failure_and_missing_reset_default_are_atomic(self) -> None:
         self.assertTrue(self.result["badBulkRejected"])

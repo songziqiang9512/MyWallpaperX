@@ -48,6 +48,20 @@ nonisolated struct ScenePropertyBindingProgram: Codable, Equatable {
         effectiveValues: [String: SceneUserPropertyValue]
     ) -> ScenePropertyBindingEvaluation {
         let validation = ScenePropertyBindingProgramValidator().validate(self)
+        return evaluate(
+            effectiveValues: effectiveValues,
+            validation: validation
+        )
+    }
+
+    /// Evaluates a launch-validated binding program without rebuilding its
+    /// authored definition/instruction indexes.  The live-state owner uses
+    /// this overload for property updates; standalone callers keep the
+    /// validating entry point above so malformed programs still fail closed.
+    nonisolated func evaluate(
+        effectiveValues: [String: SceneUserPropertyValue],
+        validation: ScenePropertyBindingProgramValidation
+    ) -> ScenePropertyBindingEvaluation {
         let definitionsByTarget = Dictionary(
             uniqueKeysWithValues: validation.definitions.map { ($0.target, $0) }
         )
