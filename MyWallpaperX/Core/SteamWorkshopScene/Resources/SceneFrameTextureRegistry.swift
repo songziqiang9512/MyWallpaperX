@@ -79,6 +79,24 @@ final class SceneFrameTextureRegistry {
         let resource: PersistentEntry?
     }
 
+    /// Launch/topology-stable dictionary key order. Provider status and
+    /// publication values remain frame-live; only the sorting work is reused
+    /// while the identity set is unchanged.
+    private struct OrderedKeyCache<Key: Hashable> {
+        private var keySet: Set<Key> = []
+        private var orderedKeys: [Key] = []
+
+        mutating func resolve(
+            _ current: Set<Key>,
+            by areInIncreasingOrder: (Key, Key) -> Bool
+        ) -> [Key] {
+            guard keySet != current else { return orderedKeys }
+            keySet = current
+            orderedKeys = current.sorted(by: areInIncreasingOrder)
+            return orderedKeys
+        }
+    }
+
     private struct PersistentEntry {
         let stored: StoredResource
         let generation: UInt64
@@ -111,6 +129,12 @@ final class SceneFrameTextureRegistry {
     private var committedPublications: [
         SceneFrameTextureIdentity: PersistentEntry
     ] = [:]
+    private var orderedLayerSourceIDs = OrderedKeyCache<Int>()
+    private var orderedAssetIdentities = OrderedKeyCache<SceneAssetTextureIdentity>()
+    private var orderedUserPropertyTextureKeys = OrderedKeyCache<String>()
+    private var orderedUserPropertyIdentities = OrderedKeyCache<SceneUserPropertyTextureIdentity>()
+    private var orderedSystemTextureIdentities = OrderedKeyCache<SceneSystemProviderTextureIdentity>()
+    private var orderedSystemProviderIdentities = OrderedKeyCache<SceneSystemProviderTextureIdentity>()
     private var resourceGeneration: UInt64 = 0
     private struct FramePublicationBaseline {
         let persistentEntries: [SceneFrameTextureIdentity: PersistentEntry]
@@ -154,7 +178,9 @@ final class SceneFrameTextureRegistry {
         entries.removeAll(keepingCapacity: true)
         priorFrameEntries = persistentEntries
         persistentEntries.removeAll(keepingCapacity: true)
-        for layerID in layerSources.keys.sorted() {
+        for layerID in orderedLayerSourceIDs.resolve(
+            Set(layerSources.keys), by: <
+        ) {
             guard let texture = layerSources[layerID] else { continue }
             let identity = SceneFrameTextureIdentity.layerSource(layerID)
             if let publication = explicitLayerSources[layerID] {
@@ -176,25 +202,27 @@ final class SceneFrameTextureRegistry {
                 publishPersistent(texture, for: identity)
             }
         }
-        for identity in assetStates.keys.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) {
+        for identity in orderedAssetIdentities.resolve(
+            Set(assetStates.keys), by: { $0.reportToken < $1.reportToken }
+        ) {
             guard let state = assetStates[identity] else { continue }
             publish(state, for: .asset(identity))
         }
-        for key in userPropertyTextures.keys.sorted() {
+        for key in orderedUserPropertyTextureKeys.resolve(
+            Set(userPropertyTextures.keys), by: <
+        ) {
             guard let texture = userPropertyTextures[key] else { continue }
             publishPersistent(texture, for: .userProperty(key))
         }
-        for identity in userPropertyStates.keys.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) {
+        for identity in orderedUserPropertyIdentities.resolve(
+            Set(userPropertyStates.keys), by: { $0.reportToken < $1.reportToken }
+        ) {
             guard let state = userPropertyStates[identity] else { continue }
             publish(state, for: .materialUserProperty(identity))
         }
-        for systemIdentity in systemTextures.keys.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) {
+        for systemIdentity in orderedSystemTextureIdentities.resolve(
+            Set(systemTextures.keys), by: { $0.reportToken < $1.reportToken }
+        ) {
             guard let texture = systemTextures[systemIdentity] else { continue }
             let identity = SceneFrameTextureIdentity.system(systemIdentity)
             if let publication = explicitSystemTextures[systemIdentity] {
@@ -204,9 +232,9 @@ final class SceneFrameTextureRegistry {
                 publishPersistent(texture, for: identity)
             }
         }
-        for systemIdentity in systemProviderStates.keys.sorted(by: {
-            $0.reportToken < $1.reportToken
-        }) {
+        for systemIdentity in orderedSystemProviderIdentities.resolve(
+            Set(systemProviderStates.keys), by: { $0.reportToken < $1.reportToken }
+        ) {
             guard let state = systemProviderStates[systemIdentity] else {
                 continue
             }

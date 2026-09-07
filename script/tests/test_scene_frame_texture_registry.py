@@ -1393,6 +1393,22 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
         self.assertIn("layerSourcePublications: layerSourcePublications", assembly)
         self.assertNotIn("textures[layerID] = mediaThumbnail", assembly)
 
+    def test_begin_frame_reuses_prepared_key_order_without_freezing_provider_state(self) -> None:
+        source = REGISTRY_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("private struct OrderedKeyCache<Key: Hashable>", source)
+        for cache in (
+            "orderedLayerSourceIDs",
+            "orderedAssetIdentities",
+            "orderedUserPropertyTextureKeys",
+            "orderedUserPropertyIdentities",
+            "orderedSystemTextureIdentities",
+            "orderedSystemProviderIdentities",
+        ):
+            self.assertIn(f"private var {cache} = OrderedKeyCache", source)
+        self.assertEqual(source.count(".keys.sorted"), 0)
+        self.assertIn("Set(assetStates.keys)", source)
+        self.assertIn("publish(state, for: .system(systemIdentity))", source)
+
 
 if __name__ == "__main__":
     unittest.main()
