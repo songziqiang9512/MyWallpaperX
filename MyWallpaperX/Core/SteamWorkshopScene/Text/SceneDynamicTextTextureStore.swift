@@ -29,6 +29,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         cacheDirectory: URL,
         device: MTLDevice,
         initialTextures: [Int: MTLTexture],
+        initialRenderSizes: [Int: [Float]] = [:],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -45,7 +46,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         self.dynamicTextFieldsByLayerID = dynamicTextFieldsByLayerID
         self.currentTextures = initialTextures
         self.currentRenderSizes = Dictionary(uniqueKeysWithValues: layers.compactMap { layer in
-            layer.renderSizeWH.map { (layer.id, $0) }
+            (initialRenderSizes[layer.id] ?? layer.renderSizeWH).map { (layer.id, $0) }
         })
         for layer in layers {
             generationState.registerInitial(

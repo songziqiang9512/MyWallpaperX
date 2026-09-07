@@ -48,6 +48,16 @@
 
 前一次 159 样本 synchronous probe 不能代替此异步启动验收。
 
+## E-V4-INITIAL-TEXT-GEOMETRY：静态文字与更新文字准备一致
+
+`SceneTextTextureLoader` 原先仅在 `content != nil`（动态更新）时测量当前字体，初始文字却直接用保存的 editor `size`。这让 `limitwidth=false` 的静态标题/AM/公式仍隐式换行或裁断。初始与更新现在共用测量逻辑；初始 texture 与 measured logical size 一起传给唯一 `SceneDynamicTextTextureStore`，没有逐帧测量或第二 publication owner。显式 limitwidth/rows/ellipsis 仍保留，栅格上限及 generation 语义不变。
+
+`test_scene_text_row_limit` 新门逐一比较初始/同内容更新的 ink statistics 和 logical size；原先依赖旧 size 隐式换行的三个 row-limit fixture 改为**显式** `limitwidth=200`，保留两行、截行和 ellipsis 的原反例，另要求不限宽时初始/更新一致且单行。Text geometry/row-limit/pivot 24 tests、resolved material runtime bridge 15 tests、Debug build 与 diff check 通过。
+
+当前签名 CDHash `c6a8ee10d0d2deff3e91b2afeb9a5f1e1785863d`，Debug dylib SHA-256 `fe394e585d6528e7a8dc50b706eff7eb1121c093e1c4c76af69c28f5f75f24fd`。沿上述异步复现命令运行，证据根下 `3747492842/static-after/scene-after-window.png` SHA-256 `10d09b5d717cc57f6638c261ae15a3fa6e29959a293153e54e5f0244cfd1193c`：标题从纹理内多行碎片变成单行，当前 viewport 仍裁去左侧内容，光束位置未修。`3470948192/static-after/scene-after-window.png` SHA-256 `9d40412e84949c268cac19fbb7d5901596cc58ee4bebb8cd9441222180d0899e`：AM/公式字形完整，但公式 NaN 和异常背景仍不通过；对应日志有 GPU completion、next-frame 和 teardown owners51/quiescent51/failures0。
+
+两样本均未整体验收。两次 `3747492842` 运行的真实系统音频不同，截图中的闪烁差异不能归功于文字修复；仍需静音/真实音频 producer 对照。几何修复不宣称解决光束或音频问题。
+
 ## 历史比较：手动启动与脚本运行不是同一实验
 
 用户的 `xcodebuild ... .codex/DerivedData && open -n .../MyWallpaperX.app` 与上述 probe 的可见结果不能直接比较，至少有三项已由当前证据确认的输入差异：

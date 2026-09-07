@@ -378,6 +378,7 @@ class SceneMetalView: NSView {
             cacheDirectory: cacheDirectory,
             device: metalDevice,
             initialTextures: textLoad.textures,
+            initialRenderSizes: textLoad.renderSizes,
             dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID
         )
         dynamicImageTextures = SceneDynamicImageTextureProvider(

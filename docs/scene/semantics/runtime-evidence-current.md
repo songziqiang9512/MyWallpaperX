@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 初始 text texture 与 logical size 同步发布
+
+初始 text 与动态更新共用当前字体测量，移除 `limitwidth=false` 仍被旧 editor size 隐式换行/裁断的差异；measured size 与 texture 一起进入现有 text store。39 个定向 tests、Debug build、隔离异步截图证明 `3747492842` 标题和 `3470948192` AM/公式字形改善，但 viewport 裁切、光束、音频闪烁、NaN/背景仍未通过。见 [E-V4-INITIAL-TEXT-GEOMETRY](scene-sample-debug-ledger.md#e-v4-initial-text-geometry静态文字与更新文字准备一致)。
+
 ### 2026-09-08 普通 App 异步 QuickJS handoff 与真实日期文字
 
 后台 prepare → 主线程 activate 未刷新 QuickJS native stack boundary，是普通 App 日期脚本失败而同步 probe 可执行的已复现首断点；修复在唯一 domain 的独占交接处调用 `JS_UpdateStackTop`，不放宽预算。三个日期样本恢复真实日期/时钟截图；两个开场样本延长播放后仍存在独立错误，不算通过。撤回此前 paused-frame 特例，缓存/override 清除没有作为根因的证据。正反单元门、Debug build、隔离异步截图和结论上限见 [E-V4-ASYNC-VM-THREAD-HANDOFF](scene-sample-debug-ledger.md#e-v4-async-vm-thread-handoff普通-app-日期文字失败2026-09-08)。

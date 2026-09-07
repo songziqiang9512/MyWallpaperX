@@ -4,6 +4,7 @@ import Metal
 
 struct SceneTextTextureLoadResult {
     let textures: [Int: MTLTexture]
+    let renderSizes: [Int: [Float]]
     let messages: [String]
 }
 
@@ -34,6 +35,7 @@ enum SceneTextTextureLoader {
             $0.contentKind == "text" && visibleIDs.contains($0.id)
         }
         var textures: [Int: MTLTexture] = [:]
+        var renderSizes: [Int: [Float]] = [:]
         var messages: [String] = []
         for layer in candidates {
             guard let rendered = makeRenderedTexture(
@@ -50,6 +52,7 @@ enum SceneTextTextureLoader {
                 continue
             }
             textures[layer.id] = rendered.texture
+            renderSizes[layer.id] = rendered.renderSizeWH
             if recordsDiagnostics {
                 var message = "text layer \(layer.id)"
                     + " \"\(layer.name ?? "(unnamed)")\": OK"
@@ -64,7 +67,9 @@ enum SceneTextTextureLoader {
         if recordsDiagnostics {
             messages.append("text loaded: \(textures.count) / \(candidates.count)")
         }
-        return SceneTextTextureLoadResult(textures: textures, messages: messages)
+        return SceneTextTextureLoadResult(
+            textures: textures, renderSizes: renderSizes, messages: messages
+        )
     }
 
     static func makeDynamicTexture(
@@ -118,9 +123,9 @@ enum SceneTextTextureLoader {
             size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize)),
             cacheDirectory: cacheDirectory
         )
-        let renderSize = content == nil
-            ? baseRenderSize
-            : autoSizedRenderSize(
+        // Initial and updated content use the same font measurement contract.
+        // Saved editor geometry is not an implicit wrapping/clipping limit.
+        let renderSize = autoSizedRenderSize(
                 text: text,
                 style: style,
                 font: sourceFont.font,

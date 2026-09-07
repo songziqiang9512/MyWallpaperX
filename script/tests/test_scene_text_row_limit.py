@@ -47,13 +47,15 @@ SWIFT_SOURCES = [
 
 # 全部 fixture 自建：字体只用 macOS 系统别名，内容是 A/B 重复串，没有官方 payload。
 # pointsize 12 -> 12 * 25/6 = 50 px；Arial 50 px 下 "AAAA BBBB" 约 290 px 宽、行高约 58 px，
-# 所以 200x140 的框会折成两行、400x140 的框是一行。
+# 显式 limitwidth=200 会折成两行；保存的 size 本身不是换行开关。
 SCENE_FIXTURE = {
     "version": 3,
     "objects": [
         {
             "id": 10,
             "name": "wrap baseline",
+            "limitwidth": True,
+            "maxwidth": 200,
             "text": "AAAA BBBB",
             "font": "systemfont_arial",
             "pointsize": 12,
@@ -65,6 +67,8 @@ SCENE_FIXTURE = {
         {
             "id": 20,
             "name": "one row",
+            "limitwidth": True,
+            "maxwidth": 200,
             "text": "AAAA BBBB",
             "font": "systemfont_arial",
             "pointsize": 12,
@@ -78,6 +82,8 @@ SCENE_FIXTURE = {
         {
             "id": 30,
             "name": "one row with ellipsis",
+            "limitwidth": True,
+            "maxwidth": 200,
             "text": "AAAA BBBB",
             "font": "systemfont_arial",
             "pointsize": 12,
@@ -369,6 +375,7 @@ enum Harness {
         let ids = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
         var style: [String: Any] = [:]
         var ink: [String: Any] = [:]
+        var sameContentDynamicInk: [String: Any] = [:]
         for id in ids {
             guard let layer = layers[id], let text = layer.textStyle else { continue }
             style["\(id)"] = [
@@ -380,6 +387,13 @@ enum Harness {
             ]
             guard let texture = loaded.textures[id] else { continue }
             ink["\(id)"] = inkStatistics(texture)
+            if let dynamic = SceneTextTextureLoader.makeDynamicTexture(
+                for: layer, content: layer.text!, pointSize: text.pointSize,
+                colorRGB: text.colorRGB, cacheDirectory: cacheDirectory, device: device
+            ) {
+                sameContentDynamicInk["\(id)"] = inkStatistics(dynamic.texture)
+                precondition(loaded.renderSizes[id] == dynamic.renderSizeWH)
+            }
         }
 
         let wrapWidths: [String: Any] = [
@@ -466,6 +480,7 @@ enum Harness {
         let result: [String: Any] = [
             "style": style,
             "ink": ink,
+            "sameContentDynamicInk": sameContentDynamicInk,
             "wrapWidths": wrapWidths,
             "dynamicRenderSizes": [
                 "auto": autoSized?.renderSizeWH ?? [],
@@ -601,8 +616,8 @@ class SceneTextRowLimitTests(unittest.TestCase):
             {
                 "limitRows": False,
                 "maxRows": 1,
-                "limitWidth": False,
-                "maxWidth": 0,
+                "limitWidth": True,
+                "maxWidth": 200,
                 "useEllipsis": False,
             },
         )
@@ -671,10 +686,12 @@ class SceneTextRowLimitTests(unittest.TestCase):
 
     def test_padded_authored_outer_frame_still_rasterizes_visible_text(self) -> None:
         padded = self.result["ink"]["90"]
-        self.assertEqual(padded["size"], [196, 126])
+        self.assertGreater(padded["size"][0], 196)
+        self.assertEqual(padded, self.result["sameContentDynamicInk"]["90"])
         self.assertGreater(padded["count"], 0)
         self.assertGreaterEqual(padded["minX"], 0)
-        self.assertLessEqual(padded["maxX"], 195)
+        self.assertLess(padded["maxX"], padded["size"][0])
+        self.assertEqual(len(padded["rowRanges"]), 1)
 
     def test_unlimited_width_can_use_the_authored_outer_geometry(self) -> None:
         # limitwidth=false 时 padding 不能把有效作者外框反向变成换行限制。
@@ -686,8 +703,10 @@ class SceneTextRowLimitTests(unittest.TestCase):
     def test_large_padded_single_line_text_keeps_visible_ink(self) -> None:
         clock = self.result["ink"]["110"]
         date = self.result["ink"]["120"]
-        self.assertEqual(clock["size"], [411, 140])
-        self.assertEqual(date["size"], [1216, 70])
+        self.assertEqual(clock, self.result["sameContentDynamicInk"]["110"])
+        self.assertEqual(date, self.result["sameContentDynamicInk"]["120"])
+        self.assertGreater(clock["size"][1], 140)
+        self.assertGreater(date["size"][1], 70)
         self.assertEqual(len(clock["rowRanges"]), 1)
         self.assertEqual(len(date["rowRanges"]), 1)
         self.assertGreater(clock["count"], 0)
@@ -696,6 +715,9 @@ class SceneTextRowLimitTests(unittest.TestCase):
     def test_dynamic_text_expands_only_when_width_is_not_authored_limited(self) -> None:
         self.assertGreater(self.result["dynamicRenderSizes"]["auto"][0], 400)
         self.assertEqual(self.result["dynamicRenderSizes"]["limited"], [400, 140])
+
+    def test_initial_and_updated_text_have_identical_ink_and_geometry(self) -> None:
+        self.assertEqual(self.result["ink"], self.result["sameContentDynamicInk"])
 
     def test_dynamic_max_width_rerasterizes_the_wrap_geometry(self) -> None:
         narrow = self.result["timelineWidthInk"]["narrow"]
