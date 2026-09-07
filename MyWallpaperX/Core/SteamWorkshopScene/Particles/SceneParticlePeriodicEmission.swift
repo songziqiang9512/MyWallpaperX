@@ -40,6 +40,8 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let duration: Double?
     let usesRandomPeriodicEmission: Bool
     let limitsToOnePerFrame: Bool
+    let audioResponseEnabled: Bool
+    let audioResponsePlan: SceneParticleAudioResponsePlan?
 
     nonisolated init(_ value: SceneParticleEmitter) {
         origin = SceneParticleSimulationMath.vector(value.origin, fallback: .zero)
@@ -78,6 +80,8 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
         duration = value.duration
         usesRandomPeriodicEmission = value.usesRandomPeriodicEmission
         limitsToOnePerFrame = value.limitsToOnePerFrame
+        audioResponseEnabled = value.audioResponse.isEnabled
+        audioResponsePlan = value.boundedAudioResponsePlan
     }
 }
 

@@ -2348,6 +2348,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：plan 不保存 rate/count override、audio scale、emission deadline、dynamic providers、RNG 或 frame outcome；malformed/unsupported admission 仍局部 no-op/fail-closed，periodic diagnostics 与 child lifecycle 仍直接使用声明层 admission，未迁移第二个 clock 或 provider。particle frame transaction、instance-buffer submission、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不变。
 - **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check` 与 checkpoint Debug build **BUILD SUCCEEDED**，code-health 保持 903 Swift / 16 locked legacy / 184 warnings。既有 delay/periodic/instantaneous/rate override 与 invalid-input 正反门保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
 
+<a id="e-v4-particle-audio-plan-preparation"></a>
+### E-V4-PARTICLE-AUDIO-PLAN-PREPARATION: reuse prepared emitter audio plan
+
+证据等级：`S2 shared typed audio hot-path wiring`。本批只收口 emitter audio response 对 authored plan/admission 的重复构造，不宣称真实粒子 audio producer、FFT 数值、ROI、稳定性能或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 emitter 仍通过同一 `SceneParticleAudioInput` 消费逐帧 16-band audio snapshot；此前 `emissionAudioScale` 每个 fixed step 都从 authored declaration 重新构造 `SceneParticleAudioResponsePlan`，当前 `SceneParticleEmitterSpawnPlan` 在 simulator 初始化时保存启用状态与 bounded plan，fixed-step 只 evaluate live `audioInput`，再沿既有 rate/remainder/emission path 进入 particle state、GPU instances 和 Metal encode。
+- **失败半径与 owner**：plan 不保存 audio snapshot、capture clock、provider generation、rate/count override、RNG 或 frame outcome；disabled 返回中性 scale，enabled 但 malformed/unsupported 仍返回 nil 并保持原局部不发射，operator turbulence/vortex 继续由各自 `SceneParticleOperatorExecutionPlan` 持有 audio plan。没有新增 audio/provider owner、VM、clock、resource 或 compositor。
+- **自动门与边界**：`test_scene_particle_audio_response.py` **5/5**、`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。audio harness 的独立 Swift 源清单同步纳入 `SceneParticleUnaryOperatorPlans.swift`；正反 audio response、silent/active partition 与 invalid declaration 门保持。未做改后真实 signed sample producer→consumer、GPU completion rollback、audio ROI、FFT/parity、稳定帧性能、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared typed audio hot-path wiring。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 

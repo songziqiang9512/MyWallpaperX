@@ -293,7 +293,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let emitter = definition.emitters[index]
         if case .unsupported = emitter.kind { return }
         let spawnPlan = emitterSpawnPlans[index]
-        guard let audioScale = emissionAudioScale(for: emitter) else { return }
+        guard let audioScale = emissionAudioScale(for: spawnPlan) else { return }
         if spawnPlan.usesRandomPeriodicEmission,
            activeInstanceOverride?.rate != nil || activeInstanceOverride?.count != nil { return }
         let rateScale = max(0, overrideScalar(activeInstanceOverride?.rate))

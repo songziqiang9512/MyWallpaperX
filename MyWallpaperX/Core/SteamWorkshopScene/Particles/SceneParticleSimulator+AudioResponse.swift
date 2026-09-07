@@ -1,9 +1,9 @@
 import Foundation
 
 nonisolated extension SceneParticleSimulator {
-    func emissionAudioScale(for emitter: SceneParticleEmitter) -> Double? {
-        guard emitter.audioResponse.isEnabled else { return 1 }
-        return emitter.boundedAudioResponsePlan?.evaluate(audioInput)
+    func emissionAudioScale(for plan: SceneParticleEmitterSpawnPlan) -> Double? {
+        guard plan.audioResponseEnabled else { return 1 }
+        return plan.audioResponsePlan?.evaluate(audioInput)
     }
 
     func admitsAudioExecution(_ value: SceneParticleOperator) -> Bool {
