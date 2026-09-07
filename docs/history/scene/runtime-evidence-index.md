@@ -4896,6 +4896,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：惰性副本只属于 `SceneScriptLayerTopologySnapshot` 的 surface/frame-local projection，不保存 dynamic value、generation、resource、provider 或 publication。dynamic layer topology revision、transform/visibility/alpha、typed source/type/finite 检查、SceneDynamicLayerRenderTopologyCache、Program/GraphExecutor、Metal encode、provider lifecycle 与唯一 compositor/output owner 不迁移。
 - **自动门与边界**：`test_scene_script_dynamic_layer_runtime` 的 typed color 正向、缺失值保持 authored color、quiescent/lazy source gate 共 **9 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、provider completion/GPU fault、多 surface timing、颜色 ROI、稳定帧性能或官方视觉对照；最高只支持 `S2` shared typed topology hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
 
+<a id="e-v4-text-script-frame-date-context"></a>
+### E-V4-TEXT-SCRIPT-FRAME-DATE-CONTEXT: authored text scripts 复用单帧 wall-date context
+
+证据等级：`S2 shared typed text-input hot-path wiring`。本批只减少同一 host frame 中多个 authored clock/calendar text binding 重复投影相同 wall-date 的 CPU/pre-encode 工作，不宣称真实样本、稳定性能、文本 ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 host `wallDate` 作为真实 producer 驱动 authored text-script consumer，并且普通帧只保留必要动态计算。此前 `SceneTextScriptRuntime.values` 对每个 `.scriptSubset` binding 独立调用 evaluator，evaluator 每次都构造 Gregorian `Calendar` 并提取同一帧的 year/month/day/weekday/hour/minute/second。当前 `SceneTextScriptSubsetRuntime.FrameContext` 封装这组 typed frame input；runtime 在首个 date-script binding 处惰性构造一次并交给同帧 sibling binding。media-properties-only program 不触发 calendar projection；standalone evaluator 保留原 wallDate/timeZone 入口。
+- **失败半径与 owner**：`FrameContext` 是单次 `values` 调用的局部值，下一 host frame 仍从 `SceneFrameTiming.wallDate` 重建；不跨帧保存 clock、文本值、property 或 media provider state。accepted AST、step budget、authored fallback、media generation、dynamic snapshot priority、dynamic-text texture signature/generation/publication、Program/GraphExecutor、Metal encode 与唯一 compositor/output owner不变。
+- **自动门与边界**：`test_scene_text_script_runtime` 的五个 clock/calendar 正例、media title/artist generation/clear、unsupported/failure fallback 与 single-frame context source gate 共 **9 tests / OK**；本批另行复核相关 text/frame/provider focused tests、`git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、运行中时区切换、media provider fault、文本 ROI、稳定帧性能或官方视觉对照；最高只支持 `S2` shared typed text-input hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-dynamic-text-quiescent-update"></a>
 ### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
 

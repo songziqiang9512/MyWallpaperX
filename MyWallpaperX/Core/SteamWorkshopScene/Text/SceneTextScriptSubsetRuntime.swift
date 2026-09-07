@@ -3,6 +3,22 @@ import Foundation
 /// Pure evaluator for the bounded text-script AST. The step budget is defensive even
 /// though the accepted grammar contains no loop or user-defined function construct.
 nonisolated enum SceneTextScriptSubsetRuntime {
+    /// One host frame's wall-clock projection. The accepted subset can only
+    /// observe these calendar fields, so sibling bindings reuse the exact
+    /// same typed input without retaining a private clock across frames.
+    nonisolated struct FrameContext: Sendable {
+        fileprivate let wallDate: DateComponents
+
+        nonisolated init(wallDate: Date, timeZone: TimeZone) {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = timeZone
+            self.wallDate = calendar.dateComponents(
+                [.year, .month, .day, .weekday, .hour, .minute, .second],
+                from: wallDate
+            )
+        }
+    }
+
     private enum Value: Equatable {
         case bool(Bool)
         case number(Double)
@@ -26,12 +42,20 @@ nonisolated enum SceneTextScriptSubsetRuntime {
         wallDate: Date,
         timeZone: TimeZone
     ) -> String? {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = timeZone
-        let components = calendar.dateComponents(
-            [.year, .month, .day, .weekday, .hour, .minute, .second],
-            from: wallDate
+        evaluate(
+            program: program,
+            authoredValue: authoredValue,
+            properties: properties,
+            frameContext: .init(wallDate: wallDate, timeZone: timeZone)
         )
+    }
+
+    nonisolated static func evaluate(
+        program: SceneTextScriptSubsetProgram,
+        authoredValue: String,
+        properties: [String: SceneJSONValue],
+        frameContext: FrameContext
+    ) -> String? {
         var variables: [String: Value] = [
                 program.parameterName: .string(authoredValue),
                 "scriptProperties": .scriptProperties(properties),
@@ -41,7 +65,7 @@ nonisolated enum SceneTextScriptSubsetRuntime {
         }
         var evaluator = Evaluator(
             variables: variables,
-            wallDate: components,
+            wallDate: frameContext.wallDate,
             remainingSteps: 512
         )
         guard case let .returned(.string(value)) = evaluator.execute(program.statements) else {

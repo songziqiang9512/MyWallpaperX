@@ -665,6 +665,31 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(evidence["clearedTitle"], "", evidence)
         self.assertEqual(evidence["clearedArtist"], "", evidence)
 
+    def test_wall_date_context_is_shared_only_by_date_script_bindings(self) -> None:
+        runtime = (SOURCE_ROOT / "Text/SceneTextScriptRuntime.swift").read_text(
+            encoding="utf-8"
+        )
+        values = runtime.split("static func values(", 1)[1].split(
+            "private nonisolated static func content(", 1
+        )[0]
+        self.assertIn(
+            "var wallDateContext: SceneTextScriptSubsetRuntime.FrameContext?",
+            values,
+        )
+        script_subset = runtime.split(
+            "case let .scriptSubset(program, properties):", 1
+        )[1].split("case let .mediaProperties(field):", 1)[0]
+        self.assertIn("if wallDateContext == nil", script_subset)
+        self.assertIn("frameContext: wallDateContext", script_subset)
+        media_subset = runtime.split("case let .mediaProperties(field):", 1)[1]
+        self.assertNotIn("wallDateContext", media_subset)
+
+        subset_runtime = (
+            SOURCE_ROOT / "Text/SceneTextScriptSubsetRuntime.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("nonisolated struct FrameContext: Sendable", subset_runtime)
+        self.assertEqual(subset_runtime.count("calendar.dateComponents("), 1)
+
     def test_loop_and_statement_budget_fail_closed(self) -> None:
         self.assert_compile_rejected("loop")
         self.assert_compile_rejected("statementBudget")
