@@ -25,6 +25,10 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     }
 
     private let bindings: [SceneDynamicTarget: SceneTimelineBinding]
+    /// Keep the authored binding order for the realtime value projection. The
+    /// dictionary remains the identity/validation index; it is not the frame
+    /// iteration order and does not need to be rebuilt or sorted per frame.
+    private let orderedBindings: [SceneTimelineBinding]
     private var states: [SceneDynamicTarget: State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
 
@@ -44,6 +48,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         bindings = Dictionary(
             uniqueKeysWithValues: program.bindings.map { ($0.target, $0) }
         )
+        orderedBindings = program.bindings
         states = Dictionary(uniqueKeysWithValues: program.bindings.map { binding in
             let state: State = binding.animation.options.startsPaused
                 ? .paused(elapsedFrames: 0)
@@ -65,26 +70,25 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     func values(sceneTime: Double) -> [SceneDynamicTarget: SceneDynamicValue] {
         guard sceneTime.isFinite, sceneTime >= 0 else { return [:] }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
-        for (target, binding) in bindings {
-            guard let state = states[target],
-                  let value = SceneTimelineRuntime.value(
-                      of: binding,
-                      elapsedFrames: elapsedFrames(
-                          state: state,
-                          animation: binding.animation,
-                          sceneTime: sceneTime
-                      )
-                  ) else { continue }
+        values.reserveCapacity(orderedBindings.count)
+        for binding in orderedBindings {
+            let target = binding.target
+            guard let state = states[target] else { continue }
+            let elapsed = elapsedFrames(
+                state: state,
+                animation: binding.animation,
+                sceneTime: sceneTime
+            )
+            guard let value = SceneTimelineRuntime.value(
+                of: binding,
+                elapsedFrames: elapsed
+            ) else { continue }
             values[target] = value
             if pendingNextFrameObservations.remove(target) != nil {
                 NSLog(
                     "MWX SceneScript VM: animationTarget=%@ state=next-frame elapsedFrames=%.9g value=%@ route=generic-only",
                     String(describing: target),
-                    elapsedFrames(
-                        state: state,
-                        animation: binding.animation,
-                        sceneTime: sceneTime
-                    ),
+                    elapsed,
                     String(describing: value)
                 )
             }

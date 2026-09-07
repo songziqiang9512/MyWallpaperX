@@ -4914,6 +4914,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：搜索只读取 immutable authored `SceneTimelineAnimation` lane，不新增 Timeline cache、clock、property/provider state 或 renderer；`SceneTimelinePlaybackRuntime` 的 play/pause/stop、observation snapshot/restore、typed source priority、generation、Program/GraphExecutor、Metal encode 与唯一 compositor/output owner不迁移。
 - **自动门与边界**：`test_scene_timeline_evaluator` 的真实/派生 single、loop、mirror、wrap、handle、offset 与端点反例，连同 Timeline runtime、target compiler、IR 共 **58 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample Timeline CPU/pre-encode A/B、GPU completion fault、Timeline ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
 
+<a id="e-v4-timeline-playback-ordered-projection"></a>
+### E-V4-TIMELINE-PLAYBACK-ORDERED-PROJECTION: Timeline playback authored-order projection
+
+证据等级：`S2 shared typed Timeline hot-path wiring`。本批只减少唯一 Timeline playback owner 的逐帧 dictionary iteration 与重复 elapsed projection，不宣称真实样本、稳定性能、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：目标链要求现有 `SceneTimelinePlaybackRuntime` 消费唯一 host `SceneClock` 时间/elapsed frame，产生 typed Timeline values，再由 `SceneDynamicSnapshotResolver` 与现有 Program/GraphExecutor 消费。此前 `values(sceneTime:)` 遍历 identity dictionary，并在 pending `next-frame` observation 日志路径再次计算同一 binding 的 elapsed frame；当前初始化时保留 `program.bindings` 的 authored 顺序作为 realtime projection array，identity dictionary 继续只负责 target lookup 与 atomic command validation；每个 binding 先计算一次 elapsed，再把同一值交给 evaluator 与 observation log。
+- **失败半径与 owner**：ordered array 是 launch-compiled `SceneTimelineProgram` 的只读索引，不保存 frame-varying value、clock、provider 或 generation；dictionary、state map、play/pause/stop candidate transaction、observation snapshot/restore、invalid target rejection 与 last-ready typed fallback 保持原 owner。后续 snapshot/Program/GraphExecutor、Metal encode、publication/completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_timeline_runtime` 加上 authored-order/single-elapsed source gate，并与 Timeline evaluator、target compiler、IR 共 **59 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample Timeline CPU/pre-encode A/B、GPU completion fault、multi-surface timing、Timeline ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-dynamic-text-quiescent-update"></a>
 ### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
 

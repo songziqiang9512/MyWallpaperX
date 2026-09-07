@@ -19,6 +19,7 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PLAYBACK_SOURCE = SOURCE_ROOT / "Properties/SceneTimelinePlaybackRuntime.swift"
 GRAPH_EXECUTOR_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution"
@@ -526,6 +527,15 @@ class SceneTimelineRuntimeTests(unittest.TestCase):
         self.assertAlmostEqual(self.result["samples"]["half"]["constant"]["value"], 0.0)
         self.assertAlmostEqual(self.result["samples"]["late"]["constant"]["value"], 0.0)
         self.assertAlmostEqual(self.result["samples"]["t0"]["constant"]["value"], 1.0)
+
+    def test_playback_projection_reuses_authored_order_and_elapsed_value(self) -> None:
+        source = PLAYBACK_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("private let orderedBindings", source)
+        self.assertIn("orderedBindings = program.bindings", source)
+        self.assertIn("for binding in orderedBindings", source)
+        self.assertIn("let elapsed = elapsedFrames(", source)
+        self.assertIn("elapsedFrames: elapsed", source)
+        self.assertNotIn("for (target, binding) in bindings", source)
 
     def test_start_paused_layer_never_leaves_its_first_frame(self) -> None:
         for label in ("t0", "half", "closing", "late"):
