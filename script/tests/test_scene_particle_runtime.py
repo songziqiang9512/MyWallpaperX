@@ -76,6 +76,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift",
+    SOURCE_ROOT / "Particles/SceneParticleUnaryOperatorPlans.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",

@@ -5,12 +5,11 @@ nonisolated extension SceneParticleSimulator {
     /// contract. It preserves direction and interpolates the authored reduction
     /// linearly between the inner and outer radii.
     func applyReduceMovement(
-        _ value: SceneParticleOperator,
+        plan: SceneParticleReduceMovementPlan?,
         duration: Double
     ) {
         guard duration.isFinite, duration > 0,
-              definition.supportsBoundedReduceMovement(value),
-              let plan = value.reduceMovementPlan,
+              let plan,
               let target = controlPointPosition(plan.controlPoint, offset: .zero) else {
             return
         }

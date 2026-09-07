@@ -42,6 +42,11 @@ final class SceneVideoTextureSourceRegistry {
 
     private let epoch: UInt64
     private var sources: [SourceIdentity: SceneVideoTextureSource] = [:]
+    /// Source order is a topology fact, not a frame-varying provider value.
+    /// Keep the existing deterministic layer/device ordering, but only sort
+    /// after a source is added or removed instead of on every SceneScript
+    /// snapshot request.
+    private var orderedSourceIdentities: [SourceIdentity]?
     private var rebuildingSourceIdentities: Set<SourceIdentity>?
 
     init(epoch: UInt64) {
@@ -81,6 +86,7 @@ final class SceneVideoTextureSourceRegistry {
         rebuildingSourceIdentities?.insert(identity)
         source.adoptLifecycleEpoch(epoch)
         sources[identity] = source
+        orderedSourceIdentities = nil
         return source
     }
 
@@ -93,16 +99,19 @@ final class SceneVideoTextureSourceRegistry {
     func sceneScriptSnapshots(
         sceneTime: TimeInterval
     ) -> [Int: SceneScriptVideoPlaybackSnapshot] {
-        let ordered = sources.sorted { lhs, rhs in
-            if lhs.key.layerID != rhs.key.layerID {
-                return lhs.key.layerID < rhs.key.layerID
+        if orderedSourceIdentities == nil {
+            orderedSourceIdentities = sources.keys.sorted { lhs, rhs in
+                if lhs.layerID != rhs.layerID {
+                    return lhs.layerID < rhs.layerID
+                }
+                return lhs.deviceRegistryID < rhs.deviceRegistryID
             }
-            return lhs.key.deviceRegistryID < rhs.key.deviceRegistryID
         }
-        return ordered.reduce(
+        return (orderedSourceIdentities ?? []).reduce(
             into: [Int: SceneScriptVideoPlaybackSnapshot]()
-        ) { result, entry in
-            let snapshot = entry.value.playbackSnapshot(sceneTime: sceneTime)
+        ) { result, identity in
+            guard let source = sources[identity] else { return }
+            let snapshot = source.playbackSnapshot(sceneTime: sceneTime)
             if result[snapshot.layerID] == nil {
                 result[snapshot.layerID] = snapshot
             }
@@ -182,12 +191,14 @@ final class SceneVideoTextureSourceRegistry {
         for identity in obsoleteIdentities {
             sources.removeValue(forKey: identity)?.stop()
         }
+        orderedSourceIdentities = nil
         self.rebuildingSourceIdentities = nil
     }
 
     func stop() {
         sources.values.forEach { $0.stop() }
         sources.removeAll()
+        orderedSourceIdentities = nil
         rebuildingSourceIdentities = nil
     }
 

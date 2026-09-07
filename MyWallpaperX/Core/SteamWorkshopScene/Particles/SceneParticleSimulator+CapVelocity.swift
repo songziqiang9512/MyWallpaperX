@@ -4,10 +4,10 @@ nonisolated extension SceneParticleSimulator {
     /// Removes the blended fraction of speed above the authored cap without changing
     /// direction. This is a bounded clean-room contract; no Windows numeric golden exists.
     func applyCapVelocity(
-        _ value: SceneParticleOperator,
+        plan: SceneParticleCapVelocityPlan?,
         blendPlan: SceneParticleOperatorBlendPlan
     ) {
-        guard let plan = value.capVelocityPlan else { return }
+        guard let plan else { return }
         let speedScale = definition.flags.disablesSpeedOverrides
             ? 1
             : overrideScalar(activeInstanceOverride?.speed)

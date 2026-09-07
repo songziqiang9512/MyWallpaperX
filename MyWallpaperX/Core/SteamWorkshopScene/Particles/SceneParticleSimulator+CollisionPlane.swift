@@ -1,8 +1,8 @@
 import Foundation
 
 extension SceneParticleSimulator {
-    nonisolated func applyCollisionPlane(_ value: SceneParticleOperator) {
-        guard let plan = value.collisionPlanePlan else { return }
+    nonisolated func applyCollisionPlane(plan: SceneParticleCollisionPlanePlan?) {
+        guard let plan else { return }
         for index in particles.indices {
             let signedDistance = dot(particles[index].position, plan.normal)
                 - plan.distance

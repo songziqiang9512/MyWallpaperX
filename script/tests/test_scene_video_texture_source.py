@@ -494,6 +494,24 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
 
         self.assertIn("if let source = sources[identity]", registry)
         self.assertIn("sources[identity] = source", registry)
+        self.assertIn("orderedSourceIdentities", registry)
+        snapshots = swift_block(registry, "func sceneScriptSnapshots(")
+        self.assertIsNotNone(snapshots)
+        assert snapshots is not None
+        self.assertIn("orderedSourceIdentities == nil", snapshots)
+        self.assertNotIn("sources.sorted", snapshots)
+        source_method = swift_block(registry, "func source(")
+        self.assertIsNotNone(source_method)
+        assert source_method is not None
+        self.assertIn("orderedSourceIdentities = nil", source_method)
+        rebuild_completion = swift_block(registry, "func completeSurfaceRebuild()")
+        self.assertIsNotNone(rebuild_completion)
+        assert rebuild_completion is not None
+        self.assertIn("orderedSourceIdentities = nil", rebuild_completion)
+        stop_method = swift_block(registry, "func stop()")
+        self.assertIsNotNone(stop_method)
+        assert stop_method is not None
+        self.assertIn("orderedSourceIdentities = nil", stop_method)
         self.assertIn("rebuildingSourceIdentities?.insert(identity)", registry)
         self.assertIn("sources.removeValue(forKey: identity)?.stop()", registry)
         self.assertIn("videoSourceRegistry.source(", view)
@@ -541,8 +559,7 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         )
         application = lifecycle.index("videoTextureSourceRegistry?.apply(")
         publication = frame_driver.index(
-            "commonSceneScriptValues.merge(\n"
-            "            admittedValues(sceneScriptVectorResult.values),",
+            "var admittedSceneScriptValues = admittedValues(",
             validation,
         )
         self.assertLess(validation, publication)
@@ -563,8 +580,7 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             ".preflightOwnerEffectsToFixedPoint(ownerEffects)"
         )
         publication = frame_driver.index(
-            "commonSceneScriptValues.merge(\n"
-            "            admittedValues(sceneScriptVectorResult.values),",
+            "var admittedSceneScriptValues = admittedValues(",
             validation,
         )
         self.assertNotIn("rejectVideoCommandTargets", frame_driver)

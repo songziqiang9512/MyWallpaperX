@@ -1,8 +1,8 @@
 import Foundation
 
 nonisolated extension SceneParticleSimulator {
-    func applyBoids(_ value: SceneParticleOperator, duration: Double) {
-        guard let plan = definition.boidsPlan(for: value), particles.count > 1 else { return }
+    func applyBoids(plan: SceneParticleBoidsPlan?, duration: Double) {
+        guard let plan, particles.count > 1 else { return }
         let snapshot = particles
         let thresholdSquared = plan.neighborThreshold * plan.neighborThreshold
         for index in snapshot.indices {

@@ -38,6 +38,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleCapVelocity.swift",
     SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift",
+    SOURCE_ROOT / "Particles/SceneParticleUnaryOperatorPlans.swift",
     SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift",
     SOURCE_ROOT / "Particles/SceneParticleLayerImageEmissionMap.swift",
     SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift",
@@ -2825,21 +2826,68 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         control_point_source = (
             SOURCE_ROOT / "Particles/SceneParticleSimulator+ControlPointForce.swift"
         ).read_text(encoding="utf-8")
+        emitter_control_point_source = (
+            SOURCE_ROOT / "Particles/SceneParticleControlPointForce.swift"
+        ).read_text(encoding="utf-8")
         cap_velocity_source = (
             SOURCE_ROOT / "Particles/SceneParticleSimulator+CapVelocity.swift"
         ).read_text(encoding="utf-8")
         vortex_source = (
             SOURCE_ROOT / "Particles/SceneParticleSimulator+Vortex.swift"
         ).read_text(encoding="utf-8")
+        boids_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+Boids.swift"
+        ).read_text(encoding="utf-8")
+        collision_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+CollisionPlane.swift"
+        ).read_text(encoding="utf-8")
+        execution_plan_source = (
+            SOURCE_ROOT / "Particles/SceneParticleOscillationCache.swift"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("operatorExecutionPlans", simulator_source)
-        self.assertIn("SceneParticleOperatorExecutionPlan.init", simulator_source)
+        self.assertIn("SceneParticleOperatorExecutionPlan(", simulator_source)
+        self.assertIn("definition: definition", simulator_source)
+        self.assertIn(
+            "worldSpaceFrame: worldSpaceFrame",
+            simulator_source,
+        )
+        self.assertIn("scalarOscillation", simulator_source)
+        self.assertIn("movement", simulator_source)
+        self.assertIn("angularMovement", simulator_source)
+        self.assertIn("alphaFade", simulator_source)
+        self.assertIn("scalarChange", simulator_source)
+        self.assertIn("colorChange", simulator_source)
+        self.assertIn("boids", simulator_source)
+        self.assertIn("vortex", simulator_source)
+        self.assertIn("capVelocity", simulator_source)
+        self.assertIn("velocityRemap", simulator_source)
+        self.assertIn("collisionPlane", simulator_source)
+        self.assertIn("controlPointForce", simulator_source)
+        self.assertIn("reduceMovement", simulator_source)
+        self.assertIn("let alphaFade:", execution_plan_source)
+        self.assertIn("let boids:", execution_plan_source)
+        self.assertIn("let vortex:", execution_plan_source)
+        self.assertIn("let capVelocity:", execution_plan_source)
+        self.assertIn("let velocityRemap:", execution_plan_source)
+        self.assertIn("let collisionPlane:", execution_plan_source)
+        self.assertIn("if let controlPointsByID", emitter_control_point_source)
+        self.assertIn("if controlPointsByID.isEmpty", control_point_source)
+        self.assertNotIn(
+            "controlPointsByID?[source]\\n            ?? controlPoints.first",
+            control_point_source,
+        )
         self.assertIn("positionOscillationOperatorIndices", simulator_source)
         self.assertIn("definition.operators.indices.filter", simulator_source)
         self.assertNotIn("SceneParticleOperatorBlendPlan(value)", simulator_source)
         self.assertNotIn("SceneParticlePositionOscillationPlan(value)", simulator_source)
         self.assertNotIn("SceneParticleOperatorBlendPlan(value)", control_point_source)
         self.assertNotIn("SceneParticleOperatorBlendPlan(value)", cap_velocity_source)
+        self.assertNotIn("value.capVelocityPlan", cap_velocity_source)
+        self.assertNotIn("value.boundedVelocityRemapPlan", simulator_source)
+        self.assertNotIn("definition.boidsPlan(for:", boids_source)
+        self.assertNotIn("value.collisionPlanePlan", collision_source)
+        self.assertNotIn("value.vortexPlan", vortex_source)
         self.assertNotIn("SceneParticleAudioResponsePlan(value.audioResponse)", vortex_source)
         self.assertIn("audioResponsePlan:", vortex_source)
 

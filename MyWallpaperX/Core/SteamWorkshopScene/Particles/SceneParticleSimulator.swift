@@ -46,6 +46,20 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// frame-varying inputs (audio, overrides, particle age/position) live in
     /// the execution helpers.
     private let operatorExecutionPlans: [SceneParticleOperatorExecutionPlan]
+    /// Launch-stable control-point identity lookup. Dynamic pointer and
+    /// SceneScript values still arrive through `dynamicControlPoints`; only
+    /// the authored identity metadata is indexed once for the particle hot
+    /// path.
+    let controlPointsByID: [Int: SceneParticleControlPoint]
+    /// The definition-wide identity/uniqueness gate is immutable. Retain its
+    /// result beside the lookup so invalid authored control-point catalogs
+    /// fail closed without rescanning for every emitted particle.
+    let controlPointSourcesAreValid: Bool
+    /// Position-around-control-point admission depends only on authored
+    /// topology. Keep the accepted plan aligned with the initializer array so
+    /// each emitted particle does not repeat the same definition-wide scans.
+    let positionAroundControlPointPlans:
+        [SceneParticlePositionAroundControlPointPlan?]
     /// Only these operators own per-particle oscillation cache entries. Keeping
     /// the indices prepared avoids scanning every operator for each death.
     private let positionOscillationOperatorIndices: [Int]
@@ -88,9 +102,32 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         operatorAudioExecutionAdmission = definition.operators.map {
             !$0.audioResponse.isEnabled || $0.hasBoundedAudioResponse
         }
-        operatorExecutionPlans = definition.operators.map(
-            SceneParticleOperatorExecutionPlan.init
-        )
+        operatorExecutionPlans = definition.operators.map {
+            SceneParticleOperatorExecutionPlan(
+                $0,
+                definition: definition,
+                worldSpaceFrame: worldSpaceFrame
+            )
+        }
+        var controlPointsByID: [Int: SceneParticleControlPoint] = [:]
+        var controlPointIdentities: Set<Int> = []
+        var controlPointSourcesAreValid = true
+        for point in definition.controlPoints {
+            guard let id = point.id, (0 ... 7).contains(id),
+                  controlPointIdentities.insert(id).inserted else {
+                controlPointSourcesAreValid = false
+                continue
+            }
+            controlPointsByID[id] = point
+        }
+        self.controlPointsByID = controlPointsByID
+        self.controlPointSourcesAreValid = controlPointSourcesAreValid
+        self.positionAroundControlPointPlans = definition.initializers.map { initializer in
+            guard case .positionAroundControlPoint = initializer.kind,
+                  definition.supportsBoundedPositionAroundControlPoint(initializer)
+            else { return nil }
+            return initializer.positionAroundControlPointPlan
+        }
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition
         }
@@ -295,7 +332,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     ) -> SceneParticleState? {
         guard let frame = definition.emitterControlPointFrame(
             for: emitter, instanceOverride: activeInstanceOverride,
-            dynamicControlPoints: dynamicControlPoints
+            dynamicControlPoints: dynamicControlPoints,
+            controlPointsByID: controlPointsByID,
+            controlPointSourcesAreValid: controlPointSourcesAreValid
         ), emitter.hasBoundedDirectionsAndSign else { return nil }
         var velocity = SIMD3<Double>.zero
         let relative: SIMD3<Double>
@@ -343,57 +382,69 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         guard operatorAudioExecutionAdmission[operatorIndex] else { return }
         switch value.kind {
         case .movement:
-            let authoredGravity = SceneParticleSimulationMath.vector(
-                value.gravity,
-                fallback: .zero
-            )
-            let gravity = value.isWorldSpaceMovement
-                ? worldSpaceFrame?.localDirection(authoredGravity) ?? authoredGravity
-                : authoredGravity
-            let drag = max(0, value.drag ?? 0)
+            guard let plan = operatorExecutionPlans[operatorIndex].movement else {
+                break
+            }
             for index in particles.indices {
-                let acceleration = gravity - particles[index].velocity * drag
+                let acceleration = plan.gravity - particles[index].velocity * plan.drag
                 particles[index].velocity += acceleration * duration
                 particles[index].position += particles[index].velocity * duration
             }
         case .angularMovement:
-            let force = SceneParticleSimulationMath.vector(value.force, fallback: .zero)
-            let drag = max(0, value.drag ?? 0)
+            guard let plan = operatorExecutionPlans[operatorIndex].angularMovement else {
+                break
+            }
             for index in particles.indices {
-                let acceleration = force - particles[index].angularVelocity * drag
+                let acceleration = plan.force - particles[index].angularVelocity * plan.drag
                 particles[index].angularVelocity += acceleration * duration
                 particles[index].rotation += particles[index].angularVelocity * duration
             }
         case .alphaFade:
-            let fadeIn = max(0, value.fadeInTime ?? 0.5)
-            let fadeOut = min(max(value.fadeOutTime ?? 0.5, 0), 1)
+            let executionPlan = operatorExecutionPlans[operatorIndex]
+            guard let fadePlan = executionPlan.alphaFade else { break }
             for index in particles.indices {
                 let life = normalizedLives[index]
-                if life <= fadeIn { particles[index].alpha *= SceneParticleSimulationMath.changeAmount(life, 0, fadeIn) }
-                if life > fadeOut { particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(life, fadeOut, 1) }
+                if life <= fadePlan.fadeIn {
+                    particles[index].alpha *= SceneParticleSimulationMath.changeAmount(
+                        life, 0, fadePlan.fadeIn
+                    )
+                }
+                if life > fadePlan.fadeOut {
+                    particles[index].alpha *= 1 - SceneParticleSimulationMath.changeAmount(
+                        life, fadePlan.fadeOut, 1
+                    )
+                }
             }
         case .alphaChange:
+            guard let plan = operatorExecutionPlans[operatorIndex].scalarChange else {
+                break
+            }
             for index in particles.indices {
-                particles[index].alpha *= changeFactor(value, life: normalizedLives[index], fallback: (1, 0))
+                particles[index].alpha *= plan.value(at: normalizedLives[index])
             }
         case .sizeChange:
+            guard let plan = operatorExecutionPlans[operatorIndex].scalarChange else {
+                break
+            }
             for index in particles.indices {
-                particles[index].size *= changeFactor(value, life: normalizedLives[index], fallback: (1, 0))
+                particles[index].size *= plan.value(at: normalizedLives[index])
             }
         case .colorChange:
-            let start = SceneParticleSimulationMath.vector(value.startValue, fallback: SIMD3(repeating: 1))
-            let end = SceneParticleSimulationMath.vector(value.endValue, fallback: .zero)
+            guard let plan = operatorExecutionPlans[operatorIndex].colorChange else {
+                break
+            }
             for index in particles.indices {
-                let amount = SceneParticleSimulationMath.changeAmount(
-                    normalizedLives[index], value.startTime, value.endTime
-                )
-                particles[index].color *= start + (end - start) * amount
+                particles[index].color *= plan.value(at: normalizedLives[index])
             }
         case .oscillateAlpha:
-            let blend = operatorExecutionPlans[operatorIndex].blend
+            let executionPlan = operatorExecutionPlans[operatorIndex]
+            guard let oscillationPlan = executionPlan.scalarOscillation else {
+                break
+            }
+            let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    value,
+                    oscillationPlan,
                     index,
                     operatorIndex,
                     age: particles[index].age
@@ -402,14 +453,17 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     * operatorBlend(blend, normalizedLives[index])
             }
         case .oscillateSize:
-            let blend = operatorExecutionPlans[operatorIndex].blend
+            let executionPlan = operatorExecutionPlans[operatorIndex]
+            guard let oscillationPlan = executionPlan.scalarOscillation else {
+                break
+            }
+            let blend = executionPlan.blend
             for index in particles.indices {
                 let factor = oscillationFactor(
-                    value,
+                    oscillationPlan,
                     index,
                     operatorIndex,
                     age: particles[index].age,
-                    sizeDefaults: true
                 )
                 particles[index].size *= 1 + (factor - 1)
                     * operatorBlend(blend, normalizedLives[index])
@@ -468,26 +522,31 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             }
         case .controlPointAttract:
             applyControlPointForce(
-                value,
+                plan: operatorExecutionPlans[operatorIndex].controlPointForce,
                 duration: duration,
                 normalizedLives: normalizedLives,
                 blend: operatorExecutionPlans[operatorIndex].blend
             )
         case .boids:
-            applyBoids(value, duration: duration)
+            applyBoids(
+                plan: operatorExecutionPlans[operatorIndex].boids,
+                duration: duration
+            )
         case .vortex:
             applyVortex(
-                value,
+                plan: operatorExecutionPlans[operatorIndex].vortex,
                 duration: duration,
                 audioResponsePlan: operatorExecutionPlans[operatorIndex].audioResponse
             )
         case .capVelocity:
             applyCapVelocity(
-                value,
+                plan: operatorExecutionPlans[operatorIndex].capVelocity,
                 blendPlan: operatorExecutionPlans[operatorIndex].blend
             )
         case .remapValue:
-            guard let plan = value.boundedVelocityRemapPlan else { break }
+            guard let plan = operatorExecutionPlans[operatorIndex].velocityRemap else {
+                break
+            }
             for index in particles.indices {
                 guard let amount = SceneParticleSimulationMath.remapNoiseAmount(
                     position: particles[index].position,
@@ -500,9 +559,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
                     + (plan.maximum - plan.minimum) * amount
             }
         case .reduceMovement:
-            applyReduceMovement(value, duration: duration)
+            applyReduceMovement(
+                plan: operatorExecutionPlans[operatorIndex].reduceMovement,
+                duration: duration
+            )
         case .collisionPlane:
-            applyCollisionPlane(value)
+            applyCollisionPlane(
+                plan: operatorExecutionPlans[operatorIndex].collisionPlane
+            )
         case let .inheritEventColor(declaration):
             guard declaration.isBoundedSetColor,
                   let color = eventColorContext.operatorColor else { break }

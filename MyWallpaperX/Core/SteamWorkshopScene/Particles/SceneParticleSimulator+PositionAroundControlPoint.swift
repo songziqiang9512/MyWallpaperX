@@ -6,8 +6,17 @@ extension SceneParticleSimulator {
         to particle: inout SceneParticleState
     ) {
         guard definition.supportsBoundedPositionAroundControlPoint(initializer),
-              let plan = initializer.positionAroundControlPointPlan,
-              let target = controlPointPosition(plan.controlPoint, offset: .zero)
+              let plan = initializer.positionAroundControlPointPlan else { return }
+        applyPositionAroundControlPoint(plan, to: &particle)
+    }
+
+    /// Executes an already admitted authored plan. The dynamic control-point
+    /// value is still resolved for this frame by the single simulator owner.
+    nonisolated func applyPositionAroundControlPoint(
+        _ plan: SceneParticlePositionAroundControlPointPlan,
+        to particle: inout SceneParticleState
+    ) {
+        guard let target = controlPointPosition(plan.controlPoint, offset: .zero)
         else { return }
 
         let emitter = definition.emitters[0]

@@ -51,6 +51,68 @@ nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
     }
 }
 
+/// Launch-stable scalar oscillation inputs. The particle age and the random
+/// seed remain frame/particle-local; only authored ranges and their defaults
+/// are prepared once so the fixed-step loop does not repeatedly normalize
+/// optional numeric values.
+nonisolated struct SceneParticleScalarOscillationPlan: Sendable {
+    let minimum: Double
+    let maximum: Double
+    let frequencyMinimum: Double
+    let frequencyMaximum: Double
+    let phaseMinimum: Double
+    let phaseMaximum: Double
+
+    nonisolated init(_ value: SceneParticleOperator, sizeDefaults: Bool) {
+        minimum = SceneParticleSimulationMath.scalar(
+            value.scaleMinimum,
+            fallback: sizeDefaults ? 0.8 : 0
+        )
+        maximum = SceneParticleSimulationMath.scalar(
+            value.scaleMaximum,
+            fallback: sizeDefaults ? 1.2 : 1
+        )
+        frequencyMinimum = value.frequencyMinimum ?? 0
+        frequencyMaximum = value.frequencyMaximum ?? 10
+        phaseMinimum = value.phaseMinimum ?? 0
+        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+    }
+}
+
+/// Launch-stable inputs for the linear movement operator. The world-space
+/// frame is itself a prepared simulator dependency; particle velocity,
+/// position and duration remain live in the fixed-step loop.
+nonisolated struct SceneParticleMovementPlan: Sendable {
+    let gravity: SIMD3<Double>
+    let drag: Double
+
+    nonisolated init(
+        _ value: SceneParticleOperator,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+    ) {
+        let authoredGravity = SceneParticleSimulationMath.vector(
+            value.gravity,
+            fallback: .zero
+        )
+        gravity = value.isWorldSpaceMovement
+            ? worldSpaceFrame?.localDirection(authoredGravity) ?? authoredGravity
+            : authoredGravity
+        drag = max(0, value.drag ?? 0)
+    }
+}
+
+/// Launch-stable inputs for angular movement. Angular velocity, rotation and
+/// duration are particle/frame-local and are intentionally not cached here.
+nonisolated struct SceneParticleAngularMovementPlan: Sendable {
+    let force: SIMD3<Double>
+    let drag: Double
+
+    nonisolated init(_ value: SceneParticleOperator) {
+        force = SceneParticleSimulationMath.vector(value.force, fallback: .zero)
+        drag = max(0, value.drag ?? 0)
+    }
+}
+
 /// Launch-stable execution values shared by the operator hot path.
 ///
 /// The authored operator itself remains available to the simulator for
@@ -59,12 +121,68 @@ nonisolated struct SceneParticlePositionOscillationPlan: Sendable {
 /// fixed step.
 nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
     let blend: SceneParticleOperatorBlendPlan
+    let scalarOscillation: SceneParticleScalarOscillationPlan?
+    let movement: SceneParticleMovementPlan?
+    let angularMovement: SceneParticleAngularMovementPlan?
+    let alphaFade: SceneParticleAlphaFadePlan?
+    let scalarChange: SceneParticleScalarChangePlan?
+    let colorChange: SceneParticleColorChangePlan?
     let positionOscillation: SceneParticlePositionOscillationPlan?
     let positionMask: SIMD3<Double>
     let audioResponse: SceneParticleAudioResponsePlan?
+    let boids: SceneParticleBoidsPlan?
+    let vortex: SceneParticleVortexPlan?
+    let capVelocity: SceneParticleCapVelocityPlan?
+    let velocityRemap: SceneParticleVelocityRemapPlan?
+    let collisionPlane: SceneParticleCollisionPlanePlan?
+    let controlPointForce: SceneParticleControlPointForcePlan?
+    let reduceMovement: SceneParticleReduceMovementPlan?
 
-    nonisolated init(_ value: SceneParticleOperator) {
+    nonisolated init(
+        _ value: SceneParticleOperator,
+        definition: SceneParticleDefinition,
+        worldSpaceFrame: SceneParticleWorldSpaceFrame?
+    ) {
         blend = SceneParticleOperatorBlendPlan(value)
+        switch value.kind {
+        case .oscillateAlpha:
+            scalarOscillation = SceneParticleScalarOscillationPlan(
+                value, sizeDefaults: false
+            )
+        case .oscillateSize:
+            scalarOscillation = SceneParticleScalarOscillationPlan(
+                value, sizeDefaults: true
+            )
+        default:
+            scalarOscillation = nil
+        }
+        switch value.kind {
+        case .movement:
+            movement = SceneParticleMovementPlan(
+                value, worldSpaceFrame: worldSpaceFrame
+            )
+            angularMovement = nil
+        case .angularMovement:
+            movement = nil
+            angularMovement = SceneParticleAngularMovementPlan(value)
+        default:
+            movement = nil
+            angularMovement = nil
+        }
+        alphaFade = value.kind == .alphaFade
+            ? SceneParticleAlphaFadePlan(value)
+            : nil
+        switch value.kind {
+        case .alphaChange, .sizeChange:
+            scalarChange = SceneParticleScalarChangePlan(value)
+            colorChange = nil
+        case .colorChange:
+            scalarChange = nil
+            colorChange = SceneParticleColorChangePlan(value)
+        default:
+            scalarChange = nil
+            colorChange = nil
+        }
         positionOscillation = value.kind == .oscillatePosition
             ? SceneParticlePositionOscillationPlan(value)
             : nil
@@ -72,41 +190,71 @@ nonisolated struct SceneParticleOperatorExecutionPlan: Sendable {
             value.mask, fallback: SIMD3(1, 1, 0)
         )
         audioResponse = SceneParticleAudioResponsePlan(value.audioResponse)
+        if case .boids = value.kind {
+            boids = definition.boidsPlan(for: value)
+        } else {
+            boids = nil
+        }
+        if case .vortex = value.kind {
+            vortex = value.vortexPlan
+        } else {
+            vortex = nil
+        }
+        if case .capVelocity = value.kind {
+            capVelocity = value.capVelocityPlan
+        } else {
+            capVelocity = nil
+        }
+        if case .remapValue = value.kind {
+            velocityRemap = value.boundedVelocityRemapPlan
+        } else {
+            velocityRemap = nil
+        }
+        if case .collisionPlane = value.kind {
+            collisionPlane = value.collisionPlanePlan
+        } else {
+            collisionPlane = nil
+        }
+        if value.kind == .controlPointAttract,
+           definition.supportsBoundedControlPointForce(value),
+           case let .supported(plan) = value.controlPointForceAdmission {
+            controlPointForce = plan
+        } else {
+            controlPointForce = nil
+        }
+        if case .reduceMovement = value.kind,
+           definition.supportsBoundedReduceMovement(value),
+           let plan = value.reduceMovementPlan {
+            reduceMovement = plan
+        } else {
+            reduceMovement = nil
+        }
     }
 }
 
 extension SceneParticleSimulator {
     nonisolated func oscillationFactor(
-        _ value: SceneParticleOperator,
+        _ plan: SceneParticleScalarOscillationPlan,
         _ index: Int,
         _ operatorIndex: Int,
-        age: Double,
-        sizeDefaults: Bool = false
+        age: Double
     ) -> Double {
-        let minimum = SceneParticleSimulationMath.scalar(
-            value.scaleMinimum,
-            fallback: sizeDefaults ? 0.8 : 0
-        )
-        let maximum = SceneParticleSimulationMath.scalar(
-            value.scaleMaximum,
-            fallback: sizeDefaults ? 1.2 : 1
-        )
         let frequency = oscillationRandom(
-            value.frequencyMinimum ?? 0,
-            value.frequencyMaximum ?? 10,
+            plan.frequencyMinimum,
+            plan.frequencyMaximum,
             index,
             operatorIndex,
             0
         )
         let phase = oscillationRandom(
-            value.phaseMinimum ?? 0,
-            value.phaseMaximum ?? 2 * .pi,
+            plan.phaseMinimum,
+            plan.phaseMaximum,
             index,
             operatorIndex,
             1
         )
         let wave = (cos(frequency * age + phase) + 1) * 0.5
-        return minimum + (maximum - minimum) * wave
+        return plan.minimum + (plan.maximum - plan.minimum) * wave
     }
 
     nonisolated func operatorBlend(

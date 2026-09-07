@@ -2278,6 +2278,58 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - 自动门：`python3.12 -m unittest script.tests.test_scene_frame_context script.tests.test_scene_frame_vm_routing` **38/38**；frame harness 锁定 `renderer.renderFrame` 调用先于 `advanceParticles` provider，且 provider 参数沿唯一 renderer；`git diff --check` 通过。checkpoint 选出的 realtime/frame/rendering/runtime-input 组、code-health 与 Debug build 均通过。
 - 边界：该顺序只避免 drawable/command-buffer/resolved-material preflight 的已知 defer/reject 在粒子模拟前推进；forward provider、graph encode、seal 或 GPU completion 失败后的 simulator/child state 仍未回滚，也没有新增真实 dropped-surface fault、粒子 ROI/视觉 parity、稳定性能或完整样本证据，不外推 V4 完成。
 
+<a id="e-v4-particle-typed-control-point-preparation"></a>
+### E-V4-PARTICLE-TYPED-CONTROL-POINT-PREPARATION: reuse prepared control-point identity and initializer admission
+
+- 实现：`SceneParticleSimulator` 在构造时以首个 authored definition 语义建立 control-point identity index，并缓存 identity/uniqueness gate；按 initializer ordinal 缓存已通过 `supportsBoundedPositionAroundControlPoint` 的 Position Around Control Point plan。`makeParticle` 将该 index 与 gate 传给现有 `emitterControlPointFrame`，control-point force/position-around consumer 复用同一 prepared metadata；每帧的 `dynamicControlPoints` 仍由现有 SceneDynamicSnapshot pointer/SceneScript typed channel 写入，动态坐标、instance override、audio 输入与 missing/invalid fallback 都保持实时。没有新增 particle/provider/clock/graph/registry/compositor owner，也没有改变 simulator snapshot/restore 或 host submission barrier。
+- 自动门：`python3 script/tests/test_scene_particle_simulator.py` **53/53**，`python3 script/tests/test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check` 通过；`python3 script/check_code_health.py --check --base-ref HEAD` 通过（903 Swift、16 locked legacy、184 warnings）；隔离 checkpoint Debug build **BUILD SUCCEEDED**。既有 position-around pointer、missing pointer、malformed/unsupported initializer、fixed-step、child runtime 与 frame transaction 正反输出保持不变。
+- 边界：这是 `S2 shared typed particle hot-path wiring`，只证明 authored metadata preparation 与当前 typed dynamic channel 的执行路径/语义不变，尚无改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子独立 ROI、稳定帧性能、长稳、完整样本、149 corpus 或官方 parity 证据；不外推 V4 完成。后续若真实 trace 仍以 simulator operator passes 为主，应优先沿同一 runtime owner 选择可证伪的 operator execution breakpoint，而不是继续扩张 control-point API。
+
+<a id="e-v4-particle-scalar-oscillation-preparation"></a>
+### E-V4-PARTICLE-SCALAR-OSCILLATION-PREPARATION: reuse prepared scalar oscillation inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口 oscillate-alpha/size fixed-step 对 authored scalar defaults 的重复归一化，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 authored operator 仍按 definition order 进入同一 simulator；动态 age、particle id、audio response、instance override 与 blend 必须保持实时。此前 `oscillationFactor` 对每个 particle 都从 `SceneParticleOperator` 重新读取 optional scale/frequency/phase 并执行 scalar/default projection；当前 `SceneParticleOperatorExecutionPlan` 在 simulator 初始化时为 oscillate-alpha/size 准备 `SceneParticleScalarOscillationPlan`，fixed-step 只消费该不可变 plan，同时以原 particle-local random/age 与 `operatorBlend` 计算 factor。
+- **失败半径与 owner**：plan 只保存 authored scalar ranges/defaults，不保存 dynamic values、audio snapshot、particle age/position、random state 或 frame outcome；unsupported/malformed operators仍按原局部 no-op，simulator frame snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**，`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build通过。既有 oscillation value/fine-step/invalid-input 正反输出保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或官方 parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
+<a id="e-v4-particle-control-point-admission-preparation"></a>
+### E-V4-PARTICLE-CONTROL-POINT-ADMISSION-PREPARATION: reuse prepared control-point operator admission
+
+证据等级：`S2 shared typed particle hot-path preparation wiring`。本批只收口 `controlPointAttract` 与 `reduceMovement` fixed-step 对 definition-wide admission 的重复扫描，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 authored operator 仍按 definition order 进入同一 simulator；动态 control-point 坐标、particle state、duration、audio/instance override 与 blend 必须保持实时。此前两个 consumer 每个 fixed step 都重新读取 operator flags/world-space、control-point identity 与 bounded-shape admission；当前 `SceneParticleOperatorExecutionPlan` 在 simulator 初始化时准备现有 `SceneParticleControlPointForcePlan` 与 `SceneParticleReduceMovementPlan`，fixed-step 只消费该不可变 admission，再从现有 `controlPointsByID`/动态 frame state 取得 live target。
+- **失败半径与 owner**：plan 只保存 definition-wide eligibility 与 prepared shape/identity metadata，不保存动态坐标、particle age/position、audio snapshot、random state 或 frame outcome；unsupported/malformed operator 或 control-point catalog 仍按原局部 fail-closed/no-op。simulator snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`python3 script/tests/test_scene_particle_simulator.py` **53/53**、`python3 script/tests/test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`python3 script/tests/test_scene_video_texture_source.py` **10/10**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build 通过。既有 control-point/reduce invalid-input 与 fixed-step 正反输出保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或官方 parity，最高只支持 `S2` shared particle hot-path preparation wiring，不外推 V4 收口。
+
+<a id="e-v4-particle-movement-operator-preparation"></a>
+### E-V4-PARTICLE-MOVEMENT-OPERATOR-PREPARATION: reuse prepared movement operator inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口高频 `movement`/`angularMovement` fixed-step 对 authored vector/default、drag 与静态 world-space 转换的重复读取，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 authored operator 仍按 definition order 进入同一 simulator；particle position/velocity/rotation/angular velocity、duration、operator order、instance override 与其他动态输入必须保持实时。此前 `apply(.movement)` 和 `apply(.angularMovement)` 每个 fixed step 都重新投影 gravity/force、drag，并在 world-space movement 下重复使用同一静态 frame；当前 `SceneParticleOperatorExecutionPlan` 在 simulator 初始化时准备 `SceneParticleMovementPlan` 与 `SceneParticleAngularMovementPlan`，fixed-step 只消费不可变 plan。
+- **失败半径与 owner**：plan 只保存 authored gravity/force、drag 和静态 world-space 转换结果，不保存粒子状态、duration、random/audio、override 或 frame outcome；非法/非目标 operator 仍沿原局部路径处理，simulator snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**，`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_video_texture_source.py` **10/10**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。既有 movement/alpha、angular 与 world-space/fixed-step 正反输出保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或官方 parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
+<a id="e-v4-particle-scalar-color-change-preparation"></a>
+### E-V4-PARTICLE-SCALAR-COLOR-CHANGE-PREPARATION: reuse prepared scalar and color change inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口高频 `alphaChange`/`sizeChange`/`colorChange` fixed-step 对 authored endpoints 与时间端点的重复投影，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 authored operator 仍按 definition order 进入同一 simulator；每粒子的 normalized lifetime 必须实时影响变化 factor。此前 scalar change 每个粒子都从 `SceneParticleOperator` 重新读取 optional scalar endpoints，color change 每个粒子都重新投影 vector endpoints；当前 `SceneParticleOperatorExecutionPlan` 在 simulator 初始化时准备 `SceneParticleScalarChangePlan` 与 `SceneParticleColorChangePlan`，fixed-step 只消费不可变 endpoints/times，再按 live lifetime 求值。
+- **失败半径与 owner**：plan 只保存 authored endpoints 与 start/end times，不保存 particle state、random/audio、instance override、dynamic provider 或 frame outcome；malformed/unsupported operator 仍沿原局部 no-op，simulator snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**，`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_video_texture_source.py` **10/10**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。既有 alpha/size/color change、fixed-step 与 invalid-input 正反输出保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或官方 parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
+<a id="e-v4-particle-unary-operator-preparation"></a>
+### E-V4-PARTICLE-UNARY-OPERATOR-PREPARATION: reuse prepared unary operator inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口高频 `alphaFade` 以及 bounded `boids`/`vortex`/`capVelocity`/`remapValue`/`collisionPlane` fixed-step 对 authored plan/admission 的重复投影，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：粒子 authored operator 仍按 definition order 进入同一 simulator；particle state、lifetime、audio input、speed override 与动态 operator order 必须保持实时。此前这些 consumer 在 fixed-step 分支内重新读取 fade window 或重新调用 bounded plan/admission；当前 `SceneParticleOperatorExecutionPlan` 在 simulator 初始化时准备 `SceneParticleAlphaFadePlan` 与现有 boids/vortex/cap/remap/collision plans，fixed-step 只消费不可变 authored inputs。
+- **失败半径与 owner**：plan 不保存粒子状态、audio snapshot、instance override、dynamic control point 或 frame outcome；malformed/unsupported/未准入 operator 仍按原局部 no-op，boids 的 O(n²) neighbor traversal、simulator snapshot/restore、child runtime、instance-buffer transaction、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。既有 alpha fade、boids、vortex、cap velocity、remap value、collision plane 的正反输入与 fixed-step 分步一致性保持；未做改后真实 signed sample CPU/pre-encode A/B、GPU completion rollback、粒子 ROI、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 
@@ -4968,6 +5020,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **目标合同、首断点与实现**：目标链要求 video producer 的 clock/lifecycle、content generation 与 layer-source publication 只有在既有 all-surface submission barrier 接受后才进入 next-frame state。此前 `prepareFrame` 在 host 尚不知道 surface outcome 时可能执行首次 `lifecycle.start`、设置 player anchor、推进 playback barrier 并替换 `currentCVMetalTexture`；`discardPreparedFrame` 只清除 `lastPlan`，因此 deferred/dropped 的首帧可能让 provider clock 从失败帧起算。当前同一 source 在 prepare 前保存 lifecycle、`hasStarted`、`needsPlayerAnchor`、`playbackBarrier` 与 CVMetal texture；drop 先清除计划，再恢复该 snapshot；submitted 的既有 `commitPreparedFrame` 清除 snapshot 并保留 candidate。
 - **失败半径与 owner**：snapshot 只属于现有 `SceneVideoTextureSource`，不建立第二 provider、clock、registry、renderer、graph/history 或 compositor/output；AVPlayer、video registry 的 command application、epoch/content generation、last-ready publication、typed frame registry、Metal encode、GPU completion 与唯一 compositor owner 不迁移。没有新 pixel buffer 的 last-ready fallback 仍以 pending frame plan 参与 host barrier，success 消费计划，drop 让同一 frame index 可重试。
 - **自动门与边界**：`test_scene_video_texture_source` 的 10 项 lifecycle/source focused tests **OK**，`git diff --check` 通过；后续 code-health 与 checkpoint Debug build用于最终批次门。未做真实 signed video sample、可注入 multi-surface drop、GPU completion fault、AVPlayer completion race、视频 ROI、长稳或官方 parity；最高只支持 `S2` shared provider lifecycle-publication wiring，不外推为视频可见修复、性能收益或 V4 收口。
+
+<a id="e-v4-video-provider-snapshot-order-preparation"></a>
+### E-V4-VIDEO-PROVIDER-SNAPSHOT-ORDER-PREPARATION: prepare video snapshot source order once
+
+证据等级：`S2 shared provider preparation hot-path wiring`。本批只收口 SceneScript video playback snapshot 对 source identity 顺序的普通帧重复排序，不宣称真实视频样本、稳定帧性能、视频 ROI 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：目标链要求 launch/rebuild-prepared provider identity 进入 typed SceneScript frame input，动态 playback time、content generation、ended generation 与 readiness 仍由唯一 `SceneVideoTextureSource` 实时产生。此前 `SceneVideoTextureSourceRegistry.sceneScriptSnapshots(sceneTime:)` 每次 frame 都对完整 `sources` dictionary 进行 layer/device sort；当前 registry 只在新 source 注册、surface rebuild 完成或 stop 后使 `orderedSourceIdentities` 失效，下一次 snapshot request 重新建立同一排序，其后普通 frame 直接按缓存 identity 查找 source 并读取 live `playbackSnapshot`。
+- **失败半径与 owner**：缓存只保存 `SourceIdentity` 顺序，不保存 provider lifecycle、clock、content generation、texture、publication、frame registry 或 SceneScript state；source metadata revalidation、adopted lifecycle epoch、generation/stale/last-ready、prepare/commit/discard、host submission barrier、Program/GraphExecutor、Metal encode、GPU completion 与唯一 compositor/output 不迁移。新增/移除 source 与 surface rebuild 自动清除顺序缓存；dictionary 缺失 identity 在 snapshot 迭代中被跳过，不把旧 source 当成当前 provider。
+- **自动门与边界**：`test_scene_video_texture_source` **10/10 OK**，新增静态门锁定 snapshot path 只在 `orderedSourceIdentities == nil` 时排序、source topology 变化会失效；`git diff --check`、code-health 与 checkpoint Debug build通过。未做真实 signed sample CPU/pre-encode A/B、provider completion/GPU rollback、multi-surface drop、视频 ROI、稳定性能或官方 parity；最高只支持 `S2` shared provider preparation hot-path wiring，不外推为视频视觉改善或 V4 收口。
 
 <a id="e-v4-dynamic-text-frame-publication-pin"></a>
 ### E-V4-DYNAMIC-TEXT-FRAME-PUBLICATION-PIN: dynamic text publication follows host frame outcome

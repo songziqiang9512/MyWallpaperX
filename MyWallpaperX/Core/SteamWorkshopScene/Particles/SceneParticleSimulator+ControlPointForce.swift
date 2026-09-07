@@ -2,13 +2,12 @@ import Foundation
 
 nonisolated extension SceneParticleSimulator {
     func applyControlPointForce(
-        _ value: SceneParticleOperator,
+        plan: SceneParticleControlPointForcePlan?,
         duration: Double,
         normalizedLives: [Double],
         blend: SceneParticleOperatorBlendPlan
     ) {
-        guard definition.supportsBoundedControlPointForce(value),
-              case let .supported(plan) = value.controlPointForceAdmission,
+        guard let plan,
               let target = controlPointPosition(plan.controlPoint, offset: plan.origin),
               normalizedLives.count == particles.count
         else { return }
@@ -30,7 +29,13 @@ nonisolated extension SceneParticleSimulator {
         offset: SIMD3<Double>
     ) -> SIMD3<Double>? {
         var result = offset
-        if let point = definition.controlPoints.first(where: { $0.id == identity }) {
+        let point: SceneParticleControlPoint?
+        if controlPointsByID.isEmpty {
+            point = definition.controlPoints.first(where: { $0.id == identity })
+        } else {
+            point = controlPointsByID[identity]
+        }
+        if let point {
             result += SceneParticleSimulationMath.vector(point.offset, fallback: .zero)
             // Pointer-linked control points have no authored static position. A missing
             // or outside pointer must disable the bounded consumer instead of mapping

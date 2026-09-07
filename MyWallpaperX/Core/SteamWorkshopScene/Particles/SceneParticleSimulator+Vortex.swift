@@ -5,20 +5,12 @@ nonisolated extension SceneParticleSimulator {
     /// Positive speed follows the right-hand rule around the authored axis; negative speed
     /// reverses it. This is a project-owned clean-room numeric contract, not a Windows golden.
     func applyVortex(
-        _ value: SceneParticleOperator,
+        plan: SceneParticleVortexPlan?,
         duration: Double,
         audioResponsePlan: SceneParticleAudioResponsePlan?
     ) {
-        guard let plan = value.vortexPlan else { return }
-        let audioScale: Double
-        if value.audioResponse.isEnabled {
-            guard let audioPlan = audioResponsePlan else {
-                return
-            }
-            audioScale = audioPlan.evaluate(audioInput)
-        } else {
-            audioScale = 1
-        }
+        guard let plan else { return }
+        let audioScale = audioResponsePlan?.evaluate(audioInput) ?? 1
         let speedScale = definition.flags.disablesSpeedOverrides
             ? 1
             : overrideScalar(activeInstanceOverride?.speed)

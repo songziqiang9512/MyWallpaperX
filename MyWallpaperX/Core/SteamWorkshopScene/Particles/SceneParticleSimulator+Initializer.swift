@@ -2,7 +2,7 @@ import Foundation
 
 extension SceneParticleSimulator {
     nonisolated func applyInitializers(to particle: inout SceneParticleState) {
-        for initializer in definition.initializers {
+        for (initializerIndex, initializer) in definition.initializers.enumerated() {
             switch initializer.kind {
             case .lifetime:
                 particle.lifetime = randomScalar(initializer, defaults: (0, 1))
@@ -51,7 +51,9 @@ extension SceneParticleSimulator {
                     )
                 }
             case .positionAroundControlPoint:
-                applyPositionAroundControlPoint(initializer, to: &particle)
+                guard let plan = positionAroundControlPointPlans[initializerIndex]
+                else { break }
+                applyPositionAroundControlPoint(plan, to: &particle)
             case let .inheritEventColor(declaration):
                 if declaration.isBoundedSetColor,
                    let color = eventColorContext.initializerColor {
