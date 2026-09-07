@@ -185,6 +185,12 @@ enum Harness {
             utilityLayer: true,
             usesPerspective: nil
         )
+        let explicitUtilityLayer = SceneRenderDescriptor.Layer(
+            utilityLayer: true, usesPerspective: true
+        )
+        let explicitImageLayer = SceneRenderDescriptor.Layer(
+            utilityLayer: nil, usesPerspective: true
+        )
         let nativeCenter = SIMD4<Float>(
             nativeCamera.center[0], nativeCamera.center[1],
             nativeCamera.center[2], 1
@@ -278,6 +284,12 @@ enum Harness {
                 SIMD4<Float>(0, 1, 0, 1)
             ),
             "nativeDefaultsToPerspective": nativeFrame.defaultsToPerspective,
+            "utilityModelUsesPerspective": frame.resolvesPerspective(for: explicitUtilityLayer),
+            "utilityProjectionMatchesModel": frame.viewProjection(for: explicitUtilityLayer)
+                == frame.viewProjection(usesPerspective: frame.resolvesPerspective(for: explicitUtilityLayer)),
+            "imageModelUsesPerspective": frame.resolvesPerspective(for: explicitImageLayer),
+            "imageProjectionMatchesModel": frame.viewProjection(for: explicitImageLayer)
+                == frame.viewProjection(usesPerspective: frame.resolvesPerspective(for: explicitImageLayer)),
             "nativeOmittedLayerPerspective": nativeFrame.resolvesPerspective(
                 layerOverride: nil
             ),
@@ -462,6 +474,10 @@ class SceneParticleCameraFrameTests(unittest.TestCase):
         self.assertTrue(self.result["nativeOmittedLayerPerspective"])
         self.assertTrue(self.result["nativeLayerUsesPerspectiveProjection"])
         self.assertTrue(self.result["nativeUtilityUsesOrthoProjection"])
+        self.assertFalse(self.result["utilityModelUsesPerspective"])
+        self.assertTrue(self.result["utilityProjectionMatchesModel"])
+        self.assertTrue(self.result["imageModelUsesPerspective"])
+        self.assertTrue(self.result["imageProjectionMatchesModel"])
         self.assertFalse(self.result["nativeExplicitOrtho"])
         self.assertFalse(self.result["orthoDefaultsToPerspective"])
 

@@ -336,9 +336,7 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(
-                        layerOverride: layer.usesPerspective
-                    )
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                 )
                 _ = dependencyRuntime.captureProviderIfRequired(
                     layer: layer,
@@ -422,9 +420,7 @@ struct SceneMetalRenderer {
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(
-                        layerOverride: layer.usesPerspective
-                    )
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                 )
                 let mvp = cameraFrame.viewProjection(for: layer) * model
                 let cursorUV = SceneLayerCursorGeometry.layerUV(
@@ -708,9 +704,7 @@ struct SceneMetalRenderer {
                     emissiveMaskSampling: prepared.emissiveMask?.sampling,
                     modelMatrix: modelMatrix,
                     viewProjection: cameraFrame.reverseDepthViewProjection(
-                        usesPerspective: cameraFrame.resolvesPerspective(
-                            layerOverride: layer.usesPerspective
-                        )
+                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                     ),
                     cameraPosition: cameraFrame.perspectiveEyePosition,
                     textureFrame: albedoTextureFrame,

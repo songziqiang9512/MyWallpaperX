@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 Utility model 与 projection 共用有效 camera 决策
+
+修复 utility capture 以 raw perspective override 构建 model/采样区域、却用正交 projection/output 的不一致。`3765760121` 默认鱼眼开启的截图恢复正向，原 Program 首帧/next-frame GPU、publication、compositor 成功；30 项定向 tests 与 Debug build 通过。普通 image perspective 不变，真正透视 utility 未证明；`3780119725` 与 `3264246690` 独立缺陷仍在。见 [E-V4-UTILITY-CAMERA-CONSISTENCY](scene-sample-debug-ledger.md#e-v4-utility-camera-consistency组合层资源准备与消费方向一致2026-09-08)。
+
 ### 2026-09-08 Pointer 顶部边界与视差纵向坐标
 
 修复真实屏幕顶部被半开矩形判为 outside，以及 Y-up pointer 直接进入 Y-down parallax world 的两个公共断点。11 项定向测试、checkpoint Debug build，以及无 debug pointer override 的实际鼠标移动/terminal Metal 截图证明顶部不再回中、next-event 保持纵向响应。顶部极限仍露灰边，整样本未通过；其余新报样本保留逐项待办。见 [E-V4-POINTER-AXES-EDGE](scene-sample-debug-ledger.md#e-v4-pointer-axes-edge实际鼠标纵向与顶部边界2026-09-08)。

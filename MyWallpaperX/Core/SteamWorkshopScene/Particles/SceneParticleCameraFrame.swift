@@ -225,15 +225,14 @@ struct SceneParticleCameraFrame: Sendable {
         layerOverride ?? defaultsToPerspective
     }
 
+    /// Utility captures use the screen-space camera policy. The model card
+    /// orientation must resolve through the same policy as its projection.
+    func resolvesPerspective(for layer: SceneRenderDescriptor.Layer) -> Bool {
+        layer.utilityLayer == nil && resolvesPerspective(layerOverride: layer.usesPerspective)
+    }
+
     func viewProjection(for layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
-        guard layer.utilityLayer == nil else {
-            return orthographicViewProjection
-        }
-        return viewProjection(
-            usesPerspective: resolvesPerspective(
-                layerOverride: layer.usesPerspective
-            )
-        )
+        viewProjection(usesPerspective: resolvesPerspective(for: layer))
     }
 
     func basis(

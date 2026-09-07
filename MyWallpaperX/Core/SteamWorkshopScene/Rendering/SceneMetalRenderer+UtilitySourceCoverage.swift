@@ -32,9 +32,7 @@ extension SceneMetalRenderer {
                     frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: cameraFrame.resolvesPerspective(
-                    layerOverride: layer.usesPerspective
-                )
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
             return (
                 layerID,

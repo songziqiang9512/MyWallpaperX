@@ -61,9 +61,7 @@ extension SceneMetalRenderer {
             parallaxMouseNormalized: frameContext.cameraParallaxPosition,
             configuration: parallaxConfiguration,
             visibleHalfExtents: cameraFrame.coverHalfExtents,
-            usesPerspective: cameraFrame.resolvesPerspective(
-                layerOverride: provider.usesPerspective
-            )
+            usesPerspective: cameraFrame.resolvesPerspective(for: provider)
         )
         let providerAlpha = SceneDynamicLayerValues.alpha(
             layerID: provider.id,

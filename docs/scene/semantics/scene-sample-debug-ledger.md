@@ -11,7 +11,7 @@
 | 样本 | 待修复的用户可见问题 | 首轮区分证据 | 状态 |
 |---|---|---|---|
 | 3264246690 | 人物偏上、头部出画；左肘缺块 | 当前截图头部在画内、左肘缺块仍在；不能据此判定构图正确 | 未通过 |
-| 3765760121 | 上下颠倒 | 当前人物/背景倒置但日期文字正向，排除整个 terminal output 翻转 | 已复现，未修 |
+| 3765760121 | 上下颠倒 | utility model/投影策略不一致已修；默认鱼眼开启的当前截图恢复正向，见 E-V4-UTILITY-CAMERA-CONSISTENCY | 倒置修复，整样本未全面验收 |
 | 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 当前截图复现人物压缩、面部黑线；待区分 source/geometry/mask | 已复现，未修 |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
@@ -41,6 +41,18 @@
 五个需要先回到公共 owner 的 blocked 样本是 `2824109832`（effect admission 后仍有未认领 visible effect）、`3448845950`（GraphExecutor 缺失多层且无 terminal/next-frame）、`3470948192`（terminal flat-preview divergence）、`3775355045` 和 `3775373546`（layer 22 的 GraphExecutor execution missing）。`3509243656`、`3610154602`、`3612199597` 等真实样本还记录了 SceneScript typed exception；这说明“脚本路径更好”不能由全量 probe 推断。
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
+
+## E-V4-UTILITY-CAMERA-CONSISTENCY：组合层资源准备与消费方向一致（2026-09-08）
+
+`3765760121` 只有鱼眼组合层之前的图像倒置，后绘制日期仍正向。隔离 HOME 中关闭作者已有 `newproperty1` 可恢复方向，定位到该组合层而非图片解码、字体或 terminal output。首断点是 utility layer 保留了作者 `perspective=true`，现有 camera owner 的 `viewProjection(for:)` 却按 screen-space utility 策略选正交；preflight/source UV/model orientation 直接读 raw override，实际 utility draw 又强制正交，造成 capture UV 与输出朝向不一致。此问题不在鱼眼 shader，本批没有改 shader、资源、作者属性默认值或选择算法。
+
+现有 camera frame 新增 `resolvesPerspective(for:)`，把既有 utility screen-space 策略与普通 image 的声明/default 决策一起提供给 model 和 projection。target-size reservation、source capture、普通绘制、utility 绘制、provider/fallback 和 cursor hit 的调用点统一消费该决策；没有新增 camera owner 或逐帧准备工作。普通 image 的显式 perspective 仍为 true。真正透视 utility 的语义/支持仍未证明，不能把本次纠正既有 screen-space 路径称为完整透视 utility 支持。
+
+验证：`python3 -m unittest script.tests.test_scene_particle_camera_frame script.tests.test_scene_capture_geometry script.tests.test_scene_layer_cursor_geometry` 共 30 tests PASS；新增 utility raw-true 的 model/projection 一致性正例及普通 image raw-true 反例，保留 native/default/ortho、capture region、非法尺寸与命中投影门。checkpoint Debug build 成功，App CDHash `48a64bed37dd4d24fcbd151ace586707ec07ceb0`、Debug dylib SHA-256 `a2295044edc30cdc96a2c138b8e4715f73d6e858834ee123fba522d89516e9f2`。
+
+本机 provenance `/private/tmp/mwx-async-text.qmTbKj/3765760121/`：`current/scene-after-window.png` SHA-256 `26397c34d53c71f4ed2133c1fff7c342510b6897d1eafc7e2df45ef25139106d` 为倒置负例；`no-fisheye/scene-after-window.png` SHA-256 `e79140bdb11dd179f4a827c05ab3be573b052b3fd754106e9998dc5db34e129c` 为关闭组合层的区分对照，不是验收。当前 `utility-camera-after` 使用隔离样本/HOME、异步 requestLaunch、显式 audio-silence、默认属性（鱼眼开启）、14 秒/after11。after 截图 SHA-256 `db38d7d8b0c592fdfed0c9ffb9f9738ba78b1dfd8939e354ac420000e0cbabdb` 中人物/背景与文字均正向，日期/时钟实时。layer96 原 Program `5b3e4a2321762b6b92fcb5b4ed3d314d0804717608829479d615d51578e0af51` 的 frame0/1 均 succeeded、gpuCompletion=completed、compositorConsumed=true，publicationGeneration 7→20；surfaceStop 时 VM owners6/quiescent6/failures0。主链仍是 authored utility/属性 → prepared graph/source geometry → typed frame/model → Metal → unique compositor/output。
+
+结论只到默认样本的倒置修复，不是全部内容/音频/交互正确。相同构建重跑 `3780119725`、`3264246690`（各 13 秒/after10，目录均为 `utility-camera-after`）后，人物压缩/脸部黑线及左肘缺块仍存在，说明这些是独立首断点；不将它们算为回归通过。多屏、真实系统音频、透视 utility 和官方同输入像素对照未执行；完整样本验收仍开放。
 
 ## E-V4-POINTER-AXES-EDGE：实际鼠标纵向与顶部边界（2026-09-08）
 

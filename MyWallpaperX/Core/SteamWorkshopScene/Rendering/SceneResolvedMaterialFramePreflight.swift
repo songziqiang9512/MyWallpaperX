@@ -251,9 +251,7 @@ extension SceneMetalRenderer {
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(
-                        layerOverride: layer.usesPerspective
-                    )
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                 )
                 guard let projectedSize =
                     SceneCaptureGeometryResolver.projectedPixelSize(
@@ -296,13 +294,11 @@ extension SceneMetalRenderer {
                     parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(
-                        layerOverride: layer.usesPerspective
-                    )
+                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
                 )
                 guard let geometry = SceneCaptureGeometryResolver.resolve(
                     kind: utility.kind,
-                    layerMVP: cameraFrame.orthographicViewProjection * model,
+                    layerMVP: cameraFrame.viewProjection(for: layer) * model,
                     viewportSize: viewportSize
                 ) else {
                     return .rejected(
@@ -395,9 +391,7 @@ extension SceneMetalRenderer {
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: cameraFrame.resolvesPerspective(
-                    layerOverride: layer.usesPerspective
-                )
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
             )
         }
         var result: [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest] = []
