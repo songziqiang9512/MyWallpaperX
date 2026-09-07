@@ -240,6 +240,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_storage_screen_identity(
 
 void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain);
 
+/* Exclusive handoff only: the previous thread must no longer use the domain. */
+void mwx_scene_quickjs_domain_adopt_current_thread(MWXSceneQuickJSDomain *domain);
+
 void mwx_scene_quickjs_domain_set_cancellation_check(
     MWXSceneQuickJSDomain *domain,
     MWXSceneQuickJSCancellationCheck cancellation_check,

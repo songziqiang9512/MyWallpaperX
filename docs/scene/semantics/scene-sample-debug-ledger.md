@@ -27,7 +27,28 @@
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
 
-## 手动启动与脚本运行不是同一实验
+## E-V4-ASYNC-VM-THREAD-HANDOFF：普通 App 日期文字失败（2026-09-08）
+
+**已定位的首断点不是旧缓存，也不是固定 clock。** 普通 UI 的 `requestLaunch` 在后台 prepare QuickJS domain，再交给主线程 `activate`；同步 probe 始终在主线程。QuickJS 保留创建线程的 native stack boundary，跨线程交接未调用 `JS_UpdateStackTop`，使正常 App 的属性赋值/脚本调用失败。`3766387484` 在隔离 HOME、`paused=false` 下仍复现 `SceneScript properties unavailable`，排除了持久化 overrides 和 pause 作为这次失败的必要条件。此前清除 overrides 的操作没有因果证据，不应重做；此前 `6c9dc01b` 的 paused activation 特例已撤回，不作为修复保留。
+
+唯一 VM owner 在 preparation 完成、旧线程不再访问之后，由 `activate` 显式接管当前线程栈边界；保持原 stack/memory/instruction budget、generation 检查及局部失败语义。主链是 authored script → prepared shared domain → exclusive thread handoff → typed String update → text texture generation/publication → Metal → terminal compositor；普通帧不增加检查或第二个 VM。
+
+可复现门：同一隔离样本副本/HOME，使用当前 Debug App 加 `--mwx-debug-scene-root <copy> --mwx-debug-scene-evidence-dir <output> --mwx-debug-scene-async-launch-smoke --mwx-debug-scene-duration 25 --mwx-debug-scene-after-snapshot-delay 22`。这条诊断入口使用真实 `requestLaunch`，但仍强制 resume / evidence window，因此不是完整普通窗口/暂停策略验收。C regression `test_scene_quickjs_thread_handoff.py` 用 pthread prepare、主线程两次更新、stale generation 反例，并在 macOS 跳过 handoff 复现失败；连同 QuickJS/owner-budget 共 4 tests 通过，checkpoint Debug build 成功。
+
+本机证据根 `/private/tmp/mwx-async-text.qmTbKj`（仅 provenance，消失后重跑）：`before/scene-after-window.png` SHA-256 `10cdb94390389db59f9a79e74cb9fdab75705a57e8184eb782baeee23966359c` 为静态占位/碎片；`after/scene-after-window.png` SHA-256 `8981c697b7086c24946b427fb2f2f6a7caaf592350a3d17e28d9edcca71fe736` 显示完整 `8 SEP 2026`、`TUESDAY`、当前 `04:52`。`after.log` 有三 text callback completed、layers 55/62/68 texture publication、GPU completed、compositorConsumed、next-frame、teardown owners3/quiescent3/failures0。该次 Debug dylib SHA-256 `26d40c702fedaa0c837768a6699e8e05cdeb67c8624bce24645ba3a5521a777e`。随后仅扩展异步 smoke 时长参数后的签名 App：Team `H9QWU9XN8R`、CDHash `9d0f13361117f7839cf7680fcc9e22e1a67dda33`、Debug dylib SHA-256 `248e725c55b157e934c405e5451ef7f2ed7b2a4173ef503f1667d541ee7c75f4`。
+
+| 样本 | 当前截图裁决 |
+|---|---|
+| 3766387484 | 日期、星期、时钟恢复完整；不代表所有 effect parity |
+| 3712499998 | 日期/时钟恢复；仍有 WEVector unsupported，重复文字/装饰尚未全面裁决 |
+| 3437487219 | 日期和时间单行完整；cursor owner collision 未闭合 |
+| 3509243656 | 22 秒能离开开场；模拟 MAIN visibility producer 未执行，坐标 text 仍 undefined，不通过 |
+| 3470948192 | 22 秒能离开开场；仍有 NaN、文字碎片和异常背景，不通过 |
+| 3747492842 | 用户报告文字、额外闪烁与顶部光照错位；进入定向复验，未通过 |
+
+前一次 159 样本 synchronous probe 不能代替此异步启动验收。
+
+## 历史比较：手动启动与脚本运行不是同一实验
 
 用户的 `xcodebuild ... .codex/DerivedData && open -n .../MyWallpaperX.app` 与上述 probe 的可见结果不能直接比较，至少有三项已由当前证据确认的输入差异：
 
@@ -41,4 +62,4 @@
 
 ## 结论上限和下一步
 
-本次 probe 证明 159 个样本均有可复查的运行条目和 first-breakpoint/lifecycle 证据；它没有证明任一样本的视觉等价、时间文字正确、稳定帧性能或官方 parity。当前最高收益的 V4 工作是先固定同一 build identity/effective input 做手动与 probe A/B，再修复共享 GraphExecutor layer-22 缺失与 SceneScript date/text typed exception 的首断点，并为每个修复样本补 authored ROI、GPU completion、publication、terminal compositor 和 next-frame 证据。没有必要因这份 triage 档案启动 Ghidra；若上述 A/B 仍无法区分首断点，再按官方行为研究工作流取证。
+159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。

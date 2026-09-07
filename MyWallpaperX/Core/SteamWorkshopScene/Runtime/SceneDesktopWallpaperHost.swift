@@ -99,6 +99,9 @@ final class SceneDesktopWallpaperHost {
     }
 
     func activate(_ context: SceneDesktopWallpaperLaunchContext) throws {
+        // Preparation has completed and relinquished the shared VM domain.
+        // Rebase QuickJS's stack guard before any main-thread provider/VM call.
+        context.propertyVectorScriptProgram.domain?.adoptCurrentThread()
         let teardownReason: SceneGraphExecutionResetReason = launchContext == nil
             ? .surfaceStop
             : .sceneSwitch

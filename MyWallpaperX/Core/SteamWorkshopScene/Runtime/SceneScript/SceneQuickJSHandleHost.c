@@ -432,6 +432,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_material_function_at(
     return MWX_SCENE_QUICKJS_OK;
 }
 
+void mwx_scene_quickjs_domain_adopt_current_thread(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL) return;
+    // QuickJS retains the creating thread's native stack boundary. Preparation
+    // hands the domain to the main thread exclusively before frame execution.
+    // Keep the configured stack limit; only rebase it onto its new owner thread.
+    JS_UpdateStackTop(domain->runtime);
+}
+
 void mwx_scene_quickjs_domain_reset_budget(
     MWXSceneQuickJSDomain *domain,
     uint64_t interrupt_budget

@@ -107,15 +107,9 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        // A Scene may be activated while the shared WallpaperEngine policy is
-        // already paused (for example when another fullscreen app is active).
-        // Still execute one typed frame so authored date/clock/text providers
-        // replace their static placeholder (commonly "12:34") and publish a
-        // correct initial texture.  Paused playback remains paused: no timer
-        // is armed below, and animation time does not advance.
+        guard !sceneClock.isPaused else { return }
         let initialDeadline = CACurrentMediaTime()
         let attempt = renderFrame()
-        guard !sceneClock.isPaused else { return }
         scheduleFrameDriver(
             after: attempt,
             scheduledDeadline: initialDeadline

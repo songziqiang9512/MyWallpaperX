@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 普通 App 异步 QuickJS handoff 与真实日期文字
+
+后台 prepare → 主线程 activate 未刷新 QuickJS native stack boundary，是普通 App 日期脚本失败而同步 probe 可执行的已复现首断点；修复在唯一 domain 的独占交接处调用 `JS_UpdateStackTop`，不放宽预算。三个日期样本恢复真实日期/时钟截图；两个开场样本延长播放后仍存在独立错误，不算通过。撤回此前 paused-frame 特例，缓存/override 清除没有作为根因的证据。正反单元门、Debug build、隔离异步截图和结论上限见 [E-V4-ASYNC-VM-THREAD-HANDOFF](scene-sample-debug-ledger.md#e-v4-async-vm-thread-handoff普通-app-日期文字失败2026-09-08)。
+
 ### 2026-09-08 SceneScript String callback-only quiescence + authored text provider
 
 String Program 已把 callback-only owner 的稳定帧求值收口到同一 typed event/property 链：没有 property/media callback、`update` 或 active timer 时不再跨 Swift/C，也不刷新音频桥；property event 或 timer 到期仍恢复同一 owner/generation。`test_scene_script_string_lifecycle` 与 checkpoint 21 modules **ALL OK**，code-health、`git diff --check` 与 Debug build 通过。

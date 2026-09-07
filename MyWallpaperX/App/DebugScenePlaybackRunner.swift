@@ -211,7 +211,10 @@ enum DebugScenePlaybackRunner {
                             model.renderDescriptor.layers.count,
                             snapshot.surfaceCount
                         )
-                        terminate(after: 0.5)
+                        if let evidenceDirectory {
+                            scheduleSnapshots(outputDirectory: evidenceDirectory)
+                        }
+                        terminate(after: requestedDuration)
                     case let .failure(error):
                         NSLog(
                             "MWX DEBUG SCENE: phase=async-launch-failed error=%@",
