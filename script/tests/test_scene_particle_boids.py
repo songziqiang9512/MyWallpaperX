@@ -14,6 +14,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Particles/SceneParticleDefinition.swift",
     SOURCE_ROOT / "Particles/SceneParticleInitializer.swift",
     SOURCE_ROOT / "Particles/SceneParticleAudioResponsePlan.swift",
+    SOURCE_ROOT / "Particles/SceneParticleUnaryOperatorPlans.swift",
     SOURCE_ROOT / "Particles/SceneParticleVortex.swift",
     SOURCE_ROOT / "Particles/SceneParticleRemapValue.swift",
     SOURCE_ROOT / "Particles/SceneParticleReduceMovement.swift",

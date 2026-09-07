@@ -35,6 +35,40 @@ nonisolated struct SceneParticleRandomGenerator: Sendable {
     }
 }
 
+nonisolated struct SceneParticleTurbulentVelocityPlan: Sendable {
+    let forward: SIMD3<Double>
+    let right: SIMD3<Double>
+    let up: SIMD3<Double>
+    let offset: Double
+    let phaseMinimum: Double
+    let phaseMaximum: Double
+    let scale: Double
+    let speedMinimum: Double
+    let speedMaximum: Double
+    let timeScale: Double
+    let audioResponseEnabled: Bool
+    let audioResponsePlan: SceneParticleAudioResponsePlan?
+
+    nonisolated init(_ value: SceneParticleTurbulentVelocity) {
+        forward = SceneParticleSimulationMath.vector(
+            value.forward, fallback: SIMD3(0, 1, 0)
+        )
+        right = SceneParticleSimulationMath.vector(
+            value.right, fallback: SIMD3(0, 0, 1)
+        )
+        up = SceneParticleSimulationMath.vector(value.up, fallback: .zero)
+        offset = value.offset ?? 0
+        phaseMinimum = value.phaseMinimum ?? 0
+        phaseMaximum = value.phaseMaximum ?? 2 * .pi
+        scale = value.scale ?? 1
+        speedMinimum = value.speedMinimum ?? 0
+        speedMaximum = value.speedMaximum ?? 100
+        timeScale = value.timeScale ?? 1
+        audioResponseEnabled = value.audioResponse.isEnabled
+        audioResponsePlan = SceneParticleAudioResponsePlan(value.audioResponse)
+    }
+}
+
 nonisolated enum SceneParticleSimulationMath {
     static func scalar(_ value: SceneParticleNumericValue?, fallback: Double) -> Double {
         switch value {
@@ -76,6 +110,8 @@ nonisolated enum SceneParticleSimulationMath {
         }
     }
 
+    /// Compatibility entry point for focused definition/runtime harnesses and
+    /// callers that have not adopted the launch-prepared initializer plan.
     static func turbulentVelocity(
         _ value: SceneParticleTurbulentVelocity?,
         _ position: SIMD3<Double>,
@@ -84,9 +120,23 @@ nonisolated enum SceneParticleSimulationMath {
         audioInput: SceneParticleAudioInput = .silent
     ) -> SIMD3<Double> {
         guard let value else { return .zero }
+        return turbulentVelocity(
+            SceneParticleTurbulentVelocityPlan(value), position, time,
+            &random, audioInput: audioInput
+        )
+    }
+
+    static func turbulentVelocity(
+        _ value: SceneParticleTurbulentVelocityPlan?,
+        _ position: SIMD3<Double>,
+        _ time: Double,
+        _ random: inout SceneParticleRandomGenerator,
+        audioInput: SceneParticleAudioInput = .silent
+    ) -> SIMD3<Double> {
+        guard let value else { return .zero }
         let audioFactor: Double
-        if value.audioResponse.isEnabled {
-            guard let plan = SceneParticleAudioResponsePlan(value.audioResponse) else {
+        if value.audioResponseEnabled {
+            guard let plan = value.audioResponsePlan else {
                 return .zero
             }
             audioFactor = 1 + plan.evaluate(audioInput)
@@ -94,11 +144,10 @@ nonisolated enum SceneParticleSimulationMath {
             audioFactor = 1
         }
         let phase = random.value(
-            value.phaseMinimum ?? 0,
-            value.phaseMaximum ?? 2 * .pi
+            value.phaseMinimum, value.phaseMaximum
         ) * audioFactor
-        let timeScale = value.timeScale ?? 1
-        let directionalOffset = value.offset ?? 0
+        let timeScale = value.timeScale
+        let directionalOffset = value.offset
         guard phase.isFinite, time.isFinite, timeScale.isFinite,
               directionalOffset.isFinite,
               position.x.isFinite, position.y.isFinite, position.z.isFinite else {
@@ -112,9 +161,9 @@ nonisolated enum SceneParticleSimulationMath {
         let planeNoise = gradientNoise(
             point + SIMD3(59.19, 71.41, 89.97), seed: 0x94D049BB133111EB
         )
-        let forward = vector(value.forward, fallback: SIMD3(0, 1, 0))
-        let normal = vector(value.right, fallback: SIMD3(0, 0, 1))
-        let up = vector(value.up, fallback: .zero)
+        let forward = value.forward
+        let normal = value.right
+        let up = value.up
         let forwardLength = length(forward)
         guard forwardLength.isFinite, forwardLength > 1e-9 else { return .zero }
         let base = forward / forwardLength
@@ -127,7 +176,7 @@ nonisolated enum SceneParticleSimulationMath {
         let tangentLength = length(tangentValue)
         guard tangentLength.isFinite, tangentLength > 1e-9 else { return .zero }
         let tangent = tangentValue / tangentLength
-        let angularScale = max(value.scale ?? 1, 0)
+        let angularScale = max(value.scale, 0)
         guard angularScale.isFinite else { return .zero }
         let turn = directionalOffset + angularScale * Double.pi * turnNoise
         var direction = base * cos(turn) + tangent * sin(turn)
@@ -137,8 +186,8 @@ nonisolated enum SceneParticleSimulationMath {
             directionLength = length(direction)
         }
         guard directionLength.isFinite, directionLength > 1e-9 else { return .zero }
-        let minimumSpeed = max(value.speedMinimum ?? 0, 0)
-        let maximumSpeed = max(value.speedMaximum ?? 100, minimumSpeed)
+        let minimumSpeed = max(value.speedMinimum, 0)
+        let maximumSpeed = max(value.speedMaximum, minimumSpeed)
         return direction / directionLength * random.value(minimumSpeed, maximumSpeed)
     }
 

@@ -54,6 +54,7 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
     let color: SceneParticleRandomColorPlan?
     let hsvColor: SceneParticleHSVColorPlan?
     let colorList: [SIMD3<Double>]?
+    let turbulentVelocity: SceneParticleTurbulentVelocityPlan?
     let positionOffset: SceneParticlePositionOffsetPlan?
     let inheritsEventColor: Bool
 
@@ -63,6 +64,7 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         var color: SceneParticleRandomColorPlan?
         var hsvColor: SceneParticleHSVColorPlan?
         var colorList: [SIMD3<Double>]?
+        var turbulentVelocity: SceneParticleTurbulentVelocityPlan?
         var positionOffset: SceneParticlePositionOffsetPlan?
         var inheritsEventColor = false
 
@@ -79,6 +81,10 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
             hsvColor = value.boundedHSVColor
         case .colorList:
             colorList = value.boundedColorList
+        case .turbulentVelocity:
+            turbulentVelocity = value.turbulentVelocity.map(
+                SceneParticleTurbulentVelocityPlan.init
+            )
         case .alpha:
             scalar = .init(value, defaults: (0.05, 1))
         case .rotation:
@@ -101,6 +107,7 @@ nonisolated struct SceneParticleInitializerExecutionPlan: Sendable {
         self.color = color
         self.hsvColor = hsvColor
         self.colorList = colorList
+        self.turbulentVelocity = turbulentVelocity
         self.positionOffset = positionOffset
         self.inheritsEventColor = inheritsEventColor
     }
@@ -144,7 +151,7 @@ extension SceneParticleSimulator {
                 particle.angularVelocity += randomVector(plan)
             case .turbulentVelocity:
                 particle.velocity += SceneParticleSimulationMath.turbulentVelocity(
-                    initializer.turbulentVelocity, particle.position, simulationTime,
+                    executionPlan.turbulentVelocity, particle.position, simulationTime,
                     &random, audioInput: audioInput
                 )
             case .positionOffset:

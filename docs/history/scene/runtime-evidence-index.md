@@ -2366,6 +2366,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：plan 不保存粒子状态、simulation clock、audio snapshot、dynamic control point、provider generation 或 RNG；malformed/unsupported HSV、color-list、position-offset 继续局部 no-op，turbulent velocity（position/time/audio）与 Position Around Control Point（dynamic map）仍由原 live/typed consumer 处理。没有新增 initializer、provider、clock、VM 或 compositor owner。
 - **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_particle_audio_response.py` **5/5**、`test_scene_particle_definitions.py` **6/6**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。正反 scalar/vector/color/HSV/color-list/offset 及 invalid-input 门保持；未做改后真实 signed sample CPU/pre-encode A/B、initializer/audio producer→consumer ROI、GPU completion rollback、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
 
+<a id="e-v4-particle-turbulent-velocity-preparation"></a>
+### E-V4-PARTICLE-TURBULENT-VELOCITY-PREPARATION: reuse prepared turbulent-velocity initializer inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口 turbulent velocity initializer 对 authored basis、phase/speed/time 与 audio-response plan 的重复投影，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：authored `.turbulentVelocity` initializer 仍按 definition order 进入同一 simulator；每粒子的 position、simulation time、live `SceneParticleAudioInput`、RNG 与后续 operator order 必须保持实时。此前 fixed-step 分支每次从 `SceneParticleTurbulentVelocity` 重新归一化 forward/right/up、读取 defaults 并构造 audio response plan；当前 `SceneParticleInitializerExecutionPlan` 在 simulator launch 阶段保存 `SceneParticleTurbulentVelocityPlan`，fixed-step 只消费 immutable authored inputs，再沿既有 particle state、GPU instance、Program/Graph、Metal encode 与唯一 compositor/output。
+- **失败半径与 owner**：plan 不保存 particle position、simulation clock、audio snapshot/provider generation、RNG、event state 或 frame outcome；缺失/非法 basis、phase/speed/timeScale 与 unsupported audio 仍返回原来的 zero/no-op 局部结果。`SceneParticleSimulationMath` 保留 raw `SceneParticleTurbulentVelocity` compatibility overload，供尚未迁移的 harness/legacy caller 复用同一计划构造，但没有第二个 provider、clock、simulator 或 renderer owner。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_particle_audio_response.py` **5/5**、`test_scene_particle_boids.py` **2/2**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。raw compatibility harness 与 source list 正反门保持；未做改后真实 signed sample CPU/pre-encode A/B、turbulence/audio producer→consumer ROI、GPU completion rollback、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 
