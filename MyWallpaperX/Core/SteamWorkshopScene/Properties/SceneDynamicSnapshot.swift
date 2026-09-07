@@ -356,6 +356,31 @@ nonisolated struct SceneDynamicSnapshot: Equatable, Sendable {
         )
     }
 
+    /// Rebuilds only the resolved payload while preserving the authored
+    /// metadata carried by this snapshot.  The resolver uses this for a
+    /// same-frame SceneScript result overlay after the authored/user/timeline
+    /// lanes have already been resolved for VM input.
+    fileprivate nonisolated func replacingResolvedValues(
+        frameIndex: UInt64,
+        generation: UInt64,
+        values: [SceneDynamicTarget: SceneDynamicResolvedValue],
+        dynamicTransformLayerIDs: Set<Int>
+    ) -> SceneDynamicSnapshot {
+        SceneDynamicSnapshot(
+            frameIndex: frameIndex,
+            generation: generation,
+            values: values,
+            authoredValues: authoredValues,
+            userPropertyNumericRanges: userPropertyNumericRanges,
+            dynamicTransformLayerIDs: dynamicTransformLayerIDs
+        )
+    }
+
+    fileprivate nonisolated func resolvedValuesForPreparation()
+        -> [SceneDynamicTarget: SceneDynamicResolvedValue] {
+        values
+    }
+
     nonisolated static func empty(
         frameIndex: UInt64,
         generation: UInt64 = 0
@@ -567,6 +592,45 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 values: resolved,
                 authoredValues: index.authoredValueLanes,
                 userPropertyNumericRanges: index.userPropertyNumericRanges,
+                dynamicTransformLayerIDs: Self.dynamicTransformLayerIDs(
+                    in: resolved,
+                    candidates: index.dynamicTransformLayerIDs
+                )
+            ),
+            diagnostics: orderedDiagnostics
+        )
+    }
+
+    /// Applies a same-frame SceneScript result to an already resolved
+    /// authored/user/timeline snapshot.  This keeps the typed producer lane
+    /// shared with VM input while avoiding a second pass over every authored
+    /// definition on the ordinary frame path.  Validation and diagnostics for
+    /// the new producer remain identical to the full resolver.
+    nonisolated func resolve(
+        frameIndex: UInt64,
+        generation: UInt64,
+        index: SceneDynamicSnapshotDefinitionIndex,
+        base: SceneDynamicSnapshotResolution,
+        sceneScriptValues: [SceneDynamicTarget: SceneDynamicValue]
+    ) -> SceneDynamicSnapshotResolution {
+        var diagnostics = base.diagnostics
+        var resolved = base.snapshot.resolvedValuesForPreparation()
+        apply(
+            sceneScriptValues,
+            source: .sceneScript,
+            definitions: index.definitionsByTarget,
+            resolved: &resolved,
+            diagnostics: &diagnostics
+        )
+        let orderedDiagnostics = diagnostics.sorted {
+            ($0.source.priority, $0.target.sortKey, $0.code.rawValue)
+                < ($1.source.priority, $1.target.sortKey, $1.code.rawValue)
+        }
+        return SceneDynamicSnapshotResolution(
+            snapshot: base.snapshot.replacingResolvedValues(
+                frameIndex: frameIndex,
+                generation: generation,
+                values: resolved,
                 dynamicTransformLayerIDs: Self.dynamicTransformLayerIDs(
                     in: resolved,
                     candidates: index.dynamicTransformLayerIDs

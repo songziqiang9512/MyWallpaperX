@@ -787,7 +787,8 @@ class SceneFrameContextTests(unittest.TestCase):
             host_render.index("sceneScriptCursorProgram.dispatch("),
             host_render.index("launchContext.frameSchema.mediaFrameCoordinator.evaluate("),
         )
-        self.assertIn("sceneScriptValues: commonSceneScriptValues", host_render)
+        self.assertIn("base: preliminarySceneScriptResolution", host_render)
+        self.assertIn("resolution: sharedSurfaceResolution", host_render)
         self.assertIn("PendingEvaluation", host_render)
 
     def test_debug_wall_date_override_is_bounded_to_evidence_runs(self) -> None:

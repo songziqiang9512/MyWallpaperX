@@ -274,6 +274,51 @@ enum Harness {
         let stringProjection = first.snapshot.typedValues(
             for: Set([text, alpha]), valueTypes: [.string]
         )
+        let incrementalAlpha = SceneDynamicTarget.layer(
+            layerID: 30, field: .alpha
+        )
+        let incrementalVector = SceneDynamicTarget.layer(
+            layerID: 30, field: .size
+        )
+        let incrementalUnknown = SceneDynamicTarget.layer(
+            layerID: 99, field: .volume
+        )
+        let incrementalDefinitions: [SceneDynamicTargetDefinition] = [
+            .init(
+                target: incrementalAlpha, valueType: .scalar,
+                authoredValue: .scalar(0.1)
+            ),
+            .init(
+                target: incrementalVector, valueType: .vector2,
+                authoredValue: .vector2(1, 2)
+            ),
+        ]
+        let incrementalIndex = SceneDynamicSnapshotResolver.prepare(
+            definitions: incrementalDefinitions
+        )
+        let incrementalBase = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            userValues: [incrementalAlpha: .scalar(0.2)],
+            sceneScriptValues: [incrementalAlpha: .scalar(0.25)]
+        )
+        let incremental = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            base: incrementalBase,
+            sceneScriptValues: [
+                incrementalAlpha: .scalar(0.75),
+                incrementalVector: .vector2(8, 9),
+                incrementalUnknown: .scalar(1),
+            ]
+        )
+        let full = resolver.resolve(
+            frameIndex: 77, generation: 8, index: incrementalIndex,
+            userValues: [incrementalAlpha: .scalar(0.2)],
+            sceneScriptValues: [
+                incrementalAlpha: .scalar(0.75),
+                incrementalVector: .vector2(8, 9),
+                incrementalUnknown: .scalar(1),
+            ]
+        )
         let empty = SceneDynamicSnapshot.empty(frameIndex: 9, generation: 4)
         let payload: [String: Any] = [
             "coderRoundTrip": coderRoundTrip,
@@ -294,6 +339,9 @@ enum Harness {
             "typedStringTargets": stringProjection.count,
             "typedStringHasText": stringProjection[text] != nil,
             "typedStringHasAlpha": stringProjection[alpha] != nil,
+            "incrementalEquivalent": incremental == full,
+            "incrementalValue": String(describing: incremental.snapshot[incrementalAlpha]!.value),
+            "incrementalDiagnostics": incremental.diagnostics.map { diagnostic($0) },
             "duplicateMissing": first.snapshot[duplicate] == nil,
             "mismatchMissing": first.snapshot[authoredMismatch] == nil,
             "nonFiniteMissing": first.snapshot[authoredNonFinite] == nil,
@@ -413,6 +461,14 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertTrue(self.result["typedStringHasText"])
         self.assertFalse(self.result["typedStringHasAlpha"])
 
+    def test_scene_script_overlay_matches_full_resolution_and_keeps_diagnostics(self) -> None:
+        self.assertTrue(self.result["incrementalEquivalent"])
+        self.assertEqual(self.result["incrementalValue"], "scalar(0.75)")
+        self.assertEqual(
+            self.result["incrementalDiagnostics"],
+            [["sceneScript", "unknownTarget"]],
+        )
+
     def test_duplicate_and_invalid_definitions_fail_closed(self) -> None:
         self.assertTrue(self.result["duplicateMissing"])
         self.assertTrue(self.result["mismatchMissing"])
@@ -468,6 +524,9 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertIn("fileprivate let authoredValueLanes", source)
         self.assertIn("fileprivate let userPropertyNumericRanges", source)
         self.assertIn("nonisolated func typedValues", source)
+        self.assertIn("replacingResolvedValues", source)
+        self.assertIn("resolvedValuesForPreparation", source)
+        self.assertIn("base: SceneDynamicSnapshotResolution", source)
         self.assertIn("authoredValues: index.authoredValueLanes", source)
         self.assertIn(
             "userPropertyNumericRanges: index.userPropertyNumericRanges",

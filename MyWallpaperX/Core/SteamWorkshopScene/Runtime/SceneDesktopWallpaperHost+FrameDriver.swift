@@ -300,14 +300,15 @@ extension SceneDesktopWallpaperHost {
             layerMutationSnapshot.authoredLayerValues
         ) { _, committedMutation in committedMutation }
         let boundedSceneScriptValues = commonSceneScriptValues
-        let preliminaryForSceneScript = SceneDynamicSnapshotResolver().resolve(
+        let preliminarySceneScriptResolution = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex,
             generation: 0,
             index: definitionIndex,
             userValues: launchContext.liveState.userValues,
             timelineValues: timelineValues,
             sceneScriptValues: boundedSceneScriptValues
-        ).snapshot
+        )
+        let preliminaryForSceneScript = preliminarySceneScriptResolution.snapshot
         let userPropertiesJSON = launchContext.propertyVectorScriptProgram
             .userPropertiesJSON(
                 effectiveValues: launchContext.liveState.effectiveValues,
@@ -583,23 +584,32 @@ extension SceneDesktopWallpaperHost {
         ) -> [SceneDynamicTarget: SceneDynamicValue] {
             values.filter { !rejectedOwnerTargets.contains($0.key) }
         }
-        commonSceneScriptValues.merge(
-            admittedValues(sceneScriptStringResult.values),
-            uniquingKeysWith: { _, genericValue in genericValue }
+        var admittedSceneScriptValues = admittedValues(
+            sceneScriptStringResult.values
         )
-        commonSceneScriptValues.merge(
+        admittedSceneScriptValues.merge(
             admittedValues(sceneScriptResult.values),
             uniquingKeysWith: { _, genericValue in genericValue }
         )
-        commonSceneScriptValues.merge(
+        admittedSceneScriptValues.merge(
             admittedValues(sceneScriptVectorResult.values),
             uniquingKeysWith: { _, genericValue in genericValue }
+        )
+        // The preliminary snapshot already contains authored, user-property,
+        // timeline, and stateful SceneScript lanes. Overlay only the current
+        // admitted results so surface preparation does not walk every
+        // definition a second time on the same frame.
+        let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: timing.frameIndex,
+            generation: 0,
+            index: definitionIndex,
+            base: preliminarySceneScriptResolution,
+            sceneScriptValues: admittedSceneScriptValues
         )
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         var pendingSurfaceEvaluations: [(Surface, SceneSurfaceEvaluationTransaction.PendingEvaluation)] = []
         var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
         frameOutcomes.reserveCapacity(surfaces.count)
-        var sharedSurfaceResolution: SceneDynamicSnapshotResolution?
         let parallaxPointerStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotParallaxPointerSmoother()) })
         let pointerPreviousStates = Dictionary(uniqueKeysWithValues: surfaces.map { ($0.key, $0.value.metalView.snapshotPointerPrevious()) })
         for (displayID, surface) in surfaces {
@@ -613,18 +623,10 @@ extension SceneDesktopWallpaperHost {
 #if DEBUG
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
-            let pendingEvaluation = sharedSurfaceResolution.map {
-                surface.evaluationTransaction.prepare(
-                    frameIndex: timing.frameIndex, resolution: $0
-                )
-            } ?? surface.evaluationTransaction.prepare(
-                frameIndex: timing.frameIndex, index: definitionIndex,
-                userValues: launchContext.liveState.userValues,
-                timelineValues: timelineValues,
-                sceneScriptValues: commonSceneScriptValues
+            let pendingEvaluation = surface.evaluationTransaction.prepare(
+                frameIndex: timing.frameIndex,
+                resolution: sharedSurfaceResolution
             )
-            sharedSurfaceResolution = sharedSurfaceResolution
-                ?? pendingEvaluation.resolution
             pendingSurfaceEvaluations.append((surface, pendingEvaluation))
             let resolvedDynamicValues = pendingEvaluation.resolution.snapshot
 #if DEBUG

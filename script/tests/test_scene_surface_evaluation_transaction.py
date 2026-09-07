@@ -259,10 +259,20 @@ class SceneSurfaceEvaluationTransactionTests(unittest.TestCase):
     def test_host_reuses_one_typed_resolution_but_keeps_surface_prepare_owner(self) -> None:
         source = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
         transaction = TRANSACTION.read_text(encoding="utf-8")
-        self.assertIn("var sharedSurfaceResolution: SceneDynamicSnapshotResolution?", source)
-        self.assertIn("resolution: $0", source)
-        self.assertIn("sharedSurfaceResolution = sharedSurfaceResolution", source)
-        self.assertIn("?? pendingEvaluation.resolution", source)
+        self.assertIn(
+            "let preliminarySceneScriptResolution = SceneDynamicSnapshotResolver().resolve(",
+            source,
+        )
+        self.assertIn(
+            "base: preliminarySceneScriptResolution",
+            source,
+        )
+        self.assertIn(
+            "let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(",
+            source,
+        )
+        self.assertIn("resolution: sharedSurfaceResolution", source)
+        self.assertNotIn("sceneScriptValues: commonSceneScriptValues", source)
         self.assertIn(
             "resolution: SceneDynamicSnapshotResolution",
             transaction,
