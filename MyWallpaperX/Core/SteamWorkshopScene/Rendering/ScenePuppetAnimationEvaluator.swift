@@ -50,7 +50,10 @@ enum ScenePuppetAnimationSelector {
             guard visible || layer.visibilityBinding != nil else { continue }
             guard let animationID = layer.animationID,
                   layer.additive != nil,
-                  layer.blend == 1,
+                  let blend = layer.blend,
+                  blend.isFinite,
+                  blend > 0,
+                  blend <= 1,
                   // Omitted blend edges are the authored false defaults; an
                   // explicit true still stays outside this bounded profile.
                   layer.blendIn != true,

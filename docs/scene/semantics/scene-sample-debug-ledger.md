@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 3264246690 | 人物偏上、头部出画；左肘缺块 | 当前截图头部在画内、左肘缺块仍在；不能据此判定构图正确 | 未通过 |
 | 3765760121 | 上下颠倒 | utility model/投影策略不一致已修；默认鱼眼开启的当前截图恢复正向，见 E-V4-UTILITY-CAMERA-CONSISTENCY | 倒置修复，整样本未全面验收 |
-| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | bind-pose fallback 的 texture/extent 发布已修，人物不再压扁；黑线、缺块和动画 unsupported 仍在，见 E-V4-PUPPET-FALLBACK-PUBLICATION | 部分修复，未通过 |
+| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | fallback extent 与 fractional additive selector 已修；当前运行已选中 7 个动画片段且人物不再压缩，脸部黑线/缺块仍在 | 部分修复，未通过 |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
@@ -41,6 +41,10 @@
 五个需要先回到公共 owner 的 blocked 样本是 `2824109832`（effect admission 后仍有未认领 visible effect）、`3448845950`（GraphExecutor 缺失多层且无 terminal/next-frame）、`3470948192`（terminal flat-preview divergence）、`3775355045` 和 `3775373546`（layer 22 的 GraphExecutor execution missing）。`3509243656`、`3610154602`、`3612199597` 等真实样本还记录了 SceneScript typed exception；这说明“脚本路径更好”不能由全量 probe 推断。
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
+
+## E-V4-PUPPET-FRACTIONAL-ADDITIVE：动画权重进入 selector（2026-09-08）
+
+`3780119725` 的 authored layer21 含 blend `0.63` 与 `0.19` 的可见 additive animation。旧 selector 只接受 `blend == 1`，在真实 producer→selector→evaluator 链上提前拒绝该层组合；现改为接受有限 `0 < blend <= 1`，保留 blendIn/blendOut、rate、visibility 与 unknown-animation 的硬边界，evaluator 继续按权重叠加。41 个 puppet animation/mesh tests（2 个环境跳过）通过；隔离异步运行日志显示 layer21 选中 7 个片段、GPU completion/compositor publication/next-frame 成立，人物不再压缩。脸部黑线与缺块仍存在，尚未证明 mesh UV、mask/effect 或 authored 内容等后续 owner 正确。
 
 ## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
 
