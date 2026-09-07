@@ -260,14 +260,15 @@ final class SceneParticleRuntime {
             var births: [SceneParticleState] = []
             var deaths: [SceneParticleState] = []
             var parentParticles: [SceneParticleState] = []
+            var controlPoints = dynamicValues.particleControlPoints(
+                layerID: layerID
+            )
             if var root = layers[index].rootRender {
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
                     identities: root.pointerControlPointIdentities
                 )
-                let controlPoints = dynamicValues.particleControlPoints(
-                    layerID: layerID
-                ).merging(pointerValues) { _, pointer in pointer }
+                controlPoints.merge(pointerValues) { _, pointer in pointer }
                 let dynamicOverride = dynamicValues.particleInstanceValues(layerID: layerID)
                 let instanceOverride = root.simulator.instanceOverride?.resolving(
                     dynamicOverride
@@ -290,6 +291,7 @@ final class SceneParticleRuntime {
                     deathEvents: deaths,
                     parentParticles: parentParticles,
                     pointerLocalPosition: pointerLocalPositions[layerID],
+                    dynamicControlPoints: controlPoints,
                     audioInput: audioInput
                 )
                 batches.append(contentsOf: result.batches)

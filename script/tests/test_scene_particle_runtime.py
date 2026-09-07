@@ -472,7 +472,26 @@ enum Harness {
         let demandRuntime = SceneParticleRuntime(
             descriptor: descriptor, cacheDirectory: directory, device: device
         )
-        func velocity(pointer: SIMD3<Double>?) -> [Float] {
+        let dynamicTarget = SceneDynamicTarget.particle(
+            layerID: 18, field: .controlPoint(1)
+        )
+        let dynamicDefinition = SceneDynamicTargetDefinition(
+            target: dynamicTarget,
+            valueType: .vector3,
+            authoredValue: .vector3(0, 0, 0)
+        )
+        let dynamicResolver = SceneDynamicSnapshotResolver()
+        func dynamicSnapshot(_ value: SIMD3<Double>) -> SceneDynamicSnapshot {
+            dynamicResolver.resolve(
+                frameIndex: 1,
+                generation: 1,
+                definitions: [dynamicDefinition],
+                timelineValues: [dynamicTarget: .vector3(value.x, value.y, value.z)]
+            ).snapshot
+        }
+        func velocity(
+            pointer: SIMD3<Double>?, dynamic: SIMD3<Double>? = nil
+        ) -> [Float] {
             let runtime = SceneParticleRuntime(
                 descriptor: descriptor, cacheDirectory: directory, device: device
             )
@@ -480,6 +499,7 @@ enum Harness {
             for _ in 0..<2 {
                 batches = runtime.advance(
                     by: 1.0 / 60.0,
+                    dynamicValues: dynamic.map(dynamicSnapshot) ?? .empty(frameIndex: 0),
                     pointerLocalPositions: pointer.map { [18: $0] } ?? [:]
                 )
             }
@@ -493,6 +513,9 @@ enum Harness {
             // Root-local x=10 becomes child-local x=4 through authored scale 2.5,
             // which is inside threshold 5. Without that frame conversion it is outside.
             "insideScaled": velocity(pointer: SIMD3(10, 0, 0)),
+            "dynamicInsideScaled": velocity(
+                pointer: nil, dynamic: SIMD3(10, 0, 0)
+            ),
             "pointerDemandLayerIDs": demandRuntime.pointerControlPointLayerIDs.sorted(),
         ]
     }
@@ -2880,6 +2903,8 @@ class SceneParticleRuntimeTests(unittest.TestCase):
         self.assertEqual(result["outside"], [0, 0, 0])
         self.assertAlmostEqual(result["insideScaled"][0], 2.5, places=5)
         self.assertEqual(result["insideScaled"][1:], [0, 0])
+        self.assertAlmostEqual(result["dynamicInsideScaled"][0], 2.5, places=5)
+        self.assertEqual(result["dynamicInsideScaled"][1:], [0, 0])
         self.assertEqual(result["pointerDemandLayerIDs"], [18])
 
     def test_host_pointer_projection_is_gated_by_prepared_particle_demand(self) -> None:

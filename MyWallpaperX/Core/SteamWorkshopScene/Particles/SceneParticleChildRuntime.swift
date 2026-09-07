@@ -153,6 +153,7 @@ final class SceneParticleChildRuntime {
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState],
         pointerLocalPosition: SIMD3<Double>? = nil,
+        dynamicControlPoints: [Int: SIMD3<Double>] = [:],
         audioInput: SceneParticleAudioInput = .silent
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
@@ -160,6 +161,7 @@ final class SceneParticleChildRuntime {
             by: frameDelta,
             rootParticles: parentParticles,
             pointerLocalPosition: pointerLocalPosition,
+            dynamicControlPoints: dynamicControlPoints,
             audioInput: audioInput
         )
         spawn(
@@ -178,6 +180,7 @@ final class SceneParticleChildRuntime {
             by: frameDelta,
             parentFrames: parentFrames,
             pointerLocalPosition: pointerLocalPosition,
+            dynamicControlPoints: dynamicControlPoints,
             audioInput: audioInput,
             limitations: &limitations
         )
@@ -276,6 +279,7 @@ final class SceneParticleChildRuntime {
         by frameDelta: TimeInterval,
         rootParticles: [SceneParticleState],
         pointerLocalPosition: SIMD3<Double>?,
+        dynamicControlPoints: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput
     ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
@@ -295,9 +299,10 @@ final class SceneParticleChildRuntime {
             }
             systems[index].simulator.advance(
                 by: frameDelta,
-                dynamicControlPoints: pointerControlPoints(
+                dynamicControlPoints: controlPointValues(
                     for: systems[index],
-                    pointerLocalPosition: pointerLocalPosition
+                    pointerLocalPosition: pointerLocalPosition,
+                    dynamicControlPoints: dynamicControlPoints
                 ),
                 audioInput: audioInput
             )
@@ -323,6 +328,7 @@ final class SceneParticleChildRuntime {
         by frameDelta: TimeInterval,
         parentFrames: [SceneParticleChildParentFrame],
         pointerLocalPosition: SIMD3<Double>?,
+        dynamicControlPoints: [Int: SIMD3<Double>],
         audioInput: SceneParticleAudioInput,
         limitations: inout Set<String>
     ) {
@@ -354,9 +360,10 @@ final class SceneParticleChildRuntime {
             }
             systems[index].simulator.advance(
                 by: frameDelta,
-                dynamicControlPoints: pointerControlPoints(
+                dynamicControlPoints: controlPointValues(
                     for: systems[index],
-                    pointerLocalPosition: pointerLocalPosition
+                    pointerLocalPosition: pointerLocalPosition,
+                    dynamicControlPoints: dynamicControlPoints
                 ),
                 audioInput: audioInput
             )
@@ -392,24 +399,40 @@ final class SceneParticleChildRuntime {
         }
     }
 
-    /// The frame producer supplies a pointer in the root layer's local space. Child
-    /// particles simulate before their authored scale is applied at instance assembly,
-    /// so convert through the same child origin/scale frame before exposing CP values.
-    private func pointerControlPoints(
+    /// The frame producer supplies root-local dynamic values and an optional pointer.
+    /// Child particles simulate before their authored scale is applied at instance
+    /// assembly, so convert both through the same child origin/scale frame.
+    private func controlPointValues(
         for system: SceneParticleChildSystem,
-        pointerLocalPosition: SIMD3<Double>?
+        pointerLocalPosition: SIMD3<Double>?,
+        dynamicControlPoints: [Int: SIMD3<Double>]
     ) -> [Int: SIMD3<Double>] {
         guard let template = templatesByIndex[system.templateIndex] else {
             return [:]
         }
-        guard !template.pointerControlPointIdentities.isEmpty else { return [:] }
-        let childLocalPosition = pointerLocalPosition.map {
-            template.transform.inversePosition($0 - system.origin)
+        var values: [Int: SIMD3<Double>] = [:]
+        if !dynamicControlPoints.isEmpty {
+            values.reserveCapacity(dynamicControlPoints.count)
+            for (identity, value) in dynamicControlPoints {
+                let childLocal = template.transform.inversePosition(value - system.origin)
+                guard childLocal.x.isFinite, childLocal.y.isFinite, childLocal.z.isFinite else {
+                    continue
+                }
+                values[identity] = childLocal
+            }
         }
-        return template.definition.pointerControlPointValues(
-            at: childLocalPosition,
-            identities: template.pointerControlPointIdentities
-        )
+        if !template.pointerControlPointIdentities.isEmpty,
+           let pointerLocalPosition {
+            let childLocalPosition = template.transform.inversePosition(
+                pointerLocalPosition - system.origin
+            )
+            let pointerValues = template.definition.pointerControlPointValues(
+                at: childLocalPosition,
+                identities: template.pointerControlPointIdentities
+            )
+            values.merge(pointerValues) { _, pointer in pointer }
+        }
+        return values
     }
 
     private func spawn(
