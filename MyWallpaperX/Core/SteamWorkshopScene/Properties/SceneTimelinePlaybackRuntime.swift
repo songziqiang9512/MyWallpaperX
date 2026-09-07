@@ -29,7 +29,12 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     /// dictionary remains the identity/validation index; it is not the frame
     /// iteration order and does not need to be rebuilt or sorted per frame.
     private let orderedBindings: [SceneTimelineBinding]
-    private var states: [SceneDynamicTarget: State]
+    /// State follows the prepared binding order so normal frame projection does
+    /// not hash every target back through the command/identity dictionary.
+    /// Mutations still resolve through `stateIndices` and are committed as one
+    /// candidate array, preserving the single playback-state owner.
+    private let stateIndices: [SceneDynamicTarget: Int]
+    private var orderedStates: [State]
     private var pendingNextFrameObservations: Set<SceneDynamicTarget> = []
 
     /// Frame-local observation state is separate from playback command state.
@@ -49,12 +54,17 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             uniqueKeysWithValues: program.bindings.map { ($0.target, $0) }
         )
         orderedBindings = program.bindings
-        states = Dictionary(uniqueKeysWithValues: program.bindings.map { binding in
+        stateIndices = Dictionary(
+            uniqueKeysWithValues: program.bindings.enumerated().map { index, binding in
+                (binding.target, index)
+            }
+        )
+        orderedStates = program.bindings.map { binding in
             let state: State = binding.animation.options.startsPaused
                 ? .paused(elapsedFrames: 0)
                 : .playing(anchorSceneTime: 0, anchorElapsedFrames: 0)
-            return (binding.target, state)
-        })
+            return state
+        }
     }
 
     nonisolated func observationSnapshot() -> ObservationState {
@@ -71,9 +81,8 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
         guard sceneTime.isFinite, sceneTime >= 0 else { return [:] }
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         values.reserveCapacity(orderedBindings.count)
-        for binding in orderedBindings {
+        for (binding, state) in zip(orderedBindings, orderedStates) {
             let target = binding.target
-            guard let state = states[target] else { continue }
             let elapsed = elapsedFrames(
                 state: state,
                 animation: binding.animation,
@@ -113,7 +122,7 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     ) -> Result<Void, SceneTimelinePlaybackFailure> {
         switch candidateStates(for: mutations, sceneTime: sceneTime) {
         case let .success(candidate):
-            states = candidate
+            orderedStates = candidate
             pendingNextFrameObservations.formUnion(mutations.map(\.target))
             return .success(())
         case let .failure(failure):
@@ -124,16 +133,18 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
     private func candidateStates(
         for mutations: [SceneTimelinePlaybackMutation],
         sceneTime: Double
-    ) -> Result<[SceneDynamicTarget: State], SceneTimelinePlaybackFailure> {
+    ) -> Result<[State], SceneTimelinePlaybackFailure> {
         guard sceneTime.isFinite, sceneTime >= 0 else {
             return .failure(.invalidSceneTime)
         }
-        var candidate = states
+        var candidate = orderedStates
         for mutation in mutations {
             guard let binding = bindings[mutation.target],
-                  let state = candidate[mutation.target] else {
+                  let stateIndex = stateIndices[mutation.target],
+                  candidate.indices.contains(stateIndex) else {
                 return .failure(.unknownTarget(mutation.target))
             }
+            let state = candidate[stateIndex]
             let elapsed = elapsedFrames(
                 state: state,
                 animation: binding.animation,
@@ -141,14 +152,14 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
             )
             switch mutation.command {
             case .play:
-                candidate[mutation.target] = .playing(
+                candidate[stateIndex] = .playing(
                     anchorSceneTime: sceneTime,
                     anchorElapsedFrames: elapsed
                 )
             case .pause:
-                candidate[mutation.target] = .paused(elapsedFrames: elapsed)
+                candidate[stateIndex] = .paused(elapsedFrames: elapsed)
             case .stop:
-                candidate[mutation.target] = .paused(elapsedFrames: 0)
+                candidate[stateIndex] = .paused(elapsedFrames: 0)
             }
         }
         return .success(candidate)

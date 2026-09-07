@@ -5029,6 +5029,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：ordered array 是 launch-compiled `SceneTimelineProgram` 的只读索引，不保存 frame-varying value、clock、provider 或 generation；dictionary、state map、play/pause/stop candidate transaction、observation snapshot/restore、invalid target rejection 与 last-ready typed fallback 保持原 owner。后续 snapshot/Program/GraphExecutor、Metal encode、publication/completion 与唯一 compositor/output 不迁移。
 - **自动门与边界**：`test_scene_timeline_runtime` 加上 authored-order/single-elapsed source gate，并与 Timeline evaluator、target compiler、IR 共 **59 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample Timeline CPU/pre-encode A/B、GPU completion fault、multi-surface timing、Timeline ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
 
+<a id="e-v4-timeline-playback-ordered-state"></a>
+### E-V4-TIMELINE-PLAYBACK-ORDERED-STATE: Timeline playback ordered state projection
+
+证据等级：`S2 shared typed Timeline hot-path wiring`。本批只减少唯一 Timeline playback owner 在普通帧中把 authored binding target 再哈希回 state dictionary 的 CPU/pre-encode 成本，不宣称真实样本、稳定性能、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：目标链仍是唯一 `SceneClock` scene time → `SceneTimelinePlaybackRuntime` → typed `SceneDynamicSnapshot` → 现有 Program/GraphExecutor → Metal encode → 唯一 compositor/output。此前 playback 已保留 authored `orderedBindings`，但每帧仍用 target 从 `states` 字典取本地播放状态；当前 launch 以同一 binding 顺序准备 `stateIndices` 与 `orderedStates`，普通 `values(sceneTime:)` 直接 zip immutable binding order 与唯一 mutable state array。target dictionary 仍只负责 command identity/unknown-target 校验，play/pause/stop candidate 仍一次性替换完整 state array。
+- **失败半径与 owner**：ordered state 只保存每条 Timeline 的本地 playback anchor，未保存 scene time、动态 typed value、provider readiness、generation 或 frame outcome；invalid scene time/target 仍原子拒绝，next-frame observation snapshot/restore 与 host submission barrier 不变。Timeline evaluator 的 segment/bézier、dynamic snapshot source priority、Program/GraphExecutor、Metal encode、publication/completion 与唯一 compositor/output owner 不迁移。
+- **自动门与边界**：`test_scene_timeline_runtime.py` **12/12**、`test_scene_timeline_evaluator.py` **14/14**、`test_scene_timeline_target_compiler.py` **21/21**、`test_scene_timeline_document.py` **9/9**；并复核 dynamic snapshot/surface/frame/property/audio 定向门，`git diff --check`、code-health（903 Swift、16 locked legacy、185 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。未做改后真实 signed sample CPU/pre-encode A/B、GPU completion fault、multi-surface timing、Timeline ROI、稳定帧性能、长稳、完整样本或官方视觉对照，最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-typed-snapshot-diagnostic-quiescence"></a>
 ### E-V4-TYPED-SNAPSHOT-DIAGNOSTIC-QUIESCENCE: typed snapshot resolver diagnostic quiescence
 
