@@ -45,6 +45,13 @@ final class SceneParticleChildRuntime {
         !templates.isEmpty
     }
 
+    /// Child templates use the same simulator audio plans as root systems. Keep
+    /// the demand bit on the graph owner so an audio-enabled child can start
+    /// the shared producer even when its root container has no audio fields.
+    var hasAudioConsumer: Bool {
+        templates.contains { $0.definition.hasBoundedAudioConsumer }
+    }
+
     var lifecycleSystemCount: Int { systems.count }
     var lifecycleParticleCount: Int {
         systems.reduce(0) { $0 + $1.simulator.particles.count }
@@ -145,13 +152,15 @@ final class SceneParticleChildRuntime {
         spawnEvents: [SceneParticleState],
         deathEvents: [SceneParticleState],
         parentParticles: [SceneParticleState],
-        pointerLocalPosition: SIMD3<Double>? = nil
+        pointerLocalPosition: SIMD3<Double>? = nil,
+        audioInput: SceneParticleAudioInput = .silent
     ) -> SceneParticleChildAdvanceResult {
         var limitations: Set<String> = []
         let parentFrames = advanceDepthOne(
             by: frameDelta,
             rootParticles: parentParticles,
-            pointerLocalPosition: pointerLocalPosition
+            pointerLocalPosition: pointerLocalPosition,
+            audioInput: audioInput
         )
         spawn(
             from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
@@ -169,6 +178,7 @@ final class SceneParticleChildRuntime {
             by: frameDelta,
             parentFrames: parentFrames,
             pointerLocalPosition: pointerLocalPosition,
+            audioInput: audioInput,
             limitations: &limitations
         )
 
@@ -265,7 +275,8 @@ final class SceneParticleChildRuntime {
     private func advanceDepthOne(
         by frameDelta: TimeInterval,
         rootParticles: [SceneParticleState],
-        pointerLocalPosition: SIMD3<Double>?
+        pointerLocalPosition: SIMD3<Double>?,
+        audioInput: SceneParticleAudioInput
     ) -> [SceneParticleChildParentFrame] {
         let parentsByID: [UInt64: SceneParticleState] = templates.contains {
             $0.depth == 1 && $0.trigger == .follow
@@ -287,7 +298,8 @@ final class SceneParticleChildRuntime {
                 dynamicControlPoints: pointerControlPoints(
                     for: systems[index],
                     pointerLocalPosition: pointerLocalPosition
-                )
+                ),
+                audioInput: audioInput
             )
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
@@ -311,6 +323,7 @@ final class SceneParticleChildRuntime {
         by frameDelta: TimeInterval,
         parentFrames: [SceneParticleChildParentFrame],
         pointerLocalPosition: SIMD3<Double>?,
+        audioInput: SceneParticleAudioInput,
         limitations: inout Set<String>
     ) {
         guard !nestedParentPaths.isEmpty else { return }
@@ -344,7 +357,8 @@ final class SceneParticleChildRuntime {
                 dynamicControlPoints: pointerControlPoints(
                     for: systems[index],
                     pointerLocalPosition: pointerLocalPosition
-                )
+                ),
+                audioInput: audioInput
             )
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()

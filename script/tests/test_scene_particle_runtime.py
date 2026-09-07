@@ -958,11 +958,17 @@ enum Harness {
             rate: 0, instantaneous: 1,
             children: [[
                 "name": "particles/audio-child.json", "type": "eventspawn",
+            ], [
+                "name": "particles/audio-operator-child.json", "type": "static",
             ]], under: directory
         )
         try writeParticle(
             "particles/audio-child.json", material: "materials/shared.json",
             rate: 60, audioProcessingMode: 1, under: directory
+        )
+        try writeParticle(
+            "particles/audio-operator-child.json", material: "materials/shared.json",
+            rate: 0, operatorAudioProcessingMode: 1, instantaneous: 1, under: directory
         )
         try writeParticle(
             "particles/window-root.json", material: "materials/shared.json",
@@ -1078,6 +1084,21 @@ enum Harness {
             cacheDirectory: directory,
             device: device
         )
+        let activeAudioRuntime = SceneParticleRuntime(
+            descriptor: descriptor,
+            cacheDirectory: directory,
+            device: device
+        )
+        let activeAudioInput = SceneParticleAudioInput(
+            left: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
+            right: Array(repeating: 1, count: SceneParticleAudioInput.bandCount)
+        )
+        for _ in 0..<2 {
+            _ = activeAudioRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+        }
+        let activeChildAudioInput = activeAudioRuntime.frameSnapshot().layers
+            .compactMap { $0.child?.systems.first?.simulatorFrame.audioInput.left.first }
+            .first ?? 0
         var childCounts: [Int] = []
         var childPositions: [Float] = []
         var childSizes: [Float] = []
@@ -1158,6 +1179,8 @@ enum Harness {
             "audioChildDetails": runtime.diagnostics.compactMap {
                 $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
             },
+            "hasAudioConsumer": runtime.hasAudioConsumer,
+            "activeChildAudioInput": activeChildAudioInput,
             "childScaleDetails": runtime.diagnostics.compactMap {
                 $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
                     ? $0.detail : nil
@@ -2484,6 +2507,7 @@ enum Harness {
         rate: Double = 60,
         emitterDuration: Double? = nil,
         audioProcessingMode: Int? = nil,
+        operatorAudioProcessingMode: Int? = nil,
         instantaneous: Int? = nil,
         emitterControlPoint: Int? = nil,
         controlPointOffset: [Double]? = nil,
@@ -2515,12 +2539,26 @@ enum Harness {
         if let audioProcessingMode { emitter["audioprocessingmode"] = audioProcessingMode }
         if let instantaneous { emitter["instantaneous"] = instantaneous }
         if let emitterControlPoint { emitter["controlpoint"] = emitterControlPoint }
+        var operators: [[String: Any]] = []
+        if moves {
+            operators.append([
+                "name": "movement",
+                "flags": movementFlags,
+            ])
+        }
+        if let operatorAudioProcessingMode {
+            operators.append([
+                "name": "turbulence",
+                "audioprocessingmode": operatorAudioProcessingMode,
+            ])
+        }
         var definition: [String: Any] = [
             "material": material,
             "maxcount": 100,
             "flags": flags,
             "emitter": [emitter],
             "initializer": initializers,
+            "operator": operators,
             "renderer": ([rendererDefinition] as [Any]) + additionalRenderers,
             "children": children,
         ]
@@ -2529,12 +2567,6 @@ enum Harness {
             definition["controlpoint"] = [[
                 "id": emitterControlPoint,
                 "offset": controlPointOffset,
-            ]]
-        }
-        if moves {
-            definition["operator"] = [[
-                "name": "movement",
-                "flags": movementFlags,
             ]]
         }
         try writeJSON(definition, to: root.appendingPathComponent(path))
@@ -3054,6 +3086,11 @@ class SceneParticleRuntimeTests(unittest.TestCase):
             "particles/invalid-inherit-death.json:eventColorOperatorOutsideFollowChild",
             "particles/invalid-inherit-follow.json:eventColorOperatorUnsupported",
         })
+
+    def test_child_audio_consumer_receives_the_shared_typed_input(self) -> None:
+        result = self.run_harness("eventfollow-synthetic")
+        self.assertTrue(result["hasAudioConsumer"])
+        self.assertEqual(result["activeChildAudioInput"], 1)
 
     def test_rate_only_event_children_stop_after_bounded_window(self) -> None:
         result = self.run_harness("eventfollow-synthetic")

@@ -30,7 +30,12 @@ final class SceneParticleRuntime {
     private(set) var pointerControlPointLayerIDs: Set<Int> = []
 
     var activeLayerIDs: [Int] { layers.map(\.layerID) }
-    var hasAudioConsumer: Bool { layers.contains { $0.definition.hasBoundedAudioConsumer } }
+    var hasAudioConsumer: Bool {
+        layers.contains {
+            $0.definition.hasBoundedAudioConsumer
+                || $0.childRuntime?.hasAudioConsumer == true
+        }
+    }
     var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
         SceneParticleRuntimeLifecycleSnapshot(
             activeLayerCount: layers.count,
@@ -284,7 +289,8 @@ final class SceneParticleRuntime {
                     spawnEvents: births,
                     deathEvents: deaths,
                     parentParticles: parentParticles,
-                    pointerLocalPosition: pointerLocalPositions[layerID]
+                    pointerLocalPosition: pointerLocalPositions[layerID],
+                    audioInput: audioInput
                 )
                 batches.append(contentsOf: result.batches)
                 for path in result.bufferFailurePaths {
