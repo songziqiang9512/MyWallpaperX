@@ -388,6 +388,40 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertNotIn("SceneMediaThumbnailInbox.shared", coordinator)
         self.assertNotIn("func update()", coordinator)
 
+    def test_media_coordinator_observes_each_program_event_once_per_frame(self) -> None:
+        coordinator = MEDIA_FRAME_COORDINATOR_SOURCE.read_text(encoding="utf-8")
+        bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("SceneScriptObservedMediaFrameEvents", bridge)
+        self.assertIn(
+            "let observedVectorEvents = vectorProgram.observeMediaEvents(events)",
+            coordinator,
+        )
+        self.assertIn(
+            "let observedStringEvents = stringProgram.observeMediaEvents(events)",
+            coordinator,
+        )
+        self.assertIn(
+            "let observedScalarEvents = scalarProgram.observeMediaEvents(events)",
+            coordinator,
+        )
+        for observed in (
+            "observedMediaEvents: observedVectorEvents",
+            "observedMediaEvents: observedStringEvents",
+            "observedMediaEvents: observedScalarEvents",
+        ):
+            self.assertEqual(coordinator.count(observed), 2)
+        for program in (
+            VECTOR_PROGRAM_SOURCE,
+            SCRIPT / "SceneScriptStringProgram.swift",
+            SCRIPT / "SceneScriptScalarProgram.swift",
+        ):
+            source = program.read_text(encoding="utf-8")
+            self.assertIn(
+                "func observeMediaEvents(_ events: SceneScriptMediaFrameEvents)",
+                source,
+            )
+            self.assertIn("observedMediaEvents?.", source)
+
     def test_cursor_exports_gate_the_single_surface_dispatch_route(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

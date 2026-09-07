@@ -341,21 +341,11 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
         mediaTimelineEvent: SceneScriptMediaTimelineEventInput? = nil,
+        observedMediaEvents: SceneScriptObservedMediaFrameEvents? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil
     ) -> SceneScriptStringFrameResult {
-        let observedThumbnail = observedMediaThumbnailEvent.observe(
-            mediaThumbnailEvent
-        )
-        let observedPlayback = observedMediaPlaybackEvent.observe(
-            mediaPlaybackEvent
-        )
-        let observedProperties = observedMediaPropertiesEvent.observe(
-            mediaPropertiesEvent
-        )
-        let observedTimeline = observedMediaTimelineEvent.observe(
-            mediaTimelineEvent
-        )
+        let observedThumbnail = observedMediaEvents?.thumbnail ?? observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlayback = observedMediaEvents?.playback ?? observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedProperties = observedMediaEvents?.properties ?? observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimeline = observedMediaEvents?.timeline ?? observedMediaTimelineEvent.observe(mediaTimelineEvent)
         var values: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
         var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
@@ -636,6 +626,8 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
             ownerEffects: ownerEffects
         )
     }
+
+    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { .init(playback: observedMediaPlaybackEvent.observe(events.playback), properties: observedMediaPropertiesEvent.observe(events.properties), thumbnail: observedMediaThumbnailEvent.observe(events.thumbnail), timeline: observedMediaTimelineEvent.observe(events.timeline)) }
 
     func invalidate() { bindings.forEach { $0.invalidate() } }
 

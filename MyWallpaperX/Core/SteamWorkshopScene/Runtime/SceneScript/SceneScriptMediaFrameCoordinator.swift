@@ -94,6 +94,9 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         var layerMutations: [SceneScriptLayerMutation] = []
         var videoCommands: [SceneScriptVideoCommand] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
+        let observedVectorEvents = vectorProgram.observeMediaEvents(events)
+        let observedStringEvents = stringProgram.observeMediaEvents(events)
+        let observedScalarEvents = scalarProgram.observeMediaEvents(events)
         func appendSideEffects(
             materialFunctions: [SceneScriptMaterialFunctionMutation],
             animations: [SceneTimelinePlaybackMutation],
@@ -118,6 +121,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
                     mediaTimelineEvent: events.timeline,
+                    observedMediaEvents: observedVectorEvents,
                     audioSpectrum: audioSpectrum,
                     userPropertiesJSON: userPropertiesJSON
                 )
@@ -141,6 +145,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
                     mediaTimelineEvent: events.timeline,
+                    observedMediaEvents: observedStringEvents,
                     audioSpectrum: audioSpectrum
                 )
                 appendSideEffects(
@@ -162,6 +167,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
                     mediaPlaybackEvent: events.playback,
                     mediaPropertiesEvent: events.properties,
                     mediaTimelineEvent: events.timeline,
+                    observedMediaEvents: observedScalarEvents,
                     audioSpectrum: audioSpectrum
                 )
                 appendSideEffects(
@@ -180,6 +186,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             frame: frame,
             propertyRevision: propertyRevision,
             excludedTargets: vectorMediaTargets,
+            observedMediaEvents: observedVectorEvents,
             audioSpectrum: audioSpectrum,
             userPropertiesJSON: userPropertiesJSON
         )
@@ -198,6 +205,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             excludedTargets: stringMediaTargets,
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
+            observedMediaEvents: observedStringEvents,
             audioSpectrum: audioSpectrum
         )
         appendSideEffects(
@@ -214,6 +222,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             propertyRevision: propertyRevision,
             excludedTargets: scalarMediaTargets,
             userPropertiesJSON: userPropertiesJSON,
+            observedMediaEvents: observedScalarEvents,
             audioSpectrum: audioSpectrum
         )
         appendSideEffects(

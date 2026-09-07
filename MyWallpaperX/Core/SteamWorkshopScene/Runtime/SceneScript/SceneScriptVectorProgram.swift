@@ -273,22 +273,12 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         mediaPlaybackEvent: SceneScriptMediaPlaybackEventInput? = nil,
         mediaPropertiesEvent: SceneScriptMediaPropertiesEventInput? = nil,
         mediaTimelineEvent: SceneScriptMediaTimelineEventInput? = nil,
+        observedMediaEvents: SceneScriptObservedMediaFrameEvents? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         interruptBudget: UInt64? = nil,
         userPropertiesJSON: String? = nil
     ) -> SceneScriptVectorFrameResult {
-        let observedMediaEvent = observedMediaThumbnailEvent.observe(
-            mediaThumbnailEvent
-        )
-        let observedPlaybackEvent = observedMediaPlaybackEvent.observe(
-            mediaPlaybackEvent
-        )
-        let observedPropertiesEvent = observedMediaPropertiesEvent.observe(
-            mediaPropertiesEvent
-        )
-        let observedTimelineEvent = observedMediaTimelineEvent.observe(
-            mediaTimelineEvent
-        )
+        let observedMediaEvent = observedMediaEvents?.thumbnail ?? observedMediaThumbnailEvent.observe(mediaThumbnailEvent); let observedPlaybackEvent = observedMediaEvents?.playback ?? observedMediaPlaybackEvent.observe(mediaPlaybackEvent); let observedPropertiesEvent = observedMediaEvents?.properties ?? observedMediaPropertiesEvent.observe(mediaPropertiesEvent); let observedTimelineEvent = observedMediaEvents?.timeline ?? observedMediaTimelineEvent.observe(mediaTimelineEvent)
         let userJSON = userPropertiesJSON ?? SceneScriptPropertyInputCodec
             .userPropertiesJSON(
                 values: effectivePropertyValues,
@@ -730,6 +720,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             ownerEffects: ownerEffects
         )
     }
+
+    func observeMediaEvents(_ events: SceneScriptMediaFrameEvents) -> SceneScriptObservedMediaFrameEvents { .init(playback: observedMediaPlaybackEvent.observe(events.playback), properties: observedMediaPropertiesEvent.observe(events.properties), thumbnail: observedMediaThumbnailEvent.observe(events.thumbnail), timeline: observedMediaTimelineEvent.observe(events.timeline)) }
 
     func userPropertiesJSON(
         effectiveValues: [String: SceneUserPropertyValue],

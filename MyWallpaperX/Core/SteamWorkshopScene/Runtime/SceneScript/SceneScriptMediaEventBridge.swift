@@ -215,6 +215,16 @@ nonisolated struct SceneScriptMediaFrameEvents: Equatable, Sendable {
     )
 }
 
+/// One program-owned observation of the immutable media frame. The
+/// coordinator observes each program's generation watermarks once, then
+/// reuses this typed view for every authored owner dispatch in that program.
+nonisolated struct SceneScriptObservedMediaFrameEvents: Equatable, Sendable {
+    let playback: SceneScriptMediaPlaybackEventInput?
+    let properties: SceneScriptMediaPropertiesEventInput?
+    let thumbnail: SceneScriptMediaThumbnailEventInput?
+    let timeline: SceneScriptMediaTimelineEventInput?
+}
+
 nonisolated enum SceneScriptMediaRuntimeDiagnostics {
     static func logProperties(
         target: SceneDynamicTarget,
