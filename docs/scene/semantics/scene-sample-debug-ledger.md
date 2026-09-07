@@ -48,6 +48,8 @@
 
 补充的最小网格观测：该样本 MDLV0023 layer21 网格为 13,782 顶点，UV 约为 `0.014..1.0025`；同目录其他 MDLV0023 Puppet 资产观测范围约为 `-0.0045..1.005`。这排除了“UV 全局解析成异常范围”作为当前黑线首断点，但不排除 atlas 边缘采样、重组后 logical extent 与 mask/effect 坐标不一致。
 
+当前 after 截图显示黑线直接叠在人物面部、躯干及右下枝条区域，而 authored 参考截图没有同样的整段黑色笔画；这使“重组 source 已含黑线”与“后续 opacity/shake/waterwaves/foliagesway mask/effect 错误消费 source”仍需隔离，尚不能关闭任一 owner。下一次实验应只比较重组 source 的 publication 与 effect graph consumer，不通过关闭作者效果来伪造验收。
+
 ## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
 
 `3780119725` 人物 layer21 的重组覆盖范围为 3874×6279，上传纹理为 2527×4096，但作者 atlas/layer 声明为 3874×2000。动画 layer1221 不在当前 bounded profile，已有逻辑成功生成 bind-pose fallback。首断点在 `SceneMetalView`：只有可缓存的静态重组或 active playback 才调用 `setPuppetSource`；这个有动画声明却降级为 bind-pose 的结果没有 cache identity，被错误送进 base atlas publication，旧高度继续驱动 model/effect source。现在只以成功重组返回的 coverage 决定既有 Puppet source publication，不再以 cache/playback 资格为门；缓存复用条件不变，解析、重组与 budget 全部仍在 load。
