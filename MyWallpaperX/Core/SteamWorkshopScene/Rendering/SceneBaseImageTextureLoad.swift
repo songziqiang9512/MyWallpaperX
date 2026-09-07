@@ -185,6 +185,18 @@ struct SceneBaseImageTextureStore {
                 renderSizeWH: [logicalWidth, logicalHeight]
             )
         }
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
+            NSLog(
+                "MWX DEBUG SCENE: phase=puppet-source-published layer=%d texture=%dx%d logical=%.3fx%.3f generation=%llu publication=%@",
+                layerID,
+                texture.width,
+                texture.height,
+                logicalWidth,
+                logicalHeight,
+                contentGeneration,
+                publication.map { String(describing: $0.requestIdentity) } ?? "none"
+            )
+        }
     }
 
     mutating func merge(_ incoming: [Int: MTLTexture]) {
