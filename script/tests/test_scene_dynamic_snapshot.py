@@ -528,6 +528,18 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
         self.assertIn("resolvedValuesForPreparation", source)
         self.assertIn("base: SceneDynamicSnapshotResolution", source)
         self.assertIn("authoredValues: index.authoredValueLanes", source)
+
+    def test_valid_resolution_avoids_diagnostic_sort_and_field_collection(self) -> None:
+        source = (SOURCE_ROOT / "SceneDynamicSnapshot.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("guard diagnostics.count > 1 else { return diagnostics }", source)
+        self.assertIn("private nonisolated static func orderedDiagnostics(", source)
+        self.assertIn("return hasDynamicValue(.origin)", source)
+        self.assertNotIn(
+            "[SceneDynamicLayerField.origin, .scale, .angles].contains",
+            source,
+        )
         self.assertIn(
             "userPropertyNumericRanges: index.userPropertyNumericRanges",
             source,

@@ -581,10 +581,7 @@ nonisolated struct SceneDynamicSnapshotResolver {
             diagnostics: &diagnostics
         )
 
-        let orderedDiagnostics = diagnostics.sorted {
-            ($0.source.priority, $0.target.sortKey, $0.code.rawValue)
-                < ($1.source.priority, $1.target.sortKey, $1.code.rawValue)
-        }
+        let orderedDiagnostics = Self.orderedDiagnostics(diagnostics)
         return SceneDynamicSnapshotResolution(
             snapshot: SceneDynamicSnapshot(
                 frameIndex: frameIndex,
@@ -622,10 +619,7 @@ nonisolated struct SceneDynamicSnapshotResolver {
             resolved: &resolved,
             diagnostics: &diagnostics
         )
-        let orderedDiagnostics = diagnostics.sorted {
-            ($0.source.priority, $0.target.sortKey, $0.code.rawValue)
-                < ($1.source.priority, $1.target.sortKey, $1.code.rawValue)
-        }
+        let orderedDiagnostics = Self.orderedDiagnostics(diagnostics)
         return SceneDynamicSnapshotResolution(
             snapshot: base.snapshot.replacingResolvedValues(
                 frameIndex: frameIndex,
@@ -645,7 +639,9 @@ nonisolated struct SceneDynamicSnapshotResolver {
         candidates: Set<Int>
     ) -> Set<Int> {
         candidates.filter { layerID in
-            [SceneDynamicLayerField.origin, .scale, .angles].contains { field in
+            func hasDynamicValue(
+                _ field: SceneDynamicLayerField
+            ) -> Bool {
                 guard let resolved = values[
                     .layer(layerID: layerID, field: field)
                 ], resolved.source != .authored else { return false }
@@ -654,6 +650,23 @@ nonisolated struct SceneDynamicSnapshotResolver {
                 }
                 return x.isFinite && y.isFinite && z.isFinite
             }
+            return hasDynamicValue(.origin)
+                || hasDynamicValue(.scale)
+                || hasDynamicValue(.angles)
+        }
+    }
+
+    /// Diagnostics are a product-side safety signal, but the ordinary valid
+    /// frame has none. Preserve the existing deterministic ordering only when
+    /// there is work to order, rather than sorting an empty/singleton array on
+    /// every resolution.
+    private nonisolated static func orderedDiagnostics(
+        _ diagnostics: [SceneDynamicSnapshotDiagnostic]
+    ) -> [SceneDynamicSnapshotDiagnostic] {
+        guard diagnostics.count > 1 else { return diagnostics }
+        return diagnostics.sorted {
+            ($0.source.priority, $0.target.sortKey, $0.code.rawValue)
+                < ($1.source.priority, $1.target.sortKey, $1.code.rawValue)
         }
     }
 

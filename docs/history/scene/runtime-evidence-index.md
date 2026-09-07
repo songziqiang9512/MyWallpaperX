@@ -4923,6 +4923,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：ordered array 是 launch-compiled `SceneTimelineProgram` 的只读索引，不保存 frame-varying value、clock、provider 或 generation；dictionary、state map、play/pause/stop candidate transaction、observation snapshot/restore、invalid target rejection 与 last-ready typed fallback 保持原 owner。后续 snapshot/Program/GraphExecutor、Metal encode、publication/completion 与唯一 compositor/output 不迁移。
 - **自动门与边界**：`test_scene_timeline_runtime` 加上 authored-order/single-elapsed source gate，并与 Timeline evaluator、target compiler、IR 共 **59 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample Timeline CPU/pre-encode A/B、GPU completion fault、multi-surface timing、Timeline ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
 
+<a id="e-v4-typed-snapshot-diagnostic-quiescence"></a>
+### E-V4-TYPED-SNAPSHOT-DIAGNOSTIC-QUIESCENCE: typed snapshot resolver diagnostic quiescence
+
+证据等级：`S2 shared typed snapshot hot-path wiring`。本批只减少 valid ordinary frame 的无效诊断排序和临时 transform-field 集合构造，不宣称真实样本、稳定性能、provider/GPU fault、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：`SceneDynamicSnapshotResolver` 仍是 authored/user/timeline/SceneScript 唯一 typed merge owner，错误输入必须保留确定的 source→target→code 顺序。此前每次 `resolve` 都调用 `diagnostics.sorted`，即使普通帧 diagnostics 为空或只有一个条目；dynamic transform projection 还为每个 candidate 创建 `[origin, scale, angles]` 临时集合。当前两条 resolution 路径共用 `orderedDiagnostics`：零/单条直接复用，多条才执行原 comparator；candidate 用无分配的 origin/scale/angles 直接检查。
+- **失败半径与 owner**：fast path 只改变已构造 typed snapshot 的 CPU projection，不缓存动态值、provider readiness、generation、clock、resource/target/publication 或 compositor state；多诊断排序、duplicate/unknown/type/finite/range rejection、dynamic transform source/type checks、surface transaction、Program/GraphExecutor、Metal encode 与 completion/publication owner不变。
+- **自动门与边界**：`test_scene_dynamic_snapshot` 的 deterministic multi-diagnostic、empty/single diagnostic、typed lane、dynamic transform 与 source gate 通过；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、provider/GPU fault、multi-surface timing、ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed snapshot hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-dynamic-text-quiescent-update"></a>
 ### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
 
