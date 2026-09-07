@@ -337,6 +337,10 @@ enum Harness {
                                 components: [-0.2],
                                 userValueKind: .null
                             ),
+                            "colormode": .init(
+                                scriptSource: currentPropertyEventSource,
+                                components: [0]
+                            ),
                             "unseenTimelineScalar": .init(
                                 scriptSource: mediaAnimationSource,
                                 components: [1]
@@ -544,6 +548,92 @@ enum Harness {
             inputs: [passColorTarget: .vector3(1, 1, 1)],
             effectivePropertyValues: [:],
             frame: frame
+        )
+        let currentPropertyTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "colormode"
+        )
+        let modeDefinition = SceneUserPropertyDefinition(
+            key: "ui_editor_properties_mode", title: "Mode", kind: .combo,
+            runtimeType: "combo", order: 0, index: nil,
+            minimumValue: nil, maximumValue: nil, stepValue: nil,
+            allowsFractionalValues: false, fractionalPrecision: nil,
+            displayCondition: nil, defaultValue: .string("1"), options: []
+        )
+        let currentPropertyProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "colormode", source: currentPropertyEventSource, value: 0
+            )],
+            userPropertyDefinitions: [modeDefinition],
+            generation: 240
+        )
+        let currentPropertyFirst = currentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(0)],
+            frame: frame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("1")
+            ],
+            propertyRevision: 1
+        )
+        let currentPropertyStable = currentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(1)],
+            frame: frame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("1")
+            ],
+            propertyRevision: 1
+        )
+        let currentPropertyChanged = currentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(1)],
+            frame: frame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("3")
+            ],
+            propertyRevision: 2
+        )
+        let timerFrame = SceneScriptFrameInput(timing: .init(
+            wallDate: Date(timeIntervalSince1970: 0.025),
+            simulationFrameTime: 0.025,
+            sceneTime: 2.025
+        ), timeZone: TimeZone(secondsFromGMT: 0)!)
+        let currentPropertyTimer = currentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(3)],
+            frame: timerFrame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("3")
+            ],
+            propertyRevision: 2
+        )
+        let settledFrame = SceneScriptFrameInput(timing: .init(
+            wallDate: Date(timeIntervalSince1970: 0.05),
+            simulationFrameTime: 0.025,
+            sceneTime: 2.05
+        ), timeZone: TimeZone(secondsFromGMT: 0)!)
+        let currentPropertySettled = currentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(9)],
+            frame: settledFrame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("3")
+            ],
+            propertyRevision: 2
+        )
+        let invalidCurrentPropertyProgram = SceneScriptScalarProgram.compile(
+            domain: domain,
+            descriptor: descriptor,
+            scriptBindings: [passBinding(
+                key: "colormode", source: currentPropertyEventSource, value: 0
+            )],
+            userPropertyDefinitions: [modeDefinition],
+            generation: 241
+        )
+        let invalidCurrentProperty = invalidCurrentPropertyProgram.evaluate(
+            inputs: [currentPropertyTarget: .scalar(0)],
+            frame: frame,
+            effectivePropertyValues: [
+                "ui_editor_properties_mode": .string("invalid")
+            ],
+            propertyRevision: 1
         )
         let propertyEventProgram = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -769,7 +859,7 @@ enum Harness {
         )
         let failingDynamicScalarInitiallyActive =
             dynamicScalarProgram.activeLivePropertyInputTargets
-                == [dynamicScalarLiveTarget]
+                == [dynamicScalarLiveTarget, dynamicScalarTarget]
         let failingDynamicScalarResult = dynamicScalarProgram.evaluate(
             inputs: [dynamicScalarTarget: .scalar(-0.2)], frame: frame,
             effectivePropertyValues: ["renamedProperty": .number(-1)]
@@ -1574,6 +1664,33 @@ enum Harness {
             "passColorBindings": passColorProgram.bindings.count,
             "passColorValue": vector(passColorResult.values[passColorTarget]),
             "passColorFailures": passColorResult.failures.count,
+            "currentPropertyFirst": scalar(
+                currentPropertyFirst.values[currentPropertyTarget]
+            ),
+            "currentPropertyStableSkipped":
+                currentPropertyStable.values[currentPropertyTarget] == nil,
+            "currentPropertyChanged": scalar(
+                currentPropertyChanged.values[currentPropertyTarget]
+            ),
+            "currentPropertyTimer": scalar(
+                currentPropertyTimer.values[currentPropertyTarget]
+            ),
+            "currentPropertySettledSkipped":
+                currentPropertySettled.values[currentPropertyTarget] == nil,
+            "currentPropertyLiveConsumer":
+                currentPropertyProgram.liveUserPropertyConsumerTargetsByKey[
+                    "ui_editor_properties_mode"
+                ] == [currentPropertyTarget]
+                && currentPropertyProgram.livePropertyInputTargets
+                    == [currentPropertyTarget],
+            "invalidCurrentPropertyFailure":
+                invalidCurrentProperty.failures[currentPropertyTarget]?.code
+                    ?? "",
+            "invalidCurrentPropertyPublished":
+                invalidCurrentProperty.values[currentPropertyTarget] != nil,
+            "invalidCurrentPropertyConsumerDisabled":
+                invalidCurrentPropertyProgram.activeLivePropertyInputTargets
+                    .isEmpty,
             "partitionedMediaTargetExcluded": !partitionedPassProgram.definitions
                 .contains { $0.target == passColorTarget },
             "partitionedGenericPeerPreserved": partitionedPassProgram.definitions
@@ -1614,7 +1731,7 @@ enum Harness {
                 malformedDynamicScalar.bindings.isEmpty,
             "dynamicScalarLiveTarget":
                 dynamicScalarProgram.livePropertyInputTargets
-                    == [dynamicScalarLiveTarget],
+                    == [dynamicScalarLiveTarget, dynamicScalarTarget],
             "dynamicVectorLiveTarget":
                 dynamicVectorProgram.livePropertyInputTargets
                     == [dynamicVectorLiveTarget],
@@ -2312,6 +2429,19 @@ enum Harness {
     }
     """
 
+    static let currentPropertyEventSource = """
+    'use strict';
+    export function applyUserProperties(userProperties) {
+      if (userProperties.hasOwnProperty('ui_editor_properties_mode')) {
+        const mode = parseInt(userProperties.ui_editor_properties_mode);
+        thisObject.colormode = mode;
+        if (mode === 3) {
+          engine.setTimeout(() => { thisObject.colormode = 9; }, 20);
+        }
+      }
+    }
+    """
+
     static let particleAudioSource = """
     export var scriptProperties = createScriptProperties()
         .addSlider({name: "frequency", value: 0})
@@ -2464,6 +2594,18 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passColorBindings"], 1)
         self.assertEqual(value["passColorValue"], [0, 1, 1])
         self.assertEqual(value["passColorFailures"], 0)
+
+    def test_callback_only_scalar_publishes_its_bound_current_property(self) -> None:
+        value = self.result()
+        self.assertEqual(value["currentPropertyFirst"], 1, value)
+        self.assertTrue(value["currentPropertyStableSkipped"], value)
+        self.assertEqual(value["currentPropertyChanged"], 3, value)
+        self.assertEqual(value["currentPropertyTimer"], 9, value)
+        self.assertTrue(value["currentPropertySettledSkipped"], value)
+        self.assertTrue(value["currentPropertyLiveConsumer"], value)
+        self.assertEqual(value["invalidCurrentPropertyFailure"], "bad-return", value)
+        self.assertFalse(value["invalidCurrentPropertyPublished"], value)
+        self.assertTrue(value["invalidCurrentPropertyConsumerDisabled"], value)
 
     def test_generic_pass_scalar_executes_static_properties_and_audio(self) -> None:
         value = self.result()

@@ -3,26 +3,16 @@ import Foundation
 private nonisolated final class SceneScriptQuickJSCancellationCheckBox:
     @unchecked Sendable {
     let check: @Sendable () throws -> Void
-
-    init(check: @escaping @Sendable () throws -> Void) {
-        self.check = check
-    }
+    init(check: @escaping @Sendable () throws -> Void) { self.check = check }
 }
-
 private nonisolated func sceneScriptQuickJSCancellationCheck(
     _ opaque: UnsafeMutableRawPointer?
 ) -> CInt {
     guard let opaque else { return 0 }
     let box = Unmanaged<SceneScriptQuickJSCancellationCheckBox>
         .fromOpaque(opaque).takeUnretainedValue()
-    do {
-        try box.check()
-        return 0
-    } catch {
-        return 1
-    }
+    do { try box.check(); return 0 } catch { return 1 }
 }
-
 nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
     let heapBytes: Int
     let stackBytes: Int
@@ -67,6 +57,73 @@ nonisolated struct SceneScriptScalarBudget: Equatable, Sendable {
             aggregateBytes = nextBytes
         }
         return nil
+    }
+}
+
+nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
+    let handle: OpaquePointer
+    let budget: SceneScriptScalarBudget
+    var storageSession: SceneScriptLocalStorageSession? = nil
+    var layerCatalogSignature: String?
+    var layerSnapshotGeneration: UInt64 = 0
+    private var constructionBoundaryCheck: (@Sendable () throws -> Void)?
+    private var constructionCancellationOpaque: UnsafeMutableRawPointer?
+    init(budget: SceneScriptScalarBudget = .default) throws {
+        self.budget = budget
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        guard let handle = mwx_scene_quickjs_domain_create(
+            budget.heapBytes, budget.stackBytes, budget.interruptBudget,
+            &diagnostic, diagnostic.count
+        ) else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                Self.diagnostic(diagnostic)
+            )
+        }
+        self.handle = handle
+    }
+    deinit {
+        clearConstructionBoundaryCheck()
+        var diagnostic = [CChar](repeating: 0, count: 1)
+        _ = mwx_scene_quickjs_domain_configure_storage(
+            handle, nil, nil, &diagnostic, diagnostic.count
+        )
+        mwx_scene_quickjs_domain_destroy(handle)
+    }
+    func resetBudget(_ interruptBudget: UInt64) {
+        mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
+    }
+    func discardCommittedLayerSnapshot() {
+        guard mwx_scene_quickjs_domain_rollback_layer_snapshot(handle) else { return }
+        if layerSnapshotGeneration > 0 { layerSnapshotGeneration -= 1 }
+    }
+    func finalizeCommittedLayerSnapshot() {
+        mwx_scene_quickjs_domain_finalize_layer_snapshot(handle)
+    }
+    func installConstructionBoundaryCheck(
+        _ check: @escaping @Sendable () throws -> Void
+    ) {
+        clearConstructionBoundaryCheck()
+        constructionBoundaryCheck = check
+        let box = SceneScriptQuickJSCancellationCheckBox(check: check)
+        let opaque = Unmanaged.passRetained(box).toOpaque()
+        constructionCancellationOpaque = opaque
+        mwx_scene_quickjs_domain_set_cancellation_check(
+            handle, sceneScriptQuickJSCancellationCheck, opaque
+        )
+    }
+    func clearConstructionBoundaryCheck() {
+        mwx_scene_quickjs_domain_set_cancellation_check(handle, nil, nil)
+        if let constructionCancellationOpaque {
+            Unmanaged<SceneScriptQuickJSCancellationCheckBox>
+                .fromOpaque(constructionCancellationOpaque).release()
+        }
+        constructionCancellationOpaque = nil
+        constructionBoundaryCheck = nil
+    }
+    func checkConstructionBoundary() throws { try constructionBoundaryCheck?() }
+    private static func diagnostic(_ buffer: [CChar]) -> String {
+        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        return String(decoding: bytes, as: UTF8.self)
     }
 }
 
@@ -131,14 +188,12 @@ nonisolated struct SceneScriptFrameInput: Equatable, Sendable {
         runtime = max(timing.sceneTime, 0)
         self.surface = surface
     }
-
     init(replacingSurfaceOf frame: SceneScriptFrameInput, with surface: SceneScriptSurfaceInput?) {
         timeOfDay = frame.timeOfDay
         frameTime = frame.frameTime
         runtime = frame.runtime
         self.surface = surface
     }
-
     var quickJSValue: MWXSceneQuickJSFrameInput {
         MWXSceneQuickJSFrameInput(
             time_of_day: timeOfDay,
@@ -175,15 +230,25 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let authoredValue: Double
     let hasAudioRegistration: Bool
+    let handlesUserProperties: Bool
     let handlesMediaThumbnail: Bool
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
+    private let handlesInit: Bool
+    private let handlesUpdate: Bool
+    private let boundObjectScalarPropertyName: String?
     private let initialScriptPropertiesJSON: String
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private var lastAudioGeneration: UInt64?
+    private var hasInitialized = false
+
+    var requiresFrameEvaluation: Bool {
+        handlesUpdate || (handlesInit && !hasInitialized)
+            || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
+    }
 
     init(
         domain: SceneScriptQuickJSDomain,
@@ -243,6 +308,9 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         var handlesMediaPlayback = false
         var handlesMediaProperties = false
         var handlesMediaTimeline = false
+        var handlesUserProperties = false
+        var handlesInit = false
+        var handlesUpdate = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             try SceneScriptEffectHandleBridge.configure(
@@ -265,16 +333,34 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             handlesMediaTimeline = try SceneScriptOwnerExportBridge.contains(
                 "mediaTimelineChanged", owner: created
             )
+            handlesUserProperties = try SceneScriptOwnerExportBridge.contains(
+                "applyUserProperties", owner: created
+            )
+            handlesInit = try SceneScriptOwnerExportBridge.contains(
+                "init", owner: created
+            )
+            handlesUpdate = try SceneScriptOwnerExportBridge.contains(
+                "update", owner: created
+            )
         } catch {
             mwx_scene_quickjs_owner_destroy(created)
             throw error
         }
         self.handle = created
         hasAudioRegistration = SceneScriptAudioHost.hasRegistration(owner: created)
+        self.handlesUserProperties = handlesUserProperties
         self.handlesMediaThumbnail = handlesMediaThumbnail
         self.handlesMediaPlayback = handlesMediaPlayback
         self.handlesMediaProperties = handlesMediaProperties
         self.handlesMediaTimeline = handlesMediaTimeline
+        self.handlesInit = handlesInit
+        self.handlesUpdate = handlesUpdate
+        if case let .effectConstant(_, _, _, name) = target,
+           !name.isEmpty, name.utf8.count <= 256, !name.contains("\0") {
+            boundObjectScalarPropertyName = name
+        } else {
+            boundObjectScalarPropertyName = nil
+        }
     }
 
     deinit {
@@ -337,6 +423,7 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
+        hasInitialized = true
         guard didInitialize != 0 else { return .success(nil) }
         guard Self.accepts(output),
               let layerID = SceneScriptLayerMutationBridge.layerID(for: target) else {
@@ -414,6 +501,16 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
                 diagnostic: Self.diagnostic(diagnostic)
             ))
         }
+        hasInitialized = true
+        if !handlesUpdate {
+            switch boundScalarValue() {
+            case let .success(value):
+                if let value { output = value }
+            case let .failure(failure):
+                SceneScriptLayerMutationBridge.discard(owner: handle)
+                return .failure(failure)
+            }
+        }
         guard Self.accepts(output) else {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(.badReturn("invalid scalar output"))
@@ -462,6 +559,34 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
             animationMutations: animationMutations,
             layerMutations: layerMutations
         ))
+    }
+
+    func boundScalarValue() -> Result<Double?, SceneScriptScalarRuntimeFailure> {
+        guard let propertyName = boundObjectScalarPropertyName else {
+            return .success(nil)
+        }
+        var value = 0.0
+        var present: UInt32 = 0
+        var diagnostic = [CChar](repeating: 0, count: 512)
+        let result = propertyName.withCString {
+            mwx_scene_quickjs_owner_read_bound_scalar(
+                handle,
+                generation,
+                $0,
+                propertyName.utf8.count,
+                &value,
+                &present,
+                &diagnostic,
+                diagnostic.count
+            )
+        }
+        guard result == MWX_SCENE_QUICKJS_OK else {
+            return .failure(Self.failure(
+                raw: result,
+                diagnostic: Self.diagnostic(diagnostic)
+            ))
+        }
+        return .success(present == 0 ? nil : value)
     }
 
     func dispatchMediaThumbnail(
@@ -671,92 +796,5 @@ nonisolated final class SceneScriptScalarOwner: @unchecked Sendable {
         default:
             .invalidArgument(diagnostic)
         }
-    }
-}
-
-nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
-    let handle: OpaquePointer
-    let budget: SceneScriptScalarBudget
-    var storageSession: SceneScriptLocalStorageSession? = nil
-    var layerCatalogSignature: String?
-    var layerSnapshotGeneration: UInt64 = 0
-    private var constructionBoundaryCheck: (@Sendable () throws -> Void)?
-    private var constructionCancellationOpaque: UnsafeMutableRawPointer?
-
-    init(budget: SceneScriptScalarBudget = .default) throws {
-        self.budget = budget
-        var diagnostic = [CChar](repeating: 0, count: 512)
-        guard let handle = mwx_scene_quickjs_domain_create(
-            budget.heapBytes,
-            budget.stackBytes,
-            budget.interruptBudget,
-            &diagnostic,
-            diagnostic.count
-        ) else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                Self.diagnostic(diagnostic)
-            )
-        }
-        self.handle = handle
-    }
-
-    deinit {
-        clearConstructionBoundaryCheck()
-        var diagnostic = [CChar](repeating: 0, count: 1)
-        _ = mwx_scene_quickjs_domain_configure_storage(
-            handle, nil, nil, &diagnostic, diagnostic.count
-        )
-        mwx_scene_quickjs_domain_destroy(handle)
-    }
-
-    func resetBudget(_ interruptBudget: UInt64) {
-        mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
-    }
-
-    func discardCommittedLayerSnapshot() {
-        guard mwx_scene_quickjs_domain_rollback_layer_snapshot(handle) else {
-            return
-        }
-        if layerSnapshotGeneration > 0 {
-            layerSnapshotGeneration -= 1
-        }
-    }
-
-    func finalizeCommittedLayerSnapshot() {
-        mwx_scene_quickjs_domain_finalize_layer_snapshot(handle)
-    }
-
-    func installConstructionBoundaryCheck(
-        _ check: @escaping @Sendable () throws -> Void
-    ) {
-        clearConstructionBoundaryCheck()
-        constructionBoundaryCheck = check
-        let box = SceneScriptQuickJSCancellationCheckBox(check: check)
-        let opaque = Unmanaged.passRetained(box).toOpaque()
-        constructionCancellationOpaque = opaque
-        mwx_scene_quickjs_domain_set_cancellation_check(
-            handle,
-            sceneScriptQuickJSCancellationCheck,
-            opaque
-        )
-    }
-
-    func clearConstructionBoundaryCheck() {
-        mwx_scene_quickjs_domain_set_cancellation_check(handle, nil, nil)
-        if let constructionCancellationOpaque {
-            Unmanaged<SceneScriptQuickJSCancellationCheckBox>
-                .fromOpaque(constructionCancellationOpaque).release()
-        }
-        constructionCancellationOpaque = nil
-        constructionBoundaryCheck = nil
-    }
-
-    func checkConstructionBoundary() throws {
-        try constructionBoundaryCheck?()
-    }
-
-    private static func diagnostic(_ buffer: [CChar]) -> String {
-        let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
-        return String(decoding: bytes, as: UTF8.self)
     }
 }

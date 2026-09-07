@@ -77,6 +77,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         bindings.contains(where: \.hasAudioRegistration)
     }
 
+    var liveUserPropertyConsumerTargetsByKey:
+        [String: Set<SceneDynamicTarget>] {
+        let targets = Set(bindings.compactMap {
+            $0.handlesUserProperties ? $0.target : nil
+        })
+        return Dictionary(uniqueKeysWithValues: userPropertyKinds.keys.map {
+            ($0, targets)
+        })
+    }
+
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
             guard binding.handlesMediaPlayback
@@ -121,8 +131,16 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
         })
         self.generation = generation
         self.propertyInputsByTarget = propertyInputsByTarget
-        self.livePropertyInputTargetsByTarget = livePropertyInputTargetsByTarget
+        let eventOwnerTargets = Set(bindings.compactMap {
+            $0.handlesUserProperties ? $0.target : nil
+        })
+        var mergedTargetsByOwner = livePropertyInputTargetsByTarget
+        for target in eventOwnerTargets {
+            mergedTargetsByOwner[target, default: []].insert(target)
+        }
+        self.livePropertyInputTargetsByTarget = mergedTargetsByOwner
         self.livePropertyInputTargets = livePropertyInputTargets
+            .union(eventOwnerTargets)
         self.authoredOrdinals = authoredOrdinals
         userPropertyKinds = Dictionary(
             uniqueKeysWithValues: userPropertyDefinitions.map { ($0.key, $0.kind) }
@@ -338,10 +356,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 binding.discardLayerMutations()
                 continue
             }
-            let hasUserPropertyInput = propertyInputs.values.contains {
-                $0.userPropertyKey != nil
-            }
-            let changedUserPropertiesJSON = hasUserPropertyInput
+            let changedUserPropertiesJSON = binding.handlesUserProperties
                 ? appliedUserProperties.changedJSON(
                     for: binding.target, current: effectivePropertyValues,
                     kinds: userPropertyKinds, revision: propertyRevision
@@ -365,6 +380,12 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                 binding.handlesMediaTimeline && event.generation
                     > consumedMediaTimelineGenerations[binding.target, default: 0]
                     ? event : nil
+            }
+            let hasPendingCallback = changedUserPropertiesJSON != nil
+                || pendingPlaybackEvent != nil || pendingMediaEvent != nil
+                || pendingPropertiesEvent != nil || pendingTimelineEvent != nil
+            guard hasPendingCallback || binding.requiresFrameEvaluation else {
+                continue
             }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
@@ -555,14 +576,25 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     continue
                 }
             }
-            switch binding.evaluate(
-                input: evaluationInput,
-                frame: frame,
-                scriptPropertiesJSON: propertiesJSON,
-                userPropertiesJSON: userPropertiesJSON,
-                expectedGeneration: generation,
-                interruptBudget: interruptBudget
-            ) {
+            let evaluation: Result<
+                SceneScriptScalarEvaluation,
+                SceneScriptScalarRuntimeFailure
+            > = hasPendingCallback || binding.requiresFrameEvaluation
+                ? binding.evaluate(
+                    input: evaluationInput,
+                    frame: frame,
+                    scriptPropertiesJSON: propertiesJSON,
+                    userPropertiesJSON: userPropertiesJSON,
+                    expectedGeneration: generation,
+                    interruptBudget: interruptBudget
+                )
+                : .success(.init(
+                    value: .scalar(evaluationInput),
+                    materialFunctionMutations: [],
+                    animationMutations: [],
+                    layerMutations: []
+                ))
+            switch evaluation {
             case let .success(evaluation):
                 if case let .failure(failure) = binding.commitStorage() {
                     failures[binding.target] = failure
@@ -570,7 +602,7 @@ nonisolated final class SceneScriptScalarProgram: @unchecked Sendable {
                     binding.discardLayerMutations()
                     continue
                 }
-                if hasUserPropertyInput {
+                if binding.handlesUserProperties {
                     appliedUserProperties.record(
                         effectivePropertyValues, revision: propertyRevision,
                         for: binding.target

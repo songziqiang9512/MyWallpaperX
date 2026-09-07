@@ -583,6 +583,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_lifecycle_snapshot(
 uint32_t mwx_scene_quickjs_owner_active_timer_count(
     MWXSceneQuickJSOwner *owner
 );
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *property_name,
+    size_t property_name_length,
+    double *value,
+    uint32_t *present,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
 MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     MWXSceneQuickJSOwner *owner
 );

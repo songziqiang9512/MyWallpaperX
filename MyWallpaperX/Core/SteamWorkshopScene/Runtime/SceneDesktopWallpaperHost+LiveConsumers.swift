@@ -151,7 +151,15 @@ extension SceneDesktopWallpaperHost {
         sceneScriptScalarProgram: SceneScriptScalarProgram,
         sceneScriptStringProgram: SceneScriptStringProgram
     ) -> ScenePropertyLiveUpdateState {
-        ScenePropertyLiveUpdateState(
+        let scriptUserPropertyConsumerTargetsByKey = [
+            sceneScriptScalarProgram.liveUserPropertyConsumerTargetsByKey,
+            sceneScriptStringProgram.liveUserPropertyConsumerTargetsByKey,
+        ].reduce(into: [String: Set<SceneDynamicTarget>]()) { result, program in
+            for (key, targets) in program {
+                result[key, default: []].formUnion(targets)
+            }
+        }
+        return ScenePropertyLiveUpdateState(
             program: runtimeInput.propertyBindingProgram,
             effectiveValues: runtimeInput.effectivePropertyValues,
             activeConsumerTargets: activeLiveConsumerTargets(
@@ -166,7 +174,7 @@ extension SceneDesktopWallpaperHost {
                 sceneScriptStringProgram: sceneScriptStringProgram
             ),
             scriptUserPropertyConsumerTargetsByKey:
-                sceneScriptStringProgram.liveUserPropertyConsumerTargetsByKey
+                scriptUserPropertyConsumerTargetsByKey
         )
     }
 

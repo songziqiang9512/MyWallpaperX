@@ -1,6 +1,8 @@
 #include "SceneQuickJSInternal.h"
 
+#include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct MWXSceneQuickJSAnimationHandle {
     MWXSceneQuickJSOwner *owner;
@@ -128,6 +130,93 @@ bool mwx_scene_quickjs_install_object_handle(MWXSceneQuickJSOwner *owner) {
     }
     owner->object_handle = object;
     return true;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_read_bound_scalar(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t expected_generation,
+    const char *property_name,
+    size_t property_name_length,
+    double *value,
+    uint32_t *present,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (owner == NULL || owner->domain == NULL ||
+        owner->domain->context == NULL || property_name == NULL ||
+        property_name_length == 0 || property_name_length > 256 ||
+        memchr(property_name, '\0', property_name_length) != NULL ||
+        value == NULL || present == NULL ||
+        JS_IsUndefined(owner->object_handle)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid bound scalar property request"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    *value = 0;
+    *present = 0;
+    if (owner->generation != expected_generation) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "stale SceneScript owner generation"
+        );
+        return MWX_SCENE_QUICKJS_STALE_OWNER;
+    }
+    if (owner->disabled) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity, "SceneScript owner is disabled"
+        );
+        return MWX_SCENE_QUICKJS_DISABLED;
+    }
+
+    JSContext *context = owner->domain->context;
+    JSAtom atom = JS_NewAtomLen(context, property_name, property_name_length);
+    if (atom == JS_ATOM_NULL) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "bound scalar property atom allocation failed"
+        );
+        return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    }
+    JSPropertyDescriptor descriptor = {
+        .flags = 0,
+        .value = JS_UNDEFINED,
+        .getter = JS_UNDEFINED,
+        .setter = JS_UNDEFINED,
+    };
+    int found = JS_GetOwnProperty(
+        context, &descriptor, owner->object_handle, atom
+    );
+    JS_FreeAtom(context, atom);
+    if (found < 0) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "bound scalar property lookup failed"
+        );
+        return MWX_SCENE_QUICKJS_EXCEPTION;
+    }
+    if (found == 0) return MWX_SCENE_QUICKJS_OK;
+
+    const bool data_property = JS_IsUndefined(descriptor.getter) &&
+        JS_IsUndefined(descriptor.setter) && JS_IsNumber(descriptor.value);
+    double scalar = 0;
+    const int conversion = data_property
+        ? JS_ToFloat64(context, &scalar, descriptor.value) : -1;
+    JS_FreeValue(context, descriptor.value);
+    JS_FreeValue(context, descriptor.getter);
+    JS_FreeValue(context, descriptor.setter);
+    if (!data_property || conversion < 0 || !isfinite(scalar)) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "bound scalar property is not a finite data value"
+        );
+        return MWX_SCENE_QUICKJS_BAD_RETURN;
+    }
+    *value = scalar;
+    *present = 1;
+    return MWX_SCENE_QUICKJS_OK;
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_current_animation(

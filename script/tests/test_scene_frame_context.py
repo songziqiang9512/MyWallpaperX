@@ -1020,6 +1020,23 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertIn("rootURL: rootURL", debug_runner)
         self.assertNotIn("interpretationFileURL", coordinator)
 
+    def test_live_property_state_merges_scalar_and_string_event_consumers(self) -> None:
+        live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
+        self.assertIn(
+            "sceneScriptScalarProgram.liveUserPropertyConsumerTargetsByKey",
+            live_consumers,
+        )
+        self.assertIn(
+            "sceneScriptStringProgram.liveUserPropertyConsumerTargetsByKey",
+            live_consumers,
+        )
+        self.assertIn("result[key, default: []].formUnion(targets)", live_consumers)
+        self.assertIn(
+            "scriptUserPropertyConsumerTargetsByKey:\n"
+            "                scriptUserPropertyConsumerTargetsByKey",
+            live_consumers,
+        )
+
     def test_launch_owns_and_reuses_the_lazy_effect_pipeline_repository(self) -> None:
         launch = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
         prepared_resources = PREPARED_DEVICE_RESOURCES_SOURCE.read_text(
