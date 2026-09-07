@@ -353,6 +353,9 @@ enum Harness {
                 ),
             ])
         )
+        let unresolvedImage = imageSnapshot.resolvingDynamicMaterialColors(
+            from: .init(values: [:])
+        )
         let revisionRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
             authoredMutationLayerIDs: []
@@ -457,6 +460,8 @@ enum Harness {
                     == colorTarget,
             "dynamicImageColor": resolvedImage.dynamicLayers.first?
                 .colorRGB?.map(Double.init) ?? [],
+            "dynamicImageWithoutTypedColor": unresolvedImage.dynamicLayers.first?
+                .colorRGB?.map(Double.init) ?? [],
             "definitionRevisionBumped": afterDefinitionRevision > initialDefinitionRevision,
             "valueOnlyRevisionStable": revisionRuntime.authoredDefinitionRevision == afterDefinitionRevision,
             "topologyRevisionStartsAtZero": initialTopologyRevision == 0,
@@ -549,6 +554,24 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicImageSucceeded"])
         self.assertTrue(self.result["dynamicImageColorTarget"])
         self.assertEqual(self.result["dynamicImageColor"], [0.25, 0.5, 0.75])
+        self.assertEqual(self.result["dynamicImageWithoutTypedColor"], [1.0, 1.0, 1.0])
+
+    def test_material_color_projection_has_quiescent_and_lazy_copy_gates(self) -> None:
+        source = SOURCE.read_text(encoding="utf-8")
+        projection = source.split(
+            "func resolvingDynamicMaterialColors(", 1
+        )[1].split(
+            "nonisolated struct SceneScriptDynamicImageLayerTemplate", 1
+        )[0]
+        self.assertRegex(
+            projection,
+            r"guard !dynamicLayers\.isEmpty,\s*!dynamicMaterialColorTargetsByLayerID\.isEmpty else \{\s*return self",
+        )
+        self.assertIn(
+            "var resolvedLayers: [SceneRenderDescriptor.Layer]?", projection
+        )
+        self.assertIn("if resolvedLayers == nil", projection)
+        self.assertIn("guard let resolvedLayers else { return self }", projection)
 
     def test_definition_revision_tracks_schema_changes_only(self) -> None:
         self.assertTrue(self.result["definitionRevisionBumped"])

@@ -13,16 +13,24 @@ nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
     func resolvingDynamicMaterialColors(
         from values: SceneDynamicSnapshot
     ) -> Self {
-        var resolvedLayers = dynamicLayers
-        for index in resolvedLayers.indices {
-            let layerID = resolvedLayers[index].id
+        guard !dynamicLayers.isEmpty,
+              !dynamicMaterialColorTargetsByLayerID.isEmpty else {
+            return self
+        }
+        var resolvedLayers: [SceneRenderDescriptor.Layer]?
+        for index in dynamicLayers.indices {
+            let layerID = dynamicLayers[index].id
             guard let target = dynamicMaterialColorTargetsByLayerID[layerID],
                   case let .vector3(red, green, blue)? = values[target]?.value,
                   red.isFinite, green.isFinite, blue.isFinite else { continue }
-            resolvedLayers[index].colorRGB = [red, green, blue].map {
+            if resolvedLayers == nil {
+                resolvedLayers = dynamicLayers
+            }
+            resolvedLayers![index].colorRGB = [red, green, blue].map {
                 Float(max(0, min($0, 1)))
             }
         }
+        guard let resolvedLayers else { return self }
         return .init(
             topologyRevision: topologyRevision,
             dynamicLayers: resolvedLayers,

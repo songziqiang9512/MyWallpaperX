@@ -4887,6 +4887,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：prepared dictionary 只读借用 renderer 的 authored layer identity，不缓存 visible value、generation、world frame、FOV 或 camera fallback。typed visibility、parent-aware traversal、camera-path admission、native perspective override 与无有效 camera 时的 scene-camera fallback 仍由原 owner 实时决定；没有新增 visibility、camera、provider、clock、renderer、graph/history 或 compositor owner。
 - **自动门与边界**：`test_scene_camera_shake` 与 `test_scene_dynamic_layer_visibility` 的 prepared-index 等价/反例门通过；code-health、`git diff --check` 与 checkpoint Debug build通过。未做真实 signed sample CPU/pre-encode A/B、GPU completion fault、camera ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared visibility hot-path wiring，不外推为全局 O(1)、视觉 parity 或 V4 收口。
 
+<a id="e-v4-dynamic-layer-color-projection-quiescence"></a>
+### E-V4-DYNAMIC-LAYER-COLOR-PROJECTION-QUIESCENCE: dynamic layer typed material-color projection quiescence
+
+证据等级：`S2 shared typed topology hot-path wiring`。本批只减少每 surface 动态 layer material-color projection 在没有可消费 typed color 时的重复数组复制，不宣称真实样本、稳定性能、颜色 ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：目标链要求动态 layer 的 typed color producer 仍由 `SceneDynamicSnapshot` 提供，并由现有 topology projection consumer 在 frame update 读取。此前 `resolvingDynamicMaterialColors` 无条件复制 `dynamicLayers`，即使没有动态 layer、没有声明的 material-color target，或当前 target 缺失/类型错误/非 finite。当前入口先对空 layer/target 集合返回 snapshot；有 target 时仅在首个 finite vector3 值真正需要写回时惰性复制一次，逐值 clamp 后构造 resolved snapshot；没有有效值则继续返回原 snapshot。
+- **失败半径与 owner**：惰性副本只属于 `SceneScriptLayerTopologySnapshot` 的 surface/frame-local projection，不保存 dynamic value、generation、resource、provider 或 publication。dynamic layer topology revision、transform/visibility/alpha、typed source/type/finite 检查、SceneDynamicLayerRenderTopologyCache、Program/GraphExecutor、Metal encode、provider lifecycle 与唯一 compositor/output owner 不迁移。
+- **自动门与边界**：`test_scene_script_dynamic_layer_runtime` 的 typed color 正向、缺失值保持 authored color、quiescent/lazy source gate 共 **9 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、provider completion/GPU fault、多 surface timing、颜色 ROI、稳定帧性能或官方视觉对照；最高只支持 `S2` shared typed topology hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-dynamic-text-quiescent-update"></a>
 ### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
 
