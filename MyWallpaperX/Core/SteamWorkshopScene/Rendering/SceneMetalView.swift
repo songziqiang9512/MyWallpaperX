@@ -251,7 +251,6 @@ class SceneMetalView: NSView {
             case let .loaded(baseLoad):
                 let texture = baseLoad.texture
                 var effectiveTexture = texture
-                var hasStaticPuppetRecomposition = false
                 var puppetCoverage: ScenePuppetMeshRecomposer.CoverageExtent?
                 var puppetMessage: String?
                 let staticPuppetIdentity = ScenePuppetLayerLoad.staticRecomposeIdentity(
@@ -266,7 +265,6 @@ class SceneMetalView: NSView {
                 {
                     effectiveTexture = cached.texture
                     puppetCoverage = cached.coverage
-                    hasStaticPuppetRecomposition = true
                     if report.isEnabled {
                         puppetMessage = "; puppet bind-pose source reused"
                     }
@@ -295,7 +293,6 @@ class SceneMetalView: NSView {
                                     texture: recomposedTexture,
                                     coverage: coverage
                                 )
-                            hasStaticPuppetRecomposition = true
                         }
                     }
                     if let playback = puppetOutcome.playback {
@@ -305,10 +302,10 @@ class SceneMetalView: NSView {
                         puppetMessage = "; \(puppetOutcome.message)"
                     }
                 }
-                if let puppetCoverage,
-                   hasStaticPuppetRecomposition
-                   || loadedPuppetPlaybackStates[layer.id] != nil
-                {
+                // Successful bind-pose fallback has the same source geometry
+                // contract as playback. Cache eligibility is not publication
+                // eligibility: unsupported animation can still recompose.
+                if let puppetCoverage {
                     loaded.setPuppetSource(
                         effectiveTexture,
                         layerID: layer.id,

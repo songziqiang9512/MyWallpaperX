@@ -12,7 +12,7 @@
 |---|---|---|---|
 | 3264246690 | 人物偏上、头部出画；左肘缺块 | 当前截图头部在画内、左肘缺块仍在；不能据此判定构图正确 | 未通过 |
 | 3765760121 | 上下颠倒 | utility model/投影策略不一致已修；默认鱼眼开启的当前截图恢复正向，见 E-V4-UTILITY-CAMERA-CONSISTENCY | 倒置修复，整样本未全面验收 |
-| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 当前截图复现人物压缩、面部黑线；待区分 source/geometry/mask | 已复现，未修 |
+| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | bind-pose fallback 的 texture/extent 发布已修，人物不再压扁；黑线、缺块和动画 unsupported 仍在，见 E-V4-PUPPET-FALLBACK-PUBLICATION | 部分修复，未通过 |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
@@ -41,6 +41,16 @@
 五个需要先回到公共 owner 的 blocked 样本是 `2824109832`（effect admission 后仍有未认领 visible effect）、`3448845950`（GraphExecutor 缺失多层且无 terminal/next-frame）、`3470948192`（terminal flat-preview divergence）、`3775355045` 和 `3775373546`（layer 22 的 GraphExecutor execution missing）。`3509243656`、`3610154602`、`3612199597` 等真实样本还记录了 SceneScript typed exception；这说明“脚本路径更好”不能由全量 probe 推断。
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
+
+## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
+
+`3780119725` 人物 layer21 的重组覆盖范围为 3874×6279，上传纹理为 2527×4096，但作者 atlas/layer 声明为 3874×2000。动画 layer1221 不在当前 bounded profile，已有逻辑成功生成 bind-pose fallback。首断点在 `SceneMetalView`：只有可缓存的静态重组或 active playback 才调用 `setPuppetSource`；这个有动画声明却降级为 bind-pose 的结果没有 cache identity，被错误送进 base atlas publication，旧高度继续驱动 model/effect source。现在只以成功重组返回的 coverage 决定既有 Puppet source publication，不再以 cache/playback 资格为门；缓存复用条件不变，解析、重组与 budget 全部仍在 load。
+
+这是现有 provider 的纹理/逻辑尺寸提交修复，不是扩展 Puppet 动画或 V5。`setPuppetSource` 仍是唯一 source identity/generation/extent owner，普通 base atlas、重组失败 fallback、安全预算和 invalidation 未改。主链：authored mesh/atlas → prepared bind-pose texture + coverage → source publication → typed frame source/model → existing graph → Metal/compositor。
+
+验证：Puppet mesh/playback 27 tests 中 26 PASS、1 个历史隔离资产 attachment 检查因资产不可用 skip；新增源代码防回归检查禁止以静态缓存标志限制 coverage publication，现有 coverage 数学测试不冒充 GPU 证明。texture-candidate/source-update-transaction 13 tests PASS；checkpoint Debug build 成功。App CDHash `cd9197ea93670d18079de103630fa2c9d2d811f0`、Debug dylib SHA-256 `0830c5fa91484e932885d34c464d94d4900197b8b9fbc3d3616cebc640bff1b4`。
+
+隔离 runtime `/private/tmp/mwx-async-text.qmTbKj/3780119725/fallback-geometry-after`，异步 requestLaunch、默认属性、显式静音，14 秒/after11。after 截图 SHA-256 `c067443e7015c75022a063448a55d4ab5ff4608d03f9666129f85616e63d0925` 中人物恢复非压扁比例；相对前轮 `utility-camera-after`，layer21 graph input 2048×1057 变为 1263×2048，保持 coverage 比例。terminal effect6 frame0/1 均 succeeded、gpuCompletion=completed、compositorConsumed=true，publicationGeneration 38→89。**黑线、缺块、动画 layer1221 unsupported 仍在**；这只证明 fallback 几何正确送达，不证明 bind-pose 内容/动画完整或整样本正确。下一断点在 bind-pose mesh/atlas 重组和动画准入，不以遮掉黑线、删除图层或关闭作者效果验收。
 
 ## E-V4-UTILITY-CAMERA-CONSISTENCY：组合层资源准备与消费方向一致（2026-09-08）
 

@@ -413,6 +413,10 @@ class PuppetMeshCoverageContractTests(unittest.TestCase):
         self.assertNotIn("var renderSize:", load)
         self.assertIn("func setPuppetSource(", base)
         self.assertIn("setPuppetSource(", view)
+        # Rejected animation still publishes a successfully recomposed bind
+        # pose. Cache eligibility must not gate its logical source geometry.
+        self.assertIn("if let puppetCoverage {", view)
+        self.assertNotIn("hasStaticPuppetRecomposition", view)
         self.assertNotIn("puppetRenderSize", view)
 
 

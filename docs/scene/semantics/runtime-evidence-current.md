@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 Bind-pose fallback 发布重组逻辑尺寸
+
+成功重组但动画 unsupported 的 Puppet fallback 不再因为缺少静态 cache identity 而误用 atlas 尺寸。`3780119725` 人物压扁消除，layer21 graph source 比例、terminal publication/GPU/next-frame 均随 coverage 修正；26 Puppet tests PASS/1 skip、13 source publication tests PASS、Debug build 成功。黑线、缺块和动画 unsupported 保持开放。见 [E-V4-PUPPET-FALLBACK-PUBLICATION](scene-sample-debug-ledger.md#e-v4-puppet-fallback-publication重组成功与可缓存资格分离2026-09-08)。
+
 ### 2026-09-08 Utility model 与 projection 共用有效 camera 决策
 
 修复 utility capture 以 raw perspective override 构建 model/采样区域、却用正交 projection/output 的不一致。`3765760121` 默认鱼眼开启的截图恢复正向，原 Program 首帧/next-frame GPU、publication、compositor 成功；30 项定向 tests 与 Debug build 通过。普通 image perspective 不变，真正透视 utility 未证明；`3780119725` 与 `3264246690` 独立缺陷仍在。见 [E-V4-UTILITY-CAMERA-CONSISTENCY](scene-sample-debug-ledger.md#e-v4-utility-camera-consistency组合层资源准备与消费方向一致2026-09-08)。
