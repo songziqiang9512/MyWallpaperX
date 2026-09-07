@@ -4878,6 +4878,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：复用只发生在既有 QuickJS layer snapshot transaction 内，不保存第二份 Swift property state、provider、clock 或 renderer；每个 configured layer 仍必须显式 update/reuse，漏标记、非法输入、generation、catalog、abort/commit 门继续 fail closed。动态 text/video、SceneScript callback、下一帧 previous-current、Program/GraphExecutor、Metal encode、GPU completion/publication 与唯一 compositor/output owner 不变。
 - **自动门与边界**：QuickJS snapshot atomicity（含 reuse 后 commit/abort/incomplete）、frame VM routing、property vector SceneScript harness 共 25 tests / OK；code-health 为 902 Swift / 16 locked legacy / 184 warnings / PASS，`git diff --check` 通过，checkpoint Debug build `BUILD SUCCEEDED`。尚未用改后 signed sample 重跑 CPU/pre-encode、真实 provider completion fault、ROI、稳定性能或长稳；最高只支持 `S2` 共享 snapshot hot-path wiring，不外推为性能收益已量化、视觉 parity 或 V4 收口。
 
+<a id="e-v4-camera-visibility-prepared-index"></a>
+### E-V4-CAMERA-VISIBILITY-PREPARED-INDEX: camera visibility 复用 prepared layer index
+
+证据等级：`S2 shared visibility hot-path wiring`。本批只减少 native-perspective camera pass 的重复 CPU dictionary preparation，不宣称视觉变化、稳定性能或 V4 完成。
+
+- **目标合同、首断点与实现**：目标主链要求 camera 的 typed visibility 选择消费 prepared descriptor identity/index，并逐帧读取当前 snapshot。此前 `activeNativePerspectiveCamera` 调用 `SceneLayerVisibility.visibleLayerIDs(in:snapshot:)`，每帧从 authored descriptor 重建 `layersByID`；当前 camera owner 直接传入 renderer 已持有的 `layersByID`，只复用 identity index，随后仍沿 authored render order 选择可见 `camera:"default"` layer。
+- **失败半径与 owner**：prepared dictionary 只读借用 renderer 的 authored layer identity，不缓存 visible value、generation、world frame、FOV 或 camera fallback。typed visibility、parent-aware traversal、camera-path admission、native perspective override 与无有效 camera 时的 scene-camera fallback 仍由原 owner 实时决定；没有新增 visibility、camera、provider、clock、renderer、graph/history 或 compositor owner。
+- **自动门与边界**：`test_scene_camera_shake` 与 `test_scene_dynamic_layer_visibility` 的 prepared-index 等价/反例门通过；code-health、`git diff --check` 与 checkpoint Debug build通过。未做真实 signed sample CPU/pre-encode A/B、GPU completion fault、camera ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared visibility hot-path wiring，不外推为全局 O(1)、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

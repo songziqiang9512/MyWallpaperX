@@ -103,6 +103,27 @@ private func visible(
     ).sorted()
 }
 
+private func visibleWithPreparedIndex(
+    _ values: [SceneDynamicTarget: SceneDynamicValue],
+    userValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+) -> [Int] {
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1,
+        generation: 1,
+        definitions: definitions,
+        userValues: userValues,
+        sceneScriptValues: values
+    ).snapshot
+    let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map {
+        ($0.id, $0)
+    })
+    return SceneLayerVisibility.visibleLayerIDs(
+        in: descriptor,
+        layersByID: layersByID,
+        snapshot: snapshot
+    ).sorted()
+}
+
 private func sourceAuthority(
     layerID: Int,
     _ values: [SceneDynamicTarget: SceneDynamicValue],
@@ -127,7 +148,13 @@ enum Harness {
     static func main() throws {
         let payload: [String: Any] = [
             "rootRestored": visible([root: .bool(true), child: .bool(true)]),
+            "rootRestoredPrepared": visibleWithPreparedIndex(
+                [root: .bool(true), child: .bool(true)]
+            ),
             "rootHidden": visible([root: .bool(false), child: .bool(true)]),
+            "rootHiddenPrepared": visibleWithPreparedIndex(
+                [root: .bool(false), child: .bool(true)]
+            ),
             "childHidden": visible([root: .bool(true), child: .bool(false)]),
             "ownedStillSuppressed": visible([root: .bool(true), child: .bool(true)]),
             "userSourceStillSuppressed": visible(
@@ -207,7 +234,9 @@ class SceneDynamicLayerVisibilityTests(unittest.TestCase):
             value = json.loads(run.stdout)
 
         self.assertEqual(value["rootRestored"], [1, 2, 3, 4])
+        self.assertEqual(value["rootRestoredPrepared"], value["rootRestored"])
         self.assertEqual(value["rootHidden"], [3, 4])
+        self.assertEqual(value["rootHiddenPrepared"], value["rootHidden"])
         self.assertEqual(value["childHidden"], [1, 3, 4])
         self.assertEqual(value["ownedStillSuppressed"], [1, 2, 3, 4])
         self.assertEqual(value["userSourceStillSuppressed"], [1, 2, 3, 4])

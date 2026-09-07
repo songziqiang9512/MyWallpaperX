@@ -326,6 +326,7 @@ class SceneCameraShakeTests(unittest.TestCase):
         self.assertGreaterEqual(view.count("cameraFrame: cameraFrame"), 2)
         self.assertIn("cameraFrame.cameraOrigin", camera_owner)
         self.assertIn("cameraOrigin: dynamic.origin + SIMD3", camera_owner)
+        self.assertIn("layersByID: layersByID", camera_owner)
         self.assertNotIn("SceneCameraShake", parallax)
 
 

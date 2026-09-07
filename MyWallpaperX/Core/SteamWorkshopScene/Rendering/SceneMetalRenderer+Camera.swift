@@ -38,6 +38,7 @@ extension SceneMetalRenderer {
               fallbackCamera.orthoHeight == nil else { return nil }
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: renderDescriptor,
+            layersByID: layersByID,
             snapshot: dynamicValues
         )
         guard let layer = renderDescriptor.renderOrderLayerIDs.reversed()
