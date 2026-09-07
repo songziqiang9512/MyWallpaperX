@@ -443,7 +443,10 @@ enum Harness {
                 .layer(layerID: 10, field: .origin): .vector3(20, 2250, 0),
                 .layer(layerID: 10, field: .scale): .vector3(1.5, 1.5, 1.5),
                 angleTarget: .vector3(0, 0, Double(Float.pi / 2)),
-            ],
+            ].filter {
+                program.inputTargets.contains($0.key)
+                    && program.inputValueTypes.contains($0.value.valueType)
+            },
             effectivePropertyValues: [
                 "x1": .number(40), "y1": .number(2100), "size": .number(1.25),
             ],
@@ -545,7 +548,10 @@ enum Harness {
             frame: frame
         )
         let passColorResult = passColorProgram.evaluate(
-            inputs: [passColorTarget: .vector3(1, 1, 1)],
+            inputs: [passColorTarget: SceneDynamicValue.vector3(1, 1, 1)].filter {
+                passColorProgram.inputTargets.contains($0.key)
+                    && passColorProgram.inputValueTypes.contains($0.value.valueType)
+            },
             effectivePropertyValues: [:],
             frame: frame
         )

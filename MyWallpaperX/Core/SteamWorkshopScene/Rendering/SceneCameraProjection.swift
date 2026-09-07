@@ -21,8 +21,11 @@ enum SceneCameraProjection {
         // is far off-center, e.g. eye=(94, 753) on a 3840x2160 canvas).
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
-        let authoredDepth = safeOrigin.z > camera.nearZ
-            ? safeOrigin.z : max(1, camera.nearZ * 10)
+        // The orthographic canvas is the center of its authored depth span,
+        // not one unit behind the near plane. A typed X/Y rotation must be
+        // able to move a 2D card to either side of that plane without clipping
+        // ordinary text/image geometry. Camera Z translates the same span.
+        let authoredDepth = safeOrigin.z + (camera.nearZ + camera.farZ) * 0.5
         let sceneCenter = SIMD3<Float>(
             orthoWidth / 2 + safeOrigin.x,
             orthoHeight / 2 + safeOrigin.y,

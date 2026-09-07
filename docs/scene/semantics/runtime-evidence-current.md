@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 Vector prepared input schema 与正交旋转裁切
+
+修复 Vector Program 在空构造时冻结 input target/type、后装 owner 却不更新 schema 的首断点；真实帧现在消费 origin/scale/angles/pass 等 typed 输入。`3470948192` 公式 NaN 恢复数值、`3509243656` 文明记录推进。连带修正正交画布贴近 near plane 使旋转文字消失的问题，`3747492842` 默认 motion 的日期恢复；61 个定向 tests、Debug build、隔离异步截图成立，但三样本仍有独立未验收项。见 [E-V4-VECTOR-INPUT-SCHEMA](scene-sample-debug-ledger.md#e-v4-vector-input-schemaprepared-owner-进入真实帧输入)。
+
 ### 2026-09-08 初始 text texture 与 logical size 同步发布
 
 初始 text 与动态更新共用当前字体测量，移除 `limitwidth=false` 仍被旧 editor size 隐式换行/裁断的差异；measured size 与 texture 一起进入现有 text store。39 个定向 tests、Debug build、隔离异步截图证明 `3747492842` 标题和 `3470948192` AM/公式字形改善，但 viewport 裁切、光束、音频闪烁、NaN/背景仍未通过。见 [E-V4-INITIAL-TEXT-GEOMETRY](scene-sample-debug-ledger.md#e-v4-initial-text-geometry静态文字与更新文字准备一致)。

@@ -5,7 +5,8 @@ import Foundation
 nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private(set) var definitions: [SceneDynamicTargetDefinition]
     private(set) var bindings: [SceneScriptVectorBinding]
-    let inputTargets: Set<SceneDynamicTarget>, inputValueTypes: Set<SceneDynamicValueType>
+    private(set) var inputTargets: Set<SceneDynamicTarget>
+    private(set) var inputValueTypes: Set<SceneDynamicValueType>
     private var bindingIndicesByTarget: [SceneDynamicTarget: Int] = [:]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
@@ -260,6 +261,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             bindingIndicesByTarget[target] = bindings.count - 1
         }
         definitions = bindings.map(\.definition)
+        // Owners are installed after empty-domain construction and again
+        // after material pass admission. Freeze the actual admitted inputs,
+        // not the empty construction seed; ordinary frames only read these.
+        inputTargets = Set(definitions.map(\.target))
+        inputValueTypes = Set(definitions.map(\.valueType))
         return failures
     }
     func evaluate(

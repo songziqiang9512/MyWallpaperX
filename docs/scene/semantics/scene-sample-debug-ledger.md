@@ -4,6 +4,21 @@
 
 ## 2026-09-08 current corpus probe
 
+### 用户可见失败待办（未逐项重跑，不得视为已定位）
+
+以下均以真实播放截图/事件恢复正常为验收，不以历史 probe 状态覆盖用户反馈。每项修复须补共享首断点及 next-frame/event 证据。
+
+| 样本 | 待修复的用户可见问题 | 首轮区分证据 | 状态 |
+|---|---|---|---|
+| 3264246690 | 人物偏上、头部出画；左肘缺块 | camera/world transform 与 layer source/裁切边界分别对照 | 待复现 |
+| 3765760121 | 上下颠倒 | source UV、渲染目标与 terminal output 的 Y 方向 | 待复现 |
+| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | logical/physical extent、mask slot/UV 与 layer publication | 待复现 |
+| 1315486372 | 水波位置不正确、光线贴图效果生硬 | effect-local 坐标与辅助纹理采样/alpha | 待复现 |
+| 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 屏幕→surface→typed pointer 的坐标、inside 与边界连续性 | 待复现 |
+| 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
+| 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
+| 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
+
 权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。本次静态 census 发现 **159** 个 numeric sample，`159/159` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776`。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `0346d55c384f90d4931984098e2fd5f01bba18849f952beac9049153747b8351`），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
 
 四个隔离分片使用同一签名 Developer ID Debug executable（bundle `com.songziqiang.MyWallpaperX`，version `2.0.9 (277)`，Team `H9QWU9XN8R`，CDHash `610ab437185c4104392b30227afbea3744129ea0`，executable SHA-256 `10951960b67fd3a635f96846886d0829fb3aa6de68c5c771913cc0109d22e247`）。每个样本从只读根复制到独立 runtime root，运行时长 7 秒；该 probe 使用 identity-only matrix，因此没有把历史视觉期待误当成成功条件。四份 report 的 SHA-256 分别为：
@@ -57,6 +72,16 @@
 当前签名 CDHash `c6a8ee10d0d2deff3e91b2afeb9a5f1e1785863d`，Debug dylib SHA-256 `fe394e585d6528e7a8dc50b706eff7eb1121c093e1c4c76af69c28f5f75f24fd`。沿上述异步复现命令运行，证据根下 `3747492842/static-after/scene-after-window.png` SHA-256 `10d09b5d717cc57f6638c261ae15a3fa6e29959a293153e54e5f0244cfd1193c`：标题从纹理内多行碎片变成单行，当前 viewport 仍裁去左侧内容，光束位置未修。`3470948192/static-after/scene-after-window.png` SHA-256 `9d40412e84949c268cac19fbb7d5901596cc58ee4bebb8cd9441222180d0899e`：AM/公式字形完整，但公式 NaN 和异常背景仍不通过；对应日志有 GPU completion、next-frame 和 teardown owners51/quiescent51/failures0。
 
 两样本均未整体验收。两次 `3747492842` 运行的真实系统音频不同，截图中的闪烁差异不能归功于文字修复；仍需静音/真实音频 producer 对照。几何修复不宣称解决光束或音频问题。
+
+## E-V4-VECTOR-INPUT-SCHEMA：prepared owner 进入真实帧输入
+
+Vector Program 先以空 bindings 构造，再安装 non-pass 与 admitted pass owners；其 `inputTargets/inputValueTypes` 却只在空构造时计算，导致 host `typedValues` 传空输入、所有 vector/bool owner 被跳过。现已在实际安装 owners 后同步冻结 schema，不把求集合移回普通帧。单元门改用真实 input schema 过滤后再 evaluate，覆盖 non-pass 及后装 pass；原先直接给 evaluate 填输入的门无法发现此断点。property-vector 18、Boolean visibility 10、frame VM routing 9 tests 通过。
+
+`3470948192` 的隐形层 origin producer 现在真实执行，shared 坐标到 text consumer 后公式由 NaN 变成 `0.114`；`vector-after/scene-after-window.png` SHA-256 `efb0892637c36b698a490361b2ec3ca63eca108837512b9c504b50e2f1dd73bb`，日志首帧 vectorValues9/failures2。仍有独立 pass API exception、scale 非有限返回和异常背景。`3509243656` 的 `vector-after` 22 秒截图已出现推进中的文明记录，而不再只显示 0 年；此前“MAIN 未执行”应限定为旧空输入状态，不是静态不支持合同，整体模拟/视觉仍未验收。
+
+恢复 vector 后必须同时关闭正交近裁面问题：旧 `SceneCameraProjection` 默认 eye Z=1，使几度 X/Y 倾斜的文字超出近裁面；`3747492842` motion=false 可见、motion=true 日期消失。正交画布现在放在现有 near/far 深度跨度中间，camera Z 平移同一跨度；不改 X/Y cover、透视相机或 authored 顺序。`test_scene_orthographic_depth` 要求正负倾斜顶点均在 clip 范围内，远超范围仍被裁切；连同 text pivot/screen anchor/particle camera 共 24 tests 通过。临时 projection/mutation probe 已移除。
+
+checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f7a0f24e`、Debug dylib SHA-256 `9562412db449eafb325408a087868ce0ff3815c8a7cd92707609cc6fec3269a3`。`3747492842/depth-after/scene-after-window.png` SHA-256 `6e85d12663caa2c565b63864eecc08be1b6e15fa96fe6466c0cd0b57c461c9a8` 在默认 motion=true、显式 audio-silence fixture 下恢复日期，日志含真实角度 mutation owner、text texture publication、GPU completed/compositor/next-frame 与 teardown。音频消融只控制输入，不算音频正确性验收；光束、viewport 裁切仍未修。新增五样本待办不因这些公共修复自动通过。
 
 ## 历史比较：手动启动与脚本运行不是同一实验
 
