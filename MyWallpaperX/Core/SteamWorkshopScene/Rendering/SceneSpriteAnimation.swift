@@ -79,14 +79,20 @@ struct SceneSpriteAnimation {
         }
         var remaining = elapsed.truncatingRemainder(dividingBy: duration)
         if remaining < 0 { remaining += duration }
-        for frame in frames {
-            let frameDuration = Self.effectiveDuration(frame.duration)
-            if remaining < frameDuration {
-                return transform(for: frame)
+        // `frameEndTimes` is prepared once from the authored atlas. Locate the
+        // first end strictly after the sample so exact frame boundaries keep
+        // the historical next-frame behavior without scanning every frame.
+        var lower = 0
+        var upper = frameEndTimes.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if remaining < frameEndTimes[middle] {
+                upper = middle
+            } else {
+                lower = middle + 1
             }
-            remaining -= frameDuration
         }
-        return transform(for: frames[frames.count - 1])
+        return transform(for: frames[min(lower, frames.count - 1)])
     }
 
     func encode(

@@ -2517,6 +2517,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：host barrier 失败只撤销未被接受的 tracker token，不伪造 GPU completion 或清除已提交的 texture；command-buffer completion handler 对已取消/新 token 只按 token identity 生效。普通 command-buffer failure、OOM、source identity/format/target 错误继续由原 transaction/loader fail closed，成功 all-surface barrier 不改变既有 completion 语义。
 - **自动门与边界**：BC sprite harness 新增 `complete(success)` 后 host-drop discard 再同 frame retry 断言；`test_scene_source_update_transaction` 锁定 tracker `discardLatest`、view wrapper 与 host failure order，相关 35 项 focused tests、`git diff --check` 通过。未注入真实 multi-surface sprite drop、GPU/texture ROI、完整 sample 或官方 parity，故最高只到 `S2` shared frame-lifecycle wiring，不外推稳定性能、sprite breadth 或 V4 完成。
 
+<a id="e-v4-sprite-atlas-frame-lookup"></a>
+### E-V4-SPRITE-ATLAS-FRAME-LOOKUP: reuse prepared atlas frame-end timeline
+
+证据等级：`S2 shared sprite hot-path preparation wiring`。本批只收口普通 atlas sprite frame selection 对累计 authored duration 的重复线性扫描，不宣称真实样本稳定性能、atlas ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：同一 `SceneSpriteAnimation` 继续由 load 阶段保留 authored frame geometry、duration、UV 与 `frameEndTimes`；普通 `transform(at:)` 仍实时消费 scene time 并按原 loop/wrap 规则选帧，exact frame boundary 仍使用严格 `elapsed < frameEndTimes[index]`。此前该 helper 在每次 transform 中重新遍历全部 frames 并重新读取 effective duration；当前直接在已准备的累计 end-time 数组上做二分，粒子实例和普通 image/material sprite 共用这一 owner，texture-playback/MPS provider 仍走原路径。
+- **失败半径与 owner**：二分只读取 immutable frame metadata，不缓存 scene time、particle age/lifetime、provider readiness、generation、publication 或 frame outcome；invalid/empty/texture-playback atlas 仍沿原 fallback/identity/专用 provider 语义，未新增 animation、clock、texture、registry、Program/Graph、Metal 或 compositor owner。
+- **自动门与边界**：`test_scene_texture_animation_script.py` **2/2**（loop、exact boundary、sidecar/aspect 与 wrapper 正反门）、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_particle_simulator.py` **53/53**、`test_scene_texture_candidate.py` **1/1**、`test_scene_bc_texture_uploader.py` **13/13**；`git diff --check`、code-health（903 Swift、16 locked legacy、185 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。未做改后真实 signed sample CPU/pre-encode A/B、atlas ROI/视觉 parity、GPU completion rollback、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared sprite hot-path preparation wiring。
+
 <a id="e-v4-particle-frame-outcome-transaction"></a>
 ### E-V4-PARTICLE-FRAME-OUTCOME-TRANSACTION: particle simulation follows the host submission barrier
 

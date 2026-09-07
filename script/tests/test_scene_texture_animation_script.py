@@ -155,6 +155,15 @@ enum Harness {
 
 
 class SceneTextureAnimationScriptTests(unittest.TestCase):
+    def test_atlas_transform_reuses_prepared_frame_end_times(self) -> None:
+        source = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneSpriteAnimation.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("var upper = frameEndTimes.count", source)
+        self.assertIn("if remaining < frameEndTimes[middle]", source)
+        self.assertNotIn("for frame in frames", source)
+
     def test_wrapper_parsing_and_scene_time_atlas_playback(self) -> None:
         with tempfile.TemporaryDirectory(prefix="scene-texture-animation-") as temp_dir:
             temp_path = Path(temp_dir)
