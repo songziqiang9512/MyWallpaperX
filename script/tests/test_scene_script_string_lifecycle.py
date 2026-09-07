@@ -292,8 +292,14 @@ enum Harness {
         )
         let eventSource = """
         const selectedFont = engine.registerAsset('fonts/selected.ttf');
+        const timerFont = engine.registerAsset('fonts/timer.ttf');
         export function applyUserProperties(properties) {
-            if (properties.fontChoice) thisLayer.font = selectedFont;
+            if (properties.fontChoice === 'selected') {
+                thisLayer.font = selectedFont;
+            } else if (properties.fontChoice === 'timer') {
+                thisLayer.font = timerFont;
+                engine.setTimeout(() => { thisLayer.font = selectedFont; }, 20);
+            }
         }
         """
         let eventDomain = try SceneScriptQuickJSDomain()
@@ -338,6 +344,38 @@ enum Harness {
             frame: frame
         )
         let eventFontMutation = eventResult.layerMutations.first
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventStable = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: frame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventTimerScheduled = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("timer")],
+            frame: frame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let timerFrame = SceneScriptFrameInput(
+            timing: .init(
+                wallDate: Date(timeIntervalSince1970: 0.025),
+                simulationFrameTime: 0.025,
+                sceneTime: 2.025
+            ),
+            timeZone: TimeZone(secondsFromGMT: 0)!
+        )
+        let eventTimer = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: timerFrame
+        )
+        eventProgram.finalizeLayerMutations(committing: true)
+        let eventSettled = eventProgram.evaluate(
+            inputs: [propertyTarget: .string("placeholder")],
+            effectivePropertyValues: ["fontChoice": .string("selected")],
+            frame: timerFrame
+        )
         let storageRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: storageRoot) }
@@ -428,6 +466,16 @@ enum Harness {
             "eventOutput": eventResult.values[propertyTarget] == .string("placeholder"),
             "eventFontField": eventFontMutation?.fields.contains(.font) == true,
             "eventFontPath": eventFontMutation?.font ?? "",
+            "eventStableSkipped": eventStable.values[propertyTarget] == nil,
+            "eventTimerScheduledOutput":
+                eventTimerScheduled.values[propertyTarget]
+                    == .string("placeholder"),
+            "eventTimerScheduledFontPaths":
+                eventTimerScheduled.layerMutations.compactMap(\.font),
+            "eventTimerOutput":
+                eventTimer.values[propertyTarget] == .string("placeholder"),
+            "eventTimerFontPaths": eventTimer.layerMutations.compactMap(\.font),
+            "eventSettledSkipped": eventSettled.values[propertyTarget] == nil,
             "persistedStorageValue": persistedValue,
             "futureStorageReadRejected": futureReadRejected,
             "futureStorageWriteRejected": futureWriteRejected,
@@ -670,6 +718,12 @@ class SceneScriptStringLifecycleTests(unittest.TestCase):
         self.assertTrue(result["eventOutput"])
         self.assertTrue(result["eventFontField"])
         self.assertEqual(result["eventFontPath"], "fonts/selected.ttf")
+        self.assertTrue(result["eventStableSkipped"])
+        self.assertTrue(result["eventTimerScheduledOutput"])
+        self.assertIn("fonts/timer.ttf", result["eventTimerScheduledFontPaths"])
+        self.assertTrue(result["eventTimerOutput"])
+        self.assertIn("fonts/selected.ttf", result["eventTimerFontPaths"])
+        self.assertTrue(result["eventSettledSkipped"])
         prefix, array_value, year = result["propertyValue"].split(":")
         self.assertEqual(prefix, "live")
         self.assertEqual(array_value, "one")

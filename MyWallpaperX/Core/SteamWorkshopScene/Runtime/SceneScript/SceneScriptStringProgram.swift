@@ -402,6 +402,12 @@ nonisolated final class SceneScriptStringProgram: @unchecked Sendable {
                     > consumedMediaTimelineGenerations[binding.target, default: 0]
                     ? event : nil
             }
+            let hasPendingCallback = changedUserPropertiesJSON != nil
+                || playback != nil || properties != nil || thumbnail != nil
+                || timeline != nil
+            guard hasPendingCallback || binding.requiresFrameEvaluation else {
+                continue
+            }
             if binding.hasAudioRegistration {
                 switch binding.refreshAudio(audioSpectrum) {
                 case .success: break

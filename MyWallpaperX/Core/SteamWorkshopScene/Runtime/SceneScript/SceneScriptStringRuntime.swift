@@ -19,11 +19,16 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
     let handlesMediaPlayback: Bool
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
+    private let handlesUpdate: Bool
     private let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private let initialScriptPropertiesJSON: String
     private var lastAudioGeneration: UInt64?
+
+    var requiresFrameEvaluation: Bool {
+        handlesUpdate || mwx_scene_quickjs_owner_active_timer_count(handle) > 0
+    }
 
     init(
         domain: SceneScriptQuickJSDomain,
@@ -73,6 +78,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         var handlesMediaProperties = false
         var handlesMediaTimeline = false
         var handlesUserProperties = false
+        var handlesUpdate = false
         do {
             try SceneScriptLayerMutationBridge.configure(owner: created, target: target)
             var updateAvailable: UInt32 = 0
@@ -89,6 +95,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
             guard updateResult == MWX_SCENE_QUICKJS_OK else {
                 throw Self.failure(updateResult, diagnostic)
             }
+            handlesUpdate = updateAvailable == 1
             try SceneScriptEffectHandleBridge.configure(
                 owner: created,
                 effectNames: effectNames
@@ -128,6 +135,7 @@ nonisolated final class SceneScriptStringOwner: @unchecked Sendable {
         self.handlesMediaPlayback = handlesMediaPlayback
         self.handlesMediaProperties = handlesMediaProperties
         self.handlesMediaTimeline = handlesMediaTimeline
+        self.handlesUpdate = handlesUpdate
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }

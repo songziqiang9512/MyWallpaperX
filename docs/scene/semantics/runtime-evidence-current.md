@@ -22,6 +22,12 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 SceneScript String callback-only quiescence + authored text provider
+
+String Program 已把 callback-only owner 的稳定帧求值收口到同一 typed event/property 链：没有 property/media callback、`update` 或 active timer 时不再跨 Swift/C，也不刷新音频桥；property event 或 timer 到期仍恢复同一 owner/generation。`test_scene_script_string_lifecycle` 与 checkpoint 21 modules **ALL OK**，code-health、`git diff --check` 与 Debug build 通过。
+
+隔离真实 `3396722575` 使用签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `610ab437185c4104392b30227afbea3744129ea0`、executable SHA-256 `10951960b67fd3a635f96846886d0829fb3aa6de68c5c771913cc0109d22e247`）：严格 `1/1 PASS`，4 个 text layer loaded，`phase=ready` 为 61 layers / 30 image / 62 effects / 1 surface，startup dynamic-text publication 记录 layers `1794/843/120`，live `text1,text2,text3` accepted 且 surface/window `1→1`、`46219→46219`，ready/after 非黑；teardown 为 owners31/quiescent31/failures0/timers0/jobs0/mutations0/dynamicLayers0。该次运行证明 authored text/font provider 与 live property transaction 的安全执行，但未单独形成 callback-produced font 的 ROI；性能仅为一轮 7 秒观察，不是 A/B 或长稳结论。详见 [E-V4-SCENESCRIPT-CALLBACK-ONLY-STRING-QUIESCENCE](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-callback-only-string-quiescence)。
+
 ### 2026-09-06 Puppet mesh coverage + Water Waves mask UV owner
 
 用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同不变：`world = origin + mesh * authored scale`。官方 Introduction 把 image effect 限制在作者 mesh/padding，不是导入图 `size` 硬裁；第三方 Mirage 只交叉支持“mesh 在 layer transform 下提交、不按导入框 contain”的职责顺序，不是可复制实现。现役 bake+compositor 因此发布 origin 居中 coverage（作者 size∪bind-pose）给唯一 compositor/effect capture，映射为 `vertex / coverage`。`3264246690` layer 389 的逻辑高度从作者 `2000` 扩到覆盖 bind-pose `|y|=1609.5`；框内样本（`3787382101` layer 28）保持作者 `5600×2400`。
