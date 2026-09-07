@@ -124,13 +124,24 @@ nonisolated enum SceneTimelineEvaluator {
             )
         }
         if frame == last.frame { return last.value }
-        guard let upperIndex = lane.firstIndex(where: { $0.frame > frame }),
-              upperIndex > 0
-        else {
+        // Authoring keeps frames strictly increasing. Find the first frame
+        // strictly above the sample with a bounded binary search so a long
+        // authored lane does not linearly scan on every realtime frame.
+        var lower = 0
+        var upper = lane.count
+        while lower < upper {
+            let middle = (lower + upper) / 2
+            if lane[middle].frame > frame {
+                upper = middle
+            } else {
+                lower = middle + 1
+            }
+        }
+        guard lower > 0, lane.indices.contains(lower) else {
             return last.value
         }
-        let start = lane[upperIndex - 1]
-        let end = lane[upperIndex]
+        let start = lane[lower - 1]
+        let end = lane[lower]
         let span = end.frame - start.frame
         // IR 已保证帧号严格递增，这里只兜底除零。
         guard span > 0 else { return end.value }

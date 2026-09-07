@@ -4905,6 +4905,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：`FrameContext` 是单次 `values` 调用的局部值，下一 host frame 仍从 `SceneFrameTiming.wallDate` 重建；不跨帧保存 clock、文本值、property 或 media provider state。accepted AST、step budget、authored fallback、media generation、dynamic snapshot priority、dynamic-text texture signature/generation/publication、Program/GraphExecutor、Metal encode 与唯一 compositor/output owner不变。
 - **自动门与边界**：`test_scene_text_script_runtime` 的五个 clock/calendar 正例、media title/artist generation/clear、unsupported/failure fallback 与 single-frame context source gate 共 **9 tests / OK**；本批另行复核相关 text/frame/provider focused tests、`git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、运行中时区切换、media provider fault、文本 ROI、稳定帧性能或官方视觉对照；最高只支持 `S2` shared typed text-input hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
 
+<a id="e-v4-timeline-segment-binary-search"></a>
+### E-V4-TIMELINE-SEGMENT-BINARY-SEARCH: Timeline authored lane segment binary search
+
+证据等级：`S2 shared typed Timeline hot-path wiring`。本批只减少长 authored Timeline lane 在实时 frame update 中线性定位关键帧区间的 CPU/pre-encode 工作，不宣称真实样本、稳定性能、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与实现**：目标链要求 Timeline producer 按绝对 scene time 或唯一 playback state 的 elapsed frame 生成 typed lane value，再交给现有 snapshot/Program consumer。此前 `SceneTimelineEvaluator.value(in:atFrame:)` 对每条 lane 使用 `firstIndex(where: { $0.frame > frame })`，长 lane 每帧从首帧线性扫描；当前在相同严格上界条件下用 binary search 找第一个 `frame > sample`，单/循环/镜像/wrap、首尾 fallback 与 48 次固定 Bezier 反解保持不变。
+- **失败半径与 owner**：搜索只读取 immutable authored `SceneTimelineAnimation` lane，不新增 Timeline cache、clock、property/provider state 或 renderer；`SceneTimelinePlaybackRuntime` 的 play/pause/stop、observation snapshot/restore、typed source priority、generation、Program/GraphExecutor、Metal encode 与唯一 compositor/output owner不迁移。
+- **自动门与边界**：`test_scene_timeline_evaluator` 的真实/派生 single、loop、mirror、wrap、handle、offset 与端点反例，连同 Timeline runtime、target compiler、IR 共 **58 tests / OK**；本批另行复核 `git diff --check`、code-health 与 checkpoint Debug build。未做真实 signed sample Timeline CPU/pre-encode A/B、GPU completion fault、Timeline ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared typed Timeline hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-dynamic-text-quiescent-update"></a>
 ### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
 

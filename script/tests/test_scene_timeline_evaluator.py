@@ -302,6 +302,19 @@ class SceneTimelineEvaluatorTests(unittest.TestCase):
         )
         self.assertAlmostEqual(self.at("three_keyframes", 2.0)[1][0], 0.5)
 
+    def test_long_lanes_use_binary_span_search(self) -> None:
+        source = EVALUATOR_SOURCE.read_text(encoding="utf-8")
+        interpolation = source.split(
+            "private nonisolated static func value(\n        in lane:", 1
+        )[1].split(
+            "private nonisolated static func wrappingLength(", 1
+        )[0]
+        self.assertIn("var lower = 0", interpolation)
+        self.assertIn("var upper = lane.count", interpolation)
+        self.assertIn("let middle = (lower + upper) / 2", interpolation)
+        self.assertIn("lane[middle].frame > frame", interpolation)
+        self.assertNotIn("firstIndex(where:", interpolation)
+
     def test_disabled_handles_are_exactly_linear(self) -> None:
         self.assertAlmostEqual(self.at("linear_disabled", 0.25)[1][0], 0.25)
         self.assertAlmostEqual(self.at("linear_disabled", 0.75)[1][0], 0.75)
