@@ -562,18 +562,37 @@ enum Harness {
         )
         let propertyEventFirst = propertyEventProgram.evaluate(
             inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
-            effectivePropertyValues: ["mode": .number(2)],
-            frame: frame
+            effectivePropertyValues: ["mode": .number(2)], frame: frame,
+            propertyRevision: 1
         )
         let propertyEventStable = propertyEventProgram.evaluate(
             inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
-            effectivePropertyValues: ["mode": .number(2)],
-            frame: frame
+            effectivePropertyValues: ["mode": .number(2)], frame: frame,
+            propertyRevision: 1
         )
         let propertyEventChanged = propertyEventProgram.evaluate(
             inputs: [propertyEventTarget: .vector3(20, 2250, 0)],
-            effectivePropertyValues: ["mode": .number(4)],
-            frame: frame
+            effectivePropertyValues: ["mode": .number(4)], frame: frame,
+            propertyRevision: 2
+        )
+        var appliedPropertyState = SceneScriptAppliedUserPropertyState()
+        let propertyStateTarget = SceneDynamicTarget.layer(
+            layerID: 10, field: .origin
+        )
+        let propertyStateFirst = appliedPropertyState.changedJSON(
+            for: propertyStateTarget, current: ["mode": .number(2)],
+            kinds: [:], revision: 1
+        )
+        appliedPropertyState.record(
+            ["mode": .number(2)], revision: 1, for: propertyStateTarget
+        )
+        let propertyStateStable = appliedPropertyState.changedJSON(
+            for: propertyStateTarget, current: ["mode": .number(2)],
+            kinds: [:], revision: 1
+        )
+        let propertyStateChanged = appliedPropertyState.changedJSON(
+            for: propertyStateTarget, current: ["mode": .number(4)],
+            kinds: [:], revision: 2
         )
         let audioScaleProgram = SceneScriptVectorProgram.compile(
             domain: domain,
@@ -1775,6 +1794,9 @@ enum Harness {
             "propertyEventFailures": propertyEventFirst.failures.count
                 + propertyEventStable.failures.count
                 + propertyEventChanged.failures.count,
+            "propertyRevisionFirstDelta": propertyStateFirst != nil,
+            "propertyRevisionStableSkipped": propertyStateStable == nil,
+            "propertyRevisionChangedDelta": propertyStateChanged != nil,
             "modelTintBindings": modelTintProgram.bindings.count,
             "modelTintValue": vector(modelTintResult.values[modelTintTarget]),
             "modelTintFailures": modelTintResult.failures.count,
@@ -2570,6 +2592,9 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["propertyEventStable"], [5, 2250, 0])
         self.assertEqual(value["propertyEventChanged"], [7, 2250, 0])
         self.assertEqual(value["propertyEventFailures"], 0)
+        self.assertTrue(value["propertyRevisionFirstDelta"])
+        self.assertTrue(value["propertyRevisionStableSkipped"])
+        self.assertTrue(value["propertyRevisionChangedDelta"])
 
 
 if __name__ == "__main__":

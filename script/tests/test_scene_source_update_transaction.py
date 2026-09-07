@@ -146,7 +146,7 @@ class SceneSourceUpdateTransactionTests(unittest.TestCase):
         self.assertIn("func restoreSceneScriptProgramFrameState(", lifecycle)
         for source in (scalar, string, vector):
             self.assertIn("consumedMediaThumbnailGenerations", source)
-            self.assertIn("appliedUserPropertiesByTarget", source)
+            self.assertIn("appliedUserProperties", source)
             self.assertIn("func frameStateSnapshot()", source)
         self.assertIn("func restoreFrameState(", source)
         self.assertIn("discardCommittedLayerSnapshot()", scalar_runtime)

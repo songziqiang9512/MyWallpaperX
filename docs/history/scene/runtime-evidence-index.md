@@ -2321,6 +2321,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与恢复**：cache 只保存 JSON projection，不保存或覆盖 property source/value；revision mismatch、standalone call、缺失/非法 value 或 program 重建都会回到既有 codec 解析与 `.invalidArgument`/previous-current 路径。跨 revision 的 newSlider value、wrong-type rejection 与 recovery 仍必须沿原 producer→typed input→VM consumer 顺序生效，不能因旧字符串残留吞掉更新。
 - **自动门与边界**：`test_scene_property_vector_script` 将 scalar owner 的 same-revision stable、revision 递进后的 value change、wrong-type rejection 与 recovery 接入实际 harness；相关 `test_scene_script_string_lifecycle`、`test_scene_frame_vm_routing`、`test_scene_frame_context` 通过，code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug build **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、完整 multi-owner benchmark、GPU completion、视觉 ROI 或 provider breadth，故最高只到 `S2`。
 
+<a id="e-v4-scenescript-user-property-delta-revision-ack"></a>
+### E-V4-SCENESCRIPT-USER-PROPERTY-DELTA-REVISION-ACK: acknowledge applied user-property revisions per owner
+
+证据等级：`S2 shared typed input hot-path wiring`。本批只收口现有 authored property → typed live-state → SceneScript owner 的 unchanged-frame dictionary diff，不宣称真实 signed sample CPU trace、完整 multi-owner benchmark、GPU/ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：`ScenePropertyLiveUpdateState.revision` 仍是 live property values 的唯一成功-apply revision，只有 accepted typed replacement 才递增；此前三个 typed Program 在每个 owner evaluation 中都调用 `changedUserPropertiesJSON` 比较完整的 effective property dictionary，即使同一 revision 没有变化。当前三个现有 Program 共享 `SceneScriptAppliedUserPropertyState` 的 per-target acknowledgement：same-revision frame 直接返回 no delta，revision 变化沿原 codec 生成 changed JSON，无 revision 的 standalone evaluator 仍逐值比较。property values、QuickJS owner handles、typed snapshot、event/generation watermark、Program/GraphExecutor、publication/compositor 与 fallback owner 均不迁移。
+- **失败半径与恢复**：acknowledgement 只保存 target 的已应用值与 revision，不保存或覆盖 live source；revision mismatch、首次 apply、standalone call、缺失/非法 value 或 program 重建都会回到原 changed-delta/invalid-argument 路径。该状态被纳入现有 `SceneScriptProgramFrameState` snapshot/restore，surface deferred/dropped 或 host barrier failure 会撤销同帧 acknowledgement，使 property callback 能在 next frame 重试；成功 submission 才保留。
+- **自动门与边界**：`test_scene_property_vector_script`（首次/稳定/跨 revision delta、wrong-type、recovery）与 `test_scene_frame_vm_routing`（shared state、program restore、host revision wiring）共 **26 tests / OK**；code-health 为 902 Swift / 16 locked legacy / 184 warnings，`git diff --check` 通过，checkpoint Debug **BUILD SUCCEEDED**。未做真实 signed sample CPU/pre-encode trace、完整 multi-owner benchmark、provider/GPU completion fault、ROI、稳定帧时间或官方 parity，故最高只到 `S2`。
+
 <a id="e-v4-scenescript-authored-dispatch-index"></a>
 ### E-V4-SCENESCRIPT-AUTHORED-DISPATCH-INDEX: select authored SceneScript owners without repeated binding scans
 

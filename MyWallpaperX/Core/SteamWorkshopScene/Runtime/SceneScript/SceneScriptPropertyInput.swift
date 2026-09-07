@@ -255,3 +255,43 @@ nonisolated struct SceneScriptPropertyInputJSONCache {
         return encoded
     }
 }
+
+/// Per-owner acknowledgement of the live user-property snapshot. The live
+/// values and revision remain owned by `ScenePropertyLiveUpdateState`; this
+/// state only prevents unchanged frames from diffing the complete property
+/// dictionary once per SceneScript owner. It is part of the existing frame
+/// rollback snapshot so a rejected surface retries the same property event.
+nonisolated struct SceneScriptAppliedUserPropertyState: Sendable {
+    private var valuesByTarget:
+        [SceneDynamicTarget: [String: SceneUserPropertyValue]] = [:]
+    private var revisionsByTarget: [SceneDynamicTarget: UInt64] = [:]
+
+    func changedJSON(
+        for target: SceneDynamicTarget,
+        current: [String: SceneUserPropertyValue],
+        kinds: [String: SceneUserPropertyKind],
+        revision: UInt64?
+    ) -> String? {
+        if let revision,
+           revisionsByTarget[target] == revision,
+           valuesByTarget[target] != nil {
+            return nil
+        }
+        return SceneScriptPropertyInputCodec.changedUserPropertiesJSON(
+            previous: valuesByTarget[target], current: current, kinds: kinds
+        )
+    }
+
+    mutating func record(
+        _ values: [String: SceneUserPropertyValue],
+        revision: UInt64?,
+        for target: SceneDynamicTarget
+    ) {
+        valuesByTarget[target] = values
+        if let revision {
+            revisionsByTarget[target] = revision
+        } else {
+            revisionsByTarget.removeValue(forKey: target)
+        }
+    }
+}

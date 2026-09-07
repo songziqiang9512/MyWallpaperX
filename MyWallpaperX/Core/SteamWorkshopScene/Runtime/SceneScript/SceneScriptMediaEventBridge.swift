@@ -352,8 +352,7 @@ nonisolated struct SceneScriptProgramFrameState: Sendable {
     let consumedMediaPlaybackGenerations: [SceneDynamicTarget: UInt64]
     let consumedMediaPropertiesGenerations: [SceneDynamicTarget: UInt64]
     let consumedMediaTimelineGenerations: [SceneDynamicTarget: UInt64]
-    let appliedUserPropertiesByTarget:
-        [SceneDynamicTarget: [String: SceneUserPropertyValue]]
+    let appliedUserProperties: SceneScriptAppliedUserPropertyState
 }
 
 nonisolated struct SceneScriptProgramTimerFrameState: @unchecked Sendable {

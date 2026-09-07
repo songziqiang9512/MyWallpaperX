@@ -29,6 +29,7 @@ SCALAR_RUNTIME_SOURCE = SCRIPT / "SceneScriptScalarRuntime.swift"
 CURSOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptCursorProgram.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = SCRIPT / "SceneScriptMediaEventBridge.swift"
 MEDIA_FRAME_COORDINATOR_SOURCE = SCRIPT / "SceneScriptMediaFrameCoordinator.swift"
+PROPERTY_INPUT_SOURCE = SCRIPT / "SceneScriptPropertyInput.swift"
 OWNER_EFFECTS_VALIDATION_SOURCE = (
     SCRIPT / "SceneScriptOwnerEffectsRuntimeValidation.swift"
 )
@@ -64,6 +65,29 @@ def swift_body(source: str, signature: str) -> str:
 
 
 class SceneFrameVMRoutingTests(unittest.TestCase):
+    def test_user_property_revision_ack_is_shared_and_restored_with_frame_state(self) -> None:
+        property_input = PROPERTY_INPUT_SOURCE.read_text(encoding="utf-8")
+        bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")
+        frame = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        self.assertIn("struct SceneScriptAppliedUserPropertyState", property_input)
+        self.assertIn("revisionsByTarget", property_input)
+        self.assertIn("revisionsByTarget[target] == revision", property_input)
+        self.assertIn("func changedJSON(", property_input)
+        self.assertIn("mutating func record(", property_input)
+        self.assertIn("let appliedUserProperties: SceneScriptAppliedUserPropertyState", bridge)
+        for source_path in (
+            SCRIPT / "SceneScriptVectorProgram.swift",
+            SCRIPT / "SceneScriptScalarProgram.swift",
+            SCRIPT / "SceneScriptStringProgram.swift",
+        ):
+            source = source_path.read_text(encoding="utf-8")
+            self.assertIn("appliedUserProperties.changedJSON(", source)
+            self.assertIn("appliedUserProperties.record(", source)
+            self.assertIn("appliedUserProperties = state.appliedUserProperties", source)
+            self.assertNotIn("changedUserPropertiesJSON(\n                previous:", source)
+        render = swift_body(frame, "private func renderFrame()")
+        self.assertIn("propertyRevision: launchContext.liveState.revision", render)
+
     def test_media_route_rebuilds_to_a_fresh_fixed_point_and_keeps_authored_fallbacks(
         self,
     ) -> None:
