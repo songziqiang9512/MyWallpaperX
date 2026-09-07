@@ -72,24 +72,25 @@ extension SceneMetalView {
         primaryButtonIsDown: Bool? = nil
     ) {
         let local = convert(windowPoint, from: nil)
-        guard bounds.width > 0, bounds.height > 0 else {
+        guard let sample = SceneSurfacePointerEvent.sample(
+            localPosition: local,
+            bounds: bounds,
+            primaryButtonIsDown: primaryButtonIsDown ?? (NSEvent.pressedMouseButtons & 1 != 0)
+        ) else {
             setPointerOutside()
             return
         }
-        let nx = Float((local.x / bounds.width) * 2 - 1)
-        let ny = Float((local.y / bounds.height) * 2 - 1)
-        pointerState.sceneScriptCurrent = SIMD2(nx, ny)
-        pointerState.sceneScriptPrimaryButtonIsDown =
-            primaryButtonIsDown ?? (NSEvent.pressedMouseButtons & 1 != 0)
-        guard bounds.contains(local) else {
+        pointerState.sceneScriptCurrent = sample.normalizedPosition
+        pointerState.sceneScriptPrimaryButtonIsDown = sample.primaryButtonIsDown
+        guard sample.isInside else {
             setPointerOutside()
             pointerState.sceneScriptPrimaryButtonIsDown =
-                primaryButtonIsDown ?? (NSEvent.pressedMouseButtons & 1 != 0)
+                sample.primaryButtonIsDown
             return
         }
         let normalized = SIMD2(
-            max(-1, min(1, nx)),
-            max(-1, min(1, ny))
+            max(-1, min(1, sample.normalizedPosition.x)),
+            max(-1, min(1, sample.normalizedPosition.y))
         )
         pointerState.current = normalized
         pointerState.isInside = true

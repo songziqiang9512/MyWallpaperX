@@ -1,3 +1,4 @@
+import CoreGraphics
 import simd
 
 nonisolated struct SceneSurfacePointerState: Equatable, Sendable {
@@ -13,6 +14,29 @@ nonisolated struct SceneSurfacePointerEvent: Equatable, Sendable {
     let normalizedPosition: SIMD2<Float>
     let isInside: Bool
     let primaryButtonIsDown: Bool
+
+    /// AppKit local coordinates -> shared Y-up NDC. Desktop edge pixels must
+    /// remain inside, while genuinely outside points retain their position
+    /// for captured drags. Do not clamp them into synthetic inside events.
+    static func sample(
+        localPosition: CGPoint, bounds: CGRect, primaryButtonIsDown: Bool
+    ) -> Self? {
+        guard bounds.width.isFinite, bounds.height.isFinite,
+              bounds.minX.isFinite, bounds.minY.isFinite,
+              bounds.width > 0, bounds.height > 0,
+              localPosition.x.isFinite, localPosition.y.isFinite else { return nil }
+        let position = SIMD2<Float>(
+            Float((localPosition.x - bounds.minX) / bounds.width * 2 - 1),
+            Float((localPosition.y - bounds.minY) / bounds.height * 2 - 1)
+        )
+        guard position.x.isFinite, position.y.isFinite else { return nil }
+        return Self(
+            normalizedPosition: position,
+            isInside: localPosition.x >= bounds.minX && localPosition.x <= bounds.maxX
+                && localPosition.y >= bounds.minY && localPosition.y <= bounds.maxY,
+            primaryButtonIsDown: primaryButtonIsDown
+        )
+    }
 }
 
 nonisolated struct SceneSurfacePointerEventBatch: Equatable, Sendable {

@@ -74,7 +74,8 @@ extension SceneMetalRenderer {
             cameraPosition: orthoSize * 0.5 + SIMD2(
                 cameraFrame.cameraOrigin.x,
                 cameraFrame.cameraOrigin.y
-            )
+            ),
+            worldYDown: (camera.orthoHeight ?? 0) > 0
         )
     }
 }

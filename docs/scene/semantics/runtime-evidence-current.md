@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 Pointer 顶部边界与视差纵向坐标
+
+修复真实屏幕顶部被半开矩形判为 outside，以及 Y-up pointer 直接进入 Y-down parallax world 的两个公共断点。11 项定向测试、checkpoint Debug build，以及无 debug pointer override 的实际鼠标移动/terminal Metal 截图证明顶部不再回中、next-event 保持纵向响应。顶部极限仍露灰边，整样本未通过；其余新报样本保留逐项待办。见 [E-V4-POINTER-AXES-EDGE](scene-sample-debug-ledger.md#e-v4-pointer-axes-edge实际鼠标纵向与顶部边界2026-09-08)。
+
 ### 2026-09-08 Vector prepared input schema 与正交旋转裁切
 
 修复 Vector Program 在空构造时冻结 input target/type、后装 owner 却不更新 schema 的首断点；真实帧现在消费 origin/scale/angles/pass 等 typed 输入。`3470948192` 公式 NaN 恢复数值、`3509243656` 文明记录推进。连带修正正交画布贴近 near plane 使旋转文字消失的问题，`3747492842` 默认 motion 的日期恢复；61 个定向 tests、Debug build、隔离异步截图成立，但三样本仍有独立未验收项。见 [E-V4-VECTOR-INPUT-SCHEMA](scene-sample-debug-ledger.md#e-v4-vector-input-schemaprepared-owner-进入真实帧输入)。

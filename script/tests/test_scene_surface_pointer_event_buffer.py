@@ -31,6 +31,26 @@ enum Harness {
     }
 
     static func main() throws {
+        let bounds = CGRect(x: 10, y: 20, width: 100, height: 50)
+        let points: [CGPoint] = [
+            .init(x: 60, y: 45), .init(x: 60, y: 70),
+            .init(x: 10, y: 20), .init(x: 110, y: 70),
+            .init(x: 60, y: 70.01), .init(x: 9.99, y: 45),
+            .init(x: 60, y: 69.99),
+            .init(x: 10, y: 70), .init(x: 110, y: 20),
+        ]
+        let edgeSamples = points.map {
+            SceneSurfacePointerEvent.sample(
+                localPosition: $0, bounds: bounds, primaryButtonIsDown: true
+            )!
+        }
+        let invalid = SceneSurfacePointerEvent.sample(
+            localPosition: .init(x: CGFloat.nan, y: 20),
+            bounds: bounds, primaryButtonIsDown: false
+        )
+        let empty = SceneSurfacePointerEvent.sample(
+            localPosition: .zero, bounds: .zero, primaryButtonIsDown: false
+        )
         var rapid = SceneSurfacePointerEventBuffer()
         rapid.append(event(0.1, false))
         rapid.append(event(0.1, true))
@@ -63,6 +83,12 @@ enum Harness {
         let overflowRejectedAgain = overflowRestored.drain()
 
         let result: [String: Any] = [
+            "edgeInside": edgeSamples.map(\.isInside),
+            "edgePosition": edgeSamples.map {
+                [$0.normalizedPosition.x, $0.normalizedPosition.y]
+            },
+            "edgeButtons": edgeSamples.allSatisfy(\.primaryButtonIsDown),
+            "invalidRejected": invalid == nil && empty == nil,
             "rapidStates": ordered.events.map(\.primaryButtonIsDown),
             "rapidOverflowed": ordered.overflowed,
             "overflowRejectedAll": rejected.overflowed && rejected.events.isEmpty,
@@ -119,6 +145,14 @@ class SceneSurfacePointerEventBufferTests(unittest.TestCase):
                 completed.stdout + completed.stderr,
             )
             payload = json.loads(completed.stdout)
+            self.assertEqual(payload["edgeInside"], [True, True, True, True, False, False, True, True, True])
+            self.assertEqual(payload["edgePosition"][:4], [[0, 0], [0, 1], [-1, -1], [1, 1]])
+            self.assertGreater(payload["edgePosition"][4][1], 1)
+            self.assertLess(payload["edgePosition"][5][0], -1)
+            self.assertLess(payload["edgePosition"][6][1], 1)
+            self.assertEqual(payload["edgePosition"][7:], [[-1, 1], [1, -1]])
+            self.assertTrue(payload["edgeButtons"])
+            self.assertTrue(payload["invalidRejected"])
             self.assertEqual(payload["rapidStates"], [False, True, False])
             self.assertFalse(payload["rapidOverflowed"])
             self.assertTrue(payload["overflowRejectedAll"])

@@ -19,6 +19,7 @@ nonisolated enum SceneLayerParallax {
         let mouseInfluence: Float
         let orthoSize: SIMD2<Float>
         let cameraPosition: SIMD2<Float>
+        let worldYDown: Bool
     }
 
     nonisolated static func resolveAll(
@@ -64,7 +65,13 @@ nonisolated enum SceneLayerParallax {
               configuration.orthoSize.x > 0, configuration.orthoSize.y > 0,
               resolution.depth != .zero else { return .zero }
         let halfSize = configuration.orthoSize * 0.5
-        let mouseOffset = -mouseNormalized * halfSize * configuration.mouseInfluence
+        // Surface/NDC Y points up; the 2D world-frame translations below
+        // point down. Convert at this consumer, not in the shared pointer.
+        let mouseInWorldAxes = SIMD2(
+            mouseNormalized.x,
+            configuration.worldYDown ? -mouseNormalized.y : mouseNormalized.y
+        )
+        let mouseOffset = -mouseInWorldAxes * halfSize * configuration.mouseInfluence
         let shift = (layerPosition - configuration.cameraPosition + mouseOffset)
             * resolution.depth * configuration.amount
         guard shift.x.isFinite, shift.y.isFinite else { return .zero }

@@ -4,17 +4,17 @@
 
 ## 2026-09-08 current corpus probe
 
-### 用户可见失败待办（未逐项重跑，不得视为已定位）
+### 用户可见失败待办（按当前复现更新，不以公共修复代替逐项验收）
 
 以下均以真实播放截图/事件恢复正常为验收，不以历史 probe 状态覆盖用户反馈。每项修复须补共享首断点及 next-frame/event 证据。
 
 | 样本 | 待修复的用户可见问题 | 首轮区分证据 | 状态 |
 |---|---|---|---|
-| 3264246690 | 人物偏上、头部出画；左肘缺块 | camera/world transform 与 layer source/裁切边界分别对照 | 待复现 |
-| 3765760121 | 上下颠倒 | source UV、渲染目标与 terminal output 的 Y 方向 | 待复现 |
-| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | logical/physical extent、mask slot/UV 与 layer publication | 待复现 |
-| 1315486372 | 水波位置不正确、光线贴图效果生硬 | effect-local 坐标与辅助纹理采样/alpha | 待复现 |
-| 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 屏幕→surface→typed pointer 的坐标、inside 与边界连续性 | 待复现 |
+| 3264246690 | 人物偏上、头部出画；左肘缺块 | 当前截图头部在画内、左肘缺块仍在；不能据此判定构图正确 | 未通过 |
+| 3765760121 | 上下颠倒 | 当前人物/背景倒置但日期文字正向，排除整个 terminal output 翻转 | 已复现，未修 |
+| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 当前截图复现人物压缩、面部黑线；待区分 source/geometry/mask | 已复现，未修 |
+| 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
+| 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
@@ -41,6 +41,16 @@
 五个需要先回到公共 owner 的 blocked 样本是 `2824109832`（effect admission 后仍有未认领 visible effect）、`3448845950`（GraphExecutor 缺失多层且无 terminal/next-frame）、`3470948192`（terminal flat-preview divergence）、`3775355045` 和 `3775373546`（layer 22 的 GraphExecutor execution missing）。`3509243656`、`3610154602`、`3612199597` 等真实样本还记录了 SceneScript typed exception；这说明“脚本路径更好”不能由全量 probe 推断。
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
+
+## E-V4-POINTER-AXES-EDGE：实际鼠标纵向与顶部边界（2026-09-08）
+
+两个首断点都在现有 owner 内：AppKit 的 Y-up normalized pointer 被 `SceneLayerParallax` 直接当作 Y-down world-frame offset，导致正交 Scene 的纵向与横向响应规则不一致；`SceneMetalView` 使用半开矩形 `contains`，将恰好位于顶部的实际屏幕位置判为 outside 并回中。现在在现有 surface event 类型中统一有限值、bounds origin 与闭边界采样，保留真实越界坐标给捕获拖拽；只在 parallax consumer 转换其 world Y 方向（与 world-frame resolver 的 orthoHeight 条件一致）。脚本/命中检测共享 pointer 不翻转，Y-up world、失败帧 rollback、outside fallback 和生命周期 owner 不变。无 sample dispatch、缓存重建或第二份 pointer state。
+
+定向命令：`python3 -m unittest script.tests.test_scene_layer_parallax script.tests.test_scene_surface_pointer_event_buffer script.tests.test_scene_layer_cursor_geometry`，11 tests PASS；覆盖四角/顶部/非零 bounds origin、真正越界、NaN/空尺寸、FIFO/overflow/rollback、Y-down/Y-up/禁用/零深度与命中逆投影。checkpoint Debug build 成功。实际 App CDHash `9d2dc1cb5659be8c03dffede9e4dd9c96fe7008c`，Debug dylib SHA-256 `11e5ca621e13fb1e39c11f7a44b8f241e2d05200305a0d50cb20c749b1a5b688`。
+
+本机证据仍在 `/private/tmp/mwx-async-text.qmTbKj/2775915974/`。隔离副本/HOME，真实 `requestLaunch` 异步入口，显式 audio-silence，**未设置 debug pointer override**。用 `CGWarpMouseCursorPosition` 在当前 1512×982 屏幕设置 Quartz `(756,0/200/780)`，AppKit 实际读回 `(756,982/782/202)`；`pointer-0/200/780` 各运行 11 秒，after delay 8 秒。顶部画面不再回中，三个位置沿一致纵向移动。`pointer-event` 在同一次 12 秒播放中于 5 秒从顶部移到下部，ready/after（after delay 9 秒）分别与独立顶部/下部截图逐像素相同（平均绝对通道差均 0）。两张事件截图 SHA-256：ready `3f4be0f7c058f130f184afe60dcc7cd22b4d2c7a03fd2edaf4f7d608944eab34`；after `c967d314839feb7f083e040fdbe0714560e8cc396022344534baf4355f733d73`。这是实际屏幕 producer → surface state → frame parallax → model/Metal → 最终 drawable 的 next-event 证据；截图由既有 terminal drawable readback 在 commandBuffer completed 后发布，退出记录 surface-stop/VM teardown failures=0。
+
+**结论上限**：两个输入错误已修，不代表整个样本正确。顶部极限仍露灰色未覆盖条带，不能以裁剪或收窄鼠标范围隐藏；多显示器接缝、系统菜单/Spaces 交互、连续快速出入及官方同输入视觉对照未执行。其他四样本 `current/scene-after-window.png` 使用前一批 `ca1270bd` 对应 App，15 秒/after12、显式静音，只用于上述待办的当前复现，不是本批 pointer 的回归通过结论。
 
 ## E-V4-ASYNC-VM-THREAD-HANDOFF：普通 App 日期文字失败（2026-09-08）
 
