@@ -4887,6 +4887,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：prepared dictionary 只读借用 renderer 的 authored layer identity，不缓存 visible value、generation、world frame、FOV 或 camera fallback。typed visibility、parent-aware traversal、camera-path admission、native perspective override 与无有效 camera 时的 scene-camera fallback 仍由原 owner 实时决定；没有新增 visibility、camera、provider、clock、renderer、graph/history 或 compositor owner。
 - **自动门与边界**：`test_scene_camera_shake` 与 `test_scene_dynamic_layer_visibility` 的 prepared-index 等价/反例门通过；code-health、`git diff --check` 与 checkpoint Debug build通过。未做真实 signed sample CPU/pre-encode A/B、GPU completion fault、camera ROI、长稳性能或官方视觉对照；最高只支持 `S2` shared visibility hot-path wiring，不外推为全局 O(1)、视觉 parity 或 V4 收口。
 
+<a id="e-v4-dynamic-text-quiescent-update"></a>
+### E-V4-DYNAMIC-TEXT-QUIESCENT-UPDATE: 静态 authored text update 进入 quiescent path
+
+证据等级：`S2 shared provider typed input hot-path wiring`。本批只收口完全静态 authored text 场景在每个成功帧仍执行 provider 结构扫描的共享 CPU/pre-encode 成本；不宣称真实 signed sample CPU trace、异步 completion fault、文本 ROI、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：authored text 的唯一链仍是 `SceneDynamicSnapshot` → `SceneDynamicTextTextureStore` generation state → `SceneTextTextureLoader` async render → `SceneTextureProviderPublication` → `SceneFrameLayerTextureAssembly` → `SceneImageLayerCompositor`。此前 `update` 即使没有动态 field interest 和 runtime-admitted text layer，也会建立 `admittedDynamic`/`admittedIDs`，扫描 authored field map，构造全部 layer tuples 并触碰 generation state。当前入口先在同一 store lock 内确认本帧 field-interest 全为空、没有非-authored runtime layer、且 store 内没有 authored dynamic interest；满足时直接返回。这个门只跳过确定没有 provider work 的静态帧，不缓存 snapshot、generation、texture、dynamic value 或 publication。
+- **失败半径与恢复**：incoming dynamic fields、runtime dynamic layer、动态 layer retirement，以及 authored layer 从动态 interest 回到静态的 transition 均不会命中早退；它们继续更新 interest、注册/注销 generation、调度 typed signature、处理 stale/failed completion，并沿现有 ready/previous-current、snapshot cache、all-surface commit/discard 与 teardown 边界发布。动态 field 值即使每帧变化也不会被该门吞掉，因为任何非空 field interest 都强制走正常路径。没有新增 provider、registry、clock、graph、resource 或 compositor owner。
+- **自动门与边界**：`test_scene_dynamic_text_generation` 的 quiescent gate 正反 source 门与既有 generation/publication/lifecycle assertions共 **10 tests / OK**；本批另行复核 `git diff --check`、相关 shared frame/provider focused tests、code-health 与 checkpoint Debug build。未做真实 signed sample CPU/pre-encode A/B、异步 completion fault、多 surface runtime fault、文本 ROI、稳定性能或官方视觉对照，故最高只支持 `S2` shared provider typed input hot-path wiring，不外推为量化性能收益、视觉 parity 或 V4 收口。
+
 <a id="e-v4-visibility-prepared-index-reuse"></a>
 ### E-V4-VISIBILITY-PREPARED-INDEX-REUSE: visibility consumer 复用 prepared layer index
 

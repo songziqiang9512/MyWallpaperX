@@ -230,6 +230,17 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             source,
         )
 
+    def test_static_text_update_has_a_quiescent_gate_without_bypassing_dynamic_state(self) -> None:
+        source = STORE_SOURCE.read_text(encoding="utf-8")
+        gate = source.index("let incomingHasDynamicTextFields")
+        normal_path = source.index("let admittedDynamic =", gate)
+        gate_source = source[gate:normal_path]
+        self.assertIn("dynamicLayers.isEmpty && !incomingHasDynamicTextFields", gate_source)
+        self.assertIn("hasAdmittedDynamicLayer", gate_source)
+        self.assertIn("hasAuthoredDynamicFields", gate_source)
+        self.assertIn("if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields", gate_source)
+        self.assertIn("return", gate_source)
+
 
 if __name__ == "__main__":
     unittest.main()

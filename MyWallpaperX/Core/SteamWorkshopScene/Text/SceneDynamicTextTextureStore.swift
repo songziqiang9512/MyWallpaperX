@@ -64,6 +64,29 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         dynamicLayers: [SceneRenderDescriptor.Layer] = [],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:]
     ) {
+        // A static authored scene has no provider work to perform after the
+        // initial texture publication. Keep the lock as the authoritative
+        // lifecycle boundary, but avoid rebuilding admitted sets and layer
+        // tuples on every successful frame. Dynamic field interest, an
+        // admitted runtime layer, or a pending authored-to-static transition
+        // all fall through to the normal update path below.
+        let incomingHasDynamicTextFields = dynamicTextFieldsByLayerID.values
+            .contains { !$0.isEmpty }
+        if dynamicLayers.isEmpty && !incomingHasDynamicTextFields {
+            lock.lock()
+            let hasAdmittedDynamicLayer = layersByID.keys.contains {
+                !authoredLayerIDs.contains($0)
+            }
+            let hasAuthoredDynamicFields = authoredLayerIDs.contains {
+                !(self.dynamicTextFieldsByLayerID[$0] ?? []).isEmpty
+            }
+            if !hasAdmittedDynamicLayer && !hasAuthoredDynamicFields {
+                lock.unlock()
+                return
+            }
+            lock.unlock()
+        }
+
         let admittedDynamic = dynamicLayers.filter {
             $0.contentKind == "text" && $0.text != nil && $0.textStyle != nil
         }
