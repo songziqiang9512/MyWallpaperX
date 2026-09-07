@@ -60,6 +60,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     /// each emitted particle does not repeat the same definition-wide scans.
     let positionAroundControlPointPlans:
         [SceneParticlePositionAroundControlPointPlan?]
+    /// Launch-stable scalar/vector/color initializer projections. Turbulence,
+    /// event color and control-point values stay frame-local in their consumers.
+    let initializerExecutionPlans: [SceneParticleInitializerExecutionPlan]
     /// Launch-stable emitter vectors, ranges and admission results. Dynamic
     /// control-point/instance values and random state remain frame-local.
     private let emitterSpawnPlans: [SceneParticleEmitterSpawnPlan]
@@ -131,6 +134,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             else { return nil }
             return initializer.positionAroundControlPointPlan
         }
+        initializerExecutionPlans = definition.initializers.map(
+            SceneParticleInitializerExecutionPlan.init
+        )
         emitterSpawnPlans = definition.emitters.map(SceneParticleEmitterSpawnPlan.init)
         positionOscillationOperatorIndices = definition.operators.indices.filter {
             definition.operators[$0].kind == .oscillatePosition

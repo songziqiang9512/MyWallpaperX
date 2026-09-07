@@ -2847,6 +2847,9 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         emitter_plan_source = (
             SOURCE_ROOT / "Particles/SceneParticlePeriodicEmission.swift"
         ).read_text(encoding="utf-8")
+        initializer_plan_source = (
+            SOURCE_ROOT / "Particles/SceneParticleSimulator+Initializer.swift"
+        ).read_text(encoding="utf-8")
         random_source = (
             SOURCE_ROOT / "Particles/SceneParticleSimulator+Random.swift"
         ).read_text(encoding="utf-8")
@@ -2873,6 +2876,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("reduceMovement", simulator_source)
         self.assertIn("emitterSpawnPlans", simulator_source)
         self.assertIn("SceneParticleEmitterSpawnPlan.init", simulator_source)
+        self.assertIn("initializerExecutionPlans", simulator_source)
+        self.assertIn("SceneParticleInitializerExecutionPlan.init", simulator_source)
         self.assertIn("let alphaFade:", execution_plan_source)
         self.assertIn("let boids:", execution_plan_source)
         self.assertIn("let vortex:", execution_plan_source)
@@ -2887,6 +2892,10 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertIn("let periodicEmissionAdmission", emitter_plan_source)
         self.assertIn("let audioResponsePlan", emitter_plan_source)
         self.assertIn("plan: SceneParticleEmitterSpawnPlan", emitter_plan_source)
+        self.assertIn("SceneParticleRandomScalarPlan", initializer_plan_source)
+        self.assertIn("SceneParticleRandomVectorPlan", initializer_plan_source)
+        self.assertIn("SceneParticleRandomColorPlan", initializer_plan_source)
+        self.assertIn("let positionOffset: SceneParticlePositionOffsetPlan?", initializer_plan_source)
         self.assertIn("emissionAudioScale(for: spawnPlan)", simulator_source)
         self.assertIn("let directions = plan.directions", random_source)
         self.assertIn("let minimum = plan.sphereDistanceMinimum", random_source)

@@ -2,49 +2,38 @@ import Foundation
 
 extension SceneParticleSimulator {
     nonisolated func randomScalar(
-        _ value: SceneParticleInitializer, defaults: (Double, Double)
+        _ plan: SceneParticleRandomScalarPlan
     ) -> Double {
-        randomValue(
-            SceneParticleSimulationMath.scalar(value.minimum, fallback: defaults.0),
-            SceneParticleSimulationMath.scalar(value.maximum, fallback: defaults.1),
-            exponent: value.exponent
-        )
+        randomValue(plan.minimum, plan.maximum, exponent: plan.exponent)
     }
 
     nonisolated func randomVector(
-        _ value: SceneParticleInitializer,
-        defaults: (SIMD3<Double>, SIMD3<Double>)
+        _ plan: SceneParticleRandomVectorPlan
     ) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
-        let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
         return SIMD3(
-            randomValue(minimum.x, maximum.x, exponent: value.exponent),
-            randomValue(minimum.y, maximum.y, exponent: value.exponent),
-            randomValue(minimum.z, maximum.z, exponent: value.exponent)
+            randomValue(plan.minimum.x, plan.maximum.x, exponent: plan.exponent),
+            randomValue(plan.minimum.y, plan.maximum.y, exponent: plan.exponent),
+            randomValue(plan.minimum.z, plan.maximum.z, exponent: plan.exponent)
         )
     }
 
     nonisolated func randomColor(
-        _ value: SceneParticleInitializer,
-        defaults: (SIMD3<Double>, SIMD3<Double>)
+        _ plan: SceneParticleRandomColorPlan
     ) -> SIMD3<Double> {
-        let minimum = SceneParticleSimulationMath.vector(value.minimum, fallback: defaults.0)
-        let maximum = SceneParticleSimulationMath.vector(value.maximum, fallback: defaults.1)
-        return minimum + (maximum - minimum) * randomFactor(exponent: value.exponent)
+        return plan.minimum
+            + (plan.maximum - plan.minimum) * randomFactor(exponent: plan.exponent)
     }
 
     nonisolated func randomColorFromList(
-        _ value: SceneParticleInitializer
+        _ colors: [SIMD3<Double>]
     ) -> SIMD3<Double>? {
-        guard let colors = value.boundedColorList else { return nil }
         let index = min(Int(random.unit() * Double(colors.count)), colors.count - 1)
         return colors[index]
     }
 
     nonisolated func randomHSVColor(
-        _ value: SceneParticleInitializer
+        _ plan: SceneParticleHSVColorPlan
     ) -> SIMD3<Double>? {
-        guard let plan = value.boundedHSVColor else { return nil }
         let hueIndex = min(
             Int(random.unit() * Double(plan.hueSteps)), plan.hueSteps - 1
         )

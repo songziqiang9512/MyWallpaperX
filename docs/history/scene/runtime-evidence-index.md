@@ -2357,6 +2357,15 @@ Tint loop 后续修复 `50e7c843`：有限 Timeline alpha 在 shader domain 内 
 - **失败半径与 owner**：plan 不保存 audio snapshot、capture clock、provider generation、rate/count override、RNG 或 frame outcome；disabled 返回中性 scale，enabled 但 malformed/unsupported 仍返回 nil 并保持原局部不发射，operator turbulence/vortex 继续由各自 `SceneParticleOperatorExecutionPlan` 持有 audio plan。没有新增 audio/provider owner、VM、clock、resource 或 compositor。
 - **自动门与边界**：`test_scene_particle_audio_response.py` **5/5**、`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。audio harness 的独立 Swift 源清单同步纳入 `SceneParticleUnaryOperatorPlans.swift`；正反 audio response、silent/active partition 与 invalid declaration 门保持。未做改后真实 signed sample producer→consumer、GPU completion rollback、audio ROI、FFT/parity、稳定帧性能、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared typed audio hot-path wiring。
 
+<a id="e-v4-particle-initializer-preparation"></a>
+### E-V4-PARTICLE-INITIALIZER-PREPARATION: reuse prepared initializer inputs
+
+证据等级：`S2 shared particle hot-path preparation wiring`。本批只收口每粒子 initializer 对 authored scalar/vector/color、bounded color/offset 计划与 event-color admission 的重复投影，不宣称真实粒子样本稳定性能、视觉 parity 或 V4 完成。
+
+- **目标合同、首断点与共享实现**：authored initializer 仍按 definition order 进入同一 simulator；RNG draw 顺序、particle position/time、audio input、event color snapshot、lifetime 与 operator order 必须保持实时。此前 `applyInitializers` 每次 spawn 都重新读取 optional endpoints、HSV/color-list/position-offset admission；当前 simulator launch 准备 `SceneParticleInitializerExecutionPlan`，fixed-step 只消费 immutable authored plans，仍沿既有 particle state/instance-buffer/Metal encode。
+- **失败半径与 owner**：plan 不保存粒子状态、simulation clock、audio snapshot、dynamic control point、provider generation 或 RNG；malformed/unsupported HSV、color-list、position-offset 继续局部 no-op，turbulent velocity（position/time/audio）与 Position Around Control Point（dynamic map）仍由原 live/typed consumer 处理。没有新增 initializer、provider、clock、VM 或 compositor owner。
+- **自动门与边界**：`test_scene_particle_simulator.py` **53/53**、`test_scene_particle_runtime.py` **25 项（10 skipped: Metal runtime）**、`test_scene_particle_audio_response.py` **5/5**、`test_scene_particle_definitions.py` **6/6**；`git diff --check`、code-health（903 Swift、16 locked legacy、184 warnings）与 checkpoint Debug build **BUILD SUCCEEDED**。正反 scalar/vector/color/HSV/color-list/offset 及 invalid-input 门保持；未做改后真实 signed sample CPU/pre-encode A/B、initializer/audio producer→consumer ROI、GPU completion rollback、稳定帧性能、长稳、完整样本、149 corpus 或 official parity，最高只支持 `S2` shared particle hot-path preparation wiring。
+
 <a id="e-v4-dynamic-text-submission-barrier"></a>
 ### E-V4-DYNAMIC-TEXT-SUBMISSION-BARRIER: dynamic text publication after frame outcome
 
