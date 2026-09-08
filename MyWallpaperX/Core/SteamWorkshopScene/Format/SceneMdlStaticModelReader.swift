@@ -18,7 +18,7 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
     case vertexDataOutOfRange(vertexIndex: Int)
     case invalidIndexByteCount(UInt32)
     case indexBudgetExceeded(UInt32)
-    case indexOutOfRange(indexPosition: Int, value: UInt16, vertexCount: Int)
+    case indexOutOfRange(indexPosition: Int, value: UInt32, vertexCount: Int)
     case invalidTrailer
 
     nonisolated var description: String {
@@ -63,7 +63,7 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
 
 /// Strict reader for the direct static-model shapes observed in bounded authored
 /// MDLV0016/MDLV0023 content. This is intentionally separate from Puppet mesh
-/// recovery: other MDLV variants, skinned layouts and uint32 indices do not
+/// recovery: other MDLV variants and skinned layouts do not
 /// inherit this product contract.
 nonisolated enum SceneMdlStaticModelReader {
     private static let boundsHeaderVersion = "MDLV0023"
@@ -100,7 +100,7 @@ nonisolated enum SceneMdlStaticModelReader {
         let materialPath = header.materialPath
 
         let indexFlag = try cursor.readUInt32(section: "index flag")
-        guard indexFlag == 0 else {
+        guard indexFlag <= 1 else {
             throw SceneMdlStaticModelReadError.unsupportedIndexFlag(indexFlag)
         }
         let authoredBounds = header.version == boundsHeaderVersion
@@ -126,7 +126,9 @@ nonisolated enum SceneMdlStaticModelReader {
         let bounds = authoredBounds ?? derivedBounds(vertices: vertices)
 
         let indexByteCount = try cursor.readUInt32(section: "index byte count")
-        guard indexByteCount > 0, indexByteCount % 6 == 0 else {
+        let indexElementSize = indexFlag == 0 ? 2 : 4
+        guard indexByteCount > 0,
+              indexByteCount % UInt32(3 * indexElementSize) == 0 else {
             throw SceneMdlStaticModelReadError.invalidIndexByteCount(indexByteCount)
         }
         guard indexByteCount <= maximumIndexByteCount else {
@@ -135,7 +137,8 @@ nonisolated enum SceneMdlStaticModelReader {
         let indices = try readIndices(
             cursor: &cursor,
             byteCount: indexByteCount,
-            vertexCount: vertices.count
+            vertexCount: vertices.count,
+            elementSize: indexElementSize
         )
 
         let trailer = try cursor.readBytes(
@@ -151,7 +154,7 @@ nonisolated enum SceneMdlStaticModelReader {
             headerFormat: Int(headerFormat),
             vertexFormat: Int(vertexFormat),
             vertexStride: vertexStride,
-            indexElementSize: MemoryLayout<UInt16>.size,
+            indexElementSize: indexElementSize,
             materialPath: materialPath,
             bounds: bounds,
             vertices: vertices,
@@ -295,14 +298,17 @@ nonisolated enum SceneMdlStaticModelReader {
     private static func readIndices(
         cursor: inout Cursor,
         byteCount: UInt32,
-        vertexCount: Int
-    ) throws -> [UInt16] {
+        vertexCount: Int,
+        elementSize: Int
+    ) throws -> [UInt32] {
         try cursor.require(count: Int(byteCount), section: "index data")
-        let count = Int(byteCount) / MemoryLayout<UInt16>.size
-        var indices: [UInt16] = []
+        let count = Int(byteCount) / elementSize
+        var indices: [UInt32] = []
         indices.reserveCapacity(count)
         for position in 0..<count {
-            let value = try cursor.readUInt16(section: "index data")
+            let value = elementSize == 2
+                ? UInt32(try cursor.readUInt16(section: "index data"))
+                : try cursor.readUInt32(section: "index data")
             guard Int(value) < vertexCount else {
                 throw SceneMdlStaticModelReadError.indexOutOfRange(
                     indexPosition: position,

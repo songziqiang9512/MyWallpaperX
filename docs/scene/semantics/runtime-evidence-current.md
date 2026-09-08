@@ -22,6 +22,8 @@
 
 ## 1. 当前证据快照
 
+`3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
+
 ### 2026-09-08 源颜色辅助函数与轨道恢复
 
 `3662790108` 的四个轨道 pass 已从颜色合同/Metal `out` 参数失败恢复为真实 Program 执行，后继截图出现彩色轨道拖尾；球体、曲率网格、实际点击及整景性能仍未验收，整景仍 NON-PASS。数据流证明、缓存失效、实际 completion/publication 和截图身份见 [E-V4-PROCEDURAL-SOURCE-RGBA](scene-sample-debug-ledger.md#e-v4-procedural-source-rgba轨道输入恢复到实际-shader-输出2026-09-08)。

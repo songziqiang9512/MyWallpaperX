@@ -225,6 +225,37 @@ enum MaterialHarness {
         precondition(base.resolvingDynamicValues(
             layerID: 8, snapshot: snapshot
         ).color == base.color)
+        func transform(_ scale: SIMD3<Float>) -> simd_float4x4 {
+            var matrix = matrix_identity_float4x4
+            matrix.columns.0.x = scale.x
+            matrix.columns.1.y = scale.y
+            matrix.columns.2.z = scale.z
+            return matrix
+        }
+        for scale: Float in [1, 0.001, 0.000001, 1e-30, 1e30] {
+            let normal = SceneStaticModelPipeline.normalMatrix(
+                for: transform(SIMD3(repeating: scale))
+            )
+            precondition(normal != nil)
+            precondition(simd_length(normal!.columns.0 - SIMD3(1, 0, 0)) < 1e-5)
+            precondition(simd_length(normal!.columns.1 - SIMD3(0, 1, 0)) < 1e-5)
+            precondition(simd_length(normal!.columns.2 - SIMD3(0, 0, 1)) < 1e-5)
+        }
+        let anisotropic = SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(-0.001, 0.002, 0.004))
+        )!
+        precondition(abs(anisotropic.columns.0.x + 1) < 1e-5)
+        precondition(abs(anisotropic.columns.1.y - 0.5) < 1e-5)
+        precondition(abs(anisotropic.columns.2.z - 0.25) < 1e-5)
+        precondition(SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(1, 0, 1))
+        ) == nil)
+        precondition(SceneStaticModelPipeline.normalMatrix(
+            for: transform(SIMD3(Float.nan, 1, 1))
+        ) == nil)
+        var singular = matrix_identity_float4x4
+        singular.columns.1 = singular.columns.0
+        precondition(SceneStaticModelPipeline.normalMatrix(for: singular) == nil)
     }
 }
 '''
@@ -479,7 +510,9 @@ enum DepthPlanHarness {
             "sampling.isResolvedForMaterialProgram",
             "!sampling.usesClampBorderFallback",
             "writesDepth ? writingDepthState : nonwritingDepthState",
-            "indexType: .uint16",
+            "indexType: mesh.indexType",
+            "indexType: usesWideIndices ? .uint32 : .uint16",
+            "indices.contains { $0 > UInt16.max }",
         ):
             self.assertIn(contract, source)
         self.assertNotIn("makeLibrary(source:", source)

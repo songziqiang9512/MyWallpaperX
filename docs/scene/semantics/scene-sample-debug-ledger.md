@@ -219,6 +219,14 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 
+## E-V4-STATIC-MODEL-WIDE-INDICES：大网格资源拒绝与小尺度绘制（2026-09-08）
+
+`3662790108` 主太阳控制器的子层 3694 在 prepare 首先失败：合法 authored `ray.mdl` 使用 flag 1 / UInt32 索引，旧 reader 只接受 flag 0。独立读取确认 500,596 顶点、606,204 三角形、最大索引 500,595、format 15、单 mesh/material 和七字节零尾部；不是缓存旧图。现沿原 reader → loss-preserving UInt32 IR → prepared mesh → Metal indexType 消费，能安全缩窄的索引仍上传 UInt16。未知 flag、非完整三角形、越界/截断及原预算继续拒绝最小模型。另修复 normal matrix 以绝对 determinant 阈值误拒合法小尺度的问题：Double 逆转置后共同正比例归一化，真正奇异/非有限矩阵仍拒绝。
+
+- 正反门：`test_scene_static_model_reader` + `test_scene_static_model_pipeline` 14 tests PASS，包含超过 65535 的索引、UInt32.max 越界、未知 flag、短三角形，以及 `1e-30...1e30` uniform scale、镜像非等比和奇异矩阵；Debug build、code health PASS。临时逐模型 NSLog 已删除。
+- 真实隔离运行：`/private/tmp/mwx-366-wide-model/report.json` SHA-256 `cb2a025070c8ae2cbcbcb93f78e7a32f5c3639931b62b2d1d6f98bc13d1f8215`；输入同前一轨道证据的两个属性、30 秒/26 秒截图。CDHash `e0c6efee4aaca929155a3e08cb104e67fe4a6a77`，executable SHA-256 `272636d87c5433fc9fc1e7c59f55e21ba60e596bb376f0219aac6fde13cc3f8b`。preview log 的 prepared static model layers 新增 3694；201/200/0 提交/完成/失败。
+- 截图 `results/3662790108/scene-after-window.png` SHA-256 `77f8fcc8ffc7df8339e1e055803b0d7b3fcb9df8b17200a2b4b3b5f49322f419` 保持顶部时钟、分离标签和轨道拖尾；仍有曲率网格，不能宣称太阳/行星球体视觉闭合。当前遥测不单独证明 3694 的 completion/publication，资源修正证据为 S2，整景仍 NON-PASS。该轮不是性能对比；多 mesh/material、其他 vertex layout、点击焦点切换及近景球体仍开放。作者脚本会按尺寸/距离/焦点改变天体 visibility，应先检查实际输入与状态，不能无条件打开所有模型。
+
 ## E-V4-PROCEDURAL-SOURCE-RGBA：轨道输入恢复到实际 shader 输出（2026-09-08）
 
 `3662790108` 的轨道不是缺失资产：作者 shader 从 framebuffer 分离 RGB/alpha，经 `inout` helper 做 RGB mix 与 coverage max，最后重组输出。首断点是现有 source-carried color proof 未覆盖该数据流；解除后暴露 Metal emitter 未转换 `out vec3` 参数，导致库编译失败。后继在原颜色分析 owner 中逐一核对 source/carrier/helper 的全部用途，复用语法 owner 的单循环与展开工作量预算；`out` 与 `inout` 都降低到现有 thread reference 参数。源码、资产、sample ID 不参与产品选择。撤回 `4ce6bbfc` 对纯生成颜色循环的无效放宽；缓存 key schema 6、preparation frontend schema 32 使普通 App 不复用旧编译语义。

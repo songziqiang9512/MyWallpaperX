@@ -25,7 +25,7 @@ nonisolated struct SceneMdlStaticModel: Equatable {
     let materialPath: String
     let bounds: Bounds
     let vertices: [Vertex]
-    let indices: [UInt16]
+    let indices: [UInt32]
 
     nonisolated var triangleCount: Int { indices.count / 3 }
 }

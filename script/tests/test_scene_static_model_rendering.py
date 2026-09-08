@@ -101,7 +101,7 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         self.assertIn("case .isolated:", model_case)
         self.assertIn("frameWorldFrames[layer.id]", model_case)
         self.assertIn("cameraFrame.resolvesPerspective(", model_case)
-        self.assertIn("layerOverride: layer.usesPerspective", model_case)
+        self.assertIn("usesPerspective: cameraFrame.resolvesPerspective(for: layer)", model_case)
         self.assertIn("cameraFrame.reverseDepthViewProjection(", model_case)
         self.assertIn("clearDepth: 0", model_case)
         self.assertNotIn("makeCommandQueue", model_case)

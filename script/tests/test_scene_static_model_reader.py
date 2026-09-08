@@ -225,6 +225,11 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "unsafe-material.mdl": build_model(material=b"../escape.json"),
             "invalid-utf8-material.mdl": build_model(material=b"materials/\xff.json"),
             "uint32-indices.mdl": build_model(index_flag=1),
+            "wide-indices.mdl": build_model(index_flag=1,
+                vertices=DEFAULT_VERTICES * 21846, indices=(0, 65536, 65537)),
+            "unknown-indices.mdl": build_model(index_flag=2),
+            "bad-wide-index.mdl": build_model(index_flag=1, indices=(0, 1, 0xffffffff)),
+            "partial-wide-triangle.mdl": build_model(index_flag=1, indices=(0, 1)),
             "nan-bounds.mdl": build_model(
                 bounds=(float("nan"), -1, -1, 1, 1, 1)
             ),
@@ -344,6 +349,18 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertEqual(result["boundsMaximum"], [1, 1, 0])
         self.assertEqual(result["indices"], [0, 1, 2])
 
+    def test_wide_indices_preserve_values_and_validate_ranges(self) -> None:
+        for name, indices in (("uint32-indices.mdl", [0, 1, 2]),
+                              ("wide-indices.mdl", [0, 65536, 65537])):
+            result = self.results[name]
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["indexElementSize"], 4)
+            self.assertEqual(result["indices"], indices)
+        for name, token in (("bad-wide-index.mdl", "4294967295"),
+                            ("partial-wide-triangle.mdl", "index byte count")):
+            self.assertFalse(self.results[name]["ok"])
+            self.assertIn(token, self.results[name]["error"])
+
     def test_unsupported_versions_flags_and_counts_fail_closed(self) -> None:
         for name, token in (
             ("old-version.mdl", "magic MDLV0015"),
@@ -351,7 +368,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             ("bad-header-format.mdl", "header format 14"),
             ("multi-mesh.mdl", "mesh count 2"),
             ("multi-material.mdl", "material count 2"),
-            ("uint32-indices.mdl", "index flag 1"),
+            ("unknown-indices.mdl", "index flag 2"),
             ("bad-vertex-format.mdl", "vertex format 7"),
         ):
             with self.subTest(name=name):

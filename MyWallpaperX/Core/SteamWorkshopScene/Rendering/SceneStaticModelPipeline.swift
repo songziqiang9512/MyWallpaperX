@@ -5,6 +5,7 @@ struct SceneStaticModelMesh {
     fileprivate let vertexBuffer: MTLBuffer
     fileprivate let indexBuffer: MTLBuffer
     let indexCount: Int
+    fileprivate let indexType: MTLIndexType
 }
 
 struct SceneStaticModelViewTint {
@@ -214,10 +215,10 @@ struct SceneStaticModelPipeline {
     }
 
     /// Uploads immutable decoded geometry after validating the fixed Swift/MSL
-    /// ABI and every UInt16 index. Invalid geometry never reaches a GPU draw.
+    /// ABI and every index. Invalid geometry never reaches a GPU draw.
     func makeMesh(
         vertices: [SceneMdlStaticModel.Vertex],
-        indices: [UInt16]
+        indices: [UInt32]
     ) -> SceneStaticModelMesh? {
         guard Self.hasExpectedVertexABI,
               !vertices.isEmpty,
@@ -229,7 +230,10 @@ struct SceneStaticModelPipeline {
 
         let vertexLength = vertices.count
             * MemoryLayout<SceneMdlStaticModel.Vertex>.stride
-        let indexLength = indices.count * MemoryLayout<UInt16>.stride
+        let usesWideIndices = indices.contains { $0 > UInt16.max }
+        let indexData = usesWideIndices
+            ? indices.withUnsafeBytes { Data($0) }
+            : indices.map(UInt16.init).withUnsafeBytes { Data($0) }
         guard let vertexBuffer = vertices.withUnsafeBytes({ bytes in
                   device.makeBuffer(
                       bytes: bytes.baseAddress!,
@@ -237,10 +241,10 @@ struct SceneStaticModelPipeline {
                       options: []
                   )
               }),
-              let indexBuffer = indices.withUnsafeBytes({ bytes in
+              let indexBuffer = indexData.withUnsafeBytes({ bytes in
                   device.makeBuffer(
                       bytes: bytes.baseAddress!,
-                      length: indexLength,
+                      length: bytes.count,
                       options: []
                   )
               }) else {
@@ -251,7 +255,8 @@ struct SceneStaticModelPipeline {
         return SceneStaticModelMesh(
             vertexBuffer: vertexBuffer,
             indexBuffer: indexBuffer,
-            indexCount: indices.count
+            indexCount: indices.count,
+            indexType: usesWideIndices ? .uint32 : .uint16
         )
     }
 
@@ -425,7 +430,7 @@ struct SceneStaticModelPipeline {
         encoder.drawIndexedPrimitives(
             type: .triangle,
             indexCount: mesh.indexCount,
-            indexType: .uint16,
+            indexType: mesh.indexType,
             indexBuffer: mesh.indexBuffer,
             indexBufferOffset: 0
         )
@@ -436,14 +441,29 @@ struct SceneStaticModelPipeline {
         for modelMatrix: simd_float4x4
     ) -> simd_float3x3? {
         guard isFinite(modelMatrix) else { return nil }
-        let linear = simd_float3x3(columns: (
-            SIMD3(modelMatrix.columns.0.x, modelMatrix.columns.0.y, modelMatrix.columns.0.z),
-            SIMD3(modelMatrix.columns.1.x, modelMatrix.columns.1.y, modelMatrix.columns.1.z),
-            SIMD3(modelMatrix.columns.2.x, modelMatrix.columns.2.y, modelMatrix.columns.2.z)
+        // Absolute determinant thresholds reject small, nonsingular authored
+        // models (uniform scale 0.001 has determinant 1e-9). Compute in Double
+        // so Float-scale products cannot underflow, then retain direction only:
+        // the vertex shader normalizes the transformed normal independently.
+        let linear = simd_double3x3(columns: (
+            SIMD3<Double>(Double(modelMatrix.columns.0.x), Double(modelMatrix.columns.0.y), Double(modelMatrix.columns.0.z)),
+            SIMD3<Double>(Double(modelMatrix.columns.1.x), Double(modelMatrix.columns.1.y), Double(modelMatrix.columns.1.z)),
+            SIMD3<Double>(Double(modelMatrix.columns.2.x), Double(modelMatrix.columns.2.y), Double(modelMatrix.columns.2.z))
         ))
         let determinant = simd_determinant(linear)
-        guard determinant.isFinite, abs(determinant) > 1e-8 else { return nil }
-        let result = simd_transpose(simd_inverse(linear))
+        guard determinant.isFinite, determinant != 0 else { return nil }
+        let inverseTranspose = simd_transpose(simd_inverse(linear))
+        let magnitude = max(
+            simd_reduce_max(abs(inverseTranspose.columns.0)),
+            simd_reduce_max(abs(inverseTranspose.columns.1)),
+            simd_reduce_max(abs(inverseTranspose.columns.2))
+        )
+        guard magnitude.isFinite, magnitude > 0 else { return nil }
+        let result = simd_float3x3(columns: (
+            SIMD3<Float>(inverseTranspose.columns.0 / magnitude),
+            SIMD3<Float>(inverseTranspose.columns.1 / magnitude),
+            SIMD3<Float>(inverseTranspose.columns.2 / magnitude)
+        ))
         return isFinite(result) ? result : nil
     }
 
