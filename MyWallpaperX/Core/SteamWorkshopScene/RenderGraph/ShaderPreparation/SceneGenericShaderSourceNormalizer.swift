@@ -907,7 +907,9 @@ void main() {
         for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).reversed() {
             guard let literal = Range(match.range(at: 2), in: source),
                   let full = Range(match.range, in: result) else { continue }
-            result.replaceSubrange(full, with: String(source[full]).replacingOccurrences(of: String(source[literal]), with: String(source[literal]) + ".0", options: [], range: nil))
+            let expression = String(source[full])
+            let scalar = String(source[literal]) + ".0"
+            result.replaceSubrange(full, with: expression.replacingOccurrences(of: String(source[literal]), with: "vec3(\(scalar))", options: [], range: nil))
         }
         return result
     }
