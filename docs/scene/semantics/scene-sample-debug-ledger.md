@@ -18,12 +18,12 @@
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
-| 3788734811 | 画面上下反转 | 用户新增负例；待区分 utility capture、model projection 与 source UV | 待复现，未通过 |
+| 3788734811 | 画面上下反转 | 当前截图复现；layer17 为正交画布中的 perspective image，model卡片方向与场景Y-down坐标待纠正 | 已复现，未通过 |
 | 3238423642 | 人物头部错位 | 用户否决整体验收；待区分 Puppet mesh/animation 与 effect source extent | 未通过 |
-| 3448845950 | 无法运行 | 用户确认启动阻塞；待复现首个 launch/graph 失败 | 未通过 |
-| 3477054430 | 画面显示不全 | 待区分 viewport 裁切、source coverage 与缺失图层 | 待复现，未通过 |
-| 3662790108 | 启动卡在不正确的画面 | 待延长真实异步播放并核对状态 producer/consumer | 待复现，未通过 |
-| 3287715210 | 音频条不显示 | 当前 PCM 隔离播放复现：layer277 编译成功后被 artifact color-transfer 合同拒绝，effect-local passthrough；不是 bool 编译错误 | 已定位 preparation 首断点，未通过 |
+| 3448845950 | 无法运行 | 当前ready后446 driver callbacks、0提交/完成帧，窗口黑；不是仅启动耗时 | 已复现，未通过 |
+| 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
+| 3662790108 | 启动卡在不正确的画面 | 15秒播放有CPU invocation failure及effect-local passthrough，状态推进仍未验收 | 已运行，未通过 |
+| 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
 
 权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。本次静态 census 发现 **159** 个 numeric sample，`159/159` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776`。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `0346d55c384f90d4931984098e2fd5f01bba18849f952beac9049153747b8351`），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
 
@@ -176,6 +176,14 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 本机 provenance：负例 `/private/tmp/mwx-audio-current-diagnostic/report.json` SHA-256 `94997c84268bf77594fee154d8bb50022fd89706bde0f9f6200d9869e251de67`；静音正例 `/private/tmp/mwx-audio-bool-after/report.json` `671fadce96f60f3588e6159a33d666b4cdebdd30d7342fe6e093ed836141fa30`；移除临时观测后的 PCM 正例 `/private/tmp/mwx-audio-bool-pcm-final/report.json` `a2f1a1d4cf0c187043a08b6800b79172c11b5324e21012b5fa3b67be6307baf4`。最终 App Team `H9QWU9XN8R`、CDHash `f7e2370241715ab6e9cc321aca87a632d7fa215f`。layer380 的64-bin左右声道从frame0 generation0 silent变成frame3 generation2 nonzero（peak约0.366/0.374）；Program `ba0d6b8513ea0a9c1312b47a011cd7e124356e1a0262546c17e3914d7b897734` 实际 GPU completed、publication、compositor/next-frame成立，PCM截图可见新增音频条。after PNG SHA-256 `9da289ad657f516edd5803e58974bbd2e76f252d9333c2a7384270e1126efd0d`。
 
 同一最终 App 另走真实异步 `requestLaunch`（隔离根 `/private/tmp/mwx-audio-async.8AEVC4`），相同 Program 在frame0/1 completed、compositorConsumed=true，publication49→100；surface teardown为owners7/quiescent7/failures0，surfaces1→0。异步 smoke 不调度 PCM fixture，因此此运行只证明真实 prepare→activate→GPU 生命周期，不冒充异步音频事件对照。该样本脸部黑线/构图仍未通过；新样本3287715210是独立 color-transfer 拒绝，不能由本修复宣称恢复。
+
+## E-V4-AUDIO-REPLACEMENT-COVERAGE：音频权重成为输出透明度（2026-09-08）
+
+`3287715210` layer277 的 shader 可编译，但 source-carried RGBA analyzer 仅允许默认混合与source/max透明度，拒绝作者已有的加法RGB混合及同一音频权重作为replacement alpha。现有 analyzer 复用 `SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.validBlendHelper` 的源代码语义证明，并要求replacement alpha逐token等于已验证RGB blend的权重；未知mode、错误helper和不相关source通道仍拒绝。输出沿现有straight boundary只premultiply一次，不增加Simple Audio Bars专用路由，也不调整作者默认值。
+
+source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug build成功。最终App CDHash `05f3cd9755416d5e0a1ce65c73a52c6b7100ce52`；PCM运行report SHA-256 `245034b20405a04c5e714585cb3853b616d98d5bd375fc920245dbfbc173c14d`，静音report `44b1b6a8e2a96401ba72574cc45062307a947f99bea79a23ed4bf206c1ed643d`。本机目录分别为`/private/tmp/mwx-3287715210-replacement-after`与`/private/tmp/mwx-3287715210-silence-final`。PCM after PNG `b8d3a46e66952ce077d356f8bb7fdae78d79525cfe8c6e969f7e6d1cc9b219fe`显示底部音频条；静音维持作者最小高度基线，PCM有变化高度。layer277在frame3消费generation2的64-bin非零左右声道，Program `29fe213ab6680ad3b8db50c29eb6994a6087be737d88f8418bdd583103b43ea2`有GPU completion、publication11→22与compositor/next-frame，teardown owners3/quiescent3/failures0。独立异步requestLaunch根`/private/tmp/mwx-bars-async.e54o12`验证相同Program生命周期；不冒充系统音频权限/捕获策略验收。
+
+同批用户新增样本probe位于`/private/tmp/mwx-new-reports-current`：倒置与黑屏负例保留，上表未通过状态优先于benchmark结构PASS。人物头部错位、视口构图、长稳、多显示器及真实系统音频仍未验收。
 
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 

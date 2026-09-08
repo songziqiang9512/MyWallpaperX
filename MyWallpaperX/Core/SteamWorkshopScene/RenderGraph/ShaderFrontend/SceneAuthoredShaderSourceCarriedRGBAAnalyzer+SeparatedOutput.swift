@@ -45,7 +45,7 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                 rgb, source: source.key,
                 before: output, fragment: fragment, main: main
               ), boundedTerminalAlpha(
-                alpha, source: source.key,
+                alpha, source: source.key, rgb: rgb,
                 before: output, fragment: fragment, main: main
               ), noWholeSampleFlowsIntoRGB(
                 sourceDeclaration: source.key,
@@ -173,14 +173,14 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                 .assignmentExpression(after: blend, in: tokens, body: main.bodyRange),
               let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(rhs),
               call.name == "ApplyBlending", call.arguments.count == 4,
-              SceneAuthoredShaderConditionalStraightUnionAnalyzer.number(
+              let modeValue = SceneAuthoredShaderConditionalStraightUnionAnalyzer.number(
                 call.arguments[0]
-              ) == 0,
+              ), let mode = Int(exactly: modeValue),
               normalBlendBase(call.arguments[1], rgb: name, source: source),
               SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
                 call.arguments[2], name: name, component: "rgb"
               ), !call.arguments[3].contains(where: { $0.text == source }),
-              normalBlendHelper(fragment),
+              validatedRGBBlendHelper(fragment, mode: mode),
               !hasOtherMutation(
                 name, permittedWrites: Set(values),
                 before: output, tokens: tokens, body: main.bodyRange
@@ -203,7 +203,12 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         )
     }
 
-    private static func normalBlendHelper(_ fragment: Unit) -> Bool {
+    private static func validatedRGBBlendHelper(_ fragment: Unit, mode: Int) -> Bool {
+        if mode != 0 {
+            return SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.validBlendHelper(
+                fragment, mode: mode
+            )
+        }
         let helpers = fragment.functions.filter { $0.name == "ApplyBlending" }
         guard helpers.count == 1, let helper = helpers.first,
               let names = SceneAuthoredShaderConditionalStraightUnionAnalyzer
@@ -225,6 +230,7 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
     private static func boundedTerminalAlpha(
         _ name: String,
         source: String,
+        rgb: String,
         before output: Int,
         fragment: Unit,
         main: Unit.Function
@@ -244,6 +250,21 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         if SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
             value, name: source, component: "a"
         ) { return true }
+        // The already validated RGB blend can publish its same scalar weight
+        // as replacement coverage. This is not source-alpha preservation:
+        // the existing straight-output boundary must still premultiply once.
+        if !value.contains(where: { $0.text == source }),
+           let blendWrite = writes(
+               rgb, typeNames: ["vec3", "float3"], before: output,
+               tokens: tokens, body: main.bodyRange
+           ).last,
+           let expression = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
+               after: blendWrite, in: tokens, body: main.bodyRange
+           ), let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(expression),
+           call.name == "ApplyBlending", call.arguments.count == 4,
+           value.map(\.text) == call.arguments[3].map(\.text) {
+            return true
+        }
         guard let maximum = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(value),
               maximum.name == "max", maximum.arguments.count == 2 else { return false }
         return maximum.arguments.contains {

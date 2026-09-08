@@ -169,7 +169,31 @@ private enum Harness {
             SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputStageUniformStraightAlphaPreserving
         let distanceMSL = compiled(scalarDistance) ?? ""
+        let additive = aliased.replacingOccurrences(
+            of: "return mix(base, (blend), opacity);",
+            with: "return base + blend * opacity;\n    return mix(base, (blend), opacity);"
+        ).replacingOccurrences(of: "0, mix(color.rgb", with: "31, mix(color.rgb")
+        let badAdditive = additive.replacingOccurrences(
+            of: "return base + blend * opacity;", with: "return base * blend * opacity;"
+        )
+        let replacement = additive.replacingOccurrences(
+            of: "float alpha = max(source.a, u_amount);", with: "float alpha = u_amount;"
+        )
+        let unrelatedAlpha = additive.replacingOccurrences(
+            of: "float alpha = max(source.a, u_amount);", with: "float alpha = source.r;"
+        )
+        let unknownMode = additive.replacingOccurrences(
+            of: "31, mix(color.rgb", with: "999, mix(color.rgb"
+        )
         let result: [String: Any] = [
+            "additiveTransfer": transfer(additive),
+            "replacementTransfer": transfer(replacement),
+            "unrelatedAlphaRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .analyzeSourceCarried(fragmentSource: unrelatedAlpha) == nil,
+            "badAdditiveRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .analyzeSourceCarried(fragmentSource: badAdditive) == nil,
+            "unknownModeRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .analyzeSourceCarried(fragmentSource: unknownMode) == nil,
             "preservedTransfer": transfer(preservedCarrier),
             "separatedTransfer": transfer(separated),
             "aliasedTransfer": transfer(aliased),
@@ -277,6 +301,13 @@ class SceneSourceCarriedStraightRGBATests(unittest.TestCase):
         self.assertTrue(self.result["premultipliedRejected"])
         self.assertTrue(self.result["carrierAlphaWriteRejected"])
         self.assertTrue(self.result["secondSourceRejected"])
+
+    def test_uniform_seeded_rgb_reuses_validated_additive_helper(self) -> None:
+        self.assertEqual(self.result["additiveTransfer"], "straight-alpha-0")
+        self.assertEqual(self.result["replacementTransfer"], "straight-alpha-0")
+        self.assertTrue(self.result["unrelatedAlphaRejected"])
+        self.assertTrue(self.result["badAdditiveRejected"])
+        self.assertTrue(self.result["unknownModeRejected"])
 
 
 if __name__ == "__main__":
