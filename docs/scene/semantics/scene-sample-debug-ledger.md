@@ -19,7 +19,7 @@
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
-| 3238423642 | 人物头部错位 | 用户否决整体验收；待区分 Puppet mesh/animation 与 effect source extent | 未通过 |
+| 3238423642 | 人物头部错位 | Puppet atlas重组预算被前序图层耗尽，最后一层退回原图集；按候选层均衡预算后头部回到身体，见E-V4-PUPPET-BUDGET-FAIRNESS | 构图修复，整体验收未通过 |
 | 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，整体验收未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 15秒播放有CPU invocation failure及effect-local passthrough，状态推进仍未验收 | 已运行，未通过 |
@@ -176,6 +176,12 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 本机 provenance：负例 `/private/tmp/mwx-audio-current-diagnostic/report.json` SHA-256 `94997c84268bf77594fee154d8bb50022fd89706bde0f9f6200d9869e251de67`；静音正例 `/private/tmp/mwx-audio-bool-after/report.json` `671fadce96f60f3588e6159a33d666b4cdebdd30d7342fe6e093ed836141fa30`；移除临时观测后的 PCM 正例 `/private/tmp/mwx-audio-bool-pcm-final/report.json` `a2f1a1d4cf0c187043a08b6800b79172c11b5324e21012b5fa3b67be6307baf4`。最终 App Team `H9QWU9XN8R`、CDHash `f7e2370241715ab6e9cc321aca87a632d7fa215f`。layer380 的64-bin左右声道从frame0 generation0 silent变成frame3 generation2 nonzero（peak约0.366/0.374）；Program `ba0d6b8513ea0a9c1312b47a011cd7e124356e1a0262546c17e3914d7b897734` 实际 GPU completed、publication、compositor/next-frame成立，PCM截图可见新增音频条。after PNG SHA-256 `9da289ad657f516edd5803e58974bbd2e76f252d9333c2a7384270e1126efd0d`。
 
 同一最终 App 另走真实异步 `requestLaunch`（隔离根 `/private/tmp/mwx-audio-async.8AEVC4`），相同 Program 在frame0/1 completed、compositorConsumed=true，publication49→100；surface teardown为owners7/quiescent7/failures0，surfaces1→0。异步 smoke 不调度 PCM fixture，因此此运行只证明真实 prepare→activate→GPU 生命周期，不冒充异步音频事件对照。该样本脸部黑线/构图仍未通过；新样本3287715210是独立 color-transfer 拒绝，不能由本修复宣称恢复。
+
+## E-V4-PUPPET-BUDGET-FAIRNESS：Puppet图层共享预算与构图（2026-09-08）
+
+`3238423642`的人物头部错位不是作者坐标错误：四个`katanabody`层和一个蝴蝶层共享128MiB重组预算，旧实现按遍历顺序消耗，前几个大目标后最后图层因剩余预算不足退回原始atlas，导致身体与头部使用了不同几何。现在在load阶段按潜在Puppet层数量建立均衡上限，并将`targetDimensions`按实际剩余字节预算等比降采样；仍保留4096维度、最小安全纹理和OOM/预算拒绝，不逐帧重建、不按sample分支。
+
+Puppet mesh/source **31 tests（1个无Metal跳过）PASS**，签名Debug build成功。隔离运行`/private/tmp/mwx-puppet-budget-after` report严格PASS（SHA-256 `169db649186c11de9e07ae3250ae2fe6f9104463481f39146a31fc649a2da032`），after PNG（SHA-256 `bfc3b264dc396e4821d8883fe441ec3ca7d1db64bd436af33797fd62c87f8a43`）人工确认头部与身体对齐、日期时间可见；四个katanabody均报告`puppet animation OK → 3485×1925`，不再出现`animation target rejected`，GPU/Program/compositor连续帧成立，性能仍约18.7 FPS（CPU约49ms），因此不声称性能完成。该证据只证明共同预算与可见构图修复，不证明Puppet全部动作、3D/lighting、其他样本或官方等价。
 
 ## E-V4-TEX-MEDIA-IDENTITY：图片身份与首帧资源准入（2026-09-08）
 

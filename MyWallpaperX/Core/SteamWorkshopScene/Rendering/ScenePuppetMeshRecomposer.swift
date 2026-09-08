@@ -100,19 +100,22 @@ enum ScenePuppetMeshRecomposer {
     /// atlas quad and scattering the body parts.
     static func targetDimensions(
         layerWidth: Float,
-        layerHeight: Float
+        layerHeight: Float,
+        byteBudget: Int = .max
     ) -> (width: Int, height: Int)? {
         guard layerWidth.isFinite, layerHeight.isFinite,
-              layerWidth >= 1, layerHeight >= 1 else { return nil }
+              layerWidth >= 1, layerHeight >= 1, byteBudget >= 4 else { return nil }
         let scale = min(
-            1,
-            Float(maxTextureDimension) / layerWidth,
-            Float(maxTextureDimension) / layerHeight
+            1.0,
+            Double(maxTextureDimension) / Double(layerWidth),
+            Double(maxTextureDimension) / Double(layerHeight),
+            sqrt(Double(byteBudget / 4) / (Double(layerWidth) * Double(layerHeight)))
         )
         guard scale.isFinite, scale > 0 else { return nil }
-        let width = max(1, Int((layerWidth * scale).rounded()))
-        let height = max(1, Int((layerHeight * scale).rounded()))
-        guard width <= maxTextureDimension, height <= maxTextureDimension else {
+        let width = max(1, Int((Double(layerWidth) * scale).rounded(.down)))
+        let height = max(1, Int((Double(layerHeight) * scale).rounded(.down)))
+        guard width <= maxTextureDimension, height <= maxTextureDimension,
+              width * height <= byteBudget / 4 else {
             return nil
         }
         return (width, height)
@@ -137,7 +140,8 @@ enum ScenePuppetMeshRecomposer {
         }
         guard let dimensions = targetDimensions(
             layerWidth: coverage.width,
-            layerHeight: coverage.height
+            layerHeight: coverage.height,
+            byteBudget: remainingByteBudget
         ) else {
             return .failure(.textureTooLarge(
                 width: Int(coverage.width.rounded()),

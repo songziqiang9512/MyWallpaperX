@@ -169,7 +169,8 @@ final class ScenePuppetPlaybackState {
         }
         guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
             layerWidth: coverage.width,
-            layerHeight: coverage.height
+            layerHeight: coverage.height,
+            byteBudget: remainingByteBudget
         ) else {
             return .failure(.textureTooLarge(
                 width: Int(coverage.width.rounded()),

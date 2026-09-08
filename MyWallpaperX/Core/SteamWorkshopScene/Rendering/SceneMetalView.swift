@@ -171,6 +171,11 @@ class SceneMetalView: NSView {
         report.append(contentsOf: userPropertyTextureLoad.reportLines)
         report.append(preparedBaseImages.reportLine)
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
+        // Reserve an equal upper bound for each potential Puppet source at
+        // load time. Earlier duplicates must not exhaust later layers and
+        // force their packed atlas to appear as a composed image.
+        let puppetPerLayerBudget = ScenePuppetMeshRecomposer.recomposeByteBudget
+            / max(1, imageLayers.filter { $0.puppetMeshPath != nil }.count)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
@@ -273,8 +278,8 @@ class SceneMetalView: NSView {
                               for: layer,
                               atlasTexture: texture,
                               cacheDirectory: cacheDirectory,
-                              remainingByteBudget: ScenePuppetMeshRecomposer.recomposeByteBudget
-                                  - puppetRecomposeBytes,
+                              remainingByteBudget: min(puppetPerLayerBudget,
+                                  ScenePuppetMeshRecomposer.recomposeByteBudget - puppetRecomposeBytes),
                               device: metalDevice,
                               commandQueue: renderer.commandQueue,
                               pipeline: imagePipeline
