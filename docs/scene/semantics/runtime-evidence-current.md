@@ -28,6 +28,8 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 同一构建与隔离流程复跑高命中 godrays 样本 `1937925563`，得到 `PASS loaded=1.000 failures=[]`。该结果是第二个样本的 identity/runtime contract 证据，仍不替代人工视觉裁决或官方 parity 对照。
 
+同一流程对 shine-cast 样本 `3749463715` 仍发现共享 shader preparation library compilation fallback（layer `467`），benchmark 报告 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。该失败发生在公共编译/准入阶段，尚未进入视觉裁决；后续应先取得该 shader 的 stage-link 诊断并修复公共预处理或编译 owner。
+
 `3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
 
 ### 2026-09-08 源颜色辅助函数与轨道恢复
