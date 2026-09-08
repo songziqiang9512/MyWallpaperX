@@ -1605,16 +1605,21 @@ def puppet_animation_runtime_failures(
     return failures
 
 
-def text_script_runtime_metrics(preview_text: str) -> dict[str, Any]:
-    binding_match = TEXT_SCRIPT_BINDING_COUNT_RE.search(preview_text)
-    diagnostic_match = TEXT_SCRIPT_DIAGNOSTIC_COUNT_RE.search(preview_text)
+def text_script_runtime_metrics(preview_text: str, log_text: str = "") -> dict[str, Any]:
+    # The preview helper emits summary counters, while the real SceneScript
+    # host log is authoritative for completed callbacks.  Parse both so a
+    # successful producer/consumer run is not reported as an empty binding
+    # set merely because the preview subprocess omitted its summary.
+    evidence_text = preview_text + "\n" + log_text
+    binding_match = TEXT_SCRIPT_BINDING_COUNT_RE.search(evidence_text)
+    diagnostic_match = TEXT_SCRIPT_DIAGNOSTIC_COUNT_RE.search(evidence_text)
     bindings = [
         {
             "layer_id": int(match.group("id")),
             "profile": match.group("profile"),
             "fixture_value": match.group("value"),
         }
-        for match in TEXT_SCRIPT_BINDING_RE.finditer(preview_text)
+        for match in TEXT_SCRIPT_BINDING_RE.finditer(evidence_text)
     ]
     return {
         "binding_count": int(binding_match.group("count")) if binding_match else None,
@@ -6666,7 +6671,7 @@ def run_sample(
     text_loaded = int(text_loaded_match.group("loaded")) if text_loaded_match else 0
     text_total = int(text_loaded_match.group("total")) if text_loaded_match else 0
     text_loaded_layer_ids = [int(match.group("id")) for match in TEXT_LAYER_OK_RE.finditer(preview_text)]
-    text_script_runtime = text_script_runtime_metrics(preview_text)
+    text_script_runtime = text_script_runtime_metrics(preview_text, log_text)
     scene_script_scalar_runtime = scene_script_scalar_runtime_metrics(
         preview_text,
         log_text,
