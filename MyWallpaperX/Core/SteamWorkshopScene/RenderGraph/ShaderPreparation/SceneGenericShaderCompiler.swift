@@ -126,6 +126,17 @@ nonisolated enum SceneGenericShaderCompiler {
         case let .success(value): compiled = value
         case let .failure(failure): return .failure(failure)
         }
+        if let evidenceDirectory = debugEvidenceDirectory() {
+            for stage in compiled {
+                try? stage.msl.write(
+                    to: evidenceDirectory.appendingPathComponent(
+                        "\(requestKey).\(stage.name).metal"
+                    ),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
+        }
         func build(
             _ stages: [CompiledStage],
             loopGuardCap: Int?
