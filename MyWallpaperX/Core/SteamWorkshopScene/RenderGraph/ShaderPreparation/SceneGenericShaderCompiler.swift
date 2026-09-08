@@ -74,14 +74,6 @@ nonisolated enum SceneGenericShaderCompiler {
         defer { try? fileManager.removeItem(at: workspace) }
         let vertexURL = workspace.appendingPathComponent("author.vert")
         let fragmentURL = workspace.appendingPathComponent("author.frag")
-        do {
-            try boundedData(normalized.vertex, configuration: configuration)
-                .write(to: vertexURL, options: [.atomic])
-            try boundedData(normalized.fragment, configuration: configuration)
-                .write(to: fragmentURL, options: [.atomic])
-        } catch {
-            return .failure(.workspace)
-        }
         switch probe(
             configuration.glslang,
             phase: "glslang-version",
@@ -104,6 +96,110 @@ nonisolated enum SceneGenericShaderCompiler {
         case .success: break
         case let .failure(failure): return .failure(failure)
         }
+        let compiled: [CompiledStage]
+        switch compileStages(
+            vertex: normalized.vertex,
+            fragment: normalized.fragment,
+            authoredVertex: vertexSource,
+            authoredFragment: fragmentSource,
+            vertexURL: vertexURL,
+            fragmentURL: fragmentURL,
+            configuration: configuration,
+            workspace: workspace
+        ) {
+        case let .success(value): compiled = value
+        case let .failure(failure): return .failure(failure)
+        }
+        func build(
+            _ stages: [CompiledStage],
+            loopGuardCap: Int?
+        ) -> Result<SceneGenericShaderProgramArtifact, SceneGenericShaderArtifactBuilder.Failure> {
+            SceneGenericShaderArtifactBuilder.build(
+                requestKey: requestKey,
+                backendID: configuration.backendID,
+                outputSemantics: outputSemantics,
+                expectedColorTransfer: expectedColorTransfer,
+                premultipliedColorInputSlots: premultipliedColorInputSlots,
+                defaultBoundaryColorSlots: defaultBoundaryColorSlots,
+                stages: stages.map {
+                    .init(name: $0.name, source: $0.source,
+                          authoredSource: $0.authoredSource, msl: $0.msl,
+                          reflection: $0.reflection)
+                },
+                loopGuardCap: loopGuardCap,
+                maximumArtifactBytes: configuration.limits.maximumArtifactBytes
+            )
+        }
+        let artifact: SceneGenericShaderProgramArtifact
+        switch build(compiled, loopGuardCap: nil) {
+        case let .success(value): artifact = value
+        case let .failure(failure)
+            where failure == .loopUnbounded || failure == .loopBudget:
+            // Product loop policy: loops the static budget cannot prove run
+            // as written under one per-invocation iteration guard.
+            guard let guarded = SceneGenericShaderLoopGuardLowering.lowerPair(
+                vertex: normalized.vertex,
+                fragment: normalized.fragment
+            ) else { return .failure(.artifact(String(describing: failure))) }
+            let guardedStages: [CompiledStage]
+            switch compileStages(
+                vertex: guarded.vertex,
+                fragment: guarded.fragment,
+                authoredVertex: vertexSource,
+                authoredFragment: fragmentSource,
+                vertexURL: vertexURL,
+                fragmentURL: fragmentURL,
+                configuration: configuration,
+                workspace: workspace
+            ) {
+            case let .success(value): guardedStages = value
+            case let .failure(guardedFailure): return .failure(guardedFailure)
+            }
+            switch build(
+                guardedStages,
+                loopGuardCap: SceneGenericShaderLoopGuardLowering.iterationCap
+            ) {
+            case let .success(value): artifact = value
+            case let .failure(guardedFailure):
+                return .failure(.artifact(String(describing: guardedFailure)))
+            }
+        case let .failure(failure):
+            return .failure(.artifact(String(describing: failure)))
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(artifact),
+              (1 ... configuration.limits.maximumArtifactBytes).contains(data.count)
+        else { return .failure(.artifact("encoding")) }
+        let target = cacheRoot.appendingPathComponent("\(requestKey).json")
+        do {
+            try data.write(to: target, options: [.atomic])
+        } catch {
+            return .failure(.publication)
+        }
+        return .success(target)
+    }
+
+    /// Writes both stage sources, links them once, and lowers each stage to
+    /// MSL plus reflection. Shared by the proven and the guarded attempt.
+    private static func compileStages(
+        vertex: String,
+        fragment: String,
+        authoredVertex: String,
+        authoredFragment: String,
+        vertexURL: URL,
+        fragmentURL: URL,
+        configuration: SceneGenericShaderCompilerBundle.Configuration,
+        workspace: URL
+    ) -> Result<[CompiledStage], Failure> {
+        do {
+            try boundedData(vertex, configuration: configuration)
+                .write(to: vertexURL, options: [.atomic])
+            try boundedData(fragment, configuration: configuration)
+                .write(to: fragmentURL, options: [.atomic])
+        } catch {
+            return .failure(.workspace)
+        }
         switch run(
             configuration.glslang,
             arguments: [
@@ -119,8 +215,8 @@ nonisolated enum SceneGenericShaderCompiler {
         }
         var compiled: [CompiledStage] = []
         for (name, suffix, source, sourceURL, entryPoint) in [
-            ("vertex", "vert", normalized.vertex, vertexURL, "mwxGenericVertex"),
-            ("fragment", "frag", normalized.fragment, fragmentURL, "mwxGenericFragment"),
+            ("vertex", "vert", vertex, vertexURL, "mwxGenericVertex"),
+            ("fragment", "frag", fragment, fragmentURL, "mwxGenericFragment"),
         ] {
             let spirv = workspace.appendingPathComponent("\(name).spv")
             let msl = workspace.appendingPathComponent("\(name).metal")
@@ -175,42 +271,12 @@ nonisolated enum SceneGenericShaderCompiler {
             compiled.append(.init(
                 name: name,
                 source: source,
-                authoredSource: name == "vertex" ? vertexSource : fragmentSource,
+                authoredSource: name == "vertex" ? authoredVertex : authoredFragment,
                 msl: mslSource,
                 reflection: reflectionData
             ))
         }
-        let artifact: SceneGenericShaderProgramArtifact
-        switch SceneGenericShaderArtifactBuilder.build(
-            requestKey: requestKey,
-            backendID: configuration.backendID,
-            outputSemantics: outputSemantics,
-            expectedColorTransfer: expectedColorTransfer,
-            premultipliedColorInputSlots: premultipliedColorInputSlots,
-            defaultBoundaryColorSlots: defaultBoundaryColorSlots,
-            stages: compiled.map {
-                .init(name: $0.name, source: $0.source,
-                      authoredSource: $0.authoredSource, msl: $0.msl,
-                      reflection: $0.reflection)
-            },
-            maximumArtifactBytes: configuration.limits.maximumArtifactBytes
-        ) {
-        case let .success(value): artifact = value
-        case let .failure(failure):
-            return .failure(.artifact(String(describing: failure)))
-        }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        guard let data = try? encoder.encode(artifact),
-              (1 ... configuration.limits.maximumArtifactBytes).contains(data.count)
-        else { return .failure(.artifact("encoding")) }
-        let target = cacheRoot.appendingPathComponent("\(requestKey).json")
-        do {
-            try data.write(to: target, options: [.atomic])
-        } catch {
-            return .failure(.publication)
-        }
-        return .success(target)
+        return .success(compiled)
     }
 
     private static func probe(

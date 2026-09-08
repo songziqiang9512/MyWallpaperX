@@ -76,6 +76,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         let uniformLayout: UniformLayout
         let textureBindings: [TextureBinding]
         let staticLoopWork: Int
+        /// Present only for guarded programs: authored loops run as written
+        /// under this per-invocation iteration cap and `staticLoopWork` is 0.
+        /// Absent (and omitted from the artifact) for statically proven loops.
+        var loopGuardCap: Int? = nil
         let premultipliedColorInputSlots: [Int]
         let colorTransfer: ColorTransfer
         let fragmentOutputChannelUse: String
@@ -120,6 +124,10 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
               raw.fragmentFunctionName == "mwxGenericFragment",
               raw.uniformBufferIndex == 8,
               (0 ... 256).contains(raw.staticLoopWork),
+              raw.loopGuardCap.map({
+                  $0 == SceneGenericShaderLoopGuardLowering.iterationCap
+                      && raw.staticLoopWork == 0
+              }) ?? true,
               !raw.metalSource.isEmpty,
               raw.metalSource.utf8.count <= 1_024 * 1_024,
               Self.sha256(Data(raw.metalSource.utf8)) == raw.metalSourceSHA256 else {

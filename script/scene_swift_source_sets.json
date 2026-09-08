@@ -223,6 +223,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderExpectedColorTransfer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderIndependentSignalLowering.swift",

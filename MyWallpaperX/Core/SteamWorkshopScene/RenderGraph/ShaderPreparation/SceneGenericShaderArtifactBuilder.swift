@@ -77,6 +77,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         premultipliedColorInputSlots: Set<Int> = [],
         defaultBoundaryColorSlots: Set<Int> = [],
         stages: [Stage],
+        loopGuardCap: Int? = nil,
         maximumArtifactBytes: Int
     ) -> Result<SceneGenericShaderProgramArtifact, Failure> {
         guard stages.map(\.name).sorted() == ["fragment", "vertex"] else {
@@ -238,16 +239,28 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 ? stages.map(\.source)
                 : [vertexStage.source]
             let loopWork: Int
-            switch SceneGenericShaderBoundedLoopWork.evaluate(
-                sources: genericLoopSources
-            ) {
-            case let .success(work):
-                loopWork = work + (accumulatorLoopWork ?? 0)
-                guard loopWork <= 256 else { throw Failure.loopBudget }
-            case .failure(.unbounded):
-                throw Failure.loopUnbounded
-            case .failure(.budget):
-                throw Failure.loopBudget
+            if let loopGuardCap {
+                // Guarded stages run authored loops as written under the
+                // product iteration cap; no static work count is claimed.
+                guard loopGuardCap == SceneGenericShaderLoopGuardLowering.iterationCap,
+                      stages.contains(where: {
+                          $0.source.contains(
+                              SceneGenericShaderLoopGuardLowering.guardFunctionName
+                          )
+                      }) else { throw Failure.loopUnbounded }
+                loopWork = 0
+            } else {
+                switch SceneGenericShaderBoundedLoopWork.evaluate(
+                    sources: genericLoopSources
+                ) {
+                case let .success(work):
+                    loopWork = work + (accumulatorLoopWork ?? 0)
+                    guard loopWork <= 256 else { throw Failure.loopBudget }
+                case .failure(.unbounded):
+                    throw Failure.loopUnbounded
+                case .failure(.budget):
+                    throw Failure.loopBudget
+                }
             }
             let program = SceneGenericShaderProgramArtifact.Program(
                 metalSource: metalSource,
@@ -263,6 +276,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 ),
                 textureBindings: bindings,
                 staticLoopWork: loopWork,
+                loopGuardCap: loopGuardCap,
                 premultipliedColorInputSlots:
                     premultipliedColorInputSlots.sorted(),
                 colorTransfer: color.transfer,

@@ -124,7 +124,7 @@ class SceneGenericShaderCompilerProcessTests(unittest.TestCase):
         })
         rejected, _ = self.run_process("/usr/bin/false")
         self.assertEqual(rejected["status"], "failed")
-        self.assertIn("rejected(exitCode: 1)", rejected["failure"])
+        self.assertIn("rejected(exitCode: 1", rejected["failure"])
 
     def test_timeout_kills_the_exact_helper(self):
         output, elapsed = self.run_process(
