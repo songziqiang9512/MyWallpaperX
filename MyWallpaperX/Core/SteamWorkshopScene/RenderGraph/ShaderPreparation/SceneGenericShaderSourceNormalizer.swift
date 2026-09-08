@@ -246,6 +246,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            fragment.body = rewriteFloatToIntAssignments(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
             guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
                 .rewrite(
                     fragment.body,
@@ -842,6 +846,54 @@ void main() {
                 range,
                 with: "\(target) \(name) = \(constructor)(\(arguments))\(suffix);"
             )
+        }
+        return result
+    }
+
+    /// GLSL ES accepts implicit scalar conversions in some authors' compilers,
+    /// while glslang's Vulkan frontend requires an explicit conversion.
+    /// Restrict the rewrite to authored float symbols so local type semantics
+    /// remain untouched and the rule stays generic across scenes.
+    private static func rewriteFloatToIntAssignments(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let floatNames = shapes.compactMap { name, shape in
+            shape.type == "float" ? name : nil
+        }
+        guard !floatNames.isEmpty else { return source }
+        let regex = try! NSRegularExpression(pattern:
+            #"\bint\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*("#
+                + floatNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + #")\s*;"#
+        )
+        let comparisonRegex = try! NSRegularExpression(pattern:
+            #"\b([A-Za-z_][A-Za-z0-9_]*)\s*(<=|>=|<|>)\s*("#
+                + floatNames.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+                + #")\b"#
+        )
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let variableRange = Range(match.range(at: 1), in: source),
+                  let valueRange = Range(match.range(at: 2), in: source),
+                  let fullRange = Range(match.range, in: result) else { continue }
+            result.replaceSubrange(
+                fullRange,
+                with: "int \(source[variableRange]) = int(\(source[valueRange]));"
+            )
+        }
+        for match in comparisonRegex.matches(
+            in: result,
+            range: NSRange(result.startIndex..., in: result)
+        ).reversed() {
+            guard let valueRange = Range(match.range(at: 3), in: result),
+                  let fullRange = Range(match.range, in: result) else { continue }
+            let value = String(result[valueRange])
+            let expression = String(result[fullRange])
+            result.replaceSubrange(fullRange, with: expression.replacingOccurrences(of: value, with: "int(\(value))"))
         }
         return result
     }
