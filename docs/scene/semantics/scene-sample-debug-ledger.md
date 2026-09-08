@@ -56,6 +56,8 @@
 
 该剩余失败的首断点已进一步明确：layer380 的 authored workshop `Simple_Audio_Bars` shader 在准备阶段被 frontend owner 拒绝，日志为 `shaderFrontendFailed` / `compiler-tool-stage-link-rejected-exitcode--2` / `bounded-frontend-owner-revoked` / `compatibility-target-not-applicable`；随后唯一 graph owner 以 `visual-failure-passthrough` 发布安全输出。它不是 Puppet 或 publication 生命周期失败，也不能通过把 passthrough 改成成功来验收。下一项应针对 generic shader frontend 对该类 audio-array material 的公共兼容合同，保留失败半径局部化。
 
+`5102d41b`/`0d189142` 的 diagnostic build 已在真实隔离运行中验证：stage-link diagnostic 只返回 helper 临时 workspace 路径（`/var/folders/...`），没有语义错误文本；因此当前证据不足以安全修改 audio-array lowering 或 stage wrapper。该观测本身证明 failure payload 仍不充分，下一步应改为保留 bounded normalized-source digest 与 helper invocation metadata，而不是猜测 shader 语义。
+
 ## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
 
 `3780119725` 人物 layer21 的重组覆盖范围为 3874×6279，上传纹理为 2527×4096，但作者 atlas/layer 声明为 3874×2000。动画 layer1221 不在当前 bounded profile，已有逻辑成功生成 bind-pose fallback。首断点在 `SceneMetalView`：只有可缓存的静态重组或 active playback 才调用 `setPuppetSource`；这个有动画声明却降级为 bind-pose 的结果没有 cache identity，被错误送进 base atlas publication，旧高度继续驱动 model/effect source。现在只以成功重组返回的 coverage 决定既有 Puppet source publication，不再以 cache/playback 资格为门；缓存复用条件不变，解析、重组与 budget 全部仍在 load。
