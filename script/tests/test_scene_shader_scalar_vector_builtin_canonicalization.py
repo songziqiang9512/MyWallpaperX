@@ -265,6 +265,8 @@ private struct ScalarVectorBuiltInHarness {
             "int mask = max(lower, step(g_Ratio.x, g_Ratio.y) * step(-g_Ratio.x, g_Ratio.y));\n"
                 + "    int directMask = step(1 - g_Ratio.x, g_Ratio.y);\n"
                 + "    float weight = min(1, smoothstep(0, g_Ratio.x, g_Ratio.y) + step(g_Ratio.x, g_Ratio.y));\n"
+                + "    bool selected = g_Ratio.x > g_Ratio.y;\n"
+                + "    weight *= selected; directMask += selected;\n"
                 + "    vec2 broadcast = g_Ratio.x * g_Ratio.y;\n"
                 + "    broadcast *= 1.0 / g_Ratio4;\n"
                 + "    albedo.rgb = pow(albedo.rgb, 2.2 / 2.2);\n"

@@ -18,6 +18,12 @@
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
+| 3788734811 | 画面上下反转 | 用户新增负例；待区分 utility capture、model projection 与 source UV | 待复现，未通过 |
+| 3238423642 | 人物头部错位 | 用户否决整体验收；待区分 Puppet mesh/animation 与 effect source extent | 未通过 |
+| 3448845950 | 无法运行 | 用户确认启动阻塞；待复现首个 launch/graph 失败 | 未通过 |
+| 3477054430 | 画面显示不全 | 待区分 viewport 裁切、source coverage 与缺失图层 | 待复现，未通过 |
+| 3662790108 | 启动卡在不正确的画面 | 待延长真实异步播放并核对状态 producer/consumer | 待复现，未通过 |
+| 3287715210 | 音频条不显示 | 当前 PCM 隔离播放复现：layer277 编译成功后被 artifact color-transfer 合同拒绝，effect-local passthrough；不是 bool 编译错误 | 已定位 preparation 首断点，未通过 |
 
 权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。本次静态 census 发现 **159** 个 numeric sample，`159/159` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776`。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `0346d55c384f90d4931984098e2fd5f01bba18849f952beac9049153747b8351`），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
 
@@ -159,7 +165,17 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 
 ### 3765760121 运行追溯（2026-09-08）
 
-单一 Scene host/runtime instance 的真实日志同时出现并完成 text callback：合同层 `68/76/82` 与额外层 `190/196/202`。合同层均有动态文字 publication、graph execution、GPU completion、compositor consumption 和 next-frame 证据；benchmark 仍因实际 6 对合同 3 的 binding 集合差异失败。当前不把额外 ID 过滤掉，也不修改矩阵期望；需继续从 `scene.pkg` 解码后的 source/parent/instance identity 追踪其来源。
+单一 Scene host/runtime instance 的真实日志同时出现并完成 text callback：`68/76/82` 与 `190/196/202`。直接用现有 PKGV reader 核对当前 authored `scene.json` 后，确认六个 ID 均为作者对象：190 由默认 false 的 `newproperty5` 控制，196/202 是其子层；68 由默认 true 的 `newproperty6` 控制，76/82 是其子层。额外 callback 不是重复实例证据，也不能解释为旧缓存。preview 的旧 text subset binding count 为0，而通用 VM 的 completed callbacks 是6；两者不是同一统计职责，不能据此修改产品 consumer。原矩阵三 binding 期待仍 NON-PASS，未放宽；可见隐藏传播与切换需单独事件验收。
+
+## E-V4-AUDIO-BOOLEAN-OPERAND：布尔数值操作恢复音频图形（2026-09-08）
+
+`3780119725` layer380 的 Audio Bars 并非 audio provider 没有输入：准备阶段 glslang 拒绝 bool 变量到数值复合赋值的隐式转换。旧 `SceneGenericShaderBooleanScalarArithmeticNormalizer` 只转换内联比较，遗漏已声明 bool 标量。现有 owner 利用词法 token 和唯一声明类型，为 float/int/uint 的直接 bool 赋值/复合赋值补显式转换；重名遮蔽、成员、未知类型不猜测，控制流、bool 赋值和注释保持不变。只在 preparation 运行，不新增 provider/clock/renderer，不改变失败预算或 color/publication 合同。用于定位的临时编译错误观测已移除。
+
+验证：artifact suite **76 tests PASS**（含 numeric/bool/control/comment/shadow/idempotence 反例），canonicalization **2 tests PASS**（实际 bundled glslang stage-link），source-set **11 tests PASS**，签名 Debug build 成功。全仓 code-health 仍被本批未改的 `SceneMetalRenderer.swift` baseline shrink 与 `SceneScriptScalarRuntime.swift` 803 行阻断，不记 PASS。
+
+本机 provenance：负例 `/private/tmp/mwx-audio-current-diagnostic/report.json` SHA-256 `94997c84268bf77594fee154d8bb50022fd89706bde0f9f6200d9869e251de67`；静音正例 `/private/tmp/mwx-audio-bool-after/report.json` `671fadce96f60f3588e6159a33d666b4cdebdd30d7342fe6e093ed836141fa30`；移除临时观测后的 PCM 正例 `/private/tmp/mwx-audio-bool-pcm-final/report.json` `a2f1a1d4cf0c187043a08b6800b79172c11b5324e21012b5fa3b67be6307baf4`。最终 App Team `H9QWU9XN8R`、CDHash `f7e2370241715ab6e9cc321aca87a632d7fa215f`。layer380 的64-bin左右声道从frame0 generation0 silent变成frame3 generation2 nonzero（peak约0.366/0.374）；Program `ba0d6b8513ea0a9c1312b47a011cd7e124356e1a0262546c17e3914d7b897734` 实际 GPU completed、publication、compositor/next-frame成立，PCM截图可见新增音频条。after PNG SHA-256 `9da289ad657f516edd5803e58974bbd2e76f252d9333c2a7384270e1126efd0d`。
+
+同一最终 App 另走真实异步 `requestLaunch`（隔离根 `/private/tmp/mwx-audio-async.8AEVC4`），相同 Program 在frame0/1 completed、compositorConsumed=true，publication49→100；surface teardown为owners7/quiescent7/failures0，surfaces1→0。异步 smoke 不调度 PCM fixture，因此此运行只证明真实 prepare→activate→GPU 生命周期，不冒充异步音频事件对照。该样本脸部黑线/构图仍未通过；新样本3287715210是独立 color-transfer 拒绝，不能由本修复宣称恢复。
 
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 

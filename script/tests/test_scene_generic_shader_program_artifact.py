@@ -1252,6 +1252,36 @@ private struct GenericShaderArtifactHarness {
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
         }
+        if CommandLine.arguments[1] == "--normalizer-boolean-identifiers" {
+            let source = [
+                "void main() {",
+                "bool enabled = true;",
+                "float coverage = 0.75;",
+                "int count = 2;",
+                "uint index = 1;",
+                "coverage *= enabled; count += enabled; index = enabled;",
+                "bool copy = enabled;",
+                "coverage *= 0.5;",
+                "if (enabled) { coverage = 1.0; }",
+                "// coverage *= enabled;",
+                "float ambiguous = 1.0;",
+                "{ bool ambiguous = false; }",
+                "coverage *= ambiguous;",
+                "}",
+            ].joined(separator: "\n")
+            let rewritten = SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(source)
+            let result = [
+                "numeric": rewritten.contains("coverage *= float(enabled); count += int(enabled); index = uint(enabled);"),
+                "bool": rewritten.contains("bool copy = enabled;"),
+                "control": rewritten.contains("if (enabled)"),
+                "ordinary": rewritten.contains("coverage *= 0.5;"),
+                "comment": rewritten.contains("// coverage *= enabled;"),
+                "ambiguous": rewritten.contains("coverage *= ambiguous;"),
+                "idempotent": rewritten == SceneGenericShaderBooleanScalarArithmeticNormalizer.rewrite(rewritten),
+            ]
+            FileHandle.standardOutput.write(try JSONEncoder().encode(result))
+            return
+        }
         if CommandLine.arguments[1] == "--normalizer-scalar-vector-assignment" {
             let vertex = [
                 "attribute vec3 a_Position;",
@@ -5103,6 +5133,15 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "scalarBuiltInEndpointsNormalized": True,
             "arithmeticRewriteIdempotent": True,
         })
+
+    def test_numeric_boolean_identifiers_preserve_non_numeric_uses(self):
+        completed = subprocess.run(
+            [str(self.binary), "--normalizer-boolean-identifiers"],
+            cwd=REPOSITORY_ROOT, check=True, capture_output=True, text=True,
+        )
+        result = json.loads(completed.stdout)
+        self.assertTrue(result)
+        self.assertTrue(all(result.values()), result)
 
     def test_product_normalizer_narrows_only_unambiguous_direct_function_arguments(self):
         completed = subprocess.run(

@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 Audio Bars 布尔标量进入通用数值转换
+
+`3780119725` 的 Audio Bars 从 bool→numeric stage-link 拒绝恢复实际 Program/GPU 执行；静音/PCM 对照证明64-bin频谱被consumer消费并显示音频条，另有真实异步requestLaunch的completion/publication/next-frame/teardown证据。76+2+11 tests与签名Debug build通过，全仓code-health有两项本批外阻断。人物黑线、整样本及3287715210独立color-transfer拒绝均未闭合。见 [E-V4-AUDIO-BOOLEAN-OPERAND](scene-sample-debug-ledger.md#e-v4-audio-boolean-operand布尔数值操作恢复音频图形2026-09-08)。
+
 ### 2026-09-08 Bind-pose fallback 发布重组逻辑尺寸
 
 成功重组但动画 unsupported 的 Puppet fallback 不再因为缺少静态 cache identity 而误用 atlas 尺寸。`3780119725` 人物压扁消除，layer21 graph source 比例、terminal publication/GPU/next-frame 均随 coverage 修正；26 Puppet tests PASS/1 skip、13 source publication tests PASS、Debug build 成功。黑线、缺块和动画 unsupported 保持开放。见 [E-V4-PUPPET-FALLBACK-PUBLICATION](scene-sample-debug-ledger.md#e-v4-puppet-fallback-publication重组成功与可缓存资格分离2026-09-08)。
