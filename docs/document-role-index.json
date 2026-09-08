@@ -175,6 +175,17 @@
       ]
     },
     {
+      "path": "docs/history/scene/scene-open-breakpoint-queue-2026-09-09.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/scene-compatibility-roadmap.md",
+        "docs/scene/semantics/coverage-ledger.md",
+        "docs/scene/semantics/runtime-evidence-current.md"
+      ]
+    },
+    {
       "path": "docs/history/scene/scene-reference-audit-effects-runtime-2026-07-24.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",

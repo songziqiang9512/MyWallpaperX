@@ -37,5 +37,6 @@
 | 2026-09-05 | Scene | cold navigation | [官方页面能力映射](scene/reference/official-page-crosswalk.md) | 官方页面分组导航与合同交叉表 | [资料来源索引](../scene/semantics/source-index.md)、[官方页面逐页映射](../scene/semantics/official-page-map.md)、[能力台账](../scene/semantics/coverage-ledger.md) |
 | 2026-09-05 | Scene | cold compatibility | [zcompat 向后兼容取证](scene/reference/zcompat-backward-compatibility-forensics.md) | 固定版本兼容 patch record 研究 | [资料来源索引](../scene/semantics/source-index.md)、[changelog 取证](../scene/semantics/client-changelog-forensics.md)、[能力台账](../scene/semantics/coverage-ledger.md) |
 | 2026-09-05 | Scene | runtime evidence archive | [Scene 运行证据完整归档](scene/runtime-evidence-index.md) | 现役证据摘要之外的完整 E-* provenance 与历史包 | [Scene 当前证据摘要](../scene/semantics/runtime-evidence-current.md)、[Scene 能力台账](../scene/semantics/coverage-ledger.md) |
+| 2026-09-09 | Scene | investigation snapshot | [现存断点修复队列](scene/scene-open-breakpoint-queue-2026-09-09.md) | 当日全量探测归纳的公共首断点、owner 位置和建议执行序 | [Scene 路线](../scene/scene-compatibility-roadmap.md)、[Scene 能力台账](../scene/semantics/coverage-ledger.md)、[Scene 当前证据](../scene/semantics/runtime-evidence-current.md) |
 
 Git 历史继续保存每次文档变更。本目录不是 changelog，也不接受为了“留档”而复制现役文档的平行副本。
