@@ -301,7 +301,27 @@ nonisolated enum SceneShaderColorTransfer: Codable, Equatable, Hashable, Sendabl
     case generatedStraightAlpha
     case premultipliedAlpha
     case opaque
+    /// No source or compiler proof classified the authored output. The
+    /// product default unpremultiplies the sampled color inputs listed in
+    /// `textureSlots` and premultiplies the terminal output once; a visual
+    /// verdict on the real sample accepts the result, not a shape analyzer.
+    case defaultStraightColorBoundary(textureSlots: [Int])
     case unresolved
+
+    /// Straight-color classifications whose exact lowering may be replaced by
+    /// the product default boundary when the compiler output does not match
+    /// the proven shape. Signal, passthrough and premultiplied classifications
+    /// describe outputs that must not be re-premultiplied.
+    var permitsDefaultStraightColorBoundary: Bool {
+        switch self {
+        case .unresolved, .defaultStraightColorBoundary, .straightAlpha,
+             .straightAlphaPreserving, .straightAlphaUNorm,
+             .generatedStraightAlpha, .opaqueFromStraightColor:
+            true
+        default:
+            false
+        }
+    }
 }
 
 nonisolated struct SceneAuthoredShaderProgram: Codable {

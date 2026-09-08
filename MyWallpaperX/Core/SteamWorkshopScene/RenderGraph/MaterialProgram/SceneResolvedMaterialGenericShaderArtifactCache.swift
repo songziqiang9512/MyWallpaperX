@@ -425,12 +425,20 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         default:
             []
         }
+        // Approved product default for an unclassified color pass: graph
+        // inputs and proven premultiplied provider slots cross the straight
+        // color boundary and the terminal output is premultiplied once.
+        let defaultBoundaryColorSlots: Set<Int> =
+            colorTransfer.permitsDefaultStraightColorBoundary
+            ? graphInputTextureSlots.union(premultipliedColorAuxiliarySlots)
+            : []
         let key = SceneResolvedMaterialGenericShaderRequest.key(
             vertexSource: vertexSource,
             fragmentSource: fragmentSource,
             outputSemantics: outputSemantics,
             expectedColorTransfer: expectedColorTransfer,
-            premultipliedColorInputSlots: premultipliedColorInputSlots
+            premultipliedColorInputSlots: premultipliedColorInputSlots,
+            defaultBoundaryColorSlots: defaultBoundaryColorSlots
         )
         let environment = ProcessInfo.processInfo.environment
         guard let routeState = routeState(
@@ -521,6 +529,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                     outputSemantics: outputSemantics,
                     expectedColorTransfer: expectedColorTransfer,
                     premultipliedColorInputSlots: premultipliedColorInputSlots,
+                    defaultBoundaryColorSlots: defaultBoundaryColorSlots,
                     cacheRoot: root
                 )
             }

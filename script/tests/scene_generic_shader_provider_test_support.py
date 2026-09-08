@@ -23,7 +23,7 @@ def assert_transform_abi_request_and_cache_namespaces(
     )
     request_text = request_source.read_text(encoding="utf-8")
     cache_text = cache_source.read_text(encoding="utf-8")
-    test_case.assertIn('"mwx-generic-shader-request-v11"', request_text)
+    test_case.assertIn('"mwx-generic-shader-request-v12"', request_text)
     test_case.assertIn('"SceneGenericShaderPrograms-v9"', cache_text)
     test_case.assertNotIn('"mwx-generic-shader-request-v5"', request_text)
     test_case.assertNotIn('"SceneGenericShaderPrograms-v5"', cache_text)
@@ -36,7 +36,7 @@ def assert_transform_abi_request_and_cache_namespaces(
             root, route="observe-only"
         )
         current_key = test_case.request_key(
-            "mwx-generic-shader-request-v11", vertex, fragment
+            "mwx-generic-shader-request-v12", vertex, fragment
         )
         legacy_key = test_case.request_key(
             "mwx-generic-shader-request-v5", vertex, fragment
@@ -95,13 +95,13 @@ def assert_independent_signal_request_contract(
             "kind": expected[0], "slot": expected[1],
         })
         keyed = test_case.request_key(
-            "mwx-generic-shader-request-v11",
+            "mwx-generic-shader-request-v12",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             expected,
         )
         unresolved = test_case.request_key(
-            "mwx-generic-shader-request-v11",
+            "mwx-generic-shader-request-v12",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )
@@ -150,13 +150,14 @@ def assert_provider_backed_spatial_weighted_profile(
         test_case.assertEqual(request["schemaVersion"], 5)
         test_case.assertEqual(request["premultipliedColorInputSlots"], [1])
         expected_key = test_case.request_key(
-            "mwx-generic-shader-request-v11",
+            "mwx-generic-shader-request-v12",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
             premultiplied_color_input_slots=(1,),
+            default_boundary_color_slots=(0,),
         )
         empty_contract_key = test_case.request_key(
-            "mwx-generic-shader-request-v11",
+            "mwx-generic-shader-request-v12",
             textwrap.dedent(vertex),
             textwrap.dedent(fragment),
         )

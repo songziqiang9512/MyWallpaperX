@@ -242,6 +242,7 @@
         "RenderGraph/ShaderPreparation/SceneGenericShaderAssociatedOverBlendLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderUnitPreviousBlurredCompositeLowering.swift",
+        "RenderGraph/ShaderPreparation/SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderStageUniformAnalyzer.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
         "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",

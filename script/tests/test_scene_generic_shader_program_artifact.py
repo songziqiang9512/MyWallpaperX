@@ -227,6 +227,20 @@ private struct StraightRGBScalarAlphaBuilderOutput: Codable {
     let maskedCompilerMixRejected: Bool
 }
 
+private struct DefaultStraightBoundaryBuilderOutput: Codable {
+    let positiveKind: String?
+    let positiveSlots: [Int]?
+    let sourceSampleUnpremultiplied: Bool
+    let maskSampleUntouched: Bool
+    let bothReturnsPremultiplied: Bool
+    let helperPairPresent: Bool
+    let provenPassthroughKept: String?
+    let missingReturnRejected: Bool
+    let helperConflictRejected: Bool
+    let classifiedStraightAlphaFallsBackToDefault: String?
+    let signalExpectationStaysRejected: Bool
+}
+
 private struct StraightOutputBuilderOutput: Codable {
     let analyzedTransfer: String
     let positiveKind: String?
@@ -1963,7 +1977,7 @@ private struct GenericShaderArtifactHarness {
                 outputSemantics: artifact?.outputSemantics.rawValue,
                 colorTransfer: artifact?.program.colorTransfer.kind,
                 wholeOutputAccepted: artifact != nil,
-                helperOutputRejected: failedColorTransfer(build(helperOutput)),
+                helperOutputRejected: exactColorTransferRejected(build(helperOutput)),
                 rawMetalPreserved:
                     artifact?.program.metalSource.contains(
                         "state.xy += state.zw * 0.25;"
@@ -2034,7 +2048,7 @@ private struct GenericShaderArtifactHarness {
                     if case .success = build(constantOutput) { return true }
                     return false
                 }(),
-                helperOutputRejected: failedColorTransfer(build(helperOutput)),
+                helperOutputRejected: exactColorTransferRejected(build(helperOutput)),
                 rawMetalPreserved:
                     artifact?.program.metalSource.contains(
                         "out.mwxFragColor = float4(signal);"
@@ -2242,14 +2256,14 @@ private struct GenericShaderArtifactHarness {
                 unprovenOutputChannelUse = nil
                 positiveFailure = String(describing: failure)
             }
-            let vectorWeightRejected = failedColorTransfer(build(
+            let vectorWeightRejected = exactColorTransferRejected(build(
                 fragmentMSL,
                 authoredFragment: authoredInterpolation.replacingOccurrences(
                     of: "float blendAmount = g_Amount;",
                     with: "vec2 blendAmount = vec2(g_Amount);"
                 )
             ))
-            let mutatedColorRejected = failedColorTransfer(build(
+            let mutatedColorRejected = exactColorTransferRejected(build(
                 fragmentMSL,
                 authoredFragment: authoredInterpolation.replacingOccurrences(
                     of: "vec4 retainedColor =",
@@ -2409,13 +2423,13 @@ private struct GenericShaderArtifactHarness {
                 directFailure = String(describing: failure)
             }
             let directMetal = direct?.program.metalSource ?? ""
-            let unrelatedAlphaRejected = failedColorTransfer(build(
+            let unrelatedAlphaRejected = exactColorTransferRejected(build(
                 composedMSL.replacingOccurrences(
                     of: "float alpha = scene.w;",
                     with: "float alpha = g_Texture1.sample(signalSampler, uv).w;"
                 )
             ))
-            let mixedSlotRejected = failedColorTransfer(build(
+            let mixedSlotRejected = exactColorTransferRejected(build(
                 composedMSL.replacingOccurrences(
                     of: "float4 scene = g_Texture0.sample",
                     with: "float4 scene = g_Texture1.sample"
@@ -2509,13 +2523,13 @@ private struct GenericShaderArtifactHarness {
                 helperPairPresent:
                     metal.contains("inline float4 mwxGenericUnpremultiply")
                     && metal.contains("inline float4 mwxGenericPremultiply"),
-                wrongSlotRejected: failedColorTransfer(build(
+                wrongSlotRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float4 albedo = g_Texture0.sample",
                         with: "float4 albedo = g_Texture1.sample"
                     )
                 )),
-                helperConflictRejected: failedColorTransfer(build(
+                helperConflictRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "using namespace metal;",
                         with: "using namespace metal;\nfloat4 mwxGenericPremultiply(float4 value);"
@@ -2538,7 +2552,7 @@ private struct GenericShaderArtifactHarness {
                 directOutputPremultiplied: directMetal.contains(
                     "out.mwxFragColor = mwxGenericPremultiply(renamedCarrier);"
                 ),
-                directAlphaWriteRejected: failedColorTransfer(build(
+                directAlphaWriteRejected: exactColorTransferRejected(build(
                     directMSL.replacingOccurrences(
                         of: "    out.mwxFragColor = renamedCarrier;",
                         with: "    renamedCarrier.w *= 0.5;\n"
@@ -2548,7 +2562,7 @@ private struct GenericShaderArtifactHarness {
                     reflection: directReflection,
                     vertexReflectionValue: directVertexReflection
                 )),
-                directHiddenSampleRejected: failedColorTransfer(build(
+                directHiddenSampleRejected: exactColorTransferRejected(build(
                     directMSL.replacingOccurrences(
                         of: "    float4 renamedCarrier = retained;",
                         with: "    float4 hiddenSample = g_Texture0.sample(sourceSampler, uv * 0.5);\n"
@@ -2558,7 +2572,7 @@ private struct GenericShaderArtifactHarness {
                     reflection: directReflection,
                     vertexReflectionValue: directVertexReflection
                 )),
-                directWrongSlotRejected: failedColorTransfer(build(
+                directWrongSlotRejected: exactColorTransferRejected(build(
                     directMSL.replacingOccurrences(
                         of: "float4 shiftedBlue = g_Texture0.sample",
                         with: "float4 shiftedBlue = g_Texture1.sample"
@@ -2741,19 +2755,19 @@ private struct GenericShaderArtifactHarness {
                 outputPremultiplied: metal.contains(
                     "out.mwxFragColor = mwxGenericPremultiply(albedo);"
                 ),
-                unrelatedAlphaReadRejected: failedColorTransfer(build(
+                unrelatedAlphaReadRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float delta = dot(abs(keyColor - albedo.xyz), float3(1.0));",
                         with: "float delta = albedo.w + dot(abs(keyColor - albedo.xyz), float3(1.0));"
                     )
                 )),
-                wholeVectorUseRejected: failedColorTransfer(build(
+                wholeVectorUseRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float delta = dot(abs(keyColor - albedo.xyz), float3(1.0));",
                         with: "float delta = length(albedo);"
                     )
                 )),
-                rgbWriteRejected: failedColorTransfer(build(
+                rgbWriteRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    albedo.w *= mix(keyAlpha, 1.0, blend);",
                         with: "    albedo.xyz *= blend;\n    albedo.w *= mix(keyAlpha, 1.0, blend);"
@@ -2894,25 +2908,25 @@ private struct GenericShaderArtifactHarness {
                     "out.mwxFragColor = mwxGenericPremultiply("
                         + "float4(fast::max(float3(0.0), albedo.xyz), albedo.w));"
                 ),
-                missingAuxiliaryRejected: failedColorTransfer(build(
+                missingAuxiliaryRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    float noise = g_Texture1.sample(noiseSampler, noiseUV).x * noiseAmount;",
                         with: "    float noise = noiseAmount;"
                     )
                 )),
-                duplicateAuxiliaryRejected: failedColorTransfer(build(
+                duplicateAuxiliaryRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    pulse += noise;",
                         with: "    float extra = g_Texture1.sample(noiseSampler, uv).x;\n    pulse += noise + extra;"
                     )
                 )),
-                rgbWriteRejected: failedColorTransfer(build(
+                rgbWriteRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    albedo.w *= pulse;",
                         with: "    albedo.xyz *= pulse;\n    albedo.w *= pulse;"
                     )
                 )),
-                outputShapeRejected: failedColorTransfer(build(
+                outputShapeRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float4(fast::max(float3(0.0), albedo.xyz), albedo.w)",
                         with: "float4(albedo.xyz, albedo.w)"
@@ -2936,7 +2950,7 @@ private struct GenericShaderArtifactHarness {
                     "out.mwxFragColor = mwxGenericPremultiply("
                         + "float4(fast::max(float3(0.0), albedo.xyz), albedo.w));"
                 ),
-                maskedCompilerTransformRejected: failedColorTransfer(build(
+                maskedCompilerTransformRejected: exactColorTransferRejected(build(
                     maskedFragmentMSL.replacingOccurrences(
                         of: "float mask = g_Texture2.sample(maskSampler, maskUV).x;",
                         with: "float mask = g_Texture2.sample(maskSampler, maskUV).x * noiseAmount;"
@@ -2945,7 +2959,7 @@ private struct GenericShaderArtifactHarness {
                     reflectionData: maskedReflection,
                     vertexSource: maskedVertexMSL
                 )),
-                maskedCompilerOrderRejected: failedColorTransfer(build(
+                maskedCompilerOrderRejected: exactColorTransferRejected(build(
                     maskedFragmentMSL.replacingOccurrences(
                         of: "    albedo.w *= pulse;\n    float mask = g_Texture2.sample(maskSampler, maskUV).x;",
                         with: "    float mask = g_Texture2.sample(maskSampler, maskUV).x;\n    albedo.w *= pulse;"
@@ -2954,7 +2968,7 @@ private struct GenericShaderArtifactHarness {
                     reflectionData: maskedReflection,
                     vertexSource: maskedVertexMSL
                 )),
-                maskedCompilerControlFlowRejected: failedColorTransfer(build(
+                maskedCompilerControlFlowRejected: exactColorTransferRejected(build(
                     maskedFragmentMSL.replacingOccurrences(
                         of: "    float mask = g_Texture2.sample(maskSampler, maskUV).x;\n"
                             + "    albedo = mix(mwx_sample, albedo, float4(mask));",
@@ -2967,7 +2981,7 @@ private struct GenericShaderArtifactHarness {
                     reflectionData: maskedReflection,
                     vertexSource: maskedVertexMSL
                 )),
-                maskedCompilerMixRejected: failedColorTransfer(build(
+                maskedCompilerMixRejected: exactColorTransferRejected(build(
                     maskedFragmentMSL.replacingOccurrences(
                         of: "albedo = mix(mwx_sample, albedo, float4(mask));",
                         with: "albedo = mix(albedo, mwx_sample, float4(mask));"
@@ -2976,6 +2990,116 @@ private struct GenericShaderArtifactHarness {
                     reflectionData: maskedReflection,
                     vertexSource: maskedVertexMSL
                 ))
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--builder-default-straight-boundary" {
+            let authored = [
+                "uniform sampler2D g_Texture0;",
+                "uniform sampler2D g_Texture1;",
+                "varying vec2 v_TexCoord;",
+                "void main() {",
+                "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);",
+                "    float mask = texSample2D(g_Texture1, v_TexCoord).r;",
+                "    if (mask < 0.5) { gl_FragColor = albedo; return; }",
+                "    gl_FragColor = vec4(albedo.rgb * mask, albedo.a);",
+                "}",
+            ].joined(separator: "\n")
+            func metal(returns: Bool = true, prefix: String = "") -> String {
+                [
+                    "#include <metal_stdlib>",
+                    "using namespace metal;",
+                    prefix,
+                    "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                    "fragment Output f() {",
+                    "    Output out = {};",
+                    "    float4 albedo = g_Texture0.sample(sourceSampler, uv);",
+                    "    float mask = g_Texture1.sample(maskSampler, uv).x;",
+                    "    if (mask < 0.5) {",
+                    "        out.mwxFragColor = albedo;",
+                    returns ? "        return out;" : "        discard_fragment();",
+                    "    }",
+                    "    out.mwxFragColor = float4(albedo.xyz * mask, albedo.w);",
+                    returns ? "    return out;" : "    discard_fragment();",
+                    "}",
+                ].joined(separator: "\n")
+            }
+            func transfer(_ source: String) -> (
+                msl: String,
+                transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+            )? {
+                try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: source,
+                    authoredSource: authored,
+                    expectedColorTransfer: nil,
+                    defaultBoundaryColorSlots: [0]
+                )
+            }
+            let positive = transfer(metal())
+            let lowered = positive?.msl ?? ""
+            let provenMSL = [
+                "#include <metal_stdlib>",
+                "using namespace metal;",
+                "struct Output { float4 mwxFragColor [[color(0)]]; };",
+                "fragment Output f() {",
+                "    Output out = {};",
+                "    out.mwxFragColor = g_Texture0.sample(sourceSampler, uv);",
+                "    return out;",
+                "}",
+            ].joined(separator: "\n")
+            let output = DefaultStraightBoundaryBuilderOutput(
+                positiveKind: positive?.transfer.kind,
+                positiveSlots: positive?.transfer.slots,
+                sourceSampleUnpremultiplied: lowered.contains(
+                    "mwxGenericUnpremultiply(g_Texture0.sample(sourceSampler, uv))"
+                ),
+                maskSampleUntouched: lowered.contains(
+                    "float mask = g_Texture1.sample(maskSampler, uv).x;"
+                ) && !lowered.contains("mwxGenericUnpremultiply(g_Texture1"),
+                bothReturnsPremultiplied: lowered.components(separatedBy:
+                    "out.mwxFragColor = mwxGenericPremultiply(out.mwxFragColor);"
+                ).count == 3 && lowered.components(separatedBy: "return out;").count == 3,
+                helperPairPresent: lowered.contains("inline float4 mwxGenericUnpremultiply")
+                    && lowered.contains("inline float4 mwxGenericPremultiply"),
+                provenPassthroughKept: transfer(provenMSL)?.transfer.kind,
+                missingReturnRejected: transfer(metal(returns: false)) == nil,
+                helperConflictRejected: transfer(metal(
+                    prefix: "inline float4 mwxGenericPremultiply(float4 c) { return c; }"
+                )) == nil,
+                // The analyzer classifies this source as straight alpha on
+                // slot 0, but the compiler output below matches no exact
+                // lowering (two writes, early return); the default boundary
+                // must take over instead of rejecting the effect.
+                classifiedStraightAlphaFallsBackToDefault: (try? SceneGenericShaderArtifactBuilder
+                    .prepareColorTransfer(
+                        msl: metal(),
+                        authoredSource: [
+                            "uniform sampler2D g_Texture0;",
+                            "uniform float g_Alpha;",
+                            "varying vec2 v_TexCoord;",
+                            "void main() {",
+                            "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord);",
+                            "    albedo.a *= g_Alpha;",
+                            "    gl_FragColor = albedo;",
+                            "}",
+                        ].joined(separator: "\n"),
+                        expectedColorTransfer: nil,
+                        defaultBoundaryColorSlots: [0]
+                    ))?.transfer.kind,
+                // A profile expecting an independent alpha signal describes a
+                // non-color output; an unmatched compiler shape stays rejected.
+                signalExpectationStaysRejected: (try? SceneGenericShaderArtifactBuilder
+                    .prepareColorTransfer(
+                        msl: metal(),
+                        authoredSource: authored,
+                        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer(
+                            .independentAlphaSignalPreserving(textureSlot: 0),
+                            accumulatorLoopWork: 120,
+                            usesRGBA8UnormAttachmentBoundary: true
+                        ),
+                        defaultBoundaryColorSlots: [0]
+                    )) == nil
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -3056,19 +3180,19 @@ private struct GenericShaderArtifactHarness {
                 outputPremultiplied: metal.contains(
                     "out.mwxFragColor = mwxGenericPremultiply(float4(finalColor, alpha));"
                 ),
-                wrongSlotRejected: failedColorTransfer(build(
+                wrongSlotRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float4 scene = g_Texture0.sample",
                         with: "float4 scene = g_Texture1.sample"
                     )
                 )),
-                duplicateOutputRejected: failedColorTransfer(build(
+                duplicateOutputRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    return out;",
                         with: "    out.mwxFragColor = float4(finalColor, alpha);\n    return out;"
                     )
                 )),
-                helperConflictRejected: failedColorTransfer(build(
+                helperConflictRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "using namespace metal;",
                         with: "using namespace metal;\nfloat4 mwxGenericPremultiply(float4 value);"
@@ -3161,25 +3285,25 @@ private struct GenericShaderArtifactHarness {
                 outputPremultiplied: metal.contains(
                     "out.mwxFragColor = mwxGenericPremultiply(albedo);"
                 ),
-                swappedInputRejected: failedColorTransfer(build(
+                swappedInputRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "ApplyBlending(0, param_3, param_4, param_5)",
                         with: "ApplyBlending(0, param_4, param_3, param_5)"
                     )
                 )),
-                wrongComponentRejected: failedColorTransfer(build(
+                wrongComponentRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "albedo.z = _141.z;",
                         with: "albedo.z = _141.y;"
                     )
                 )),
-                zeroWeightRejected: failedColorTransfer(build(
+                zeroWeightRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float blendAlpha = uniforms.g_Multiply * blendColors.w;",
                         with: "float blendAlpha = 0.0;"
                     )
                 )),
-                hiddenSampleRejected: failedColorTransfer(build(
+                hiddenSampleRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    return out;",
                         with: "    float4 hidden = g_Texture1.sample(blendSampler, uv);\n    return out;"
@@ -3274,25 +3398,25 @@ private struct GenericShaderArtifactHarness {
                 terminalPremultiply: metal.contains(
                     "out.mwxFragColor = mwxGenericPremultiply(out.mwxFragColor);"
                 ),
-                missingSampleRejected: failedColorTransfer(build(
+                missingSampleRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "float4 reflected = g_Texture0.sample(sourceSampler, reflectedUV);",
                         with: "float4 reflected = float4(0.0);"
                     )
                 )),
-                wrongAlphaWriteRejected: failedColorTransfer(build(
+                wrongAlphaWriteRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "out.mwxFragColor.w = min",
                         with: "out.mwxFragColor.x = min"
                     )
                 )),
-                outputReadRejected: failedColorTransfer(build(
+                outputReadRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "    return out;",
                         with: "    float4 leaked = out.mwxFragColor;\n    return out;"
                     )
                 )),
-                helperConflictRejected: failedColorTransfer(build(
+                helperConflictRejected: exactColorTransferRejected(build(
                     fragmentMSL.replacingOccurrences(
                         of: "using namespace metal;",
                         with: "using namespace metal;\nfloat4 mwxGenericPremultiply(float4 value);"
@@ -3574,14 +3698,25 @@ private func succeededResult<T, E>(_ result: Result<T, E>) -> Bool {
     return false
 }
 
-private func failedColorTransfer(
+/// The exact proven color lowering did not claim the shape: the build either
+/// failed on color transfer, the product default straight-color boundary took
+/// over instead of an exact profile, or the shape sampled a slot outside the
+/// declared reflection and the builder rejected the declared texture as unused.
+private func exactColorTransferRejected(
     _ result: Result<
         SceneGenericShaderProgramArtifact,
         SceneGenericShaderArtifactBuilder.Failure
     >
 ) -> Bool {
-    if case .failure(.colorTransfer) = result { return true }
-    return false
+    switch result {
+    case .failure(.colorTransfer), .failure(.textureUnused):
+        return true
+    case let .success(artifact):
+        return artifact.program.colorTransfer.kind
+            == "default-straight-color-boundary"
+    default:
+        return false
+    }
 }
 
 private func failedUniformMember(
@@ -4628,6 +4763,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         fragment_source: str,
         expected_color_transfer: tuple[str, int] | None = None,
         premultiplied_color_input_slots: tuple[int, ...] = (),
+        default_boundary_color_slots: tuple[int, ...] = (),
     ) -> str:
         digest = hashlib.sha256()
         expected_key = (
@@ -4642,6 +4778,7 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             fragment_source,
             expected_key,
             ",".join(map(str, sorted(premultiplied_color_input_slots))),
+            ",".join(map(str, sorted(default_boundary_color_slots))),
             "{}",
         ):
             encoded = value.encode("utf-8")
@@ -5082,6 +5219,28 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "wrongComponentRejected": True,
             "zeroWeightRejected": True,
             "hiddenSampleRejected": True,
+        })
+
+    def test_product_builder_applies_default_straight_boundary_to_unproven_color(self):
+        completed = subprocess.run(
+            [str(self.binary), "--builder-default-straight-boundary"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "positiveKind": "default-straight-color-boundary",
+            "positiveSlots": [0],
+            "sourceSampleUnpremultiplied": True,
+            "maskSampleUntouched": True,
+            "bothReturnsPremultiplied": True,
+            "helperPairPresent": True,
+            "provenPassthroughKept": "passthrough",
+            "missingReturnRejected": True,
+            "helperConflictRejected": True,
+            "classifiedStraightAlphaFallsBackToDefault": "default-straight-color-boundary",
+            "signalExpectationStaysRejected": True,
         })
 
     def test_product_normalizer_reuses_typed_mix_vector_narrowing(self):

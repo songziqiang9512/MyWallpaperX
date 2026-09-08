@@ -75,6 +75,7 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
+        defaultBoundaryColorSlots: Set<Int> = [],
         stages: [Stage],
         maximumArtifactBytes: Int
     ) -> Result<SceneGenericShaderProgramArtifact, Failure> {
@@ -141,7 +142,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 color = try prepareColorTransfer(
                     msl: fragmentStage.msl,
                     authoredSource: fragmentStage.authoredSource,
-                    expectedColorTransfer: expectedColorTransfer
+                    expectedColorTransfer: expectedColorTransfer,
+                    defaultBoundaryColorSlots: defaultBoundaryColorSlots
                 )
             case .redGreenUnorm:
                 guard SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(

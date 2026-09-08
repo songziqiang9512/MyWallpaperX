@@ -28,6 +28,7 @@ nonisolated enum SceneGenericShaderCompiler {
         outputSemantics: SceneGenericShaderOutputSemantics = .color,
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil,
         premultipliedColorInputSlots: Set<Int> = [],
+        defaultBoundaryColorSlots: Set<Int> = [],
         cacheRoot: URL,
         bundle: Bundle = .main
     ) -> Result<URL, Failure> {
@@ -186,6 +187,7 @@ nonisolated enum SceneGenericShaderCompiler {
             outputSemantics: outputSemantics,
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
+            defaultBoundaryColorSlots: defaultBoundaryColorSlots,
             stages: compiled.map {
                 .init(name: $0.name, source: $0.source,
                       authoredSource: $0.authoredSource, msl: $0.msl,

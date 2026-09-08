@@ -36,6 +36,20 @@ SWIFT_SOURCES = [
 HARNESS = r'''
 import Foundation
 
+
+/// The exact typed-data lowering did not claim the drifted compiler output:
+/// preparation failed, or the product default straight-color boundary took
+/// over instead of a proven typed-data profile.
+private func exactTransferUnclaimed(
+    _ prepared: (
+        msl: String,
+        transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
+    )?
+) -> Bool {
+    guard let prepared else { return true }
+    return prepared.transfer.kind == "default-straight-color-boundary"
+}
+
 private struct Output: Codable {
     let transfer: String
     let sourceSlot: Int?
@@ -462,16 +476,16 @@ private enum TypedDataRGBFilterHarness {
             outputPremultiplied: loweredMSL.contains(
                 "out.mwxFragColor = mwxGenericPremultiply(albedo);"
             ),
-            compilerProjectionDriftRejected: (try?
+            compilerProjectionDriftRejected: exactTransferUnclaimed(try?
                 SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: projectionDrift,
                     authoredSource: authored
-                )) == nil,
-            compilerSampleDriftRejected: (try?
+                )),
+            compilerSampleDriftRejected: exactTransferUnclaimed(try?
                 SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: sampleDrift,
                     authoredSource: authored
-                )) == nil,
+                )),
             maskedTransfer: {
                 if case .straightAlphaPreserving(textureSlot: 0) = maskedTransfer {
                     return "straight-alpha-preserving-0"
@@ -510,14 +524,14 @@ private enum TypedDataRGBFilterHarness {
                 with: "carrier = mix(snapshot, carrier, mask.r);"
             )) == nil,
             maskedDetachedOutputRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: maskedMSL.replacingOccurrences(
                         of: "    out.mwxFragColor = fast::clamp(carrier, float4(0.0), float4(1.0));",
                         with: "    float4 unrelated = float4(0.25);\n"
                             + "    out.mwxFragColor = fast::clamp(unrelated, float4(0.0), float4(1.0));"
                     ),
                     authoredSource: maskedAuthored
-                )) == nil,
+                )),
             compilerScalarLaneLoweringAccepted:
                 (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: maskedMSL
@@ -561,13 +575,13 @@ private enum TypedDataRGBFilterHarness {
                 with: "snapshot.a);"
             )) == nil,
             maxArtifactAlphaDriftRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: maxMSL.replacingOccurrences(
                         of: "carrier.w);",
                         with: "snapshot.w);"
                     ),
                     authoredSource: maxAuthored
-                )) == nil,
+                )),
             maxUpperClampRejected: fact(maxAuthored.replacingOccurrences(
                 of: "max(CAST3(0), carrier.rgb)",
                 with: "min(CAST3(0), carrier.rgb)"
@@ -660,15 +674,15 @@ private enum TypedDataRGBFilterHarness {
                     with: "vec4 noise = texSample2D(g_Texture1, v_TexCoord * 3.0);"
                 )) == nil,
             reconstructedCompilerAlphaDriftRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: reconstructedMSL.replacingOccurrences(
                         of: "carrier.w = snapshot.xw.y;",
                         with: "carrier.w = snapshot.xw.x;"
                     ),
                     authoredSource: reconstructedAuthored
-                )) == nil,
+                )),
             reconstructedCompilerShadowedTerminalRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: reconstructedMSL.replacingOccurrences(
                         of: "fragment void f() {",
                         with: "float4 mix(float4 a, float4 b, float4 t) {\n"
@@ -676,9 +690,9 @@ private enum TypedDataRGBFilterHarness {
                             + "fragment void f() {"
                     ),
                     authoredSource: reconstructedAuthored
-                )) == nil,
+                )),
             reconstructedCompilerSampleDriftRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: reconstructedMSL.replacingOccurrences(
                         of: "    out.mwxFragColor = mix(snapshot, carrier, float4(line));",
                         with: "    float hidden = g_Texture0.sample("
@@ -686,9 +700,9 @@ private enum TypedDataRGBFilterHarness {
                             + "    out.mwxFragColor = mix(snapshot, carrier, float4(line));"
                     ),
                     authoredSource: reconstructedAuthored
-                )) == nil,
+                )),
             reconstructedCompilerAliasSampleRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: reconstructedMSL.replacingOccurrences(
                         of: "    out.mwxFragColor = mix(snapshot, carrier, float4(line));",
                         with: "    texture2d<float> hiddenAlias = g_Texture0;\n"
@@ -697,15 +711,15 @@ private enum TypedDataRGBFilterHarness {
                             + "    out.mwxFragColor = mix(snapshot, carrier, float4(line));"
                     ),
                     authoredSource: reconstructedAuthored
-                )) == nil,
+                )),
             reconstructedCompilerProjectionDriftRejected:
-                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                exactTransferUnclaimed(try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: reconstructedMSL.replacingOccurrences(
                         of: ").yzx;",
                         with: ").xy;"
                     ),
                     authoredSource: reconstructedAuthored
-                )) == nil,
+                )),
             reconstructedRouteProfile: reconstructedSelected.rawValue,
             reconstructedRouteState:
                 reconstructedSelected.defaultRouteState.rawValue,

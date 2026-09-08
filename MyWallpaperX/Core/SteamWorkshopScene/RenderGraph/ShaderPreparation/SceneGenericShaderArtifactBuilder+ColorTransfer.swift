@@ -35,10 +35,11 @@ extension SceneGenericShaderArtifactBuilder {
         return transformed
     }
 
-    static func prepareColorTransfer(
+    static func prepareProvenColorTransfer(
         msl source: String,
         authoredSource: String,
-        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil
+        expectedColorTransfer: SceneGenericShaderExpectedColorTransfer? = nil,
+        defaultBoundaryColorSlots: Set<Int> = []
     ) throws -> (
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
@@ -263,11 +264,10 @@ extension SceneGenericShaderArtifactBuilder {
                     slots: [signalSlot, colorSlot, underlaySlot]
                 )
             )
-        case .unresolved:
-            // A compiler artifact may prove a form outside the bounded source
-            // analyzer. The cache consumer still rejects any artifact that
-            // contradicts a source fact that the shared analyzer did prove.
-            return try prepareCompilerProvenColorTransfer(source)
+        case .unresolved, .defaultStraightColorBoundary:
+            return try prepareUnresolvedColorTransfer(
+                msl: source, boundaryColorSlots: defaultBoundaryColorSlots
+            )
         case let .straightAlphaUNorm(textureSlot: expectedSlot):
             let rgbBlend: String? = SceneAuthoredShaderColorTransferAnalyzer
                 .rgbBlendScalarAlphaFact(fragmentSource: authoredSource)
@@ -393,7 +393,7 @@ extension SceneGenericShaderArtifactBuilder {
              ("preserved-rgba-data", nil, nil):
             return true
         default:
-            return false
+            return defaultBoundaryTransfer(transfer, isBoundBy: boundSlots)
         }
     }
 

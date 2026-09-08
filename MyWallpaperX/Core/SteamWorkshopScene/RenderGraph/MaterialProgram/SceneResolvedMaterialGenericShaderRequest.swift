@@ -28,17 +28,20 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
         fragmentSource: String,
         outputSemantics: SceneGenericShaderOutputSemantics,
         expectedColorTransfer: SceneGenericShaderExpectedColorTransfer?,
-        premultipliedColorInputSlots: Set<Int>
+        premultipliedColorInputSlots: Set<Int>,
+        defaultBoundaryColorSlots: Set<Int> = []
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v11",
+            "mwx-generic-shader-request-v12",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,
             fragmentSource,
             expectedColorTransfer?.cacheKey ?? "-",
             premultipliedColorInputSlots.sorted().map(String.init)
+                .joined(separator: ","),
+            defaultBoundaryColorSlots.sorted().map(String.init)
                 .joined(separator: ","),
             "{}",
         ] {

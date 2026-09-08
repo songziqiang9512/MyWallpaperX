@@ -239,6 +239,12 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
         case ("preserved-rgba-data", nil, nil):
             guard outputSemantics == .preservedRGBAUnorm else { return nil }
             colorTransfer = .unresolved
+        case let ("default-straight-color-boundary", nil, slots?):
+            guard outputSemantics == .color,
+                  slots == slots.sorted(),
+                  Set(slots).count == slots.count,
+                  slots.allSatisfy({ (0 ..< 8).contains($0) }) else { return nil }
+            colorTransfer = .defaultStraightColorBoundary(textureSlots: slots)
         default:
             return nil
         }
@@ -250,12 +256,17 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
             true
         default: false
         }
+        let isDefaultBoundary: Bool = if case .defaultStraightColorBoundary
+            = colorTransfer { true } else { false }
         guard outputSemantics != .color
                 ? colorTransfer == .unresolved
                 : requiresExactExpectedTransfer
                     ? colorTransfer == expectedColorTransfer
                     : expectedColorTransfer == .unresolved
-                        || colorTransfer == expectedColorTransfer else {
+                        || colorTransfer == expectedColorTransfer
+                        || (isDefaultBoundary
+                            && expectedColorTransfer
+                                .permitsDefaultStraightColorBoundary) else {
             return nil
         }
         guard let fragmentOutputChannelUse =

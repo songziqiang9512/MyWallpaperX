@@ -344,6 +344,21 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 return nil
             }
             framebufferInput = color
+        } else if case let .defaultStraightColorBoundary(slots) = transfer {
+            // Every unpremultiplied slot must carry resolved compositor color;
+            // a pass without framebuffer input publishes premultiplied output
+            // over an opaque-equivalent identity.
+            guard framebufferRepresentations.count <= 1,
+                  slots.allSatisfy({ slot in
+                      guard let representation = representation(
+                          slot: slot,
+                          textureFacts: textureFacts
+                      ) else { return false }
+                      return representation == .premultipliedAlpha
+                          || representation == .opaque
+                  }) else { return nil }
+            framebufferInput = framebufferRepresentations.first
+                ?? .premultipliedAlpha
         } else {
             guard framebufferRepresentations.count == 1,
                   let representation = framebufferRepresentations.first else {
@@ -356,6 +371,8 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
         switch transfer {
         case .unresolved:
             return nil
+        case .defaultStraightColorBoundary:
+            fragmentOutput = .premultipliedAlpha
         case .opaque:
             fragmentOutput = .opaque
         case let .opaqueFromStraightColor(slot):
