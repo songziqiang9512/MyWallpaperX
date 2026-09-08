@@ -110,8 +110,8 @@ struct SceneRuntimeSourceFactsBuilder {
         resourceView: SceneResourceView
     ) -> [SceneRenderDescriptor.ModelMaterialLink] {
         var seen: Set<String> = []
-        return document.objects.compactMap { object in
-            guard let modelPath = object.staticModelPath else { return nil }
+        return document.objects.flatMap { object -> [SceneRenderDescriptor.ModelMaterialLink] in
+            guard let modelPath = object.staticModelPath else { return [] }
             let identity = modelPath.replacingOccurrences(of: "\\", with: "/")
                 .localizedLowercase
             guard seen.insert(identity).inserted,
@@ -122,14 +122,13 @@ struct SceneRuntimeSourceFactsBuilder {
                     contentsOf: modelURL,
                     options: .mappedIfSafe
                   ),
-                  let materialPath = try? SceneMdlStaticModelReader
-                    .readMaterialPathMetadata(data: data) else {
-                return nil
+                  let materialPaths = try? SceneMdlStaticModelReader
+                    .readMaterialPathsMetadata(data: data) else {
+                return []
             }
-            return .init(
-                modelPath: modelPath,
-                materialPath: materialPath
-            )
+            return materialPaths.map {
+                .init(modelPath: modelPath, materialPath: $0)
+            }
         }
     }
 }

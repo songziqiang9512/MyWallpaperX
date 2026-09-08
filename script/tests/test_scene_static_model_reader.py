@@ -33,7 +33,13 @@ enum Harness {
                 let data = try Data(contentsOf: url)
                 entry["metadataMaterialPath"] = try? SceneMdlStaticModelReader
                     .readMaterialPathMetadata(data: data)
-                let model = try SceneMdlStaticModelReader.read(data: data)
+                let parts = try SceneMdlStaticModelReader.readParts(data: data)
+                let model = parts[0]
+                entry["parts"] = parts.map { part in
+                    ["material": part.materialPath, "indices": part.indices.map(Int.init),
+                     "elementSize": part.indexElementSize] as [String: Any]
+                }
+                entry["materialPaths"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data)
                 entry["ok"] = true
                 entry["version"] = model.version
                 entry["headerFormat"] = model.headerFormat
@@ -211,7 +217,15 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
 
+        first = build_model(material_count=2, material=b"materials/first.json")[:-7]
+        second = build_model(index_flag=1, material=b"materials/second.json")[21:]
+        multipart = first + b"\0" * 6 + second
         fixtures = {
+            "parts.mdl": multipart,
+            "bad-separator.mdl": first + b"\0" * 5 + b"\1" + second,
+            "short-second.mdl": multipart[:-12],
+            "bad-second-index.mdl": first + b"\0" * 6 + build_model(
+                index_flag=1, indices=(0, 1, 99))[21:],
             "valid.mdl": build_model(),
             "legacy-valid.mdl": build_legacy_model(),
             "windows-material.mdl": build_model(
@@ -348,6 +362,17 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertEqual(result["boundsMinimum"], [-1, -1, 0])
         self.assertEqual(result["boundsMaximum"], [1, 1, 0])
         self.assertEqual(result["indices"], [0, 1, 2])
+
+    def test_material_segments_retain_identity_and_local_indices(self) -> None:
+        result = self.results["parts.mdl"]
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["materialPaths"], ["materials/first.json", "materials/second.json"])
+        self.assertEqual(result["parts"], [
+            {"material": "materials/first.json", "indices": [0, 1, 2], "elementSize": 2},
+            {"material": "materials/second.json", "indices": [0, 1, 2], "elementSize": 4},
+        ])
+        for name in ("bad-separator.mdl", "short-second.mdl", "bad-second-index.mdl"):
+            self.assertFalse(self.results[name]["ok"], self.results[name])
 
     def test_wide_indices_preserve_values_and_validate_ranges(self) -> None:
         for name, indices in (("uint32-indices.mdl", [0, 1, 2]),

@@ -115,7 +115,7 @@ class SceneStaticModelRenderingTests(unittest.TestCase):
         reader = MODEL_READER.read_text(encoding="utf-8")
         descriptor = DESCRIPTOR.read_text(encoding="utf-8")
         self.assertIn("directStaticModelMaterialLinks(", source_facts)
-        self.assertIn("readMaterialPathMetadata(data: data)", source_facts)
+        self.assertIn("readMaterialPathsMetadata(data: data)", source_facts)
         self.assertIn("private static func readHeader(", reader)
         self.assertIn("directStaticModelMaterialLinks:", descriptor)
         self.assertIn("+ directStaticModelMaterialLinks", descriptor)

@@ -223,7 +223,13 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 ### 后继 `3477054430` 多段几何首断点（2026-09-08）
 
-该样本的 `little head`、`townfbx`、`billboard` 是合法 MDLV0023 多材质段；reader 原先以 `material count 2` 整体拒绝。当前 bounded reader 已逐段校验并合并几何/索引，真实运行 prepared model layers 从 `[23,68]` 扩展到 `[14,23,47,68,77]`，截图已出现猫头、身体和城市，不再缺失整个主体。当前实现仍以单一 material identity 绑定合并网格，导致不同段共享错误纹理（猫头或城市出现树叶/错误贴图）；多段 geometry→独立 material/texture draw 尚未闭合，整景仍 NON-PASS。下一首断点是保持段边界并让每个段沿原 material pass、texture publication、depth/compositor 路径独立消费，不能按样本或模型路径特判。
+该样本的 `little head`、`townfbx`、`billboard` 是合法 MDLV0023 多材质段。前序提交 `5a779cbd` 从拒绝推进到合并几何，却丢失材质段身份，产生猫脸/城市串用树叶贴图。后继已撤销该有损合并：bounded reader 保留逐段 material、局部 UInt16/UInt32 indices，校验段间零分隔和整个容器累计预算；只准入有证据的 MDLV0023 多段，MDLV0016 仍限单段。准备阶段为每段绑定自己的 material/texture/mesh，进入原 main pass、共享 depth 和唯一 compositor，没有第二输出链。
+
+另一个首断点是 property compiler 的 `links.count == 1`：多材质会跳过全部 `{user,value}` 参数。现有 typed material target 增加规范化 material path，编译与模型 consumer 使用相同身份，避免同层同名参数串值。完全透明 texel 不再写深度遮挡后续材质；TINTMASKALPHA 不作为透明覆盖。资源/几何仅 launch 准备，值仍由原 snapshot 逐帧消费。
+
+- 定向 40 tests PASS，覆盖分段局部索引、坏分隔/截断/越界、typed material identity、既有单材质/属性/模型 pipeline；Debug build 成功。真实隔离 `/private/tmp/mwx-parts-run2/report.json`，CDHash `4d74e5be69bf302ec1a6192ded687c3fece301d0`；默认 authored 属性，duration 12 / after delay 9。410/409/0 submitted/completed/failed，约 59.94 completed FPS，CPU p95 4.67ms / GPU p95 6.74ms，仅为该短窗，不是可比性能提升。
+- `results/3477054430/scene-after-window.png` 已人工查看：猫脸、粉色耳机、建筑分别使用正确纹理，树木的矩形遮挡消失；prepared model layers `[14,23,47,68,77]`。整景 completion/publication 与 next-frame 有记录，但尚无每一材质 live 属性注入的像素证据，不能把单元 identity 门当完整 producer 生命周期验收。
+- **仍 NON-PASS**：后处理 CPU invocation failure / effect-local passthrough；对照用户提供的 `截屏2026-09-08 19.26.03.png`，远景过亮、窗户发光和树缘仍不正确。作者 `general.fogdistance=true`、start 6.53/end 500、黑色、末端密度 0.98 当前未被读取，是下一构图断点；音频驱动材质脚本、完整 PBR/后处理仍未闭合。禁止以截图固定颜色代替 authored 参数，未宣称整景或官方等价。
 
 - 真实运行 report `/private/tmp/mwx-347-firstmat-run/report.json`；截图 `/private/tmp/mwx-347-firstmat-run/results/3477054430/scene-after-window.png`。该临时目录仅作当前复查证据，后续清理时可重建。
 

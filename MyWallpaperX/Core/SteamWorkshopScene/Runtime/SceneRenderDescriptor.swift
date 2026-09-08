@@ -218,7 +218,9 @@ struct SceneRenderDescriptorBuilder {
         } + directStaticModelMaterialLinks).filter { link in
             let identity = link.modelPath.replacingOccurrences(of: "\\", with: "/")
                 .localizedLowercase
-            return seen.insert(identity).inserted
+            let material = link.materialPath?.replacingOccurrences(of: "\\", with: "/")
+                .localizedLowercase ?? ""
+            return seen.insert(identity + "\u{0}" + material).inserted
         }
     }
 

@@ -132,7 +132,7 @@ nonisolated enum SceneDynamicTarget: Codable, Equatable, Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case effectVisibility(layerID: Int, effectIndex: Int)
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
-    case materialConstant(layerID: Int, passIndex: Int, name: String)
+    case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String = "")
     case text(layerID: Int, field: SceneDynamicTextField)
     case particle(layerID: Int, field: SceneDynamicParticleField)
     case scriptInstanceProperty(layerID: Int, path: [String])
@@ -149,8 +149,8 @@ nonisolated enum SceneDynamicTarget: Codable, Equatable, Hashable, Sendable {
             "layer:\(layerID):effect:\(effectIndex):visible"
         case let .effectConstant(layerID, effectIndex, passIndex, name):
             "layer:\(layerID):effect:\(effectIndex):pass:\(passIndex):\(name)"
-        case let .materialConstant(layerID, passIndex, name):
-            "layer:\(layerID):material:pass:\(passIndex):\(name)"
+        case let .materialConstant(layerID, passIndex, name, materialPath):
+            "layer:\(layerID):material:\(Self.sortComponent(materialPath)):pass:\(passIndex):\(name)"
         case let .text(layerID, field):
             "layer:\(layerID):text:\(field.rawValue)"
         case let .particle(layerID, field):

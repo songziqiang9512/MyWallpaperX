@@ -40,7 +40,7 @@ extension ScenePropertyBindingCompiler {
                 shape.valueType,
                 shape.propertyKind
             )
-        case let .materialShaderValue(layerID, passIndex, name, _):
+        case let .materialShaderValue(layerID, passIndex, name, materialPath):
             guard layerID >= 0, passIndex >= 0,
                   validShaderValueName(name),
                   let shape = shaderValueShape(
@@ -51,7 +51,8 @@ extension ScenePropertyBindingCompiler {
                 .materialConstant(
                     layerID: layerID,
                     passIndex: passIndex,
-                    name: name
+                    name: name,
+                    materialPath: (materialPath ?? "").replacingOccurrences(of: "\\", with: "/").localizedLowercase
                 ),
                 shape.valueType,
                 shape.propertyKind

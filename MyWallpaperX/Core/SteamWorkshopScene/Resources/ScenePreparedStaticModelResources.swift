@@ -9,6 +9,7 @@ struct ScenePreparedStaticModelResources {
     struct Entry {
         let modelPath: String
         let materialPath: String
+        let dynamicMaterialPath: String
         let geometryIdentity: String
         let mesh: SceneStaticModelMesh
         let albedo: SceneTextureCandidate?
@@ -19,7 +20,7 @@ struct ScenePreparedStaticModelResources {
     }
 
     let pipeline: SceneStaticModelPipeline?
-    private let entriesByLayerID: [Int: Entry]
+    private let entriesByLayerID: [Int: [Entry]]
 
     static let empty = ScenePreparedStaticModelResources(
         pipeline: nil,
@@ -29,10 +30,10 @@ struct ScenePreparedStaticModelResources {
     var isEmpty: Bool { entriesByLayerID.isEmpty }
     var preparedLayerIDs: [Int] { entriesByLayerID.keys.sorted() }
     var namedAlbedoLayerIDs: Set<Int> {
-        Set(entriesByLayerID.compactMap { $0.value.namedAlbedo == nil ? nil : $0.key })
+        Set(entriesByLayerID.compactMap { $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil })
     }
 
-    subscript(layerID: Int) -> Entry? {
+    subscript(layerID: Int) -> [Entry]? {
         entriesByLayerID[layerID]
     }
 
@@ -59,9 +60,9 @@ struct ScenePreparedStaticModelResources {
             resourceView: resourceView,
             descriptor: descriptor
         )
-        var geometryByPath: [String: PreparedGeometry] = [:]
+        var geometryByPath: [String: [PreparedGeometry]] = [:]
         var rejectedModelPaths: Set<String> = []
-        var entries: [Int: Entry] = [:]
+        var entries: [Int: [Entry]] = [:]
 
         for layer in layers {
             try cancellationCheck()
@@ -69,9 +70,9 @@ struct ScenePreparedStaticModelResources {
             let modelIdentity = identity(modelPath)
             if rejectedModelPaths.contains(modelIdentity) { continue }
 
-            let preparedGeometry: PreparedGeometry
+            let preparedGeometries: [PreparedGeometry]
             if let cached = geometryByPath[modelIdentity] {
-                preparedGeometry = cached
+                preparedGeometries = cached
             } else {
                 guard let modelURL = resourceView.resource(
                     relativePath: modelPath
@@ -80,80 +81,83 @@ struct ScenePreparedStaticModelResources {
                           contentsOf: modelURL,
                           options: .mappedIfSafe
                       ),
-                      let decoded = try? SceneMdlStaticModelReader.read(
+                      let decoded = try? SceneMdlStaticModelReader.readParts(
                           data: data
-                      ),
-                      let mesh = pipeline.makeMesh(
-                          vertices: decoded.vertices,
-                          indices: decoded.indices
                       ) else {
                     rejectedModelPaths.insert(modelIdentity)
                     continue
                 }
-                preparedGeometry = PreparedGeometry(
-                    materialPath: decoded.materialPath,
-                    geometryIdentity: geometryIdentity(decoded),
-                    mesh: mesh
-                )
-                geometryByPath[modelIdentity] = preparedGeometry
+                preparedGeometries = decoded.compactMap { part in
+                    guard let mesh = pipeline.makeMesh(
+                        vertices: part.vertices, indices: part.indices
+                    ) else { return nil }
+                    return PreparedGeometry(
+                        materialPath: part.materialPath,
+                        geometryIdentity: geometryIdentity(part), mesh: mesh
+                    )
+                }
+                geometryByPath[modelIdentity] = preparedGeometries
             }
             try cancellationCheck()
 
-            guard let materialIdentity = SceneVFSAssetPath(
-                preparedGeometry.materialPath
-            ),
-                  let pass = descriptor.materialPasses.first(where: {
-                SceneVFSAssetPath($0.materialPath) == materialIdentity
-                    && $0.passIndex == 0
-            }),
-                  let texturePath = pass.textureSlots.first.flatMap({ $0 }) else {
-                continue
-            }
-            let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
-            let albedo: SceneTextureCandidate?
-            if namedAlbedo == nil {
-                guard let textureURL = textureResolver.resolveTextureFile(
-                    named: texturePath
-                ), case let .loaded(candidate) = textureLoader.loadCandidate(
-                    from: textureURL,
-                    purpose: .straightAlbedo,
-                    device: device
-                ) else { continue }
-                albedo = candidate
-            } else {
-                albedo = nil
-            }
-            let modelMaterial = material(
-                pass,
-                hdrEnabled: descriptor.hdrEnabled
-            )
-            let hasDynamicEmissiveBrightness = shaderValue(
-                named: "emissivebrightness",
-                in: pass
-            )?.userBinding != nil
-            let emissiveMask = modelMaterial.emissiveBrightness > 0
-                || hasDynamicEmissiveBrightness
-                ? optionalTexture(
-                    at: 2,
-                    in: pass,
-                    purpose: .mask,
-                    resolver: textureResolver,
-                    textureLoader: textureLoader,
-                    device: device
+            for preparedGeometry in preparedGeometries {
+                guard let materialIdentity = SceneVFSAssetPath(
+                    preparedGeometry.materialPath
+                ),
+                      let pass = descriptor.materialPasses.first(where: {
+                    SceneVFSAssetPath($0.materialPath) == materialIdentity
+                        && $0.passIndex == 0
+                }),
+                      let texturePath = pass.textureSlots.first.flatMap({ $0 }) else {
+                    continue
+                }
+                let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
+                let albedo: SceneTextureCandidate?
+                if namedAlbedo == nil {
+                    guard let textureURL = textureResolver.resolveTextureFile(
+                        named: texturePath
+                    ), case let .loaded(candidate) = textureLoader.loadCandidate(
+                        from: textureURL,
+                        purpose: .straightAlbedo,
+                        device: device
+                    ) else { continue }
+                    albedo = candidate
+                } else {
+                    albedo = nil
+                }
+                let modelMaterial = material(
+                    pass,
+                    hdrEnabled: descriptor.hdrEnabled
                 )
-                : nil
-            entries[layer.id] = Entry(
-                modelPath: modelPath,
-                materialPath: preparedGeometry.materialPath,
-                geometryIdentity: preparedGeometry.geometryIdentity,
-                mesh: preparedGeometry.mesh,
-                albedo: albedo,
-                namedAlbedo: namedAlbedo,
-                emissiveMask: emissiveMask,
-                material: modelMaterial,
-                writesDepth: writesDepth(pass.depthWrite)
-            )
-            try cancellationCheck()
+                let hasDynamicEmissiveBrightness = shaderValue(
+                    named: "emissivebrightness",
+                    in: pass
+                )?.userBinding != nil
+                let emissiveMask = modelMaterial.emissiveBrightness > 0
+                    || hasDynamicEmissiveBrightness
+                    ? optionalTexture(
+                        at: 2,
+                        in: pass,
+                        purpose: .mask,
+                        resolver: textureResolver,
+                        textureLoader: textureLoader,
+                        device: device
+                    )
+                    : nil
+                entries[layer.id, default: []].append(Entry(
+                    modelPath: modelPath,
+                    materialPath: preparedGeometry.materialPath,
+                    dynamicMaterialPath: identity(preparedGeometry.materialPath),
+                    geometryIdentity: preparedGeometry.geometryIdentity,
+                    mesh: preparedGeometry.mesh,
+                    albedo: albedo,
+                    namedAlbedo: namedAlbedo,
+                    emissiveMask: emissiveMask,
+                    material: modelMaterial,
+                    writesDepth: writesDepth(pass.depthWrite)
+                ))
+                try cancellationCheck()
+            }
         }
 
         return ScenePreparedStaticModelResources(

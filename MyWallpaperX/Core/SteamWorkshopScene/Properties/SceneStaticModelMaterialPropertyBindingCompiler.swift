@@ -17,19 +17,18 @@ nonisolated enum SceneStaticModelMaterialPropertyBindingCompiler {
         )
         return descriptor.layers.flatMap { layer -> [SceneUserPropertyBinding] in
             guard let modelPath = layer.staticModelPath,
-                  let links = linksByModel[normalized(modelPath)],
-                  links.count == 1,
-                  let materialPath = links[0].materialPath,
-                  let passes = passesByMaterial[normalized(materialPath)],
-                  let pass = passes.filter({ $0.passIndex == 0 }).only else {
+                  let links = linksByModel[normalized(modelPath)] else {
                 return []
             }
-            return pass.constantShaderValues.keys.sorted().compactMap { name in
-                binding(
-                    layerID: layer.id,
-                    pass: pass,
-                    name: name
-                )
+            return links.flatMap { link -> [SceneUserPropertyBinding] in
+                guard let materialPath = link.materialPath,
+                      let passes = passesByMaterial[normalized(materialPath)],
+                      let pass = passes.filter({ $0.passIndex == 0 }).only else {
+                    return []
+                }
+                return pass.constantShaderValues.keys.sorted().compactMap { name in
+                    binding(layerID: layer.id, pass: pass, name: name)
+                }
             }
         }
     }

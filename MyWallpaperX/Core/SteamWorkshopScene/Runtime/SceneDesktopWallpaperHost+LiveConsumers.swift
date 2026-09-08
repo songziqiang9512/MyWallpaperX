@@ -203,7 +203,7 @@ extension SceneDesktopWallpaperHost {
             )
         let modelMaterialTargets = Set<SceneDynamicTarget>(
             propertyBindingProgram.instructions.compactMap { instruction in
-                guard case let .materialConstant(layerID, _, _) =
+                guard case let .materialConstant(layerID, _, _, _) =
                         instruction.target,
                       preparedStaticModelLayerIDs.contains(layerID) else {
                     return nil

@@ -142,20 +142,20 @@ enum Harness {
         ).snapshot
         for layerID in [7, 8] {
             precondition(snapshot[.materialConstant(
-                layerID: layerID, passIndex: 0, name: "color"
+                layerID: layerID, passIndex: 0, name: "color", materialPath: "materials/model.json"
             )]?.value == .vector3(0.2, 0.4, 0.6))
             precondition(snapshot[.materialConstant(
-                layerID: layerID, passIndex: 0, name: "emissivecolor"
+                layerID: layerID, passIndex: 0, name: "emissivecolor", materialPath: "materials/model.json"
             )]?.value == .vector3(0.9, 0.3, 0.1))
             precondition(snapshot[.materialConstant(
-                layerID: layerID, passIndex: 0, name: "alpha"
+                layerID: layerID, passIndex: 0, name: "alpha", materialPath: "materials/model.json"
             )]?.value == .scalar(0.4))
             precondition(snapshot[.materialConstant(
-                layerID: layerID, passIndex: 0, name: "brightness"
+                layerID: layerID, passIndex: 0, name: "brightness", materialPath: "materials/model.json"
             )]?.value == .scalar(1.75))
             precondition(snapshot[.materialConstant(
                 layerID: layerID, passIndex: 0,
-                name: "emissivebrightness"
+                name: "emissivebrightness", materialPath: "materials/model.json"
             )]?.value == .scalar(3))
         }
 
@@ -167,7 +167,7 @@ enum Harness {
             "emissiveBrightness": .number(3),
         ])
         precondition(invalidEvaluation.userValues[.materialConstant(
-            layerID: 7, passIndex: 0, name: "brightness"
+            layerID: 7, passIndex: 0, name: "brightness", materialPath: "materials/model.json"
         )] == nil)
 
         let duplicatePassDescriptor = SceneRenderDescriptor(
@@ -178,6 +178,31 @@ enum Harness {
         precondition(SceneStaticModelMaterialPropertyBindingCompiler.compile(
             descriptor: duplicatePassDescriptor
         ).isEmpty)
+
+        let multipart = SceneRenderDescriptor(
+            layers: descriptor.layers,
+            modelMaterialLinks: descriptor.modelMaterialLinks + [
+                .init(modelPath: "models/a.mdl", materialPath: "materials/other.json")
+            ],
+            materialPasses: [pass0, .init(
+                materialPath: "materials/other.json", passIndex: 0,
+                constantShaderValues: ["color": wrapper("emissive", [1, 0.5, 0.25])]
+            )]
+        )
+        let multiBindings = SceneStaticModelMaterialPropertyBindingCompiler.compile(descriptor: multipart)
+        precondition(multiBindings.count == 12)
+        let mapped = multiBindings.compactMap {
+            ScenePropertyBindingCompiler.map($0, propertyKind: nil)?.target
+        }
+        precondition(Set(mapped).count == 12)
+        for layerID in [7, 8] {
+            precondition(mapped.contains(.materialConstant(
+                layerID: layerID, passIndex: 0, name: "color", materialPath: "materials/other.json"
+            )))
+            precondition(mapped.contains(.materialConstant(
+                layerID: layerID, passIndex: 0, name: "color", materialPath: "materials/model.json"
+            )))
+        }
     }
 
     static func wrapper(

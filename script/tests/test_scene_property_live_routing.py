@@ -343,7 +343,7 @@ class ScenePropertyLiveRoutingTests(unittest.TestCase):
             "SceneStaticModelMaterialPropertyBindingCompiler.compile(", support
         )
         self.assertIn("preparedStaticModelLayerIDs", consumers)
-        self.assertIn("case let .materialConstant(layerID, _, _)", consumers)
+        self.assertIn("case let .materialConstant(layerID, _, _, _)", consumers)
         self.assertIn(".union(modelMaterialTargets)", consumers)
 
     def test_generic_string_property_inputs_remain_live_without_scene_relaunch(self) -> None:

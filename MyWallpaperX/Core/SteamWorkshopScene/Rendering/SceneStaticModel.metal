@@ -122,6 +122,11 @@ fragment half4 sceneStaticModelFragment(
     half outputAlpha = authoredOpacity * (
         (uniforms.materialFlags.x & 1u) != 0u ? albedo.a : half(1.0)
     );
+    // A fully uncovered texel must not occlude later material parts through
+    // the depth buffer. Tint-mask alpha is excluded by the coverage flag.
+    if (outputAlpha <= half(0.0)) {
+        discard_fragment();
+    }
     half3 surfaceColor;
     if (uniforms.materialFlags.w != 0) {
         half luminancePeak = max(albedo.r, max(albedo.g, albedo.b));

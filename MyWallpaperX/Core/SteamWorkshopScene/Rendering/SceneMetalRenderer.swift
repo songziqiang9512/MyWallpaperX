@@ -603,123 +603,123 @@ struct SceneMetalRenderer {
                 break
             case "model":
                 guard let pipeline = staticModelResources.pipeline,
-                      let prepared = staticModelResources[layer.id] else {
-                    continue
-                }
-                let albedoTexture: MTLTexture
-                let albedoTextureFrame: SceneTextureUVTransform
-                let albedoSampling: SceneTextureSampling
-                let albedoIsPremultiplied: Bool
-                if let albedo = prepared.albedo {
-                    albedoTexture = albedo.texture
-                    albedoTextureFrame = albedo.uvTransform
-                    albedoSampling = albedo.sampling
-                    albedoIsPremultiplied = false
-                } else if let reference = prepared.namedAlbedo,
-                          let albedo = dependencyRuntime.staticModelNamedAlbedo(
-                              for: layer.id,
-                              materialPath: prepared.materialPath,
-                              expectedReference: reference,
-                              textureRegistry: textureRegistry
-                          ) {
-                    albedoTexture = albedo.texture
-                    albedoTextureFrame = albedo.textureFrame
-                    albedoSampling = albedo.sampling
-                    albedoIsPremultiplied = albedo.isPremultiplied
-                } else {
-                    dependencyRuntime.recordStaticModelBindingFailure(
-                        for: layer.id
-                    )
-                    continue
-                }
-                let modelMatrix = frameWorldFrames[layer.id]
-                    ?? SceneMatrix.identity()
-                let depthTarget = staticModelDepthPlan.target(
-                    geometryIdentity: prepared.geometryIdentity,
-                    modelMatrix: modelMatrix
-                )
-                if staticModelDepthLease == nil, depthTarget == .shared {
-                    let targetExtent = mainPass.targetExtent
-                    staticModelDepthLease = staticModelDepthTargetPool.acquire(
-                        device: device,
-                        width: targetExtent.width,
-                        height: targetExtent.height
-                    )
-                    if let staticModelDepthLease {
-                        frameDepthLeases.append(staticModelDepthLease)
+                      let preparedParts = staticModelResources[layer.id] else { continue }
+                for prepared in preparedParts {
+                    let albedoTexture: MTLTexture
+                    let albedoTextureFrame: SceneTextureUVTransform
+                    let albedoSampling: SceneTextureSampling
+                    let albedoIsPremultiplied: Bool
+                    if let albedo = prepared.albedo {
+                        albedoTexture = albedo.texture
+                        albedoTextureFrame = albedo.uvTransform
+                        albedoSampling = albedo.sampling
+                        albedoIsPremultiplied = false
+                    } else if let reference = prepared.namedAlbedo,
+                              let albedo = dependencyRuntime.staticModelNamedAlbedo(
+                                  for: layer.id,
+                                  materialPath: prepared.materialPath,
+                                  expectedReference: reference,
+                                  textureRegistry: textureRegistry
+                              ) {
+                        albedoTexture = albedo.texture
+                        albedoTextureFrame = albedo.textureFrame
+                        albedoSampling = albedo.sampling
+                        albedoIsPremultiplied = albedo.isPremultiplied
+                    } else {
+                        dependencyRuntime.recordStaticModelBindingFailure(
+                            for: layer.id
+                        )
+                        continue
                     }
-                }
-                let modelDepthLease: SceneParticleDepthTargetLease?
-                let clearsModelDepth: Bool
-                switch depthTarget {
-                case .shared:
-                    modelDepthLease = staticModelDepthLease
-                    clearsModelDepth = !staticModelDepthWasCleared
-                case .isolated:
-                    let targetExtent = mainPass.targetExtent
-                    modelDepthLease = staticModelDepthTargetPool.acquire(
-                        device: device,
-                        width: targetExtent.width,
-                        height: targetExtent.height
+                    let modelMatrix = frameWorldFrames[layer.id]
+                        ?? SceneMatrix.identity()
+                    let depthTarget = staticModelDepthPlan.target(
+                        geometryIdentity: prepared.geometryIdentity,
+                        modelMatrix: modelMatrix
                     )
-                    if let modelDepthLease {
-                        frameDepthLeases.append(modelDepthLease)
+                    if staticModelDepthLease == nil, depthTarget == .shared {
+                        let targetExtent = mainPass.targetExtent
+                        staticModelDepthLease = staticModelDepthTargetPool.acquire(
+                            device: device,
+                            width: targetExtent.width,
+                            height: targetExtent.height
+                        )
+                        if let staticModelDepthLease {
+                            frameDepthLeases.append(staticModelDepthLease)
+                        }
                     }
-                    clearsModelDepth = true
-                }
-                guard let modelDepthLease,
-                      let encoder = mainPass.encoder(
-                          depthTexture: modelDepthLease.texture,
-                          clearsDepth: clearsModelDepth,
-                          clearDepth: 0
-                      ) else {
-                    continue
-                }
-                if depthTarget == .shared {
-                    staticModelDepthWasCleared = true
-                }
-                let alpha = Float(SceneDynamicLayerValues.alpha(
-                    layerID: layer.id,
-                    authoredValue: layer.alpha,
-                    snapshot: frameContext.dynamicValues
-                ))
-                let material = prepared.material.resolvingDynamicValues(
-                    layerID: layer.id,
-                    snapshot: frameContext.dynamicValues
-                ).resolvingDynamicViewTintBack(
-                    SceneDynamicLayerValues.color(
+                    let modelDepthLease: SceneParticleDepthTargetLease?
+                    let clearsModelDepth: Bool
+                    switch depthTarget {
+                    case .shared:
+                        modelDepthLease = staticModelDepthLease
+                        clearsModelDepth = !staticModelDepthWasCleared
+                    case .isolated:
+                        let targetExtent = mainPass.targetExtent
+                        modelDepthLease = staticModelDepthTargetPool.acquire(
+                            device: device,
+                            width: targetExtent.width,
+                            height: targetExtent.height
+                        )
+                        if let modelDepthLease {
+                            frameDepthLeases.append(modelDepthLease)
+                        }
+                        clearsModelDepth = true
+                    }
+                    guard let modelDepthLease,
+                          let encoder = mainPass.encoder(
+                              depthTexture: modelDepthLease.texture,
+                              clearsDepth: clearsModelDepth,
+                              clearDepth: 0
+                          ) else {
+                        continue
+                    }
+                    if depthTarget == .shared {
+                        staticModelDepthWasCleared = true
+                    }
+                    let alpha = Float(SceneDynamicLayerValues.alpha(
                         layerID: layer.id,
-                        authoredValue: prepared.material.viewTint.map {
-                            [$0.back.x, $0.back.y, $0.back.z]
-                        },
+                        authoredValue: layer.alpha,
                         snapshot: frameContext.dynamicValues
+                    ))
+                    let material = prepared.material.resolvingDynamicValues(
+                        layerID: layer.id, materialPath: prepared.dynamicMaterialPath,
+                        snapshot: frameContext.dynamicValues
+                    ).resolvingDynamicViewTintBack(
+                        SceneDynamicLayerValues.color(
+                            layerID: layer.id,
+                            authoredValue: prepared.material.viewTint.map {
+                                [$0.back.x, $0.back.y, $0.back.z]
+                            },
+                            snapshot: frameContext.dynamicValues
+                        )
                     )
-                )
-                let encoded = pipeline.draw(
-                    mesh: prepared.mesh,
-                    texture: albedoTexture,
-                    colorTextureIsPremultiplied: albedoIsPremultiplied,
-                    emissiveMask: prepared.emissiveMask?.texture,
-                    emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform,
-                    emissiveMaskSampling: prepared.emissiveMask?.sampling,
-                    modelMatrix: modelMatrix,
-                    viewProjection: cameraFrame.reverseDepthViewProjection(
-                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
-                    ),
-                    cameraPosition: cameraFrame.perspectiveEyePosition,
-                    textureFrame: albedoTextureFrame,
-                    sampling: albedoSampling,
-                    layerAlpha: alpha,
-                    material: material,
-                    lighting: frameLightSnapshot,
-                    writesDepth: prepared.writesDepth,
-                    encoder: encoder
-                )
-                dependencyRuntime.recordStaticModelBindingIfRequired(
-                    for: layer.id,
-                    encoded: encoded,
-                    on: commandBuffer
-                )
+                    let encoded = pipeline.draw(
+                        mesh: prepared.mesh,
+                        texture: albedoTexture,
+                        colorTextureIsPremultiplied: albedoIsPremultiplied,
+                        emissiveMask: prepared.emissiveMask?.texture,
+                        emissiveMaskTextureFrame: prepared.emissiveMask?.uvTransform,
+                        emissiveMaskSampling: prepared.emissiveMask?.sampling,
+                        modelMatrix: modelMatrix,
+                        viewProjection: cameraFrame.reverseDepthViewProjection(
+                            usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                        ),
+                        cameraPosition: cameraFrame.perspectiveEyePosition,
+                        textureFrame: albedoTextureFrame,
+                        sampling: albedoSampling,
+                        layerAlpha: alpha,
+                        material: material,
+                        lighting: frameLightSnapshot,
+                        writesDepth: prepared.writesDepth,
+                        encoder: encoder
+                    )
+                    dependencyRuntime.recordStaticModelBindingIfRequired(
+                        for: layer.id,
+                        encoded: encoded,
+                        on: commandBuffer
+                    )
+                }
             case "quad":
                 if !drawQuadLayer(
                     layer: layer,
