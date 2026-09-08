@@ -77,6 +77,14 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               signal.name != color.name,
               countWord(signal.name, in: substring(body, source: source)) >= 2
         else { return nil }
+        if debug {
+            NSLog(
+                "MWX DEBUG SCENE: phase=signal-compositing-lowering-bindings signal=%@ color=%@ slots=%@",
+                signal.name,
+                color.name,
+                bySlot.keys.sorted().map(String.init).joined(separator: ",")
+            )
+        }
 
         let control = matches(
             #"\b(?:if|else|for|while|do|switch|case|discard|break|continue)\b|\?"#,
@@ -111,6 +119,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               matches(
                   #"\breturn\s+out\s*;"#, in: source, range: body
               ).count == 1 else { return nil }
+        if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-tail-accepted") }
 
         guard let outputRange = Range(outputAssignments[0].range, in: source)
         else { return nil }
@@ -128,6 +137,12 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         }.sorted { $0.1.match.range.location > $1.1.match.range.location }
         guard straightDeclarations.count == straightColorSlots.count else {
             return nil
+        }
+        if debug {
+            NSLog(
+                "MWX DEBUG SCENE: phase=signal-compositing-lowering-declarations accepted=%d",
+                straightDeclarations.count
+            )
         }
         for (slot, declaration) in straightDeclarations {
             guard let adjustedRange = Range(declaration.match.range, in: transformed),
@@ -161,6 +176,7 @@ inline float4 \(premultiply)(float4 value) {
             of: #"\busing\s+namespace\s+metal\s*;"#,
             options: .regularExpression
         ) else { return nil }
+        if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-complete") }
         transformed.insert(contentsOf: helpers, at: namespace.upperBound)
         return transformed
     }
