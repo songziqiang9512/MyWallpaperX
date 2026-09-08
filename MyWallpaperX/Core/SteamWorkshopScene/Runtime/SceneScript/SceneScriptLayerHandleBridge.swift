@@ -1,5 +1,7 @@
 import Foundation
 
+private let sceneScriptMaximumOwnerLayerMutations = 256
+
 /// Scene JSON and the renderer keep Euler angles in radians, while the public
 /// SceneScript layer API exposes degrees. Convert only at the VM boundary so
 /// authored storage, dynamic publication and world-frame math stay canonical.
@@ -125,8 +127,10 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT.rawValue
         ))
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font,
+            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color,
         ]
+        static let alpha = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA.rawValue))
+        static let color = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR.rawValue))
     }
 
     let kind: Kind
@@ -243,11 +247,11 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
             layerID: newer.layerID,
             orderIndex: newer.orderIndex,
             visible: newer.fields.contains(.visibility) ? newer.visible : visible,
-            alpha: newer.alpha,
+            alpha: newer.fields.contains(.alpha) ? newer.alpha : alpha,
             origin: newer.fields.contains(.origin) ? newer.origin : origin,
             scale: newer.fields.contains(.scale) ? newer.scale : scale,
             angles: newer.fields.contains(.angles) ? newer.angles : angles,
-            color: newer.color,
+            color: newer.fields.contains(.color) ? newer.color : color,
             pointSize: newer.pointSize,
             text: newer.fields.contains(.text) ? newer.text : text,
             font: newer.fields.contains(.font) ? newer.font : font,
@@ -303,7 +307,9 @@ nonisolated enum SceneScriptLayerMutationBridge {
         ownerTarget: SceneDynamicTarget
     ) -> Result<[SceneScriptLayerMutation], SceneScriptScalarRuntimeFailure> {
         let count = mwx_scene_quickjs_owner_layer_mutation_count(owner)
-        guard count <= 64 else { return .failure(.mutationOverflow("layer mutation buffer exceeded")) }
+        guard count <= sceneScriptMaximumOwnerLayerMutations else {
+            return .failure(.mutationOverflow("layer mutation buffer exceeded"))
+        }
         // Owners without layer side effects are valid even when their target
         // belongs to a non-layer API family. Validate the identity only when
         // a DTO is actually being attached to the owner effect package.

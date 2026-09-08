@@ -80,6 +80,32 @@ void main() {
 }
 """
 
+private let mutableGenerated = """
+uniform sampler2D g_Texture0;
+uniform vec3 u_fill;
+uniform vec3 u_line;
+uniform float u_fillOpacity;
+uniform float u_lineOpacity;
+varying vec4 v_TexCoord;
+void main() {
+    vec4 unusedFramebuffer = texSample2D(g_Texture0, v_TexCoord.xy);
+    float distance = length(v_TexCoord.xy - vec2(0.5));
+    float fill = smoothstep(0.5, 0.45, distance);
+    float stroke = smoothstep(0.4, 0.35, abs(distance - 0.45));
+    vec3 paint = vec3(0.0);
+    float coverage = 0.0;
+    paint = mix(paint, u_fill, fill * u_fillOpacity);
+    coverage = max(coverage, fill * u_fillOpacity);
+    paint = mix(paint, u_line, stroke * u_lineOpacity);
+    coverage = max(coverage, stroke * u_lineOpacity);
+    if (distance < 0.25) {
+        paint = mix(paint, u_line, 0.25 * u_lineOpacity);
+        coverage = max(coverage, 0.25 * u_lineOpacity);
+    }
+    gl_FragColor = vec4(paint, coverage);
+}
+"""
+
 private let msl = """
 #include <metal_stdlib>
 using namespace metal;
@@ -139,6 +165,17 @@ private struct Output: Codable {
     let accumulatedRuntimeBoundDiagnostics: [String]
     let accumulatedNonMaxRejected: Bool
     let accumulatedDiagnostics: [String]
+    let mutableGeneratedAccepted: Bool
+    let mutableGeneratedTransferAccepted: Bool
+    let mutableGeneratedBoundedAccepted: Bool
+    let mutableGeneratedPremultiplies: Bool
+    let mutableGeneratedArtifactAccepted: Bool
+    let mutableGeneratedSampleReuseRejected: Bool
+    let mutableGeneratedSamplePredicateRejected: Bool
+    let mutableGeneratedSampleCarrierRejected: Bool
+    let mutableGeneratedAlphaRGBDependencyRejected: Bool
+    let mutableGeneratedRGBAlphaDependencyRejected: Bool
+    let mutableGeneratedDiagnostics: [String]
 }
 
 private func fact(_ source: String) ->
@@ -204,6 +241,16 @@ private enum GeneratedStraightRGBAHarness {
             .prepareColorTransfer(
                 msl: msl,
                 authoredSource: accumulated
+            )
+        let mutableGeneratedCompilation = SceneAuthoredShaderFrontend.compile(
+            vertexSource: vertex,
+            fragmentSource: mutableGenerated
+        )
+        let mutableGeneratedProgram = mutableGeneratedCompilation.program
+        let mutableGeneratedArtifact = try? SceneGenericShaderArtifactBuilder
+            .prepareColorTransfer(
+                msl: msl,
+                authoredSource: mutableGenerated
             )
         let runtimeBounded = accumulated
             .replacingOccurrences(
@@ -445,7 +492,54 @@ private enum GeneratedStraightRGBAHarness {
             ) == nil,
             accumulatedDiagnostics: accumulatedCompilation.diagnostics.map {
                 "\($0.code.rawValue):\($0.message)"
-            }
+            },
+            mutableGeneratedAccepted: fact(mutableGenerated) != nil,
+            mutableGeneratedTransferAccepted:
+                SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                    fragmentSource: mutableGenerated
+                ) == .generatedStraightAlpha,
+            mutableGeneratedBoundedAccepted: mutableGeneratedProgram != nil,
+            mutableGeneratedPremultiplies:
+                mutableGeneratedProgram?.metalSource.contains(
+                    "return mwxPremultiply(mwxFragColor);"
+                ) == true,
+            mutableGeneratedArtifactAccepted:
+                mutableGeneratedArtifact?.transfer.kind
+                    == "generated-straight-alpha",
+            mutableGeneratedSampleReuseRejected: fact(
+                mutableGenerated.replacingOccurrences(
+                    of: "float distance = length(v_TexCoord.xy - vec2(0.5));",
+                    with: "float distance = unusedFramebuffer.r;"
+                )
+            ) == nil,
+            mutableGeneratedSamplePredicateRejected: fact(
+                mutableGenerated.replacingOccurrences(
+                    of: "float distance = length(v_TexCoord.xy - vec2(0.5));",
+                    with: "if (texSample2D(g_Texture0, v_TexCoord.xy).r > 0.0) { }\n    float distance = length(v_TexCoord.xy - vec2(0.5));"
+                )
+            ) == nil,
+            mutableGeneratedSampleCarrierRejected: fact(
+                mutableGenerated.replacingOccurrences(
+                    of: "mix(paint, u_fill, fill * u_fillOpacity)",
+                    with: "mix(paint, texSample2D(g_Texture0, v_TexCoord.xy).rgb, fill * u_fillOpacity)"
+                )
+            ) == nil,
+            mutableGeneratedAlphaRGBDependencyRejected: fact(
+                mutableGenerated.replacingOccurrences(
+                    of: "mix(paint, u_fill, fill * u_fillOpacity)",
+                    with: "mix(paint, u_fill, coverage)"
+                )
+            ) == nil,
+            mutableGeneratedRGBAlphaDependencyRejected: fact(
+                mutableGenerated.replacingOccurrences(
+                    of: "max(coverage, fill * u_fillOpacity)",
+                    with: "max(coverage, paint.r)"
+                )
+            ) == nil,
+            mutableGeneratedDiagnostics:
+                mutableGeneratedCompilation.diagnostics.map {
+                    "\($0.code.rawValue):\($0.message)"
+                }
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -559,6 +653,22 @@ class SceneGeneratedStraightRGBATests(unittest.TestCase):
             "accumulatedEarlyContinueRejected",
             "accumulatedRuntimeBoundRejected",
             "accumulatedNonMaxRejected",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_bounded_mutable_generated_carriers_ignore_only_dead_samples(self) -> None:
+        self.assertEqual(self.result["mutableGeneratedDiagnostics"], [])
+        for key in (
+            "mutableGeneratedAccepted",
+            "mutableGeneratedTransferAccepted",
+            "mutableGeneratedBoundedAccepted",
+            "mutableGeneratedPremultiplies",
+            "mutableGeneratedArtifactAccepted",
+            "mutableGeneratedSampleReuseRejected",
+            "mutableGeneratedSamplePredicateRejected",
+            "mutableGeneratedSampleCarrierRejected",
+            "mutableGeneratedAlphaRGBDependencyRejected",
+            "mutableGeneratedRGBAlphaDependencyRejected",
         ):
             self.assertTrue(self.result[key], key)
 

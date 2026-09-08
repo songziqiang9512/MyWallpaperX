@@ -174,7 +174,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         _ mutations: [SceneScriptLayerMutation],
         publishingTopologyRevision: Bool
     ) -> Result<Void, SceneScriptScalarRuntimeFailure> {
-        guard mutations.count <= 192 else {
+        guard mutations.count <= 512 else {
             return .failure(.mutationOverflow("frame layer mutation budget exceeded"))
         }
         var candidateOrder = order
@@ -207,11 +207,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     (.origin, .origin, mutation.origin),
                     (.scale, .scale, mutation.scale),
                     (.angles, .angles, mutation.angles),
+                    (.color, .color, mutation.color),
                 ]
                 for (field, targetField, value) in values where mutation.fields.contains(field) {
-                    let target = SceneDynamicTarget.layer(
-                        layerID: mutation.layerID, field: targetField
-                    )
+                    let target: SceneDynamicTarget = targetField == .color
+                        && authoredLayer.contentKind == "text"
+                        ? .text(layerID: mutation.layerID, field: .color)
+                        : .layer(layerID: mutation.layerID, field: targetField)
                     guard authoredTargets.insert(target).inserted else {
                         return .failure(.invalidArgument(
                             "conflicting authored layer mutation target"
@@ -226,6 +228,23 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         order: &candidateDefinitionOrder,
                         definitions: &candidateDefinitions
                     )
+                }
+                if mutation.fields.contains(.alpha) {
+                    guard mutation.alpha.isFinite, (0...1).contains(mutation.alpha) else {
+                        return .failure(.invalidArgument("invalid authored layer alpha"))
+                    }
+                    let target = SceneDynamicTarget.layer(layerID: mutation.layerID, field: .alpha)
+                    guard authoredTargets.insert(target).inserted else {
+                        return .failure(.invalidArgument("conflicting authored layer mutation target"))
+                    }
+                    candidateAuthoredValues[target] = .scalar(mutation.alpha)
+                    Self.ensureDefinition(for: target, layer: authoredLayer,
+                        order: &candidateDefinitionOrder, definitions: &candidateDefinitions)
+                }
+                if mutation.fields.contains(.color),
+                   ![mutation.color.x, mutation.color.y, mutation.color.z]
+                    .allSatisfy({ $0.isFinite && (0...1).contains($0) }) {
+                    return .failure(.invalidArgument("invalid authored layer color"))
                 }
                 if mutation.fields.contains(.visibility) {
                     let target = SceneDynamicTarget.layer(
@@ -504,7 +523,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private func applyIsolatingOwnersToCurrentState(
         _ mutations: [SceneScriptLayerMutation]
     ) -> SceneScriptLayerMutationApplyOutcome {
-        guard mutations.count <= 192 else {
+        guard mutations.count <= 512 else {
             return .init(
                 committedMutationCount: 0,
                 committedDynamicMutationCount: 0,
@@ -523,14 +542,17 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             if grouped[owner] == nil { ownerOrder.append(owner) }
             grouped[owner, default: []].append(mutation)
         }
-        var claimedAuthoredTargets = Set<SceneDynamicTarget>()
+        var claimedAuthoredValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
         var failures: [SceneScriptLayerMutationOwnerFailure] = []
         var committedMutationCount = 0
         var committedDynamicMutationCount = 0
         for owner in ownerOrder {
             guard let batch = grouped[owner] else { continue }
-            let targets = Set(batch.flatMap(Self.authoredTargets))
-            if !claimedAuthoredTargets.isDisjoint(with: targets) {
+            let authoredValues = batch.flatMap(Self.authoredValues)
+            let hasConflict = authoredValues.contains { target, value in
+                claimedAuthoredValues[target].map { $0 != value } ?? false
+            }
+            if hasConflict {
                 failures.append(.init(
                     ownerTarget: owner,
                     failure: .invalidArgument(
@@ -541,7 +563,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             }
             switch apply(batch, publishingTopologyRevision: false) {
             case .success:
-                claimedAuthoredTargets.formUnion(targets)
+                for (target, value) in authoredValues
+                where claimedAuthoredValues[target] == nil {
+                    claimedAuthoredValues[target] = value
+                }
                 committedMutationCount += batch.count
                 committedDynamicMutationCount += batch.filter(\.isDynamic).count
             case let .failure(failure):
@@ -560,29 +585,63 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private static func authoredTargets(
         _ mutation: SceneScriptLayerMutation
     ) -> [SceneDynamicTarget] {
+        authoredValues(mutation).map(\.0)
+    }
+
+    /// Multiple authored owners may intentionally publish the same field and
+    /// value (for example, duplicated controller layers in one authored
+    /// scene). Such writes are idempotent and preserve authored order. A later
+    /// owner that disagrees remains a hard conflict because accepting it would
+    /// make the final value depend on an implicit last-writer policy.
+    private static func authoredValues(
+        _ mutation: SceneScriptLayerMutation
+    ) -> [(SceneDynamicTarget, SceneDynamicValue)] {
         guard !mutation.isDynamic, mutation.kind == .upsert else { return [] }
-        var targets: [SceneDynamicTarget] = []
+        var values: [(SceneDynamicTarget, SceneDynamicValue)] = []
+        if mutation.fields.contains(.alpha) {
+            values.append((.layer(layerID: mutation.layerID, field: .alpha), .scalar(mutation.alpha)))
+        }
+        if mutation.fields.contains(.color) {
+            values.append((.layer(layerID: mutation.layerID, field: .color),
+                .vector3(mutation.color.x, mutation.color.y, mutation.color.z)))
+        }
         if mutation.fields.contains(.origin) {
-            targets.append(.layer(layerID: mutation.layerID, field: .origin))
+            values.append((
+                .layer(layerID: mutation.layerID, field: .origin),
+                .vector3(mutation.origin.x, mutation.origin.y, mutation.origin.z)
+            ))
         }
         if mutation.fields.contains(.scale) {
-            targets.append(.layer(layerID: mutation.layerID, field: .scale))
+            values.append((
+                .layer(layerID: mutation.layerID, field: .scale),
+                .vector3(mutation.scale.x, mutation.scale.y, mutation.scale.z)
+            ))
         }
         if mutation.fields.contains(.angles) {
-            targets.append(.layer(layerID: mutation.layerID, field: .angles))
+            values.append((
+                .layer(layerID: mutation.layerID, field: .angles),
+                .vector3(mutation.angles.x, mutation.angles.y, mutation.angles.z)
+            ))
         }
         if mutation.fields.contains(.visibility) {
-            targets.append(.layer(
-                layerID: mutation.layerID, field: .visibility
+            values.append((
+                .layer(layerID: mutation.layerID, field: .visibility),
+                .bool(mutation.visible)
             ))
         }
         if mutation.fields.contains(.text) {
-            targets.append(.text(layerID: mutation.layerID, field: .content))
+            values.append((
+                .text(layerID: mutation.layerID, field: .content),
+                .string(mutation.text)
+            ))
         }
         if mutation.fields.contains(.font) {
-            targets.append(.text(layerID: mutation.layerID, field: .font))
+            values.append((
+                .text(layerID: mutation.layerID, field: .font),
+                .string(mutation.font)
+            ))
         }
-        return targets
+        return values
     }
 
     /// Dynamic upserts carry their complete frame value record, but that does
@@ -643,6 +702,11 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         layer: SceneRenderDescriptor.Layer
     ) -> SceneDynamicTargetDefinition? {
         switch target {
+        case let .layer(layerID, .alpha) where layerID == layer.id:
+            .init(target: target, valueType: .scalar, authoredValue: .scalar(layer.alpha ?? 1))
+        case let .layer(layerID, .color) where layerID == layer.id:
+            .init(target: target, valueType: .vector3,
+                  authoredValue: vector3(layer.colorRGB, fallback: [1, 1, 1]))
         case let .layer(layerID, .origin) where layerID == layer.id:
             .init(
                 target: target, valueType: .vector3,
@@ -677,6 +741,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 target: target, valueType: .string,
                 authoredValue: .string(layer.textStyle?.fontPath ?? "")
             )
+        case let .text(layerID, .color) where layerID == layer.id && layer.contentKind == "text":
+            .init(target: target, valueType: .vector3,
+                  authoredValue: vector3(layer.textStyle?.colorRGB, fallback: [1, 1, 1]))
         default:
             nil
         }

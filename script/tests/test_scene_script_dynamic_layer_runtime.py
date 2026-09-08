@@ -35,8 +35,10 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let visibility = Self(rawValue: 1 << 3)
         static let text = Self(rawValue: 1 << 4)
         static let font = Self(rawValue: 1 << 5)
+        static let alpha = Self(rawValue: 1 << 6)
+        static let color = Self(rawValue: 1 << 7)
         static let authoredFields: Self = [
-            .origin, .scale, .angles, .visibility, .text, .font,
+            .origin, .scale, .angles, .visibility, .text, .font, .alpha, .color,
         ]
     }
     let kind: Kind
@@ -57,8 +59,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     let ownerTarget: SceneDynamicTarget?
 }
 
-nonisolated enum SceneDynamicValueType: Sendable { case bool, string, vector3 }
+nonisolated enum SceneDynamicValueType: Sendable { case bool, string, vector3, scalar }
 nonisolated enum SceneDynamicValue: Equatable, Sendable {
+    case scalar(Double)
     case bool(Bool)
     case string(String)
     case vector3(Double, Double, Double)
@@ -75,9 +78,9 @@ nonisolated struct SceneDynamicSnapshot: Sendable {
     }
 }
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
-    case visibility, origin, scale, angles, color
+    case visibility, origin, scale, angles, color, alpha
 }
-nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font }
+nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
@@ -94,7 +97,8 @@ nonisolated struct SceneDynamicTargetDefinition: Sendable {
 
 nonisolated struct SceneRenderDescriptor: Sendable {
     struct Layer: Sendable {
-        struct TextStyle: Sendable { let fontPath: String? }
+        var alpha: Double? = nil
+        struct TextStyle: Sendable { let fontPath: String?; var colorRGB: [Float]? = nil }
         let id: Int
         let visible: Bool?
         let originXYZ: [Float]?
@@ -223,6 +227,13 @@ enum Harness {
             authoredMutationLayerIDs: [10]
         )
         let beforeCreate = runtime.snapshot()
+        let styleRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [10])
+        let stylePlan = styleRuntime.preflightIsolatingOwners([mutation(10, dynamic: false, alpha: 0.25, fields: [.alpha, .color])])
+        let styleBeforeCommit = styleRuntime.snapshot().authoredLayerValues.isEmpty
+        styleRuntime.commit(stylePlan)
+        let styleAfterCommit = styleRuntime.snapshot()
+        let invalidStyle = styleRuntime.apply([mutation(10, dynamic: false, alpha: -1, fields: [.alpha])])
+        let styleAfterFailure = styleRuntime.snapshot()
         let create = runtime.apply([mutation(-1, order: 1)])
         let afterCreate = runtime.snapshot()
         let move = runtime.apply([mutation(-1, order: 2, text: "updated")])
@@ -279,6 +290,54 @@ enum Harness {
         let isolated = admission.layerPlan.outcome
         isolatedRuntime.commit(admission.layerPlan)
         let afterIsolated = isolatedRuntime.snapshot()
+        let duplicateOwnerA = SceneDynamicTarget.layer(
+            layerID: 10, field: .visibility
+        )
+        let duplicateOwnerB = SceneDynamicTarget.layer(
+            layerID: 20, field: .visibility
+        )
+        let duplicateRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: []
+        )
+        let duplicateAdmission = duplicateRuntime.preflightOwnerEffects([
+            SceneScriptOwnerEffects(
+                ownerTarget: duplicateOwnerA,
+                layerMutations: [mutation(
+                    10, dynamic: false, fields: [.visibility],
+                    visible: false, ownerTarget: duplicateOwnerA
+                )]
+            ),
+            SceneScriptOwnerEffects(
+                ownerTarget: duplicateOwnerB,
+                layerMutations: [mutation(
+                    10, dynamic: false, fields: [.visibility],
+                    visible: false, ownerTarget: duplicateOwnerB
+                )]
+            ),
+        ])
+        duplicateRuntime.commit(duplicateAdmission.layerPlan)
+        let afterDuplicate = duplicateRuntime.snapshot()
+        let conflictingRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: []
+        )
+        let conflictingAdmission = conflictingRuntime.preflightOwnerEffects([
+            SceneScriptOwnerEffects(
+                ownerTarget: duplicateOwnerA,
+                layerMutations: [mutation(
+                    10, dynamic: false, fields: [.visibility],
+                    visible: false, ownerTarget: duplicateOwnerA
+                )]
+            ),
+            SceneScriptOwnerEffects(
+                ownerTarget: duplicateOwnerB,
+                layerMutations: [mutation(
+                    10, dynamic: false, fields: [.visibility],
+                    visible: true, ownerTarget: duplicateOwnerB
+                )]
+            ),
+        ])
         let budgetRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
             authoredMutationLayerIDs: [10]
@@ -388,6 +447,10 @@ enum Harness {
         ])
         revisionRuntime.commit(valueOnlyPlan)
         let payload: [String: Any] = [
+            "styleBeforeCommit": styleBeforeCommit,
+            "styleAlphaPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.25),
+            "styleColorPublished": styleAfterCommit.authoredLayerValues[.layer(layerID: 10, field: .color)] == .vector3(1, 1, 1),
+            "styleFailurePreservesCurrent": !succeeded(invalidStyle) && styleAfterFailure.authoredLayerValues == styleAfterCommit.authoredLayerValues,
             "createSucceeded": succeeded(create),
             "priorSnapshotStable": beforeCreate.dynamicLayers.isEmpty,
             "createdIDs": afterCreate.dynamicLayers.map(\.id),
@@ -433,6 +496,17 @@ enum Harness {
             "isolatedBadTextAbsent": afterIsolated.authoredLayerValues[
                 .text(layerID: 10, field: .content)
             ] == nil,
+            "identicalDuplicateOwnersAdmitted":
+                duplicateAdmission.admittedEffects.count == 2
+                    && duplicateAdmission.rejectedOwners.isEmpty,
+            "identicalDuplicateValuePublished": afterDuplicate.authoredLayerValues[
+                .layer(layerID: 10, field: .visibility)
+            ] == .bool(false),
+            "conflictingLaterOwnerRejected":
+                conflictingAdmission.admittedEffects.map(\.ownerTarget)
+                    == [duplicateOwnerA]
+                    && conflictingAdmission.rejectedOwners.map(\.ownerTarget)
+                    == [duplicateOwnerB],
             "fixedPointSeeded": seededFirstHalf && seededSecondHalf,
             "fixedPointExternalRejectsA":
                 fixedPoint.externallyRejectedOwners == [budgetOwnerA],
@@ -542,6 +616,11 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["isolatedDisjointAnglesPublished"])
         self.assertTrue(self.result["isolatedBadTextAbsent"])
 
+    def test_identical_duplicate_owner_writes_coalesce_but_disagreement_rejects(self) -> None:
+        self.assertTrue(self.result["identicalDuplicateOwnersAdmitted"])
+        self.assertTrue(self.result["identicalDuplicateValuePublished"])
+        self.assertTrue(self.result["conflictingLaterOwnerRejected"])
+
     def test_external_rejection_reaches_layer_admission_fixed_point(self) -> None:
         self.assertTrue(self.result["fixedPointSeeded"])
         self.assertTrue(self.result["fixedPointExternalRejectsA"])
@@ -578,6 +657,10 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["valueOnlyRevisionStable"])
 
     def test_topology_revision_tracks_dynamic_projection_only(self) -> None:
+        self.assertTrue(self.result["styleBeforeCommit"])
+        self.assertTrue(self.result["styleAlphaPublished"])
+        self.assertTrue(self.result["styleColorPublished"])
+        self.assertTrue(self.result["styleFailurePreservesCurrent"])
         self.assertTrue(self.result["topologyRevisionStartsAtZero"])
         self.assertTrue(self.result["dynamicTopologyRevisionBumped"])
         self.assertTrue(self.result["authoredValueKeepsTopologyRevision"])

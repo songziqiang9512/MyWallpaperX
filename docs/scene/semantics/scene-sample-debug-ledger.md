@@ -205,6 +205,18 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 同批用户新增样本probe位于`/private/tmp/mwx-new-reports-current`：倒置与黑屏负例保留，上表未通过状态优先于benchmark结构PASS。人物头部错位、视口构图、长稳、多显示器及真实系统音频仍未验收。
 
+## E-V4-SOLAR-AUTHORED-CONTROLLERS：布局控制器与标签样式发布（2026-09-08）
+
+`3662790108`仍未验收。本批关闭的是作者控制器未执行/写入未发布的公共断点，而非太阳系完整视觉：可见性上的有状态Boolean脚本进入现有QuickJS owner；外层String user引用作为既有typed user-property输入交给Boolean脚本，保留其他未支持的双来源拒绝。作者`Page Indicator`的自动隐藏和`Clock`的定位脚本因此执行，最终截图不再有中心PAGE/圆点，时钟移到上方。标签实际是image layer，原先authored handle没有alpha/color setter，写入只停留在JS对象；现沿既有mutation journal、typed frame state和compositor发布，隐藏的中英文/卫星标签不再成堆显示。shared事务跟随提交/丢帧边界，直接shared投影在准备时排到producer之后；没有第二clock/property state。
+
+鼠标准入不再把负零角度拒为旋转；有限旋转/镜像仍由已有逆变换与命中安全门校验。纯身份冲突未执行失败脚本，不再为其重建整个domain并耗尽4096构造预算；真正owner执行失败仍隔离重建，冲突负例保留。稳定owner集合在prepare缓存，实时hit/capture/disabled检查不省略。**本景仍有6个cursor层身份冲突，实际点击/拖动未验收**。28个style/Boolean/QuickJS/generated-RGBA定向测试通过；后继parser/Boolean/cursor 24测试通过。静态循环另有2个正反门：全局const int字面量可证明循环上界，局部遮蔽/修改/动态或超预算上界仍拒绝。轨道shader从dynamicLoop推进到colorContractUnproven，仍是局部passthrough，不能称轨道恢复。
+
+最终签名Debug来自`.codex/DerivedData`，CDHash `9afb366bb3cf0582dcf31b48c674af5fe5bd747b`，executable SHA-256 `8ef8e5b6ecd14a163621534f4393a3a74383c59b001de016ac3632b6ff2b9c05`。隔离运行`/private/tmp/mwx-366-layout-checkpoint/report.json` SHA-256 `3fd06bfc2d453e461b13947eb4f0e5a8753a46090d6e4624af404a4e41b3b838`；after PNG `56f201f31001732e45411e8ef4f19da27dea2c804776701f227ae1c2769c7e5b`。复现使用现有benchmark、真实样本根的只读隔离副本、`newproperty1=false/newproperty48=true`、45秒/after delay40秒；该override不是作者默认状态。284/283/0提交/完成/失败，已有终端graph completion/publication/next-frame记录，但accepted-layer覆盖缺口与effect-local passthrough使报告保持NON-PASS。
+
+**遗留首断点**：轨道及大气的颜色语义证明、球体可见尺寸/资源/变换、曲面与曲环的准确显示合同、真实点击仍开放。`coordinategrid=false`只指作者名为“网格”的天空球，不能用它推断另一组“曲面/曲面x”模型应隐藏。7.49 FPS、main-frame p95 61.59ms、CPU encode p95 50.25ms暴露明显稳定帧成本；没有可比性能改善结论，不能用本批多执行了脚本来豁免性能问题。保留`mwx-366-style-cursor-final`的domain预算负例和`mwx-366-preflight-auto-fixed`的中心布局负例用于回归，不以离开开场或时钟修复宣称整景完成。
+
+结构收口后，vector/property/transform/Boolean 34测试及cursor/source-set/doc-role 24测试通过，code-health通过（只下调已有renderer体量基线，没有扩大上限）。最后注释修正重建的executable SHA-256为`4d1e5f0508f029dd1f45a31643dc9cc73219edb79a790f936dbe0708a4d5d0f4`；`/private/tmp/mwx-366-final-profile`的65秒运行428/427/0，report SHA-256 `55835484300ee1191227c5f855196cf0a23875f5d084d692338769b9a6fe4f19`。其最终after采集缺失，保持该负例；series-0004 PNG `c20d1de6f2d2e4ad75c6fe87045260b1ea8a9069b4a93e49b4619d70a5fdd31a`再次显示上方时钟、无中心PAGE和转动后的相机画面。该运行含3秒进程采样，不能与未采样运行作性能比较；采样定位到相机选择重复构造全场景visibility集合，是后继CPU整改候选，不是已完成优化。
+
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 
 159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。

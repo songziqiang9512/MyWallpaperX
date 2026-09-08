@@ -77,7 +77,13 @@ nonisolated extension SceneScriptQuickJSDomain {
                                         authored: layer.visible ?? true,
                                         snapshot: snapshot
                                     ) ? 1 : 0,
-                                    layer.alpha ?? 1,
+                                    {
+                                        if let resolved = snapshot[.layer(layerID: layer.id, field: .alpha)],
+                                           case let .scalar(value) = resolved.value, value.isFinite {
+                                            return min(max(value, 0), 1)
+                                        }
+                                        return layer.alpha ?? 1
+                                    }(),
                                     textPointer, text.utf8.count,
                                     fontPointer, font.utf8.count,
                                     Double(layer.textStyle?.pointSize ?? 32),

@@ -1,135 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptVectorCandidate: Sendable {
-    let authoredOrdinal: Int
-    let source: String
-    let definition: SceneDynamicTargetDefinition
-    let properties: [String: SceneScriptPropertyInput]
-    let livePropertyInputTargets: Set<SceneDynamicTarget>
-    let hasCurrentAnimation: Bool
-    let dynamicImageReferences: [SceneScriptDynamicImageReference]
-    /// Package-local image model whose proven neutral base-material tint is
-    /// driven by this typed owner. Dynamic instances reuse the target value;
-    /// the model path never selects an algorithm.
-    let dynamicMaterialModelPath: String?
-
-    var allowsDynamicLayerSideEffects: Bool {
-        !dynamicImageReferences.isEmpty
-    }
-}
-
-/// Side-effect-free projection of authored non-scalar typed bindings. Pass-owned
-/// candidates are only metadata until resolved-material admission identifies
-/// an actual consumer; projecting this catalog never evaluates JavaScript.
-nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
-    let candidates: [SceneScriptVectorCandidate]
-    let duplicateTargets: Set<SceneDynamicTarget>
-
-    static let empty = Self(candidates: [])
-
-    init(candidates: [SceneScriptVectorCandidate]) {
-        self.candidates = candidates
-        let counts = Dictionary(grouping: candidates, by: { $0.definition.target })
-            .mapValues(\.count)
-        duplicateTargets = Set(counts.compactMap { target, count in
-            count > 1 ? target : nil
-        })
-    }
-
-    var uniqueCandidates: [SceneScriptVectorCandidate] {
-        candidates.filter { !duplicateTargets.contains($0.definition.target) }
-    }
-
-    var definitions: [SceneDynamicTargetDefinition] {
-        candidates.map(\.definition)
-    }
-
-    var targets: Set<SceneDynamicTarget> {
-        Set(uniqueCandidates.map { $0.definition.target })
-    }
-
-    var passTargets: Set<SceneDynamicTarget> {
-        Set(uniqueCandidates.compactMap { candidate in
-            guard case .effectConstant = candidate.definition.target else {
-                return nil
-            }
-            return candidate.definition.target
-        })
-    }
-
-    var nonPassTargets: Set<SceneDynamicTarget> {
-        targets.subtracting(passTargets)
-    }
-
-    var animationTargets: Set<SceneDynamicTarget> {
-        Set(uniqueCandidates.compactMap { candidate in
-            candidate.hasCurrentAnimation ? candidate.definition.target : nil
-        })
-    }
-
-    func excludingTargets(
-        _ targets: Set<SceneDynamicTarget>
-    ) -> SceneScriptVectorCandidateCatalog {
-        guard !targets.isEmpty else { return self }
-        return .init(candidates: candidates.filter {
-            !targets.contains($0.definition.target)
-        })
-    }
-
-    var admittedScaleLayerIDs: Set<Int> {
-        Set(uniqueCandidates.compactMap { candidate in
-            guard case let .layer(layerID, .scale) = candidate.definition.target else {
-                return nil
-            }
-            return layerID
-        })
-    }
-
-    var dynamicImageModelPaths: Set<String> {
-        Set(uniqueCandidates.flatMap(\.dynamicImageReferences).map(\.modelPath))
-    }
-
-    var dynamicImageMaterialColorTargets: [String: SceneDynamicTarget] {
-        let entries = uniqueCandidates.compactMap { candidate -> (
-            String, SceneDynamicTarget
-        )? in
-            guard let path = candidate.dynamicMaterialModelPath else {
-                return nil
-            }
-            return (path.lowercased(), candidate.definition.target)
-        }
-        let grouped = Dictionary(grouping: entries, by: \.0)
-        return Dictionary(uniqueKeysWithValues: grouped.compactMap { path, values in
-            guard values.count == 1, let target = values.first?.1 else {
-                return nil
-            }
-            return (path, target)
-        })
-    }
-}
-
-nonisolated struct SceneScriptVectorPassCompilation: Sendable {
-    let requestedTargets: Set<SceneDynamicTarget>
-    let instantiatedTargets: Set<SceneDynamicTarget>
-    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-
-    var failedTargets: Set<SceneDynamicTarget> { Set(failures.keys) }
-    var deferredTargets: Set<SceneDynamicTarget> {
-        requestedTargets.subtracting(instantiatedTargets).subtracting(failedTargets)
-    }
-}
-
-nonisolated struct SceneScriptVectorProgramConstruction: @unchecked Sendable {
-    let program: SceneScriptVectorProgram
-    let requestedTargets: Set<SceneDynamicTarget>
-    let instantiatedTargets: Set<SceneDynamicTarget>
-    let failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure]
-
-    var deferredTargets: Set<SceneDynamicTarget> {
-        requestedTargets.subtracting(instantiatedTargets).subtracting(failures.keys)
-    }
-}
-
 nonisolated extension SceneScriptVectorProgram {
     static func project(
         descriptor: SceneRenderDescriptor,
@@ -259,6 +129,8 @@ nonisolated extension SceneScriptVectorProgram {
                 livePropertyInputTargets: [],
                 hasCurrentAnimation: false,
                 dynamicImageReferences: [],
+                requiresStatefulOwner: false,
+                evaluatesAfterSharedProviders: false,
                 dynamicMaterialModelPath: nil
             ))
         }
@@ -301,6 +173,8 @@ nonisolated extension SceneScriptVectorProgram {
             livePropertyInputTargets: [],
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
+            requiresStatefulOwner: false,
+            evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: binding.modelPath
         )
     }
@@ -421,6 +295,10 @@ nonisolated extension SceneScriptVectorProgram {
                 ),
             hasCurrentAnimation: hasCurrentAnimation,
             dynamicImageReferences: [],
+            requiresStatefulOwner: false,
+            evaluatesAfterSharedProviders:
+                properties.isEmpty
+                    && sharedProviderProjectionSource(binding.source),
             dynamicMaterialModelPath: nil
         )
     }
@@ -510,6 +388,8 @@ nonisolated extension SceneScriptVectorProgram {
                 ),
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
+            requiresStatefulOwner: false,
+            evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )
     }
@@ -533,10 +413,11 @@ nonisolated extension SceneScriptVectorProgram {
                 descriptor: descriptor
             ) ?? []
         let isIndependent = independentBooleanValueSource(binding.source)
+        let isStateful = statefulBooleanOwnerSource(binding.source)
         let supportedContentKinds = isIndependent
             ? ["image", "solid", "text"]
             : ["image", "solid", "text", "container"]
-        guard isIndependent || !dynamicImageReferences.isEmpty,
+        guard isIndependent || isStateful || !dynamicImageReferences.isEmpty,
               layer.id == layerID,
               layer.layerIndex == objectIndex,
               layer.visible == authored,
@@ -544,8 +425,7 @@ nonisolated extension SceneScriptVectorProgram {
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
               supportedContentKinds.contains(layer.contentKind),
-              layer.parentID == nil,
-              layer.childLayerIDs.isEmpty,
+              isStateful || (layer.parentID == nil && layer.childLayerIDs.isEmpty),
               case nil = layer.utilityLayer else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
@@ -577,8 +457,42 @@ nonisolated extension SceneScriptVectorProgram {
                 ),
             hasCurrentAnimation: false,
             dynamicImageReferences: dynamicImageReferences,
+            requiresStatefulOwner: isStateful,
+            evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )
+    }
+
+    /// A visibility wrapper may also be the authored scene-state producer for
+    /// later bindings. It runs as an effectful QuickJS owner so `shared` and
+    /// `thisScene` mutations keep using the existing frame journals.
+    private static func statefulBooleanOwnerSource(_ source: String) -> Bool {
+        guard source.utf8.count <= 256 * 1024,
+              source.range(
+                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
+                  options: .regularExpression
+              ) != nil,
+              containsIdentifier("shared", in: source)
+                || containsIdentifier("thisScene", in: source),
+              !source.contains("\\u"), !source.contains("\\x") else {
+            return false
+        }
+        let disallowedCallbacks = [
+            "destroy",
+            "mediaThumbnailChanged", "mediaPlaybackChanged",
+            "mediaPropertiesChanged", "mediaTimelineChanged",
+        ]
+        guard disallowedCallbacks.allSatisfy({ callback in
+            source.range(
+                of: "(?m)(?<![A-Za-z0-9_$])export\\s+function\\s+"
+                    + NSRegularExpression.escapedPattern(for: callback)
+                    + "\\s*\\(",
+                options: .regularExpression
+            ) == nil
+        }) else { return false }
+        return ["globalThis", "eval", "Function", "constructor"].allSatisfy {
+            !containsIdentifier($0, in: source)
+        }
     }
 
     /// Boolean value-return owners remain isolated from shared/global state
@@ -603,6 +517,43 @@ nonisolated extension SceneScriptVectorProgram {
         return mutableDependencies.allSatisfy {
             !containsIdentifier($0, in: source)
         }
+    }
+
+    /// This is deliberately narrower than general Vec3 execution. It does not
+    /// interpret a visual algorithm; it identifies only direct, side-effect-
+    /// free `shared` component reads whose missing first value can become ready
+    /// after an earlier/later authored producer commits. Anything with local
+    /// state, calls, control flow or host writes keeps the normal fail-once
+    /// owner policy.
+    private static func sharedProviderProjectionSource(_ source: String) -> Bool {
+        guard source.utf8.count <= 65_536,
+              containsIdentifier("shared", in: source),
+              !source.contains("\\u"), !source.contains("\\x") else {
+            return false
+        }
+        var normalized = source
+        let removablePatterns = [
+            #"(?s)/\*.*?\*/"#,
+            #"(?m)//[^\r\n]*"#,
+            #"(?m)^\s*['\"]use strict['\"];?\s*$"#,
+            #"(?m)^\s*export\s+let\s+__workshopId\s*=\s*['\"][^'\"]*['\"];?\s*$"#,
+        ]
+        for pattern in removablePatterns {
+            normalized = normalized.replacingOccurrences(
+                of: pattern,
+                with: "",
+                options: .regularExpression
+            )
+        }
+        normalized = normalized.replacingOccurrences(
+            of: #"\s+"#,
+            with: "",
+            options: .regularExpression
+        )
+        return normalized.range(
+            of: #"^exportfunctionupdate\(value\)\{(?:value\.(?:x|y|z)=[+-]?shared(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+;){1,3}returnvalue;?\}$"#,
+            options: .regularExpression
+        ) != nil
     }
 
     private static func containsIdentifier(
@@ -709,6 +660,8 @@ nonisolated extension SceneScriptVectorProgram {
                 ),
             hasCurrentAnimation: false,
             dynamicImageReferences: [],
+            requiresStatefulOwner: false,
+            evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )
     }

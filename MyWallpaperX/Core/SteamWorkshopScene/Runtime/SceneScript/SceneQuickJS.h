@@ -79,6 +79,8 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY = 1u << 3,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT = 1u << 4,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT = 1u << 5,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA = 1u << 6,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR = 1u << 7,
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -252,6 +254,22 @@ void mwx_scene_quickjs_domain_set_cancellation_check(
 void mwx_scene_quickjs_domain_reset_budget(
     MWXSceneQuickJSDomain *domain,
     uint64_t interrupt_budget
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+void mwx_scene_quickjs_domain_commit_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain
+);
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_discard_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
 );
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
@@ -494,6 +512,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t text_length,
     const char *font,
     size_t font_length,
+    double alpha,
+    const double color[3],
     char *diagnostic,
     size_t diagnostic_capacity
 );

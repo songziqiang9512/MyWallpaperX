@@ -1,6 +1,45 @@
 import Foundation
 
 nonisolated enum SceneAuthoredShaderStaticLoopAdmission {
+    /// Compile-time facts only. Do not substitute a global through a local
+    /// shadow or a mutable argument. Unsupported declaration shapes stay out.
+    static func globalIntegerConstants(
+        tokens: [SceneAuthoredShaderToken],
+        before functionStart: Int,
+        functionBody: Range<Int>,
+        defines: [String: String],
+        mutableArgumentNames: Set<String>
+    ) -> [String: String] {
+        var depth = 0
+        var occurrences: [String: Int] = [:]
+        var candidates: [String: String] = [:]
+        for index in tokens.indices {
+            let text = tokens[index].text
+            if text == "{" { depth += 1 }
+            if depth == 0 {
+                occurrences[text, default: 0] += 1
+                if index + 5 < functionStart,
+                   text == "const", tokens[index + 1].text == "int",
+                   tokens[index + 3].text == "=", tokens[index + 5].text == ";",
+                   let value = integer(tokens[index + 4].text, defines: defines) {
+                    candidates[tokens[index + 2].text] = String(value)
+                }
+            }
+            if text == "}" { depth -= 1 }
+        }
+        return candidates.filter { name, _ in
+            guard occurrences[name] == 1, !mutableArgumentNames.contains(name) else { return false }
+            return !functionBody.contains { index in
+                guard tokens[index].text == name else { return false }
+                let previous = index > functionBody.lowerBound ? tokens[index - 1].text : ""
+                let next = index + 1 < functionBody.upperBound ? tokens[index + 1].text : ""
+                return SceneAuthoredShaderValueType(authoredName: previous) != nil
+                    || previous == "," || ["=", "+=", "-=", "*=", "/=", "%=", "++", "--"].contains(next)
+                    || ["++", "--"].contains(previous)
+            }
+        }
+    }
+
     static func iterations(
         header: Range<Int>,
         body: Range<Int>,

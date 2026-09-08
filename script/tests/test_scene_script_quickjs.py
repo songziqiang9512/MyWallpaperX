@@ -597,10 +597,10 @@ int main(void) {
     if (authored_budget_domain != NULL) {
         MWXSceneQuickJSResult budget_catalog_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
-                authored_budget_domain, 65, diagnostic, sizeof(diagnostic)
+                authored_budget_domain, 257, diagnostic, sizeof(diagnostic)
             );
         for (uint32_t index = 0;
-             index < 65 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
+             index < 257 && budget_catalog_result == MWX_SCENE_QUICKJS_OK;
              ++index) {
             char name[32] = {0};
             snprintf(name, sizeof(name), "authored-%u", index);
@@ -615,7 +615,7 @@ int main(void) {
             "authored mutation budget catalog", diagnostic
         );
         const char *authored_budget_source =
-            "export function update(value){for(let i=0;i<65;i+=1)"
+            "export function update(value){for(let i=0;i<257;i+=1)"
             "thisScene.getLayerByID(1000+i).visible=false;return value;}";
         MWXSceneQuickJSOwner *authored_budget = mwx_scene_quickjs_owner_create(
             authored_budget_domain, authored_budget_source,
@@ -630,11 +630,11 @@ int main(void) {
             );
             failures += update(
                 authored_budget, 61, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
-                "authored mutation budget rejects target 65"
+                "authored mutation budget rejects target 257"
             );
             failures += check(
                 mwx_scene_quickjs_owner_layer_mutation_count(authored_budget) == 0,
-                "authored mutation overflow rolls back 64 staged targets", diagnostic
+                "authored mutation overflow rolls back 256 staged targets", diagnostic
             );
             mwx_scene_quickjs_owner_destroy(authored_budget);
         }
@@ -1290,7 +1290,9 @@ int main(void) {
         "if(listed.length!==2||listed[0].id!==17||listed[1].id!==42||"
         "listed[0].getParent()!==undefined||layer.getParent().id!==17||"
         "thisScene.getLayerCount()!==2||thisScene.getLayer(1).id!==42||"
-        "thisScene.getLayerByID(42).name!=='C1')throw new Error('layer identity');"
+        "thisScene.getLayerByID(42).name!=='C1'||"
+        "thisScene.getLayer('missing')!==null||thisScene.getLayer(9)!==null||"
+        "thisScene.getLayerByID(999)!==null)throw new Error('layer identity');"
         "return layer.origin.copy().add(new Vec3(1,1,1));}";
     MWXSceneQuickJSOwner *layer_owner = mwx_scene_quickjs_owner_create(
         domain, layer_source, strlen(layer_source),
@@ -2443,7 +2445,7 @@ int main(void) {
         "try{layer.font='replacement';}catch(error){forgedFontRejected=true;}"
         "try{layer.pointsize=99;}catch(error){pointSizeRejected=true;}"
         "if(!forgedFontRejected||!pointSizeRejected||"
-        "layer.alpha!==undefined||layer.solid!==undefined)"
+        "typeof layer.alpha!=='number'||layer.solid!==undefined)"
         "throw new Error('unsupported authored fields opened');"
         "return value;}";
     MWXSceneQuickJSOwner *authored_peer = mwx_scene_quickjs_owner_create(
@@ -2518,7 +2520,8 @@ int main(void) {
     const char *missing_target_rollback_source =
         "export function update(value){const layer=thisScene.getLayerByID(17);"
         "layer.origin=new Vec3(30,31,32);layer.text='pending';"
-        "thisScene.getLayer('missing-authored-target');return value;}";
+        "thisScene.getLayer('missing-authored-target').scale=new Vec3(9,9,9);"
+        "return value;}";
     MWXSceneQuickJSOwner *missing_target_rollback = mwx_scene_quickjs_owner_create(
         domain, missing_target_rollback_source,
         strlen(missing_target_rollback_source),

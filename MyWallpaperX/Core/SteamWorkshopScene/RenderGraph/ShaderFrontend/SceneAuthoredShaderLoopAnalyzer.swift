@@ -41,11 +41,24 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
         })
         var directWork: [Int: FunctionWork] = [:]
         for index in functions.indices {
+            let mutableNames = mutableArgumentNames(
+                in: functions[index].bodyRange,
+                tokens: tokens,
+                functionIndicesByName: indicesByName,
+                mutableFactsByFunctionIndex: mutableFacts
+            )
+            let loopConstants = SceneAuthoredShaderStaticLoopAdmission.globalIntegerConstants(
+                tokens: tokens,
+                before: functions[index].headerRange.lowerBound,
+                functionBody: functions[index].bodyRange,
+                defines: defines,
+                mutableArgumentNames: mutableNames
+            ).merging(defines) { _, defined in defined }
             let result = functionWork(
                 in: functions[index].bodyRange,
                 functionBody: functions[index].bodyRange,
                 tokens: tokens,
-                defines: defines,
+                defines: loopConstants,
                 declarations: declarations,
                 parameterArrays: SceneAuthoredShaderBoundedLoopAdmission.parameterArrays(
                     in: functions[index].parameterRange,
@@ -54,12 +67,7 @@ nonisolated enum SceneAuthoredShaderLoopAnalyzer {
                 parameterRange: functions[index].parameterRange,
                 provenRuntimeLoopBounds: provenRuntimeLoopBounds,
                 functionIndicesByName: indicesByName,
-                mutableArgumentNames: mutableArgumentNames(
-                    in: functions[index].bodyRange,
-                    tokens: tokens,
-                    functionIndicesByName: indicesByName,
-                    mutableFactsByFunctionIndex: mutableFacts
-                ),
+                mutableArgumentNames: mutableNames,
                 multiplier: 1,
                 stage: stage
             )

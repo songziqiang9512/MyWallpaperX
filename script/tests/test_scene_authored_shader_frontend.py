@@ -1841,6 +1841,29 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         self.assertEqual(output["staticLoopWork"], 30)
         self.assertIsNone(output.get("metalError"))
 
+    def test_global_integer_constant_bounds_keep_scope_and_budget(self):
+        fragment = """
+            const int steps = 12;
+            void main() {
+                float result = 0.0;
+                for (int i = 1; i <= steps; ++i) { result += 0.01; }
+                gl_FragColor = vec4(result);
+            }
+        """
+        output = self.compile(VERTEX_SOURCE, fragment)
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertEqual(output["staticLoopWork"], 12)
+        self.assertIsNone(output.get("metalError"))
+        for bad in [
+            fragment.replace("const int steps = 12;", "uniform int steps;"),
+            fragment.replace("float result", "int steps = int(gl_FragCoord.x); float result"),
+            fragment.replace("12;", "257;"),
+            fragment.replace("float result", "steps += 1; float result"),
+        ]:
+            with self.subTest(fragment=bad):
+                rejected = self.compile(VERTEX_SOURCE, bad, metal=False)
+                self.assertIn("dynamicLoop", rejected["diagnosticCodes"])
+
     def test_static_loop_allows_read_only_helper_argument(self):
         output = self.compile(
             VERTEX_SOURCE,

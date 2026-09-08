@@ -325,12 +325,19 @@ extension SceneDesktopWallpaperHost {
             surface: sceneScriptSurfaceInput
         )
         launchContext.sceneScriptStorageSession?.beginFrameTransaction()
+        let sharedFrameTransactionFailure =
+            launchContext.propertyVectorScriptProgram.requiresSharedFrameTransaction
+            ? launchContext.propertyVectorScriptProgram.domain?
+                .beginSharedFrameTransaction()
+            : nil
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
             .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
-            try launchContext.propertyVectorScriptProgram.domain?
-                .publishLayerSnapshot(
+            if let sharedFrameTransactionFailure {
+                throw sharedFrameTransactionFailure
+            }
+            try launchContext.propertyVectorScriptProgram.domain?.publishLayerSnapshot(
                     preliminaryForSceneScript,
                     descriptor: launchContext.runtimeInput.renderDescriptor,
                     videoSnapshots: sceneScriptVideoSnapshots,
@@ -716,6 +723,8 @@ extension SceneDesktopWallpaperHost {
             restoreSceneScriptProgramFrameState(launchContext, sceneScriptProgramFrameState)
             restoreSceneScriptProgramTimerFrameState(launchContext, sceneScriptProgramTimerFrameState)
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
+            _ = launchContext.propertyVectorScriptProgram.domain?
+                .discardSharedFrameTransaction()
             surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }

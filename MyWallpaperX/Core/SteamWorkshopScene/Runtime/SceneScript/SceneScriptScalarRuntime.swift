@@ -92,16 +92,12 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     func resetBudget(_ interruptBudget: UInt64) {
         mwx_scene_quickjs_domain_reset_budget(handle, interruptBudget)
     }
-    func adoptCurrentThread() {
-        mwx_scene_quickjs_domain_adopt_current_thread(handle)
-    }
+    func adoptCurrentThread() { mwx_scene_quickjs_domain_adopt_current_thread(handle) }
     func discardCommittedLayerSnapshot() {
         guard mwx_scene_quickjs_domain_rollback_layer_snapshot(handle) else { return }
         if layerSnapshotGeneration > 0 { layerSnapshotGeneration -= 1 }
     }
-    func finalizeCommittedLayerSnapshot() {
-        mwx_scene_quickjs_domain_finalize_layer_snapshot(handle)
-    }
+    func finalizeCommittedLayerSnapshot() { mwx_scene_quickjs_domain_finalize_layer_snapshot(handle) }
     func installConstructionBoundaryCheck(
         _ check: @escaping @Sendable () throws -> Void
     ) {
@@ -128,6 +124,7 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
         let bytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
         return String(decoding: bytes, as: UTF8.self)
     }
+
 }
 
 nonisolated enum SceneScriptScalarRuntimeFailure: Error, Equatable, Sendable {

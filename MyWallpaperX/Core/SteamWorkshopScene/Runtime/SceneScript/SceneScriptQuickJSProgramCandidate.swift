@@ -346,7 +346,7 @@ nonisolated struct SceneScriptQuickJSProgramCandidate: @unchecked Sendable {
                     failures: &cursorFailures,
                     rejected: &rejectedCursorLayerIDs
                 )
-                continue
+                if cursorConstruction.requiresDomainReconstruction { continue }
             }
             guard cursorConstruction.deferredLayerIDs.isEmpty else {
                 return unavailable(

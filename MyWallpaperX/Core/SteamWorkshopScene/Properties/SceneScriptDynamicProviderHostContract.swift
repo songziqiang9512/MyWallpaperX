@@ -1,8 +1,8 @@
 import Foundation
 
 /// Exact outer-wrapper shapes shared by property routing and the SceneScript
-/// scalar/vector candidate catalogs. A non-null outer `user` remains a
-/// conflicting producer and is rejected while the binding IR is parsed.
+/// scalar/vector candidate catalogs. Boolean visibility may receive an outer
+/// user property through the existing lower-priority typed input channel.
 nonisolated enum SceneScriptDynamicProviderHostContract {
     enum HostKind: Equatable, Sendable {
         case objectScalar
@@ -22,7 +22,10 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
     }
 
     static func supports(keys: [String], host: HostKind) -> Bool {
-        (host == .particleRate && keys == ["script", "value"])
+        (host == .objectVisibility
+            && (keys == ["script", "user", "value"]
+                || keys == ["script", "scriptproperties", "user", "value"]))
+            || (host == .particleRate && keys == ["script", "value"])
             || (host == .particleRate
                 && keys == ["script", "user", "value"])
             || keys == ["script", "scriptproperties", "value"]
@@ -34,5 +37,6 @@ nonisolated enum SceneScriptDynamicProviderHostContract {
         let keys = wrapper.keys.sorted()
         guard supports(keys: keys, host: host) else { return false }
         return !keys.contains("user") || wrapper["user"] is NSNull
+            || (host == .objectVisibility && wrapper["user"] is String)
     }
 }

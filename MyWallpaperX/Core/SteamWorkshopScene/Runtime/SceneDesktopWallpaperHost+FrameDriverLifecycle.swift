@@ -162,6 +162,8 @@ extension SceneDesktopWallpaperHost {
         )
         finalizeSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.commitFrameTransaction()
+        context.propertyVectorScriptProgram.domain?
+            .commitSharedFrameTransaction()
     }
 
     func teardownSceneScriptOwners(
@@ -174,6 +176,8 @@ extension SceneDesktopWallpaperHost {
         discardSceneScriptLayerMutations(context)
         discardSceneScriptLayerSnapshot(context)
         context.sceneScriptStorageSession?.discardFrameTransaction()
+        _ = context.propertyVectorScriptProgram.domain?
+            .discardSharedFrameTransaction()
         let hostTime = CACurrentMediaTime()
 #if DEBUG
         let wallDate = Self.debugWallDateOverride ?? Date()

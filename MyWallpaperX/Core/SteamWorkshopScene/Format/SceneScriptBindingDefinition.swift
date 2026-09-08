@@ -371,8 +371,13 @@ nonisolated enum SceneScriptBindingIRParser {
         } else {
             directTextPropertyOwner = false
         }
+        let directBooleanVisibilityOwner = owner.kind == .object
+            && path.last == .key("visible")
+            && path.count == 3
+            && wrapper["user"] is String
+            && SceneJSONValue(jsonObject: wrapper["value"] as Any)?.boolValue != nil
         if let userValue = wrapper["user"], !(userValue is NSNull),
-           !directTextPropertyOwner {
+           !directTextPropertyOwner && !directBooleanVisibilityOwner {
             diagnostics.append(.init(code: .conflictingSources, targetPath: path))
             return
         }

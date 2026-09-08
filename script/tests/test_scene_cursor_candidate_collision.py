@@ -51,6 +51,14 @@ enum Harness {
             generation: 41
         )
         let report = candidate.constructionReport
+        let preflight = SceneScriptCursorProgram.compileCandidate(
+            domain: candidate.domain,
+            descriptor: descriptor,
+            scriptBindings: bindings,
+            borrowedOwners: candidate.vectorProgram.cursorOwnerRegistrations,
+            rejectedLayerIDs: [],
+            generation: 41
+        )
         let frame = SceneScriptFrameInput(
             timing: .init(
                 wallDate: Date(timeIntervalSince1970: 0),
@@ -73,6 +81,7 @@ enum Harness {
         )
         let payload: [String: Any] = [
             "domainCommitted": candidate.domain != nil,
+            "preflightRequiresReconstruction": preflight.requiresDomainReconstruction,
             "complete": report.isComplete,
             "vectorInstantiated": report.instantiatedVectorTargets.count,
             "cursorExpected": report.expectedCursorLayerIDs.sorted(),
@@ -109,6 +118,7 @@ enum Harness {
             visible: true,
             originXYZ: [0, 0, 0],
             scaleXYZ: [1, 1, 1],
+            anglesXYZ: id == 40 ? [0, -0.0, 25] : [0, -0.0, 0],
             scaleHasScript: false,
             alpha: 1,
             effects: [],
@@ -230,6 +240,7 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
             text=True,
         ).stdout)
         self.assertTrue(result["domainCommitted"])
+        self.assertFalse(result["preflightRequiresReconstruction"])
         self.assertTrue(result["complete"])
         self.assertEqual(result["vectorInstantiated"], 4)
         self.assertEqual(result["cursorExpected"], [10, 20, 30])

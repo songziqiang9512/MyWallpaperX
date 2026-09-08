@@ -8,6 +8,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private(set) var inputTargets: Set<SceneDynamicTarget>
     private(set) var inputValueTypes: Set<SceneDynamicValueType>
     private var bindingIndicesByTarget: [SceneDynamicTarget: Int] = [:]
+    private var evaluationBindingIndices: [Int]
     let domain: SceneScriptQuickJSDomain?
     let generation: UInt64
     let descriptor: SceneRenderDescriptor
@@ -28,14 +29,6 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     private var cachedUserPropertiesJSONRevision: UInt64?
     private var cachedUserPropertiesJSON: String?
     private var scriptPropertiesJSONCache = SceneScriptPropertyInputJSONCache()
-    var hasAudioConsumers: Bool {
-        bindings.contains(where: { $0.owner.hasAudioRegistration })
-    }
-    var livePropertyInputTargets: Set<SceneDynamicTarget> {
-        bindings.reduce(into: Set<SceneDynamicTarget>()) {
-            $0.formUnion($1.livePropertyInputTargets)
-        }
-    }
     var activeLivePropertyInputTargets: Set<SceneDynamicTarget> {
         bindings.reduce(into: Set<SceneDynamicTarget>()) {
             if !disabledTargets.contains($1.definition.target) {
@@ -52,7 +45,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
     ) {
         self.domain = domain
         self.descriptor = descriptor
-        self.bindings = bindings; self.generation = generation; definitions = bindings.map(\.definition)
+        self.bindings = bindings
+        evaluationBindingIndices = Array(bindings.indices)
+        self.generation = generation; definitions = bindings.map(\.definition)
         inputTargets = Set(bindings.map { $0.definition.target }); inputValueTypes = Set(bindings.map { $0.definition.valueType })
         bindingIndicesByTarget = Dictionary(uniqueKeysWithValues: bindings.enumerated().map { ($0.element.definition.target, $0.offset) })
         userPropertyKinds = Dictionary(
@@ -235,6 +230,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                             ($0.authoredPath.lowercased(), $0.modelPath)
                         }
                       ),
+                      allowsStatefulLayerSideEffects:
+                        candidate.requiresStatefulOwner,
                       generation: generation,
                       budget: budget
                 )
@@ -256,6 +253,9 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 handlesMediaProperties: owner.handlesMediaProperties,
                 handlesMediaTimeline: owner.handlesMediaTimeline,
                 dynamicImageReferences: candidate.dynamicImageReferences,
+                requiresStatefulOwner: candidate.requiresStatefulOwner,
+                evaluatesAfterSharedProviders:
+                    candidate.evaluatesAfterSharedProviders,
                 owner: owner
             ))
             bindingIndicesByTarget[target] = bindings.count - 1
@@ -266,6 +266,11 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         // not the empty construction seed; ordinary frames only read these.
         inputTargets = Set(definitions.map(\.target))
         inputValueTypes = Set(definitions.map(\.valueType))
+        evaluationBindingIndices = bindings.indices.filter {
+            !bindings[$0].evaluatesAfterSharedProviders
+        } + bindings.indices.filter {
+            bindings[$0].evaluatesAfterSharedProviders
+        }
         return failures
     }
     func evaluate(
@@ -298,11 +303,16 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
-        let selectedBindings: ArraySlice<SceneScriptVectorBinding>
-        if let targetFilter, let index = bindingIndicesByTarget[targetFilter] { selectedBindings = bindings[index...index] }
-        else if targetFilter != nil { selectedBindings = bindings[0..<0] }
-        else { selectedBindings = bindings[...] }
-        for binding in selectedBindings {
+        let selectedBindingIndices: [Int]
+        if let targetFilter, let index = bindingIndicesByTarget[targetFilter] {
+            selectedBindingIndices = [index]
+        } else if targetFilter != nil {
+            selectedBindingIndices = []
+        } else {
+            selectedBindingIndices = evaluationBindingIndices
+        }
+        for bindingIndex in selectedBindingIndices {
+            let binding = bindings[bindingIndex]
             let target = binding.definition.target
             if excludedTargets.contains(target) { continue }
             if disabledTargets.contains(target) { continue }
@@ -778,22 +788,4 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         }
     }
 
-    func teardown(
-        frame: SceneScriptFrameInput,
-        effectivePropertyValues: [String: SceneUserPropertyValue],
-        userPropertiesJSON: String
-    ) -> [SceneScriptOwnerTeardownOutcome] {
-        bindings.map { binding in
-            let propertiesJSON =
-                SceneScriptPropertyInputCodec.scriptPropertiesJSON(
-                binding.properties,
-                effectiveValues: effectivePropertyValues
-            ) ?? ""
-            return binding.owner.teardown(
-                frame: frame,
-                scriptPropertiesJSON: propertiesJSON,
-                userPropertiesJSON: userPropertiesJSON
-            )
-        }
-    }
 }

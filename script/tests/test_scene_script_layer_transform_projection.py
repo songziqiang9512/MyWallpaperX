@@ -24,6 +24,7 @@ SOURCES = [
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateCatalog.swift",
+    SCENE / "Runtime/SceneScript/SceneScriptVectorCandidateModels.swift",
 ]
 
 HARNESS = r'''

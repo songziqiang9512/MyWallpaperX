@@ -22,10 +22,12 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     private let budget: SceneScriptScalarBudget
     private let valueType: SceneDynamicValueType
     private let dynamicImagePathsByAuthoredIdentity: [String: String]
+    private let allowsStatefulLayerSideEffects: Bool
     private var lastAudioGeneration: UInt64?
 
     var allowsDynamicLayerSideEffects: Bool {
-        !dynamicImagePathsByAuthoredIdentity.isEmpty
+        allowsStatefulLayerSideEffects
+            || !dynamicImagePathsByAuthoredIdentity.isEmpty
     }
 
     init(
@@ -36,6 +38,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         effectNames: [String?],
         hasCurrentAnimation: Bool = false,
         dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
+        allowsStatefulLayerSideEffects: Bool = false,
         generation: UInt64,
         budget: SceneScriptScalarBudget
     ) throws {
@@ -49,11 +52,13 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         self.valueType = valueType
         self.dynamicImagePathsByAuthoredIdentity =
             dynamicImagePathsByAuthoredIdentity
+        self.allowsStatefulLayerSideEffects = allowsStatefulLayerSideEffects
         try domain.checkConstructionBoundary()
         var diagnostic = [CChar](repeating: 0, count: 512)
         var creationResult = MWX_SCENE_QUICKJS_INVALID_ARGUMENT
         let created = source.withCString {
-            if valueType == .bool && !dynamicImagePathsByAuthoredIdentity.isEmpty {
+            if valueType == .bool && (allowsStatefulLayerSideEffects
+                || !dynamicImagePathsByAuthoredIdentity.isEmpty) {
                 mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
                     domain.handle, $0, source.utf8.count, generation,
                     budget.interruptBudget, &creationResult,
@@ -143,8 +148,10 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                 guard hasValueHook, !handlesDestroy,
                       !handlesMediaThumbnail, !handlesMediaPlayback,
                       !handlesMediaProperties, !handlesMediaTimeline,
-                      exportedCursorEvents.isEmpty,
+                      (allowsStatefulLayerSideEffects
+                        || exportedCursorEvents.isEmpty),
                       (dynamicImagePathsByAuthoredIdentity.isEmpty
+                        && !allowsStatefulLayerSideEffects
                         ? !ownerHasAudioRegistration
                         : true) else {
                     throw SceneScriptScalarRuntimeFailure.invalidSource
@@ -675,6 +682,8 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                                     baseline.text.utf8.count,
                                     fontPointer,
                                     baseline.font.utf8.count,
+                                    baseline.alpha,
+                                    [baseline.color.x, baseline.color.y, baseline.color.z],
                                     &diagnostic,
                                     diagnostic.count
                                 )

@@ -813,6 +813,7 @@ class SceneScriptBindingParserTests(unittest.TestCase):
             encoding="utf-8",
         )
         generic_binary = directory / "scene-script-binding-generic"
+        cls.generic_binary = generic_binary
         compile_swift(DOCUMENT_SOURCES, generic_harness, generic_binary)
         generic_completed = subprocess.run(
             [str(generic_binary), str(generic_scene)],
@@ -886,6 +887,22 @@ class SceneScriptBindingParserTests(unittest.TestCase):
         )
         self.assertEqual(self.objects[20]["displayScriptFields"], [])
         self.assertEqual(self.objects[30]["displayScriptFields"], [])
+
+    def test_boolean_visibility_retains_outer_user_as_typed_input(self) -> None:
+        fixture = {"version": 3, "objects": [{
+            "id": 71, "image": "models/user/example.json",
+            "visible": {"script": RAW_SOURCE, "user": "enabled", "value": True},
+            "alpha": {"script": RAW_SOURCE, "user": "alpha", "value": 1},
+        }]}
+        path = Path(self.temporary_directory.name) / "visibility-user.json"
+        path.write_text(json.dumps(fixture), encoding="utf-8")
+        result = json.loads(subprocess.run(
+            [str(self.generic_binary), str(path)], check=True,
+            capture_output=True, text=True,
+        ).stdout)
+        self.assertEqual(len(result["bindings"]), 1)
+        self.assertEqual(result["bindings"][0]["targetKey"], "visible")
+        self.assertEqual(result["bindings"][0]["wrapperKeys"], ["script", "user", "value"])
 
     def test_document_ir_preserves_all_verified_target_shapes(self) -> None:
         bindings = self.generic["bindings"]

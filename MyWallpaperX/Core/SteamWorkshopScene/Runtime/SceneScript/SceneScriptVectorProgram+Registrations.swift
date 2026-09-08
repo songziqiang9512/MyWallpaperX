@@ -1,6 +1,17 @@
 import Foundation
 
 extension SceneScriptVectorProgram {
+    var hasAudioConsumers: Bool {
+        bindings.contains(where: { $0.owner.hasAudioRegistration })
+    }
+    var requiresSharedFrameTransaction: Bool {
+        bindings.contains(where: \.requiresStatefulOwner)
+    }
+    var livePropertyInputTargets: Set<SceneDynamicTarget> {
+        bindings.reduce(into: Set<SceneDynamicTarget>()) {
+            $0.formUnion($1.livePropertyInputTargets)
+        }
+    }
     var admittedScaleLayerIDs: Set<Int> {
         Set(bindings.compactMap { binding in
             guard case let .layer(layerID, .scale) = binding.definition.target else {
@@ -56,6 +67,24 @@ extension SceneScriptVectorProgram {
                 layerID: layerID,
                 authoredOrder: authoredOrder,
                 owner: binding.owner
+            )
+        }
+    }
+    func teardown(
+        frame: SceneScriptFrameInput,
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        userPropertiesJSON: String
+    ) -> [SceneScriptOwnerTeardownOutcome] {
+        bindings.map { binding in
+            let propertiesJSON =
+                SceneScriptPropertyInputCodec.scriptPropertiesJSON(
+                binding.properties,
+                effectiveValues: effectivePropertyValues
+            ) ?? ""
+            return binding.owner.teardown(
+                frame: frame,
+                scriptPropertiesJSON: propertiesJSON,
+                userPropertiesJSON: userPropertiesJSON
             )
         }
     }

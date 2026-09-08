@@ -347,6 +347,15 @@ enum Harness {
                 source: "export function update(value) { return shared.enabled; }"
             )]
         )
+        let statefulParented = SceneScriptVectorProgram.project(
+            descriptor: descriptor(parentID: 99, contentKind: "container"),
+            scriptBindings: [binding(source: """
+                export function update(value) {
+                    shared.enabled = true;
+                    return value;
+                }
+                """)]
+        )
         let handleUpdate = SceneScriptVectorProgram.project(
             descriptor: descriptor(),
             scriptBindings: [binding(
@@ -370,6 +379,25 @@ enum Harness {
                 """)],
             userPropertyDefinitions: [],
             generation: 9
+        )
+        let statefulCursorProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                export function cursorDown() { shared.dragging = true; }
+                export function cursorUp() { shared.dragging = false; }
+                export function update(value) {
+                    shared.angle = (shared.angle || 0) + 1;
+                    return value;
+                }
+                """)],
+            userPropertyDefinitions: [],
+            generation: 13
+        )
+        let statefulCursor = statefulCursorProgram.evaluate(
+            inputs: [target: .bool(false)],
+            effectivePropertyValues: [:],
+            frame: frame(runtime: 2)
         )
         let dynamicSource = """
             export let __workshopId = '2727665642';
@@ -395,6 +423,11 @@ enum Harness {
                 const peer = thisScene.getLayer('peer');
                 peer.scale = new Vec3(4, 5, 1);
                 peer.visible = false;
+                peer.alpha = 0.25;
+                peer.color = new Vec3(0.2, 0.4, 0.6);
+                if (peer.alpha !== 0.25 || peer.color.y !== 0.4) {
+                    throw new Error('authored style read-your-writes lost');
+                }
                 peer.text = 'changed';
                 for (let i = 0; i < bars.length; ++i) {
                     bars[i].origin = new Vec3(i * 10, 0, 0);
@@ -414,6 +447,52 @@ enum Harness {
             inputs: [target: .bool(true)],
             effectivePropertyValues: [:],
             frame: frame(runtime: 2)
+        )
+        let sharedTransactionDomain = try SceneScriptQuickJSDomain()
+        let failedStyleProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(), descriptor: dynamicImageDescriptor(),
+            scriptBindings: [binding(source: """
+                export function update(value) {
+                    thisScene.getLayer('peer').alpha = 0.2;
+                    shared.styleAttempt = true;
+                    if (value) throw new Error('local failure after style write');
+                    return value;
+                }
+                """, authored: true)],
+            userPropertyDefinitions: [], generation: 17
+        )
+        let failedStyle = failedStyleProgram.evaluate(inputs: [target: .bool(true)],
+            effectivePropertyValues: [:], frame: frame(runtime: 2))
+        let sharedTransactionProgram = SceneScriptVectorProgram.compile(
+            domain: sharedTransactionDomain,
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                export function update(value) {
+                    shared.counter = (shared.counter || 0) + 1;
+                    return shared.counter === 1;
+                }
+                """)],
+            userPropertyDefinitions: [],
+            generation: 12
+        )
+        let sharedTransactionBeginFailure =
+            sharedTransactionDomain.beginSharedFrameTransaction()
+        let sharedTransactionFirst = sharedTransactionProgram.evaluate(
+            inputs: [target: .bool(false)], effectivePropertyValues: [:],
+            frame: frame(runtime: 3)
+        )
+        let sharedTransactionDiscardFailure =
+            sharedTransactionDomain.discardSharedFrameTransaction()
+        let sharedTransactionRetryBeginFailure =
+            sharedTransactionDomain.beginSharedFrameTransaction()
+        let sharedTransactionRetry = sharedTransactionProgram.evaluate(
+            inputs: [target: .bool(false)], effectivePropertyValues: [:],
+            frame: frame(runtime: 3)
+        )
+        sharedTransactionDomain.commitSharedFrameTransaction()
+        let sharedTransactionCommitted = sharedTransactionProgram.evaluate(
+            inputs: [target: .bool(false)], effectivePropertyValues: [:],
+            frame: frame(runtime: 4)
         )
         let teardown = program.teardown(
             frame: frame(runtime: 3),
@@ -444,21 +523,48 @@ enum Harness {
             "shadowedNamedConsumerProjected": shadowedNamedConsumer.targets.count,
             "cursorOnlyProjected": cursorOnly.targets.count,
             "sharedUpdateProjected": sharedUpdate.targets.count,
+            "statefulParentedProjected": statefulParented.targets.count,
             "handleUpdateProjected": handleUpdate.targets.count,
             "dynamicGlobalWriteProjected": dynamicGlobalWrite.targets.count,
             "eventfulDefinitions": eventfulProgram.definitions.count,
+            "statefulCursorDefinitions":
+                statefulCursorProgram.definitions.count,
+            "statefulCursorValue":
+                boolValue(statefulCursor, target: target) as Any,
+            "statefulCursorRegistrationCount":
+                statefulCursorProgram.cursorOwnerRegistrations.count,
+            "statefulCursorEvents": statefulCursorProgram
+                .cursorOwnerRegistrations.first?.owner.exportedCursorEvents
+                .map(\.callbackName).sorted() ?? [],
             "dynamicDefinitions": dynamicProgram.definitions.count,
             "dynamicHasAudio": dynamicProgram.hasAudioConsumers,
             "dynamicValue": boolValue(dynamic, target: target) as Any,
             "dynamicLayerCount": dynamic.layerMutations.count,
+            "authoredStyleAlpha": dynamic.layerMutations.first(where: { !$0.isDynamic && $0.fields.contains(.alpha) })?.alpha ?? -1,
+            "authoredStyleColorY": dynamic.layerMutations.first(where: { !$0.isDynamic && $0.fields.contains(.color) })?.color.y ?? -1,
+            "failedStyleDiscarded": failedStyle.values.isEmpty && failedStyle.layerMutations.isEmpty && !failedStyle.failures.isEmpty,
             "dynamicOwnerEffectsCount": dynamic.ownerEffects.count,
             "dynamicOwnerEffectsTarget": dynamic.ownerEffects.first?
                 .ownerTarget == target,
             "dynamicOwnerEffectsLayerCount": dynamic.ownerEffects.first?
                 .layerMutations.count ?? -1,
+            "sharedTransactionRequired":
+                sharedTransactionProgram.requiresSharedFrameTransaction,
+            "sharedTransactionBeginCode":
+                sharedTransactionBeginFailure?.code as Any,
+            "sharedTransactionFirst":
+                boolValue(sharedTransactionFirst, target: target) as Any,
+            "sharedTransactionDiscardCode":
+                sharedTransactionDiscardFailure?.code as Any,
+            "sharedTransactionRetryBeginCode":
+                sharedTransactionRetryBeginFailure?.code as Any,
+            "sharedTransactionRetry":
+                boolValue(sharedTransactionRetry, target: target) as Any,
+            "sharedTransactionCommitted":
+                boolValue(sharedTransactionCommitted, target: target) as Any,
             "dynamicModelPaths": dynamic.layerMutations.compactMap(\.assetPath),
             "dynamicPeerMutation": dynamic.layerMutations.contains {
-                $0.layerID == 8 && $0.fields == [.scale, .visibility, .text]
+                $0.layerID == 8 && $0.fields == [.scale, .visibility, .text, .alpha, .color]
                     && $0.scale == .init(4, 5, 1)
                     && !$0.visible && $0.text == "changed"
             },
@@ -510,9 +616,9 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
     def test_undefined_preserves_the_boolean_input(self) -> None:
         self.assertTrue(self.value["undefinedValue"])
 
-    def test_topology_and_outer_user_sources_remain_outside_the_cohort(self) -> None:
+    def test_outer_user_can_feed_visibility_but_unowned_topology_stays_rejected(self) -> None:
         self.assertEqual(self.value["parentedProjected"], 0)
-        self.assertEqual(self.value["userWrappedProjected"], 0)
+        self.assertEqual(self.value["userWrappedProjected"], 1)
 
     def test_ordinary_text_leaf_uses_the_value_only_boolean_owner(self) -> None:
         self.assertEqual(self.value["textLeafProjected"], 1)
@@ -526,14 +632,34 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["namedProviderProjected"], 1)
         self.assertEqual(self.value["shadowedNamedConsumerProjected"], 1)
 
-    def test_shared_mutable_and_event_only_owners_remain_outside(self) -> None:
+    def test_shared_state_owner_is_admitted_without_dynamic_code(self) -> None:
         self.assertEqual(self.value["cursorOnlyProjected"], 0)
-        self.assertEqual(self.value["sharedUpdateProjected"], 0)
+        self.assertEqual(self.value["sharedUpdateProjected"], 1)
+        self.assertEqual(self.value["statefulParentedProjected"], 1)
         self.assertEqual(self.value["handleUpdateProjected"], 1)
         self.assertEqual(self.value["dynamicGlobalWriteProjected"], 0)
         self.assertEqual(self.value["eventfulDefinitions"], 0)
+        self.assertEqual(self.value["statefulCursorDefinitions"], 1)
+        self.assertFalse(self.value["statefulCursorValue"])
+        self.assertEqual(self.value["statefulCursorRegistrationCount"], 1)
+        self.assertEqual(
+            self.value["statefulCursorEvents"],
+            ["cursorDown", "cursorUp"],
+        )
+
+    def test_shared_state_rolls_back_with_the_frame(self) -> None:
+        self.assertTrue(self.value["sharedTransactionRequired"])
+        self.assertIsNone(self.value["sharedTransactionBeginCode"])
+        self.assertTrue(self.value["sharedTransactionFirst"])
+        self.assertIsNone(self.value["sharedTransactionDiscardCode"])
+        self.assertIsNone(self.value["sharedTransactionRetryBeginCode"])
+        self.assertTrue(self.value["sharedTransactionRetry"])
+        self.assertFalse(self.value["sharedTransactionCommitted"])
 
     def test_effectful_boolean_owner_publishes_prepared_dynamic_image_layers(self) -> None:
+        self.assertEqual(self.value["authoredStyleAlpha"], 0.25)
+        self.assertEqual(self.value["authoredStyleColorY"], 0.4)
+        self.assertTrue(self.value["failedStyleDiscarded"])
         self.assertEqual(self.value["dynamicDefinitions"], 1)
         self.assertTrue(self.value["dynamicHasAudio"])
         self.assertTrue(self.value["dynamicValue"])

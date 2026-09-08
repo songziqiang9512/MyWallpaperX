@@ -27,6 +27,7 @@ SWIFT_SOURCES = [
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     VM / "SceneScriptScalarRuntime.swift",
+    VM / "SceneScriptQuickJSDomain+FrameTransaction.swift",
     VM / "SceneScriptLocalStorage.swift",
     VM / "SceneScriptOwnerLifecycleBridge.swift",
     VM / "SceneScriptAnimationHandleBridge.swift",
@@ -44,6 +45,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
     VM / "SceneScriptVectorCandidateCatalog.swift",
+    VM / "SceneScriptVectorCandidateModels.swift",
     VM / "SceneScriptVectorMediaRouteCandidate.swift",
     VM / "SceneScriptVectorProgramModels.swift",
     VM / "SceneScriptVectorProgram.swift",
@@ -295,7 +297,7 @@ struct SceneRenderDescriptor {
         var visible: Bool?
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
-        let anglesXYZ: [Float]? = nil
+        var anglesXYZ: [Float]? = nil
         var colorRGB: [Float]? = nil
         let scaleHasScript: Bool?
         let alpha: Double?

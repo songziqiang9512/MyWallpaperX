@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 太阳系作者布局控制器与标签样式
+
+`3662790108`的中心PAGE/圆点和时钟居中由未执行的visibility控制脚本引起；authored alpha/color写入也未进入typed mutation。后继截图恢复自动隐藏、上方时钟并消除大量重复标签；轨道/球体、曲率画面、实际点击及稳定帧性能仍未验收，整景NON-PASS。运行身份、正反门和下一首断点只维护于 [E-V4-SOLAR-AUTHORED-CONTROLLERS](scene-sample-debug-ledger.md#e-v4-solar-authored-controllers布局控制器与标签样式发布2026-09-08)。
+
 ### 2026-09-08 TEX媒体身份与首帧局部准入
 
 `3448845950`的PNG被单条TEX metadata误判为MP4、零面积solid准备尺寸不一致两处共享断点已修复，恢复卡片/实时时钟；真正video的初始pending→第10/11帧Program/GPU/publication恢复也成立。相关单元门、签名Debug通过，实际报告保留NON-PASS：脚本效果/布局和其他样本仍未完成。见 [E-V4-TEX-MEDIA-IDENTITY](scene-sample-debug-ledger.md#e-v4-tex-media-identity图片身份与首帧资源准入2026-09-08)。

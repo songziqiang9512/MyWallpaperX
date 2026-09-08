@@ -1106,6 +1106,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         JS_FreeValue(domain->context, domain->active_scene);
         JS_FreeValue(domain->context, domain->active_object);
         JS_FreeValue(domain->context, domain->shared_value);
+        js_free(domain->context, domain->shared_frame_snapshot);
         JS_FreeValue(domain->context, domain->user_properties_snapshot);
         free(domain->user_properties_json);
         free(domain->storage_screen_identity);

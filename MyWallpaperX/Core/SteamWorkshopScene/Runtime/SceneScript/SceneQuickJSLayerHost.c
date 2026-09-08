@@ -758,9 +758,9 @@ static MWXSceneQuickJSAuthoredLayerMutationRecord *stage_authored_mutation(
     MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
         authored_mutation_for_layer(owner, layer_index);
     if (mutation != NULL) return mutation;
-    if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS ||
+    if (owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS ||
         owner->authored_layer_mutation_count >=
-            MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS ||
+            MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS ||
         layer_index >= owner->domain->authored_layer_count) return NULL;
     MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[layer_index];
     mutation = &owner->authored_layer_mutations[
@@ -769,7 +769,9 @@ static MWXSceneQuickJSAuthoredLayerMutationRecord *stage_authored_mutation(
     *mutation = (MWXSceneQuickJSAuthoredLayerMutationRecord){
         .layer_index = layer_index,
         .visible = record->visible,
+        .alpha = record->alpha,
     };
+    memcpy(mutation->color, record->color, sizeof(mutation->color));
     memcpy(mutation->origin, record->current_origin, sizeof(mutation->origin));
     memcpy(mutation->scale, record->scale, sizeof(mutation->scale));
     memcpy(mutation->angles, record->angles, sizeof(mutation->angles));
@@ -915,9 +917,17 @@ static JSValue layer_get(
                   )
         );
     case LAYER_ALPHA:
-        return JS_NewFloat64(context, record->alpha);
+        return JS_NewFloat64(context,
+            authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA)
+                ? authored_mutation->alpha
+                : authored_baseline != NULL && (authored_baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA)
+                    ? authored_baseline->alpha : record->alpha);
     case LAYER_COLOR:
-        return make_vec3(context, handle->domain, record->color);
+        return make_vec3(context, handle->domain,
+            authored_mutation != NULL && (authored_mutation->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR)
+                ? authored_mutation->color
+                : authored_baseline != NULL && (authored_baseline->fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR)
+                    ? authored_baseline->color : record->color);
     case LAYER_TEXT:
         return JS_NewString(
             context,
@@ -1108,11 +1118,20 @@ static JSValue layer_set(
     }
     case LAYER_ALPHA: {
         double value = 0;
-        if (!dynamic_target || JS_ToFloat64(context, &value, argv[0]) < 0 ||
+        if (JS_ToFloat64(context, &value, argv[0]) < 0 ||
             !isfinite(value) || value < 0 || value > 1)
             return JS_ThrowRangeError(
                 context, "dynamic layer alpha expects a value from 0 to 1"
             );
+        if (authored_target) {
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                stage_authored_mutation(owner, record_index);
+            if (mutation == NULL)
+                return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+            mutation->alpha = value;
+            mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA;
+            break;
+        }
         if (record->alpha == value) break;
         if (!journal_dynamic_layer_value(owner, record_index))
             return JS_ThrowInternalError(context, "dynamic layer rollback journal exceeded");
@@ -1123,12 +1142,21 @@ static JSValue layer_set(
     }
     case LAYER_COLOR: {
         double value[3];
-        if (!dynamic_target || !read_vec3(context, argv[0], value) ||
+        if (!read_vec3(context, argv[0], value) ||
             value[0] < 0 || value[0] > 1 || value[1] < 0 || value[1] > 1 ||
             value[2] < 0 || value[2] > 1)
             return JS_ThrowRangeError(
                 context, "dynamic layer color expects a normalized finite Vec3"
             );
+        if (authored_target) {
+            MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+                stage_authored_mutation(owner, record_index);
+            if (mutation == NULL)
+                return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+            memcpy(mutation->color, value, sizeof(value));
+            mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR;
+            break;
+        }
         if (memcmp(value, record->color, sizeof(value)) == 0) break;
         if (!journal_dynamic_layer_value(owner, record_index))
             return JS_ThrowInternalError(context, "dynamic layer rollback journal exceeded");
@@ -1639,14 +1667,13 @@ static JSValue make_layer_handle(
             JS_FreeValue(context, layer); return JS_EXCEPTION;
         }
     }
-    if (owner->domain->layers[index].dynamic &&
-        (!define_property(
+    if (!define_property(
             context, layer, owner, index, owner_target, persistent,
             "alpha", LAYER_ALPHA, true
         ) || !define_property(
             context, layer, owner, index, owner_target, persistent,
             "color", LAYER_COLOR, true
-        ))) {
+        )) {
         JS_FreeValue(context, layer);
         return JS_EXCEPTION;
     }
@@ -1725,7 +1752,7 @@ static JSValue get_layer(
             return JS_ThrowRangeError(context, "getLayer index is invalid");
         storage = storage_at_order(owner->domain, (int32_t)numeric);
     }
-    if (storage < 0) return JS_ThrowRangeError(context, "getLayer target does not exist");
+    if (storage < 0) return JS_NULL;
     return make_layer_handle(context, owner, (uint32_t)storage, true);
 }
 
@@ -1743,7 +1770,7 @@ static JSValue get_layer_by_id(
         if (record->configured && !record->destroyed && record->layer_id == (int64_t)value)
             return make_layer_handle(context, owner, index, true);
     }
-    return JS_ThrowRangeError(context, "getLayerByID target does not exist");
+    return JS_NULL;
 }
 
 static bool read_optional_string(
@@ -2392,7 +2419,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
             .layer_id = record->layer_id,
             .order_index = record->order_index,
             .visible = staged->visible,
-            .alpha = record->alpha,
+            .alpha = staged->alpha,
             .point_size = record->point_size,
             .text = (staged->fields &
                      MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT) != 0
@@ -2407,7 +2434,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         memcpy(mutation->origin, staged->origin, sizeof(mutation->origin));
         memcpy(mutation->scale, staged->scale, sizeof(mutation->scale));
         memcpy(mutation->angles, staged->angles, sizeof(mutation->angles));
-        memcpy(mutation->color, record->color, sizeof(mutation->color));
+        memcpy(mutation->color, staged->color, sizeof(mutation->color));
         return MWX_SCENE_QUICKJS_OK;
     }
     requested -= owner->authored_layer_mutation_count;
@@ -2663,6 +2690,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     size_t text_length,
     const char *font,
     size_t font_length,
+    double alpha,
+    const double color[3],
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
@@ -2672,13 +2701,15 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_VISIBILITY |
         MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_TEXT |
-        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT;
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_FONT |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ALPHA |
+        MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_COLOR;
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
     if (owner == NULL || owner->domain == NULL || owner->disabled ||
         owner->domain->callback_active || owner->generation != expected_generation ||
         fields == 0 || (fields & ~supported_fields) != 0 || visible > 1 ||
         origin == NULL || scale == NULL || angles == NULL || text == NULL ||
-        font == NULL ||
+        font == NULL || color == NULL || !isfinite(alpha) || alpha < 0 || alpha > 1 ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT ||
         font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
         memchr(text, '\0', text_length) != NULL ||
@@ -2695,7 +2726,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
     }
     for (size_t index = 0; index < 3; ++index) {
         if (!isfinite(origin[index]) || !isfinite(scale[index]) ||
-            !isfinite(angles[index])) {
+            !isfinite(angles[index]) || !isfinite(color[index]) || color[index] < 0 || color[index] > 1) {
             mwx_scene_quickjs_write_diagnostic(
                 diagnostic, diagnostic_capacity,
                 "non-finite authored layer mutation baseline"
@@ -2758,11 +2789,13 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_add_authored_layer_mutation_baseli
         .layer_index = layer_index,
         .fields = fields,
         .visible = visible != 0,
+        .alpha = alpha,
         .text = text_copy,
         .font = font_copy,
     };
     memcpy(baseline->origin, origin, sizeof(baseline->origin));
     memcpy(baseline->scale, scale, sizeof(baseline->scale));
     memcpy(baseline->angles, angles, sizeof(baseline->angles));
+    memcpy(baseline->color, color, sizeof(baseline->color));
     return MWX_SCENE_QUICKJS_OK;
 }

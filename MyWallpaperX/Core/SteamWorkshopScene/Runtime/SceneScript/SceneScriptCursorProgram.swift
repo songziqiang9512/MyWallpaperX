@@ -63,6 +63,9 @@ nonisolated struct SceneScriptCursorProgramConstruction: @unchecked Sendable {
     let requestedLayerIDs: Set<Int>
     let instantiatedLayerIDs: Set<Int>
     let failures: [Int: SceneScriptScalarRuntimeFailure]
+    // Identity preflight rejection executes no failed JavaScript. Only an
+    // attempted owner failure can contaminate the shared construction domain.
+    var requiresDomainReconstruction: Bool = true
 
     var deferredLayerIDs: Set<Int> {
         requestedLayerIDs.subtracting(instantiatedLayerIDs).subtracting(failures.keys)
@@ -112,7 +115,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     private var previousPrimaryButtonIsDown = false
     private var disabledLayerIDs: Set<Int> = []
 
-    var ownerLayerIDs: Set<Int> { Set(bindings.map(\.layerID)) }
+    let ownerLayerIDs: Set<Int>
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
 
@@ -141,6 +144,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         generation: UInt64
     ) {
         self.bindings = bindings
+        self.ownerLayerIDs = Set(bindings.map(\.layerID))
         self.generation = generation
     }
 
@@ -224,6 +228,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             candidateCounts[$0.layerID] == 1
         }
         var instantiatedLayerIDs: Set<Int> = []
+        var requiresDomainReconstruction = false
         let collisionFailure = SceneScriptScalarRuntimeFailure.invalidArgument(
             "SceneScript cursor owner collision"
         )
@@ -245,14 +250,17 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 )
             } catch let failure as SceneScriptScalarRuntimeFailure {
                 failures[layerID] = failure
+                requiresDomainReconstruction = true
                 break
             } catch {
                 failures[layerID] = .invalidArgument(String(describing: error))
+                requiresDomainReconstruction = true
                 break
             }
             let events = exportedEvents(owner)
             guard !events.isEmpty else {
                 failures[layerID] = .invalidSource
+                requiresDomainReconstruction = true
                 break
             }
             bindings.append(.init(
@@ -269,7 +277,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             program: .init(bindings: bindings, generation: generation),
             requestedLayerIDs: requestedLayerIDs,
             instantiatedLayerIDs: instantiatedLayerIDs,
-            failures: failures
+            failures: failures,
+            requiresDomainReconstruction: requiresDomainReconstruction
         )
     }
 
@@ -772,8 +781,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         let parallax = layer.parallaxDepthXY ?? [0, 0]
         return origin.allSatisfy(\.isFinite)
             && size.allSatisfy { $0.isFinite && $0 > 0 }
-            && scale.allSatisfy { $0.isFinite && $0 > 0 }
-            && angles.allSatisfy { $0.bitPattern == Float(0).bitPattern }
-            && parallax.allSatisfy { $0.bitPattern == Float(0).bitPattern }
+            && scale.allSatisfy { $0.isFinite && $0 != 0 }
+            && angles.allSatisfy(\.isFinite)
+            && parallax.allSatisfy { $0 == 0 }
     }
 }

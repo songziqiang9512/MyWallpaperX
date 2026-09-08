@@ -66,27 +66,171 @@ nonisolated enum SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                     in: tokens,
                     body: main.bodyRange
                 ), !initializer.contains(where: { $0.text == alphaName }),
-              countUses(
-                rgbName,
-                expected: 2,
-                tokens: tokens,
-                range: rgbDefinition..<expression.endIndex
-              ), directUniformAlpha(
-                alphaName,
-                fragment: fragment,
-                main: main
-              ) || boundedMaxAccumulatorAlpha(
-                alphaName,
-                rgbName: rgbName,
-                before: output,
-                fragment: fragment,
-                main: main
-              ), reachableFunctionsAreSourceIndependent(
+              ((countUses(
+                    rgbName,
+                    expected: 2,
+                    tokens: tokens,
+                    range: rgbDefinition..<expression.endIndex
+                ) && (directUniformAlpha(
+                    alphaName,
+                    fragment: fragment,
+                    main: main
+                ) || boundedMaxAccumulatorAlpha(
+                    alphaName,
+                    rgbName: rgbName,
+                    before: output,
+                    fragment: fragment,
+                    main: main
+                ))) || boundedMutableGeneratedCarriers(
+                    rgbName: rgbName,
+                    rgbDefinition: rgbDefinition,
+                    rgbInitializer: initializer,
+                    alphaName: alphaName,
+                    output: output,
+                    outputExpression: expression,
+                    fragment: fragment,
+                    main: main
+                )), reachableFunctionsAreSourceIndependent(
                 fragment,
                 startingAt: main,
                 alphaName: alphaName
               ) else { return nil }
         return Fact(rgbName: rgbName, alphaName: alphaName)
+    }
+
+    /// Admits a bounded procedural straight-RGBA carrier whose RGB is updated
+    /// only by self-fed `mix` assignments and whose coverage is updated only
+    /// by self-fed `max` assignments. A dead framebuffer sample may coexist in
+    /// the active source, but it cannot participate in either carrier or in a
+    /// control predicate. This is the common generated-shape form; it is
+    /// intentionally narrower than arbitrary mutable shader dataflow.
+    private static func boundedMutableGeneratedCarriers(
+        rgbName: String,
+        rgbDefinition: Int,
+        rgbInitializer: ArraySlice<Token>,
+        alphaName: String,
+        output: Int,
+        outputExpression: ArraySlice<Token>,
+        fragment: Unit,
+        main: Unit.Function
+    ) -> Bool {
+        let tokens = fragment.tokens
+        guard fragment.staticLoopWork == 1,
+              !tokens.contains(where: { ["for", "while", "do"].contains($0.text) }),
+              fragment.exactRuntimeLoopUniformArrays.isEmpty,
+              !containsSampling(rgbInitializer),
+              !rgbInitializer.contains(where: { $0.text == alphaName })
+        else { return false }
+
+        let alphaDefinitions = main.bodyRange.filter { index in
+            index > main.bodyRange.lowerBound && index + 1 < output
+                && tokens[index].text == alphaName
+                && tokens[index - 1].text == "float"
+                && tokens[index + 1].text == "="
+        }
+        guard alphaDefinitions.count == 1,
+              let alphaDefinition = alphaDefinitions.first,
+              SceneAuthoredShaderColorTransferAnalyzer.isUnconditionalWrite(
+                  alphaDefinition, tokens: tokens, body: main.bodyRange
+              ), let alphaInitializer = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: alphaDefinition,
+                    in: tokens,
+                    body: main.bodyRange
+                ), isZero(alphaInitializer) else { return false }
+
+        let rgbWrites = assignmentWrites(
+            to: rgbName,
+            after: rgbDefinition,
+            before: output,
+            tokens: tokens,
+            body: main.bodyRange
+        )
+        let alphaWrites = assignmentWrites(
+            to: alphaName,
+            after: alphaDefinition,
+            before: output,
+            tokens: tokens,
+            body: main.bodyRange
+        )
+        guard (1 ... 8).contains(rgbWrites.count),
+              (1 ... 8).contains(alphaWrites.count) else { return false }
+
+        var allowedRGBUses = Set([rgbDefinition])
+        var allowedAlphaUses = Set([alphaDefinition])
+        for write in rgbWrites {
+            guard let value = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: write,
+                    in: tokens,
+                    body: main.bodyRange
+                ), let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(value), call.name == "mix", call.arguments.count == 3,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.identifier(
+                  call.arguments[0]
+              ) == rgbName,
+              value.filter({ $0.text == rgbName }).count == 1,
+              !value.contains(where: { $0.text == alphaName }),
+              !containsSampling(value) else { return false }
+            allowedRGBUses.insert(write)
+            allowedRGBUses.formUnion(value.indices.filter {
+                tokens[$0].text == rgbName
+            })
+        }
+        for write in alphaWrites {
+            guard let value = SceneAuthoredShaderColorTransferAnalyzer
+                .assignmentExpression(
+                    after: write,
+                    in: tokens,
+                    body: main.bodyRange
+                ), let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+                .call(value), call.name == "max", call.arguments.count == 2,
+              SceneAuthoredShaderConditionalStraightUnionAnalyzer.identifier(
+                  call.arguments[0]
+              ) == alphaName,
+              value.filter({ $0.text == alphaName }).count == 1,
+              !value.contains(where: { $0.text == rgbName }),
+              !containsSampling(value) else { return false }
+            allowedAlphaUses.insert(write)
+            allowedAlphaUses.formUnion(value.indices.filter {
+                tokens[$0].text == alphaName
+            })
+        }
+        allowedRGBUses.formUnion(outputExpression.indices.filter {
+            tokens[$0].text == rgbName
+        })
+        allowedAlphaUses.formUnion(outputExpression.indices.filter {
+            tokens[$0].text == alphaName
+        })
+        return Set(main.bodyRange.filter { tokens[$0].text == rgbName })
+                == allowedRGBUses
+            && Set(main.bodyRange.filter { tokens[$0].text == alphaName })
+                == allowedAlphaUses
+    }
+
+    private static func assignmentWrites(
+        to name: String,
+        after lowerBound: Int,
+        before upperBound: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> [Int] {
+        body.filter { index in
+            index > lowerBound && index + 1 < upperBound
+                && tokens[index].text == name
+                && tokens[index + 1].text == "="
+        }
+    }
+
+    private static func containsSampling(
+        _ expression: ArraySlice<Token>
+    ) -> Bool {
+        expression.contains {
+            [
+                "texSample2D", "texture2D", "texSample2DLod",
+                "texture2DLod", "texture", "textureLod",
+            ].contains($0.text)
+        }
     }
 
     private static func directUniformAlpha(
@@ -325,12 +469,13 @@ nonisolated enum SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
             guard visited.insert(name).inserted,
                   let function = functions[name] else { continue }
             let body = fragment.tokens[function.bodyRange]
-            guard !body.contains(where: {
-                [
-                    "texSample2D", "texture2D", "texSample2DLod",
-                    "texture2DLod", "texture", "textureLod", "gl_FragData",
-                ].contains($0.text)
-            }), name == main.name || !body.contains(where: {
+            guard !body.contains(where: { token in
+                token.text == "gl_FragData"
+            }), (name != main.name || deadLocalSamplesAreIsolated(
+                fragment,
+                function: function
+            )), (name == main.name || !containsSampling(body)),
+              name == main.name || !body.contains(where: {
                 $0.text == "gl_FragColor" || $0.text == alphaName
             }) else { return false }
             for index in function.bodyRange where index + 1 < function.bodyRange.upperBound {
@@ -341,6 +486,43 @@ nonisolated enum SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                     pending.append(candidate.text)
                 }
             }
+        }
+        return true
+    }
+
+    /// Allows compiler-visible framebuffer declarations that are sampled into
+    /// one unused local. Any direct sample, reused sample result, or sample in
+    /// a helper remains rejected.
+    private static func deadLocalSamplesAreIsolated(
+        _ fragment: Unit,
+        function: Unit.Function
+    ) -> Bool {
+        let tokens = fragment.tokens
+        let sampleIndices = function.bodyRange.filter {
+            containsSampling(tokens[$0...$0])
+        }
+        for sample in sampleIndices {
+            var cursor = sample
+            while cursor > function.bodyRange.lowerBound,
+                  ![";", "{"].contains(tokens[cursor - 1].text) {
+                cursor -= 1
+            }
+            let statement = cursor..<min(
+                function.bodyRange.upperBound,
+                (sample..<function.bodyRange.upperBound).first(where: {
+                    tokens[$0].text == ";"
+                }).map { $0 + 1 } ?? function.bodyRange.upperBound
+            )
+            guard statement.count >= 5,
+                  tokens[statement.lowerBound].text == "float"
+                    || ["vec2", "vec3", "vec4", "float2", "float3", "float4"]
+                        .contains(tokens[statement.lowerBound].text),
+                  tokens[statement.lowerBound + 1].kind == .identifier,
+                  tokens[statement.lowerBound + 2].text == "=",
+                  sample > statement.lowerBound + 2 else { return false }
+            let local = tokens[statement.lowerBound + 1].text
+            guard function.bodyRange.filter({ tokens[$0].text == local }).count == 1
+            else { return false }
         }
         return true
     }

@@ -14,6 +14,7 @@
 #define MWX_SCENE_QUICKJS_MAX_LAYERS 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS 64
+#define MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS 256
 #define MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS 256
 #define MWX_SCENE_QUICKJS_MAX_LAYER_TEXT 4096
 #define MWX_SCENE_QUICKJS_MAX_LAYER_FONT 1024
@@ -23,6 +24,7 @@
 #define MWX_SCENE_QUICKJS_MAX_JOBS_PER_CALLBACK 64
 #define MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS 16
 #define MWX_SCENE_QUICKJS_MAX_OWNER_SOURCE_BYTES (256u * 1024u)
+#define MWX_SCENE_QUICKJS_MAX_SHARED_SNAPSHOT_BYTES (2u * 1024u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS 16
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_MUTATIONS 64
@@ -109,6 +111,8 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     double origin[3];
     double scale[3];
     double angles[3];
+    double alpha;
+    double color[3];
     bool visible;
     char *text;
     char *font;
@@ -196,6 +200,9 @@ struct MWXSceneQuickJSDomain {
     JSValue active_scene;
     JSValue active_object;
     JSValue shared_value;
+    uint8_t *shared_frame_snapshot;
+    size_t shared_frame_snapshot_size;
+    bool shared_frame_transaction_active;
     JSValue user_properties_snapshot;
     char *user_properties_json;
     size_t user_properties_json_length;
@@ -300,11 +307,11 @@ struct MWXSceneQuickJSOwner {
     double authored_layer_baseline_angles[3];
     size_t authored_layer_mutation_count;
     MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutations[
-        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
     ];
     size_t authored_layer_mutation_baseline_count;
     MWXSceneQuickJSAuthoredLayerMutationRecord authored_layer_mutation_baselines[
-        MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYERS
+        MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS
     ];
     MWXSceneQuickJSRejectionRecord rejections[
         MWX_SCENE_QUICKJS_MAX_UNHANDLED_REJECTIONS

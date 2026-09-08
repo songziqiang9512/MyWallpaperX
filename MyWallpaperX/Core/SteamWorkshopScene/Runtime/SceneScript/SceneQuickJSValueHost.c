@@ -19,6 +19,95 @@ static MWXSceneQuickJSOwner *current_owner(MWXSceneQuickJSDomain *domain) {
     return domain->callback_active ? domain->active_owner : domain->module_owner;
 }
 
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (diagnostic != NULL && diagnostic_capacity > 0) diagnostic[0] = '\0';
+    if (domain == NULL || domain->context == NULL ||
+        domain->shared_frame_transaction_active) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid shared frame transaction"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    size_t size = 0;
+    uint8_t *snapshot = JS_WriteObject(
+        domain->context, &size, domain->shared_value,
+        JS_WRITE_OBJ_REFERENCE
+    );
+    if (snapshot == NULL) {
+        return mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+    }
+    if (size > MWX_SCENE_QUICKJS_MAX_SHARED_SNAPSHOT_BYTES) {
+        js_free(domain->context, snapshot);
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "shared frame snapshot byte budget exceeded"
+        );
+        return MWX_SCENE_QUICKJS_BUDGET_EXCEEDED;
+    }
+    domain->shared_frame_snapshot = snapshot;
+    domain->shared_frame_snapshot_size = size;
+    domain->shared_frame_transaction_active = true;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+void mwx_scene_quickjs_domain_commit_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain
+) {
+    if (domain == NULL || domain->context == NULL ||
+        !domain->shared_frame_transaction_active) return;
+    js_free(domain->context, domain->shared_frame_snapshot);
+    domain->shared_frame_snapshot = NULL;
+    domain->shared_frame_snapshot_size = 0;
+    domain->shared_frame_transaction_active = false;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_discard_shared_frame_transaction(
+    MWXSceneQuickJSDomain *domain,
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    if (diagnostic != NULL && diagnostic_capacity > 0) diagnostic[0] = '\0';
+    if (domain == NULL || domain->context == NULL) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid shared frame rollback"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (!domain->shared_frame_transaction_active) {
+        return MWX_SCENE_QUICKJS_OK;
+    }
+    if (domain->shared_frame_snapshot == NULL) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "shared frame rollback snapshot unavailable"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    JSValue restored = JS_ReadObject(
+        domain->context,
+        domain->shared_frame_snapshot,
+        domain->shared_frame_snapshot_size,
+        JS_READ_OBJ_REFERENCE
+    );
+    if (JS_IsException(restored)) {
+        return mwx_scene_quickjs_exception_result(
+            domain, diagnostic, diagnostic_capacity
+        );
+    }
+    JS_FreeValue(domain->context, domain->shared_value);
+    domain->shared_value = restored;
+    mwx_scene_quickjs_domain_commit_shared_frame_transaction(domain);
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 static JSValue shared_getter(
     JSContext *context,
     JSValueConst this_value,
