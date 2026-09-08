@@ -246,6 +246,12 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 同一真实 producer→Vec2→作者 update→typed layer angles→原 model transform/Metal 链现完成：`/private/tmp/mwx-vec2-run/report.json` CDHash `035b3cd8ae8ad31e878de914a063cf427b49ba4e`，layer 14 从每帧 exception 改为 completed，frame 0 angles 输出 `(-0.06517,-0.51468,0)`，vectorFailures=0；410/409/0 帧。额外 `/private/tmp/mwx-vec2-hover-run` 以 normalized pointer `(0.9,0.8)` 运行，before/hover/after 三图已人工查看，猫头角度出现变化；406 completed，整体 changed ratio 0.04582/0.01186 也包含星空时间变化，不能单独当猫头 ROI 因果证据或真实桌面所有边缘输入验收。整景仍因 dithering 局部失败 NON-PASS；窗户发光与完整预览等价仍开放。
 
+#### Dithering 后处理执行恢复
+
+首断点进一步定位为 source-defined scalar `mod` 与 GLSL intrinsic 的重名声明冲突（stage-link 报 precision qualifier overload 错误）。现沿既有 bounded syntax normalizer，仅对唯一 `float mod(float,float)` 定义、全体调用参数均为可证标量叶子、无名称冲突/遮蔽的情形做符号改名；作者函数体不变，不用内建算法替换作者实现。中性 fixture 故意令函数返回加法，证明保留的是作者语义而非对模算法的猜测；vector/compound 参数仍不扩权。request key v11、frontend schema 33 强制普通 App 不复用旧编译身份，临时诊断日志已移除。
+
+4 个 normalizer/link tests 与 1 个真实 artifact cache namespace 门 PASS，Debug build、code health PASS。`/private/tmp/mwx-mod-run/report.json`、CDHash `6c5d918177886411bb6f0b6069a9914e0eeb1704`、默认作者属性、12秒/after9秒；409 completed，严格执行 selection **1/1 PASS**。after-window 已人工查看，作者像素化/抖色后处理实际进入画面，原 effect-local passthrough 消失；Program completion/publication/next-frame 由该报告保存。月亮 effect 另有 float→int 编译问题但仍沿既有共享 fallback 安全输出，不能由 selection PASS 推断所有 compiler 路径成功。**窗户发光/音频材质 producer、精确照明和官方预览等价仍未验收**。
+
 `3662790108` 主太阳控制器的子层 3694 在 prepare 首先失败：合法 authored `ray.mdl` 使用 flag 1 / UInt32 索引，旧 reader 只接受 flag 0。独立读取确认 500,596 顶点、606,204 三角形、最大索引 500,595、format 15、单 mesh/material 和七字节零尾部；不是缓存旧图。现沿原 reader → loss-preserving UInt32 IR → prepared mesh → Metal indexType 消费，能安全缩窄的索引仍上传 UInt16。未知 flag、非完整三角形、越界/截断及原预算继续拒绝最小模型。另修复 normal matrix 以绝对 determinant 阈值误拒合法小尺度的问题：Double 逆转置后共同正比例归一化，真正奇异/非有限矩阵仍拒绝。
 
 - 正反门：`test_scene_static_model_reader` + `test_scene_static_model_pipeline` 14 tests PASS，包含超过 65535 的索引、UInt32.max 越界、未知 flag、短三角形，以及 `1e-30...1e30` uniform scale、镜像非等比和奇异矩阵；Debug build、code health PASS。临时逐模型 NSLog 已删除。

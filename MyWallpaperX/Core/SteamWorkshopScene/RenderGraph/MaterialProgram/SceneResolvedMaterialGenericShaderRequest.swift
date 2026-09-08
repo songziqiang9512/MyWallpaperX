@@ -32,7 +32,7 @@ nonisolated enum SceneResolvedMaterialGenericShaderRequest {
     ) -> String {
         var data = Data()
         for value in [
-            "mwx-generic-shader-request-v10",
+            "mwx-generic-shader-request-v11",
             "wallpaper-engine-glsl-like-v0",
             outputSemantics.rawValue,
             vertexSource,

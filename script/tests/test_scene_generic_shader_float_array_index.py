@@ -163,6 +163,27 @@ void main() {
         self.assertNotIn("int(integerIndex)", source)
         self.assertNotIn("int(unknownIndex)", source)
 
+    def test_source_scalar_intrinsic_collision_preserves_author_function(self) -> None:
+        result, output = self._normalize("""varying vec2 v_TexCoord;
+float mod(float a, float b) { return a + b; }
+void main() { gl_FragColor = vec4(mod(v_TexCoord.x, v_TexCoord.y)); }
+""")
+        self.assertTrue(result["ok"], result)
+        source = output.read_text(encoding="utf-8")
+        self.assertIn("float mwxAuthored_mod(float a, float b) { return a + b; }", source)
+        self.assertIn("mwxAuthored_mod(v_TexCoord.x, v_TexCoord.y)", source)
+        subprocess.run([
+            str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+            str(self.root / "output.vert"), str(output)
+        ], cwd=self.root, check=True, capture_output=True, text=True)
+        for call in ["mod(v_TexCoord, v_TexCoord)", "mod(v_TexCoord.x + 1.0, v_TexCoord.y)"]:
+            result, output = self._normalize(
+                "varying vec2 v_TexCoord;\nfloat mod(float a, float b) { return a + b; }\n"
+                "void main() { gl_FragColor = vec4(" + call + "); }\n"
+            )
+            self.assertTrue(result["ok"], result)
+            self.assertNotIn("mwxAuthored_mod", output.read_text(encoding="utf-8"))
+
     def test_member_and_function_identifiers_fail_closed(self) -> None:
         result, output = self._normalize("""uniform float g_AudioSpectrum32Left[32];
 varying vec2 v_TexCoord;

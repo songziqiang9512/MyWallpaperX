@@ -33,7 +33,7 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             scalarOffset += 1
             if scalar == "\n" { lineStarts.append(scalarOffset) }
         }
-        let insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
+        var insertions = unit.tokens.indices.compactMap { index -> (Int, String)? in
             let token = unit.tokens[index]
             guard token.kind == .identifier,
                   let suffix = SceneAuthoredShaderVectorConversion.suffix(
@@ -47,7 +47,13 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
                 + token.text.unicodeScalars.count
             guard end <= normalized.unicodeScalars.count else { return nil }
             return (end, ".\(suffix)")
-        }.sorted { $0.0 > $1.0 }
+        }
+        for index in scalarModFunctionReferences(unit) {
+            let token = unit.tokens[index]
+            guard token.line > 0, token.line <= lineStarts.count else { return normalized }
+            insertions.append((lineStarts[token.line - 1] + token.column - 1, "mwxAuthored_"))
+        }
+        insertions.sort { $0.0 > $1.0 }
         guard !insertions.isEmpty else { return normalized }
 
         var result = normalized
@@ -62,6 +68,46 @@ nonisolated enum SceneGenericShaderDirectFunctionVectorArgumentNormalizer {
             result.insert(contentsOf: suffix, at: index)
         }
         return result
+    }
+
+    /// GLSL rejects a source-defined scalar `mod` that collides with its
+    /// intrinsic. Preserve the author function, not a replacement algorithm.
+    /// Only one exact scalar signature and calls with provably scalar leaves
+    /// are renamed; overloads, shadowing and compound arguments stay rejected.
+    private static func scalarModFunctionReferences(
+        _ unit: SceneAuthoredShaderSyntaxUnit
+    ) -> [Int] {
+        let tokens = unit.tokens
+        let functions = unit.functions.filter { $0.name == "mod" }
+        guard functions.count == 1, let function = functions.first,
+              function.returnType == "float",
+              !tokens.contains(where: { $0.text == "mwxAuthored_mod" }) else { return [] }
+        let parameters = Array(tokens[function.parameterRange])
+        guard parameters.count == 5,
+              parameters[0].text == "float", parameters[1].kind == .identifier,
+              parameters[2].text == ",", parameters[3].text == "float",
+              parameters[4].kind == .identifier else { return [] }
+        var references: [Int] = []
+        for index in tokens.indices where tokens[index].text == "mod" {
+            guard index + 1 < tokens.count, tokens[index + 1].text == "(",
+                  index == 0 || tokens[index - 1].text != "." else { return [] }
+            if function.headerRange.contains(index) {
+                references.append(index)
+                continue
+            }
+            var end = index + 2
+            while end < tokens.count && !["(", ")"].contains(tokens[end].text) { end += 1 }
+            guard end < tokens.count, tokens[end].text == ")" else { return [] }
+            let args = tokens[(index + 2)..<end].split { $0.text == "," }
+            guard args.count == 2, args.allSatisfy({ argument in
+                let values = Array(argument)
+                if values.count == 1 { return Double(values[0].text) != nil }
+                return values.count == 3 && values[0].kind == .identifier
+                    && values[1].text == "." && ["x", "y", "z", "w", "r", "g", "b", "a"].contains(values[2].text)
+            }) else { return [] }
+            references.append(index)
+        }
+        return references
     }
 
     /// An unambiguous user function can consume the leading components of a
