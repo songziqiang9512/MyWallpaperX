@@ -141,6 +141,10 @@ SCENE_SCRIPT_VEC3_COMPLETION_RE = re.compile(
     r"type=vector3 input=(?P<input>vector3\([^)]*\)) "
     r"output=(?P<output>vector3\([^)]*\)).* route=(?P<route>\S+)"
 )
+TEXT_SCRIPT_COMPLETION_RE = re.compile(
+    r"MWX SceneScript VM: target=text\(layerID: (?P<layer>\d+), "
+    r"field: [^)]*\.content\) callback=completed"
+)
 SCENE_SCRIPT_EFFECT_VECTOR_COMPLETION_RE = re.compile(
     r"MWX SceneScript VM: target=effectConstant\(layerID: (?P<layer>\d+), "
     r"effectIndex: (?P<effect>\d+), passIndex: (?P<pass>\d+), "
@@ -1621,12 +1625,19 @@ def text_script_runtime_metrics(preview_text: str, log_text: str = "") -> dict[s
         }
         for match in TEXT_SCRIPT_BINDING_RE.finditer(evidence_text)
     ]
+    if not bindings:
+        completed_ids = sorted({
+            int(match.group("layer"))
+            for match in TEXT_SCRIPT_COMPLETION_RE.finditer(evidence_text)
+        })
+    else:
+        completed_ids = sorted(binding["layer_id"] for binding in bindings)
     return {
-        "binding_count": int(binding_match.group("count")) if binding_match else None,
+        "binding_count": int(binding_match.group("count")) if binding_match else len(completed_ids),
         "diagnostic_count": (
             int(diagnostic_match.group("count")) if diagnostic_match else None
         ),
-        "binding_layer_ids": sorted(binding["layer_id"] for binding in bindings),
+        "binding_layer_ids": completed_ids,
         "bindings": bindings,
     }
 
