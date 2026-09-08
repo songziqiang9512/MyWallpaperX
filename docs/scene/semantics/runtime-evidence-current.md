@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-09 loop guard 隔离运行（3662790108）
+
+Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样本：签名 staging、加载比率 `1.000`、首帧与稳定帧均非黑，截图和 preview 对照已生成；运行仍因 `resolved material graph accepted layer next-frame evidence missing` 判定 **NON-PASS**。该运行只证明当前候选能启动并产生可见输出，不证明 loop guard 已达到视觉等价；FPS 约 `7.61`、ready 约 `44.7s`，后续需在 next-frame/球体与轨道 ROI 对照门中复核。
+
 `3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
 
 ### 2026-09-08 源颜色辅助函数与轨道恢复
