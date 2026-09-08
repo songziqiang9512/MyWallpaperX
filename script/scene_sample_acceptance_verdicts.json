@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Hand-maintained human visual verdicts per authored Scene sample. Only a person who watched real playback may set pass/fail; runtime evidence never writes here.",
+  "allowedVerdicts": ["unreviewed", "pass", "fail", "platform-unsupported"],
+  "verdicts": {
+    "1315486372": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "水波位置不正确、光线贴图效果生硬"},
+    "2775915974": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "鼠标纵向与顶部边界已修，顶部极限仍露灰边；整样本未通过"},
+    "3238423642": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "头部错位已修，整体视觉与约 18.7 FPS 帧时间未验收"},
+    "3264246690": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "人物左肘缺块；构图未验收"},
+    "3287715210": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "音频条已恢复（PCM fixture），真实系统音频与整体未验收"},
+    "3437487219": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期时间恢复，cursor owner collision 未闭合"},
+    "3448845950": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "黑屏已解除，脚本效果与整体布局未通过"},
+    "3470948192": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "开场/文字错位部分修复，仍有 NaN、文字碎片与异常背景"},
+    "3477054430": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "画面显示不全；mask 已恢复，月亮/球体与文字布局仍开放"},
+    "3509243656": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "开场/模拟画面不正常，坐标文字异常"},
+    "3662790108": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS"},
+    "3712499998": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/时钟恢复，WEVector unsupported，重复文字未裁决"},
+    "3747492842": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过"},
+    "3765760121": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "倒置已修，整样本未全面验收"},
+    "3766387484": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/星期/时钟恢复，其余 effect 未验收"},
+    "3780119725": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过"},
+    "3787382101": {"verdict": "fail", "reviewedOn": "2026-09-06", "note": "Water Waves 扭曲人物全身，未限制在作者 mask 内"},
+    "3788734811": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "倒置已修，整体视觉等价未验收"}
+  }
+}

@@ -649,6 +649,15 @@
       "modules": ["test_scene_capability_census"]
     },
     {
+      "id": "sample-acceptance-ledger",
+      "patterns": [
+        "script/scene_sample_acceptance_ledger.py",
+        "script/scene_sample_acceptance_verdicts.json",
+        "docs/scene/semantics/scene-sample-acceptance-ledger.md"
+      ],
+      "modules": ["test_scene_sample_acceptance_ledger"]
+    },
+    {
       "id": "validation-governance",
       "patterns": [
         "script/scene_fast_suite.json",

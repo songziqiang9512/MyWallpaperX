@@ -290,7 +290,7 @@
       "path": "docs/scene/scene-compatibility-roadmap.md",
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
-      "retirementCondition": "V0-V5 的产品目标均由现役能力台账和运行证据证明，所有待办均有完成、明确不支持或平台策略结论，旧专用产品 owner 已删除或隔离，并由稳定架构合同和能力台账接管终态后，将本文转为 historical-evidence。"
+      "retirementCondition": "样本验收台账中所有真实样本均为 pass 或显式 platform-unsupported，P5 的帧时间基线、长稳与发布门全部通过，旧专用产品 owner 已删除或隔离，并由稳定架构合同、能力台账和专项表接管终态后，将本文转为 historical-evidence。"
     },
     {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",

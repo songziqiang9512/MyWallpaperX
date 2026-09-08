@@ -38,6 +38,8 @@
 | Input / Provider | [runtime-input-property-coverage.md](runtime-input-property-coverage.md) | Timeline、property、pointer、audio、media、text、provider |
 | 高级对象 | [advanced-object-coverage.md](advanced-object-coverage.md) | Puppet、lighting/HDR、3D、RGB、离线与发布 |
 | 全局依赖 | [capability-dependency-map.md](capability-dependency-map.md) | 公共 owner、不可绕过边界和依赖关系 |
+| 样本验收 | [scene-sample-acceptance-ledger.md](scene-sample-acceptance-ledger.md) | 全部真实样本的首断点集群与人工视觉裁决；裁决只改 `script/scene_sample_acceptance_verdicts.json` 后重新生成 |
+| 样本调试 | [scene-sample-debug-ledger.md](scene-sample-debug-ledger.md) | 逐样本首断点定位与修复批次证据；不是视觉通过矩阵 |
 
 专项表只拥有稳定合同、当前 route、首断点、正反门和未支持边界。批次过程、截图流水账和旧命令回到运行证据、Git 或 `docs/history/`，不要在专项表追加日志。
 

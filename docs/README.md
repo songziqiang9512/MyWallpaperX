@@ -30,6 +30,7 @@
 - [语义手册](scene/semantics/README.md)：按格式、Graph/Shader、Effect、Particle、SceneScript、输入和高级对象进入专项合同。
 - [能力台账](scene/semantics/coverage-ledger.md)：所有能力的当前状态、明确边界和待办。
 - [运行证据索引](scene/semantics/runtime-evidence-current.md)：已运行的当前证据和失败边界。
+- [样本验收台账](scene/semantics/scene-sample-acceptance-ledger.md)：逐样本人工视觉裁决与首断点集群；全样本验收门的唯一进度事实。
 - [Corpus 能力清单](scene/semantics/scene-corpus-capability-inventory.md)：真实作者输入的影响面；不证明运行支持。
 - [Fast Scene Suite 合同](../script/scene_fast_suite.json)：低成本纵向门的成员与 readiness 机器定义；成员未批准时明确为 `selection-required`，不能把任意样本冒充 suite PASS。
 

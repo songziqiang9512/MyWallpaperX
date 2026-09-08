@@ -163,7 +163,9 @@ class SceneGovernanceContractTests(unittest.TestCase):
 
     def test_roadmap_does_not_duplicate_current_capability_truth(self) -> None:
         roadmap = ROADMAP.read_text(encoding="utf-8")
-        self.assertIn("当前主线：**V4 typed input/provider 收口**", roadmap)
+        self.assertIn("当前主线：**全样本验收收口**", roadmap)
+        self.assertIn("## 2. 验收标准", roadmap)
+        self.assertIn("scene-sample-acceptance-ledger.md", roadmap)
         self.assertIn("本文只拥有阶段顺序和完成门", roadmap)
         self.assertIn("能力、owner、route、样本和运行结果分别由", roadmap)
         self.assertIn("不得以另一个 input family 的通过替代 V4 完成", roadmap)
