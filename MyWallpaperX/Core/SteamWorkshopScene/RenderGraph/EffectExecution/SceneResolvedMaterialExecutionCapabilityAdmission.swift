@@ -406,12 +406,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     result: .failure(reason)
                 )
             }
-            guard !dynamicLayerIDs.contains(layerID) else {
-                return .init(
-                    layerID: layerID,
-                    result: .failure(failure("dynamic-effect-visibility"))
-                )
-            }
+            // A script or Timeline effect-visibility owner no longer rejects
+            // the whole layer. Until a typed producer publishes that target,
+            // the effect keeps its authored value; the prepared pair chain is
+            // unchanged because activation never edits topology.
             let graphs = rawGroups[layerID] ?? []
             guard graphs.count == 1, let graph = graphs.first,
                   let dependencyOwnership else {

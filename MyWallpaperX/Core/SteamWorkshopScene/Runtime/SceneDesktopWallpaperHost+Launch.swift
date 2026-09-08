@@ -366,7 +366,7 @@ extension SceneDesktopWallpaperHost {
         typealias VisibilityOwner =
             SceneResolvedMaterialExecutionCapabilityAdmission
                 .DynamicEffectVisibilityOwner
-        // User-property visibility stays live; admission blocks topology changes.
+        // Script/Timeline owners only register candidates; effects keep authored value.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
         let initiallyInactiveMediaOwners =
             SceneInitialMediaEffectVisibilityProjection.initiallyInactiveOwners(

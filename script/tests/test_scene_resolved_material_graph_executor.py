@@ -3038,6 +3038,9 @@ private func capabilities(
     secondarySelfUnavailableReference:
         SceneDependencyRenderPlan.Reference? = nil,
     backwardUnsupportedReference: SceneDependencyRenderPlan.Reference? = nil,
+    dynamicEffectVisibilityOwners: Set<
+        SceneResolvedMaterialExecutionCapabilityAdmission.DynamicEffectVisibilityOwner
+    > = [],
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:]
@@ -3149,7 +3152,8 @@ private func capabilities(
     )
     let candidates = SceneResolvedMaterialExecutionCapabilityAdmission.compile(
         descriptor: descriptor,
-        authoredPlans: [graph]
+        authoredPlans: [graph],
+        dynamicEffectVisibilityOwners: dynamicEffectVisibilityOwners
     )
     return .init(
         admissionCandidates: candidates,
@@ -3880,6 +3884,19 @@ private enum Harness {
         let backwardUnsupportedClaim = backwardUnsupportedCapabilities.claim(
             pixelChain
         )
+        // A script-owned effect visibility target must not reject the layer;
+        // the effect keeps its authored value until a typed producer exists.
+        let scriptVisibilityCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(for: pixelGraph),
+            dynamicEffectVisibilityOwners: [
+                .init(layerID: layerID, effectIndex: chainedSecondEffect.effectIndex),
+            ]
+        )
+        let scriptVisibilityClaim = scriptVisibilityCapabilities.claim(pixelChain)
+        let scriptVisibilityCapability = scriptVisibilityClaim.flatMap {
+            scriptVisibilityCapabilities.resolve($0.token, for: pixelChain)
+        }
         let backwardUnsupportedCapability = backwardUnsupportedClaim.flatMap {
             backwardUnsupportedCapabilities.resolve($0.token, for: pixelChain)
         }
@@ -8057,6 +8074,14 @@ private enum Harness {
             // A backward provider has no binding contract in this launch;
             // only the exact single-pass effect holding the reference fails
             // soft while the rest of the chain stays admitted.
+            "scriptOwnedEffectVisibilityKeepsLayerAdmitted":
+                scriptVisibilityClaim != nil
+                    && scriptVisibilityCapability?.stages.count
+                        == pixelGraph.effects.count
+                    && scriptVisibilityCapability?.stages.allSatisfy({
+                        if case .resolved = $0 { return true }
+                        return false
+                    }) == true,
             "unsupportedBackwardReferencePreservesPreviousAndContinuesSuffix":
                 backwardUnsupportedFailure.prepared
                     && backwardUnsupportedFailure.encoded
