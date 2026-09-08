@@ -26,6 +26,8 @@
 
 `3287715210` 的 Audio Bars 由artifact color-transfer拒绝恢复为普通Program；同一音频权重进入RGB blend与replacement alpha，静音/PCM截图显示基线与变化音频条，另有异步launch生命周期验证。6+76 tests和签名Debug build通过；系统音频捕获策略和完整样本仍未验收。见 [E-V4-AUDIO-REPLACEMENT-COVERAGE](scene-sample-debug-ledger.md#e-v4-audio-replacement-coverage音频权重成为输出透明度2026-09-08)。
 
+正交画布中启用perspective不再误用原生Y-up卡片，`3788734811`截图倒置已修正，19 tests及签名Debug通过；有终端Program的completion/publication/next-frame证据，不代表整样本视觉等价。见 [E-V4-CANVAS-PERSPECTIVE-CARD](scene-sample-debug-ledger.md#e-v4-canvas-perspective-card透视选项不改变画布坐标方向2026-09-08)。
+
 ### 2026-09-08 Audio Bars 布尔标量进入通用数值转换
 
 `3780119725` 的 Audio Bars 从 bool→numeric stage-link 拒绝恢复实际 Program/GPU 执行；静音/PCM 对照证明64-bin频谱被consumer消费并显示音频条，另有真实异步requestLaunch的completion/publication/next-frame/teardown证据。76+2+11 tests与签名Debug build通过，全仓code-health有两项本批外阻断。人物黑线、整样本及3287715210独立color-transfer拒绝均未闭合。见 [E-V4-AUDIO-BOOLEAN-OPERAND](scene-sample-debug-ledger.md#e-v4-audio-boolean-operand布尔数值操作恢复音频图形2026-09-08)。

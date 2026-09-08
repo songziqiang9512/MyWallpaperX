@@ -16,7 +16,10 @@ extension SceneMetalRenderer {
         // unchanged and select only the world-space card orientation here.
         let sizeScale = SceneMatrix.scale(SIMD3(
             size.x,
-            usesPerspective ? size.y : -size.y,
+            size.y * SceneCameraProjection.imageCardYDirection(
+                usesPerspective: usesPerspective,
+                sceneOrthoHeight: renderDescriptor.camera.orthoHeight
+            ),
             1
         ))
         let world = worldFramesByLayerID[layer.id] ?? SceneMatrix.identity()

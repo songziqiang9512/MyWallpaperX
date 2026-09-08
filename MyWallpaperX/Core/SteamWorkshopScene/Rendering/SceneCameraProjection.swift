@@ -2,6 +2,14 @@ import CoreGraphics
 import simd
 
 enum SceneCameraProjection {
+    nonisolated static func imageCardYDirection(
+        usesPerspective: Bool, sceneOrthoHeight: Float?
+    ) -> Float {
+        // Perspective on an orthographic canvas retains its Y-down world.
+        // Only native perspective scenes use Y-up model coordinates.
+        usesPerspective && (sceneOrthoHeight ?? 0) <= 0 ? 1 : -1
+    }
+
     static func viewProjection(
         camera: SceneRenderDescriptor.CameraDescriptor,
         viewportSize: CGSize,

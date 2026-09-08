@@ -223,6 +223,16 @@ enum Harness {
         )
 
         let result: [String: Any] = [
+            "canvasPerspectiveCardTop": ndc(frame.perspectiveViewProjection,
+                center + SIMD4(0, 10 * SceneCameraProjection.imageCardYDirection(
+                    usesPerspective: true, sceneOrthoHeight: camera.orthoHeight), 0, 0)),
+            "canvasOrthoCardTop": ndc(frame.orthographicViewProjection,
+                center + SIMD4(0, 10 * SceneCameraProjection.imageCardYDirection(
+                    usesPerspective: false, sceneOrthoHeight: camera.orthoHeight), 0, 0)),
+            "nativeCardDirection": SceneCameraProjection.imageCardYDirection(
+                usesPerspective: true, sceneOrthoHeight: nil),
+            "nativeUtilityCardDirection": SceneCameraProjection.imageCardYDirection(
+                usesPerspective: false, sceneOrthoHeight: nil),
             "coverHalfExtents": vector2(frame.coverHalfExtents),
             "dynamicCoverHalfExtents": vector2(dynamicFrame.coverHalfExtents),
             "orthoCenterNDC": ndc(frame.orthographicViewProjection, center),
@@ -397,6 +407,12 @@ enum Harness {
 
 
 class SceneParticleCameraFrameTests(unittest.TestCase):
+    def test_image_card_direction_follows_world_not_projection(self) -> None:
+        self.assertGreater(self.result["canvasPerspectiveCardTop"][1], 0)
+        self.assertGreater(self.result["canvasOrthoCardTop"][1], 0)
+        self.assertEqual(self.result["nativeCardDirection"], 1)
+        self.assertEqual(self.result["nativeUtilityCardDirection"], -1)
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.temporary_directory = tempfile.TemporaryDirectory(

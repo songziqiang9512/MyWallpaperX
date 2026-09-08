@@ -18,7 +18,7 @@
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
-| 3788734811 | 画面上下反转 | 当前截图复现；layer17 为正交画布中的 perspective image，model卡片方向与场景Y-down坐标待纠正 | 已复现，未通过 |
+| 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | 用户否决整体验收；待区分 Puppet mesh/animation 与 effect source extent | 未通过 |
 | 3448845950 | 无法运行 | 当前ready后446 driver callbacks、0提交/完成帧，窗口黑；不是仅启动耗时 | 已复现，未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
@@ -176,6 +176,12 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 本机 provenance：负例 `/private/tmp/mwx-audio-current-diagnostic/report.json` SHA-256 `94997c84268bf77594fee154d8bb50022fd89706bde0f9f6200d9869e251de67`；静音正例 `/private/tmp/mwx-audio-bool-after/report.json` `671fadce96f60f3588e6159a33d666b4cdebdd30d7342fe6e093ed836141fa30`；移除临时观测后的 PCM 正例 `/private/tmp/mwx-audio-bool-pcm-final/report.json` `a2f1a1d4cf0c187043a08b6800b79172c11b5324e21012b5fa3b67be6307baf4`。最终 App Team `H9QWU9XN8R`、CDHash `f7e2370241715ab6e9cc321aca87a632d7fa215f`。layer380 的64-bin左右声道从frame0 generation0 silent变成frame3 generation2 nonzero（peak约0.366/0.374）；Program `ba0d6b8513ea0a9c1312b47a011cd7e124356e1a0262546c17e3914d7b897734` 实际 GPU completed、publication、compositor/next-frame成立，PCM截图可见新增音频条。after PNG SHA-256 `9da289ad657f516edd5803e58974bbd2e76f252d9333c2a7384270e1126efd0d`。
 
 同一最终 App 另走真实异步 `requestLaunch`（隔离根 `/private/tmp/mwx-audio-async.8AEVC4`），相同 Program 在frame0/1 completed、compositorConsumed=true，publication49→100；surface teardown为owners7/quiescent7/failures0，surfaces1→0。异步 smoke 不调度 PCM fixture，因此此运行只证明真实 prepare→activate→GPU 生命周期，不冒充异步音频事件对照。该样本脸部黑线/构图仍未通过；新样本3287715210是独立 color-transfer 拒绝，不能由本修复宣称恢复。
+
+## E-V4-CANVAS-PERSPECTIVE-CARD：透视选项不改变画布坐标方向（2026-09-08）
+
+`3788734811` layer17在正交画布中开启perspective，现有world resolver和camera仍使用Y-down，而imageModelMatrix错误地采用原生透视的Y-up卡片；typed transform经过相同Program和compositor后整图倒置。`SceneCameraProjection.imageCardYDirection`区分画布坐标约定与投影选择，正交画布透视/正交卡片均保持负Y尺寸，原生透视保留正Y；无新renderer、sample分支或UV翻转补偿。
+
+camera/screen-anchor **19 tests PASS**，签名Debug build成功。隔离运行`/private/tmp/mwx-perspective-card-after` report SHA-256 `5dc36a0bdd8227bf61e6ce05629aa463570a1684c522c49639d39290a4fcbdf6`，after PNG `37111cf24f597c6df28351473275f980d10198336f43d11ab280eae5df9c17bf`人工确认正向；修前负例在`/private/tmp/mwx-new-reports-current/results/3788734811`。layer17终端Program `9762a293a879c5b219d5ceed4795b975e31674eae294cd8093f663dee5faa731`的frame0/1有GPU completed、publication及compositorConsumed；测量窗599提交/598完成/0失败，停止后surfaces1→0。只证明倒置修正和下一帧执行，不证明所有效果、原生3D样本视觉等价、多显示器或性能改善。
 
 ## E-V4-AUDIO-REPLACEMENT-COVERAGE：音频权重成为输出透明度（2026-09-08）
 
