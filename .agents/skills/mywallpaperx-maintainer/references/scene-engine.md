@@ -25,7 +25,7 @@
 | 最终执行单元、语言/进程/失败目标 | `docs/scene/runtime-architecture.md` 与长期技术边界 |
 | 当前优先级、纵向 lane、route 迁移顺序 | `docs/scene/scene-compatibility-roadmap.md` |
 | 当前能力及明确缺口 | `docs/scene/semantics/coverage-ledger.md` 与命中专项表 |
-| 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/semantics/runtime-evidence-index.md` |
+| 当前构建、GPU/compositor、sample、签名事实 | `docs/scene/semantics/runtime-evidence-current.md` |
 | 来源类别和可用边界 | `docs/scene/semantics/source-index.md` |
 | 公开资料仍不足时的官方黑盒/clean-room 研究与独立实现交接 | `docs/scene/semantics/official-client-behavior-research-workflow.md` |
 | corpus 中作者实际声明了什么 | `docs/scene/semantics/scene-corpus-capability-inventory.md`；不证明运行支持 |
