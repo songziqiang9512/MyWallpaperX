@@ -1113,6 +1113,12 @@ enum Harness {
             && SceneTextureSampling(texFlags: 3).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 2) == .linearClamp
             && SceneTextureSampling(texFlags: 4).isResolvedForMaterialProgram
+            // Authored component selectors occupy bits 20...23 and are
+            // metadata consumed by the material path, not unknown sampler
+            // behavior. Keep this admission contract explicit.
+            && SceneTextureSampling(texFlags: 0x00A00002).isResolvedForMaterialProgram
+            && SceneTextureSampling(texFlags: 0x00F00000).isResolvedForMaterialProgram
+            && !SceneTextureSampling(texFlags: 0x00100008).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 8).isResolvedForMaterialProgram
             && !SceneTextureSampling(texFlags: 16).isResolvedForMaterialProgram
             && SceneTextureSampling(texFlags: 8).rawFlags == 8

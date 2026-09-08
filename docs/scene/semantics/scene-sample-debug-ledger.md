@@ -276,3 +276,9 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 同一 `3662790108`、同一隔离 benchmark 和 `newproperty1=false/newproperty48=true` 下，新的 Debug executable 运行 report `/private/tmp/mwx-366-camera-hotpath/report.json` SHA-256 `3d7c5cae44a7fdc5ce003e8bdce75d61a9664cac02d336622d5e6143fbf777eb`，截图 `scene-after-window.png` SHA-256 `2974ce0c51c28d2fdc8d46a3428802af97dfb42b4467191e3205192ed0fb6636`。251/250/0 提交/完成/失败，完成 FPS 8.844，main-frame p95 56.892ms、CPU p95 49.546ms；画面保持时钟上方和无中心PAGE/圆点。该数字只与本批前的同流程样本结果作有界比较，不能外推所有样本或稳定性能完成。轨道颜色合同、球体/曲面资源、实际点击和整景 NON-PASS 仍开放。
 
 159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。
+
+## E-V4-TEX-COMPONENT-SELECTOR：3477054430 mask 候选恢复（2026-09-08）
+
+真实样本的 `Image_3_mask_3fc62503.tex` 携带 `0x00a00002`：低位是 sampler/sprite 选择，高位 20...23 是作者格式定义的 component-channel selector。旧 admission 只承认低三位，因而把合法 mask 当成未知 flags 丢弃；现收窄为承认低三位与 20...23 位，其余位仍 fail-closed。mask alpha 沿既有 texture candidate→material slot 2→static-model Metal 输出链消费，隔离截图恢复建筑窗户的绿色/橄榄色 authored 光效。
+
+texture-registry 正反门、Debug build 与 code health PASS；`/private/tmp/mwx-maskflags-run/report.json` strict PASS，410/409/0 submitted/completed/failed，完成 FPS 约 59.93；截图 `/private/tmp/mwx-maskflags-run/results/3477054430/scene-after-window.png`。这证明 mask admission 与 publication/next-frame 链路成立，不等于官方预览完全等价：音频驱动的嵌套 `scriptproperties.minvalue.user` 尚未进入材质 typed owner，月亮/球体、精确构图与完整文字布局仍开放。
