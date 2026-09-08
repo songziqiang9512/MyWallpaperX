@@ -232,6 +232,10 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            fragment.body = rewriteVector2ArithmeticOperands(
+                fragment.body,
+                shapes: varyings.merging(uniforms) { current, _ in current }
+            )
             fragment.body = SceneGenericShaderTextureSamplingNormalizer
                 .rewrite(fragment.body)
             fragment.body = rewriteScalarVectorAssignments(
@@ -732,6 +736,32 @@ void main() {
                 fullRange,
                 with: "texSample2D(\(texture), \(coordinate).xy)"
             )
+        }
+        return result
+    }
+
+    /// Authored effects sometimes carry a vec3/vec4 coordinate varying but use
+    /// it as a vec2 in arithmetic. GLSL does not permit implicit truncation;
+    /// preserve the authored coordinate contract by narrowing only the vector
+    /// operand of an explicitly vec2 expression.
+    private static func rewriteVector2ArithmeticOperands(
+        _ source: String,
+        shapes: [String: Shape]
+    ) -> String {
+        let names = shapes.compactMap { name, shape in
+            ["vec3", "vec4"].contains(shape.type) ? name : nil
+        }
+        guard !names.isEmpty else { return source }
+        let escaped = names.map(NSRegularExpression.escapedPattern).joined(separator: "|")
+        let pattern = #"\b("# + escaped + #")\s*([+-])\s*(?:CAST2\([^;\n]*\)|vec2\([^;\n]*\))"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        var result = source
+        for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).reversed() {
+            guard let name = Range(match.range(at: 1), in: source),
+                  let full = Range(match.range, in: result) else { continue }
+            let op = String(source[Range(match.range(at: 2), in: source)!])
+            let rhs = String(source[full]).drop(while: { $0 != op.first! }).dropFirst()
+            result.replaceSubrange(full, with: "\(source[name]).xy \(op)\(rhs)")
         }
         return result
     }
