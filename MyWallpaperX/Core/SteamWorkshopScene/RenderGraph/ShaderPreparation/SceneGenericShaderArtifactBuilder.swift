@@ -140,12 +140,30 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
             )
             switch outputSemantics {
             case .color:
-                color = try prepareColorTransfer(
-                    msl: fragmentStage.msl,
-                    authoredSource: fragmentStage.authoredSource,
-                    expectedColorTransfer: expectedColorTransfer,
-                    defaultBoundaryColorSlots: defaultBoundaryColorSlots
-                )
+                do {
+                    color = try prepareColorTransfer(
+                        msl: fragmentStage.msl,
+                        authoredSource: fragmentStage.authoredSource,
+                        expectedColorTransfer: expectedColorTransfer,
+                        defaultBoundaryColorSlots: defaultBoundaryColorSlots
+                    )
+                } catch {
+                    if ProcessInfo.processInfo.arguments.contains(
+                        "--mwx-debug-scene-evidence-dir"
+                    ) {
+                        let classification = SceneAuthoredShaderColorTransferAnalyzer
+                            .analyze(fragmentSource: fragmentStage.authoredSource)
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=artifact-color-transfer-prepare-failed request=%@ classification=%@ expected=%@ authoredBytes=%d error=%@",
+                            requestKey,
+                            String(describing: classification),
+                            expectedColorTransfer.map(String.init(describing:)) ?? "-",
+                            fragmentStage.authoredSource.utf8.count,
+                            String(describing: error)
+                        )
+                    }
+                    throw error
+                }
             case .redGreenUnorm:
                 guard SceneAuthoredShaderColorTransferAnalyzer.isScalarSplatOutput(
                     fragmentSource: fragmentStage.authoredSource
