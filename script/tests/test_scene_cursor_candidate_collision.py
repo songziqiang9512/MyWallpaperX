@@ -121,14 +121,15 @@ enum Harness {
             anglesXYZ: id == 40 ? [0, -0.0, 25] : [0, -0.0, 0],
             scaleHasScript: false,
             alpha: 1,
-            effects: [],
-            contentKind: "composition",
+            effects: id == 30 ? [.init(name: "authored-effect")] : [],
+            contentKind: id == 30 ? "image" : "composition",
             sizeWH: [100, 100],
             utilityLayer: .init(
                 kind: .composition,
                 copyBackground: false,
                 passthrough: false
-            )
+            ),
+            parentID: id == 30 ? 10 : nil
         )
     }
 
@@ -230,7 +231,7 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temp_dir.cleanup()
 
-    def test_cross_family_collisions_are_typed_and_disjoint_owners_survive(
+    def test_collisions_stay_local_parented_image_and_borrowed_visibility_survive(
         self,
     ) -> None:
         result = json.loads(subprocess.run(

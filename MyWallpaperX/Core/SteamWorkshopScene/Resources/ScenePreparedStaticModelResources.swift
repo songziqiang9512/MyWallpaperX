@@ -173,7 +173,7 @@ struct ScenePreparedStaticModelResources {
         var data = Data()
         data.reserveCapacity(
             model.vertices.count * 48
-                + model.indices.count * MemoryLayout<UInt16>.size
+                + model.indices.count * model.indexElementSize
         )
         for vertex in model.vertices {
             for value in [

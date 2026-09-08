@@ -750,14 +750,13 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
               binding.targetPath == [
                   .key("objects"), .index(index), .key("visible"),
               ],
-              layer.contentKind == "composition",
-              layer.utilityLayer?.kind == .composition,
-              layer.utilityLayer?.copyBackground == false,
-              layer.utilityLayer?.passthrough == false,
-              layer.parentID == nil,
-              layer.childLayerIDs.isEmpty,
-              layer.effects.isEmpty,
-              layer.effectFiles.isEmpty,
+              ["image", "text", "composition"].contains(layer.contentKind),
+              // Image/text value callbacks belong to the vector owner. Keep
+              // the existing standalone composition route unchanged.
+              layer.contentKind == "composition" || binding.source.range(
+                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
+                  options: .regularExpression
+              ) == nil,
               validHitLayer(layer) else { return nil }
         return .init(layerID: layerID, authoredOrder: index)
     }
