@@ -56,6 +56,22 @@ nonisolated enum SceneGenericShaderCompiler {
                 normalized.fragment.utf8.count,
                 "-V --auto-map-bindings --auto-map-locations -l vertex.frag"
             )
+            if let evidenceDirectory = debugEvidenceDirectory() {
+                try? FileManager.default.createDirectory(
+                    at: evidenceDirectory,
+                    withIntermediateDirectories: true
+                )
+                try? normalized.vertex.write(
+                    to: evidenceDirectory.appendingPathComponent("\(requestKey).vertex.normalized.glsl"),
+                    atomically: true,
+                    encoding: .utf8
+                )
+                try? normalized.fragment.write(
+                    to: evidenceDirectory.appendingPathComponent("\(requestKey).fragment.normalized.glsl"),
+                    atomically: true,
+                    encoding: .utf8
+                )
+            }
         }
         let fileManager = FileManager.default
         let workspace = fileManager.temporaryDirectory.appendingPathComponent(
@@ -339,6 +355,15 @@ nonisolated enum SceneGenericShaderCompiler {
         guard (1 ... configuration.limits.maximumStageSourceBytes).contains(data.count)
         else { throw Failure.workspace }
         return data
+    }
+
+    private static func debugEvidenceDirectory() -> URL? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "--mwx-debug-scene-evidence-dir"),
+              index + 1 < arguments.count else { return nil }
+        let path = arguments[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 
     private static func validOutput(_ url: URL, maximumBytes: Int) -> Bool {
