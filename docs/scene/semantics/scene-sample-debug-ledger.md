@@ -233,6 +233,13 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 - 真实运行 report `/private/tmp/mwx-347-firstmat-run/report.json`；截图 `/private/tmp/mwx-347-firstmat-run/results/3477054430/scene-after-window.png`。该临时目录仅作当前复查证据，后续清理时可重建。
 
+<a id="e-347-distance-fog"></a>
+#### 距离雾后继
+
+2026-09-08：缺失的 authored distance fog 现经 GeneralDescriptor→LightingDescriptor→当前 SceneLightSnapshot→static-model uniforms→同一 Metal/main-pass 输出。仅完整、有限、end>start、density∈[0,1] 的定义准入；未定义/禁用/非法数据局部保持无雾，不拒绝整景。使用当前 camera/world position，不缓存相机距离或在普通帧重新解析。按公开起止密度语义采用有界线性混合；精确官方插值与颜色空间未证明，height fog、材质 opt-out 和 fog 的动态属性不在该闭合范围。
+
+14 项 document/pipeline/rendering 测试 PASS、Debug build 与 code health PASS。隔离默认输入 `/private/tmp/mwx-fog-run/report.json`，CDHash `c29608bdae6576e3ea51be243fd7cf7c3cc3b9ae`，duration 12 / after delay 9；410/409/0 submitted/completed/failed。人工查看 after-window：远城明显按距离衰减，近猫和前景保留，纠正此前全城日间亮度；未对截图硬编码色调。整体 completion/publication/next-frame 仍沿原链，NON-PASS 的后处理失败保持不隐藏。窗户自发光/音频脚本、猫头角度脚本的 `TypeError: not a function`、dithering compiler stage-link rejection 为剩余精确断点；不能称预览等价或完整雾效果。
+
 `3662790108` 主太阳控制器的子层 3694 在 prepare 首先失败：合法 authored `ray.mdl` 使用 flag 1 / UInt32 索引，旧 reader 只接受 flag 0。独立读取确认 500,596 顶点、606,204 三角形、最大索引 500,595、format 15、单 mesh/material 和七字节零尾部；不是缓存旧图。现沿原 reader → loss-preserving UInt32 IR → prepared mesh → Metal indexType 消费，能安全缩窄的索引仍上传 UInt16。未知 flag、非完整三角形、越界/截断及原预算继续拒绝最小模型。另修复 normal matrix 以绝对 determinant 阈值误拒合法小尺度的问题：Double 逆转置后共同正比例归一化，真正奇异/非有限矩阵仍拒绝。
 
 - 正反门：`test_scene_static_model_reader` + `test_scene_static_model_pipeline` 14 tests PASS，包含超过 65535 的索引、UInt32.max 越界、未知 flag、短三角形，以及 `1e-30...1e30` uniform scale、镜像非等比和奇异矩阵；Debug build、code health PASS。临时逐模型 NSLog 已删除。

@@ -4,6 +4,7 @@ struct SceneRenderDescriptor: Codable {
     struct LightingDescriptor: Codable {
         let ambientColorRGB: [Float]?
         let skylightColorRGB: [Float]?
+        var distanceFog: SceneDocument.GeneralDescriptor.DistanceFog? = nil
     }
 
     // Scene camera + ortho box derived from scene.json `camera` and
@@ -111,7 +112,8 @@ struct SceneRenderDescriptorBuilder {
             camera: cameraDescriptor(from: sceneDocument),
             lighting: .init(
                 ambientColorRGB: sceneDocument.general.ambientColorRGB,
-                skylightColorRGB: sceneDocument.general.skylightColorRGB
+                skylightColorRGB: sceneDocument.general.skylightColorRGB,
+                distanceFog: sceneDocument.general.distanceFog
             ),
             hdrEnabled: sceneDocument.general.hdrEnabled,
             layers: sceneDocument.objects.enumerated().map { index, object in

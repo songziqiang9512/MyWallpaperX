@@ -23,6 +23,8 @@ struct SceneStaticModelUniforms {
     float4 cameraPosition;
     uint4 materialFlags;
     float4 ambientAndCount;
+    float4 distanceFogColor;
+    float4 distanceFogRange;
     float4 lightDirectionIntensity[4];
     float4 lightColor[4];
     float4 spotPositionRadius[4];
@@ -166,6 +168,13 @@ fragment half4 sceneStaticModelFragment(
         half3 emittedColor = surfaceColor
             * half3(uniforms.emissiveColorAndBrightness.xyz);
         litColor = mix(litColor, emittedColor, emissive);
+    }
+    if (uniforms.distanceFogColor.w > 0.5) {
+        float4 range = uniforms.distanceFogRange;
+        float distanceFromCamera = length(uniforms.cameraPosition.xyz - in.worldPosition);
+        float fraction = clamp((distanceFromCamera - range.x) / (range.y - range.x), 0.0, 1.0);
+        half density = half(mix(range.z, range.w, fraction));
+        litColor = mix(litColor, half3(uniforms.distanceFogColor.xyz), density);
     }
     // Static-model inputs preserve straight texture channels. Convert the
     // material result to the existing premultiplied main-pass contract here.

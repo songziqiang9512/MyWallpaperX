@@ -27,8 +27,16 @@ SPOT_LIGHT_SOURCE = SCENE_ROOT / "Format/SceneSpotLightDefinition.swift"
 LIGHTING_STUB = r'''
 struct SceneRenderDescriptor {
     struct LightingDescriptor {
+        struct DistanceFog {
+            let color: [Float]
+            let start: Float
+            let end: Float
+            let startDensity: Float
+            let endDensity: Float
+        }
         let ambientColorRGB: [Float]?
         let skylightColorRGB: [Float]?
+        var distanceFog: DistanceFog? = nil
     }
 
     struct Layer {
@@ -314,7 +322,9 @@ enum LightSnapshotHarness {
         let descriptor = SceneRenderDescriptor(
             lighting: .init(
                 ambientColorRGB: [0.1, 0.2, 0.3],
-                skylightColorRGB: [0.2, 0.1, 0]
+                skylightColorRGB: [0.2, 0.1, 0],
+                distanceFog: .init(color: [0.1, 0.2, 0.3], start: 10, end: 100,
+                                   startDensity: 0.2, endDensity: 0.8)
             ),
             layers: [.init(
                 id: 7, visible: true, spotLight: spot,
@@ -333,6 +343,8 @@ enum LightSnapshotHarness {
             dynamicLayerColors: [7: SIMD3(0.25, 0.5, 1)]
         )
         precondition(snapshot.ambient == SIMD3(0.3, 0.3, 0.3))
+        precondition(snapshot.distanceFogColor == SIMD4(0.1, 0.2, 0.3, 1))
+        precondition(snapshot.distanceFogRange == SIMD4(10, 100, 0.2, 0.8))
         precondition(snapshot.directional.isEmpty)
         precondition(snapshot.spot.count == 1)
         let light = snapshot.spot[0]

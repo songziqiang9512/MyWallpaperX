@@ -22,6 +22,8 @@ struct SceneLightSnapshot {
     let ambient: SIMD3<Float>
     let directional: [Directional]
     let spot: [Spot]
+    var distanceFogColor: SIMD4<Float> = .zero
+    var distanceFogRange: SIMD4<Float> = .zero
 
     static func make(
         descriptor: SceneRenderDescriptor,
@@ -94,15 +96,14 @@ struct SceneLightSnapshot {
                 outerConeCosine: cos(outerCone * degreesToHalfRadians)
             )
         }.prefix(4)
-        if ambient == .zero && directional.isEmpty && spot.isEmpty {
-            return SceneLightSnapshot(
-                ambient: SIMD3(1, 1, 1), directional: [], spot: []
-            )
-        }
+        let fog = descriptor.lighting?.distanceFog
         return SceneLightSnapshot(
-            ambient: ambient,
+            ambient: ambient == .zero && directional.isEmpty && spot.isEmpty
+                ? SIMD3(1, 1, 1) : ambient,
             directional: Array(directional),
-            spot: Array(spot)
+            spot: Array(spot),
+            distanceFogColor: fog.map { SIMD4($0.color[0], $0.color[1], $0.color[2], 1) } ?? .zero,
+            distanceFogRange: fog.map { SIMD4($0.start, $0.end, $0.startDensity, $0.endDensity) } ?? .zero
         )
     }
 

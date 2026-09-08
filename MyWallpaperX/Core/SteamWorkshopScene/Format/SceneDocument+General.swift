@@ -3,6 +3,13 @@ import Foundation
 extension SceneDocument {
     // general.* fields that participate in the current 2D runtime.
     struct GeneralDescriptor: Codable {
+        struct DistanceFog: Codable {
+            let color: [Float]
+            let start: Float
+            let end: Float
+            let startDensity: Float
+            let endDensity: Float
+        }
         struct CameraShakeDescriptor: Codable {
             /// `nil` preserves an authored value whose type could not be proven.
             let enabled: Bool?
@@ -17,6 +24,7 @@ extension SceneDocument {
         var perspectiveOverrideFOVDegrees: Float? = nil
         var ambientColorRGB: [Float]? = nil
         var skylightColorRGB: [Float]? = nil
+        var distanceFog: DistanceFog? = nil
         var hdrEnabled: Bool = false
         let clearColor: [Float]?   // [r, g, b] in 0..1, from general.clearcolor
         let clearEnabled: Bool
@@ -31,6 +39,25 @@ extension SceneDocument {
 }
 
 extension SceneDocumentLoader {
+    nonisolated private static func distanceFog(
+        _ root: [String: Any]?
+    ) -> SceneDocument.GeneralDescriptor.DistanceFog? {
+        guard visibleValue(root?["fogdistance"]) == true,
+              let color = floatVector(root?["fogdistancecolor"]),
+              color.count == 3, color.allSatisfy({ $0.isFinite && $0 >= 0 }),
+              let start = root?["fogdistancestart"].flatMap(Self.floatValue),
+              let end = root?["fogdistanceend"].flatMap(Self.floatValue),
+              let startDensity = root?["fogdistancestartdensity"].flatMap(Self.floatValue),
+              let endDensity = root?["fogdistanceenddensity"].flatMap(Self.floatValue),
+              [start, end, startDensity, endDensity].allSatisfy(\.isFinite),
+              start >= 0, end > start,
+              (0...1).contains(startDensity), (0...1).contains(endDensity) else {
+            return nil
+        }
+        return .init(color: color, start: start, end: end,
+                     startDensity: startDensity, endDensity: endDensity)
+    }
+
     nonisolated static func parseGeneral(
         _ root: [String: Any]?
     ) -> SceneDocument.GeneralDescriptor {
@@ -45,6 +72,7 @@ extension SceneDocumentLoader {
                 .flatMap(Self.floatValue),
             ambientColorRGB: floatVector(root?["ambientcolor"]),
             skylightColorRGB: floatVector(root?["skylightcolor"]),
+            distanceFog: distanceFog(root),
             hdrEnabled: visibleValue(root?["hdr"]) ?? false,
             clearColor: floatVector(root?["clearcolor"]),
             clearEnabled: (root?["clearenabled"] as? Bool) ?? true,

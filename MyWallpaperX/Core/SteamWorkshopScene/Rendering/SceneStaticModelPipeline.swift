@@ -131,6 +131,8 @@ private struct SceneStaticModelUniforms {
     var cameraPosition: SIMD4<Float>
     var materialFlags: SIMD4<UInt32>
     var ambientAndCount: SIMD4<Float>
+    var distanceFogColor: SIMD4<Float>
+    var distanceFogRange: SIMD4<Float>
     var lightDirectionIntensity0: SIMD4<Float>
     var lightDirectionIntensity1: SIMD4<Float>
     var lightDirectionIntensity2: SIMD4<Float>
@@ -369,6 +371,8 @@ struct SceneStaticModelPipeline {
                 lighting.ambient.z,
                 Float(lighting.directional.count)
             ),
+            distanceFogColor: lighting.distanceFogColor,
+            distanceFogRange: lighting.distanceFogRange,
             lightDirectionIntensity0: lights[0].directionIntensity,
             lightDirectionIntensity1: lights[1].directionIntensity,
             lightDirectionIntensity2: lights[2].directionIntensity,

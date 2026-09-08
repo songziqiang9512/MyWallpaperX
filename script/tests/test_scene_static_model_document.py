@@ -140,6 +140,24 @@ struct SceneProject {
 @main
 enum Harness {
     static func main() throws {
+        let fog: [String: Any] = [
+            "fogdistance": true, "fogdistancecolor": "0.1 0.2 0.3",
+            "fogdistancestart": 10, "fogdistanceend": 100,
+            "fogdistancestartdensity": 0.2, "fogdistanceenddensity": 0.8
+        ]
+        let parsedFog = SceneDocumentLoader.parseGeneral(fog).distanceFog
+        precondition(parsedFog?.color == [0.1, 0.2, 0.3])
+        precondition(parsedFog?.start == 10 && parsedFog?.end == 100)
+        precondition(parsedFog?.startDensity == 0.2 && parsedFog?.endDensity == 0.8)
+        for (key, value) in [
+            ("fogdistance", false as Any), ("fogdistanceend", 10 as Any),
+            ("fogdistancecolor", "nan 0 0" as Any),
+            ("fogdistanceenddensity", 1.1 as Any)
+        ] {
+            var invalid = fog
+            invalid[key] = value
+            precondition(SceneDocumentLoader.parseGeneral(invalid).distanceFog == nil)
+        }
         let sourceURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let document = try SceneDocumentLoader().load(from: sourceURL)
         let objects = document.objects.map { object in
