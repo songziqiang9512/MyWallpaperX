@@ -38,14 +38,19 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             [expectedSignalSlot, expectedColorSlot]
                 + (expectedUnderlaySlot.map { [$0] } ?? [])
         )
-        guard sampleCalls.count == expectedSlots.count else { return nil }
+        // The signal prefix may contain additional typed samples (for
+        // example a gradient lookup that modifies the signal carrier). The
+        // analyzer has already proven that only the expected signal/color
+        // roles participate in the compositing tail; preserve those samples
+        // and lower only the proven color boundary.
+        guard sampleCalls.count >= expectedSlots.count else { return nil }
 
         let declarationPattern =
             #"(?m)^([ \t]*float4\s+([A-Za-z_]\w*)\s*=\s*)g_Texture([0-7])\.sample\(([^;]+)\)(\s*;[ \t]*)$"#
         let declarations = matches(
             declarationPattern, in: source, range: body
         )
-        guard declarations.count == expectedSlots.count else { return nil }
+        guard declarations.count >= expectedSlots.count else { return nil }
 
         var bySlot: [Int: (match: NSTextCheckingResult, name: String)] = [:]
         for declaration in declarations {
@@ -55,7 +60,7 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                   bySlot[slot] == nil else { return nil }
             bySlot[slot] = (declaration, name)
         }
-        guard Set(bySlot.keys) == expectedSlots,
+        guard expectedSlots.isSubset(of: Set(bySlot.keys)),
               let signal = bySlot[expectedSignalSlot],
               let color = bySlot[expectedColorSlot],
               signal.name != color.name,
