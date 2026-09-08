@@ -2991,6 +2991,44 @@ private func dormantGraphInputFactTokens(
         descriptorID: "fixture-dormant-arbitrary"
     )
     let context = Template.EffectContext(key: effect, input: graphTexture())
+    let fallbackGraphFactPreserved: Bool = {
+        let shader = shader(0, revision: "dormant-default-boundary")
+        let value = template(
+            shader,
+            includePrimaryCandidate: false,
+            effectContext: context
+        )
+        guard let samplers = try? SceneResolvedMaterialShaderSchema
+                .unconditionalSamplers(value) else { return false }
+        let sourceFacts = SceneResolvedMaterialShaderSchema
+            .graphInputSourceSlotFacts(
+                template: value,
+                samplers: samplers,
+                inputIdentity: graphTexture(),
+                sourceColorTransfer: .straightAlphaPreserving(
+                    textureSlot: 0
+                )
+            )
+        let fallbackFacts = SceneResolvedMaterialShaderSchema
+            .graphInputSourceSlotFacts(
+                template: value,
+                samplers: samplers,
+                inputIdentity: graphTexture(),
+                sourceColorTransfer: .defaultStraightColorBoundary(
+                    textureSlots: [0]
+                ),
+                frontendBindings: [
+                    .init(
+                        name: "g_Texture0",
+                        slot: 0,
+                        channelUse: .wholeVector
+                    )
+                ]
+            )
+        return sourceFacts == fallbackFacts
+            && fallbackFacts[0]?.provenance
+                == .dormantUnresolvedMaterialAlias
+    }()
     func result(_ slot: Int) -> Result<Program, SceneResolvedMaterialFailure> {
         finalize(
             shader: shader(slot, revision: "dormant-slot-\(slot)"),
@@ -3027,6 +3065,8 @@ private func dormantGraphInputFactTokens(
             ? "proven" : "identity-mismatch"
     }
     return [
+        "defaultBoundaryPreservesGraphFact": fallbackGraphFactPreserved
+            ? "preserved" : "diverged",
         "arbitraryHiddenKeySlot0": token(result(0), slot: 0),
         "unseenArbitraryHiddenKeySlot3": token(result(3), slot: 3),
     ]
@@ -6041,6 +6081,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         self.assertEqual(
             self.result["dormantGraphInputFacts"],
             {
+                "defaultBoundaryPreservesGraphFact": "preserved",
                 "arbitraryHiddenKeySlot0": "proven",
                 "unseenArbitraryHiddenKeySlot3": "proven",
             },

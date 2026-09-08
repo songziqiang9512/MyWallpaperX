@@ -1182,6 +1182,14 @@ fresh真实`3749463715`的最终定向矩阵为 **0/1 NON-PASS**，它显式要�
 
 fresh 音频 fixture 下 6/6 effect 均进入通用链，目标 effect 在首帧与 next-frame 完成 GPU/publication，作者关闭的末端 Hue 通过既有 activation previous-current 进入唯一 compositor；严格定向 selection 为 **1/1 PASS**，150/150/0 submitted/completed/failed、driver 约 59.98 FPS。人工只确认正常蓝粉底色、边框波形随音频变化，整帧红绿交替已消失；未证明眼部局部发光、独立效果 fidelity、完整样本/149 corpus 或官方 parity。精确边界见[E-V4-CONDITIONAL-UNDERLAY-SCENE-BACKGROUND](../../history/scene/runtime-evidence-index.md#e-v4-conditional-underlay-scene-background)。
 
+### 2026-09-09 V1 default straight-boundary graph ingress preservation
+
+上一节的 dormant unresolved material fact 已经证明 source/Program/GraphExecutor 可以共享 `GraphInputSourceSlotFact`，但 default straight color fallback 仍有一个公共 ingress 缺口：当精确颜色降低失败、compiler 发布 `defaultStraightColorBoundary([0])` 时，frontend transfer 没有保留唯一 graph-input carrier，导致 source facts 与 frontend facts 分叉并以 `samplerBindingIdentityMismatch` 拒绝。现行 `SceneResolvedMaterialShaderSchema+SamplerPurpose.swift` 只对单 slot default boundary 映射回 carrier；multi-slot 仍 fail-closed，未改变 route、renderer、registry、property、provider、GraphTargets、GraphExecutor 或 compositor。
+
+本批以 `test_scene_resolved_material_program_finalizer.py` 的 dormant graph regression 直接锁定 source/fallback facts 相等；finalizer **24/24 PASS**（`defaultBoundaryPreservesGraphFact=preserved`）、generic artifact 定向 **1/1 PASS**、template **5/5 PASS**，Developer ID Debug **BUILD SUCCEEDED**。只读真实 `3749463715` 的隔离运行中，目标 `536#effect#553` 为 `admitted-generic / resolved-material / program`，frame 0 与 next-frame 都 1 authored / 1 material / 0 rejected、GPU completed、exact publication，graph input 为 `slot0:dormantUnresolvedMaterialAlias:layerSource:536`；整次 GraphExecutor `90/90/90`、0 failure、0 local fallback，15 个 required layer complete。该 runtime 由于独立 artifact cache 未命中而使用共享 `boundedSwift` frame backend，故当前等级只到 **S3 executable shared graph-ingress correction**，不升级 genericCompilerArtifact、S4 ROI、视觉 parity 或 owner migration。
+
+正式 matrix 仍 **0/1 NON-PASS**：layer `467` cutout-vignette 的 float3/float2 Metal library compilation，以及 layer `536` effect 1 opacity 的 local generic-owner fallback 是下一断点。完整身份、report/log hash 和边界见 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](scene-sample-debug-ledger.md#e-p1-default-straight-color-boundary-graph-ingress) 与 [当前运行证据](runtime-evidence-current.md#e-2026-09-09-default-straight-boundary-graph-ingress)。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

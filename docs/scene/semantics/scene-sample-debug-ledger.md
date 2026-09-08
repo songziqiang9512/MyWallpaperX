@@ -48,6 +48,8 @@
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
 
+截至 2026-09-09，shine-cast 样本 `3749463715` 的公共首断点为 layer `467#effect#480` 的 Metal vector2 library compilation；layer `536` 的 default-boundary graph ingress 与两个 effect 的 frame0/next-frame 已有独立证据。后续开发先从 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](#e-p1-default-straight-color-boundary-graph-ingress) 读取状态，再处理 layer `467` 的公共 backend 编译 owner；不要把旧的 graph ingress 失败与该编译断点混为一谈。
+
 ## E-V4-PUPPET-FRACTIONAL-ADDITIVE：动画权重进入 selector（2026-09-08）
 
 `3780119725` 的 authored layer21 含 blend `0.63` 与 `0.19` 的可见 additive animation。旧 selector 只接受 `blend == 1`，在真实 producer→selector→evaluator 链上提前拒绝该层组合；现改为接受有限 `0 < blend <= 1`，保留 blendIn/blendOut、rate、visibility 与 unknown-animation 的硬边界，evaluator 继续按权重叠加。41 个 puppet animation/mesh tests（2 个环境跳过）通过；隔离异步运行日志显示 layer21 选中 7 个片段、GPU completion/compositor publication/next-frame 成立，人物不再压缩。脸部黑线与缺块仍存在，尚未证明 mesh UV、mask/effect 或 authored 内容等后续 owner 正确。
@@ -300,6 +302,23 @@ texture-registry 正反门、Debug build 与 code health PASS；`/private/tmp/mw
 现在该 guard 移除：frame-driven owner 只负责把层登记为执行候选，其 effect 按作者值执行；已准入的 pair chain 不因可见性变化而改 topology，用户属性 bool 的 activation 路径不变。harness 新增正例 `scriptOwnedEffectVisibilityKeepsLayerAdmitted`（脚本 owner 存在时层仍被 claim，所有 stage 为 resolved）。
 
 验证：graph executor harness ALL OK，Debug build 成功；隔离运行 report SHA-256 `c49ed52e6d0505988c844f2ba747dce09ae1e2ea383ec755b6c0d867323593b8`：`3233141951` 由 32 个 admitted-generic + 4 个 not-admitted 变为 36 个 admitted-generic，executor claimed 16→18，严格 PASS；`2824109832` 由 15+1 变为 16 个 admitted-generic，claimed 2→3，严格 PASS；`2775915974` 与上一批一致。剩余债务：脚本对 effect 可见性的实时控制（静音淡出、12 小时制切换）仍未执行，需要一个 typed bool producer 才能进入 activation policy；两样本视觉裁决未改变。
+
+<a id="e-p1-default-straight-color-boundary-graph-ingress"></a>
+## E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS：fallback 保持 dormant graph input 事实（2026-09-09）
+
+### 首断点与收窄修正
+
+本批承接上一节的 default straight boundary。`SceneResolvedMaterialShaderSchema` 在精确颜色降低失败后采用 `defaultStraightColorBoundary([0])` 时，fallback transfer 没有把单一 graph-input carrier 还原到 graph-input source facts；source 侧的 `straightAlphaPreserving(textureSlot: 0)` 因而与 frontend 侧的空事实发生 `samplerBindingIdentityMismatch`。修正位于 `MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift`：只有 `defaultStraightColorBoundary` 恰好包含一个 slot 时才映射回该 carrier，multi-slot 仍返回未知；没有新增 sample/layer/path/hash 分支，也没有改动显式 graph、implicit sampler、resource registry、property、provider、GraphTargets、GraphExecutor 或 compositor owner。
+
+回归门位于 `script/tests/test_scene_resolved_material_program_finalizer.py` 的 `dormantGraphInputFactTokens`，用同一个 template 对比 source `straightAlphaPreserving(0)` 与 frontend `defaultStraightColorBoundary([0])`，要求 facts 完全相等且 provenance 为 `dormantUnresolvedMaterialAlias`。本轮 finalizer **24/24 PASS**（`defaultBoundaryPreservesGraphFact=preserved`），generic artifact default-boundary 定向测试 **1/1 PASS**，template 测试 **5/5 PASS**；checkpoint Debug build **BUILD SUCCEEDED**。
+
+### 隔离运行证据
+
+输入为只读真实样本 `3749463715` 的隔离副本 `/private/tmp/mwx-graphfix-run`，matrix SHA-256 为 `2a2428fccd05051d433039a0b20ed210738aea430694bae8bff477c96ede3de8`。运行使用签名 Developer ID Debug App：bundle `com.songziqiang.MyWallpaperX`、version `2.0.9 (277)`、Team `H9QWU9XN8R`、CDHash `bdf87b1f5bcae7ee5d10e0a5cfad0cc99f85878e`、executable SHA-256 `d03b09c50d3c651127c792783ab5e15d3756f0b133861b0ad0a027ea6a1ae85a`。7 秒 benchmark 的 report 为 `/private/tmp/mwx-graphfix-run/report.json`，SHA-256 `98b09a9ce1fc0dd3efa4c8017b1f3bd6afa584caba75f1d7b862937e08f9012e`；app.log `b80f0ea8718cd8683cb7d0dd3e9675d3221c90f03baa8afb9ce511c4222217f8`，scene-preview.log `baa6ab0d046ae72fb8a8988f9f20dac2f5cde640d84c11d3f216f1092a568f`，scene-runtime-evidence.json `47d12c351140c379f5f3ceafbcfa8088413a1569564b424810e0d435344f9ccb`。
+
+正式 matrix 仍为 **0/1 NON-PASS**，不是本批的失败证据：layer `467` effect 0 的 `cutout_vignette` 仍在 Metal library compilation 因 float3/float2 implicit conversion 失败，layer `536` effect 1 opacity 仍是 `effect-local-passthrough-material-generic-owner-revoked`。本批目标 `536#effect#553`（`effects/workshop/2342779250/test_shader/effect.json`）已经是 `admitted-generic / resolved-material / profile=program`；effect CPU invocation 是 `resolved-material-graph / encoded-output`。frame 0（transaction `r4:1:9:0`）和 next-frame（`r4:1:24:0`）均为 1 authored / 1 material / 0 copy / 0 swap / 0 compose / 0 rejected，`outcome=succeeded`、`gpuCompletion=completed`，两帧共用 Program identity `43ee766ff47f1df07b25121be9f51459b796e77ca32e013f18a9b0206fd5822f`，并完成 exact publication；graph input 记录为 `slot0:dormantUnresolvedMaterialAlias:layerSource:536`，目标日志没有 `samplerBindingIdentityMismatch` 或 `graph-input-source-fact-divergence`。整次 GraphExecutor 为 `90 claimed / 90 encoded / 90 GPU encoded / 0 failure / 0 local fallback`，15 个 required layer 全部进入 exact-backend complete 集合。
+
+隔离 shader cache 没有提供 generic artifact，所以 frame execution 日志的 backend 是共享 `boundedSwift`；这条证据只证明共同 resolved-material graph executor 的 ingress、Program identity、publication、GPU completion 与 next-frame，不升级为 `genericCompilerArtifact`、独立 ROI、官方预览等价或视觉 parity。ready/after/preview 图片仅作为运行 provenance；当前下一项按真实首断点处理 layer `467` library compilation，另行追踪 layer `536` effect 1 的 opacity local fallback。证据来源分类为 `authored-corpus-observation`（只读样本）与 `MyWallpaperX-current-evidence`（当前代码、测试、构建和运行），本批不需要 Ghidra、Mirage 或官方黑盒研究。
 
 ## E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY：未证明的普通颜色 pass 按官方默认 straight 边界执行（2026-09-08）
 

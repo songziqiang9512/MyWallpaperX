@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-07
+> 最近核对：2026-09-09
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -28,7 +28,20 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 同一构建与隔离流程复跑高命中 godrays 样本 `1937925563`，得到 `PASS loaded=1.000 failures=[]`。该结果是第二个样本的 identity/runtime contract 证据，仍不替代人工视觉裁决或官方 parity 对照。
 
-同一流程对 shine-cast 样本 `3749463715` 仍发现共享 shader preparation library compilation fallback（layer `467`），benchmark 报告 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。该失败发生在公共编译/准入阶段，尚未进入视觉裁决；后续应先取得该 shader 的 stage-link 诊断并修复公共预处理或编译 owner。
+前一轮流程对 shine-cast 样本 `3749463715` 曾把 layer `536` 的 graph ingress 与共享 shader preparation library compilation fallback（layer `467`）一起报告为 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。本批 default-boundary 修正了 layer `536` ingress，并保留 layer `467` 的公共 library compilation 作为当前首断点；完整边界见下方证据。
+
+<a id="e-2026-09-09-default-straight-boundary-graph-ingress"></a>
+### 2026-09-09 默认直色 fallback 的 dormant graph ingress 修正（3749463715）
+
+`SceneResolvedMaterialShaderSchema` 在精确颜色降低失败后采用 `defaultStraightColorBoundary([0])` 时，之前没有把这条 fallback transfer 还原为单一 graph-input carrier。于是 source 侧的 `straightAlphaPreserving(textureSlot: 0)` 产生 `slot0`，frontend 侧的默认边界事实为空，最终以 `samplerBindingIdentityMismatch` 拒绝原本已证明的 dormant graph input。现行修正只让**单一** default boundary slot 映射回该 carrier；多 slot 仍保守返回未知，显式 graph/implicit sampler 事实和其它 color profile 不变。代码见 `SceneResolvedMaterialShaderSchema+SamplerPurpose.swift`，回归门在 `test_scene_resolved_material_program_finalizer.py` 的 `dormantGraphInputFactTokens`。
+
+自动证据：finalizer **24/24 PASS**，新增 `defaultBoundaryPreservesGraphFact=preserved`；generic artifact default-boundary 定向测试 **1/1 PASS**；模板测试 **5/5 PASS**；checkpoint Debug build **BUILD SUCCEEDED**。实际 App 为 `com.songziqiang.MyWallpaperX`、version `2.0.9 (277)`、Team `H9QWU9XN8R`、CDHash `bdf87b1f5bcae7ee5d10e0a5cfad0cc99f85878e`、executable SHA-256 `d03b09c50d3c651127c792783ab5e15d3756f0b133861b0ad0a027ea6a1ae85a`。
+
+对只读样本 `3749463715` 的隔离副本（matrix SHA-256 `2a2428fccd05051d433039a0b20ed210738aea430694bae8bff477c96ede3de8`）运行 7 秒，整体仍 **0/1 NON-PASS**：报告只剩公共 layer `467` 的 cutout-vignette Metal library compilation，以及 layer `536` effect 1 的 local generic-owner fallback；没有把这些失败改名为本批成功。目标 `536#effect#553`（`effects/workshop/2342779250/test_shader/effect.json`）现在为 `admitted-generic / resolved-material / profile=program`，effect CPU invocation 记录 `resolved-material-graph / encoded-output`。它在 frame 0 和 next-frame 都是 1 authored / 1 material / 0 copy / 0 swap / 0 compose / 0 rejected，`outcome=succeeded`、`gpuCompletion=completed`，相同 Program identity `43ee766ff47f1df07b25121be9f51459b796e77ca32e013f18a9b0206fd5822f`，并保持同一 physical publication；GraphExecutor 汇总为 `90 claimed / 90 encoded / 90 GPU encoded / 0 failure / 0 local fallback`，15 个 required layer 全部进入 exact backend complete 集合。app log 的 graph input 为 `slot0:dormantUnresolvedMaterialAlias:layerSource:536`，本轮没有 `samplerBindingIdentityMismatch` 或 `graph-input-source-fact-divergence`。
+
+该隔离运行的 `generic-only` route 由于独立 shader cache 未提供 artifact，实际 frame backend 日志为共享 `boundedSwift`；因此本条只证明修正后的共同 resolved-material graph executor、Program identity、publication、GPU completion 和 next-frame ingress，不把它写成 `genericCompilerArtifact` 或视觉 parity。ready/after/preview PNG 只保留运行 provenance，不作为 ROI 或官方画面对照。report SHA-256 为 `98b09a9ce1fc0dd3efa4c8017b1f3bd6afa584caba75f1d7b862937e08f9012e`，app.log SHA-256 为 `b80f0ea8718cd8683cb7d0dd3e9675d3221c90f03baa8afb9ce511c4222217f8`，完整断点与下一步见 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](scene-sample-debug-ledger.md#e-p1-default-straight-color-boundary-graph-ingress)。
+
+这次运行对应的下一断点是 layer `467` effect 0 的 `cutout_vignette` library compilation（Metal diagnostic 为 float3/float2 implicit conversion）；`536` effect 1 的 opacity local fallback 仍按当时构建记录。当前样本没有 strict PASS、独立视觉 ROI 或官方 parity 证据。
 
 `3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
 

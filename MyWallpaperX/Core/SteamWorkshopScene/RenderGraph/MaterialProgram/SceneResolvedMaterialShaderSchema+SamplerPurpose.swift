@@ -310,13 +310,19 @@ extension SceneResolvedMaterialShaderSchema {
              let .straightAlphaPreserving(slot),
              let .opaqueFromStraightColor(slot):
             slot
+        case let .defaultStraightColorBoundary(slots):
+            // The default boundary can replace a single proven straight
+            // carrier when compiler lowering declines. Preserve the dormant
+            // graph-input identity for that carrier so the fallback keeps
+            // the same ingress contract as the source classification.
+            slots.count == 1 ? slots.first : nil
         case .interpolatedColor, .straightAlpha, .straightAlphaUNorm,
              .independentAlphaSignal, .independentAlphaSignalPreserving,
              .independentAlphaSignalCompositing,
              .independentAlphaSignalUnderlayCompositing,
              .generatedStraightAlpha,
              .premultipliedAlpha,
-             .opaque, .unresolved, .defaultStraightColorBoundary, nil:
+             .opaque, .unresolved, nil:
             nil
         }
     }
