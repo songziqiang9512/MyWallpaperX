@@ -148,8 +148,9 @@ nonisolated enum SceneGenericShaderCompilerProcess {
             return .failure(.signaled(signal: process.terminationStatus))
         }
         guard process.terminationStatus == expectedExitCode else {
+                let diagnosticData = (stderr.load() + stdout.load()).prefix(2048)
                 let diagnostic = String(
-                    decoding: stderr.load().prefix(2048),
+                    decoding: diagnosticData,
                     as: UTF8.self
                 ).replacingOccurrences(of: "\n", with: " ")
                 return .failure(.rejected(
