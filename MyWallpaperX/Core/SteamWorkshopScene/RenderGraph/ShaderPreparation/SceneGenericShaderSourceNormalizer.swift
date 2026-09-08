@@ -250,6 +250,7 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 fragment.body,
                 shapes: varyings.merging(uniforms) { current, _ in current }
             )
+            fragment.body = rewriteVectorClampLiteralArguments(fragment.body)
             guard let mutableVaryings = SceneGenericShaderMutableFragmentVaryingNormalizer
                 .rewrite(
                     fragment.body,
@@ -894,6 +895,19 @@ void main() {
             let value = String(result[valueRange])
             let expression = String(result[fullRange])
             result.replaceSubrange(fullRange, with: expression.replacingOccurrences(of: value, with: "int(\(value))"))
+        }
+        return result
+    }
+
+    private static func rewriteVectorClampLiteralArguments(_ source: String) -> String {
+        let regex = try! NSRegularExpression(pattern:
+            #"\b(max|min)\(\s*(-?[0-9]+)\s*,\s*([A-Za-z_][A-Za-z0-9_]*(?:\.[xyzwrgba]+)?)\s*\)"#
+        )
+        var result = source
+        for match in regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).reversed() {
+            guard let literal = Range(match.range(at: 2), in: source),
+                  let full = Range(match.range, in: result) else { continue }
+            result.replaceSubrange(full, with: String(source[full]).replacingOccurrences(of: String(source[literal]), with: String(source[literal]) + ".0", options: [], range: nil))
         }
         return result
     }

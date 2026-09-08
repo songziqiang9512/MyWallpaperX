@@ -758,6 +758,15 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
     private static func compilerFallbackCode(
         _ failure: SceneGenericShaderCompiler.Failure
     ) -> String {
+        // The benchmark's explicit evidence mode needs the compiler's bounded
+        // stderr to identify the next shared source break. Keep normal
+        // playback telemetry path-safe while exposing the already bounded
+        // diagnostic only for that opt-in debug run.
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
+            let detail = String(describing: failure)
+                .replacingOccurrences(of: "\n", with: " ")
+            return String(detail.prefix(512))
+        }
         switch failure {
         case let .configuration(reason):
             return "compiler-configuration-\(sanitize(reason))"
