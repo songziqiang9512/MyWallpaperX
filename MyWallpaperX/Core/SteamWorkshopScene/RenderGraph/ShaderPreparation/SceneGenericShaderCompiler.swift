@@ -47,6 +47,15 @@ nonisolated enum SceneGenericShaderCompiler {
         case let .failure(failure):
             return .failure(.normalization(String(describing: failure)))
         }
+        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
+            NSLog(
+                "MWX DEBUG SCENE: phase=shader-normalized request=%@ vertexBytes=%d fragmentBytes=%d stageLinkArgs=%@",
+                requestKey,
+                normalized.vertex.utf8.count,
+                normalized.fragment.utf8.count,
+                "-V --auto-map-bindings --auto-map-locations -l vertex.frag"
+            )
+        }
         let fileManager = FileManager.default
         let workspace = fileManager.temporaryDirectory.appendingPathComponent(
             "mwx-scene-shader-\(UUID().uuidString)",
