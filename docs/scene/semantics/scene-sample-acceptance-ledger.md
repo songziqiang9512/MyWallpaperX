@@ -10,16 +10,16 @@
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `36e8d7b1662414c73972742e4fb91e4afd14c48d1fed57f4af5dacf26b19268a`（生成于 2026-09-07T19:40:44.788133+00:00）。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `486b56750203ef75403172352b14523c0d9721ba83d5078263982e0d2c6857c2`。
-- 本页生成于 2026-09-08T13:51:44.095944+00:00。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
+- 本页生成于 2026-09-08T15:20:36.752459+00:00。
 
 ## 2. 汇总
 
 | 视觉裁决 | 样本数 |
 |---|---:|
-| `unreviewed` | 141 |
+| `unreviewed` | 140 |
 | `pass` | 0 |
-| `fail` | 18 |
+| `fail` | 19 |
 | `platform-unsupported` | 0 |
 
 | 首断点集群 | 含义 | 样本数 |
@@ -149,7 +149,7 @@
 | `3748311238` | 大 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3749463715` | 还能在大 ∑ 2 | 3(0) bool 1 color 2 | `degraded-runtime` | `effect-execution / ResolvedMaterialExecution / effect-local-passthrough-material-pass-preparation-library-compilation / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
 | `3750342273` | Night snowy mountains | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` |  |
+| `3750813609` | Asian Temple in the Mountains | 3(0) bool 2 color 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `fail` 2026-09-08 | 山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡 |
 | `3754630802` | WLOP [ChineseNewYear 7] | 仅 schemecolor | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` |  |
 | `3754639143` | WLOP 银月 | 2(0) color 1 combo 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / unified-capability-unavailable / backend:effect-family:bokeh_blur` | `effect-chain` | `unreviewed` |  |
 | `3757555836` | 名将杀【兰汤春酽_赵姬】限制级8K | 3(0) bool 1 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

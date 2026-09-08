@@ -16,6 +16,7 @@
     "3662790108": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "轨道/布局已恢复，球体与曲率画面、点击交互未验收；约 8.8 FPS"},
     "3712499998": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/时钟恢复，WEVector unsupported，重复文字未裁决"},
     "3747492842": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "文字错位部分修复；额外闪烁、光束位置与 viewport 裁切未通过"},
+    "3750813609": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "山寺构图、雾与落叶与预览一致；时钟数字呈灰黑渐变而预览为白色发光，雨丝更淡"},
     "3765760121": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "倒置已修，整样本未全面验收"},
     "3766387484": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "日期/星期/时钟恢复，其余 effect 未验收"},
     "3780119725": {"verdict": "fail", "reviewedOn": "2026-09-08", "note": "人物压缩已修；脸部黑线/缺块、动画层 unsupported、光照与闪烁未通过"},
