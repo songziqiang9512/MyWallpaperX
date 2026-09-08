@@ -218,6 +218,19 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 throw Failure.uniformStageMismatch
             }
             guard colorTransfer(color.transfer, isBoundBy: bindings) else {
+                if ProcessInfo.processInfo.arguments.contains(
+                    "--mwx-debug-scene-evidence-dir"
+                ) {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=artifact-color-transfer-rejected request=%@ kind=%@ slot=%@ slots=%@ bindings=%@ authoredBytes=%d",
+                        requestKey,
+                        color.transfer.kind,
+                        color.transfer.slot.map(String.init) ?? "-",
+                        color.transfer.slots.map { $0.map(String.init).joined(separator: ",") } ?? "-",
+                        bindings.map { String($0.slot) }.joined(separator: ","),
+                        fragmentStage.authoredSource.utf8.count
+                    )
+                }
                 throw Failure.colorTransfer
             }
             guard premultipliedColorInputSlots.isSubset(
