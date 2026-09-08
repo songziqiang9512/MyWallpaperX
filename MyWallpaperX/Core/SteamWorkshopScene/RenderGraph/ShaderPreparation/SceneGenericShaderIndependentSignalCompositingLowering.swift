@@ -103,17 +103,26 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         )
         if debug {
             NSLog(
-                "MWX DEBUG SCENE: phase=signal-compositing-lowering-tail control=%d outputWrites=%d outputAssignments=%d returns=%d",
+                "MWX DEBUG SCENE: phase=signal-compositing-lowering-tail control=%d outputWrites=%d outputAssignments=%d returns=%d outputName=%@ colorName=%@ colorBefore=%@ signalBefore=%@",
                 control.count,
                 outputWrites.count,
                 outputAssignments.count,
-                matches(#"\breturn\s+out\s*;"#, in: source, range: body).count
+                matches(#"\breturn\s+out\s*;"#, in: source, range: body).count,
+                outputAssignments.first.map { capture($0, 1, in: source) ?? "-" } ?? "-",
+                color.name,
+                outputAssignments.first.map { color.match.range.location < $0.range.location ? "yes" : "no" } ?? "-",
+                outputAssignments.first.map { signal.match.range.location < $0.range.location ? "yes" : "no" } ?? "-"
             )
         }
+        let outputName = outputAssignments.first.map {
+            capture($0, 1, in: source) ?? ""
+        } ?? ""
+        let outputIsColor = outputName == color.name
+        let outputIsSignal = expectedUnderlaySlot == nil && outputName == signal.name
         guard control.isEmpty,
               outputWrites.count == 1,
               outputAssignments.count == 1,
-              capture(outputAssignments[0], 1, in: source) == color.name,
+              outputIsColor || outputIsSignal,
               color.match.range.location < outputAssignments[0].range.location,
               signal.match.range.location < outputAssignments[0].range.location,
               matches(
@@ -127,10 +136,12 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         var transformed = source
         transformed.replaceSubrange(
             outputRange,
-            with: "out.mwxFragColor = \(premultiply)(\(color.name));"
+            with: "out.mwxFragColor = \(premultiply)(\(outputName));"
         )
         let straightColorSlots = Set(
-            [expectedColorSlot] + (expectedUnderlaySlot.map { [$0] } ?? [])
+            [expectedColorSlot]
+                + (expectedUnderlaySlot.map { [$0] } ?? [])
+                + (outputIsSignal ? [expectedSignalSlot] : [])
         )
         let straightDeclarations = straightColorSlots.compactMap { slot in
             bySlot[slot].map { (slot, $0) }
