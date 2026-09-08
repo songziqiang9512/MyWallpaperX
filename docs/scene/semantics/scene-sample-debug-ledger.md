@@ -157,6 +157,10 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 | 1315486372 | 水波位置与贴图光线符合 authored 布局 | 待定位 effect source extent/UV/transform |
 | 2775915974 | 鼠标 Y 方向正确，顶部边缘仍保持 inside/事件连续 | 待定位 AppKit → typed pointer → consumer 边界 |
 
+### 3765760121 运行追溯（2026-09-08）
+
+单一 Scene host/runtime instance 的真实日志同时出现并完成 text callback：合同层 `68/76/82` 与额外层 `190/196/202`。合同层均有动态文字 publication、graph execution、GPU completion、compositor consumption 和 next-frame 证据；benchmark 仍因实际 6 对合同 3 的 binding 集合差异失败。当前不把额外 ID 过滤掉，也不修改矩阵期望；需继续从 `scene.pkg` 解码后的 source/parent/instance identity 追踪其来源。
+
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 
 159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。
