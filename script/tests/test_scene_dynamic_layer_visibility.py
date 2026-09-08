@@ -143,6 +143,26 @@ private func sourceAuthority(
     )
 }
 
+private func candidateVisibility(
+    _ layerID: Int,
+    _ values: [SceneDynamicTarget: SceneDynamicValue]
+) -> Bool {
+    let snapshot = SceneDynamicSnapshotResolver().resolve(
+        frameIndex: 1,
+        generation: 1,
+        definitions: definitions,
+        userValues: [:],
+        sceneScriptValues: values
+    ).snapshot
+    let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+    return SceneLayerVisibility.isEffectivelyVisible(
+        layerID: layerID,
+        in: descriptor,
+        layersByID: layersByID,
+        snapshot: snapshot
+    )
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -178,6 +198,8 @@ enum Harness {
                 [:],
                 userValues: [owned: .bool(true)]
             ),
+            "candidateVisible": candidateVisibility(2, [root: .bool(true), child: .bool(true)]),
+            "candidateParentHidden": candidateVisibility(2, [root: .bool(false), child: .bool(true)]),
             "unownedHasSourceAuthority": sourceAuthority(
                 layerID: 3,
                 [:]

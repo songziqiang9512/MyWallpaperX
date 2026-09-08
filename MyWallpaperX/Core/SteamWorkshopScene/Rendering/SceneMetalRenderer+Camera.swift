@@ -36,15 +36,15 @@ extension SceneMetalRenderer {
         let fallbackCamera = renderDescriptor.camera
         guard fallbackCamera.orthoWidth == nil,
               fallbackCamera.orthoHeight == nil else { return nil }
-        let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
-            in: renderDescriptor,
-            layersByID: layersByID,
-            snapshot: dynamicValues
-        )
         guard let layer = renderDescriptor.renderOrderLayerIDs.reversed()
             .compactMap({ layersByID[$0] })
             .first(where: {
-                visibleLayerIDs.contains($0.id)
+                SceneLayerVisibility.isEffectivelyVisible(
+                    layerID: $0.id,
+                    in: renderDescriptor,
+                    layersByID: layersByID,
+                    snapshot: dynamicValues
+                )
                     && $0.cameraPath?.camera.lowercased() == "default"
             }),
               let cameraPath = layer.cameraPath,

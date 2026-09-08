@@ -219,4 +219,10 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 
+## E-V4-CAMERA-VISIBILITY-HOTPATH：鼠标投影避免全场景可见性重建（2026-09-08）
+
+鼠标投影原先每个输入样本都调用完整 `visibleLayerIDs`，递归检查全部作者层及父链；改为按候选相机逐项检查其父链，完整集合仍由合成/发布路径使用。该改变只减少重复集合构造，未跳过动态 snapshot、source authority、循环 identity 或命中安全检查。
+
+同一 `3662790108`、同一隔离 benchmark 和 `newproperty1=false/newproperty48=true` 下，新的 Debug executable 运行 report `/private/tmp/mwx-366-camera-hotpath/report.json` SHA-256 `3d7c5cae44a7fdc5ce003e8bdce75d61a9664cac02d336622d5e6143fbf777eb`，截图 `scene-after-window.png` SHA-256 `2974ce0c51c28d2fdc8d46a3428802af97dfb42b4467191e3205192ed0fb6636`。251/250/0 提交/完成/失败，完成 FPS 8.844，main-frame p95 56.892ms、CPU p95 49.546ms；画面保持时钟上方和无中心PAGE/圆点。该数字只与本批前的同流程样本结果作有界比较，不能外推所有样本或稳定性能完成。轨道颜色合同、球体/曲面资源、实际点击和整景 NON-PASS 仍开放。
+
 159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。

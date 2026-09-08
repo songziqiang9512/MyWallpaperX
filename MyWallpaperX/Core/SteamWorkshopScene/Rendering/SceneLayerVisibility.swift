@@ -49,6 +49,20 @@ enum SceneLayerVisibility {
         }
     }
 
+    /// Check one candidate and its parent chain without materializing the
+    /// complete visible-layer set. Camera hit projection calls this for a
+    /// single candidate on every input sample; the full set remains available
+    /// for composition and publication paths.
+    nonisolated static func isEffectivelyVisible(
+        layerID: Int,
+        in descriptor: SceneRenderDescriptor,
+        layersByID: [Int: SceneRenderDescriptor.Layer],
+        snapshot: SceneDynamicSnapshot
+    ) -> Bool {
+        guard let layer = layersByID[layerID] else { return false }
+        return isEffectivelyVisible(layer, layersByID: layersByID, snapshot: snapshot)
+    }
+
     /// Source passthrough consumes the same highest-priority committed Boolean
     /// as the normal layer walk. A SceneScript display owner still requires an
     /// actual SceneScript publication and the unsupported alpha owner remains
