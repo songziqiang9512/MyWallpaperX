@@ -16,6 +16,9 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         expectedColorSlot: Int,
         expectedUnderlaySlot: Int? = nil
     ) -> String? {
+        let debug = ProcessInfo.processInfo.arguments.contains(
+            "--mwx-debug-scene-evidence-dir"
+        )
         guard (0 ..< 8).contains(expectedSignalSlot),
               (0 ..< 8).contains(expectedColorSlot),
               expectedSignalSlot != expectedColorSlot,
@@ -50,6 +53,14 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         let declarations = matches(
             declarationPattern, in: source, range: body
         )
+        if debug {
+            NSLog(
+                "MWX DEBUG SCENE: phase=signal-compositing-lowering-shape expectedSlots=%@ sampleCalls=%d declarations=%d",
+                expectedSlots.sorted().map(String.init).joined(separator: ","),
+                sampleCalls.count,
+                declarations.count
+            )
+        }
         guard declarations.count >= expectedSlots.count else { return nil }
 
         var bySlot: [Int: (match: NSTextCheckingResult, name: String)] = [:]
@@ -82,6 +93,15 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
             in: source,
             range: body
         )
+        if debug {
+            NSLog(
+                "MWX DEBUG SCENE: phase=signal-compositing-lowering-tail control=%d outputWrites=%d outputAssignments=%d returns=%d",
+                control.count,
+                outputWrites.count,
+                outputAssignments.count,
+                matches(#"\breturn\s+out\s*;"#, in: source, range: body).count
+            )
+        }
         guard control.isEmpty,
               outputWrites.count == 1,
               outputAssignments.count == 1,
