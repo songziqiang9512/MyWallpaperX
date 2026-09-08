@@ -24,7 +24,7 @@
 
 ### 2026-09-09 loop guard 隔离运行（3662790108）
 
-Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样本：签名 staging、加载比率 `1.000`、首帧与稳定帧均非黑，截图和 preview 对照已生成；5 秒与 15 秒稳定窗口原先的 next-frame 缺口已由 benchmark 修正（提交 `2b90dd23`），复跑后暴露新的 `non-accepted layer exact backend observed` 集合契约问题，样本仍 **NON-PASS**。运行缓存中确认 6 个 program artifact 带有 `loopGuardCap=4096`，但这只证明 guard 已进入准备产物，不证明视觉等价；FPS 约 `7.61`、ready 约 `44.7s`，后续需收敛 identity-only matrix 的 exact-backend 期望集合，再做球体与轨道 ROI 对照。
+Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样本：签名 staging、加载比率 `1.000`、首帧与稳定帧均非黑。先后修正隐藏 layer 的 next-frame 排除与 dormant layer 的 exact-backend 排除（`2b90dd23`、后继提交），复跑得到 `3662790108: PASS loaded=1.000 failures=[]`。这是无视觉期待的 identity/runtime contract PASS；截图与 preview 对照仍需人工裁决，不能宣称 parity。运行缓存确认 6 个 program artifact 带有 `loopGuardCap=4096`；FPS 约 `7.61`、ready 约 `44.7s`。
 
 `3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
 

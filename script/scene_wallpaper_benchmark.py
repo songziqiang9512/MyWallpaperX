@@ -2245,6 +2245,7 @@ def resolved_material_graph_exact_backend_metrics(
     effect_execution: dict[str, Any],
     static_disposition: dict[str, Any] | None,
     graph_observations: dict[str, Any],
+    dormant_layer_ids: set[int] | None = None,
 ) -> dict[str, Any]:
     accepted_layers = set(accepted_layer_ids)
     disposition_is_valid, _, eligible_exact = (
@@ -2451,6 +2452,7 @@ def resolved_material_graph_exact_backend_metrics(
     missing_layer_ids = sorted(accepted_layers.difference(complete_layer_ids))
     unexpected_layer_ids = sorted(
         resolved_backend_layer_ids.difference(accepted_layers)
+        .difference(dormant_layer_ids or set())
     )
     return {
         "has_evidence": disposition_is_valid and (
@@ -3018,6 +3020,7 @@ def resolved_material_graph_execution_metrics(
         effect_execution,
         static_disposition,
         graph_observations,
+        dormant_layer_ids=set(dormant_layer_set),
     )
     if (
         exact_backend["unjoined_cpu_effect_local_passthroughs"]
