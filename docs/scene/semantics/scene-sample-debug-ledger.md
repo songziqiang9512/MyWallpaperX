@@ -54,6 +54,8 @@
 
 `95721137` 已完成该职责拆分：Puppet publication 保留 coverage logical size 给 model，另以 authored layer size 发布 effect logical extent；effect preflight/desired-size 使用后者。隔离运行 `/private/tmp/mwx-async-text.qmTbKj/3780119725/extent-split-run` 的 after 截图显示人物不再压缩，脸部/躯干黑色线条消失，构图恢复到 authored 参考的主要形态；layer21 的 6 个 graph effect 均 `outcome=succeeded`、`gpuCompletion=completed`，其输入由原先 `902×2048` 变为 authored-ratio 的 `2048×1057`。benchmark 仍因样本另一条 effect-local passthrough/CPU invocation 失败而整体 FAIL，故本条只证明 Puppet extent 首断点修复，不宣称整样本通过。
 
+该剩余失败的首断点已进一步明确：layer380 的 authored workshop `Simple_Audio_Bars` shader 在准备阶段被 frontend owner 拒绝，日志为 `shaderFrontendFailed` / `compiler-tool-stage-link-rejected-exitcode--2` / `bounded-frontend-owner-revoked` / `compatibility-target-not-applicable`；随后唯一 graph owner 以 `visual-failure-passthrough` 发布安全输出。它不是 Puppet 或 publication 生命周期失败，也不能通过把 passthrough 改成成功来验收。下一项应针对 generic shader frontend 对该类 audio-array material 的公共兼容合同，保留失败半径局部化。
+
 ## E-V4-PUPPET-FALLBACK-PUBLICATION：重组成功与可缓存资格分离（2026-09-08）
 
 `3780119725` 人物 layer21 的重组覆盖范围为 3874×6279，上传纹理为 2527×4096，但作者 atlas/layer 声明为 3874×2000。动画 layer1221 不在当前 bounded profile，已有逻辑成功生成 bind-pose fallback。首断点在 `SceneMetalView`：只有可缓存的静态重组或 active playback 才调用 `setPuppetSource`；这个有动画声明却降级为 bind-pose 的结果没有 cache identity，被错误送进 base atlas publication，旧高度继续驱动 model/effect source。现在只以成功重组返回的 coverage 决定既有 Puppet source publication，不再以 cache/playback 资格为门；缓存复用条件不变，解析、重组与 budget 全部仍在 load。
