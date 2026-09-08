@@ -453,6 +453,7 @@ extension SceneImageLayerCompositor {
             if reasonCode == "function-invocation-unknown-effect"
                 || reasonCode == "function-invocation-unknown-function"
                 || reasonCode == "captured-main-color-contract-unproven"
+                || reasonCode == "layer-source-not-ready"
                 || ScenePersistentGraphTargetPlanningFailure
                     .isLocalFallbackReasonCode(reasonCode) {
                 return .localFallback(reasonCode: reasonCode)

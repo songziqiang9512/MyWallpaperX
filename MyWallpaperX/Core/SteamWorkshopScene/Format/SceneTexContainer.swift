@@ -207,7 +207,6 @@ struct SceneTexContainerReader {
         }
 
         var freeImageFormat: Int32 = -1
-        var isVideoMp4 = false
         var mipMetadataEntryCount = 0
         let effectiveContainerVersion: SceneTexContainer.ContainerVersion
 
@@ -232,7 +231,6 @@ struct SceneTexContainerReader {
             guard mipMetadataEntryCount <= Self.maximumMipMetadataEntryCount else {
                 throw ReadError.invalidMipTable
             }
-            isVideoMp4 = mipMetadataEntryCount == 1
             effectiveContainerVersion = mipMetadataEntryCount == 0
                 ? .texb0003
                 : .texb0004
@@ -297,7 +295,12 @@ struct SceneTexContainerReader {
             imageHeight: imageHeight,
             containerVersion: effectiveContainerVersion,
             freeImageFormat: freeImageFormat,
-            isVideoMp4: isVideoMp4,
+            // TEXB0004 metadata also describes conditional PNG images; its
+            // entry count is not a media-type discriminator.
+            isVideoMp4: images.first?.mips.first.map {
+                $0.data.count >= 12
+                    && $0.data[4...7].elementsEqual(Data("ftyp".utf8))
+            } ?? false,
             images: images,
             spriteFrames: spriteFrames
         )

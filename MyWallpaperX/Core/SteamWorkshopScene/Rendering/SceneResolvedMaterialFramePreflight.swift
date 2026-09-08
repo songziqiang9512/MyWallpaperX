@@ -204,7 +204,8 @@ extension SceneMetalRenderer {
             if case let .externalPrimary(binding) = claim.dependencyOwnership,
                binding.kind != .resolvedMaterial,
                imageTextures.isLayerSourcePending(binding.providerLayerID) {
-                return .deferred
+                sourceCoverageFallbacks[layer.id] = "layer-source-not-ready"
+                continue
             }
             let desiredSize: CGSize
             switch claim.sourceRoute {
@@ -224,7 +225,11 @@ extension SceneMetalRenderer {
                 case let .source(value):
                     selectedSource = value
                 case .missing:
-                    return .deferred
+                    // An asynchronous source must not hold the entire scene
+                    // at frame zero: submission also lets its decoder warm up.
+                    // No source is fabricated; retry this layer next frame.
+                    sourceCoverageFallbacks[layer.id] = "layer-source-not-ready"
+                    continue
                 case let .rejected(reasonCode):
                     return .rejected(reasonCode: reasonCode)
                 }
@@ -537,6 +542,16 @@ extension SceneMetalRenderer {
                 sourceUsesAuthoredLayerColor = source.usesAuthoredLayerColor
                 textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
                 capturesMainTarget = false
+                if layer.contentKind == "solid" {
+                    // Solid sources are sized by projected coverage in
+                    // preflight, not by an imported image's authored extent.
+                    // Use that accepted target, including zero-area helpers.
+                    let size = plan.allocation.graphPlan.fullFramePair.descriptor.extent
+                    effectSourceExtent = SceneLayerEffectSourceExtent(pixelSize: CGSize(
+                        width: size.width, height: size.height
+                    ))
+                    break
+                }
                 guard let extent = SceneLayerEffectSourceExtent.resolve(
                         publishedRenderSizeWH:
                             imageTextures.layerSourceEffectRenderSize(for: layerID),

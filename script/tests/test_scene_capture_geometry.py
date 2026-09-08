@@ -93,6 +93,13 @@ enum Harness {
             candidateMappedSize: CGSize(width: 2048, height: 2048)
         )
         let result: [String: Any] = [
+            "collapsedSolidSize": {
+                let size = SceneCaptureGeometryResolver.projectedPixelSize(
+                    layerMVP: SceneMatrix.scale(SIMD3<Float>(0, 0, 0)),
+                    viewportSize: viewport)!
+                let extent = SceneLayerEffectSourceExtent(pixelSize: size)!
+                return [extent.pixelSize.width, extent.pixelSize.height]
+            }(),
             "localOrigin": vector(local.sourceUV.origin),
             "localXAxis": vector(local.sourceUV.xAxis),
             "localYAxis": vector(local.sourceUV.yAxis),
@@ -141,6 +148,12 @@ enum Harness {
 
 
 class SceneCaptureGeometryTests(unittest.TestCase):
+    def test_collapsed_solid_uses_admitted_projected_extent(self) -> None:
+        self.assertEqual(self.result["collapsedSolidSize"], [1, 1])
+        source = (SOURCE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift").read_text()
+        self.assertIn('if layer.contentKind == "solid"', source)
+        self.assertIn("plan.allocation.graphPlan.fullFramePair.descriptor.extent", source)
+
     @classmethod
     def setUpClass(cls) -> None:
         if shutil.which("swiftc") is None:

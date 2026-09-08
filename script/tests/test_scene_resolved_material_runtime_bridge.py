@@ -3663,7 +3663,11 @@ enum Harness {
                 }
         }
 
-        do {
+        for (reason, resultKey) in [
+            ("utility-composition-subtree-source-coverage-unavailable",
+             "utilitySubtreeCoverageFallbackRemainsLayerLocal"),
+            ("layer-source-not-ready", "pendingSourceFallbackRemainsLayerLocal")
+        ] {
             let recorder = LogRecorder()
             let coordinator = makeCoordinator(
                 device,
@@ -3675,8 +3679,6 @@ enum Harness {
                 dynamicSnapshot: .init(),
                 frameInputs: .init()
             )
-            let reason =
-                "utility-composition-subtree-source-coverage-unavailable"
             let installed = coordinator.installFrameLocalFallbacks([7: reason])
             let rejectedWithTypedReason: Bool
             switch coordinator.claim(layerID: 7) {
@@ -3697,9 +3699,17 @@ enum Harness {
             buffer.commit()
             buffer.waitUntilCompleted()
             let audit = coordinator.endFrame().joined(separator: "\n")
-            results["utilitySubtreeCoverageFallbackRemainsLayerLocal"] =
+            coordinator.beginFrame(
+                textureSnapshot: .init(frameIndex: 23, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init()
+            )
+            let recoverable: Bool
+            if case .claimed = coordinator.preflightClaim(layerID: 7) {
+                recoverable = coordinator.frameLocalFallbacks.isEmpty
+            } else { recoverable = false }
+            results[resultKey] =
                 installed && rejectedWithTypedReason
-                && preparedWithoutRootTarget && frameStayedLocal && sealed
+                && preparedWithoutRootTarget && frameStayedLocal && sealed && recoverable
                 && buffer.status == .completed
                 && audit.contains("failures=0")
                 && audit.contains("localFallbacks=1")
@@ -4965,6 +4975,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "invalidCapabilityTokenRejectsWithoutLegacyFallback",
                 "typedTargetDescriptorFallbackRemainsLayerLocal",
                 "utilitySubtreeCoverageFallbackRemainsLayerLocal",
+                "pendingSourceFallbackRemainsLayerLocal",
                 "preflightFailureReasonReachesCoordinatorEvidence",
                 "claimWaitsForAtomicFramePreparation",
                 "typedHistoryDiscardReachesPoolExactly",

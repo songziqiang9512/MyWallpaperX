@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 TEX媒体身份与首帧局部准入
+
+`3448845950`的PNG被单条TEX metadata误判为MP4、零面积solid准备尺寸不一致两处共享断点已修复，恢复卡片/实时时钟；真正video的初始pending→第10/11帧Program/GPU/publication恢复也成立。相关单元门、签名Debug通过，实际报告保留NON-PASS：脚本效果/布局和其他样本仍未完成。见 [E-V4-TEX-MEDIA-IDENTITY](scene-sample-debug-ledger.md#e-v4-tex-media-identity图片身份与首帧资源准入2026-09-08)。
+
 ### 2026-09-08 音频替换透明度与已有混合证明复用
 
 `3287715210` 的 Audio Bars 由artifact color-transfer拒绝恢复为普通Program；同一音频权重进入RGB blend与replacement alpha，静音/PCM截图显示基线与变化音频条，另有异步launch生命周期验证。6+76 tests和签名Debug build通过；系统音频捕获策略和完整样本仍未验收。见 [E-V4-AUDIO-REPLACEMENT-COVERAGE](scene-sample-debug-ledger.md#e-v4-audio-replacement-coverage音频权重成为输出透明度2026-09-08)。

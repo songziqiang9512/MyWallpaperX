@@ -156,6 +156,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             "frame-target-plan-rejected",
             "frame-target-plan-unsupported-target-descriptor",
             "utility-composition-subtree-source-coverage-unavailable",
+            "layer-source-not-ready",
         ]
         var diagnostic: String?
         lock.lock()

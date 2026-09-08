@@ -20,7 +20,7 @@
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | 用户否决整体验收；待区分 Puppet mesh/animation 与 effect source extent | 未通过 |
-| 3448845950 | 无法运行 | 当前ready后446 driver callbacks、0提交/完成帧，窗口黑；不是仅启动耗时 | 已复现，未通过 |
+| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，整体验收未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 15秒播放有CPU invocation failure及effect-local passthrough，状态推进仍未验收 | 已运行，未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
@@ -176,6 +176,14 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 本机 provenance：负例 `/private/tmp/mwx-audio-current-diagnostic/report.json` SHA-256 `94997c84268bf77594fee154d8bb50022fd89706bde0f9f6200d9869e251de67`；静音正例 `/private/tmp/mwx-audio-bool-after/report.json` `671fadce96f60f3588e6159a33d666b4cdebdd30d7342fe6e093ed836141fa30`；移除临时观测后的 PCM 正例 `/private/tmp/mwx-audio-bool-pcm-final/report.json` `a2f1a1d4cf0c187043a08b6800b79172c11b5324e21012b5fa3b67be6307baf4`。最终 App Team `H9QWU9XN8R`、CDHash `f7e2370241715ab6e9cc321aca87a632d7fa215f`。layer380 的64-bin左右声道从frame0 generation0 silent变成frame3 generation2 nonzero（peak约0.366/0.374）；Program `ba0d6b8513ea0a9c1312b47a011cd7e124356e1a0262546c17e3914d7b897734` 实际 GPU completed、publication、compositor/next-frame成立，PCM截图可见新增音频条。after PNG SHA-256 `9da289ad657f516edd5803e58974bbd2e76f252d9333c2a7384270e1126efd0d`。
 
 同一最终 App 另走真实异步 `requestLaunch`（隔离根 `/private/tmp/mwx-audio-async.8AEVC4`），相同 Program 在frame0/1 completed、compositorConsumed=true，publication49→100；surface teardown为owners7/quiescent7/failures0，surfaces1→0。异步 smoke 不调度 PCM fixture，因此此运行只证明真实 prepare→activate→GPU 生命周期，不冒充异步音频事件对照。该样本脸部黑线/构图仍未通过；新样本3287715210是独立 color-transfer 拒绝，不能由本修复宣称恢复。
+
+## E-V4-TEX-MEDIA-IDENTITY：图片身份与首帧资源准入（2026-09-08）
+
+`3448845950`的零提交首断点是layer57源纹理永远missing。实际AVPlayer返回-11829/-12848；只读检查`111.tex/111ying.tex`发现TEXB0004单条条件metadata下的payload是PNG，原reader把metadataCount=1标为MP4，registry据此提前抢走已准备的图片。现在按payload签名判别video，metadata数量不再决定producer身份，恢复现有PNG uploader→typed layerSource→Program。另一个同景首帧阻断是零面积solid辅助层1475：preflight已按投影准入最小target，preparation却重新要求有效图片尺寸；现在复用已准入solid target extent，普通图片的非法extent仍拒绝。
+
+缺失/准备中的安全source走现有`layer-source-not-ready`局部fallback，既不伪造纹理，也不阻塞无关内容；下一帧重新选择source。能力/identity/ABI拒绝未改为fallback。真实video `3775355045`首次layer22暂缺，第10帧恢复Program `f9013c571a43bc9526a571ffbb9d3959a5929daead7c691e61fa9d5dbb8f76dd`，第11帧继续，publication2→4、GPU completed和compositorConsumed成立；390/390/0提交/完成/失败，停止surfaces1→0。其report因初始fallback诊断严格NON-PASS，不修改门禁掩盖该事实。新fixture覆盖PNG/JPEG/raw/MP4 signature × 0/1/2 metadata（signature fixture不是可播放视频）；coordinator门覆盖局部fallback、Metal完成和下一帧重试，既有错误token等负例不放宽。
+
+验证：media/video **11 tests PASS**、bridge/video **25 PASS**、capture/local-fallback **12 PASS**、volume/source-set/doc-role **29 PASS**，签名Debug与deep/strict验签成功，CDHash `80b7891006348c3c1839ded6a31acf91bf1d7331`。最终三景报告`/private/tmp/mwx-tex-media-kind-after/report.json` SHA-256 `53d78adf9ba58605b551f288331ddd38dd7775db4dcdc6363711f34c99a2f6f6`；3448845950 after PNG `e1a141a8535f1a07e9f5becba071e17c1055d34cc7ebc3e02d331763d0c9dd8c`显示蓝色卡片与真实时钟，479/478/0提交/完成/失败，layer57终端包含明确script-unproven passthrough，publication18→38与next-frame成立。整景仍NON-PASS；3238423642虽结构PASS但头部错位未修，3662790108仍NON-PASS。video回归report SHA-256 `6fc409fdafaea5b7839844b214fb9e78f16ae41e55128ab8d8b45cbbf5bddda9`。负例现场为`mwx-black-source-diagnostic`、`mwx-video-solid-admission-after`和`mwx-video-decoder-diagnostic`，临时诊断均已移除。未证明条件metadata动态选图、全部脚本、视觉等价、长稳或性能改善。
 
 ## E-V4-CANVAS-PERSPECTIVE-CARD：透视选项不改变画布坐标方向（2026-09-08）
 
