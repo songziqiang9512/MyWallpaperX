@@ -115,12 +115,8 @@ nonisolated enum SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         main: Unit.Function
     ) -> Bool {
         let tokens = fragment.tokens
-        // Generated procedural carriers may use bounded constant loops (for
-        // example orbit/ring sampling).  The frontend has already accounted
-        // for their work in `staticLoopWork`; reject only unbounded/runtime
-        // loop forms and retain the existing conservative budget.
-        guard fragment.staticLoopWork > 0,
-              fragment.staticLoopWork <= 256,
+        guard fragment.staticLoopWork == 1,
+              !tokens.contains(where: { ["for", "while", "do"].contains($0.text) }),
               fragment.exactRuntimeLoopUniformArrays.isEmpty,
               !containsSampling(rgbInitializer),
               !rgbInitializer.contains(where: { $0.text == alphaName })

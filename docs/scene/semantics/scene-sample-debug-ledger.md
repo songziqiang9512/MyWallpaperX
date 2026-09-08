@@ -219,6 +219,17 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
 
+## E-V4-PROCEDURAL-SOURCE-RGBA：轨道输入恢复到实际 shader 输出（2026-09-08）
+
+`3662790108` 的轨道不是缺失资产：作者 shader 从 framebuffer 分离 RGB/alpha，经 `inout` helper 做 RGB mix 与 coverage max，最后重组输出。首断点是现有 source-carried color proof 未覆盖该数据流；解除后暴露 Metal emitter 未转换 `out vec3` 参数，导致库编译失败。后继在原颜色分析 owner 中逐一核对 source/carrier/helper 的全部用途，复用语法 owner 的单循环与展开工作量预算；`out` 与 `inout` 都降低到现有 thread reference 参数。源码、资产、sample ID 不参与产品选择。撤回 `4ce6bbfc` 对纯生成颜色循环的无效放宽；缓存 key schema 6、preparation frontend schema 32 使普通 App 不复用旧编译语义。
+
+- 复现输入：`scene_wallpaper_benchmark.py`、同一真实只读样本的隔离副本、`newproperty1=false/newproperty48=true`、duration 30 / after-snapshot-delay 26；保留目录 `/private/tmp/mwx-366-out-parameters`。运行 PID 82144 已退出，staged App 与运行材料为追溯暂留。
+- 身份：CDHash `512865f237418593ca431f145e806fb8aafe1c49`；executable SHA-256 `7e4f2b07965909e3a5fe46f0356697def924546823b175b1a8b59e925059ff19`；report SHA-256 `bcf4047a38d9a30d68a6b48bd873cc4376dd4cadcc88066e1107523a70988e1a`。
+- 实际链：脚本更新的轨道 material uniforms → source-proven prepared Program → 四个轨道层 517/1101/3054/3058 的 `encoded-output`。层 517 的 Program `c4483382c223555ad460ea603b6f28bb44a7a234d2b05921f17ad8b3eb8020da`，frame 0/1 均 `gpuCompletion=completed`、`compositorConsumed=true`，publication generation 2→72；不是 passthrough 冒充执行。
+- 截图：`results/3662790108/scene-after-window.png` SHA-256 `8ea2e3e6fca56bfec2d2449fdc517619bf49f8a116dc42f45f149d8775b08526`，最终界面出现彩色轨道拖尾，顶部时钟及已分离标签保持。202/201/0 提交/完成/失败；此轮仅验正确性，不作为可比性能基准。
+- 正反门：source-carried fixture 包含多次 helper 调用、有限循环、条件零重置及一次输出预乘；拒绝 carrier 预乘、alias、额外 source 颜色、非 max coverage 和超预算循环。`out` fixture 实际编译 Metal library，非法数组参数仍拒绝；Debug build 成功。
+- 结论上限：仅恢复 bounded 轨道 shader 可见结果，整景仍 **NON-PASS**。球体缺失、轨道采样视觉、曲率网格、实际点击、性能和官方对照仍开放。作者 `coordinategrid` 默认 false 对应层 926；另有默认未声明 visibility 的曲面/曲环模型，不能把画面上所有线条都当成该布尔开关失效，更不能为截图直接隐藏它们。
+
 ## E-V4-CAMERA-VISIBILITY-HOTPATH：鼠标投影避免全场景可见性重建（2026-09-08）
 
 鼠标投影原先每个输入样本都调用完整 `visibleLayerIDs`，递归检查全部作者层及父链；改为按候选相机逐项检查其父链，完整集合仍由合成/发布路径使用。该改变只减少重复集合构造，未跳过动态 snapshot、source authority、循环 identity 或命中安全检查。

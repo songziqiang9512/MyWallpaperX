@@ -1192,6 +1192,33 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
                 self.assertNotIn("normalize((color).xyz)", compact_source)
                 self.assertIsNotNone(output.get("metalError"))
 
+    def test_out_parameters_compile_as_caller_references(self):
+        vertex = """
+            attribute vec3 a_Position;
+            void main() { gl_Position = vec4(a_Position, 1.0); }
+        """
+        fragment = """
+            void basis(float gain, out vec3 axis, out float opacity) {
+                axis = vec3(gain, 0.0, 1.0);
+                opacity = 0.5;
+            }
+            void main() {
+                vec3 result;
+                float alpha;
+                basis(0.75, result, alpha);
+                gl_FragColor = vec4(result, alpha);
+            }
+        """
+        accepted = self.compile(vertex, fragment)
+        self.assertEqual(accepted["diagnosticCodes"], [])
+        self.assertIsNone(accepted.get("metalError"))
+        self.assertIn("thread float3 &axis", accepted["metalSource"])
+        self.assertIn("thread float &opacity", accepted["metalSource"])
+        rejected = self.compile(vertex, fragment.replace(
+            "out vec3 axis", "out vec3 axis[2]"
+        ), metal=False)
+        self.assertEqual(rejected["diagnosticCodes"], ["unsupportedDeclaration"])
+
     def test_mat3_inverse_and_inout_parameters_translate_to_metal(self):
         output = self.compile(
             """

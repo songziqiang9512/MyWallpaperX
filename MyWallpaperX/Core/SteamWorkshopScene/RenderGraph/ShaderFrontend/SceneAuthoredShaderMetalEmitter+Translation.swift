@@ -91,7 +91,7 @@ nonisolated extension SceneAuthoredShaderMetalEmitter {
         context: Context
     ) -> String {
         if token.text == "in" { return "" }
-        if token.text == "inout" { return "thread" }
+        if ["inout", "out"].contains(token.text) { return "thread" }
         if let maximum = context.unit.boundedLoopUniformReferences[token],
            let field = context.uniformNames[token.text] {
             return "clamp(mwxUniforms.\(field), 0.0, \(maximum).0)"

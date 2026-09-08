@@ -22,6 +22,10 @@
 
 ## 1. 当前证据快照
 
+### 2026-09-08 源颜色辅助函数与轨道恢复
+
+`3662790108` 的四个轨道 pass 已从颜色合同/Metal `out` 参数失败恢复为真实 Program 执行，后继截图出现彩色轨道拖尾；球体、曲率网格、实际点击及整景性能仍未验收，整景仍 NON-PASS。数据流证明、缓存失效、实际 completion/publication 和截图身份见 [E-V4-PROCEDURAL-SOURCE-RGBA](scene-sample-debug-ledger.md#e-v4-procedural-source-rgba轨道输入恢复到实际-shader-输出2026-09-08)。
+
 ### 2026-09-08 太阳系作者布局控制器与标签样式
 
 `3662790108`的中心PAGE/圆点和时钟居中由未执行的visibility控制脚本引起；authored alpha/color写入也未进入typed mutation。后继截图恢复自动隐藏、上方时钟并消除大量重复标签；轨道/球体、曲率画面、实际点击及稳定帧性能仍未验收，整景NON-PASS。运行身份、正反门和下一首断点只维护于 [E-V4-SOLAR-AUTHORED-CONTROLLERS](scene-sample-debug-ledger.md#e-v4-solar-authored-controllers布局控制器与标签样式发布2026-09-08)。

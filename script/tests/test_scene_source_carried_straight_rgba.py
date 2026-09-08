@@ -130,6 +130,36 @@ void main() {
 }
 """
 
+private let procedural = """
+uniform sampler2D g_Texture0;
+uniform vec3 u_color;
+uniform float u_strength;
+varying vec2 v_TexCoord;
+const int STEPS = 200;
+float coverage(vec2 uv) {
+    float value = 0.0;
+    for (int i = 0; i < STEPS; i++) { value += uv.x * 0.1; }
+    return value;
+}
+void paint(vec3 tint, float weight, inout vec3 rgb, inout float a) {
+    if (weight < 0.01) return;
+    rgb = mix(rgb, tint, weight);
+    a = max(a, weight);
+}
+void main() {
+    vec4 base = texSample2D(g_Texture0, v_TexCoord);
+    vec3 color = base.rgb;
+    float alpha = base.a;
+    if (u_strength > 0.0) {
+        color = vec3(0.0);
+        alpha = 0.0;
+        paint(u_color, coverage(v_TexCoord) + coverage(v_TexCoord), color, alpha);
+        paint(u_color, u_strength, color, alpha);
+    }
+    gl_FragColor = vec4(color, alpha);
+}
+"""
+
 private func transfer(_ source: String) -> String {
     switch SceneAuthoredShaderColorTransferAnalyzer.analyze(
         fragmentSource: source
@@ -186,6 +216,25 @@ private enum Harness {
             of: "31, mix(color.rgb", with: "999, mix(color.rgb"
         )
         let result: [String: Any] = [
+            "proceduralTransfer": transfer(procedural),
+            "proceduralDiagnostics": SceneAuthoredShaderFrontend.compile(vertexSource: vertex, fragmentSource: procedural).diagnostics.map { $0.code.rawValue },
+            "proceduralPremultiplies": compiled(procedural)?.contains(
+                "return mwxPremultiply(mwxFragColor);"
+            ) == true,
+            "proceduralUnpremultiplies": compiled(procedural)?.contains(
+                "mwxUnpremultiply(mwxTexture0.sample"
+            ) == true,
+            "proceduralNegativeCases": [
+                procedural.replacingOccurrences(of: "rgb = mix(rgb, tint, weight);", with: "rgb = mix(rgb, tint, weight) * a;"),
+                procedural.replacingOccurrences(of: "a = max(a, weight);", with: "a = rgb.r;"),
+                procedural.replacingOccurrences(of: "paint(u_color, u_strength, color, alpha);", with: "paint(base.rgb, u_strength, color, alpha);"),
+                procedural.replacingOccurrences(of: "color = vec3(0.0);", with: "color *= alpha;"),
+                procedural.replacingOccurrences(of: "STEPS = 200", with: "STEPS = 1000"),
+                procedural.replacingOccurrences(of: "rgb = mix(rgb, tint, weight);", with: "vec3 alias = rgb; rgb = mix(alias, tint, weight);"),
+            ].allSatisfy {
+                SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                    .analyzeSourceCarried(fragmentSource: $0) == nil
+            },
             "additiveTransfer": transfer(additive),
             "replacementTransfer": transfer(replacement),
             "unrelatedAlphaRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
@@ -296,6 +345,12 @@ class SceneSourceCarriedStraightRGBATests(unittest.TestCase):
             self.result["preservingProfileFallbackOutcome"],
             "shared-backend-fallback",
         )
+
+    def test_bounded_procedural_helper_preserves_source_color_boundary(self) -> None:
+        self.assertEqual(self.result["proceduralTransfer"], "straight-alpha-0", self.result)
+        self.assertTrue(self.result["proceduralPremultiplies"])
+        self.assertTrue(self.result["proceduralUnpremultiplies"])
+        self.assertTrue(self.result["proceduralNegativeCases"])
 
     def test_premultiplication_alpha_mutation_and_second_source_fail_closed(self) -> None:
         self.assertTrue(self.result["premultipliedRejected"])

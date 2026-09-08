@@ -12,7 +12,7 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
         Set(parameterRanges(function, unit: unit).compactMap { range in
             let tokens = unit.tokens[range]
             guard tokens.count == 3,
-                  tokens[tokens.startIndex].text == "inout",
+                  ["inout", "out"].contains(tokens[tokens.startIndex].text),
                   SceneAuthoredShaderValueType(
                       authoredName: tokens[tokens.startIndex + 1].text
                   ) != nil,
@@ -41,14 +41,14 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
     ) -> [SceneAuthoredShaderFrontendDiagnostic] {
         unit.tokens.indices.compactMap { index in
             let token = unit.tokens[index]
-            guard token.text == "inout" else { return nil }
+            guard ["inout", "out"].contains(token.text) else { return nil }
             guard let function = unit.functions.first(where: {
                 $0.parameterRange.contains(index)
             }), let range = parameterRanges(function, unit: unit).first(where: {
                 $0.contains(index)
             }) else {
                 return diagnostic(
-                    "The inout qualifier is only supported on function parameters.",
+                    "The out/inout qualifier is only supported on function parameters.",
                     token: token,
                     unit: unit
                 )
@@ -61,7 +61,7 @@ nonisolated enum SceneAuthoredShaderFunctionSemantics {
                   ) != nil,
                   parameter[range.lowerBound + 2].kind == .identifier else {
                 return diagnostic(
-                    "Only bounded 'inout value-type name' parameters are supported.",
+                    "Only bounded 'out/inout value-type name' parameters are supported.",
                     token: token,
                     unit: unit
                 )
