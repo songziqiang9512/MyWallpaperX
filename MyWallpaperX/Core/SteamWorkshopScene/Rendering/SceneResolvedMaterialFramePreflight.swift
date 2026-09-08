@@ -231,7 +231,7 @@ extension SceneMetalRenderer {
                 if layer.contentKind != "solid" {
                     guard let extent = SceneLayerEffectSourceExtent.resolve(
                         publishedRenderSizeWH:
-                            imageTextures.layerSourceRenderSize(for: layer.id),
+                            imageTextures.layerSourceEffectRenderSize(for: layer.id),
                         authoredRenderSizeWH: layer.renderSizeWH,
                         candidateMappedSize: selectedSource.candidate?.mappedSize
                     ) else {
@@ -538,8 +538,8 @@ extension SceneMetalRenderer {
                 textureFrame = spriteAnimations[layerID]?.transform(at: time) ?? .identity
                 capturesMainTarget = false
                 guard let extent = SceneLayerEffectSourceExtent.resolve(
-                    publishedRenderSizeWH:
-                        imageTextures.layerSourceRenderSize(for: layerID),
+                        publishedRenderSizeWH:
+                            imageTextures.layerSourceEffectRenderSize(for: layerID),
                     authoredRenderSizeWH: layer.renderSizeWH,
                     candidateMappedSize: source.candidate?.mappedSize
                 ) else {

@@ -115,11 +115,13 @@ nonisolated struct SceneTextureProviderPublication {
 nonisolated struct SceneLayerSourcePublication {
     let publication: SceneTextureProviderPublication
     let logicalRenderSize: SIMD2<Float>?
+    let effectLogicalRenderSize: SIMD2<Float>?
 
     init?(
         layerID: Int,
         publication: SceneTextureProviderPublication,
-        renderSizeWH: [Float]? = nil
+        renderSizeWH: [Float]? = nil,
+        effectRenderSizeWH: [Float]? = nil
     ) {
         guard publication.requestIdentity == .layerSource(layerID),
               Self.matchesLayerIdentity(
@@ -140,14 +142,30 @@ nonisolated struct SceneLayerSourcePublication {
         } else {
             logicalRenderSize = nil
         }
+        let effectLogicalRenderSize: SIMD2<Float>?
+        if let effectRenderSizeWH {
+            guard effectRenderSizeWH.count == 2,
+                  effectRenderSizeWH[0].isFinite, effectRenderSizeWH[0] > 0,
+                  effectRenderSizeWH[1].isFinite, effectRenderSizeWH[1] > 0 else {
+                return nil
+            }
+            effectLogicalRenderSize = SIMD2(effectRenderSizeWH[0], effectRenderSizeWH[1])
+        } else {
+            effectLogicalRenderSize = nil
+        }
         self.publication = publication
         self.logicalRenderSize = logicalRenderSize
+        self.effectLogicalRenderSize = effectLogicalRenderSize
     }
 
     var texture: MTLTexture { publication.texture }
 
     var renderSizeWH: [Float]? {
         logicalRenderSize.map { [$0.x, $0.y] }
+    }
+
+    var effectRenderSizeWH: [Float]? {
+        effectLogicalRenderSize.map { [$0.x, $0.y] }
     }
 
     func isComplete(layerID: Int, matching texture: MTLTexture) -> Bool {

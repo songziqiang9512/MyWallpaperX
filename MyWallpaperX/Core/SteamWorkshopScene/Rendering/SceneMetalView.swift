@@ -310,7 +310,9 @@ class SceneMetalView: NSView {
                         effectiveTexture,
                         layerID: layer.id,
                         logicalWidth: puppetCoverage.width,
-                        logicalHeight: puppetCoverage.height
+                        logicalHeight: puppetCoverage.height,
+                        effectLogicalWidth: layer.renderSizeWH?[0] ?? puppetCoverage.width,
+                        effectLogicalHeight: layer.renderSizeWH?[1] ?? puppetCoverage.height
                     )
                 } else {
                     loaded.set(

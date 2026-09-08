@@ -105,6 +105,15 @@ struct SceneBaseImageTextureSnapshot {
         return layerSource.renderSizeWH
     }
 
+    func layerSourceEffectRenderSize(for layerID: Int) -> [Float]? {
+        guard let texture = textures[layerID],
+              let layerSource = layerSourcePublications[layerID],
+              layerSource.isComplete(layerID: layerID, matching: texture) else {
+            return nil
+        }
+        return layerSource.effectRenderSizeWH ?? layerSource.renderSizeWH
+    }
+
     func isLayerSourcePending(_ layerID: Int) -> Bool {
         pendingLayerSourceIDs.contains(layerID)
     }
@@ -155,7 +164,9 @@ struct SceneBaseImageTextureStore {
         _ texture: MTLTexture,
         layerID: Int,
         logicalWidth: Float,
-        logicalHeight: Float
+        logicalHeight: Float,
+        effectLogicalWidth: Float,
+        effectLogicalHeight: Float
     ) {
         contentGeneration &+= 1
         let size = CGSize(width: texture.width, height: texture.height)
@@ -182,7 +193,8 @@ struct SceneBaseImageTextureStore {
             SceneLayerSourcePublication(
                 layerID: layerID,
                 publication: $0,
-                renderSizeWH: [logicalWidth, logicalHeight]
+                renderSizeWH: [logicalWidth, logicalHeight],
+                effectRenderSizeWH: [effectLogicalWidth, effectLogicalHeight]
             )
         }
         if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
