@@ -16,7 +16,7 @@ nonisolated enum SceneGenericShaderCompilerProcess {
         case diagnosticBudget
         case residentBudget
         case signaled(signal: Int32)
-        case rejected(exitCode: Int32)
+        case rejected(exitCode: Int32, diagnostic: String = "")
     }
 
     private final class DataBox: @unchecked Sendable {
@@ -148,7 +148,14 @@ nonisolated enum SceneGenericShaderCompilerProcess {
             return .failure(.signaled(signal: process.terminationStatus))
         }
         guard process.terminationStatus == expectedExitCode else {
-            return .failure(.rejected(exitCode: process.terminationStatus))
+                let diagnostic = String(
+                    decoding: stderr.load().prefix(2048),
+                    as: UTF8.self
+                ).replacingOccurrences(of: "\n", with: " ")
+                return .failure(.rejected(
+                    exitCode: process.terminationStatus,
+                    diagnostic: diagnostic
+                ))
         }
         let components = elapsed.components
         let milliseconds = Double(components.seconds) * 1_000
