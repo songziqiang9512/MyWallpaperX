@@ -240,6 +240,12 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 14 项 document/pipeline/rendering 测试 PASS、Debug build 与 code health PASS。隔离默认输入 `/private/tmp/mwx-fog-run/report.json`，CDHash `c29608bdae6576e3ea51be243fd7cf7c3cc3b9ae`，duration 12 / after delay 9；410/409/0 submitted/completed/failed。人工查看 after-window：远城明显按距离衰减，近猫和前景保留，纠正此前全城日间亮度；未对截图硬编码色调。整体 completion/publication/next-frame 仍沿原链，NON-PASS 的后处理失败保持不隐藏。窗户自发光/音频脚本、猫头角度脚本的 `TypeError: not a function`、dithering compiler stage-link rejection 为剩余精确断点；不能称预览等价或完整雾效果。
 
+#### 猫头角度脚本恢复
+
+后继定位 `TypeError` 来自 QuickJS value host 缺失公开 `Vec2.length/normalize`，并非作者角度数值或缓存。原 Vec2 类现提供稳定模长和返回新对象的归一化；零向量采用本项目安全零向量结果，不声称未公开的边缘值完全等价。原 C QuickJS 合同 harness（2 tests，含大量 owner/lifecycle 正反门）和 Debug build PASS，新增模长、非原地修改、零向量、大有限值门。
+
+同一真实 producer→Vec2→作者 update→typed layer angles→原 model transform/Metal 链现完成：`/private/tmp/mwx-vec2-run/report.json` CDHash `035b3cd8ae8ad31e878de914a063cf427b49ba4e`，layer 14 从每帧 exception 改为 completed，frame 0 angles 输出 `(-0.06517,-0.51468,0)`，vectorFailures=0；410/409/0 帧。额外 `/private/tmp/mwx-vec2-hover-run` 以 normalized pointer `(0.9,0.8)` 运行，before/hover/after 三图已人工查看，猫头角度出现变化；406 completed，整体 changed ratio 0.04582/0.01186 也包含星空时间变化，不能单独当猫头 ROI 因果证据或真实桌面所有边缘输入验收。整景仍因 dithering 局部失败 NON-PASS；窗户发光与完整预览等价仍开放。
+
 `3662790108` 主太阳控制器的子层 3694 在 prepare 首先失败：合法 authored `ray.mdl` 使用 flag 1 / UInt32 索引，旧 reader 只接受 flag 0。独立读取确认 500,596 顶点、606,204 三角形、最大索引 500,595、format 15、单 mesh/material 和七字节零尾部；不是缓存旧图。现沿原 reader → loss-preserving UInt32 IR → prepared mesh → Metal indexType 消费，能安全缩窄的索引仍上传 UInt16。未知 flag、非完整三角形、越界/截断及原预算继续拒绝最小模型。另修复 normal matrix 以绝对 determinant 阈值误拒合法小尺度的问题：Double 逆转置后共同正比例归一化，真正奇异/非有限矩阵仍拒绝。
 
 - 正反门：`test_scene_static_model_reader` + `test_scene_static_model_pipeline` 14 tests PASS，包含超过 65535 的索引、UInt32.max 越界、未知 flag、短三角形，以及 `1e-30...1e30` uniform scale、镜像非等比和奇异矩阵；Debug build、code health PASS。临时逐模型 NSLog 已删除。
