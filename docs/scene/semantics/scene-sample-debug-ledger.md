@@ -221,6 +221,12 @@ source-carried/RGB blend **6 tests PASS**，artifact **76 tests PASS**，Debug b
 
 ## E-V4-STATIC-MODEL-WIDE-INDICES：大网格资源拒绝与小尺度绘制（2026-09-08）
 
+### 后继 `3477054430` 多段几何首断点（2026-09-08）
+
+该样本的 `little head`、`townfbx`、`billboard` 是合法 MDLV0023 多材质段；reader 原先以 `material count 2` 整体拒绝。当前 bounded reader 已逐段校验并合并几何/索引，真实运行 prepared model layers 从 `[23,68]` 扩展到 `[14,23,47,68,77]`，截图已出现猫头、身体和城市，不再缺失整个主体。当前实现仍以单一 material identity 绑定合并网格，导致不同段共享错误纹理（猫头或城市出现树叶/错误贴图）；多段 geometry→独立 material/texture draw 尚未闭合，整景仍 NON-PASS。下一首断点是保持段边界并让每个段沿原 material pass、texture publication、depth/compositor 路径独立消费，不能按样本或模型路径特判。
+
+- 真实运行 report `/private/tmp/mwx-347-firstmat-run/report.json`；截图 `/private/tmp/mwx-347-firstmat-run/results/3477054430/scene-after-window.png`。该临时目录仅作当前复查证据，后续清理时可重建。
+
 `3662790108` 主太阳控制器的子层 3694 在 prepare 首先失败：合法 authored `ray.mdl` 使用 flag 1 / UInt32 索引，旧 reader 只接受 flag 0。独立读取确认 500,596 顶点、606,204 三角形、最大索引 500,595、format 15、单 mesh/material 和七字节零尾部；不是缓存旧图。现沿原 reader → loss-preserving UInt32 IR → prepared mesh → Metal indexType 消费，能安全缩窄的索引仍上传 UInt16。未知 flag、非完整三角形、越界/截断及原预算继续拒绝最小模型。另修复 normal matrix 以绝对 determinant 阈值误拒合法小尺度的问题：Double 逆转置后共同正比例归一化，真正奇异/非有限矩阵仍拒绝。
 
 - 正反门：`test_scene_static_model_reader` + `test_scene_static_model_pipeline` 14 tests PASS，包含超过 65535 的索引、UInt32.max 越界、未知 flag、短三角形，以及 `1e-30...1e30` uniform scale、镜像非等比和奇异矩阵；Debug build、code health PASS。临时逐模型 NSLog 已删除。

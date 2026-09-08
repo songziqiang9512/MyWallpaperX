@@ -97,8 +97,17 @@ nonisolated enum SceneMdlStaticModelReader {
 
         let version = header.version
         let headerFormat = header.headerFormat
-        let materialPath = header.materialPath
-
+        var materialPath = header.materialPath
+        var allVertices: [SceneMdlStaticModel.Vertex] = []
+        var allIndices: [UInt32] = []
+        var combinedBounds: SceneMdlStaticModel.Bounds?
+        var chosenVertexFormat = 0
+        var chosenIndexElementSize = 0
+        for materialIndex in 0..<header.materialCount {
+        if materialIndex > 0 {
+            _ = try cursor.readBytes(count: 6, section: "material separator")
+            _ = try readMaterialPath(cursor: &cursor)
+        }
         let indexFlag = try cursor.readUInt32(section: "index flag")
         guard indexFlag <= 1 else {
             throw SceneMdlStaticModelReadError.unsupportedIndexFlag(indexFlag)
@@ -110,6 +119,7 @@ nonisolated enum SceneMdlStaticModelReader {
         guard vertexFormat == supportedFormat else {
             throw SceneMdlStaticModelReadError.unsupportedVertexFormat(vertexFormat)
         }
+        if chosenVertexFormat == 0 { chosenVertexFormat = Int(vertexFormat) }
         let vertexByteCount = try cursor.readUInt32(section: "vertex byte count")
         guard vertexByteCount > 0,
               vertexByteCount % UInt32(vertexStride) == 0 else {
@@ -127,6 +137,7 @@ nonisolated enum SceneMdlStaticModelReader {
 
         let indexByteCount = try cursor.readUInt32(section: "index byte count")
         let indexElementSize = indexFlag == 0 ? 2 : 4
+        if chosenIndexElementSize == 0 { chosenIndexElementSize = indexElementSize }
         guard indexByteCount > 0,
               indexByteCount % UInt32(3 * indexElementSize) == 0 else {
             throw SceneMdlStaticModelReadError.invalidIndexByteCount(indexByteCount)
@@ -140,31 +151,31 @@ nonisolated enum SceneMdlStaticModelReader {
             vertexCount: vertices.count,
             elementSize: indexElementSize
         )
-
-        let trailer = try cursor.readBytes(
-            count: header.version == boundsHeaderVersion
-                ? boundsHeaderTrailerByteCount : derivedBoundsTrailerByteCount,
-            section: "trailer"
-        )
-        guard trailer.allSatisfy({ $0 == 0 }), cursor.isAtEnd else {
-            throw SceneMdlStaticModelReadError.invalidTrailer
+        let base = UInt32(allVertices.count)
+        allVertices.append(contentsOf: vertices)
+        allIndices.append(contentsOf: indices.map { $0 + base })
+        combinedBounds = combineBounds(combinedBounds, bounds)
+        if materialIndex == header.materialCount - 1 {
+            let trailer = try cursor.readBytes(count: header.version == boundsHeaderVersion ? 7 : 1, section: "trailer")
+            guard trailer.allSatisfy({ $0 == 0 }), cursor.isAtEnd else { throw SceneMdlStaticModelReadError.invalidTrailer }
+        }
         }
         return SceneMdlStaticModel(
             version: version,
             headerFormat: Int(headerFormat),
-            vertexFormat: Int(vertexFormat),
+            vertexFormat: chosenVertexFormat,
             vertexStride: vertexStride,
-            indexElementSize: indexElementSize,
+            indexElementSize: chosenIndexElementSize,
             materialPath: materialPath,
-            bounds: bounds,
-            vertices: vertices,
-            indices: indices
+            bounds: combinedBounds!,
+            vertices: allVertices,
+            indices: allIndices
         )
     }
 
     private static func readHeader(
         cursor: inout Cursor
-    ) throws -> (version: String, headerFormat: UInt32, materialPath: String) {
+    ) throws -> (version: String, headerFormat: UInt32, materialPath: String, materialCount: Int) {
         let magicBytes = try cursor.readBytes(
             count: magicByteCount,
             section: "magic"
@@ -183,11 +194,9 @@ nonisolated enum SceneMdlStaticModelReader {
             throw SceneMdlStaticModelReadError.unsupportedMeshCount(meshCount)
         }
         let materialCount = try cursor.readUInt32(section: "material count")
-        guard materialCount == 1 else {
-            throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
-        }
+        guard materialCount > 0, materialCount <= 4 else { throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount) }
         let materialPath = try readMaterialPath(cursor: &cursor)
-        return (version, headerFormat, materialPath)
+        return (version, headerFormat, materialPath, Int(materialCount))
     }
 
     private static func readMaterialPath(cursor: inout Cursor) throws -> String {
@@ -293,6 +302,15 @@ nonisolated enum SceneMdlStaticModelReader {
             minimum: [minimum.x, minimum.y, minimum.z],
             maximum: [maximum.x, maximum.y, maximum.z]
         )
+    }
+
+    private static func combineBounds(
+        _ lhs: SceneMdlStaticModel.Bounds?,
+        _ rhs: SceneMdlStaticModel.Bounds
+    ) -> SceneMdlStaticModel.Bounds {
+        guard let lhs else { return rhs }
+        return .init(minimum: zip(lhs.minimum, rhs.minimum).map(min),
+                     maximum: zip(lhs.maximum, rhs.maximum).map(max))
     }
 
     private static func readIndices(

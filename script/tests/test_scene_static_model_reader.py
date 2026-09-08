@@ -221,7 +221,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             "bad-nul.mdl": build_model(magic=b"MDLV0023X"),
             "bad-header-format.mdl": build_model(header_format=14),
             "multi-mesh.mdl": build_model(mesh_count=2),
-            "multi-material.mdl": build_model(material_count=2),
+            "multi-material.mdl": build_model(material_count=5),
             "unsafe-material.mdl": build_model(material=b"../escape.json"),
             "invalid-utf8-material.mdl": build_model(material=b"materials/\xff.json"),
             "uint32-indices.mdl": build_model(index_flag=1),
@@ -367,7 +367,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             ("bad-nul.mdl", "magic MDLV0023"),
             ("bad-header-format.mdl", "header format 14"),
             ("multi-mesh.mdl", "mesh count 2"),
-            ("multi-material.mdl", "material count 2"),
+            ("multi-material.mdl", "material count 5"),
             ("unknown-indices.mdl", "index flag 2"),
             ("bad-vertex-format.mdl", "vertex format 7"),
         ):
