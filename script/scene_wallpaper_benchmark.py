@@ -2977,7 +2977,6 @@ def resolved_material_graph_execution_metrics(
     accepted_layer_set = set(accepted_layer_ids)
     dormant_layer_set = (
         accepted_layer_set.intersection(current_hidden_layer_ids)
-        .difference(observed_layer_ids)
     )
     execution_expected_layer_set = accepted_layer_set.difference(
         dormant_layer_set
