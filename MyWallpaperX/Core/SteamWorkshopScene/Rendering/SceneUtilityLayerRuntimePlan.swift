@@ -57,11 +57,16 @@ enum SceneUtilityLayerRuntimePlanner {
             if !visibleLayerIDs.contains(layer.id) {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
+                let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
+                // With a binding the consumer must also be an executable
+                // utility consumer. Without one, admission has already
+                // replaced the referencing effects by previous-current, so the
+                // remaining admitted chain captures like any other utility.
                 if utility.kind == .composition,
                    sourceRoute?.capturesCompositionSubtree == false,
-                   executableUtilityConsumerLayerIDs.contains(layer.id),
-                   dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil,
-                   resolvedMaterialLayerIDs.contains(layer.id) {
+                   resolvedMaterialLayerIDs.contains(layer.id),
+                   binding == nil
+                       || executableUtilityConsumerLayerIDs.contains(layer.id) {
                     disposition = .capture
                 } else {
                     disposition = .unsupportedDependencies

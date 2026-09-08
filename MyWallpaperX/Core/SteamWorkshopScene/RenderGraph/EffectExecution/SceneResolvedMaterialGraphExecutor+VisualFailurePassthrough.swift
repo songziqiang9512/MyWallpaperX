@@ -97,6 +97,7 @@ extension SceneResolvedMaterialGraphExecutor {
             "effect-activation-scalar-type-invalid",
             "dependency-stage-reference-unavailable",
             "dependency-stage-secondary-reference-unavailable",
+            "dependency-stage-reference-unsupported",
             "external-primary-provider-source-unavailable",
         ].contains(reasonCode)
         let framebufferPreparationLimitation =

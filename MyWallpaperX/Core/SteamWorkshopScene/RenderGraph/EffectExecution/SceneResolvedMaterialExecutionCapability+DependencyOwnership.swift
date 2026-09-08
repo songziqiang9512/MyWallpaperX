@@ -218,42 +218,97 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
 
         var keys = Set<Graph.EffectKey>()
         for reference in effectiveReferences {
-            let descriptorMatches = layer.effects.enumerated().filter {
-                $0.element.id == reference.slot.effectID
-                    && $0.element.visible != false
-            }
-            guard descriptorMatches.count == 1,
-                  let descriptorMatch = descriptorMatches.first,
-                  descriptorMatch.element.passes.filter({
-                      $0.passIndex == reference.slot.passIndex
-                  }).count == 1 else { return nil }
-            let key = Graph.EffectKey(
-                layerID: layer.id,
-                effectIndex: descriptorMatch.offset,
-                descriptorID: descriptorMatch.element.id
-            )
-            let effectMatches = graph.effects.filter { $0.key == key }
-            guard effectMatches.count == 1, let effect = effectMatches.first,
-                  effect.nodeIndices.count == 1,
-                  graph.renderTargets.allSatisfy({ $0.texture.effect != key })
-            else { return nil }
-            let nodes = graph.nodes.filter { $0.effect == key }
-            guard nodes.count == 1, let node = nodes.first,
-                  node.kind == .material,
-                  node.instancePassIndex == reference.slot.passIndex,
-                  node.target == effect.output,
-                  node.commandSource == nil,
-                  node.commandTarget == nil,
-                  node.conditions == nil,
-                  node.compose == nil || node.compose == .bool(false),
-                  node.bindings.isEmpty || node.bindings.contains(where: {
-                      $0.slot == reference.slot.slotIndex
-                        && ($0.texture == effect.input
-                            || $0.texture.kind == .unresolved)
-                  }) else { return nil }
+            guard let key = exactSinglePassPassthroughEffectKey(
+                for: reference,
+                layer: layer,
+                graph: graph
+            ) else { return nil }
             keys.insert(key)
         }
         return keys.isEmpty ? nil : keys
+    }
+
+    /// An owner-requiring reference without any supported binding cannot be
+    /// satisfied in this launch: the provider may be hidden, ordered in an
+    /// unsupported direction, or the consumer/utility shape may have no
+    /// binding contract. When every such reference belongs to an exact
+    /// ordinary single-pass material effect, only those effects fail soft to
+    /// previous-current while unrelated effects keep the layer-local pair
+    /// chain. This does not authorize the provider, publish a named target or
+    /// change dependency ordering; the layer keeps `.none` ownership.
+    static func unsupportedReferenceEffectKeys(
+        layer: SceneRenderDescriptor.Layer,
+        graph: Graph?,
+        references: [Reference],
+        binding: SceneDependencyRenderPlan.Binding?
+    ) -> Set<Graph.EffectKey>? {
+        let effectiveReferences = ownerRequiringReferences(
+            references,
+            layer: layer,
+            graph: graph
+        )
+        guard binding == nil,
+              layer.authoredDependencies.isEmpty,
+              !effectiveReferences.isEmpty,
+              Set(effectiveReferences).count == effectiveReferences.count,
+              effectiveReferences.allSatisfy({ $0.consumerLayerID == layer.id }),
+              let graph, graph.layerID == layer.id,
+              graph.blockers.isEmpty else { return nil }
+        var keys = Set<Graph.EffectKey>()
+        for reference in effectiveReferences {
+            guard let key = exactSinglePassPassthroughEffectKey(
+                for: reference,
+                layer: layer,
+                graph: graph
+            ) else { return nil }
+            keys.insert(key)
+        }
+        return keys.isEmpty ? nil : keys
+    }
+
+    /// The exact ordinary single-pass material effect that owns one
+    /// unavailable reference. Multi-node, command, condition, compose and
+    /// render-target owning effects are not replaceable by previous-current
+    /// and therefore keep the whole layer fail-closed.
+    private static func exactSinglePassPassthroughEffectKey(
+        for reference: Reference,
+        layer: SceneRenderDescriptor.Layer,
+        graph: Graph
+    ) -> Graph.EffectKey? {
+        let descriptorMatches = layer.effects.enumerated().filter {
+            $0.element.id == reference.slot.effectID
+                && $0.element.visible != false
+        }
+        guard descriptorMatches.count == 1,
+              let descriptorMatch = descriptorMatches.first,
+              descriptorMatch.element.passes.filter({
+                  $0.passIndex == reference.slot.passIndex
+              }).count == 1 else { return nil }
+        let key = Graph.EffectKey(
+            layerID: layer.id,
+            effectIndex: descriptorMatch.offset,
+            descriptorID: descriptorMatch.element.id
+        )
+        let effectMatches = graph.effects.filter { $0.key == key }
+        guard effectMatches.count == 1, let effect = effectMatches.first,
+              effect.nodeIndices.count == 1,
+              graph.renderTargets.allSatisfy({ $0.texture.effect != key })
+        else { return nil }
+        let nodes = graph.nodes.filter { $0.effect == key }
+        guard nodes.count == 1, let node = nodes.first,
+              node.kind == .material,
+              node.instancePassIndex == reference.slot.passIndex,
+              node.target == effect.output,
+              node.commandSource == nil,
+              node.commandTarget == nil,
+              node.conditions == nil,
+              node.compose == nil || node.compose == .bool(false),
+              node.bindings.isEmpty || node.bindings.contains(where: {
+                  $0.slot == reference.slot.slotIndex
+                    && ($0.texture == effect.input
+                        || $0.texture.kind == .unresolved)
+              }) else { return nil }
+        return key
     }
 
     /// A secondary self reference has no producer contract yet. If it belongs

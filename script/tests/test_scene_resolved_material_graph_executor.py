@@ -3037,6 +3037,7 @@ private func capabilities(
     forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
     secondarySelfUnavailableReference:
         SceneDependencyRenderPlan.Reference? = nil,
+    backwardUnsupportedReference: SceneDependencyRenderPlan.Reference? = nil,
     functionsByEffect: [Graph.EffectKey: SceneJSONValue] = [:],
     assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState] = [:],
     assetFormatFacts: [String: Int] = [:]
@@ -3120,6 +3121,21 @@ private func capabilities(
                 effects: []
             ),
         ]
+    } else if let backwardUnsupportedReference {
+        // The provider precedes the consumer, so the forward contract does
+        // not apply; no binding shape exists either, leaving only the
+        // effect-local unsupported-reference passthrough.
+        consumer.dependencyLayerIDs = [
+            backwardUnsupportedReference.providerLayerID
+        ]
+        consumer.namedReferences = [backwardUnsupportedReference]
+        layers = [
+            .init(
+                id: backwardUnsupportedReference.providerLayerID,
+                effects: []
+            ),
+            consumer,
+        ]
     }
     let descriptor = SceneRenderDescriptor(
         layers: layers,
@@ -3183,6 +3199,43 @@ private func mixedForwardUnavailableEffectKeys(
             graph: graph,
             descriptor: descriptor,
             references: [forwardReference, secondaryReference],
+            binding: nil
+        )
+}
+
+private func unsupportedReferenceEffectKeys(
+    graph: Graph,
+    referenceEffect: Graph.EffectKey,
+    providerLayerID: Int,
+    slotIndex: Int = 0
+) -> Set<Graph.EffectKey>? {
+    var consumer = SceneRenderDescriptor.Layer(
+        id: layerID,
+        effects: graph.effects.map { effect in
+            .init(
+                id: effect.key.descriptorID,
+                file: effect.definitionPath,
+                visible: true,
+                passes: [.init(passIndex: 0, combos: [:])]
+            )
+        }
+    )
+    consumer.dependencyLayerIDs = providerLayerID == layerID ? [] : [providerLayerID]
+    let reference = SceneDependencyRenderPlan.Reference(
+        consumerLayerID: layerID,
+        providerLayerID: providerLayerID,
+        slot: .init(
+            effectID: referenceEffect.descriptorID,
+            passIndex: 0,
+            slotIndex: slotIndex
+        ),
+        variant: .primary
+    )
+    return SceneResolvedMaterialDependencyOwnershipCompiler
+        .unsupportedReferenceEffectKeys(
+            layer: consumer,
+            graph: graph,
+            references: [reference],
             binding: nil
         )
 }
@@ -3809,6 +3862,27 @@ private enum Harness {
         let forwardUnavailableCapability = forwardUnavailableClaim.flatMap {
             forwardUnavailableCapabilities.resolve($0.token, for: pixelChain)
         }
+        let backwardUnsupportedReference = SceneDependencyRenderPlan.Reference(
+            consumerLayerID: layerID,
+            providerLayerID: layerID - 1,
+            slot: .init(
+                effectID: chainedSecondEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 0
+            ),
+            variant: .primary
+        )
+        let backwardUnsupportedCapabilities = capabilities(
+            pixelChain,
+            catalog: catalog(for: pixelGraph),
+            backwardUnsupportedReference: backwardUnsupportedReference
+        )
+        let backwardUnsupportedClaim = backwardUnsupportedCapabilities.claim(
+            pixelChain
+        )
+        let backwardUnsupportedCapability = backwardUnsupportedClaim.flatMap {
+            backwardUnsupportedCapabilities.resolve($0.token, for: pixelChain)
+        }
         var chainedStagesPrepared = false
         var chainedStagesEncoded = false
         var chainedStagesGPUCompleted = false
@@ -4420,6 +4494,14 @@ private enum Harness {
             capabilities: forwardUnavailableCapabilities,
             generation: 49,
             reason: "dependency-stage-reference-unavailable"
+        )
+
+        let backwardUnsupportedFailure = executeVisualFailurePassthrough(
+            claim: backwardUnsupportedClaim,
+            capability: backwardUnsupportedCapability,
+            capabilities: backwardUnsupportedCapabilities,
+            generation: 51,
+            reason: "dependency-stage-reference-unsupported"
         )
 
         let staticUniformFailure = executeVisualFailurePassthrough(
@@ -7972,6 +8054,37 @@ private enum Harness {
                 ),
             "mixedForwardAndSecondaryKeepsOnlyForwardOwner":
                 mixedForwardUnavailableKeys == [chainedSecondEffect],
+            // A backward provider has no binding contract in this launch;
+            // only the exact single-pass effect holding the reference fails
+            // soft while the rest of the chain stays admitted.
+            "unsupportedBackwardReferencePreservesPreviousAndContinuesSuffix":
+                backwardUnsupportedFailure.prepared
+                    && backwardUnsupportedFailure.encoded
+                    && backwardUnsupportedFailure.gpuCompleted
+                    && backwardUnsupportedFailure.continued
+                    && backwardUnsupportedFailure.failureCode == "success",
+            "unsupportedBackwardReferenceFailsOnlyOwningEffect":
+                unsupportedReferenceEffectKeys(
+                    graph: pixelGraph,
+                    referenceEffect: chainedSecondEffect,
+                    providerLayerID: layerID - 1
+                ) == [chainedSecondEffect],
+            // A reference whose slot is not represented by the owning node
+            // keeps the whole layer fail-closed instead of guessing a slot.
+            "unsupportedReferenceOutsideNodeBindingsStaysFailClosed":
+                unsupportedReferenceEffectKeys(
+                    graph: pixelGraph,
+                    referenceEffect: chainedSecondEffect,
+                    providerLayerID: layerID - 1,
+                    slotIndex: 3
+                ) == nil,
+            // Command/multi-node effects cannot be replaced by previous-current.
+            "unsupportedReferenceOnCommandEffectStaysFailClosed":
+                unsupportedReferenceEffectKeys(
+                    graph: commandVisualFailureGraph,
+                    referenceEffect: commandVisualFailureGraph.effects[0].key,
+                    providerLayerID: layerID - 1
+                ) == nil,
             "nonImmediateSecondaryCannotBeShadowed":
                 nonImmediateMixedForwardUnavailableKeys == nil
                     && !SceneResolvedMaterialExactPreviousInputShadow.accepts(

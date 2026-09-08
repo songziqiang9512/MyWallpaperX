@@ -364,6 +364,23 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                         ($0, "dependency-stage-secondary-reference-unavailable")
                     }
                 )
+            } else if let keys =
+                        SceneResolvedMaterialDependencyOwnershipCompiler
+                            .unsupportedReferenceEffectKeys(
+                                layer: layer,
+                                graph: (rawGroups[layerID]?.count == 1)
+                                    ? rawGroups[layerID]?.first : nil,
+                                references: layerReferences,
+                                binding: binding
+                            ) {
+                // No binding contract exists for these references. Only the
+                // exact effects holding them fail soft; the remaining chain
+                // keeps executing instead of rejecting the whole layer.
+                unavailableDependencyStageReasons = Dictionary(
+                    uniqueKeysWithValues: keys.map {
+                        ($0, "dependency-stage-reference-unsupported")
+                    }
+                )
             } else {
                 unavailableDependencyStageReasons = [:]
             }
