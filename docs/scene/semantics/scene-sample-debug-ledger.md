@@ -145,4 +145,18 @@ checkpoint Debug build 成功；签名 CDHash `0cacbe9d909678b0c43043283cf92d91f
 
 ## 结论上限和下一步
 
+## 用户新增样本待办（2026-09-08）
+
+以下条目来自真实播放观察，当前仅作为待关闭的可见结果记录；尚未将现象提升为合同，也未用样本 ID 做运行时视觉分支。每项必须回到公共 producer → typed channel → consumer → Metal/compositor 链取得正反证据后才能关闭。
+
+| 样本 | 待恢复的可见结果 | 当前状态与首断点 |
+|---|---|---|
+| 3264246690 | 人物头部不越界，左肘纹理完整 | 待定位 geometry/coverage 或资源裁剪首断点 |
+| 3765760121 | 画面方向正确 | 待定位 authored transform/UV Y 合同 |
+| 3780119725 | Audio Bars、光照位置和闪烁行为正确 | Puppet extent 已修；Audio Bars stage-link fallback、光照/闪烁未闭合 |
+| 1315486372 | 水波位置与贴图光线符合 authored 布局 | 待定位 effect source extent/UV/transform |
+| 2775915974 | 鼠标 Y 方向正确，顶部边缘仍保持 inside/事件连续 | 待定位 AppKit → typed pointer → consumer 边界 |
+
+这些条目不构成通过声明；在获得隔离截图、GPU completion、publication 与 next-frame/event 生命周期证据前，样本仍视为未验收。
+
 159 个样本有可复查 triage，不等于正确播放。异步线程交接修复只关闭上面有截图支持的日期文字首断点；继续检查 shared-state producer 未进入 Program、静态文字布局及用户新增的光照/闪烁，不以同步 probe、构建成功或离开开场宣称通过。尚无必要启动官方客户端逆向研究。
