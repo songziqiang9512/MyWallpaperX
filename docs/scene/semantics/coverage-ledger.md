@@ -1190,6 +1190,14 @@ fresh 音频 fixture 下 6/6 effect 均进入通用链，目标 effect 在首帧
 
 正式 matrix 仍 **0/1 NON-PASS**：layer `467` cutout-vignette 的 float3/float2 Metal library compilation，以及 layer `536` effect 1 opacity 的 local generic-owner fallback 是下一断点。完整身份、report/log hash 和边界见 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](scene-sample-debug-ledger.md#e-p1-default-straight-color-boundary-graph-ingress) 与 [当前运行证据](runtime-evidence-current.md#e-2026-09-09-default-straight-boundary-graph-ingress)。
 
+### 2026-09-09 V1 backend vector2 interface arithmetic narrowing
+
+layer `467#effect#480` 的 cutout-vignette 直接以 `varying vec3 v_TexCoord - CAST2(u_offset)` 产生 Metal float3/float2 library rejection；统一 `SceneAuthoredShaderBackendCanonicalizer` 现在只对声明的 interface 向量与直接 `CAST2/vec2` 二元运算收窄为 `.xy`，局部/复合表达式和超预算 source 仍保持原文。`test_scene_generic_shader_program_artifact` **78/78 PASS**、`test_scene_shader_scalar_vector_builtin_canonicalization` **2/2 PASS**，真实 normalized fragment 已通过 `.xy` 输入并进入 `genericCompilerArtifact`。这属于共享 backend 的 **S3 bounded compiler-input correction**，没有新增 route owner 或样本专用 matcher。
+
+同一只读样本 `3749463715` 的 7 秒隔离运行（App CDHash `a35ce7e9574c39aec62c4a76075ae0c59664e3fa`、executable SHA-256 `8d7234a0d6cbab68818fa7bf7729f71f49b55c1c6bb3c4e04314b681a08f487c`）仍为 **0/1 NON-PASS**。effect admission 为 `37/37 admitted-generic`，resolved-material capability 为 `16 accepted / 0 rejected`；utility planned `4`、成功 `[488,536,560]`、失败 `[467]`。layer 467 effect 0 已跨过 library compilation，但 effect 1 motionblur 在 preflight 以 `captured-main-color-contract-unproven` 安装 local fallback，故整层没有 terminal GPU/compositor/next-frame/exact-backend 证据。GraphExecutor 为 `15 claimed / 15 encoded / 15 GPU encoded / 0 failure / 1 local fallback`；layer 536 两个 effect 均已在 frame 0/next-frame完成。
+
+运行 provenance：report `/private/tmp/mwx-vector2-run/report.json` SHA-256 `bfb07181ad006b4570220158bfb7238c126563d526aab2b2739a512d81ab702b`，app.log `911298831e141bb5ad20a665e0134bfc62d9630a39e406aef4284d9f1d7a193b`，scene-preview.log `8cf1d37c14c3bcd88ba38e93cb4cd4aad8a59c9dd96cf694d8c60348f4a11a9b`，scene-runtime-evidence.json `47d12c351140c379f5f3ceafbcfa8088413a1569564b424810e0d435344f9ccb`。完整断点说明见[样本台账 E-P1-VECTOR2-INTERFACE-ARITHMETIC](scene-sample-debug-ledger.md#e-p1-vector2-interface-arithmetic)和[现役运行证据](runtime-evidence-current.md#e-2026-09-09-vector2-interface-arithmetic)。下一集群只处理 layer 467 effect 1 的颜色合同/owner，不把 effect 0 的编译恢复升级为整层视觉兼容。
+
 ## 9. 更新规则
 
 1. 每次 Scene 能力提交必须更新本表对应行和精确边界；只更新开发流水账不算完成。

@@ -294,6 +294,12 @@ private struct VaryingLinkOutput: Codable {
     let suffixReadRejected: Bool
 }
 
+private struct Vector2ArithmeticOutput: Codable {
+    let interfaceOperandNarrowed: Bool
+    let localOperandPreserved: Bool
+    let compoundOperandPreserved: Bool
+}
+
 private struct MutableFragmentVaryingOutput: Codable {
     let mainMutationLowered: Bool
     let interfacePreserved: Bool
@@ -839,6 +845,43 @@ private struct GenericShaderArtifactHarness {
                     ) && !unsignedIntegerSwizzle.contains(
                         "mix(vec3(unsignedFlags.x), replacement"
                     )
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
+        if CommandLine.arguments[1] == "--canonicalizer-vector2-arithmetic" {
+            let vertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec3 v_TexCoord;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    v_TexCoord.xy = a_TexCoord;",
+                "    v_TexCoord.z = 0.0;",
+                "}",
+            ].joined(separator: "\n")
+            let fragment = [
+                "uniform float u_offset;",
+                "varying vec3 v_TexCoord;",
+                "void main() {",
+                "    vec3 local = v_TexCoord;",
+                "    float interfaceValue = length(v_TexCoord - CAST2(u_offset));",
+                "    float localValue = length(local - CAST2(u_offset));",
+                "    float compoundValue = length((v_TexCoord + vec3(0.0)) - CAST2(u_offset));",
+                "    gl_FragColor = vec4(interfaceValue + localValue + compoundValue);",
+                "}",
+            ].joined(separator: "\n")
+            let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: vertex,
+                fragment: fragment
+            ).fragment
+            let output = Vector2ArithmeticOutput(
+                interfaceOperandNarrowed:
+                    canonical.contains("length(v_TexCoord.xy - CAST2(u_offset))"),
+                localOperandPreserved:
+                    canonical.contains("length(local - CAST2(u_offset))"),
+                compoundOperandPreserved:
+                    canonical.contains("length((v_TexCoord + vec3(0.0)) - CAST2(u_offset))")
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4821,6 +4864,20 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "textureCoordinateGenericSlot3": True,
             "unknownCallRejectedByBoth": True,
             "suffixReadRejected": True,
+        })
+
+    def test_backend_canonicalizer_narrows_declared_vector2_arithmetic_operands(self):
+        completed = subprocess.run(
+            [str(self.binary), "--canonicalizer-vector2-arithmetic"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "interfaceOperandNarrowed": True,
+            "localOperandPreserved": True,
+            "compoundOperandPreserved": True,
         })
 
     def test_backend_canonicalizer_namespaces_bounded_builtin_overload(self):

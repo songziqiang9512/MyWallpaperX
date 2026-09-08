@@ -49,6 +49,16 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
             fragment: SceneGenericShaderInactiveBuiltinOverloadCanonicalizer
                 .rewrite(result.fragment)
         )
+        result = Pair(
+            vertex: rewriteVector2ArithmeticOperands(
+                result.vertex,
+                vectorNames: wideVectorInterfaceNames(in: result.vertex)
+            ),
+            fragment: rewriteVector2ArithmeticOperands(
+                result.fragment,
+                vectorNames: wideVectorInterfaceNames(in: result.fragment)
+            )
+        )
         let livePrefix = SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer.rewrite(
             vertex: result.vertex,
             fragment: result.fragment
@@ -81,6 +91,55 @@ nonisolated enum SceneAuthoredShaderBackendCanonicalizer {
             return original
         }
         return result
+    }
+
+    /// The authored dialect occasionally subtracts a scalar-broadcast vec2
+    /// from a vec3/vec4 interface value and then consumes the result as a
+    /// two-dimensional coordinate. Metal rejects the dimensional mismatch;
+    /// narrow only declared uniform/attribute/varying vectors, preserving the
+    /// existing fail-closed boundary for locals, calls, and compound values.
+    static func rewriteVector2ArithmeticOperands(
+        _ source: String,
+        vectorNames: Set<String>
+    ) -> String {
+        guard !vectorNames.isEmpty else { return source }
+        let escaped = vectorNames
+            .map(NSRegularExpression.escapedPattern)
+            .sorted()
+            .joined(separator: "|")
+        let pattern = #"\b("# + escaped
+            + #")\s*([+-])\s*(?:CAST2\([^;\n]*\)|vec2\([^;\n]*\))"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        var result = source
+        for match in regex.matches(
+            in: source,
+            range: NSRange(source.startIndex..., in: source)
+        ).reversed() {
+            guard let nameRange = Range(match.range(at: 1), in: source),
+                  let operatorRange = Range(match.range(at: 2), in: source),
+                  let sourceFullRange = Range(match.range, in: source),
+                  let fullRange = Range(match.range, in: result) else {
+                continue
+            }
+            let name = String(source[nameRange])
+            let operation = String(source[operatorRange])
+            let rhs = String(source[operatorRange.upperBound..<sourceFullRange.upperBound])
+            result.replaceSubrange(
+                fullRange,
+                with: "\(name).xy \(operation)\(rhs)"
+            )
+        }
+        return result
+    }
+
+    private static func wideVectorInterfaceNames(in source: String) -> Set<String> {
+        let regex = try! NSRegularExpression(pattern:
+            #"(?m)^\s*(?:uniform|attribute|varying)\s+vec[34]\s+([A-Za-z_][A-Za-z0-9_]*)\s*;"#
+        )
+        return Set(regex.matches(in: source, range: NSRange(source.startIndex..., in: source)).compactMap {
+            guard let range = Range($0.range(at: 1), in: source) else { return nil }
+            return String(source[range])
+        })
     }
 
     private static func linkedVaryingArrays(

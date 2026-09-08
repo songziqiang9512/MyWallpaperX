@@ -48,7 +48,7 @@
 
 本档案的生成器是 [`scene_sample_debug_archive.py`](../../../script/scene_sample_debug_archive.py)，测试为 [`test_scene_sample_debug_archive.py`](../../../script/tests/test_scene_sample_debug_archive.py)。它只合并样本静态事实与现有 report/diagnostic first breakpoint，不保存样本副本、截图或作者 payload；`/private/tmp` report 路径是 provenance，缓存消失后不能用本页代替重新运行。
 
-截至 2026-09-09，shine-cast 样本 `3749463715` 的公共首断点为 layer `467#effect#480` 的 Metal vector2 library compilation；layer `536` 的 default-boundary graph ingress 与两个 effect 的 frame0/next-frame 已有独立证据。后续开发先从 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](#e-p1-default-straight-color-boundary-graph-ingress) 读取状态，再处理 layer `467` 的公共 backend 编译 owner；不要把旧的 graph ingress 失败与该编译断点混为一谈。
+截至 2026-09-09，shine-cast 样本 `3749463715` 的最新公共首断点已从 layer `467#effect#480` 的 Metal vector2 library compilation 收窄到同层 `467#effect#500` motionblur 的 `captured-main-color-contract-unproven`；layer `536` 的 default-boundary graph ingress 与两个 effect 的 frame0/next-frame 已有独立证据。后续开发从 [E-P1-VECTOR2-INTERFACE-ARITHMETIC](#e-p1-vector2-interface-arithmetic) 读取最新状态，再进入颜色合同 owner；不要回到旧的 `mwx-graphfix-run` 报告把已跨过的 float3/float2 编译错误当成当前首断点。
 
 ## E-V4-PUPPET-FRACTIONAL-ADDITIVE：动画权重进入 selector（2026-09-08）
 
@@ -319,6 +319,27 @@ texture-registry 正反门、Debug build 与 code health PASS；`/private/tmp/mw
 正式 matrix 仍为 **0/1 NON-PASS**，不是本批的失败证据：layer `467` effect 0 的 `cutout_vignette` 仍在 Metal library compilation 因 float3/float2 implicit conversion 失败，layer `536` effect 1 opacity 仍是 `effect-local-passthrough-material-generic-owner-revoked`。本批目标 `536#effect#553`（`effects/workshop/2342779250/test_shader/effect.json`）已经是 `admitted-generic / resolved-material / profile=program`；effect CPU invocation 是 `resolved-material-graph / encoded-output`。frame 0（transaction `r4:1:9:0`）和 next-frame（`r4:1:24:0`）均为 1 authored / 1 material / 0 copy / 0 swap / 0 compose / 0 rejected，`outcome=succeeded`、`gpuCompletion=completed`，两帧共用 Program identity `43ee766ff47f1df07b25121be9f51459b796e77ca32e013f18a9b0206fd5822f`，并完成 exact publication；graph input 记录为 `slot0:dormantUnresolvedMaterialAlias:layerSource:536`，目标日志没有 `samplerBindingIdentityMismatch` 或 `graph-input-source-fact-divergence`。整次 GraphExecutor 为 `90 claimed / 90 encoded / 90 GPU encoded / 0 failure / 0 local fallback`，15 个 required layer 全部进入 exact-backend complete 集合。
 
 隔离 shader cache 没有提供 generic artifact，所以 frame execution 日志的 backend 是共享 `boundedSwift`；这条证据只证明共同 resolved-material graph executor 的 ingress、Program identity、publication、GPU completion 与 next-frame，不升级为 `genericCompilerArtifact`、独立 ROI、官方预览等价或视觉 parity。ready/after/preview 图片仅作为运行 provenance；当前下一项按真实首断点处理 layer `467` library compilation，另行追踪 layer `536` effect 1 的 opacity local fallback。证据来源分类为 `authored-corpus-observation`（只读样本）与 `MyWallpaperX-current-evidence`（当前代码、测试、构建和运行），本批不需要 Ghidra、Mirage 或官方黑盒研究。
+
+<a id="e-p1-vector2-interface-arithmetic"></a>
+## E-P1-VECTOR2-INTERFACE-ARITHMETIC：声明向量二维运算的 backend 收窄（2026-09-09）
+
+### 首断点与公共修正
+
+上一批把 layer `467#effect#480` 的 `cutout_vignette` 记录为 Metal library compilation：作者 shader 声明 `varying vec3 v_TexCoord`，却将它与 `CAST2(u_offset)` 直接相减，SPIRV-Cross 结果保留 float3/float2 implicit conversion。`SceneAuthoredShaderBackendCanonicalizer` 现在在统一 backend 输入阶段识别精确声明的 `uniform|attribute|varying vec3/vec4` 名称，对直接 `+/- CAST2(...)` 或 `vec2(...)` 操作使用 `.xy`；局部变量、复合表达式、未证明形状以及超出 512 KiB source budget 的输入不改写，仍返回原始 pair。该修正只触达共享 canonicalizer，不新增样本/图层/路径/hash 路由。
+
+回归门是 `script/tests/test_scene_generic_shader_program_artifact.py` **78/78 PASS**（含 interface 收窄与 local/compound 保留）和 `script/tests/test_scene_shader_scalar_vector_builtin_canonicalization.py` **2/2 PASS**；同批 default-boundary 的 finalizer **24/24 PASS**、template **5/5 PASS**，checkpoint Debug build **BUILD SUCCEEDED**。针对真实 shader 的 normalized fragment 证据为 `9faadd66790a32a7af8651063eb237932d70a37b970842f3294527b63c06281e.fragment.normalized.glsl`，SHA-256 `d96212f4d1bbf65028d6030298944ded6787512c36361cdacc6be986189aed8f`，第 133 行已是 `length(abs(v_TexCoord.xy - CAST2(u_offset)) * 1.0)`。
+
+### 隔离运行与下一断点
+
+输入仍是只读真实样本 `3749463715`（runtime copy `/private/tmp/mwx-vector2-run/runtime/runtime-samples/3749463715`，project SHA-256 `35392a2d2b9fd901079f7c248a9e5a58850608b0e01cb7dd90dfcfec64603bbf`，package SHA-256 `777305ee38bdcdace9a7a6e0f942d01952e9318558de38c024336e662e985ae7`），运行输出 `/private/tmp/mwx-vector2-run`。实际 App 为 `com.songziqiang.MyWallpaperX`、version `2.0.9 (277)`、Team `H9QWU9XN8R`、CDHash `a35ce7e9574c39aec62c4a76075ae0c59664e3fa`、executable SHA-256 `8d7234a0d6cbab68818fa7bf7729f71f49b55c1c6bb3c4e04314b681a08f487c`；source bundle `/private/tmp/mwx-derived-vector2/Build/Products/Debug/MyWallpaperX.app`，runtime bundle 使用同一签名身份并通过 before/after verification。
+
+7 秒 strict benchmark 仍为 **0/1 NON-PASS**，失败集合为 `effect execution route operation failed`、accepted layer `467` 缺 GPU/compositor/next-frame/exact-backend evidence、`resolved material graph observation diagnostic reported` 和 `utility capture execution below planned count`。effect admission 变为 **37/37 admitted-generic、37/37 complete**，resolved-material capability 为 **16 accepted / 0 rejected**；其中 layer `560` fluid-simulation 也因同一公共 canonicalizer 进入 generic graph，utility capture 成功，不能将 accepted 变化解释成 layer 467 单层 parity。utility planned `4`，succeeded `[488, 536, 560]`，failed `[467]`。
+
+layer `467#effect#480` 的 runtime generic state 已是 `genericCompilerArtifact`，并且 app log 不再出现该 effect 的 float3/float2 library rejection；但同层 `467#effect#500` motionblur 在 frame preflight 触发 `captured-main-color-contract-unproven`，安装 layer-local fallback，最终 route operation 为 `unclaimed-effect-product-authority / unclaimed-visible-effects-route-unavailable`。因此 layer 467 整体仍没有 graph terminal evidence。GraphExecutor 汇总为 **15 claimed / 15 encoded / 15 GPU encoded / 0 failure / 1 local fallback**，其余 15 个 accepted layer 均有 GPU completion、compositor consumption、next-frame 和 exact backend 记录。
+
+layer `536` 的 `536#effect#553` 与 `536#effect#555` 在 frame 0/next-frame 均成功：每个 graph 1 authored / 1 material / 0 rejected、`outcome=succeeded`、`gpuCompletion=completed`；Program identity 分别为 `43ee766ff47f1df07b25121be9f51459b796e77ca32e013f18a9b0206fd5822f` 与 `cc79a2f473514cb6bbbba415f3b15f2612ebde4d0cca39529304a2f77ee3a9a1`。报告为 `/private/tmp/mwx-vector2-run/report.json`（SHA-256 `bfb07181ad006b4570220158bfb7238c126563d526aab2b2739a512d81ab702b`），app.log `911298831e141bb5ad20a665e0134bfc62d9630a39e406aef4284d9f1d7a193b`，scene-preview.log `8cf1d37c14c3bcd88ba38e93cb4cd4aad8a59c9dd96cf694d8c60348f4a11a9b`，scene-runtime-evidence.json `47d12c351140c379f5f3ceafbcfa8088413a1569564b424810e0d435344f9ccb`。
+
+结论上限：本批闭合了 `467#effect#480` 的 backend vector2 arithmetic library compilation 输入断点，并证明统一 canonicalizer 不破坏既有 lowering；没有闭合 layer 467 的 effect 1 颜色合同、整层 route、独立 ROI、官方预览等价或视觉 parity。下一次应以 `captured-main-color-contract-unproven` 为首断点，先取得该 motionblur 输出颜色事实和 owner 边界，再决定是否改公共颜色 analyzer；不要为恢复 layer 467 而加入样本专用分支。证据来源分类为 `authored-corpus-observation` 与 `MyWallpaperX-current-evidence`，本批不需要 Ghidra、Mirage 或官方黑盒研究。
 
 ## E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY：未证明的普通颜色 pass 按官方默认 straight 边界执行（2026-09-08）
 

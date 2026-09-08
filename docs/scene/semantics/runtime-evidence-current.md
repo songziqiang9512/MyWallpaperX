@@ -28,7 +28,7 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 同一构建与隔离流程复跑高命中 godrays 样本 `1937925563`，得到 `PASS loaded=1.000 failures=[]`。该结果是第二个样本的 identity/runtime contract 证据，仍不替代人工视觉裁决或官方 parity 对照。
 
-前一轮流程对 shine-cast 样本 `3749463715` 曾把 layer `536` 的 graph ingress 与共享 shader preparation library compilation fallback（layer `467`）一起报告为 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。本批 default-boundary 修正了 layer `536` ingress，并保留 layer `467` 的公共 library compilation 作为当前首断点；完整边界见下方证据。
+前一轮流程对 shine-cast 样本 `3749463715` 曾把 layer `536` 的 graph ingress 与共享 shader preparation library compilation fallback（layer `467`）一起报告为 `effect execution CPU invocation failed` 与 `unexpected effect-local passthrough`。default-boundary 批次已先修正 layer `536` ingress；随后进行的 vector2 backend 批次又跨过 layer `467` effect 0 的 library compilation，并让 layer `536` 两个 effect 连续执行。当前首断点收窄为 layer `467` effect 1 的 `captured-main-color-contract-unproven`，完整边界见下方后继证据。
 
 <a id="e-2026-09-09-default-straight-boundary-graph-ingress"></a>
 ### 2026-09-09 默认直色 fallback 的 dormant graph ingress 修正（3749463715）
@@ -41,7 +41,20 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 该隔离运行的 `generic-only` route 由于独立 shader cache 未提供 artifact，实际 frame backend 日志为共享 `boundedSwift`；因此本条只证明修正后的共同 resolved-material graph executor、Program identity、publication、GPU completion 和 next-frame ingress，不把它写成 `genericCompilerArtifact` 或视觉 parity。ready/after/preview PNG 只保留运行 provenance，不作为 ROI 或官方画面对照。report SHA-256 为 `98b09a9ce1fc0dd3efa4c8017b1f3bd6afa584caba75f1d7b862937e08f9012e`，app.log SHA-256 为 `b80f0ea8718cd8683cb7d0dd3e9675d3221c90f03baa8afb9ce511c4222217f8`，完整断点与下一步见 [E-P1-DEFAULT-STRAIGHT-COLOR-BOUNDARY-GRAPH-INGRESS](scene-sample-debug-ledger.md#e-p1-default-straight-color-boundary-graph-ingress)。
 
-这次运行对应的下一断点是 layer `467` effect 0 的 `cutout_vignette` library compilation（Metal diagnostic 为 float3/float2 implicit conversion）；`536` effect 1 的 opacity local fallback 仍按当时构建记录。当前样本没有 strict PASS、独立视觉 ROI 或官方 parity 证据。
+这次运行对应的下一断点是 layer `467` effect 0 的 `cutout_vignette` library compilation（Metal diagnostic 为 float3/float2 implicit conversion）；`536` effect 1 的 opacity local fallback 仍按当时构建记录。后继 vector2 backend 集群已经把该 library compilation 从首断点推进到 effect 1 的颜色合同边界，见下方后继证据。当前样本没有 strict PASS、独立视觉 ROI 或官方 parity 证据。
+
+<a id="e-2026-09-09-vector2-interface-arithmetic"></a>
+### 2026-09-09 backend vector2 interface arithmetic narrowing（3749463715）
+
+上一条 default-boundary 批次在 layer `467#effect#480` 的 authored shader 暴露了公共后端断点：`varying vec3 v_TexCoord` 被作者作为二维坐标与 `CAST2(u_offset)` 直接相减，SPIRV-Cross 产出的 Metal 仍保留 float3/float2 implicit conversion，library compilation 失败。现行 `SceneAuthoredShaderBackendCanonicalizer` 在 source-driven backend canonicalization 阶段只对精确声明的 `uniform|attribute|varying vec3/vec4` 标识符、直接 `+/- CAST2(...)` 或 `vec2(...)` 操作收窄为 `.xy`；局部变量、复合表达式和非该形状保持原文，超过 source budget 仍返回原始 pair。该修正只属于共享 shader backend owner，没有 sample/layer/path/hash 分支。
+
+回归门：`test_scene_generic_shader_program_artifact` **78/78 PASS**（含 interface operand 收窄、local 与 compound operand 保留），`test_scene_shader_scalar_vector_builtin_canonicalization` **2/2 PASS**；此前本批的 finalizer **24/24 PASS**、template **5/5 PASS**，checkpoint Debug build **BUILD SUCCEEDED**。隔离运行实际 App 为 `com.songziqiang.MyWallpaperX`、version `2.0.9 (277)`、Team `H9QWU9XN8R`、CDHash `a35ce7e9574c39aec62c4a76075ae0c59664e3fa`、executable SHA-256 `8d7234a0d6cbab68818fa7bf7729f71f49b55c1c6bb3c4e04314b681a08f487c`，来源为 `/private/tmp/mwx-derived-vector2/Build/Products/Debug/MyWallpaperX.app`，运行副本保留在 `/private/tmp/mwx-vector2-run`。
+
+该构建对只读样本 `3749463715` 的 7 秒隔离 benchmark 仍为 **0/1 NON-PASS**。`scene-preview.log` 的 effect admission 为 **37/37 admitted-generic、37/37 complete**，resolved-material capability 为 **16 accepted / 0 rejected**；公共规则同时使 fluid-simulation layer `560` 进入 generic graph（utility capture 成功），所以不能把 accepted 数从 15→16 当成单层 parity。target `467#effect#480` 的 normalized fragment 已出现 `length(abs(v_TexCoord.xy - CAST2(u_offset)) * 1.0)`（artifact fragment SHA-256 `d96212f4d1bbf65028d6030298944ded6787512c36361cdacc6be986189aed8f`），app log 不再出现该 effect 的 Metal float3/float2 library rejection，generic state 为 `genericCompilerArtifact`。
+
+剩余失败是可观察的下一边界：同层 `467#effect#500` 的 `motionblur` 在 frame preflight 触发 `captured-main-color-contract-unproven`，安装一个 layer-local fallback；因此 utility capture 为 planned `4`、succeeded `[488, 536, 560]`、failed `[467]`，route operation 是 `unclaimed-effect-product-authority / unclaimed-visible-effects-route-unavailable`。GraphExecutor 本次为 **15 claimed / 15 encoded / 15 GPU encoded / 0 failure / 1 local fallback**；15 个 accepted layer 有 GPU completion、compositor consumption、next-frame 和 exact backend 记录，唯一缺失 layer 为 `467`。目标 `536#effect#553` 与 effect 1 `536#effect#555` 均在 frame 0/next-frame 成功：各自 1 authored / 1 material / 0 rejected，`outcome=succeeded`、`gpuCompletion=completed`，前者保持 Program identity `43ee766ff47f1df07b25121be9f51459b796e77ca32e013f18a9b0206fd5822f`，后者保持 `cc79a2f473514cb6bbbba415f3b15f2612ebde4d0cca39529304a2f77ee3a9a1`。
+
+本次运行使用 `MWX_SCENE_GENERIC_SHADER_CACHE=/private/tmp/mwx-shader-cache-vector2`，但报告记录的 frame route 仍有共享 fallback；因此只证明 backend canonicalizer 的编译输入收窄、其它 graph 的 bounded execution 和 layer 467 effect 0 已跨过 library compilation，不升级为整层 467 route PASS、独立 ROI、视觉 parity 或官方对照。报告 SHA-256 为 `bfb07181ad006b4570220158bfb7238c126563d526aab2b2739a512d81ab702b`，app.log 为 `911298831e141bb5ad20a665e0134bfc62d9630a39e406aef4284d9f1d7a193b`，scene-preview.log 为 `8cf1d37c14c3bcd88ba38e93cb4cd4aad8a59c9dd96cf694d8c60348f4a11a9b`，scene-runtime-evidence.json 为 `47d12c351140c379f5f3ceafbcfa8088413a1569564b424810e0d435344f9ccb`。下一批只应处理 `467#effect#500` 的颜色合同/owner 断点，再重新做该样本的完整 route 验收；不要把本条的 effect 0 编译恢复扩写成整层兼容。
 
 `3662790108` 主太阳子网格的首个资源拒绝已解除：现有 static-model reader/IR/Metal mesh 接受 bounded UInt32 索引，小索引仍缩窄上传；极小非奇异模型不再因绝对 determinant 阈值拒绝。14 项正反门和 Debug build 通过，真实运行的 prepared 层新增 3694，但没有该层独立 completion/publication 证据，**球体视觉仍未闭合，整景 NON-PASS**。范围、签名身份和截图见 [宽索引证据](scene-sample-debug-ledger.md#e-v4-static-model-wide-indices大网格资源拒绝与小尺度绘制2026-09-08)。
 
