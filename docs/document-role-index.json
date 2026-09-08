@@ -9,6 +9,7 @@
       "docs/scene/development-workflow.md",
       "docs/scene/runtime-architecture.md",
       "docs/scene/scene-compatibility-roadmap.md",
+      "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
       "docs/scene/semantics/runtime-evidence-current.md",
       "docs/web/wallpaper-engine-web-rules.md",
@@ -175,17 +176,6 @@
       ]
     },
     {
-      "path": "docs/history/scene/scene-open-breakpoint-queue-2026-09-09.md",
-      "role": "historical-evidence",
-      "entrypoint": "docs/history/README.md",
-      "commandPolicy": "historical-only",
-      "currentAuthorities": [
-        "docs/scene/scene-compatibility-roadmap.md",
-        "docs/scene/semantics/coverage-ledger.md",
-        "docs/scene/semantics/runtime-evidence-current.md"
-      ]
-    },
-    {
       "path": "docs/history/scene/scene-reference-audit-effects-runtime-2026-07-24.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -302,6 +292,12 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "样本验收台账中所有真实样本均为 pass 或显式 platform-unsupported，P5 的帧时间基线、长稳与发布门全部通过，旧专用产品 owner 已删除或隔离，并由稳定架构合同、能力台账和专项表接管终态后，将本文转为 historical-evidence。"
+    },
+    {
+      "path": "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "当队列中的公共 P1 断点均已由现役路线、能力台账和运行证据关闭或重新归类，且不再需要该日期化派生执行入口时，删除或转为 historical-evidence。"
     },
     {
       "path": "docs/scene/semantics/official-client-behavior-research-workflow.md",

@@ -1,12 +1,14 @@
-# Scene 现存断点修复队列（2026-09-09，代码已核实）
+<!-- document-role: active-plan -->
 
-> **历史证据 — 非现役入口**
+# Scene 现存断点修复队列（2026-09-09，现役 P1 派生执行入口）
+
+> 状态：现役高优先级 P1 派生计划队列。本文不拥有阶段顺序或完成门；唯一现役路线仍是[Scene 兼容执行路线](scene-compatibility-roadmap.md)，队列仅提供按当前证据排序的执行入口。
 
 > 本文是给修复实施者的**可执行队列**。每一条都在当前代码中核实过 owner 位置（文件 + 行号 + 符号），不是从旧文档转述。样本 ID 只用于复现证据，不得进入产品代码。
 >
-> **与执行路线的关系**：[执行路线](../../scene/scene-compatibility-roadmap.md)拥有阶段顺序和完成门；本文是 2026-09-09 当时事实下 P1（公共首断点清零）的**派生批次队列**，不拥有当前顺序权威。路线的 P1 子顺序（`unified-capability-unavailable` → `admitted-fallback` passthrough → `graph-execution-missing`）中，前两类经近期批次后已基本清空（见 §0），本文的 B1→B8 是把当时剩余断点映射回该框架后的建议执行序（映射见 §0.1）；当前状态以现役路线、台账和运行证据为准。
+> **与执行路线的关系**：[执行路线](scene-compatibility-roadmap.md)拥有阶段顺序和完成门；本文是 2026-09-09 当时事实下 P1（公共首断点清零）的**派生批次队列**，不拥有当前顺序权威。路线的 P1 子顺序（`unified-capability-unavailable` → `admitted-fallback` passthrough → `graph-execution-missing`）中，前两类经近期批次后已基本清空（见 §0），本文的 B1→B8 是把当时剩余断点映射回该框架后的建议执行序（映射见 §0.1）；当前状态以现役路线、台账和运行证据为准。
 >
-> **队列规则**：按顺序一次修一条（B1 → B2 → …）。动手前先核对"状态"列与当前代码是否仍然一致（并行会话可能已合入修复）。每修完一条：
+> **队列规则**：默认按 B1 → B2 → … 处理；若两个条目的 owner、验证样本和文档职责边界互不重叠，可并行推进，但必须在合入前分别完成各自的最小正反门，并串行处理共享 owner 或前置结果依赖。动手前先核对“状态”列与当前代码是否仍然一致（并行会话可能已合入修复）。每修完一条：
 > 1. 在本文档把该条状态改为 `已修复（<日期>，<commit/证据链接>）`，或整条删除；
 > 2. 按工作流更新权威文档（能力台账 / 专项表 / 样本调试台账），本文不替代它们；
 > 3. 按路线 §4 记录完成状态（`slice-visible` / `owner-migration`），样本可见结果变化写入样本调试台账、人工裁决变化写入验收覆盖层；路线正文只在阶段状态或完成门改变时更新；
@@ -39,7 +41,7 @@
 
 ### B1 `mwx-metal` 产物 MSL 编译失败：`vec3/vec4 ± vec2` 混合尺寸算术未收窄
 
-- **状态**：`部分修复（2026-09-09）` —— `SceneAuthoredShaderBackendCanonicalizer.swift` 已新增 `rewriteVector2ArithmeticOperands`，把声明的 vec3/vec4 接口变量 `± CAST2(...)/vec2(...)` 收窄为 `.xy ± ...`；隔离样本 `3749463715` 的 `467#effect#480` 已跨过该 library compilation。三样本重验和 effect 1 颜色合同仍未闭合，当前边界与证据见 [E-P1-VECTOR2-INTERFACE-ARITHMETIC](../../scene/semantics/scene-sample-debug-ledger.md#e-p1-vector2-interface-arithmetic)。
+- **状态**：`部分修复（2026-09-09；当前首断点已推进）` —— `SceneAuthoredShaderBackendCanonicalizer.swift` 的 `rewriteVector2ArithmeticOperands` 已使隔离样本 `3749463715` 的 `467#effect#480` 跨过 library compilation；现役证据显示该样本当前首断点已收窄为同层 `467#effect#500` 的 `captured-main-color-contract-unproven`。三样本重验、整层 route 和视觉合同仍未闭合，见 [E-P1-VECTOR2-INTERFACE-ARITHMETIC](semantics/scene-sample-debug-ledger.md#e-p1-vector2-interface-arithmetic)。
 - **问题**：`backend=mwx-metal` 的 prepared artifact 在 `MTLLibrary` 构建时报
   `error: implicit conversions between vector types ('float3' and 'float2') are not permitted`，
   effect 走 `material-pass-preparation-library-compilation` 局部 passthrough。

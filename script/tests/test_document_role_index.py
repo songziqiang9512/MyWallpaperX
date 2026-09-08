@@ -131,7 +131,6 @@ class DocumentRoleIndexTests(unittest.TestCase):
                 self.assertTrue(path.is_file())
                 self.assertEqual(path.suffix, ".md")
                 self.assertFalse(path.resolve().is_relative_to(self.history_root.resolve()))
-                self.assertNotRegex(path.name, DATED_MARKDOWN_PATTERN)
                 self.assertIsNotNone(
                     declarations[relative_path],
                     "current plans/contracts need an explicit machine role marker",
@@ -228,14 +227,27 @@ class DocumentRoleIndexTests(unittest.TestCase):
         self.assertIn("explicit `workflow_dispatch`", release_document)
         self.assertIn("against `main`", release_document)
 
-    def test_dated_markdown_cannot_exist_outside_history(self) -> None:
+    def test_dated_markdown_outside_history_must_be_declared(self) -> None:
         dated_outside_history = [
             path.relative_to(REPOSITORY_ROOT).as_posix()
             for path in DOCUMENTATION_ROOT.rglob("*.md")
             if DATED_MARKDOWN_PATTERN.search(path.name)
             and not path.resolve().is_relative_to(self.history_root.resolve())
         ]
-        self.assertEqual(dated_outside_history, [])
+        self.assertEqual(
+            dated_outside_history,
+            [path for path in self.discovery["additionalPaths"] if DATED_MARKDOWN_PATTERN.search(Path(path).name)],
+        )
+
+    def test_dated_active_plan_is_explicitly_declared(self) -> None:
+        path = "docs/scene/scene-open-breakpoint-queue-2026-09-09.md"
+        self.assertIn(path, self.discovery["additionalPaths"])
+        document = next(document for document in self.documents if document["path"] == path)
+        self.assertEqual(document["role"], "active-plan")
+        self.assertEqual(document["entrypoint"], "docs/scene/README.md")
+        self.assertTrue(document.get("retirementCondition"))
+        header = (REPOSITORY_ROOT / path).read_text(encoding="utf-8").splitlines()[:12]
+        self.assertIn("<!-- document-role: active-plan -->", header)
 
     def test_documents_are_unique_sorted_and_exist(self) -> None:
         paths = [str(document["path"]) for document in self.documents]
@@ -251,6 +263,7 @@ class DocumentRoleIndexTests(unittest.TestCase):
             for document in self.documents
             if document.get("role") == "active-plan"
             and str(document["path"]).startswith("docs/scene/")
+            and str(document["path"]) == "docs/scene/scene-compatibility-roadmap.md"
         ]
         self.assertEqual(
             scene_active_plans,
