@@ -16,6 +16,19 @@
 >
 > 本文与权威文档冲突时以权威文档和当前代码为准。
 
+## 0.3 现役待办（2026-09-10）
+
+以下条目是 B9 闭环后的实际修复队列，按共享 owner 依赖排序；每项完成后必须补充运行证据并提交一个完整职责批次：
+
+1. **B3 / SceneScript 参数扩面**：复跑 `3601964477`，闭合 `2902406982` 的 media-event / Timeline producer。
+2. **B5 / terminal data-color 链**：修复 geodraw 通用 color-transfer，再处理 `3792249095` 的 sampler-schema / owner-revoked 和 `3448845950` 的 terminal data/color 合同。
+3. **B6 / 类型语义**：补合法 `Vec3/scalar` 正例和可重复异常 payload，保持错误类型 fail-closed。
+4. **B7 / 稳定帧 CPU**：对 Puppet source-update 做 profile，按共享 owner 降低稳定帧 CPU；不以旧 FPS 快照代替新基线。
+5. **B8 / readiness 观察合同**：决定产品等待策略或门禁合同，并保留首帧 readiness 的原始证据，不静默放宽失败。
+6. **全样本视觉收口**：重新生成验收台账，逐项裁决 `19 fail / 140 unreviewed`；任何新首断点回到 P1/P2。
+
+B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办；旋转/重力/IK、多屏、parallax 和官方 parity 是 Puppet 的后续能力边界，不冒充 B9 未完成。
+
 ## 0. 证据基础
 
 - 复现环境：隔离样本副本 + 隔离 HOME，`script/scene_wallpaper_benchmark.py`，真实 `requestLaunch` 异步入口，12 秒 / after 9 秒，`--audio-spectrum-silence-fixture`，identity-only 矩阵。09-09 的 48 样本探测是全量历史快照；当前可复核的后继结果是同一工作树签名包的 12 样本串行复跑（每个样本独立 runtime root）。
