@@ -892,6 +892,20 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
     return true;
 }
 
+static const char *vec3_return_shape(
+    JSContext *context,
+    JSValueConst value
+) {
+    if (JS_IsString(value)) return "string";
+    if (JS_IsNumber(value)) return "number";
+    if (JS_IsBool(value)) return "boolean";
+    if (JS_IsNull(value)) return "null";
+    if (JS_IsUndefined(value)) return "undefined";
+    if (JS_IsArray(value)) return "array";
+    if (JS_IsObject(value)) return "object";
+    return "other";
+}
+
 static MWXSceneQuickJSResult call_vec3(
     MWXSceneQuickJSOwner *owner,
     JSValueConst function,
@@ -1011,10 +1025,18 @@ static MWXSceneQuickJSResult call_vec3(
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
     const bool valid = read_vec3(domain->context, value, output);
+    const char *return_shape = valid
+        ? NULL : vec3_return_shape(domain->context, value);
     JS_FreeValue(domain->context, argument);
     JS_FreeValue(domain->context, result);
     if (!valid) {
-        write_diagnostic(diagnostic, diagnostic_capacity, "callback returned invalid Vec3 value");
+        char message[128];
+        snprintf(
+            message, sizeof(message),
+            "callback returned invalid Vec3 value (returned %s)",
+            return_shape
+        );
+        write_diagnostic(diagnostic, diagnostic_capacity, message);
         return discard_layer_mutations_after_failure(
             owner, MWX_SCENE_QUICKJS_BAD_RETURN
         );

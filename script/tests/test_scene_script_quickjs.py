@@ -387,6 +387,32 @@ static int update_vec3(
     );
 }
 
+static int update_vec3_diagnostic_contains(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    const double input[3],
+    MWXSceneQuickJSResult expected,
+    const char *expected_diagnostic,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    double output[3] = {0};
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual = mwx_scene_quickjs_owner_update_vec3(
+        owner, generation, input, &frame, "", 0, "{}", 2,
+        output, diagnostic, sizeof(diagnostic)
+    );
+    return check(
+        actual == expected && strstr(diagnostic, expected_diagnostic) != NULL,
+        label,
+        diagnostic
+    );
+}
+
 static int mutation(
     MWXSceneQuickJSOwner *owner,
     size_t index,
@@ -1043,6 +1069,86 @@ int main(void) {
         "{\"live\":5,\"tint\":{\"x\":0.25,\"y\":0.5,\"z\":1}}",
         MWX_SCENE_QUICKJS_OK, vec3_expected,
         "Vec3/scriptProperties/engine.userProperties"
+    );
+
+    const char *vec3_return_contract_source =
+        "export function update(value) {"
+        "thisLayer.angles = new Vec3(4, 5, 6);"
+        "return value;"
+        "}";
+    MWXSceneQuickJSOwner *vec3_return_contract = mwx_scene_quickjs_owner_create(
+        domain, vec3_return_contract_source,
+        strlen(vec3_return_contract_source), 131,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        vec3_return_contract != NULL,
+        "Vec3 callback return contract compile",
+        diagnostic
+    );
+    failures += configure_owner_layer(
+        vec3_return_contract, 42,
+        "Vec3 callback return contract layer identity"
+    );
+    const double vec3_return_expected[3] = {1, 2, 3};
+    failures += update_vec3(
+        vec3_return_contract, 131, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, vec3_return_expected,
+        "Vec3 callback returns host Vec3 input after layer mutation"
+    );
+
+    const char *vec3_invalid_return_source =
+        "export function update(value) { return [value.x, value.y, value.z]; }";
+    MWXSceneQuickJSOwner *vec3_invalid_return = mwx_scene_quickjs_owner_create(
+        domain, vec3_invalid_return_source,
+        strlen(vec3_invalid_return_source), 132,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        vec3_invalid_return != NULL,
+        "Vec3 invalid return fixture compile",
+        diagnostic
+    );
+    failures += update_vec3_diagnostic_contains(
+        vec3_invalid_return, 132, vec3_input,
+        MWX_SCENE_QUICKJS_BAD_RETURN, "(returned array)",
+        "Vec3 array return diagnostic identifies shape"
+    );
+
+    const char *vec3_nonfinite_return_source =
+        "export function update(value) { return {x:value.x, y:NaN, z:value.z}; }";
+    MWXSceneQuickJSOwner *vec3_nonfinite_return = mwx_scene_quickjs_owner_create(
+        domain, vec3_nonfinite_return_source,
+        strlen(vec3_nonfinite_return_source), 133,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        vec3_nonfinite_return != NULL,
+        "Vec3 non-finite return fixture compile",
+        diagnostic
+    );
+    failures += update_vec3(
+        vec3_nonfinite_return, 133, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_BAD_RETURN, NULL,
+        "Vec3 callback non-finite component remains rejected"
+    );
+
+    const char *vec3_string_return_source =
+        "export function update(value) { return 'LEON'; }";
+    MWXSceneQuickJSOwner *vec3_string_return = mwx_scene_quickjs_owner_create(
+        domain, vec3_string_return_source,
+        strlen(vec3_string_return_source), 135,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        vec3_string_return != NULL,
+        "Vec3 string return fixture compile",
+        diagnostic
+    );
+    failures += update_vec3_diagnostic_contains(
+        vec3_string_return, 135, vec3_input,
+        MWX_SCENE_QUICKJS_BAD_RETURN, "(returned string)",
+        "Vec3 string return diagnostic identifies shape"
     );
 
     const char *wecolor_source =
@@ -3178,6 +3284,10 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(global_surface);
     mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_owner_destroy(vec3);
+    mwx_scene_quickjs_owner_destroy(vec3_return_contract);
+    mwx_scene_quickjs_owner_destroy(vec3_invalid_return);
+    mwx_scene_quickjs_owner_destroy(vec3_nonfinite_return);
+    mwx_scene_quickjs_owner_destroy(vec3_string_return);
     mwx_scene_quickjs_owner_destroy(wecolor);
     mwx_scene_quickjs_owner_destroy(wecolor_wrap);
     mwx_scene_quickjs_owner_destroy(wecolor_invalid);
@@ -3277,6 +3387,10 @@ class SceneScriptQuickJSTest(unittest.TestCase):
         frame = (
             ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+        ).read_text(encoding="utf-8")
+        frame += "\n" + (
+            ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
         ).read_text(encoding="utf-8")
         model = (
             ROOT
