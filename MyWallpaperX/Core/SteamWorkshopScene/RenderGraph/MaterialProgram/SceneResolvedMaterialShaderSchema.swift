@@ -216,11 +216,15 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         _ prepared: SceneShaderPreparedProgram,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) throws -> [Int: Sampler] {
-        guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer.activeSamplerNames(
-            vertexSource: prepared.vertex.source,
-            fragmentSource: prepared.fragment.source,
-            runtimeLoopBounds: runtimeLoopBounds
-        ) else { throw Issue.sampler("prepared-frontend") }
+        // Schema construction may retain a conservative lexical sampler set
+        // when only a dynamic loop blocks the bounded frontend.  Executable
+        // admission still calls the strict frontend path separately.
+        guard let activeNames = SceneAuthoredShaderDeadBindingAnalyzer
+            .activeSamplerNamesForSchema(
+                vertexSource: prepared.vertex.source,
+                fragmentSource: prepared.fragment.source,
+                runtimeLoopBounds: runtimeLoopBounds
+            ) else { throw Issue.sampler("prepared-frontend") }
         return try activeSamplers(prepared, activeNames: activeNames)
     }
 
@@ -253,7 +257,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 )
             )
         }
-        let sourceTyped = sourceTypedAuxiliarySamplers(
+        let sourceTyped = sourceTypedColorSamplers(
             projected,
             vertexSource: vertexSource,
             fragmentSource: fragmentSource
@@ -265,7 +269,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         )
     }
 
-    private static func sourceTypedAuxiliarySamplers(
+    static func sourceTypedAuxiliarySamplers(
         _ samplers: [Int: Sampler],
         vertexSource: String,
         fragmentSource: String
@@ -642,19 +646,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         case "flowmask": .flowMask
         case "depth": .depth
         default: throw Issue.sampler(name)
-        }
-    }
-
-    private static func validateTextureFormat(
-        _ value: SceneShaderAnnotationValue?,
-        mode: TextureMode,
-        name: String
-    ) throws {
-        guard let value else { return }
-        guard mode == .depth,
-              let raw = value.stringValue,
-              raw.caseInsensitiveCompare("r8") == .orderedSame else {
-            throw Issue.sampler(name)
         }
     }
 

@@ -457,8 +457,7 @@ private struct Harness {
                     ) == 0,
                 normalizedOverlapPrefersPassthrough:
                     aggregate == .passthrough(textureSlot: 0)
-                        && overlapping
-                            == .independentAlphaSignalPreserving(textureSlot: 0),
+                        && overlapping == nil,
                 normalizedWrongTotalRejected:
                     normalizedSlot(normalizedInline.replacingOccurrences(
                         of: "v_TexCoord[12]) * 0.006299;",

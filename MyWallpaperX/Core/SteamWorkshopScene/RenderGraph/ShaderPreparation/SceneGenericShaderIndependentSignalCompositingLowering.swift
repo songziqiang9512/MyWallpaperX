@@ -114,15 +114,10 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 outputAssignments.first.map { signal.match.range.location < $0.range.location ? "yes" : "no" } ?? "-"
             )
         }
-        let outputName = outputAssignments.first.map {
-            capture($0, 1, in: source) ?? ""
-        } ?? ""
-        let outputIsColor = outputName == color.name
-        let outputIsSignal = expectedUnderlaySlot == nil && outputName == signal.name
         guard control.isEmpty,
               outputWrites.count == 1,
               outputAssignments.count == 1,
-              outputIsColor || outputIsSignal,
+              capture(outputAssignments[0], 1, in: source) == color.name,
               color.match.range.location < outputAssignments[0].range.location,
               signal.match.range.location < outputAssignments[0].range.location,
               matches(
@@ -136,12 +131,10 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
         var transformed = source
         transformed.replaceSubrange(
             outputRange,
-            with: "out.mwxFragColor = \(premultiply)(\(outputName));"
+            with: "out.mwxFragColor = \(premultiply)(\(color.name));"
         )
         let straightColorSlots = Set(
-            [expectedColorSlot]
-                + (expectedUnderlaySlot.map { [$0] } ?? [])
-                + (outputIsSignal ? [expectedSignalSlot] : [])
+            [expectedColorSlot] + (expectedUnderlaySlot.map { [$0] } ?? [])
         )
         let straightDeclarations = straightColorSlots.compactMap { slot in
             bySlot[slot].map { (slot, $0) }

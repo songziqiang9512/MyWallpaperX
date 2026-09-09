@@ -9,6 +9,25 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
     private static let unpremultiply = "mwxGenericUnpremultiply"
     private static let premultiply = "mwxGenericPremultiply"
 
+    /// Returns a tri-state compiler contract for the scalarized RGB shape.
+    ///
+    /// The generic straight-color boundary may be reached after a more
+    /// specific authored proof has declined the compiler form.  We must still
+    /// fail closed when the compiler clearly emitted this scalarized carrier
+    /// shape, while leaving unrelated unresolved straight-color forms eligible
+    /// for the product default boundary.  `nil` therefore means that this
+    /// lowering does not own the compiler shape; `false` means it owns the
+    /// shape and found drift; `true` means the shape is valid.
+    static func compilerContractMatchIfCandidate(
+        _ source: String,
+        expectedSlot: Int
+    ) -> Bool? {
+        guard scalarizedCandidate(source, expectedSlot: expectedSlot) else {
+            return nil
+        }
+        return lower(source, expectedSlot: expectedSlot) != nil
+    }
+
     static func lower(_ source: String, expectedSlot: Int) -> String? {
         guard (0 ..< 8).contains(expectedSlot),
               !containsWord(unpremultiply, in: source),
@@ -122,6 +141,37 @@ nonisolated enum SceneGenericShaderScalarizedRGBPreservedAlphaLowering {
         )
         return SceneGenericShaderStraightAlphaPreservingLowering
             .insertingBoundaryHelpers(into: transformed)
+    }
+
+    private static func scalarizedCandidate(
+        _ source: String,
+        expectedSlot: Int
+    ) -> Bool {
+        guard (0 ..< 8).contains(expectedSlot),
+              matches(#"(?m)^\s*float4\s+([A-Za-z_]\w*)\s*=\s*g_Texture"#
+                + String(expectedSlot)
+                + #"\.sample\([^;]+\)\s*;\s*$"#, in: source).count == 1,
+              let declaration = matches(
+                  #"(?m)^\s*float4\s+([A-Za-z_]\w*)\s*=\s*g_Texture"#
+                    + String(expectedSlot)
+                    + #"\.sample\([^;]+\)\s*;\s*$"#, in: source
+              ).first,
+              let carrier = capture(declaration, 1, in: source) else {
+            return false
+        }
+        let escapedCarrier = escaped(carrier)
+        let componentWrites = matches(
+            #"(?m)^\s*"# + escapedCarrier
+                + #"\.[xyz]\s*=\s*[^;]+;\s*$"#,
+            in: source
+        )
+        guard !componentWrites.isEmpty else { return false }
+        let outputs = matches(
+            #"(?m)^\s*out\.mwxFragColor\s*=\s*float4\([^;]*\b"#
+                + escapedCarrier + #"\.(?:xyz|rgb)\b[^;]*\)\s*;\s*$"#,
+            in: source
+        )
+        return outputs.count == 1
     }
 
     private static func outputPatterns(_ carrier: String) -> [String] {

@@ -9,6 +9,26 @@ extension SceneGenericShaderArtifactBuilder {
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
+        // The separated generated-carrier proof has a dedicated compiler
+        // lowering.  Keep it ahead of the legacy preserving routes so a
+        // source and generated carrier cannot be mistaken for a same-slot
+        // carrier or a broad default boundary.
+        if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+            .analyzeSourceCarried(fragmentSource: authoredSource),
+           fact.shape == .generatedCarrier {
+            guard fact.sourceSlot == expectedSlot,
+                  fact.transfer == .preserving,
+                  let lowered = SceneGenericShaderStraightAlphaPreservingLowering
+                    .lowerGeneratedSourceCarried(
+                        source,
+                        expectedSlot: expectedSlot,
+                        expectedTransfer: fact.transfer
+                    ) else {
+                throw Failure.colorTransfer
+            }
+            return preservingTransfer(lowered, slot: expectedSlot)
+        }
+
         let preserving: (
             msl: String,
             transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer

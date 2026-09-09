@@ -138,15 +138,14 @@ extension SceneResolvedMaterialShaderSchema {
         return readinessSlots
     }
 
-    /// Texture availability can only change preprocessing for sampler slots
-    /// that actually provide a texture-readiness schema. Enumerating the other
-    /// bits repeats the same prepared program under a different dictionary
-    /// identity (up to 256 times) without adding a reachable sampler fact.
-    ///
-    /// Fall back to the historical exhaustive envelope when metadata cannot be
-    /// projected cleanly so malformed/unsupported contracts keep their prior
-    /// rejection behavior.
-    private nonisolated static func launchAvailabilityMasks(
+    /// Enumerates only the optional-availability combinations that can affect
+    /// a prepared shader. Callers that build launch envelopes must use the
+    /// same projection as sampler reachability; otherwise each template pays
+    /// the fixed-point cost for all 256 masks even when its graph exposes no
+    /// readiness slots. When metadata cannot be projected safely, retain the
+    /// exhaustive set so malformed contracts keep their historical rejection
+    /// behavior.
+    nonisolated static func launchAvailabilityMasks(
         _ template: Template
     ) -> [UInt8] {
         guard let readinessSlots = readinessComboSlotMask(template) else {

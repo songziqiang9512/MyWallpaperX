@@ -39,6 +39,8 @@ SWIFT_SOURCES = [
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
     SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+    SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderOwnerDeferral.swift",
     Path(__file__).with_name("fixtures")
@@ -53,6 +55,13 @@ HARNESS = r"""
 import Foundation
 
 private typealias Output = SceneGenericShaderRouteFixtureOutput
+
+private struct NumericExpressionOutput: Codable {
+    let additiveBeforeShift: Double?
+    let shiftBeforeBitwiseAnd: Double?
+    let parenthesizedShift: Double?
+    let invalidFractionalShiftRejected: Bool
+}
 
 private struct CoordinatorOutput: Codable {
     let operationCount: Int
@@ -382,6 +391,10 @@ private struct CanonicalizerOutput: Codable {
     let mutatedPackedIndexPreserved: Bool
     let helperMutatedPackedIndexPreserved: Bool
     let partialPackedWritePreserved: Bool
+    let strictPackedShiftLowered: Bool
+    let strictPackedShiftFrontendAccepted: Bool
+    let strictPackedDynamicBoundPreserved: Bool
+    let crossComponentPackedMismatchPreserved: Bool
 }
 
 private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
@@ -400,6 +413,22 @@ private func colorTransferName(_ transfer: SceneShaderColorTransfer) -> String {
 @main
 private struct GenericShaderArtifactHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--numeric-expression" {
+            func evaluate(_ source: String) -> Double? {
+                var expression = SceneAuthoredShaderConstantNumericExpression(
+                    source
+                ) { _ in nil }
+                return expression.parse()
+            }
+            let output = NumericExpressionOutput(
+                additiveBeforeShift: evaluate("1 + 2 << 1"),
+                shiftBeforeBitwiseAnd: evaluate("7 & 3 + 1"),
+                parenthesizedShift: evaluate("(1 + 2) << 1"),
+                invalidFractionalShiftRejected: evaluate("1.5 << 1") == nil
+            )
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output))
+            return
+        }
         if CommandLine.arguments[1] == "--backend-canonicalizer" {
             let vertex = [
                 "attribute vec3 a_Position;",
@@ -577,6 +606,70 @@ private struct GenericShaderArtifactHarness {
             case let .success(pair): packedNormalized = pair
             case .failure: packedNormalized = nil
             }
+            let strictPackedVertex = [
+                "attribute vec3 a_Position;",
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    for (int i = 0; i < 32; i += 4) {",
+                "        audioValue[i >> 2] = vec4(float(i));",
+                "    }",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let strictPackedFragment = [
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    float amp = 0.0;",
+                "    for (int i = 0; i < 32; i++) {",
+                "        amp += audioValue[i >> 2][i & 3];",
+                "    }",
+                "    gl_FragColor = vec4(amp);",
+                "}",
+            ].joined(separator: "\n")
+            let strictPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: strictPackedVertex,
+                fragment: strictPackedFragment
+            )
+            let strictPackedFrontend = SceneAuthoredShaderFrontend.compile(
+                vertexSource: strictPacked.vertex,
+                fragmentSource: strictPacked.fragment
+            )
+            let strictPackedDynamic = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: strictPackedVertex,
+                fragment: strictPackedFragment
+                    .replacingOccurrences(of: "i < 32", with: "i < g_Count")
+                    .replacingOccurrences(
+                        of: "varying vec4 audioValue[32];",
+                        with: "uniform int g_Count;\nvarying vec4 audioValue[32];"
+                    )
+            )
+            // A packed interface element is a vec4. Writing only `.x` in the
+            // vertex stage must not authorize a fragment read of `.y`; the
+            // canonicalizer must retain the original wide array and loops.
+            let crossComponentVertex = [
+                "attribute vec3 a_Position;",
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    for (int i = 0; i < 32; i += 4) {",
+                "        audioValue[i >> 2].x = float(i);",
+                "    }",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "}",
+            ].joined(separator: "\n")
+            let crossComponentFragment = [
+                "varying vec4 audioValue[32];",
+                "void main() {",
+                "    float amp = 0.0;",
+                "    for (int i = 0; i < 32; i++) {",
+                "        amp += audioValue[i >> 2].y;",
+                "    }",
+                "    gl_FragColor = vec4(amp);",
+                "}",
+            ].joined(separator: "\n")
+            let crossComponent = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
+                vertex: crossComponentVertex,
+                fragment: crossComponentFragment
+            )
             let unresolvedPacked = SceneAuthoredShaderBackendCanonicalizer.canonicalize(
                 vertex: packedVertex,
                 fragment: packedFragment.replacingOccurrences(
@@ -665,7 +758,25 @@ private struct GenericShaderArtifactHarness {
                     && helperMutatedPacked.fragment.contains("for ("),
                 partialPackedWritePreserved:
                     partialPacked.vertex.contains("audioValue[32]")
-                    && partialPacked.fragment.contains("audioValue[32]")
+                    && partialPacked.fragment.contains("audioValue[32]"),
+                strictPackedShiftLowered:
+                    strictPacked.vertex.contains("audioValue[8]")
+                    && strictPacked.fragment.contains("audioValue[8]")
+                    && strictPacked.fragment.contains("audioValue[0].x")
+                    && strictPacked.fragment.contains("audioValue[7].w")
+                    && !strictPacked.fragment.contains("for ("),
+                strictPackedShiftFrontendAccepted:
+                    strictPackedFrontend.diagnostics.isEmpty
+                    && strictPackedFrontend.program != nil,
+                strictPackedDynamicBoundPreserved:
+                    strictPackedDynamic.fragment.contains("audioValue[32]")
+                    && strictPackedDynamic.fragment.contains("i < g_Count")
+                    && strictPackedDynamic.fragment.contains("for ("),
+                crossComponentPackedMismatchPreserved:
+                    crossComponent.vertex.contains("audioValue[32]")
+                    && crossComponent.fragment.contains("audioValue[32]")
+                    && crossComponent.vertex.contains("for (")
+                    && crossComponent.fragment.contains("for (")
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4953,6 +5064,25 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "mutatedPackedIndexPreserved": True,
             "helperMutatedPackedIndexPreserved": True,
             "partialPackedWritePreserved": True,
+            "strictPackedShiftLowered": True,
+            "strictPackedShiftFrontendAccepted": True,
+            "strictPackedDynamicBoundPreserved": True,
+            "crossComponentPackedMismatchPreserved": True,
+        })
+
+    def test_numeric_constant_expression_uses_glsl_precedence(self):
+        completed = subprocess.run(
+            [str(self.binary), "--numeric-expression"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(json.loads(completed.stdout), {
+            "additiveBeforeShift": 6,
+            "shiftBeforeBitwiseAnd": 4,
+            "parenthesizedShift": 6,
+            "invalidFractionalShiftRejected": True,
         })
 
     def test_compilation_coordinator_restarts_for_independent_key(self):

@@ -31,6 +31,12 @@ EXECUTOR_SOURCE = SCENE_ROOT / (
 PROGRAM_FIRST_STAGES_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
 )
+PROGRAM_FIRST_STAGES_INPUT_CONTRACTS_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages+InputContracts.swift"
+)
+PROGRAM_FIRST_STAGES_BACKGROUND_SOURCE = SCENE_ROOT / (
+    "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
+)
 VISUAL_FAILURE_TOPOLOGY_SOURCE = SCENE_ROOT / (
     "RenderGraph/EffectExecution/SceneResolvedMaterialVisualFailureTopology.swift"
 )
@@ -60,6 +66,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Material.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+PipelineWarmup.swift",
@@ -70,6 +78,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialStageActivation.swift",
     PROGRAM_FIRST_STAGES_SOURCE,
+    PROGRAM_FIRST_STAGES_INPUT_CONTRACTS_SOURCE,
+    PROGRAM_FIRST_STAGES_BACKGROUND_SOURCE,
     VISUAL_FAILURE_TOPOLOGY_SOURCE,
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",

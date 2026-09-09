@@ -6223,8 +6223,8 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "depth": "depth",
                 "depthR8": "depth",
                 "depthWrongFormat": "schema-invalid",
-                "normalFormat": "schema-invalid",
-                "genericFormat": "schema-invalid",
+                "normalFormat": "premultiplied-color",
+                "genericFormat": "premultiplied-color",
                 "unknownMode": "schema-invalid",
             },
         )

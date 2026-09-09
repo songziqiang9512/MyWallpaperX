@@ -14,9 +14,24 @@ nonisolated struct SceneAuthoredShaderConstantNumericExpression {
     }
 
     mutating func parse() -> Double? {
-        guard let value = sum() else { return nil }
+        guard let value = bitwiseAnd() else { return nil }
         skipSpaces()
         return index == source.endIndex ? value : nil
+    }
+
+    // Keep the precedence aligned with GLSL/C: additive expressions bind
+    // tighter than shifts, and shifts bind tighter than bitwise AND. The
+    // parser is used only for constant index bounds, so unsupported operators
+    // still fail closed at the caller.
+    private mutating func bitwiseAnd() -> Double? {
+        guard var value = shift() else { return nil }
+        while take("&") {
+            guard let right = shift(),
+                  let lhs = exactInteger(value),
+                  let rhs = exactInteger(right) else { return nil }
+            value = Double(lhs & rhs)
+        }
+        return value
     }
 
     private mutating func sum() -> Double? {
@@ -24,6 +39,35 @@ nonisolated struct SceneAuthoredShaderConstantNumericExpression {
         while let operation = take(oneOf: "+-") {
             guard let right = product() else { return nil }
             value = operation == "+" ? value + right : value - right
+        }
+        return value
+    }
+
+    private mutating func shift() -> Double? {
+        guard var value = sum() else { return nil }
+        while true {
+            skipSpaces()
+            let save = index
+            let operation: String
+            if take("<"), take("<") {
+                operation = "<<"
+            } else {
+                index = save
+                if take(">"), take(">") {
+                    operation = ">>"
+                } else {
+                    index = save
+                    break
+                }
+            }
+            guard let right = sum(),
+                  let lhs = exactInteger(value),
+                  let rhs = exactInteger(right),
+                  (0...63).contains(rhs) else { return nil }
+            // Wrapping shifts avoid trapping on an authored literal that is
+            // representable as Int but overflows when shifted; callers still
+            // enforce the destination's bounded index range.
+            value = Double(operation == "<<" ? lhs &<< rhs : lhs &>> rhs)
         }
         return value
     }
@@ -42,14 +86,14 @@ nonisolated struct SceneAuthoredShaderConstantNumericExpression {
     private mutating func atom() -> Double? {
         skipSpaces()
         if take("(") {
-            guard let value = sum(), take(")") else { return nil }
+            guard let value = bitwiseAnd(), take(")") else { return nil }
             return value
         }
         if take("-") { return atom().map(-) }
         if let value = number() { return value }
         guard let name = identifier() else { return nil }
         if ["int", "uint", "float"].contains(name), take("(") {
-            guard let value = sum(), take(")") else { return nil }
+            guard let value = bitwiseAnd(), take(")") else { return nil }
             if name == "float" { return value }
             if name == "uint", value < 0 { return nil }
             return value.rounded(.towardZero)
@@ -99,5 +143,10 @@ nonisolated struct SceneAuthoredShaderConstantNumericExpression {
         while index < source.endIndex, source[index].isWhitespace {
             index = source.index(after: index)
         }
+    }
+
+    private func exactInteger(_ value: Double) -> Int? {
+        guard value.isFinite, value.rounded(.towardZero) == value else { return nil }
+        return Int(exactly: value)
     }
 }

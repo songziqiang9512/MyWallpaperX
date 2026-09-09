@@ -1,6 +1,146 @@
 import Foundation
 
 nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
+    /// Proves the progress-bar style source-carried RGBA form.  A sampled
+    /// framebuffer color is kept as the only color source while a separate
+    /// vec4 carrier is seeded from uniforms, optionally updated by one
+    /// constant-true bounded branch, and then receives the canonical RGB and
+    /// alpha helper calls.  The proof is deliberately structural: aliases,
+    /// extra samples, escaping alpha, dynamic control flow, and helper bodies
+    /// whose data flow is not exact all remain unresolved.
+    static func generatedSourceCarried(
+        sampled: [String: Int],
+        output: Int,
+        expression: ArraySlice<Token>,
+        fragment: Unit,
+        main: Unit.Function
+    ) -> SourceCarriedFact? {
+        typealias Calls = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+        let tokens = fragment.tokens
+        guard sampled.count == 1,
+              let sourceEntry = sampled.first,
+              let carrier = Calls.identifier(expression),
+              carrier != sourceEntry.key,
+              totalTextureSampleCount(in: fragment) == 1,
+              let sourceDefinition = uniqueRGBADefinition(
+                  sourceEntry.key,
+                  before: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let carrierDefinition = uniqueRGBADefinition(
+                  carrier,
+                  before: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              sourceDefinition != carrierDefinition,
+              rootLevel(sourceDefinition, tokens: tokens, body: main.bodyRange),
+              rootLevel(carrierDefinition, tokens: tokens, body: main.bodyRange),
+              let seed = SceneAuthoredShaderColorTransferAnalyzer
+                  .assignmentExpression(
+                      after: carrierDefinition,
+                      in: tokens,
+                      body: main.bodyRange
+                  ),
+              generatedRGBASeed(
+                  seed,
+                  fragment: fragment,
+                  source: sourceEntry.key,
+                  carrier: carrier
+              ),
+              let rgb = uniqueMemberAssignment(
+                  carrier,
+                  component: "rgb",
+                  before: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              let alpha = uniqueMemberAssignment(
+                  carrier,
+                  component: "a",
+                  before: output,
+                  tokens: tokens,
+                  body: main.bodyRange
+              ),
+              carrierDefinition < rgb.index,
+              rgb.index < alpha.index,
+              alpha.index < output,
+              let rgbCall = Calls.call(rgb.rhs),
+              rgbCall.name == "ApplyBlending",
+              rgbCall.arguments.count == 4,
+              Calls.number(rgbCall.arguments[0]) == 0,
+              Calls.member(
+                  rgbCall.arguments[1],
+                  name: sourceEntry.key,
+                  component: "rgb"
+              ),
+              Calls.member(
+                  rgbCall.arguments[2],
+                  name: carrier,
+                  component: "rgb"
+              ),
+              let weight = carrierWeightedScalar(
+                  rgbCall.arguments[3],
+                  carrier: carrier,
+                  fragment: fragment,
+                  source: sourceEntry.key,
+                  main: main
+              ),
+              validatedRGBBlendHelper(fragment, mode: 0),
+              let alphaCall = Calls.call(alpha.rhs),
+              alphaCall.name == "BlendTransparency",
+              alphaCall.arguments.count == 3,
+              Calls.member(
+                  alphaCall.arguments[0],
+                  name: sourceEntry.key,
+                  component: "a"
+              ),
+              Calls.member(
+                  alphaCall.arguments[1],
+                  name: carrier,
+                  component: "a"
+              ),
+              let alphaWeight = scalarValue(
+                  alphaCall.arguments[2],
+                  fragment: fragment,
+                  source: sourceEntry.key,
+                  carrier: carrier,
+                  main: main
+              ),
+              alphaWeight == weight,
+              let transfer = validatedTransparencyHelper(fragment),
+              let controlUses = generatedCarrierControlFlowUses(
+                  carrier: carrier,
+                  source: sourceEntry.key,
+                  carrierDefinition: carrierDefinition,
+                  rgbIndex: rgb.index,
+                  alphaIndex: alpha.index,
+                  output: output,
+                  fragment: fragment,
+                  main: main
+              ),
+              exactGeneratedCarrierUses(
+                  carrier: carrier,
+                  source: sourceEntry.key,
+                  sourceDefinition: sourceDefinition,
+                  carrierDefinition: carrierDefinition,
+                  rgb: rgb,
+                  alpha: alpha,
+                  output: output,
+                  fragment: fragment,
+                  main: main,
+                  controlUses: controlUses
+              ) else {
+            return nil
+        }
+        return .init(
+            sourceSlot: sourceEntry.value,
+            transfer: transfer,
+            shape: .generatedCarrier
+        )
+    }
+
     /// Generated text-like color with a source-alpha seed and conditional,
     /// source-independent alpha replacements.
     static func conditionalGeneratedRGBA(
@@ -52,302 +192,5 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
                 before: output, tokens: fragment.tokens, body: main.bodyRange
               ) else { return nil }
         return .init(sourceSlot: source.value, transfer: .straight)
-    }
-
-    private static func generatedRGB(
-        _ name: String,
-        before output: Int,
-        fragment: Unit,
-        main: Unit.Function
-    ) -> Bool {
-        let tokens = fragment.tokens
-        let definitions = main.bodyRange.filter { index in
-            index > main.bodyRange.lowerBound && index + 1 < output
-                && tokens[index].text == name
-                && ["vec3", "float3"].contains(tokens[index - 1].text)
-                && tokens[index + 1].text == "="
-        }
-        let values = writes(
-            name, typeNames: ["vec3", "float3"], before: output,
-            tokens: tokens, body: main.bodyRange
-        )
-        guard definitions.count == 1, let definition = definitions.first,
-              let initializer = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: definition, in: tokens, body: main.bodyRange),
-              let seed = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .identifier(initializer),
-              generatedRGBSeed(
-                seed, before: definition, fragment: fragment, main: main
-              ), values.allSatisfy({ write in
-                if write == definition { return true }
-                guard let rhs = SceneAuthoredShaderColorTransferAnalyzer
-                    .assignmentExpression(after: write, in: tokens, body: main.bodyRange),
-                      let value = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                        .identifier(rhs) else { return false }
-                return uniform(
-                    value, types: ["vec3", "float3"], fragment: fragment
-                )
-              }), !hasOtherMutation(
-                name, permittedWrites: Set(values),
-                before: output, tokens: tokens, body: main.bodyRange
-              ) else { return false }
-        return true
-    }
-
-    private static func generatedRGBSeed(
-        _ name: String,
-        before boundary: Int,
-        fragment: Unit,
-        main: Unit.Function
-    ) -> Bool {
-        let tokens = fragment.tokens
-        let definitions = writes(
-            name, typeNames: ["vec3", "float3"], before: boundary,
-            tokens: tokens, body: main.bodyRange
-        )
-        guard definitions.count == 1, let definition = definitions.first,
-              let expression = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: definition, in: tokens, body: main.bodyRange),
-              let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(expression),
-              ["mix", "lerp"].contains(call.name), call.arguments.count == 3
-        else { return false }
-        return call.arguments.prefix(2).allSatisfy { argument in
-            guard let value = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .identifier(argument) else { return false }
-            return uniform(value, types: ["vec3", "float3"], fragment: fragment)
-        } && !call.arguments[2].contains {
-            ["texSample2D", "texture2D"].contains($0.text)
-        }
-    }
-
-    private static func alphaSeedAndReplacements(
-        _ name: String,
-        source: String,
-        before output: Int,
-        fragment: Unit,
-        main: Unit.Function
-    ) -> Bool {
-        let tokens = fragment.tokens
-        let values = writes(
-            name, typeNames: ["float"], before: output,
-            tokens: tokens, body: main.bodyRange
-        )
-        guard let seed = values.first, tokens[seed - 1].text == "float",
-              let initial = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: seed, in: tokens, body: main.bodyRange),
-              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-                initial, name: source, component: "a"
-              ), values.dropFirst().allSatisfy({ write in
-                guard let rhs = SceneAuthoredShaderColorTransferAnalyzer
-                    .assignmentExpression(after: write, in: tokens, body: main.bodyRange),
-                      let value = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                        .identifier(rhs) else { return false }
-                return uniform(value, types: ["float"], fragment: fragment)
-              }), !hasOtherMutation(
-                name, permittedWrites: Set(values),
-                before: output, tokens: tokens, body: main.bodyRange
-              ) else { return false }
-        return true
-    }
-
-    private static func uniformSeededRGBBlend(
-        _ name: String,
-        source: String,
-        before output: Int,
-        fragment: Unit,
-        main: Unit.Function
-    ) -> Bool {
-        let tokens = fragment.tokens
-        let values = writes(
-            name, typeNames: ["vec3", "float3"], before: output,
-            tokens: tokens, body: main.bodyRange
-        )
-        guard values.count == 2, let definition = values.first,
-              let seed = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: definition, in: tokens, body: main.bodyRange),
-              let seedName = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .identifier(seed),
-              uniform(seedName, types: ["vec3", "float3"], fragment: fragment),
-              let blend = values.last,
-              let rhs = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: blend, in: tokens, body: main.bodyRange),
-              let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(rhs),
-              call.name == "ApplyBlending", call.arguments.count == 4,
-              let modeValue = SceneAuthoredShaderConditionalStraightUnionAnalyzer.number(
-                call.arguments[0]
-              ), let mode = Int(exactly: modeValue),
-              normalBlendBase(call.arguments[1], rgb: name, source: source),
-              SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-                call.arguments[2], name: name, component: "rgb"
-              ), !call.arguments[3].contains(where: { $0.text == source }),
-              validatedRGBBlendHelper(fragment, mode: mode),
-              !hasOtherMutation(
-                name, permittedWrites: Set(values),
-                before: output, tokens: tokens, body: main.bodyRange
-              ) else { return false }
-        return true
-    }
-
-    private static func normalBlendBase(
-        _ expression: ArraySlice<Token>, rgb: String, source: String
-    ) -> Bool {
-        guard let mix = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(expression),
-              ["mix", "lerp"].contains(mix.name), mix.arguments.count == 3
-        else { return false }
-        return SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-            mix.arguments[0], name: rgb, component: "rgb"
-        ) && SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-            mix.arguments[1], name: source, component: "rgb"
-        ) && SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-            mix.arguments[2], name: source, component: "a"
-        )
-    }
-
-    private static func validatedRGBBlendHelper(_ fragment: Unit, mode: Int) -> Bool {
-        if mode != 0 {
-            return SceneAuthoredShaderRGBBlendScalarAlphaAnalyzer.validBlendHelper(
-                fragment, mode: mode
-            )
-        }
-        let helpers = fragment.functions.filter { $0.name == "ApplyBlending" }
-        guard helpers.count == 1, let helper = helpers.first,
-              let names = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .blendParameterNames(helper, fragment: fragment),
-              let output = SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .rootReturnExpressions(helper, fragment: fragment)?.last,
-              let mix = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(output),
-              ["mix", "lerp"].contains(mix.name), mix.arguments.count == 3
-        else { return false }
-        return SceneAuthoredShaderConditionalStraightUnionAnalyzer
-            .identifier(mix.arguments[0]) == names[1]
-            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .identifier(SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                    .strippingParentheses(mix.arguments[1])) == names[2]
-            && SceneAuthoredShaderConditionalStraightUnionAnalyzer
-                .identifier(mix.arguments[2]) == names[3]
-    }
-
-    private static func boundedTerminalAlpha(
-        _ name: String,
-        source: String,
-        rgb: String,
-        before output: Int,
-        fragment: Unit,
-        main: Unit.Function
-    ) -> Bool {
-        let tokens = fragment.tokens
-        let values = writes(
-            name, typeNames: ["float"], before: output,
-            tokens: tokens, body: main.bodyRange
-        )
-        guard values.count == 1, let definition = values.first,
-              let value = SceneAuthoredShaderColorTransferAnalyzer
-                .assignmentExpression(after: definition, in: tokens, body: main.bodyRange),
-              !hasOtherMutation(
-                name, permittedWrites: Set(values),
-                before: output, tokens: tokens, body: main.bodyRange
-              ) else { return false }
-        if SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-            value, name: source, component: "a"
-        ) { return true }
-        // The already validated RGB blend can publish its same scalar weight
-        // as replacement coverage. This is not source-alpha preservation:
-        // the existing straight-output boundary must still premultiply once.
-        if !value.contains(where: { $0.text == source }),
-           let blendWrite = writes(
-               rgb, typeNames: ["vec3", "float3"], before: output,
-               tokens: tokens, body: main.bodyRange
-           ).last,
-           let expression = SceneAuthoredShaderColorTransferAnalyzer.assignmentExpression(
-               after: blendWrite, in: tokens, body: main.bodyRange
-           ), let call = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(expression),
-           call.name == "ApplyBlending", call.arguments.count == 4,
-           value.map(\.text) == call.arguments[3].map(\.text) {
-            return true
-        }
-        guard let maximum = SceneAuthoredShaderConditionalStraightUnionAnalyzer.call(value),
-              maximum.name == "max", maximum.arguments.count == 2 else { return false }
-        return maximum.arguments.contains {
-            SceneAuthoredShaderConditionalStraightUnionAnalyzer.member(
-                $0, name: source, component: "a"
-            )
-        } && maximum.arguments.contains {
-            !$0.contains(where: { $0.text == source })
-        }
-    }
-
-    private static func writes(
-        _ name: String,
-        typeNames: Set<String>,
-        before boundary: Int,
-        tokens: [Token],
-        body: Range<Int>
-    ) -> [Int] {
-        body.filter { index in
-            index > body.lowerBound && index + 1 < boundary
-                && tokens[index].text == name && tokens[index + 1].text == "="
-                && (typeNames.contains(tokens[index - 1].text)
-                    || tokens[index - 1].text != ".")
-        }
-    }
-
-    private static func hasOtherMutation(
-        _ name: String,
-        permittedWrites: Set<Int>,
-        before boundary: Int,
-        tokens: [Token],
-        body: Range<Int>
-    ) -> Bool {
-        body.contains { index in
-            guard index < boundary, tokens[index].text == name else { return false }
-            if index + 1 < boundary,
-               ["=", "+=", "-=", "*=", "/="].contains(tokens[index + 1].text) {
-                return !permittedWrites.contains(index)
-            }
-            return index + 3 < boundary && tokens[index + 1].text == "."
-                && ["=", "+=", "-=", "*=", "/="].contains(tokens[index + 3].text)
-        }
-    }
-
-    private static func noWholeSampleFlowsIntoRGB(
-        sourceDeclaration name: String,
-        before output: Int,
-        tokens: [Token],
-        body: Range<Int>
-    ) -> Bool {
-        for index in body where index < output
-            && ["texSample2D", "texture2D"].contains(tokens[index].text) {
-            guard let close = matchingParenthesis(at: index + 1, tokens: tokens),
-                  close < output else { return false }
-            if close + 1 < output, tokens[close + 1].text == "." { continue }
-            let isSourceDeclaration = index >= 3
-                && tokens[index - 2].text == name
-                && ["vec4", "float4"].contains(tokens[index - 3].text)
-            if !isSourceDeclaration { return false }
-        }
-        return true
-    }
-
-    private static func matchingParenthesis(
-        at open: Int, tokens: [Token]
-    ) -> Int? {
-        guard tokens.indices.contains(open), tokens[open].text == "(" else { return nil }
-        var depth = 0
-        for index in open..<tokens.count {
-            if tokens[index].text == "(" { depth += 1 }
-            if tokens[index].text == ")" {
-                depth -= 1
-                if depth == 0 { return index }
-            }
-        }
-        return nil
-    }
-
-    private static func uniform(
-        _ name: String, types: Set<String>, fragment: Unit
-    ) -> Bool {
-        let matches = fragment.declarations.filter { $0.name == name }
-        return matches.count == 1 && matches[0].storage == .uniform
-            && matches[0].arraySize == nil && types.contains(matches[0].typeName)
     }
 }

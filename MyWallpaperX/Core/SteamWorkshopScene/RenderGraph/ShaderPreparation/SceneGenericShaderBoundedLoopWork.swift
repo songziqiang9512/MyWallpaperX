@@ -14,6 +14,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     private struct FunctionBody {
         let name: String
         let range: NSRange
+        let parameters: String
     }
 
     static func evaluate(sources: [String]) -> Result<Int, Failure> {
@@ -498,7 +499,7 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     }
 
     private static func functionBodies(in source: String) -> [FunctionBody]? {
-        let signature = #"\b(?:void|bool|int|uint|float|half|double|[biu]?vec[234]|mat[234](?:x[234])?)\s+([A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{"#
+        let signature = #"\b(?:void|bool|int|uint|float|half|double|[biu]?vec[234]|mat[234](?:x[234])?)\s+([A-Za-z_]\w*)\s*\(([^;{}]*)\)\s*\{"#
         let value = source as NSString
         var result: [FunctionBody] = []
         for match in matches(signature, in: source) {
@@ -507,12 +508,16 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
             guard let closing = closingBrace(in: value, after: opening) else {
                 return nil
             }
+            guard let parameters = capture(match, 2, in: source) else {
+                return nil
+            }
             result.append(.init(
                 name: name,
                 range: NSRange(
                     location: opening + 1,
                     length: closing - opening - 1
-                )
+                ),
+                parameters: parameters
             ))
         }
         guard Set(result.map(\.name)).count == result.count else { return nil }
@@ -520,8 +525,10 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
     }
 
     /// Without interprocedural alias analysis, passing an induction variable
-    /// or its local bound to an authored helper could mutate it through
-    /// `inout`. Treat every such call as unproven; ordinary reads remain valid.
+    /// or its local bound to an authored helper could mutate it through an
+    /// `out`/`inout` parameter. Ordinary GLSL `in` (the default) parameters
+    /// are value reads and therefore do not invalidate a bounded loop. Keep
+    /// malformed signatures and arity mismatches conservative.
     private static func isPassedToAuthoredFunction(
         _ name: String,
         in range: NSRange,
@@ -530,11 +537,11 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
         guard let functions = functionBodies(in: source) else { return true }
         let value = source as NSString
         let escapedName = NSRegularExpression.escapedPattern(for: name)
+        let body = value.substring(with: range)
         for function in functions {
             let escapedFunction = NSRegularExpression.escapedPattern(
                 for: function.name
             )
-            let body = value.substring(with: range)
             for call in matches(
                 #"\b"# + escapedFunction + #"\s*\("#,
                 in: body
@@ -548,12 +555,77 @@ nonisolated enum SceneGenericShaderBoundedLoopWork {
                     location: opening + 1,
                     length: closing - opening - 1
                 ))
-                if regexMatches(#"\b"# + escapedName + #"\b"#, arguments) {
+                let argumentList = splitCallArguments(arguments)
+                guard let parameters = parameterList(function.parameters),
+                      argumentList.count == parameters.count else {
                     return true
+                }
+                for (index, argument) in argumentList.enumerated()
+                    where regexMatches(#"\b"# + escapedName + #"\b"#, argument)
+                {
+                    guard let writable = parameters[index].isWritable else {
+                        return true
+                    }
+                    if writable { return true }
                 }
             }
         }
         return false
+    }
+
+    private struct Parameter {
+        let isWritable: Bool?
+    }
+
+    /// Splits a function parameter list without interpreting types. A missing
+    /// or nested delimiter remains conservative at the caller.
+    private static func parameterList(_ source: String) -> [Parameter]? {
+        let parts = splitTopLevel(source, separator: ",")
+        if parts.isEmpty {
+            return source.trimmingCharacters(in: .whitespacesAndNewlines)
+                .isEmpty ? [] : nil
+        }
+        return parts.map { part in
+            let tokens = matches(#"\b(?:inout|out|in)\b"#, in: part)
+            if tokens.count > 1 { return Parameter(isWritable: nil) }
+            if let token = tokens.first,
+               let mode = capture(token, 0, in: part) {
+                return Parameter(isWritable: mode == "out" || mode == "inout")
+            }
+            // GLSL parameters default to `in`.
+            return Parameter(isWritable: false)
+        }
+    }
+
+    private static func splitCallArguments(_ source: String) -> [String] {
+        if source.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return []
+        }
+        return splitTopLevel(source, separator: ",")
+    }
+
+    private static func splitTopLevel(
+        _ source: String,
+        separator: Character
+    ) -> [String] {
+        var result: [String] = []
+        var start = source.startIndex
+        var depth = 0
+        for index in source.indices {
+            switch source[index] {
+            case "(", "[", "{": depth += 1
+            case ")", "]", "}": depth -= 1
+            default: break
+            }
+            guard depth >= 0 else { return [] }
+            if source[index] == separator, depth == 0 {
+                result.append(String(source[start..<index]))
+                start = source.index(after: index)
+            }
+        }
+        guard depth == 0 else { return [] }
+        result.append(String(source[start..<source.endIndex]))
+        return result
     }
 
     private static func closingParenthesis(

@@ -1,9 +1,11 @@
 import Foundation
 
-/// Shrinks oversized linked varying arrays when both stages expose a smaller,
-/// statically proven live prefix through top-level `main` loops. This keeps the
-/// authored source as truth while avoiding interface locations that no stage
-/// can observe.
+/// Shrinks oversized linked vec4 varying arrays when both stages expose a
+/// smaller, statically proven live prefix through top-level `main` loops. A
+/// proven second literal subscript is lowered to a component swizzle so the
+/// frontend can consume the packed array element as a normal vec4 value. This
+/// keeps the authored source as truth while avoiding interface locations that
+/// no stage can observe.
 nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
     struct Pair {
         let vertex: String
@@ -13,6 +15,27 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
     private struct Shape: Equatable {
         let type: String
         let count: Int
+    }
+
+    /// The interface carries a vec4 per array element. A scalar component
+    /// write does not initialize the other three components, so index-only
+    /// liveness is insufficient when a packed varying is compacted. Keep the
+    /// mask deliberately small and exact: an element access covers all four
+    /// components, while a proven `.x`/`.y`/`.z`/`.w` access covers one.
+    private struct ComponentMask: OptionSet, Hashable {
+        let rawValue: UInt8
+
+        static let x = ComponentMask(rawValue: 1 << 0)
+        static let y = ComponentMask(rawValue: 1 << 1)
+        static let z = ComponentMask(rawValue: 1 << 2)
+        static let w = ComponentMask(rawValue: 1 << 3)
+        static let all: ComponentMask = [.x, .y, .z, .w]
+    }
+
+    private struct ReferenceFacts {
+        let indices: Set<Int>
+        let writes: [Int: ComponentMask]
+        let reads: [Int: ComponentMask]
     }
 
     private struct LoopReplacement {
@@ -28,7 +51,8 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
     static func rewrite(vertex: String, fragment: String) -> Pair {
         let original = Pair(vertex: vertex, fragment: fragment)
         let linked = varyingArrays(in: vertex).filter { name, shape in
-            shape.count > maximumInterfaceElements
+            shape.type == "vec4"
+                && shape.count > maximumInterfaceElements
                 && varyingArrays(in: fragment)[name] == shape
         }
         var result = original
@@ -41,9 +65,19 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
                   ),
                   let vertexFacts = literalReferences(array: name, in: rewrittenVertex),
                   let fragmentFacts = literalReferences(array: name, in: rewrittenFragment),
-                  !fragmentFacts.indices.isEmpty,
-                  fragmentFacts.indices.isSubset(of: vertexFacts.writes),
-                  vertexFacts.indices == vertexFacts.writes,
+                  !fragmentFacts.reads.isEmpty,
+                  fragmentFacts.writes.isEmpty,
+                  fragmentFacts.indices == Set(fragmentFacts.reads.keys),
+                  fragmentFacts.indices.isSubset(of: Set(vertexFacts.writes.keys)),
+                  vertexFacts.indices == Set(vertexFacts.writes.keys),
+                  componentMasksCover(
+                      reads: fragmentFacts.reads,
+                      writes: vertexFacts.writes
+                  ),
+                  componentMasksCover(
+                      reads: vertexFacts.reads,
+                      writes: vertexFacts.writes
+                  ),
                   let maximumIndex = vertexFacts.indices.union(fragmentFacts.indices).max(),
                   maximumIndex < maximumInterfaceElements else { continue }
             let count = maximumIndex + 1
@@ -167,15 +201,41 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
                let index = Int(exactly: value), (0..<count).contains(index) else {
                 return nil
             }
-            let resultOpening = result.index(
+            var accessEnd = source.index(after: closing)
+            while accessEnd < source.endIndex, source[accessEnd].isWhitespace {
+                accessEnd = source.index(after: accessEnd)
+            }
+            var component: Int?
+            if accessEnd < source.endIndex, source[accessEnd] == "[",
+               let componentClosing = matchingBracket(at: accessEnd, in: source) {
+                let componentRange = source.index(after: accessEnd)..<componentClosing
+                guard let value = evaluate(
+                    String(source[componentRange]),
+                    before: accessEnd,
+                    in: source,
+                    visited: []
+                ), value.isFinite,
+                   value.rounded(.towardZero) == value,
+                   let componentIndex = Int(exactly: value), (0..<4).contains(componentIndex) else {
+                    return nil
+                }
+                component = componentIndex
+                accessEnd = source.index(after: componentClosing)
+            }
+            let accessRange = matchRange.lowerBound..<accessEnd
+            let componentSuffix = component.map {
+                "." + String(["x", "y", "z", "w"][$0])
+            } ?? ""
+            let replacement = "\(array)[\(index)]" + componentSuffix
+            let resultStart = result.index(
                 result.startIndex,
-                offsetBy: source.distance(from: source.startIndex, to: opening)
+                offsetBy: source.distance(from: source.startIndex, to: accessRange.lowerBound)
             )
-            let resultClosing = result.index(
+            let resultEnd = result.index(
                 result.startIndex,
-                offsetBy: source.distance(from: source.startIndex, to: closing)
+                offsetBy: source.distance(from: source.startIndex, to: accessRange.upperBound)
             )
-            result.replaceSubrange(result.index(after: resultOpening)..<resultClosing, with: String(index))
+            result.replaceSubrange(resultStart..<resultEnd, with: replacement)
         }
         return result
     }
@@ -253,10 +313,10 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
     private static func literalReferences(
         array: String,
         in source: String
-    ) -> (indices: Set<Int>, writes: Set<Int>)? {
+    ) -> ReferenceFacts? {
         guard let main = mainBody(in: source) else { return nil }
         let escaped = NSRegularExpression.escapedPattern(for: array)
-        let matches = regex(#"\b"# + escaped + #"\s*\[\s*([0-9]+)\s*\]"#).matches(
+        let matches = regex(#"\b"# + escaped + #"\s*\[\s*([0-9]+)\s*\](?:\s*\.\s*([xyzw]{1,4}))?"#).matches(
             in: source,
             range: NSRange(main, in: source)
         )
@@ -266,17 +326,74 @@ nonisolated enum SceneAuthoredShaderVaryingArrayLivePrefixCanonicalizer {
         )
         guard matches.count == all.count else { return nil }
         var indices = Set<Int>()
-        var writes = Set<Int>()
+        var writes: [Int: ComponentMask] = [:]
+        var reads: [Int: ComponentMask] = [:]
         for match in matches {
             guard let text = capture(match, 1, in: source), let index = Int(text) else { return nil }
             indices.insert(index)
             let suffixOffset = match.range.location + match.range.length
             let suffix = (source as NSString).substring(from: suffixOffset)
-            if regex(#"^\s*=(?!=)"#).firstMatch(in: suffix, range: fullRange(suffix)) != nil {
-                writes.insert(index)
+            let componentText = capture(match, 2, in: source)
+            // A second swizzle/subscript was not consumed by the strict
+            // access pattern. Reject it rather than treating only the first
+            // component as live and silently changing the authored value.
+            let trimmedSuffix = suffix.drop { $0.isWhitespace }
+            guard !trimmedSuffix.hasPrefix(".") && !trimmedSuffix.hasPrefix("[") else {
+                return nil
+            }
+            if let componentText, !componentText.isEmpty,
+               regex(#"^[A-Za-z0-9_]"#).firstMatch(
+                   in: suffix,
+                   range: fullRange(suffix)
+               ) != nil {
+                return nil
+            }
+            let assignment = regex(#"^\s*(\+=|-=|\*=|/=|%=|=(?!=))"#)
+                .firstMatch(in: suffix, range: fullRange(suffix))
+            let component: ComponentMask
+            if let componentText, !componentText.isEmpty {
+                component = componentText.reduce(into: ComponentMask()) { mask, character in
+                    switch character {
+                    case "x": mask.formUnion(.x)
+                    case "y": mask.formUnion(.y)
+                    case "z": mask.formUnion(.z)
+                    case "w": mask.formUnion(.w)
+                    default: break
+                    }
+                }
+            } else {
+                component = .all
+            }
+            if let assignment {
+                let operation = capture(assignment, 1, in: suffix)
+                writes[index, default: []].formUnion(component)
+                // Compound assignment reads the previous component too. A
+                // plain `=` only establishes the output value.
+                if operation != "=" {
+                    reads[index, default: []].formUnion(component)
+                }
+            } else {
+                // Varying accesses in a fragment (and RHS accesses in a
+                // vertex) observe the component value and therefore must be
+                // covered by a corresponding vertex write mask.
+                guard regex(#"^\s*(?:\+\+|--)"#)
+                    .firstMatch(in: suffix, range: fullRange(suffix)) == nil else {
+                    return nil
+                }
+                reads[index, default: []].formUnion(component)
             }
         }
-        return (indices, writes)
+        return .init(indices: indices, writes: writes, reads: reads)
+    }
+
+    private static func componentMasksCover(
+        reads: [Int: ComponentMask],
+        writes: [Int: ComponentMask]
+    ) -> Bool {
+        reads.allSatisfy { index, readMask in
+            guard let writeMask = writes[index] else { return false }
+            return readMask.isSubset(of: writeMask)
+        }
     }
 
     private static func varyingArrays(in source: String) -> [String: Shape] {

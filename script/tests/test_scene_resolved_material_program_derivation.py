@@ -1006,6 +1006,58 @@ private enum Harness {
             transfer: .interpolatedColor(textureSlots: [0, 1]),
             textureSlots: slots(firstSlot, secondPremultipliedSlot)
         )
+        let opaqueSlot = textureSlot(
+            device: device,
+            slot: 1,
+            marker: 4,
+            content: .color(.resolved(.opaque))
+        )
+        let interpolatedOpaquePremultipliedProjection =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .interpolatedColor(textureSlots: [0, 1]),
+                textureSlots: slots(firstSlot, opaqueSlot)
+            )
+        let unrelatedFramebufferSlot = textureSlot(
+            device: device,
+            slot: 2,
+            marker: 7,
+            content: .color(.resolved(.straightAlpha))
+        )
+        let interpolatedWithUnrelatedFramebufferColor =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .interpolatedColor(textureSlots: [0, 1]),
+                textureSlots: slots(
+                    firstSlot, opaqueSlot, unrelatedFramebufferSlot
+                )
+            )
+        let interpolatedDataRejected =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .interpolatedColor(textureSlots: [0, 1]),
+                textureSlots: slots(
+                    firstSlot,
+                    textureSlot(
+                        device: device,
+                        slot: 1,
+                        marker: 8,
+                        content: .data
+                    )
+                )
+            ) == nil
+        let interpolatedIndependentSignalRejected =
+            SceneResolvedMaterialProgramDerivation.resolveColor(
+                transfer: .interpolatedColor(textureSlots: [0, 1]),
+                textureSlots: slots(
+                    firstSlot,
+                    textureSlot(
+                        device: device,
+                        slot: 1,
+                        marker: 9,
+                        content: .color(
+                            .resolved(.independentAlphaSignal)
+                        )
+                    )
+                )
+            ) == nil
         let interpolatedMismatchRejected = SceneResolvedMaterialProgramDerivation
             .resolveColor(
                 transfer: .interpolatedColor(textureSlots: [0, 1]),
@@ -1165,6 +1217,17 @@ private enum Harness {
             "interpolatedSameRepresentationAccepted":
                 interpolatedProjection?.framebufferInput == .premultipliedAlpha
                 && interpolatedProjection?.fragmentOutput == .premultipliedAlpha,
+            "interpolatedOpaquePremultipliedAccepted":
+                interpolatedOpaquePremultipliedProjection?.framebufferInput
+                    == .premultipliedAlpha
+                && interpolatedOpaquePremultipliedProjection?.fragmentOutput
+                    == .premultipliedAlpha,
+            "interpolatedUnrelatedFramebufferIgnored":
+                interpolatedWithUnrelatedFramebufferColor?
+                    .fragmentOutput == .premultipliedAlpha,
+            "interpolatedDataRejected": interpolatedDataRejected,
+            "interpolatedIndependentSignalRejected":
+                interpolatedIndependentSignalRejected,
             "interpolatedMismatchRejected": interpolatedMismatchRejected,
             "interpolatedUnsortedRejected": interpolatedUnsortedRejected,
             "associatedOverNamedOverlayAccepted":

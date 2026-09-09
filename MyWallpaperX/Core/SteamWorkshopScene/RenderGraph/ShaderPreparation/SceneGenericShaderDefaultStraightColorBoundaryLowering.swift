@@ -38,6 +38,11 @@ extension SceneGenericShaderArtifactBuilder {
                   SceneAuthoredShaderColorTransferAnalyzer.analyze(
                       fragmentSource: authoredSource
                   ).permitsDefaultStraightColorBoundary,
+                  !hasStrictCompilerOwner(authoredSource),
+                  compilerPreservedAlphaRGBFilterContractIsValid(
+                      msl: source,
+                      authoredSource: authoredSource
+                  ),
                   let lowered = SceneGenericShaderDefaultStraightColorBoundaryLowering
                     .lower(source, colorSlots: defaultBoundaryColorSlots) else {
                 throw Failure.colorTransfer
@@ -51,6 +56,102 @@ extension SceneGenericShaderArtifactBuilder {
                 )
             )
         }
+    }
+
+    /// A product default may recover a color pass whose exact compiler shape
+    /// is not owned. It must not turn a rejected artifact into a successful
+    /// result after the authored source has selected a narrower owner whose
+    /// slot roles and terminal data flow are part of the contract.
+    private static func hasStrictCompilerOwner(_ authoredSource: String) -> Bool {
+        if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+            .analyzeSourceCarried(fragmentSource: authoredSource),
+           fact.shape == .generatedCarrier {
+            return true
+        }
+        if SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze(
+            fragmentSource: authoredSource
+        ) != nil {
+            return true
+        }
+        let blendSlots = SceneAuthoredShaderColorTransferAnalyzer
+            .blendSourceSlots(fragmentSource: authoredSource)
+        if blendSlots.overlayAlpha != nil
+            || blendSlots.overlayAlphaPreserving != nil {
+            return true
+        }
+        if SceneAuthoredShaderColorTransferAnalyzer.rgbBlendScalarAlphaFact(
+            fragmentSource: authoredSource
+        ) != nil {
+            return true
+        }
+        if SceneAuthoredShaderColorTransferAnalyzer.straightRGBScalarAlphaFact(
+            fragmentSource: authoredSource
+        ) != nil {
+            return true
+        }
+        return SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
+            fragmentSource: authoredSource
+        ) != nil
+    }
+
+    /// The default straight-color boundary may cover an unclassified output
+    /// shape, but it cannot hide a compiler change to a source-proven
+    /// preserved-alpha RGB filter. Keep the sample count and projection
+    /// contract from the authored fact in force before allowing that fallback.
+    private static func compilerPreservedAlphaRGBFilterContractIsValid(
+        msl source: String,
+        authoredSource: String
+    ) -> Bool {
+        if case .generatedStraightAlpha =
+            SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: authoredSource
+            ) {
+            return SceneGenericShaderGeneratedStraightRGBALowering
+                .compilerContractMatches(source)
+        }
+        guard case let .straightAlphaPreserving(expectedSlot) =
+            SceneAuthoredShaderColorTransferAnalyzer.analyze(
+                fragmentSource: authoredSource
+            ) else {
+            return true
+        }
+        if let slot = SceneAuthoredShaderColorTransferAnalyzer
+            .sameSlotCarrierBlendSourceSlot(fragmentSource: authoredSource) {
+            return SceneGenericShaderSameSlotCarrierBlendLowering
+                .compilerContractMatches(source, expectedSlot: slot)
+        }
+        if let fact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
+            .analyzeAny(fragmentSource: authoredSource) {
+            return SceneGenericShaderStraightAlphaPreservingLowering
+                .preservedAlphaRGBFilterCompilerSamplesMatch(
+                    in: source,
+                    sourceSlot: fact.sourceSlot,
+                    fullColorSampleCallCounts: fact.fullColorSampleCallCounts,
+                    rgbColorSampleCallCounts: fact.rgbColorSampleCallCounts,
+                    dataSampleCallCounts: fact.dataSampleCallCounts
+                )
+        }
+        if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
+            fragmentSource: authoredSource
+        ) {
+            return SceneGenericShaderTypedDataRGBFilterLowering
+                .compilerContractMatches(source, fact: fact)
+        }
+        if let fact = SceneAuthoredShaderStraightBlendOutputAnalyzer
+            .analyzeAlphaPreservingGeneratedRGB(
+                fragmentSource: authoredSource
+            ) {
+            return SceneGenericShaderGeneratedRGBPreservedAlphaLowering
+                .compilerContractMatches(source, fact: fact)
+        }
+        if let match = SceneGenericShaderScalarizedRGBPreservedAlphaLowering
+            .compilerContractMatchIfCandidate(
+                source,
+                expectedSlot: expectedSlot
+            ) {
+            return match
+        }
+        return true
     }
 
     static func prepareUnresolvedColorTransfer(

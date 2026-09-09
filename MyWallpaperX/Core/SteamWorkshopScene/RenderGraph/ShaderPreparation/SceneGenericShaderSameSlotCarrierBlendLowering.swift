@@ -9,6 +9,17 @@ nonisolated enum SceneGenericShaderSameSlotCarrierBlendLowering {
         let slot: Int
     }
 
+    /// Verifies that a compiler result still belongs to the source-proven
+    /// same-slot carrier route.  This is used before the generic straight
+    /// boundary fallback so a rejected exact lowering cannot silently accept a
+    /// wrong texture slot or altered carrier blend.
+    static func compilerContractMatches(
+        _ source: String,
+        expectedSlot: Int
+    ) -> Bool {
+        lower(source, expectedSlot: expectedSlot) != nil
+    }
+
     static func lower(_ source: String, expectedSlot: Int) -> String? {
         guard matches(#"\bmwxGeneric(?:Unpremultiply|Premultiply)\b"#, in: source)
                 .isEmpty,

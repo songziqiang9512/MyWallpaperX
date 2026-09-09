@@ -9,9 +9,25 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         case straight
     }
 
+    enum SourceCarriedShape: Equatable {
+        case existing
+        case generatedCarrier
+    }
+
     struct SourceCarriedFact: Equatable {
         let sourceSlot: Int
         let transfer: SourceCarriedTransfer
+        let shape: SourceCarriedShape
+
+        init(
+            sourceSlot: Int,
+            transfer: SourceCarriedTransfer,
+            shape: SourceCarriedShape = .existing
+        ) {
+            self.sourceSlot = sourceSlot
+            self.transfer = transfer
+            self.shape = shape
+        }
 
         var colorTransfer: SceneShaderColorTransfer {
             switch transfer {
@@ -53,6 +69,21 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
               let sampled = sampledColorLocals(
                 before: output, tokens: tokens, body: main.bodyRange
               ) else { return nil }
+
+        // A generated RGBA carrier may be seeded independently and then
+        // receive one source-backed RGB transfer before the terminal write.
+        // Keep this proof ahead of the older output-constructor routes: those
+        // routes intentionally reject an identifier output whose source and
+        // generated carriers are separated.
+        if let generated = generatedSourceCarried(
+            sampled: sampled,
+            output: output,
+            expression: expression,
+            fragment: fragment,
+            main: main
+        ) {
+            return generated
+        }
 
         if let carrier = SceneAuthoredShaderConditionalStraightUnionAnalyzer
             .identifier(expression), let slot = sampled[carrier],

@@ -5,6 +5,7 @@ import Foundation
 /// never consults shader paths, effect identities, or source fingerprints.
 nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
     typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
+    typealias Unit = SceneAuthoredShaderSyntaxUnit
 
     /// Projects one active prepared variant without requiring the complete
     /// bounded frontend to emit Metal. Purpose admission may use this fact
@@ -64,6 +65,72 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         }
     }
 
+    /// Proves that every active use of one sampler is a direct RGB lookup.
+    ///
+    /// This is deliberately narrower than `analyze`: a channel projection is
+    /// useful for scalar/mask roles, while a straight-color source proof must
+    /// reject every whole-vector, scalar, alpha, indirect, or helper-owned
+    /// use.  The proof is tied to the active syntax units supplied by shader
+    /// preparation and does not inspect paths, labels, or effect identities.
+    static func provesStraightColorUse(
+        samplerName: String,
+        vertexSource: String,
+        fragmentSource: String
+    ) -> Bool {
+        let vertex = syntax(vertexSource, stage: .vertex)
+        let fragment = syntax(fragmentSource, stage: .fragment)
+        guard let vertex, let fragment else { return false }
+        return provesStraightColorUse(
+            samplerName: samplerName,
+            vertex: vertex,
+            fragment: fragment
+        )
+    }
+
+    /// Unit-level form used when preparation already owns parsed active
+    /// syntax.  Every sampler token must be the sampler argument of a direct
+    /// two-dimensional sample in `main`, immediately projected to `.rgb` or
+    /// `.xyz`; any other token occurrence is an alias/escape and fails closed.
+    static func provesStraightColorUse(
+        samplerName: String,
+        vertex: Unit,
+        fragment: Unit
+    ) -> Bool {
+        guard fragment.declarations.contains(where: { declaration in
+            declaration.storage == .uniform
+                && declaration.name == samplerName
+                && declaration.typeName == "sampler2D"
+        }),
+        let main = fragment.functions.first(where: { $0.name == "main" }) else {
+            return false
+        }
+
+        let vertexUses = referenceIndices(samplerName, in: vertex)
+        let fragmentUses = referenceIndices(samplerName, in: fragment)
+        guard vertexUses.isEmpty, !fragmentUses.isEmpty else { return false }
+
+        return fragmentUses.allSatisfy { index in
+            main.bodyRange.contains(index)
+                && directStraightColorSample(
+                    samplerName: samplerName,
+                    samplerIndex: index,
+                    in: fragment
+                )
+        }
+    }
+
+    private static func syntax(
+        _ source: String,
+        stage: SceneShaderContract.StageKind
+    ) -> Unit? {
+        let result = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage),
+            stage: stage
+        )
+        guard result.diagnostics.isEmpty else { return nil }
+        return result.unit
+    }
+
     private static func referenceIndices(
         _ name: String,
         in unit: SceneAuthoredShaderSyntaxUnit
@@ -107,6 +174,79 @@ nonisolated enum SceneAuthoredShaderTextureChannelAnalyzer {
         case "rg", "xy": return .redGreenOnly
         default: return nil
         }
+    }
+
+    private static func directStraightColorSample(
+        samplerName: String,
+        samplerIndex: Int,
+        in unit: Unit
+    ) -> Bool {
+        let tokens = unit.tokens
+        guard samplerIndex >= 2,
+              tokens[samplerIndex - 1].text == "(",
+              ["texSample2D", "texture2D"].contains(
+                  tokens[samplerIndex - 2].text
+              ),
+              let close = matchingClose(
+                  opening: samplerIndex - 1,
+                  tokens: tokens
+              ),
+              let arguments = argumentRanges(
+                  in: (samplerIndex)..<close,
+                  tokens: tokens
+              ),
+              arguments.count == 2,
+              arguments[0].count == 1,
+              arguments[0].lowerBound == samplerIndex,
+              tokens[samplerIndex].text == samplerName,
+              !arguments[1].contains(where: {
+                  tokens[$0].text == samplerName
+              }),
+              close + 2 < tokens.count,
+              tokens[close + 1].text == ".",
+              ["rgb", "xyz"].contains(tokens[close + 2].text) else {
+            return false
+        }
+
+        // The projected value must be consumed as one vec3 lookup. A second
+        // projection/index or immediate arithmetic (for example `.rgb.a`,
+        // `.rgb[0]`, or `.rgb * 2`) would turn this into a component/data
+        // transform and is therefore not a straight-color lookup proof.
+        if close + 3 < tokens.count,
+           ![";", ")", ","].contains(tokens[close + 3].text) {
+            return false
+        }
+        return true
+    }
+
+    private static func argumentRanges(
+        in range: Range<Int>,
+        tokens: [SceneAuthoredShaderToken]
+    ) -> [Range<Int>]? {
+        guard range.lowerBound <= range.upperBound,
+              range.lowerBound >= 0,
+              range.upperBound <= tokens.count else { return nil }
+        var result: [Range<Int>] = []
+        var start = range.lowerBound
+        var depth = 0
+        for index in range {
+            switch tokens[index].text {
+            case "(", "[", "{":
+                depth += 1
+            case ")", "]", "}":
+                depth -= 1
+                if depth < 0 { return nil }
+            case "," where depth == 0:
+                guard start < index else { return nil }
+                result.append(start..<index)
+                start = index + 1
+            default:
+                break
+            }
+        }
+        guard depth == 0, start < range.upperBound else { return nil }
+        result.append(start..<range.upperBound)
+        return result
     }
 
     private static func matchingClose(

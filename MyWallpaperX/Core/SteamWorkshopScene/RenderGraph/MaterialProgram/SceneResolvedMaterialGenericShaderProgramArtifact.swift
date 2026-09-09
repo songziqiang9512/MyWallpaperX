@@ -25,6 +25,13 @@ nonisolated struct SceneGenericShaderRouteDecision: Hashable, Sendable {
 /// the independent cache reader. Decoding this value never grants execution;
 /// `makeProgram` revalidates every ABI and color contract before publication.
 nonisolated struct SceneGenericShaderProgramArtifact: Codable {
+    // This wire-level check intentionally stays local to the immutable
+    // Program model. The compiler implementation lives in a separate source
+    // set, so importing its lowering type here would make the model depend on
+    // the full shader-preparation implementation. Keep the serialized guard
+    // cap synchronized with SceneGenericShaderLoopGuardLowering.iterationCap.
+    private static let loopGuardIterationCap = 4096
+
     struct Program: Codable {
         struct UniformLayout: Codable, Equatable {
             struct Field: Codable, Equatable {
@@ -125,7 +132,7 @@ nonisolated struct SceneGenericShaderProgramArtifact: Codable {
               raw.uniformBufferIndex == 8,
               (0 ... 256).contains(raw.staticLoopWork),
               raw.loopGuardCap.map({
-                  $0 == SceneGenericShaderLoopGuardLowering.iterationCap
+                  $0 == Self.loopGuardIterationCap
                       && raw.staticLoopWork == 0
               }) ?? true,
               !raw.metalSource.isEmpty,

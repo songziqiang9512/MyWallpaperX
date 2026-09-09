@@ -36,6 +36,7 @@ import Metal
 
 private struct HarnessOutput: Codable {
     let diagnosticCodes: [String]
+    let schemaSamplerSlots: [Int]?
     let staticLoopWork: Int?
     let textureSlots: [Int]?
     let textureChannelUses: [String]?
@@ -85,6 +86,16 @@ private struct AuthoredShaderFrontendHarness {
                 fragment: fragmentLoopBounds
             )
         )
+        let schemaSamplerSlots = SceneAuthoredShaderDeadBindingAnalyzer
+            .activeSamplerNamesForSchema(
+                vertexSource: vertexSource,
+                fragmentSource: fragmentSource
+            )?
+            .compactMap { name -> Int? in
+                guard name.hasPrefix("g_Texture") else { return nil }
+                return Int(name.dropFirst("g_Texture".count))
+            }
+            .sorted()
         var metalError: String?
         if let program = output.program,
            !CommandLine.arguments.dropFirst(3).contains("--skip-metal") {
@@ -103,6 +114,7 @@ private struct AuthoredShaderFrontendHarness {
         }
         let encoded = try JSONEncoder().encode(HarnessOutput(
             diagnosticCodes: output.diagnostics.map { $0.code.rawValue },
+            schemaSamplerSlots: schemaSamplerSlots,
             staticLoopWork: output.program?.staticLoopWork,
             textureSlots: output.program?.textureBindings.map(\.slot),
             textureChannelUses: output.program?.textureBindings.map {
@@ -1595,6 +1607,30 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertEqual(dynamic["diagnosticCodes"], ["dynamicLoop"])
         self.assertEqual(unbounded["diagnosticCodes"], ["unsupportedControlFlow"])
+
+    def test_schema_sampler_projection_survives_unproven_dynamic_loop(self):
+        output = self.compile(
+            VERTEX_SOURCE,
+            """
+            uniform sampler2D g_Texture0;
+            uniform int g_Count;
+            varying vec2 v_TexCoord;
+            void main() {
+                float value = 0.0;
+                for (int index = 0; index < g_Count; index++) {
+                    value += 1.0;
+                }
+                gl_FragColor = texSample2D(g_Texture0, v_TexCoord)
+                    + vec4(value);
+            }
+            """,
+            metal=False,
+        )
+        # The executable frontend remains fail-closed on the dynamic loop,
+        # while schema construction still reports the sampler used by the
+        # generic artifact's resource envelope.
+        self.assertEqual(output["diagnosticCodes"], ["dynamicLoop"])
+        self.assertEqual(output["schemaSamplerSlots"], [0])
 
     def test_nested_local_declaration_may_reuse_outer_loop_name(self):
         output = self.compile(

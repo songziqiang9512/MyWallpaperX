@@ -68,6 +68,12 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderDirectFunctionVectorArgumentNormalizer.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer+Rewrites.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderDefaultStraightColorBoundaryLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderLoopGuardLowering.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderExpectedColorTransfer.swift",
@@ -75,6 +81,8 @@ EXTRA_SOURCES = [
     / "RenderGraph/ShaderPreparation/SceneGenericShaderRGBA8UNormIndependentSignalArtifactAnalyzer.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransferSpecializedLowering.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StraightAlphaPreservingColorTransfer.swift",
     SCENE_ROOT
@@ -91,6 +99,8 @@ EXTRA_SOURCES = [
     / "RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+StageUniforms.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
+    SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
     SCENE_ROOT

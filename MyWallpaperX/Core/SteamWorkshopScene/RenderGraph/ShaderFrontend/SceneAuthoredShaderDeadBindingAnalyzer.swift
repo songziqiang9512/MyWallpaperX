@@ -93,6 +93,84 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
         fragmentSource: String,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
     ) -> Set<String>? {
+        let (vertex, fragment) = syntaxOutputs(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            runtimeLoopBounds: runtimeLoopBounds
+        )
+        guard vertex.diagnostics.isEmpty,
+              fragment.diagnostics.isEmpty,
+              let vertexUnit = vertex.unit,
+              let fragmentUnit = fragment.unit else { return nil }
+        return analyze(vertex: vertexUnit, fragment: fragmentUnit).activeSamplerNames
+    }
+
+    /// Projects active sampler names for schema construction when the bounded
+    /// frontend is otherwise healthy but a runtime loop remains unresolved.
+    ///
+    /// The normal `activeSamplerNames` path intentionally returns `nil` for a
+    /// dynamic loop so executable frontend admission remains fail-closed.  A
+    /// prepared generic artifact still needs a conservative resource schema in
+    /// order to report the actual sampler envelope, however.  In that narrow
+    /// case we lex top-level sampler declarations and retain every lexical use;
+    /// this is an over-approximation for metadata only and never authorizes
+    /// frontend compilation or execution.
+    static func activeSamplerNamesForSchema(
+        vertexSource: String,
+        fragmentSource: String,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds = .none
+    ) -> Set<String>? {
+        if let names = activeSamplerNames(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            runtimeLoopBounds: runtimeLoopBounds
+        ) {
+            return names
+        }
+
+        let (vertex, fragment) = syntaxOutputs(
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource,
+            runtimeLoopBounds: runtimeLoopBounds
+        )
+        let diagnostics = vertex.diagnostics + fragment.diagnostics
+        guard !diagnostics.isEmpty,
+              diagnostics.allSatisfy({ $0.code == .dynamicLoop }) else {
+            return nil
+        }
+        let vertexLex = SceneAuthoredShaderLexer.lex(
+            source: vertexSource,
+            stage: .vertex
+        )
+        let fragmentLex = SceneAuthoredShaderLexer.lex(
+            source: fragmentSource,
+            stage: .fragment
+        )
+        guard vertexLex.diagnostics.isEmpty,
+              fragmentLex.diagnostics.isEmpty else {
+            return nil
+        }
+        guard let vertexProjection = lexicalSamplerProjection(vertexLex.tokens),
+              let fragmentProjection = lexicalSamplerProjection(fragmentLex.tokens) else {
+            return nil
+        }
+        let declarations = vertexProjection.declarations.union(
+            fragmentProjection.declarations
+        )
+        let references = vertexProjection.references.union(
+            fragmentProjection.references
+        )
+        return declarations.intersection(references)
+    }
+
+    private static func syntaxOutputs(
+        vertexSource: String,
+        fragmentSource: String,
+        runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
+    ) -> (
+        vertex: SceneAuthoredShaderSyntaxAnalyzer.Output,
+        fragment: SceneAuthoredShaderSyntaxAnalyzer.Output
+    ) {
         let vertex = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: vertexSource,
@@ -109,11 +187,75 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             stage: .fragment,
             provenRuntimeLoopBounds: runtimeLoopBounds.fragment
         )
-        guard vertex.diagnostics.isEmpty,
-              fragment.diagnostics.isEmpty,
-              let vertexUnit = vertex.unit,
-              let fragmentUnit = fragment.unit else { return nil }
-        return analyze(vertex: vertexUnit, fragment: fragmentUnit).activeSamplerNames
+        return (vertex, fragment)
+    }
+
+    private struct LexicalSamplerProjection {
+        let declarations: Set<String>
+        let references: Set<String>
+    }
+
+    private static func lexicalSamplerProjection(
+        _ tokens: [SceneAuthoredShaderToken]
+    ) -> LexicalSamplerProjection? {
+        var declarations: [String: Range<Int>] = [:]
+        var declarationRanges: [Range<Int>] = []
+        var braceDepth = 0
+        var index = 0
+        while index < tokens.count {
+            let token = tokens[index]
+            if token.text == "{" {
+                braceDepth += 1
+                index += 1
+                continue
+            }
+            if token.text == "}" {
+                guard braceDepth > 0 else { return nil }
+                braceDepth -= 1
+                index += 1
+                continue
+            }
+            guard braceDepth == 0,
+                  token.text == "uniform",
+                  index + 3 < tokens.count,
+                  tokens[index + 1].kind == .identifier,
+                  tokens[index + 1].text.caseInsensitiveCompare("sampler2D")
+                      == .orderedSame,
+                  tokens[index + 2].kind == .identifier else {
+                index += 1
+                continue
+            }
+            var end = index + 3
+            if tokens[end].text == "[" {
+                guard end + 2 < tokens.count,
+                      tokens[end + 1].kind == .number,
+                      tokens[end + 2].text == "]" else {
+                    return nil
+                }
+                end += 3
+            }
+            guard end < tokens.count, tokens[end].text == ";" else {
+                return nil
+            }
+            let name = tokens[index + 2].text
+            guard declarations[name] == nil else { return nil }
+            let range = index..<(end + 1)
+            declarations[name] = range
+            declarationRanges.append(range)
+            index = end + 1
+        }
+        guard braceDepth == 0 else { return nil }
+        guard !declarations.isEmpty else {
+            return .init(declarations: [], references: [])
+        }
+        let references = Set(tokens.indices.compactMap { index -> String? in
+            guard tokens[index].kind == .identifier,
+                  !declarationRanges.contains(where: { $0.contains(index) }) else {
+                return nil
+            }
+            return tokens[index].text
+        })
+        return .init(declarations: Set(declarations.keys), references: references)
     }
 
     private static func removableStatement(

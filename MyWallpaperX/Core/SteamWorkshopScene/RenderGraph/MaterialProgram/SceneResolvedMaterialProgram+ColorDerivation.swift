@@ -274,15 +274,21 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             ) else { return nil }
         }
         var framebufferRepresentations: Set<SceneShaderColorRepresentation> = []
-        for fact in textureFacts.compactMap({ $0 }) where fact.isFramebufferInput {
-            switch fact.content {
-            case let .color(.resolved(representation)):
-                framebufferRepresentations.insert(representation)
-            case .color(.unresolved):
-                return nil
-            case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
-                 .redGreenFloat16, .data:
-                continue
+        if case .interpolatedColor = transfer {
+            // Interpolation validates only the explicitly named slots below.
+            // An unrelated framebuffer fact must not widen or invalidate this
+            // material's color contract.
+        } else {
+            for fact in textureFacts.compactMap({ $0 }) where fact.isFramebufferInput {
+                switch fact.content {
+                case let .color(.resolved(representation)):
+                    framebufferRepresentations.insert(representation)
+                case .color(.unresolved):
+                    return nil
+                case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+                     .redGreenFloat16, .data:
+                    continue
+                }
             }
         }
         let framebufferInput: SceneShaderColorRepresentation
@@ -359,6 +365,35 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                   }) else { return nil }
             framebufferInput = framebufferRepresentations.first
                 ?? .premultipliedAlpha
+        } else if case let .interpolatedColor(slots) = transfer {
+            var exactFramebufferRepresentations: Set<
+                SceneShaderColorRepresentation
+            > = []
+            for slot in slots {
+                guard textureFacts.indices.contains(slot),
+                      let fact = textureFacts[slot] else { return nil }
+                guard fact.isFramebufferInput else { continue }
+                switch fact.content {
+                case let .color(.resolved(representation)):
+                    exactFramebufferRepresentations.insert(representation)
+                case .color(.unresolved):
+                    return nil
+                case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+                     .redGreenFloat16, .data:
+                    continue
+                }
+            }
+            // An opaque producer is already premultiplied (its alpha is one),
+            // so mixing it with a premultiplied framebuffer is well-defined.
+            // Keep the admission bounded to this representation pair; data,
+            // straight-alpha and independent-signal inputs still fail closed.
+            guard !exactFramebufferRepresentations.isEmpty,
+                  exactFramebufferRepresentations.allSatisfy({
+                $0 == .opaque || $0 == .premultipliedAlpha
+            }) else { return nil }
+            framebufferInput = exactFramebufferRepresentations.contains(
+                .premultipliedAlpha
+            ) ? .premultipliedAlpha : .opaque
         } else {
             guard framebufferRepresentations.count == 1,
                   let representation = framebufferRepresentations.first else {
@@ -415,8 +450,12 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
                 representation(slot: $0, textureFacts: textureFacts)
             }
             guard representations.count == slots.count,
-                  Set(representations).count == 1,
-                  let representation = representations.first else {
+                  representations.allSatisfy({
+                      $0 == .opaque || $0 == .premultipliedAlpha
+                  }),
+                  let representation: SceneShaderColorRepresentation = representations.contains(
+                      .premultipliedAlpha
+                  ) ? .premultipliedAlpha : .opaque else {
                 return nil
             }
             fragmentOutput = representation

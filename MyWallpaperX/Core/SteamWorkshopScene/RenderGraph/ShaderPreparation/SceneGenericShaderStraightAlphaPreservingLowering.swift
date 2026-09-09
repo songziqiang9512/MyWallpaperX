@@ -1,8 +1,8 @@
 import Foundation
 
 nonisolated enum SceneGenericShaderStraightAlphaPreservingLowering {
-    private static let unpremultiply = "mwxGenericUnpremultiply"
-    private static let premultiply = "mwxGenericPremultiply"
+    static let unpremultiply = "mwxGenericUnpremultiply"
+    static let premultiply = "mwxGenericPremultiply"
 
     /// Applies the compositor boundary to a source-proven direct carrier.
     /// The authored analyzer proves the member-write semantics; this method
@@ -683,58 +683,13 @@ inline float4 \(premultiply)(float4 color) {
             rgbColorSampleCallCounts,
             uniquingKeysWith: +
         )
-        let sampleCounts = Array(colorSampleCallCounts.values) + Array(dataSampleCallCounts.values)
-        guard !colorSampleCallCounts.isEmpty,
-              fullColorSampleCallCounts[sourceSlot] != nil,
-              sampleCounts.allSatisfy({ (1 ... 16).contains($0) }),
-              sampleCounts.reduce(0, +) <= 32,
-              !dataSampleCallCounts.isEmpty
-                || colorSampleCallCounts.keys.count >= 2,
-              Set(colorSampleCallCounts.keys).isDisjoint(
-                  with: dataSampleCallCounts.keys
-              ),
-              !containsWord(unpremultiply, in: source),
-              !containsWord(premultiply, in: source),
-              matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1
-        else { return nil }
-
-        guard let calls = compilerTextureSampleCalls(in: source) else {
-            return nil
-        }
-        let expectedTotal = colorSampleCallCounts.values.reduce(0, +)
-            + dataSampleCallCounts.values.reduce(0, +)
-        guard calls.count == expectedTotal else { return nil }
-        var observedFullColorCounts: [Int: Int] = [:]
-        var observedRGBColorCounts: [Int: Int] = [:]
-        var observedDataCounts: [Int: Int] = [:]
-        for call in calls {
-            guard let range = Range(call.range, in: source) else { return nil }
-            let suffix = source[range.upperBound...]
-            if dataSampleCallCounts[call.slot] != nil {
-                guard suffix.range(
-                    of: #"^\.(?:xy|rg)\b"#,
-                    options: .regularExpression
-                ) != nil else { return nil }
-                observedDataCounts[call.slot, default: 0] += 1
-            } else if rgbColorSampleCallCounts[call.slot] != nil,
-                      suffix.range(
-                          of: #"^\.(?:xyz|rgb)\b"#,
-                          options: .regularExpression
-                      ) != nil {
-                observedRGBColorCounts[call.slot, default: 0] += 1
-            } else if fullColorSampleCallCounts[call.slot] != nil,
-                      suffix.range(
-                          of: #"^\s*;"#,
-                          options: .regularExpression
-                      ) != nil {
-                observedFullColorCounts[call.slot, default: 0] += 1
-            } else {
-                return nil
-            }
-        }
-        guard observedFullColorCounts == fullColorSampleCallCounts,
-              observedRGBColorCounts == rgbColorSampleCallCounts,
-              observedDataCounts == dataSampleCallCounts else { return nil }
+        guard let calls = validatedPreservedAlphaRGBFilterSampleCalls(
+            in: source,
+            sourceSlot: sourceSlot,
+            fullColorSampleCallCounts: fullColorSampleCallCounts,
+            rgbColorSampleCallCounts: rgbColorSampleCallCounts,
+            dataSampleCallCounts: dataSampleCallCounts
+        ) else { return nil }
 
         let outputs = matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*([A-Za-z_]\w*)\s*;[ \t]*$"#,
@@ -775,103 +730,6 @@ inline float4 \(premultiply)(float4 color) {
             )
         }
         return insertingBoundaryHelpers(into: transformed)
-    }
-
-    struct CompilerTextureSampleCall {
-        let range: NSRange
-        let slot: Int
-    }
-
-    static func compilerTextureSampleCalls(
-        in source: String
-    ) -> [CompilerTextureSampleCall]? {
-        let starts = matches(#"\bg_Texture([0-7])\.sample\("#, in: source)
-        var result: [CompilerTextureSampleCall] = []
-        for start in starts {
-            guard let rawSlot = capture(start, 1, in: source),
-                  let slot = Int(rawSlot),
-                  let startRange = Range(start.range, in: source),
-                  let open = source[..<startRange.upperBound].lastIndex(of: "(")
-            else { return nil }
-            var depth = 0
-            var close: String.Index?
-            var cursor = open
-            while cursor < source.endIndex {
-                let character = source[cursor]
-                if character == "(" { depth += 1 }
-                if character == ")" {
-                    depth -= 1
-                    if depth == 0 {
-                        close = cursor
-                        break
-                    }
-                    if depth < 0 { return nil }
-                }
-                cursor = source.index(after: cursor)
-            }
-            guard let close else { return nil }
-            let range = startRange.lowerBound..<source.index(after: close)
-            result.append(.init(range: NSRange(range, in: source), slot: slot))
-        }
-        return result
-    }
-
-    static func insertingBoundaryHelpers(into source: String) -> String? {
-        let helpers = """
-
-inline float4 \(unpremultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    const float3 rgb = alpha > 0.0
-        ? clamp(color.xyz / alpha, float3(0.0), float3(1.0))
-        : float3(0.0);
-    return float4(rgb, alpha);
-}
-
-inline float4 \(premultiply)(float4 color) {
-    const float alpha = clamp(color.w, 0.0, 1.0);
-    return float4(color.xyz * alpha, alpha);
-}
-"""
-        guard let namespace = source.range(
-            of: #"\busing\s+namespace\s+metal\s*;"#,
-            options: .regularExpression
-        ) else { return nil }
-        var transformed = source
-        transformed.insert(contentsOf: helpers, at: namespace.upperBound)
-        return transformed
-    }
-
-    private static func containsWord(_ word: String, in source: String) -> Bool {
-        !matches(#"\b"# + escaped(word) + #"\b"#, in: source).isEmpty
-    }
-
-    private static func countWord(_ word: String, in source: String) -> Int {
-        matches(#"\b"# + escaped(word) + #"\b"#, in: source).count
-    }
-
-    private static func matches(
-        _ pattern: String,
-        in source: String
-    ) -> [NSTextCheckingResult] {
-        try! NSRegularExpression(pattern: pattern).matches(
-            in: source,
-            range: NSRange(source.startIndex..., in: source)
-        )
-    }
-
-    private static func escaped(_ source: String) -> String {
-        NSRegularExpression.escapedPattern(for: source)
-    }
-
-    private static func capture(
-        _ match: NSTextCheckingResult,
-        _ index: Int,
-        in source: String
-    ) -> String? {
-        guard index < match.numberOfRanges,
-              match.range(at: index).location != NSNotFound,
-              let range = Range(match.range(at: index), in: source) else { return nil }
-        return String(source[range])
     }
 
 }

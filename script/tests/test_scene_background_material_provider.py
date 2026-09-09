@@ -257,7 +257,12 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
             SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
         ).read_text(encoding="utf-8")
         capability = (
-            SCENE_ROOT / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+            SCENE_ROOT
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStages.swift"
+        ).read_text(encoding="utf-8")
+        capability += "\n" + (
+            SCENE_ROOT
+            / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+ProgramFirstStagesBackground.swift"
         ).read_text(encoding="utf-8")
         capability_report = (
             SCENE_ROOT / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift"
@@ -284,7 +289,7 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         self.assertNotIn("sceneBackground=same-frame-main-target", capability_report)
         self.assertIn("mainPass.withReadableTarget", composition)
         background_section = capability.split(
-            "private static func sceneBackgroundRequirement", 1
+            "static func sceneBackgroundRequirement", 1
         )[1].split("/// Only a launch-time", 1)[0]
         self.assertNotIn("sampleID", background_section)
         self.assertNotIn("descriptorID ==", background_section)

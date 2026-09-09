@@ -48,7 +48,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             prepared: prepared
         )
         let activeSamplerNames = SceneAuthoredShaderDeadBindingAnalyzer
-            .activeSamplerNames(
+            .activeSamplerNamesForSchema(
                 vertexSource: compilerSources.vertex,
                 fragmentSource: compilerSources.fragment,
                 runtimeLoopBounds: runtimeLoopBounds

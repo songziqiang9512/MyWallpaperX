@@ -26,6 +26,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift",
     SCENE_ROOT
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering+Utilities.swift",
+    SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderSingleSampleStraightAlphaPreservingLowering.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderScalarizedRGBPreservedAlphaLowering.swift",
@@ -148,6 +150,9 @@ private func transfer(
         return "signal-underlay-composite:\(signal):\(color):\(underlay)"
     case .premultipliedAlpha: return "premultiplied-alpha"
     case .generatedStraightAlpha: return "generated-straight-alpha"
+    case .defaultStraightColorBoundary(let slots):
+        return "default-straight-boundary-slots:"
+            + slots.map(String.init).joined(separator: ",")
     }
 }
 

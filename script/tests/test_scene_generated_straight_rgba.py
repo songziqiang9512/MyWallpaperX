@@ -118,6 +118,33 @@ fragment FragmentOut mwxGenericFragment() {
 }
 """
 
+private let deadSampleMSL = """
+#include <metal_stdlib>
+using namespace metal;
+struct MWXUniforms { float2 mwxRenderSize; };
+struct FragmentOut { float4 mwxFragColor [[color(0)]]; };
+struct FragmentIn { float2 v_TexCoord [[user(locn0)]]; };
+static inline float2 mwxTexture0Coordinate(
+    thread const float2& value,
+    constant MWXUniforms& uniforms
+) {
+    return value + uniforms.mwxRenderSize * 0.0;
+}
+fragment FragmentOut mwxGenericFragment(
+    FragmentIn in [[stage_in]],
+    constant MWXUniforms& uniforms [[buffer(8)]],
+    texture2d<float> g_Texture0 [[texture(0)]],
+    sampler g_Texture0Smplr [[sampler(0)]]
+) {
+    FragmentOut out = {};
+    float2 param = in.v_TexCoord;
+    float4 origColor = g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(param, uniforms));
+    float3 col = mix(float3(1.0), float3(0.0), 0.5);
+    out.mwxFragColor = float4(col, 0.75);
+    return out;
+}
+"""
+
 private struct Output: Codable {
     let transfer: String
     let factRGB: String?
@@ -140,6 +167,16 @@ private struct Output: Codable {
     let resolutionDependencyAccepted: Bool
     let missingResolutionSamplerRejected: Bool
     let compilerSampleDriftRejected: Bool
+    let deadCompilerSampleAccepted: Bool
+    let deadCompilerSamplePremultiplies: Bool
+    let deadCompilerSampleReuseRejected: Bool
+    let deadCompilerSampleExtraRejected: Bool
+    let deadCompilerSampleWrongSlotRejected: Bool
+    let deadCompilerSampleProjectionRejected: Bool
+    let deadCompilerSampleNonDeclarationRejected: Bool
+    let deadCompilerSampleSideEffectRejected: Bool
+    let deadAuthoredSampleSideEffectRejected: Bool
+    let deadCompilerSampleUnprovenAlphaRejected: Bool
     let compilerMemberOutputRejected: Bool
     let compilerDuplicateOutputRejected: Bool
     let compilerHelperConflictRejected: Bool
@@ -250,6 +287,11 @@ private enum GeneratedStraightRGBAHarness {
         let mutableGeneratedArtifact = try? SceneGenericShaderArtifactBuilder
             .prepareColorTransfer(
                 msl: msl,
+                authoredSource: mutableGenerated
+            )
+        let deadCompilerSampleArtifact = try? SceneGenericShaderArtifactBuilder
+            .prepareColorTransfer(
+                msl: deadSampleMSL,
                 authoredSource: mutableGenerated
             )
         let runtimeBounded = accumulated
@@ -388,6 +430,81 @@ private enum GeneratedStraightRGBAHarness {
                     ),
                     authoredSource: authored
                 )) == nil,
+            deadCompilerSampleAccepted:
+                deadCompilerSampleArtifact?.transfer.kind
+                    == "generated-straight-alpha",
+            deadCompilerSamplePremultiplies:
+                deadCompilerSampleArtifact?.msl.contains(
+                    "out.mwxFragColor = mwxGenericPremultiply(float4(col, 0.75));"
+                ) == true,
+            deadCompilerSampleReuseRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "    float3 col =",
+                        with: "    float sink = origColor.x;\n    float3 col ="
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadCompilerSampleExtraRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "    float3 col =",
+                        with: [
+                            "    float2 extraCoordinate = in.v_TexCoord;",
+                            "    float4 extraColor = g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(extraCoordinate, uniforms));",
+                            "    float3 col =",
+                        ].joined(separator: "\n")
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadCompilerSampleWrongSlotRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "Texture0",
+                        with: "Texture1"
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadCompilerSampleProjectionRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "float4 origColor = g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(param, uniforms));",
+                        with: "float3 origColor = g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(param, uniforms)).xyz;"
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadCompilerSampleNonDeclarationRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "float4 origColor = g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(param, uniforms));",
+                        with: "g_Texture0.sample(g_Texture0Smplr, mwxTexture0Coordinate(param, uniforms));"
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadCompilerSampleSideEffectRejected:
+                (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                    msl: deadSampleMSL.replacingOccurrences(
+                        of: "mwxTexture0Coordinate(param, uniforms));",
+                        with: "mwxTexture0Coordinate(sideEffect(), uniforms));"
+                    ),
+                    authoredSource: mutableGenerated
+                )) == nil,
+            deadAuthoredSampleSideEffectRejected:
+                SceneGenericShaderGeneratedStraightRGBALowering.prepare(
+                    msl,
+                    authoredSource: mutableGenerated.replacingOccurrences(
+                        of: "texSample2D(g_Texture0, v_TexCoord.xy)",
+                        with: "texSample2D(g_Texture0, mutateCoordinate())"
+                    )
+                ) == nil,
+            deadCompilerSampleUnprovenAlphaRejected:
+                SceneGenericShaderGeneratedStraightRGBALowering.prepare(
+                    deadSampleMSL,
+                    authoredSource: mutableGenerated.replacingOccurrences(
+                        of: "max(coverage, fill * u_fillOpacity)",
+                        with: "max(coverage, paint.r)"
+                    )
+                ) == nil,
             compilerMemberOutputRejected:
                 (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
                     msl: msl.replacingOccurrences(
@@ -631,6 +748,21 @@ class SceneGeneratedStraightRGBATests(unittest.TestCase):
             "compilerHelperConflictRejected",
             "externalProviderRejected",
             "graphInputRejected",
+        ):
+            self.assertTrue(self.result[key], key)
+
+    def test_compiler_retained_dead_sample_is_exactly_source_correlated(self) -> None:
+        for key in (
+            "deadCompilerSampleAccepted",
+            "deadCompilerSamplePremultiplies",
+            "deadCompilerSampleReuseRejected",
+            "deadCompilerSampleExtraRejected",
+            "deadCompilerSampleWrongSlotRejected",
+            "deadCompilerSampleProjectionRejected",
+            "deadCompilerSampleNonDeclarationRejected",
+            "deadCompilerSampleSideEffectRejected",
+            "deadAuthoredSampleSideEffectRejected",
+            "deadCompilerSampleUnprovenAlphaRejected",
         ):
             self.assertTrue(self.result[key], key)
 

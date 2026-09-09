@@ -24,6 +24,17 @@ nonisolated enum SceneGenericShaderTypedDataRGBFilterLowering {
         let carrier: String
     }
 
+    /// Verifies that a compiler artifact still satisfies the complete typed
+    /// data RGB filter contract. The generic default boundary may tolerate an
+    /// unproven output shape, but it must not erase a source-proven sample,
+    /// projection, or preserved-alpha mismatch.
+    static func compilerContractMatches(
+        _ source: String,
+        fact: SceneAuthoredShaderTypedDataRGBFilterFact
+    ) -> Bool {
+        lower(source, fact: fact) != nil
+    }
+
     static func lower(
         _ source: String,
         fact: SceneAuthoredShaderTypedDataRGBFilterFact

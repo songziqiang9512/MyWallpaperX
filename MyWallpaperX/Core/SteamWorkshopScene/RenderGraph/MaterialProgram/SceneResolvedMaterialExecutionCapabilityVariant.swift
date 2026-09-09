@@ -251,8 +251,15 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         var dormantLaunchFacts: [
             Int: SceneResolvedMaterialGraphInputSourceSlotFact
         ]?
-        for rawAvailability in UInt16(0) ... UInt16(UInt8.max) {
-            let availability = UInt8(rawAvailability)
+        // Keep launch envelope preparation aligned with reachableSamplers:
+        // readiness bits that are absent from the authored shader cannot
+        // change the prepared variant. Enumerating all 256 masks here made
+        // every material pay the full fixed-point cost even when only one or
+        // two optional slots were present. The helper falls back to the
+        // historical exhaustive set when schema projection is unavailable.
+        for availability in SceneResolvedMaterialShaderSchema
+            .launchAvailabilityMasks(template)
+        {
             var samplers = seedSamplers
             var graphInputFacts: [
                 Int: SceneResolvedMaterialGraphInputSourceSlotFact

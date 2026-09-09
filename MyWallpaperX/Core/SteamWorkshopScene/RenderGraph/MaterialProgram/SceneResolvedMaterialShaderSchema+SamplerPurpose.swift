@@ -1,3 +1,5 @@
+import Foundation
+
 extension SceneResolvedMaterialShaderSchema.TextureMode {
     nonisolated var explicitPurpose: SceneTextureLoadPurpose? {
         switch self {
@@ -11,6 +13,57 @@ extension SceneResolvedMaterialShaderSchema.TextureMode {
 }
 
 extension SceneResolvedMaterialShaderSchema {
+    /// Authored `format` is loss-preserved metadata. It cannot establish a
+    /// texture purpose or Metal storage ABI; those facts come from the typed
+    /// candidate/target contract. Keep the value well-formed, retaining the
+    /// one executable format rule proven for depth samplers.
+    nonisolated static func validateTextureFormat(
+        _ value: SceneShaderAnnotationValue?,
+        mode: TextureMode,
+        name: String
+    ) throws {
+        guard let value else { return }
+        guard let raw = value.stringValue,
+              !raw.isEmpty,
+              raw == raw.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.unicodeScalars.contains(where: {
+                  $0.value < 32 || $0.value == 127
+              }) else {
+            throw Issue.sampler(name)
+        }
+        if mode == .depth,
+           raw.caseInsensitiveCompare("r8") != .orderedSame {
+            throw Issue.sampler(name)
+        }
+    }
+
+    /// Applies source-derived color typing after the existing auxiliary
+    /// proofs. Keeping both projections in one preparation step avoids
+    /// exposing an untyped sampler to later material admission.
+    nonisolated static func sourceTypedColorSamplers(
+        _ samplers: [Int: Sampler],
+        vertexSource: String,
+        fragmentSource: String
+    ) -> [Int: Sampler] {
+        let auxiliary = sourceTypedAuxiliarySamplers(
+            samplers,
+            vertexSource: vertexSource,
+            fragmentSource: fragmentSource
+        )
+        var result = auxiliary
+        for (slot, sampler) in auxiliary {
+            guard sampler.permitsSourceStraightColorProjection,
+                  SceneAuthoredShaderTextureChannelAnalyzer
+                      .provesStraightColorUse(
+                          samplerName: sampler.name,
+                          vertexSource: vertexSource,
+                          fragmentSource: fragmentSource
+                      ) else { continue }
+            result[slot] = sampler.withSourceProvenPurpose(.straightAlbedo)
+        }
+        return result
+    }
+
     nonisolated static func hasOnlyScalarDataInputs(
         _ samplers: [Int: Sampler],
         activeSlots: Set<Int>,
@@ -208,6 +261,29 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
         return switch materialKey?.lowercased() {
         case "noise", "normal": true
         default: false
+        }
+    }
+
+    /// Returns true only for an otherwise-untyped regular sampler whose
+    /// metadata can safely receive a source-proven straight-color role.
+    /// Existing typed roles are left intact; conflicting defaults and graph
+    /// aliases simply remain conservative and are never overwritten.
+    nonisolated var permitsSourceStraightColorProjection: Bool {
+        guard mode == .regular,
+              !isHidden,
+              sourceProvenPurpose == nil,
+              declaredPurpose == nil,
+              !usesGraphInputMaterialAlias else { return false }
+        switch defaultTexture {
+        case nil:
+            return true
+        case .internalTarget:
+            return false
+        case let .asset(path):
+            guard let registered = SceneStockTextureSemanticRegistry.purpose(
+                for: path
+            ) else { return true }
+            return registered == .straightAlbedo
         }
     }
 }

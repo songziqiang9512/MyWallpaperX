@@ -742,13 +742,13 @@ class SceneSamplerDefaultPurposeTests(unittest.TestCase):
             [], self.result,
         )
 
-    def test_conflict_untyped_internal_and_inactive_stay_unproven(self) -> None:
+    def test_conflict_source_typed_internal_and_inactive_stay_closed(self) -> None:
         self.assertEqual(
             self.result["purposeBoundaries"],
             {
-                "conflict": True, "untyped": True, "internal": True,
+                "conflict": True, "untyped": False, "internal": True,
                 "conflictTypedReject": "texture/textureBindingInvalid/0",
-                "untypedTypedReject": "texture/texturePurposeUnproven/0",
+                "untypedTypedReject": "texture/textureBindingInvalid/0",
                 "inactiveActiveCount": 0, "inactiveReachableCount": 0,
             },
             self.result,

@@ -29,6 +29,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache.swift",
     SCENE_ROOT
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderArtifactCache+Diagnostics.swift",
+    SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderPreparationCoordination.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderRequest.swift",

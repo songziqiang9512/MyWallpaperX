@@ -50,6 +50,28 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertIn("prepareVisualFailurePassthrough", executor)
         self.assertIn("snapshot", executor)
 
+    def test_aggregate_catalog_reuse_exports_each_authored_reference_slot(self) -> None:
+        source = (
+            EXECUTION / "SceneResolvedMaterialExecutionCapability.swift"
+        ).read_text(encoding="utf-8")
+        start = source.index(
+            "var admittedResolvedMaterialReferences:"
+        )
+        end = source.index("\n    var sceneBackgroundLayerIDs", start)
+        export = source[start:end]
+
+        # A later generation receives this set before dependency-plan
+        # compilation. Aggregate ownership therefore has to retain the full
+        # consumer/provider/slot vector; reducing it to provider IDs would
+        # silently lose multi-pass slots and make aggregate reuse impossible.
+        self.assertIn("case let .externalAggregate(aggregate):", export)
+        self.assertIn("for binding in aggregate.orderedBindings", export)
+        self.assertIn("consumerLayerID: binding.consumerLayerID", export)
+        self.assertIn("providerLayerID: binding.providerLayerID", export)
+        self.assertIn("slot: binding.slot", export)
+        self.assertIn("variant: .primary", export)
+        self.assertNotIn("aggregate.providerLayerIDs", export)
+
     def test_unknown_execution_family_cannot_create_dedicated_owner(self) -> None:
         admission = (
             SCENE
