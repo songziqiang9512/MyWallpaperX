@@ -25,6 +25,9 @@ AUDIO_SPECTRUM_SOURCE = SCENE_ROOT / "Runtime/SceneAudioSpectrum.swift"
 FRAME_DRIVER_SOURCE = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+SURFACE_TEARDOWN_SOURCE = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+)
 FRAME_CONTEXT_SOURCE = SCENE_ROOT / "Runtime/SceneFrameContext.swift"
 FRAME_PREFLIGHT_SOURCE = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
@@ -123,8 +126,8 @@ class SceneAudioDemandWiringTests(unittest.TestCase):
         self,
     ) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
-        frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
-        teardown = swift_body(frame_driver, "func teardownSurfaces(")
+        teardown_source = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
+        teardown = swift_body(teardown_source, "func teardownSurfaces(")
         revoke_index = teardown.index(
             "SceneAudioSpectrumInbox.shared.setDemand(false)"
         )

@@ -19,6 +19,9 @@ FRAME_DRIVER_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+FrameDriver.swift"
 FRAME_DRIVER_LIFECYCLE_SOURCE = (
     RUNTIME / "SceneDesktopWallpaperHost+FrameDriverLifecycle.swift"
 )
+SURFACE_TEARDOWN_SOURCE = (
+    RUNTIME / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+)
 POINTER_EVENTS_SOURCE = RUNTIME / "SceneDesktopWallpaperHost+PointerEvents.swift"
 VIEW_SOURCE = RENDERING / "SceneMetalView.swift"
 MEDIA_COORDINATOR_SOURCE = RENDERING / "SceneMediaThumbnailCoordinator.swift"
@@ -449,6 +452,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
     def test_cursor_exports_gate_the_single_surface_dispatch_route(self) -> None:
         host = HOST_SOURCE.read_text(encoding="utf-8")
         frame_driver = FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")
+        surface_teardown = SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8")
         frame_driver_cursor = (
             RUNTIME / "SceneDesktopWallpaperHost+FrameDriverCursor.swift"
         ).read_text(encoding="utf-8")
@@ -463,7 +467,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
         self.assertIn("installPointerEventMonitorsIfNeeded()", host)
         self.assertIn("removePointerEventMonitors()", host)
-        self.assertIn("removePointerEventMonitors()", frame_driver)
+        self.assertIn("removePointerEventMonitors()", surface_teardown)
         self.assertIn("NSEvent.addLocalMonitorForEvents", pointer_events)
         self.assertIn("NSEvent.addGlobalMonitorForEvents", pointer_events)
         self.assertEqual(pointer_events.count("NSEvent.removeMonitor("), 2)

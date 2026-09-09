@@ -1,113 +1,5 @@
 import simd
 
-struct ScenePuppetAnimationSelection {
-    enum Composition: String {
-        case singleAbsolute = "single-absolute"
-        // More than one authored layer is evaluated in scene order; layered
-        // clips may be absolute, additive, or both.
-        case layered = "layered"
-    }
-
-    struct Clip {
-        let layer: ScenePuppetAnimationLayer
-        let animation: SceneMdlPuppetAnimation
-    }
-
-    let clips: [Clip]
-    let composition: Composition
-}
-
-enum ScenePuppetAnimationSelectionFailure: Error, CustomStringConvertible, Equatable {
-    case unresolvedVisibility(Int?)
-    case malformedVisibility(Int?)
-    case unsupportedLayer(Int?)
-    case unknownAnimation(Int)
-
-    nonisolated var description: String {
-        switch self {
-        case .unresolvedVisibility(let id):
-            return "animation layer \(id.map(String.init) ?? "unknown") has property-bound visibility without a stable layer id"
-        case .malformedVisibility(let id):
-            return "animation layer \(id.map(String.init) ?? "unknown") has no static visibility"
-        case .unsupportedLayer(let id):
-            return "animation layer \(id.map(String.init) ?? "unknown") is outside the bounded playback profile"
-        case .unknownAnimation(let id):
-            return "animation id \(id) is absent from the version-matched MDLA block"
-        }
-    }
-}
-
-enum ScenePuppetAnimationSelector {
-    static func select(
-        layers: [ScenePuppetAnimationLayer],
-        animationSet: SceneMdlPuppetAnimationSet
-    ) -> Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure> {
-        var clips: [ScenePuppetAnimationSelection.Clip] = []
-        for layer in layers {
-            guard let visible = layer.visible else {
-                return .failure(.malformedVisibility(layer.id))
-            }
-            guard visible || layer.visibilityBinding != nil else { continue }
-            guard let animationID = layer.animationID,
-                  layer.additive != nil,
-                  let blend = layer.blend,
-                  blend.isFinite,
-                  blend > 0,
-                  blend <= 1,
-                  // Omitted blend edges are the authored false defaults; an
-                  // explicit true still stays outside this bounded profile.
-                  layer.blendIn != true,
-                  layer.blendOut != true,
-                  let rate = layer.rate,
-                  rate.isFinite,
-                  rate > 0 else {
-                return .failure(.unsupportedLayer(layer.id))
-            }
-            guard layer.visibilityBinding == nil || layer.id != nil else {
-                return .failure(.unresolvedVisibility(layer.id))
-            }
-            guard let animation = animationSet.animations.first(where: { $0.id == animationID }) else {
-                return .failure(.unknownAnimation(animationID))
-            }
-            clips.append(.init(layer: layer, animation: animation))
-        }
-        guard clips.isEmpty == false else { return .success(nil) }
-        if clips.count == 1, clips[0].layer.additive == false {
-            return .success(.init(clips: clips, composition: .singleAbsolute))
-        }
-        // Wallpaper Engine stacks visible puppet layers bottom-to-top.  An
-        // additive layer contributes its frame-relative delta while an
-        // opaque layer blends its absolute pose over the running pose.  Keep
-        // the complete authored order instead of rejecting mixed or
-        // overlapping layers; the evaluator still validates every track and
-        // fails closed on malformed data.
-        return .success(.init(clips: clips, composition: .layered))
-    }
-}
-
-enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equatable {
-    case boneCountMismatch
-    case singularBindMatrix(Int)
-    case invalidBindTransform(Int)
-    case invalidFrame(Int)
-    case duplicateAdditiveAnimation(Int)
-
-    nonisolated var description: String {
-        switch self {
-        case .boneCountMismatch:
-            return "puppet mesh, rig, and animation bone counts do not match"
-        case .singularBindMatrix(let index):
-            return "puppet bind world matrix \(index) is singular"
-        case .invalidBindTransform(let index):
-            return "puppet bind local transform \(index) is not decomposable"
-        case .invalidFrame(let index):
-            return "puppet animation frame \(index) is out of bounds"
-        case .duplicateAdditiveAnimation(let animationID):
-            return "additive animation \(animationID) is selected more than once"
-        }
-    }
-}
-
 struct ScenePuppetAnimationEvaluator {
     /// A source-FPS interval sample.  MDLA stores frameCount + 1 poses, so a
     /// frame is an interval between two authored poses rather than a single
@@ -138,12 +30,23 @@ struct ScenePuppetAnimationEvaluator {
         let authoredBones: Set<Int>
     }
 
+    /// Vertex data that is invariant for the lifetime of a playback state.
+    /// The source reader has already validated the four influences and their
+    /// sum, so normalize once at load instead of repeating four additions and
+    /// divisions for every animated frame.
+    private struct PreparedVertex {
+        let bindPoint: SIMD4<Float>
+        let boneIndices: SIMD4<UInt32>
+        let normalizedWeights: SIMD4<Float>
+    }
+
     private let mesh: SceneMdlPuppetMesh
     private let rig: SceneMdlPuppetRig
     private let bindLocalMatrices: [simd_float4x4]
     private let bindPoses: [Pose]
     private let inverseBindWorldMatrices: [simd_float4x4]
     private let preparedAnimationsByID: [Int: PreparedAnimation]
+    private let preparedVertices: [PreparedVertex]
 
     init(
         mesh: SceneMdlPuppetMesh,
@@ -185,6 +88,31 @@ struct ScenePuppetAnimationEvaluator {
         bindPoses = poses
         inverseBindWorldMatrices = inverseMatrices
 
+        var vertexData: [PreparedVertex] = []
+        vertexData.reserveCapacity(mesh.vertices.count)
+        for (vertexIndex, vertex) in mesh.vertices.enumerated() {
+            let source = rig.vertexWeights[vertexIndex]
+            let totalWeight = max(
+                source.boneWeights.x + source.boneWeights.y
+                    + source.boneWeights.z + source.boneWeights.w,
+                Float.leastNonzeroMagnitude
+            )
+            vertexData.append(.init(
+                // The animated skinning path intentionally keeps the
+                // historical 2D bind point (z=0,w=1); z from the MDL record
+                // is not part of the existing image-space contract.
+                bindPoint: SIMD4<Float>(vertex.x, vertex.y, 0, 1),
+                boneIndices: source.boneIndices,
+                normalizedWeights: SIMD4<Float>(
+                    source.boneWeights.x / totalWeight,
+                    source.boneWeights.y / totalWeight,
+                    source.boneWeights.z / totalWeight,
+                    source.boneWeights.w / totalWeight
+                )
+            ))
+        }
+        preparedVertices = vertexData
+
         var preparedAnimations: [Int: PreparedAnimation] = [:]
         for animation in additiveAnimations {
             guard preparedAnimations[animation.id] == nil else {
@@ -193,6 +121,18 @@ struct ScenePuppetAnimationEvaluator {
             preparedAnimations[animation.id] = try Self.prepare(animation: animation, boneCount: rig.bones.count)
         }
         preparedAnimationsByID = preparedAnimations
+    }
+
+    /// Reports whether an authored clip produces the same pose at every
+    /// frame.  Playback uses this load-time fact to keep the submission
+    /// signature stable for static clips, avoiding repeated skinning and
+    /// command encoding when scene time advances without any visual change.
+    /// Unknown clips stay conservative and are treated as time-varying.
+    func isTimeInvariant(animationID: Int) -> Bool {
+        guard let prepared = preparedAnimationsByID[animationID] else {
+            return false
+        }
+        return prepared.drivenBones.isEmpty
     }
 
     func deformedPositions(
@@ -241,6 +181,136 @@ struct ScenePuppetAnimationEvaluator {
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?]
     ) throws -> [SIMD2<Float>] {
+        var positions = Array(
+            repeating: SIMD2<Float>.zero,
+            count: preparedVertices.count
+        )
+        try positions.withUnsafeMutableBufferPointer { buffer in
+            try writeDeformedPositions(
+                selection: selection,
+                frameSamples: frameSamples,
+                into: buffer
+            )
+        }
+        return positions
+    }
+
+    /// Fills a caller-owned position buffer for the runtime path. Keeping the
+    /// storage outside the evaluator avoids a large temporary allocation on
+    /// every frame while preserving the same per-vertex accumulation order as
+    /// `deformedPositions`.
+    func writeDeformedPositions(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
+        into output: UnsafeMutableBufferPointer<SIMD2<Float>>
+    ) throws {
+        guard output.count >= preparedVertices.count else {
+            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+        }
+        let matrices = try localMatrices(
+            selection: selection,
+            frameSamples: frameSamples
+        )
+        let skinMatrices = try skinMatrices(localMatrices: matrices)
+        for vertexIndex in preparedVertices.indices {
+            let point = deformedPoint(
+                vertex: preparedVertices[vertexIndex],
+                skinMatrices: skinMatrices
+            )
+            output[vertexIndex] = point
+        }
+    }
+
+    /// Computes only the origin-centred extent needed by load-time target
+    /// sizing. Coverage callers do not need one temporary `SIMD2` per mesh
+    /// vertex for every sampled animation pose; keeping this reduction beside
+    /// the normal evaluator preserves the exact same skinning inputs while
+    /// avoiding that allocation and copy traffic.
+    func maxAbsDeformedPosition(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?]
+    ) throws -> SIMD2<Float> {
+        try maxAbsDeformedPosition(
+            localMatrices: localMatrices(
+                selection: selection,
+                frameSamples: frameSamples
+            )
+        )
+    }
+
+    /// Returns a conservative extent for a batch of sampled poses.  The
+    /// previous load path reduced every sampled pose over every vertex, which
+    /// made a 35k vertex mesh spend seconds in repeated CPU skinning.  This
+    /// pass scans each sampled skeleton once, keeps per-bone row norms and
+    /// translations, then bounds all vertices with a weighted radius.  The
+    /// bound is intentionally over-approximated, so animation remains fully
+    /// inside the target even between samples.
+    func conservativeMaxAbsDeformedPosition(
+        selection: ScenePuppetAnimationSelection,
+        frameSamplesBatch: [[FrameSample?]]
+    ) throws -> SIMD2<Float> {
+        guard frameSamplesBatch.isEmpty == false else {
+            return try maxAbsDeformedPosition(
+                selection: selection,
+                frameSamples: selection.clips.map { _ in nil }
+            )
+        }
+        var rowNormX = Array(repeating: Float.zero, count: rig.bones.count)
+        var rowNormY = Array(repeating: Float.zero, count: rig.bones.count)
+        var translationX = Array(repeating: Float.zero, count: rig.bones.count)
+        var translationY = Array(repeating: Float.zero, count: rig.bones.count)
+        for frameSamples in frameSamplesBatch {
+            let matrices = try localMatrices(
+                selection: selection,
+                frameSamples: frameSamples
+            )
+            let skin = try skinMatrices(localMatrices: matrices)
+            for boneIndex in skin.indices {
+                let matrix = skin[boneIndex]
+                let normX = hypot(matrix[0].x, matrix[1].x)
+                let normY = hypot(matrix[0].y, matrix[1].y)
+                let tx = abs(matrix[3].x)
+                let ty = abs(matrix[3].y)
+                guard normX.isFinite, normY.isFinite,
+                      tx.isFinite, ty.isFinite else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+                }
+                rowNormX[boneIndex] = max(rowNormX[boneIndex], normX)
+                rowNormY[boneIndex] = max(rowNormY[boneIndex], normY)
+                translationX[boneIndex] = max(translationX[boneIndex], tx)
+                translationY[boneIndex] = max(translationY[boneIndex], ty)
+            }
+        }
+
+        var maximum = SIMD2<Float>(repeating: 0)
+        for vertex in preparedVertices {
+            let radius = hypot(vertex.bindPoint.x, vertex.bindPoint.y)
+            guard radius.isFinite else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidFrame(0)
+            }
+            var bound = SIMD2<Float>.zero
+            let weights = vertex.normalizedWeights
+            let indices = vertex.boneIndices
+            for influence in 0..<4 {
+                let weight = weights[influence]
+                guard weight > 0 else { continue }
+                let boneIndex = Int(indices[influence])
+                guard rig.bones.indices.contains(boneIndex) else {
+                    throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+                }
+                bound.x += weight * (rowNormX[boneIndex] * radius + translationX[boneIndex])
+                bound.y += weight * (rowNormY[boneIndex] * radius + translationY[boneIndex])
+            }
+            maximum.x = max(maximum.x, bound.x)
+            maximum.y = max(maximum.y, bound.y)
+        }
+        return maximum
+    }
+
+    private func localMatrices(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?]
+    ) throws -> [simd_float4x4] {
         guard selection.clips.count == frameSamples.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
@@ -248,9 +318,9 @@ struct ScenePuppetAnimationEvaluator {
         case .singleAbsolute:
             guard selection.clips.count == 1,
                   let frameSample = frameSamples[0] else {
-                return try deformedPositions(localMatrices: bindLocalMatrices)
+                return bindLocalMatrices
             }
-            return try deformedPositions(
+            return try localMatrices(
                 animation: selection.clips[0].animation,
                 frameSample: frameSample
             )
@@ -302,7 +372,7 @@ struct ScenePuppetAnimationEvaluator {
                 }
                 localMatrices.append(Self.matrix(from: pose))
             }
-            return try deformedPositions(localMatrices: localMatrices)
+            return localMatrices
         }
     }
 
@@ -486,6 +556,74 @@ struct ScenePuppetAnimationEvaluator {
     private func deformedPositions(
         localMatrices: [simd_float4x4]
     ) throws -> [SIMD2<Float>] {
+        let skinMatrices = try skinMatrices(localMatrices: localMatrices)
+        return preparedVertices.indices.map { vertexIndex in
+            deformedPoint(
+                vertex: preparedVertices[vertexIndex],
+                skinMatrices: skinMatrices
+            )
+        }
+    }
+
+    private func maxAbsDeformedPosition(
+        localMatrices: [simd_float4x4]
+    ) throws -> SIMD2<Float> {
+        let skinMatrices = try skinMatrices(localMatrices: localMatrices)
+        var maximum = SIMD2<Float>(repeating: 0)
+        for vertex in preparedVertices {
+            let point = deformedPoint(vertex: vertex, skinMatrices: skinMatrices)
+            maximum.x = max(maximum.x, abs(point.x))
+            maximum.y = max(maximum.y, abs(point.y))
+        }
+        return maximum
+    }
+
+    @inline(__always)
+    private func deformedPoint(
+        vertex: PreparedVertex,
+        skinMatrices: [simd_float4x4]
+    ) -> SIMD2<Float> {
+        var point = SIMD2<Float>.zero
+        let bindX = vertex.bindPoint.x
+        let bindY = vertex.bindPoint.y
+        let weight0 = vertex.normalizedWeights.x
+        if weight0 > 0 {
+            let matrix = skinMatrices[Int(vertex.boneIndices.x)]
+            point += SIMD2(
+                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+            ) * weight0
+        }
+        let weight1 = vertex.normalizedWeights.y
+        if weight1 > 0 {
+            let matrix = skinMatrices[Int(vertex.boneIndices.y)]
+            point += SIMD2(
+                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+            ) * weight1
+        }
+        let weight2 = vertex.normalizedWeights.z
+        if weight2 > 0 {
+            let matrix = skinMatrices[Int(vertex.boneIndices.z)]
+            point += SIMD2(
+                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+            ) * weight2
+        }
+        let weight3 = vertex.normalizedWeights.w
+        if weight3 > 0 {
+            let matrix = skinMatrices[Int(vertex.boneIndices.w)]
+            point += SIMD2(
+                matrix[0].x * bindX + matrix[1].x * bindY + matrix[3].x,
+                matrix[0].y * bindX + matrix[1].y * bindY + matrix[3].y
+            ) * weight3
+        }
+        return point
+    }
+
+    private func skinMatrices(
+        localMatrices: [simd_float4x4]
+    ) throws -> [simd_float4x4] {
         guard localMatrices.count == rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
@@ -498,87 +636,7 @@ struct ScenePuppetAnimationEvaluator {
                 : local
             animatedWorldMatrices.append(world)
         }
-        let skinMatrices = zip(animatedWorldMatrices, inverseBindWorldMatrices).map(*)
-
-        return mesh.vertices.indices.map { vertexIndex in
-            let vertex = mesh.vertices[vertexIndex]
-            let weights = rig.vertexWeights[vertexIndex]
-            let bindPoint = SIMD4<Float>(vertex.x, vertex.y, 0, 1)
-            let totalWeight = max(
-                weights.boneWeights.x + weights.boneWeights.y
-                    + weights.boneWeights.z + weights.boneWeights.w,
-                Float.leastNonzeroMagnitude
-            )
-            var point = SIMD4<Float>.zero
-            for influence in 0..<4 {
-                let weight = weights.boneWeights[influence] / totalWeight
-                guard weight > 0 else { continue }
-                point += (skinMatrices[Int(weights.boneIndices[influence])] * bindPoint) * weight
-            }
-            return SIMD2(point.x, point.y)
-        }
-    }
-
-    static func frameSample(
-        sceneTime: Double,
-        rate: Double,
-        animation: SceneMdlPuppetAnimation
-    ) -> FrameSample {
-        guard sceneTime.isFinite, rate.isFinite, rate > 0,
-              animation.framesPerSecond.isFinite,
-              animation.framesPerSecond > 0,
-              animation.frameCount > 0 else {
-            return FrameSample(frameA: 0, frameB: 0)
-        }
-        let count = animation.frameCount
-        let phase = max(0, sceneTime) * rate * Double(animation.framesPerSecond)
-        guard phase.isFinite else {
-            return FrameSample(frameA: 0, frameB: 0)
-        }
-
-        func linearSample(_ q: Double) -> FrameSample {
-            let bounded = min(Double(count), max(0, q))
-            if bounded >= Double(count) {
-                return FrameSample(frameA: count - 1, frameB: count, fraction: 1)
-            }
-            let a = min(count - 1, max(0, Int(bounded.rounded(.down))))
-            let fraction = Float(min(1, max(0, bounded - Double(a))))
-            return FrameSample(frameA: a, frameB: a + 1, fraction: fraction)
-        }
-
-        func positiveRemainder(_ value: Double, _ period: Double) -> Double {
-            let remainder = value.truncatingRemainder(dividingBy: period)
-            return remainder >= 0 ? remainder : remainder + period
-        }
-
-        switch animation.mode {
-        case "single":
-            return linearSample(phase)
-        case "mirror":
-            let period = Double(count) * 2
-            let q = positiveRemainder(phase, period)
-            let aRaw = min(count * 2 - 1, max(0, Int(q.rounded(.down))))
-            let fraction = Float(min(1, max(0, q - Double(aRaw))))
-            func mirrorIndex(_ index: Int) -> Int {
-                index <= count ? index : count * 2 - index
-            }
-            return FrameSample(
-                frameA: mirrorIndex(aRaw),
-                frameB: mirrorIndex(aRaw + 1),
-                fraction: fraction
-            )
-        default:
-            let q = positiveRemainder(phase, Double(count))
-            return linearSample(q)
-        }
-    }
-
-    static func frameIndex(
-        sceneTime: Double,
-        rate: Double,
-        animation: SceneMdlPuppetAnimation
-    ) -> Int {
-        frameSample(sceneTime: sceneTime, rate: rate, animation: animation).frameA
+        return zip(animatedWorldMatrices, inverseBindWorldMatrices).map(*)
     }
 
     private static func matrix(fromColumnMajor values: [Float]) -> simd_float4x4 {

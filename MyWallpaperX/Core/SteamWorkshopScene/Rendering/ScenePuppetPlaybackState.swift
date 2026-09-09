@@ -8,10 +8,14 @@ final class ScenePuppetPlaybackState {
         let fractionBits: UInt32
         let visible: Bool
 
-        init(sample: ScenePuppetAnimationEvaluator.FrameSample?, visible: Bool) {
-            frameA = sample?.frameA ?? 0
-            frameB = sample?.frameB ?? 0
-            fractionBits = sample?.fraction.bitPattern ?? 0
+        init(
+            sample: ScenePuppetAnimationEvaluator.FrameSample?,
+            visible: Bool,
+            timeInvariant: Bool = false
+        ) {
+            frameA = timeInvariant ? 0 : (sample?.frameA ?? 0)
+            frameB = timeInvariant ? 0 : (sample?.frameB ?? 0)
+            fractionBits = timeInvariant ? 0 : (sample?.fraction.bitPattern ?? 0)
             self.visible = visible
         }
     }
@@ -64,6 +68,11 @@ final class ScenePuppetPlaybackState {
     private let renderPipelineState: MTLRenderPipelineState
     private let coverageWidth: Float
     private let coverageHeight: Float
+    /// Reused CPU staging storage. Puppet meshes can contain tens of
+    /// thousands of vertices; allocating position and vertex arrays on every
+    /// source update was a measurable part of the frame callback cost.
+    private var positionScratch: [SIMD2<Float>]
+    private var vertexScratch: [SceneQuadVertex]
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -100,15 +109,14 @@ final class ScenePuppetPlaybackState {
         // load-time coverage so a limb that swings outside the bind pose
         // cannot be clipped by the fixed target extent.
         var animatedMaxAbs = SIMD2<Float>(repeating: 0)
-        func record(_ positions: [SIMD2<Float>]) {
-            for position in positions {
-                animatedMaxAbs.x = max(animatedMaxAbs.x, abs(position.x))
-                animatedMaxAbs.y = max(animatedMaxAbs.y, abs(position.y))
-            }
+        func record(_ bounds: SIMD2<Float>) {
+            animatedMaxAbs.x = max(animatedMaxAbs.x, bounds.x)
+            animatedMaxAbs.y = max(animatedMaxAbs.y, bounds.y)
         }
         let baselineSamples = selection.clips.map { _ in
             ScenePuppetAnimationEvaluator.FrameSample(frameA: 0, frameB: 0)
         }
+        var coverageSamples: [[ScenePuppetAnimationEvaluator.FrameSample?]] = []
         for (clipIndex, clip) in selection.clips.enumerated() {
             let frameCount = clip.animation.frameCount
             guard frameCount >= 0 else {
@@ -126,16 +134,7 @@ final class ScenePuppetPlaybackState {
                     frameA: frame,
                     frameB: frame
                 )
-                do {
-                    record(try evaluator.deformedPositions(
-                        selection: selection,
-                        frameSamples: samples
-                    ))
-                } catch let failure as ScenePuppetAnimationEvaluationFailure {
-                    return .failure(.evaluation(failure))
-                } catch {
-                    return .failure(.resourceAllocationFailed)
-                }
+                coverageSamples.append(samples)
                 guard frame < frameCount else { continue }
                 let nextFrame = min(frame + frameStride, frameCount)
                 guard nextFrame > frame else { continue }
@@ -144,17 +143,18 @@ final class ScenePuppetPlaybackState {
                     frameB: nextFrame,
                     fraction: 0.5
                 )
-                do {
-                    record(try evaluator.deformedPositions(
-                        selection: selection,
-                        frameSamples: samples
-                    ))
-                } catch let failure as ScenePuppetAnimationEvaluationFailure {
-                    return .failure(.evaluation(failure))
-                } catch {
-                    return .failure(.resourceAllocationFailed)
-                }
+                coverageSamples.append(samples)
             }
+        }
+        do {
+            record(try evaluator.conservativeMaxAbsDeformedPosition(
+                selection: selection,
+                frameSamplesBatch: coverageSamples
+            ))
+        } catch let failure as ScenePuppetAnimationEvaluationFailure {
+            return .failure(.evaluation(failure))
+        } catch {
+            return .failure(.resourceAllocationFailed)
         }
         guard let coverage = ScenePuppetMeshRecomposer.coverageExtent(
             mesh: mesh,
@@ -240,29 +240,44 @@ final class ScenePuppetPlaybackState {
                 animation: clip.animation
             )
         }
-        let signature = frameSamples.map { sample in
-            FrameSignature(sample: sample, visible: sample != nil)
-        }
-        guard let positions = try? evaluator.deformedPositions(
-            selection: selection,
-            frameSamples: frameSamples
-        ) else { return }
-
-        let vertices = mesh.vertices.indices.map { index in
-            SceneQuadVertex(
-                position: SIMD2(
-                    positions[index].x / coverageWidth,
-                    positions[index].y / coverageHeight
-                ),
-                texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
+        let signature = frameSamples.enumerated().map { index, sample in
+            FrameSignature(
+                sample: sample,
+                visible: sample != nil,
+                timeInvariant: evaluator.isTimeInvariant(
+                    animationID: selection.clips[index].animation.id
+                )
             )
         }
         submissions.update(transaction: transaction) { submission in
             guard signature != submission.frameSignature else { return }
+            // Keep the expensive CPU skinning behind the frame signature
+            // guard. At display rates a source frame commonly repeats; the
+            // old order rebuilt every vertex array before discovering that
+            // no new GPU submission was needed.
+            let evaluated = positionScratch.withUnsafeMutableBufferPointer {
+                positions in
+                (try? evaluator.writeDeformedPositions(
+                    selection: selection,
+                    frameSamples: frameSamples,
+                    into: positions
+                )) != nil
+            }
+            guard evaluated else { return }
+            for index in mesh.vertices.indices {
+                let position = positionScratch[index]
+                vertexScratch[index] = SceneQuadVertex(
+                    position: SIMD2(
+                        position.x / coverageWidth,
+                        position.y / coverageHeight
+                    ),
+                    texcoord: SIMD2(mesh.vertices[index].u, mesh.vertices[index].v)
+                )
+            }
             let vertexBuffer = vertexBuffers[submission.nextVertexBufferIndex]
             submission.nextVertexBufferIndex =
                 (submission.nextVertexBufferIndex + 1) % vertexBuffers.count
-            vertices.withUnsafeBytes { bytes in
+            vertexScratch.withUnsafeBytes { bytes in
                 guard let source = bytes.baseAddress else { return }
                 vertexBuffer.contents().copyMemory(
                     from: source,
@@ -350,5 +365,15 @@ final class ScenePuppetPlaybackState {
         self.renderPipelineState = renderPipelineState
         self.coverageWidth = coverageWidth
         self.coverageHeight = coverageHeight
+        self.positionScratch = Array(
+            repeating: SIMD2<Float>.zero,
+            count: mesh.vertices.count
+        )
+        self.vertexScratch = mesh.vertices.map { vertex in
+            SceneQuadVertex(
+                position: .zero,
+                texcoord: SIMD2(vertex.u, vertex.v)
+            )
+        }
     }
 }

@@ -12,13 +12,18 @@ from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PLAYBACK_STATE_SOURCE = (
+    SCENE_ROOT / "Rendering/ScenePuppetPlaybackState.swift"
+).read_text(encoding="utf-8")
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetAnimation.swift",
     SCENE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetAnimationSelection.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+FrameSampling.swift",
 ]
 
 HARNESS = r'''
@@ -136,7 +141,10 @@ enum Harness {
             version: "MDLV0023",
             vertexStride: 80,
             meshBlockOffset: 9,
-            vertices: [.init(x: 2, y: 1, z: 0, u: 0.5, v: 0.25)],
+            vertices: [
+                .init(x: 2, y: 1, z: 0, u: 0.5, v: 0.25),
+                .init(x: -6, y: -4, z: 0, u: 0.25, v: 0.75),
+            ],
             indices: [0, 0, 0]
         )
         let rootBind: [Float] = [
@@ -156,14 +164,61 @@ enum Harness {
                 .init(parentIndex: -1, bindLocalMatrixColumnMajor: rootBind),
                 .init(parentIndex: 0, bindLocalMatrixColumnMajor: childBind),
             ],
-            vertexWeights: [.init(
-                boneIndices: SIMD4(1, 0, 0, 0),
-                boneWeights: SIMD4(1, 0, 0, 0)
-            )]
+            vertexWeights: [
+                .init(
+                    boneIndices: SIMD4(1, 0, 0, 0),
+                    boneWeights: SIMD4(1, 0, 0, 0)
+                ),
+                .init(
+                    boneIndices: SIMD4(0, 0, 0, 0),
+                    boneWeights: SIMD4(1, 0, 0, 0)
+                ),
+            ]
         )
         let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig)
         let frame0 = try evaluator.deformedPositions(animation: animation, frameIndex: 0)[0]
-        let frame1 = try evaluator.deformedPositions(animation: animation, frameIndex: 1)[0]
+        let frame1Positions = try evaluator.deformedPositions(
+            animation: animation,
+            frameIndex: 1
+        )
+        let frame1 = frame1Positions[0]
+        let expectedFrame1Bounds = frame1Positions.reduce(
+            into: SIMD2<Float>(repeating: 0)
+        ) { bounds, position in
+            bounds.x = max(bounds.x, abs(position.x))
+            bounds.y = max(bounds.y, abs(position.y))
+        }
+        let singleSelection = ScenePuppetAnimationSelection(
+            clips: [.init(layer: layer(), animation: animation)],
+            composition: .singleAbsolute
+        )
+        let frame1Bounds = try evaluator.maxAbsDeformedPosition(
+            selection: singleSelection,
+            frameSamples: [.init(frameA: 1, frameB: 1)]
+        )
+        let staticAnimation = SceneMdlPuppetAnimation(
+            id: 600,
+            name: "Static",
+            mode: "loop",
+            framesPerSecond: 2,
+            frameCount: 2,
+            transformsByBone: [
+                [transform(translationX: 4), transform(translationX: 4), transform(translationX: 4)],
+                [transform(translationX: 2), transform(translationX: 2), transform(translationX: 2)],
+            ]
+        )
+        let invariantEvaluator = try ScenePuppetAnimationEvaluator(
+            mesh: mesh,
+            rig: rig,
+            additiveAnimations: [animation, staticAnimation]
+        )
+        let conservativeBounds = try invariantEvaluator.conservativeMaxAbsDeformedPosition(
+            selection: singleSelection,
+            frameSamplesBatch: [
+                [.init(frameA: 0, frameB: 0)],
+                [.init(frameA: 1, frameB: 1)],
+            ]
+        )
         let additiveSelection: ScenePuppetAnimationSelection
         switch ScenePuppetAnimationSelector.select(
             layers: [
@@ -328,6 +383,12 @@ enum Harness {
             "mirrorPositions": mirrorPositions,
             "frame0": [frame0.x, frame0.y],
             "frame1": [frame1.x, frame1.y],
+            "frame1Bounds": [frame1Bounds.x, frame1Bounds.y],
+            "frame1BoundsMatch": frame1Bounds == expectedFrame1Bounds,
+            "conservativeBoundsCover": conservativeBounds.x >= expectedFrame1Bounds.x
+                && conservativeBounds.y >= expectedFrame1Bounds.y,
+            "dynamicAnimationTimeVarying": !invariantEvaluator.isTimeInvariant(animationID: 100),
+            "staticAnimationTimeInvariant": invariantEvaluator.isTimeInvariant(animationID: 600),
             "additiveBoth": [additiveBoth.x, additiveBoth.y],
             "additiveChildOnly": [additiveChildOnly.x, additiveChildOnly.y],
             "additiveRootOnly": [additiveRootOnly.x, additiveRootOnly.y],
@@ -389,7 +450,10 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
             "selected:layered:100,200",
         )
         self.assertEqual(self.result["mixedSelection"], "selected:layered:100,200")
-        self.assertIn("outside the bounded playback profile", self.result["blend"])
+        self.assertEqual(
+            self.result["blend"],
+            "selected:single-absolute:100",
+        )
         self.assertEqual(
             self.result["fractionalRate"],
             "selected:single-absolute:100",
@@ -428,6 +492,24 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
     def test_bind_identity_and_later_frame_movement(self) -> None:
         self.assertEqual(self.result["frame0"], [2, 1])
         self.assertEqual(self.result["frame1"], [5, 1])
+
+    def test_bounds_only_reduction_matches_deformed_positions(self) -> None:
+        self.assertEqual(self.result["frame1Bounds"], [6, 4])
+        self.assertTrue(self.result["frame1BoundsMatch"])
+        self.assertTrue(self.result["conservativeBoundsCover"])
+
+    def test_static_clip_signature_fact_is_conservative(self) -> None:
+        self.assertTrue(self.result["dynamicAnimationTimeVarying"])
+        self.assertTrue(self.result["staticAnimationTimeInvariant"])
+
+    def test_load_time_coverage_does_not_materialize_vertex_positions(self) -> None:
+        coverage = PLAYBACK_STATE_SOURCE.split(
+            "var animatedMaxAbs = SIMD2<Float>(repeating: 0)", 1
+        )[1].split(
+            "guard let coverage = ScenePuppetMeshRecomposer.coverageExtent(", 1
+        )[0]
+        self.assertEqual(coverage.count("conservativeMaxAbsDeformedPosition("), 1)
+        self.assertNotIn("deformedPositions(", coverage)
 
     def test_layered_additive_bones_compose_and_visibility_is_per_clip(self) -> None:
         self.assertEqual(self.result["additiveBoth"], [8, 1])

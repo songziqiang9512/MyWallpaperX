@@ -24,6 +24,11 @@ HOST_FRAME_DRIVER_SOURCE = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
     / "SceneDesktopWallpaperHost+FrameDriver.swift"
 )
+HOST_SURFACE_TEARDOWN_SOURCE = (
+    REPOSITORY_ROOT
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
+    / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+)
 HOST_FRAME_DRIVER_LIFECYCLE_SOURCE = (
     REPOSITORY_ROOT
     / "MyWallpaperX/Core/SteamWorkshopScene/Runtime"
@@ -478,7 +483,10 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
             rebuild,
         )
 
-        teardown = swift_block(frame_driver, "func teardownSurfaces(")
+        teardown = swift_block(
+            HOST_SURFACE_TEARDOWN_SOURCE.read_text(encoding="utf-8"),
+            "func teardownSurfaces("
+        )
         self.assertIsNotNone(teardown)
         assert teardown is not None
         stop_index = teardown.index("videoTextureSourceRegistry?.stop()")
