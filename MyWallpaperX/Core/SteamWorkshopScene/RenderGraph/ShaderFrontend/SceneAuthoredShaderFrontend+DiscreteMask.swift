@@ -1,9 +1,9 @@
 import Foundation
 
-/// Makes authored integer mask boundaries explicit when scalar `step` results
-/// flow into integer storage. Each result is exactly zero or one, so the
-/// conversion preserves the authored value without admitting general
-/// float-to-int coercion.
+/// Makes authored integer storage boundaries explicit for scalar `step` and
+/// rounding built-ins. These operations already produce integral values; the
+/// cast retains the author's integer destination without adding general
+/// float-to-int or vector-to-scalar coercion.
 nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
     static func rewrite(
         _ source: String,
@@ -24,7 +24,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
             stage: stage
         )
         guard analysis.diagnostics.isEmpty, let unit = analysis.unit,
-              !unit.functions.contains(where: { ["max", "step"].contains($0.name) })
+              !unit.functions.contains(where: { ["max", "step", "floor", "ceil", "trunc"].contains($0.name) })
         else { return normalized }
 
         var lineStarts = [0]
@@ -43,7 +43,8 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
 
         var insertions: [(offset: Int, text: String)] = []
         for index in unit.tokens.indices {
-            guard unit.tokens[index].text == "step", index >= 2,
+            guard ["step", "floor", "ceil", "trunc"].contains(unit.tokens[index].text),
+                  index >= 2,
                   unit.tokens[index - 1].text == "=",
                   unit.tokens[index - 2].kind == .identifier,
                   declaredType(
@@ -61,7 +62,7 @@ nonisolated enum SceneAuthoredShaderDiscreteMaskConversion {
                       opening: index + 1,
                       closing: closing,
                       tokens: unit.tokens
-                  ), arguments.count == 2,
+                  ), arguments.count == (unit.tokens[index].text == "step" ? 2 : 1),
                   arguments.allSatisfy({
                       isScalarNumeric($0, before: index, unit: unit)
                   }),

@@ -330,10 +330,21 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         var firstCapturedMainMaterial: (node: Graph.Node, template: Template)?
         for node in product.graph.nodes {
             guard case .material = node.kind else {
-                // Copy/swap semantics may change which version owns an
-                // identity. Keep launch typing conservative until command
-                // lowering can publish an equally typed transfer fact.
-                graphTextureContentFacts.removeAll()
+                if node.kind == .copy, node.conditions == nil,
+                   node.compose == nil || node.compose == .bool(false),
+                   let source = node.commandSource,
+                   let target = node.commandTarget,
+                   let fact = graphTextureContentFacts[source] {
+                    // A validated same-format copy preserves the raw RGBA
+                    // state contract. Publish only this exact source/target
+                    // fact; swaps and unknown commands remain conservative.
+                    graphTextureContentFacts[target] = fact
+                } else if node.kind == .copy,
+                          let target = node.commandTarget {
+                    graphTextureContentFacts.removeValue(forKey: target)
+                } else {
+                    graphTextureContentFacts.removeAll()
+                }
                 continue
             }
             let key = MaterialKey(effect: node.effect, nodeIndex: node.nodeIndex)
@@ -464,7 +475,13 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if let target = node.target,
                node.conditions == nil,
                node.compose == nil {
-                if variants.launchEnvelopeProvesOpaqueColorOutput {
+                if preservedRGBADataTargets.contains(target),
+                   attachment.storage == .preservedRGBAUnorm {
+                    // The accumulation owner writes an RGBA8 state vector;
+                    // its channels remain data through validated copies.
+                    // A terminal consumer must prove its own content contract.
+                    graphTextureContentFacts[target] = .data
+                } else if variants.launchEnvelopeProvesOpaqueColorOutput {
                     graphTextureContentFacts[target] =
                         .color(.resolved(.opaque))
                 } else {

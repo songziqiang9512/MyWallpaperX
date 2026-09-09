@@ -414,9 +414,6 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
     static func boundedFeedbackHistoryProfile(
         in graph: Graph
     ) -> FeedbackHistoryProfile? {
-        guard authoredTargetDescriptorsAreEquivalent(graph.renderTargets) else {
-            return nil
-        }
         var descriptors: [Graph.TextureIdentity: TargetDescriptor] = [:]
         for target in graph.renderTargets {
             guard let descriptor = targetDescriptor(
@@ -428,10 +425,89 @@ nonisolated struct SceneGraphRenderTargetPlan: Equatable {
                 forKey: target.texture
             ) == nil else { return nil }
         }
+        // A small class of authored accumulation effects uses a unique
+        // history seed, a raw RGBA state target, then a copy back into the
+        // seed before a terminal passthrough. Its descriptors intentionally
+        // differ in uniqueness, so it must be admitted before the older
+        // two-material ping-pong profile below.
+        if let profile = boundedFeedbackHistoryCopyProfile(
+            graph: graph,
+            descriptors: descriptors
+        ) {
+            return profile
+        }
+        guard authoredTargetDescriptorsAreEquivalent(graph.renderTargets) else {
+            return nil
+        }
         return boundedFeedbackHistoryProfile(
             graph: graph,
             descriptors: descriptors
         )
+    }
+
+    private static func boundedFeedbackHistoryCopyProfile(
+        graph: Graph,
+        descriptors: [Graph.TextureIdentity: TargetDescriptor]
+    ) -> FeedbackHistoryProfile? {
+        guard graph.blockers.isEmpty,
+              graph.effects.count == 1,
+              graph.renderTargets.count == 2,
+              graph.nodes.count == 3,
+              let effect = graph.effects.first,
+              effect.nodeIndices == graph.nodes.map(\.nodeIndex),
+              graph.finalOutput == effect.output,
+              graph.renderTargets.allSatisfy({
+                  validTargetIdentity($0.texture, effect: effect.key, layerID: graph.layerID)
+              }),
+              authoredCommandStorageDescriptorsAreCompatible(in: graph)
+        else { return nil }
+
+        let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
+        guard nodes.map(\.nodeIndex) == graph.nodes.map(\.nodeIndex),
+              Set(nodes.map(\.nodeIndex)).count == nodes.count,
+              nodes[0].kind == .material,
+              nodes[1].kind == .copy,
+              nodes[2].kind == .material,
+              nodes.allSatisfy({
+                  $0.effect == effect.key
+                      && $0.conditions == nil
+                      && $0.bindings.allSatisfy { $0.conditions == nil }
+                      && Set($0.bindings.map(\.slot)).count == $0.bindings.count
+                      && ($0.compose == nil || $0.compose == .bool(false))
+              }),
+              let seed = nodes[0].bindings.first(where: {
+                  $0.texture.kind == .framebuffer
+              })?.texture,
+              let state = nodes[0].target,
+              let source = nodes[1].commandSource,
+              let copied = nodes[1].commandTarget,
+              let terminalInput = nodes[2].bindings.first?.texture,
+              nodes[1].bindings.isEmpty,
+              nodes[1].target == nil,
+              nodes[1].materialOrdinal == nil,
+              nodes[1].instancePassIndex == nil,
+              nodes[1].materialPath == nil,
+              nodes[1].materialPassID == nil,
+              source == state,
+              copied == seed,
+              terminalInput == state,
+              nodes[2].target == effect.output,
+              nodes[0].bindings.count == 2,
+              nodes[0].bindings.contains(where: {
+                  $0.texture == effect.input
+              }),
+              nodes[2].bindings.count == 1,
+              seed != state,
+              descriptors[seed]?.format == .rgbaBackbuffer,
+              descriptors[state]?.format == .rgbaBackbuffer,
+              descriptors[seed]?.extent == descriptors[state]?.extent,
+              descriptors[seed]?.addressMode == descriptors[state]?.addressMode,
+              descriptors[seed]?.initialClear == nil,
+              descriptors[state]?.initialClear == nil,
+              descriptors[seed]?.isUnique == true,
+              descriptors[state]?.isUnique == false
+        else { return nil }
+        return .init(seedTargets: [seed], stateTargets: [state])
     }
 
     private static func boundedFeedbackHistoryProfile(

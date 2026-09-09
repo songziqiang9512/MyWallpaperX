@@ -2453,6 +2453,58 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
             self.assertIn(f"mwxInput.unseenLink.{components}", output["metalSource"])
             self.assertIsNone(output.get("metalError"))
 
+    def test_float_varying_reverse_prefix_reads_only_published_components(self):
+        vertex = """
+            attribute vec3 a_Position;
+            attribute vec2 a_TexCoord;
+            varying vec2 feedback;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                feedback.x = a_TexCoord.x;
+                feedback.y = a_TexCoord.y;
+            }
+        """
+        fragment = """
+            varying vec3 feedback;
+            void main() {
+                float rate = step(feedback.x, 1.0) + feedback.y;
+                gl_FragColor = vec4(rate);
+            }
+        """
+        output = self.compile(vertex, fragment)
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn("float2 feedback [[user(locn0)]]", output["metalSource"])
+        self.assertIn("mwxInput.feedback . x", output["metalSource"])
+        self.assertIn("mwxInput.feedback . y", output["metalSource"])
+        self.assertIsNone(output.get("metalError"))
+
+        invalid_fragments = [
+            "varying vec3 feedback; void main() { gl_FragColor = vec4(feedback); }",
+            "varying vec3 feedback; void main() { gl_FragColor = vec4(feedback.z); }",
+            "varying vec3 feedback; void main() { feedback.xy = vec2(0.0); gl_FragColor = vec4(1.0); }",
+            "uniform int g_Index; varying vec3 feedback; void main() { gl_FragColor = vec4(feedback.xy[g_Index]); }",
+            "varying vec3 feedback; vec2 unknown(vec2 value) { return value; } void main() { gl_FragColor = vec4(unknown(feedback.xy), 0.0, 1.0); }",
+            "varying vec3 feedback; vec2 step(vec2 value, vec2 edge) { return value; } void main() { gl_FragColor = vec4(step(feedback.xy, vec2(1.0)), 0.0, 1.0); }",
+            "varying vec3 feedback; vec2 unknown(vec2 value) { return value; } void main() { gl_FragColor = vec4(unknown(vec2(feedback.x)), 0.0, 1.0); }",
+        ]
+        for candidate in invalid_fragments:
+            with self.subTest(fragment=candidate):
+                rejected = self.compile(vertex, candidate, metal=False)
+                self.assertEqual(rejected["diagnosticCodes"], ["stageLinkMismatch"])
+
+        incomplete_vertex = vertex.replace(
+            "feedback.y = a_TexCoord.y;", "feedback.x = a_TexCoord.y;"
+        )
+        rejected = self.compile(incomplete_vertex, fragment, metal=False)
+        self.assertEqual(rejected["diagnosticCodes"], ["stageLinkMismatch"])
+
+        conditional_vertex = vertex.replace(
+            "feedback.x = a_TexCoord.x;",
+            "if (a_TexCoord.x > 0.0) feedback.x = a_TexCoord.x;",
+        )
+        rejected = self.compile(conditional_vertex, fragment, metal=False)
+        self.assertEqual(rejected["diagnosticCodes"], ["stageLinkMismatch"])
+
     def test_float_varying_prefix_accepts_texture_coordinate_and_whole_copy(self):
         output = self.compile(
             """

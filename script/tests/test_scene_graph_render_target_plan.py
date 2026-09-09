@@ -113,7 +113,8 @@ enum Harness {
         kind: Graph.NodeKind,
         key: Graph.EffectKey,
         source: Graph.TextureIdentity,
-        target: Graph.TextureIdentity
+        target: Graph.TextureIdentity,
+        conditions: SceneJSONValue? = nil
     ) -> Graph.Node {
         .init(
             nodeIndex: index,
@@ -129,7 +130,7 @@ enum Harness {
             commandSource: source,
             commandTarget: target,
             compose: nil,
-            conditions: nil
+            conditions: conditions
         )
     }
 
@@ -701,6 +702,60 @@ enum Harness {
             input: input,
             output: output
         )
+        let feedbackSeed = texture(.framebuffer, key: key, name: "feedback_seed")
+        let feedbackState = texture(.framebuffer, key: key, name: "feedback_state")
+        let feedbackCopy = graph(
+            targets: [
+                target(feedbackSeed, extent: fit512, format: "rgba_backbuffer", unique: true),
+                target(feedbackState, extent: fit512, format: "rgba_backbuffer"),
+            ],
+            nodes: [
+                node(0, key: key, target: feedbackState, reads: [input, feedbackSeed]),
+                commandNode(1, kind: .copy, key: key, source: feedbackState, target: feedbackSeed),
+                node(2, key: key, target: output, reads: [feedbackState]),
+            ],
+            key: key,
+            input: input,
+            output: output
+        )
+        guard case .success(let feedbackCopyPlan) = SceneGraphRenderTargetPlan.make(
+            graph: feedbackCopy,
+            inputRole: .layerSource,
+            inputWidth: 1920,
+            inputHeight: 1080
+        ) else {
+            fatalError("feedback copy fixture rejected")
+        }
+        let feedbackCopyProfile = SceneGraphRenderTargetPlan.boundedFeedbackHistoryProfile(
+            in: feedbackCopy
+        )
+        let feedbackCopyMismatchedExtent = graph(
+            targets: [
+                target(feedbackSeed, extent: fit512, unique: true),
+                target(feedbackState, extent: .init(kind: .fit, first: 256, second: nil)),
+            ], nodes: feedbackCopy.nodes, key: key, input: input, output: output
+        )
+        let feedbackCopyWrongTerminal = graph(
+            targets: feedbackCopy.renderTargets,
+            nodes: Array(feedbackCopy.nodes.prefix(2)) + [
+                node(2, key: key, target: output, reads: [input]),
+            ], key: key, input: input, output: output
+        )
+        let feedbackCopyWithoutUniqueSeed = graph(
+            targets: [
+                target(feedbackSeed, extent: fit512),
+                target(feedbackState, extent: fit512),
+            ], nodes: feedbackCopy.nodes, key: key, input: input, output: output
+        )
+        let feedbackConditionalCopy = graph(
+            targets: feedbackCopy.renderTargets,
+            nodes: [
+                feedbackCopy.nodes[0],
+                commandNode(1, kind: .copy, key: key, source: feedbackState,
+                    target: feedbackSeed, conditions: .bool(false)),
+                feedbackCopy.nodes[2],
+            ], key: key, input: input, output: output
+        )
         let duplicate = graph(
             targets: [target(q1, extent: scaleFour), target(q1, extent: scaleFour)],
             nodes: standard.nodes,
@@ -813,6 +868,14 @@ enum Harness {
                 SceneGraphRenderTargetPlan.boundedFeedbackHistoryProfile(
                     in: cursorHistoryCollapsedProbeMismatch
                 ) == nil,
+            "feedbackCopyTargets": targetSummary(feedbackCopyPlan),
+            "feedbackCopyCommands": feedbackCopyPlan.commands.map { $0.kind.rawValue },
+            "feedbackCopyProfileState": feedbackCopyProfile?.stateTargets.map { $0.name! }.sorted() ?? [],
+            "feedbackCopyProfileSeed": feedbackCopyProfile?.seedTargets.map { $0.name! }.sorted() ?? [],
+            "feedbackCopyNegativeProfiles": [
+                feedbackCopyMismatchedExtent, feedbackCopyWrongTerminal, feedbackCopyWithoutUniqueSeed,
+                feedbackConditionalCopy,
+            ].map { SceneGraphRenderTargetPlan.boundedFeedbackHistoryProfile(in: $0) == nil },
             "commands": commandsPlan.commands.map {
                 [
                     "node": $0.nodeIndex,
@@ -1125,6 +1188,16 @@ class SceneGraphRenderTargetPlanTests(unittest.TestCase):
         )
         self.assertTrue(
             self.result["cursorHistoryCollapsedProbeMismatchRejected"]
+        )
+
+    def test_feedback_copy_profile_admits_unique_seed_and_preserves_command_order(self) -> None:
+        self.assertEqual(self.result["feedbackCopyCommands"], ["copy"])
+        self.assertEqual(self.result["feedbackCopyProfileState"], ["feedback_state"])
+        self.assertEqual(self.result["feedbackCopyProfileSeed"], ["feedback_seed"])
+        self.assertEqual(self.result["feedbackCopyNegativeProfiles"], [True, True, True, True])
+        self.assertEqual(
+            [(target["name"], target["historySeed"]) for target in self.result["feedbackCopyTargets"]],
+            [("feedback_seed", True), ("feedback_state", False)],
         )
 
     def test_copy_and_swap_extend_target_lifetimes_in_authored_order(self) -> None:

@@ -22,6 +22,17 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-10-b5-feedback-frontend"></a>
+### 2026-09-10 B5 feedback 编译恢复与 terminal 数据边界
+
+共享 varying-prefix linker 现支持 vertex 较窄、fragment 声明较宽但只读取已写入前缀的形状；vertex 全路径初始化、逐分量唯一写入、fragment 只读 component use 共同证明，无 suffix 合成。whole/suffix/index/可变调用/同名遮蔽/条件写入继续拒绝。真实 accumulation 接着暴露 `int index = floor(...)` 的 float→int stage-link 错误，现由已有 token/type canonicalizer 对单一标量 `floor/ceil/trunc` RHS 添加显式 int 转换；向量、复合 RHS、未知函数和用户同名函数均不转换。frontend/environment schema 已更新为 **8/35**，旧拒绝缓存不会复用。
+
+Graph target plan 已识别“唯一 history seed + 同格式同 authored extent 的 state + material/copy/material”的精确有界结构。copy 只传递已证明的 content fact，conditional copy 不发布确定事实，swap/未知 command 保守失效；积累输出保持 `.data`，不改称 premultiplied color。Shader/frontend 两模块 **154 项：153 PASS / 1 skip**（隔离 3141421197 fixture 缺失）；其中新增 rounding 测试经过真实 Swift normalizer 和仓库 glslang stage-link。graph plan/source-set/environment **31/31 PASS**，含错 extent、错 terminal input、非唯一 seed、conditional copy 反例；最终 signed Debug build、code health、diff-check 通过。
+
+最终 `3448845950` 隔离 12 秒 / after 9 秒 / silence-fixture 回放仍 **NON-PASS**。实际 App CDHash `ff393c09fe0b831c25abe6d7920f801e6ec82e1f`、executable SHA `5bf7bb7ed622aef28612f1e245c37432cf15502efee021a0273cae148dfac72b`（Developer ID、H9QWU9XN8R、2.0.9 (277)，运行前后签名验证通过）。accumulation request `bcbe2eeacf12cec597a1c7706738e929a4a79f9637318f12ae6d70efe1f9e7ef` 已为 `generic-only / source-proven-preserved-rgba-state-transform / accepted`；layer 1475 的首断点稳定从 `material-generic-owner-revoked` 推进到 node 2 combine 的 `material-variant-envelope-color-contract / launch-color-projection-unresolved`。B3 的八个 VM uniform 仍执行且四处 attachment 拒绝保持清零；另三处 dependency-stage 仍存在。report/app.log/runtime-input SHA 为 `8928b67530b2754568b13de594cfa0af6e1420cea10a336ead54058f2c041bbe` / `b03081a22e161ddb5303078f026cd0b71cb998a2c5ceec04b71898ab248417d0` / `60b0bf1abf52d82414ddb8108204eb54749babc8e356adb54ba231c6c9d1b15e`；matrix 同 B3 首例。现场 `/private/tmp/mwx-b5-final-contract-20260910` 仅作 provenance，运行 App/HOME/样本副本已由 benchmark 清理。
+
+**B5 不关闭，最高 S2 preparation**。合法 corpus 显示该零面积辅助层保存 packed 音频 RGBA，combine 是 whole-sample passthrough，layer 322 按依赖纹理消费；terminal 是数据 provider，不是颜色转换。下一切片必须让 typed `.data` 穿过 effect-output attachment、GraphExecutor PairAtom/fullFrameResource、submission ticket、named-target registry/publication 与下游 texture purpose，再由实际颜色消费者进入唯一 compositor。现有 `.independentAlphaSignal` 不是任意 RGBA 数据，不可复用掩盖类型；`resolveColor(.passthrough)` 不得把 `.data` 强制解释为 premultiplied。当前仍无该 effect 的实际 material GPU/state history/terminal provider 证据，不能用 fallback 的 compositor completion 充数。
+
 <a id="e-2026-09-10-b3-property-vector-input"></a>
 ### 2026-09-10 B3 颜色属性输入 → SceneScript → material uniform
 

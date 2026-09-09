@@ -12,6 +12,10 @@
 
 当前代码集群已经提交为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本页记录的是这些提交构建出的 12 样本结构/执行复跑，不能把 `5/12` strict PASS 解释成视觉通过。视觉完成仍以 159 样本台账的 `0 pass / 19 fail / 140 unreviewed` 为准。
 
+### 2026-09-10 B5 最终首断点
+
+最终签名包复跑 `3448845950` 仍 NON-PASS：反向 varying 与 float→int 编译拒绝已消失，accumulation compiler artifact accepted；node 2 combine 现在拒绝于 terminal data/color 合同。三处 dependency-stage 保留，B3 八个 uniform 执行保持。此数据层必须经 typed provider publication 交给 layer 322，而非冒充 premultiplied compositor 颜色。最终 App/report/hash、正反门和下一组 owner 见 [B5 证据](runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)。
+
 ### 2026-09-10 B3 颜色输入修复后继
 
 `3448845950` 四层八个 scripted Color uniform 已完成 VM、frame 0/1 material 消费、GPU/publication/compositor/next-frame；整体仍 NON-PASS，当前 residual 为三处 dependency-stage、B5 terminal data/color 与 207/322/416/524 exact graph 缺口。`3665307769` layer 412 的同源 attachment 消失，9/9 graph layer 完整、72/72 GraphExecutor、55/55 transaction，**strict PASS**；CPU p95 35.667ms，视觉与性能仍未通过。App identity、复现参数、逐报告 hash 与边界统一见 [B3 当前证据](runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。旧 12 样本总报告不覆盖；159 个视觉裁决未重生成。

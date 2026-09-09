@@ -301,6 +301,9 @@ private struct VaryingLinkOutput: Codable {
     let textureCoordinateGenericSlot3: Bool
     let unknownCallRejectedByBoth: Bool
     let suffixReadRejected: Bool
+    let reversePrefixBoundedAccepted: Bool
+    let reversePrefixGenericAccepted: Bool
+    let reversePrefixSuffixRejectedByBoth: Bool
 }
 
 private struct Vector2ArithmeticOutput: Codable {
@@ -780,6 +783,23 @@ private struct GenericShaderArtifactHarness {
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
+        }
+        if CommandLine.arguments[1] == "--normalizer-integer-rounding" {
+            let vertex = [
+                "attribute vec3 a_Position;", "attribute vec2 a_TexCoord;",
+                "varying vec2 v_TexCoord;",
+                "void main() {", "gl_Position = vec4(a_Position, 1.0);",
+                "v_TexCoord = a_TexCoord;", "}"
+            ].joined(separator: "\n")
+            let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+            let canonical = SceneAuthoredShaderBackendCanonicalizer.canonicalize(vertex: vertex, fragment: fragment)
+            let normalized = SceneGenericShaderSourceNormalizer.normalize(vertexSource: canonical.vertex, fragmentSource: canonical.fragment, maximumStageSourceBytes: 64 * 1024)
+            var output: [String: String] = ["canonical": canonical.fragment]
+            switch normalized {
+            case let .success(pair): output["vertex"] = pair.vertex; output["fragment"] = pair.fragment
+            case let .failure(error): output["error"] = String(describing: error)
+            }
+            FileHandle.standardOutput.write(try JSONEncoder().encode(output)); return
         }
         if CommandLine.arguments[1] == "--normalizer-typed-mix" {
             let vertex = [
@@ -1280,6 +1300,44 @@ private struct GenericShaderArtifactHarness {
                 fragmentSource: unknownFragment,
                 maximumStageSourceBytes: 64 * 1_024
             )
+            let reverseVertex = [
+                "attribute vec3 a_Position;",
+                "attribute vec2 a_TexCoord;",
+                "varying vec2 feedback;",
+                "void main() {",
+                "    gl_Position = vec4(a_Position, 1.0);",
+                "    feedback.x = a_TexCoord.x;",
+                "    feedback.y = a_TexCoord.y;",
+                "}",
+            ].joined(separator: "\n")
+            let reverseFragment = [
+                "varying vec3 feedback;",
+                "void main() {",
+                "    float rate = step(feedback.x, 1.0) + feedback.y;",
+                "    gl_FragColor = vec4(rate);",
+                "}",
+            ].joined(separator: "\n")
+            let reverseBounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: reverseVertex,
+                fragmentSource: reverseFragment
+            )
+            let reverseGeneric = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: reverseVertex,
+                fragmentSource: reverseFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
+            let reverseSuffixFragment = reverseFragment.replacingOccurrences(
+                of: "feedback.y;", with: "feedback.z;"
+            )
+            let reverseSuffixBounded = SceneAuthoredShaderFrontend.compile(
+                vertexSource: reverseVertex,
+                fragmentSource: reverseSuffixFragment
+            )
+            let reverseSuffixGeneric = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: reverseVertex,
+                fragmentSource: reverseSuffixFragment,
+                maximumStageSourceBytes: 64 * 1_024
+            )
             let output = VaryingLinkOutput(
                 deadMismatchAccepted: dead != nil,
                 deadFragmentInterfaceRemoved:
@@ -1320,7 +1378,29 @@ private struct GenericShaderArtifactHarness {
                 suffixReadRejected: {
                     if case .failure(.varyingUnsupported) = suffix { return true }
                     return false
-                }()
+                }(),
+                reversePrefixBoundedAccepted:
+                    reverseBounded.diagnostics.isEmpty
+                    && reverseBounded.program != nil
+                    && reverseBounded.program?.metalSource.contains(
+                        "float2 feedback [[user(locn0)]]"
+                    ) == true,
+                reversePrefixGenericAccepted: {
+                    guard case let .success(pair) = reverseGeneric else { return false }
+                    return pair.vertex.contains("out vec2 feedback")
+                        && pair.fragment.contains("in vec2 feedback")
+                        && pair.fragment.contains("feedback.x")
+                        && pair.fragment.contains("feedback.y")
+                }(),
+                reversePrefixSuffixRejectedByBoth:
+                    reverseSuffixBounded.diagnostics.map({ $0.code })
+                        .contains(.stageLinkMismatch)
+                    && {
+                        if case .failure(.varyingUnsupported) = reverseSuffixGeneric {
+                            return true
+                        }
+                        return false
+                    }()
             )
             FileHandle.standardOutput.write(try JSONEncoder().encode(output))
             return
@@ -4975,6 +5055,9 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "textureCoordinateGenericSlot3": True,
             "unknownCallRejectedByBoth": True,
             "suffixReadRejected": True,
+            "reversePrefixBoundedAccepted": True,
+            "reversePrefixGenericAccepted": True,
+            "reversePrefixSuffixRejectedByBoth": True,
         })
 
     def test_backend_canonicalizer_narrows_declared_vector2_arithmetic_operands(self):
@@ -5455,6 +5538,49 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
             "signedIntegerSwizzlePreserved": True,
             "unsignedIntegerSwizzlePreserved": True,
         })
+
+    def test_integer_rounding_builtin_scalar_contract_and_negative_boundaries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def run(body, declarations=""):
+                path = root / "fixture.frag"
+                path.write_text(
+                    "varying vec2 v_TexCoord;\n" + declarations
+                    + "\nvoid main() {\n" + body + "\ngl_FragColor = vec4(1.0);\n}",
+                    encoding="utf-8",
+                )
+                result = subprocess.run(
+                    [str(self.binary), "--normalizer-integer-rounding", str(path)],
+                    check=True, capture_output=True, text=True,
+                )
+                return json.loads(result.stdout)
+
+            compiler = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneShaderCompilerTools/glslang"
+            for builtin in ("floor", "ceil", "trunc"):
+                result = run("int index = " + builtin + "(v_TexCoord.x * 8.0);")
+                self.assertIn("int index = int(" + builtin, result["canonical"])
+                self.assertNotIn("error", result)
+                vertex, fragment = root / "compiled.vert", root / "compiled.frag"
+                vertex.write_text(result["vertex"], encoding="utf-8")
+                fragment.write_text(result["fragment"], encoding="utf-8")
+                compiled = subprocess.run(
+                    [str(compiler), "-V", "--auto-map-bindings", "--auto-map-locations",
+                     "-l", str(vertex), str(fragment)],
+                    cwd=root, capture_output=True, text=True,
+                )
+                self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            for body in (
+                "int index = floor(v_TexCoord);",
+                "int index = floor(v_TexCoord.x) + 0.5;",
+                "int index = mystery(v_TexCoord.x);",
+            ):
+                self.assertNotIn("int index = int(", run(body)["canonical"])
+            shadowed = run(
+                "int index = floor(v_TexCoord.x);",
+                "float floor(float x) { return x; }",
+            )
+            self.assertNotIn("int index = int(", shadowed["canonical"])
 
     def test_product_normalizer_preserves_scalar_vector_expressions(self):
         completed = subprocess.run(
