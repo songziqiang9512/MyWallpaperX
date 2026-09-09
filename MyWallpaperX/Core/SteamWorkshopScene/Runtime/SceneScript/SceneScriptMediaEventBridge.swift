@@ -365,6 +365,7 @@ nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     let animations: [SceneTimelinePlaybackMutation]
     let layers: [SceneScriptLayerMutation]
     let videoCommands: [SceneScriptVideoCommand]
+    var puppetBones: [SceneScriptPuppetBoneMutation] = []
 }
 
 nonisolated enum SceneScriptCursorEventKind:
@@ -719,11 +720,17 @@ nonisolated enum SceneScriptMediaEventBridge {
         case let .success(value): videoCommands = value
         case let .failure(failure): return .failure(failure)
         }
+        let puppetBones: [SceneScriptPuppetBoneMutation]
+        switch SceneScriptPuppetBoneMutationBridge.mutations(owner: owner) {
+        case let .success(value): puppetBones = value
+        case let .failure(failure): return .failure(failure)
+        }
         return .success(.init(
             materialFunctions: materialFunctions,
             animations: animations,
             layers: layers,
-            videoCommands: videoCommands
+            videoCommands: videoCommands,
+            puppetBones: puppetBones
         ))
     }
 

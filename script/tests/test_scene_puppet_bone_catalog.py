@@ -203,6 +203,28 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
             self.assertIn(f'"{method}"', host)
         self.assertIn("MWXSceneQuickJSPuppetBoneMutation", host)
 
+    def test_launch_prepares_rig_and_installs_it_into_existing_owners(self):
+        layer_load = (
+            SCENE_ROOT / "Rendering/ScenePuppetLayerLoad.swift"
+        ).read_text()
+        launch = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneDesktopWallpaperHost+Launch.swift"
+        ).read_text()
+        vector = (
+            SCENE_ROOT
+            / "Runtime/SceneScript/SceneScriptVectorProgram+Registrations.swift"
+        ).read_text()
+        cursor = (
+            SCENE_ROOT
+            / "Runtime/SceneScript/SceneScriptCursorProgram+PuppetBones.swift"
+        ).read_text()
+        self.assertIn("static func boneConfiguration(", layer_load)
+        self.assertIn("SceneMdlPuppetRigReader.read", layer_load)
+        self.assertIn("context.configurePreparedPuppetBones()", launch)
+        self.assertIn("configurePuppetBones(", vector)
+        self.assertIn("configurePuppetBones(", cursor)
+
     def test_layer_world_transform_is_applied_to_root_and_world_setter(self):
         self.assertEqual(self.result["placedChildWorldX"], 105)
         self.assertEqual(self.result["placedRootLocalX"], 10)

@@ -7,21 +7,25 @@ final class ScenePuppetPlaybackState {
         let frameB: Int
         let fractionBits: UInt32
         let visible: Bool
+        let boneRevision: UInt64
 
         init(
             sample: ScenePuppetAnimationEvaluator.FrameSample?,
             visible: Bool,
-            timeInvariant: Bool = false
+            timeInvariant: Bool = false,
+            boneRevision: UInt64 = 0
         ) {
             frameA = timeInvariant ? 0 : (sample?.frameA ?? 0)
             frameB = timeInvariant ? 0 : (sample?.frameB ?? 0)
             fractionBits = timeInvariant ? 0 : (sample?.fraction.bitPattern ?? 0)
             self.visible = visible
+            self.boneRevision = boneRevision
         }
     }
 
     private struct SubmissionState {
         var frameSignature: [FrameSignature]?
+        var boneRevision: UInt64?
         var nextVertexBufferIndex = 0
     }
 
@@ -57,6 +61,9 @@ final class ScenePuppetPlaybackState {
 
     let layerID: Int
     let animationIDs: [Int]
+    var meshCoverageSize: SIMD2<Float> {
+        SIMD2(coverageWidth, coverageHeight)
+    }
 
     private let mesh: SceneMdlPuppetMesh
     private let selection: ScenePuppetAnimationSelection
@@ -78,8 +85,13 @@ final class ScenePuppetPlaybackState {
     /// every changed frame on large rigs.
     private var localMatrixScratch: [simd_float4x4]
     private var skinMatrixScratch: [simd_float4x4]
-    private var scriptBoneOverrides: [Int: simd_float4x4] = [:]
-    private var scriptWorldBoneOverrides: [Int: simd_float4x4] = [:]
+    private var worldMatrixScratch: [simd_float4x4]
+    private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
+#if DEBUG
+    private var recordedBoneSkin = false
+#endif
+    private var boneRevision: UInt64 = 0
+    private var boneFrameBaseline: (overrides: [Int: ScenePuppetBoneOverride], revision: UInt64)?
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -253,11 +265,13 @@ final class ScenePuppetPlaybackState {
                 visible: sample != nil,
                 timeInvariant: evaluator.isTimeInvariant(
                     animationID: selection.clips[index].animation.id
-                )
+                ),
+                boneRevision: boneRevision
             )
         }
         submissions.update(transaction: transaction) { submission in
-            guard signature != submission.frameSignature else { return }
+            guard signature != submission.frameSignature
+                    || submission.boneRevision != boneRevision else { return }
             // Keep the expensive CPU skinning behind the frame signature
             // guard. At display rates a source frame commonly repeats; the
             // old order rebuilt every vertex array before discovering that
@@ -270,11 +284,22 @@ final class ScenePuppetPlaybackState {
                     into: positions,
                     localMatricesScratch: &localMatrixScratch,
                     skinMatricesScratch: &skinMatrixScratch,
-                    boneOverrides: scriptBoneOverrides,
-                    worldBoneOverrides: scriptWorldBoneOverrides
+                    worldMatricesScratch: &worldMatrixScratch,
+                    boneOverrides: scriptBoneOverrides
                 )) != nil
             }
             guard evaluated else { return }
+#if DEBUG
+            if boneRevision > 0, !recordedBoneSkin,
+               SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
+                recordedBoneSkin = true
+                let displacement = zip(positionScratch, mesh.vertices).reduce(Float(0)) {
+                    max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
+                }
+                NSLog("MWX DEBUG SCENE: phase=puppet-bone-skin layer=%d revision=%llu vertices=%d maxBindDisplacement=%.6f",
+                    layerID, boneRevision, positionScratch.count, displacement)
+            }
+#endif
             for index in mesh.vertices.indices {
                 let position = positionScratch[index]
                 vertexScratch[index] = SceneQuadVertex(
@@ -333,24 +358,80 @@ final class ScenePuppetPlaybackState {
             )
             encoder.endEncoding()
             submission.frameSignature = signature
+            submission.boneRevision = boneRevision
         }
+    }
+
+    /// Returns the current animated pose for SceneScript getters. This uses
+    /// the same launch-selected clips and persistent override map as encode,
+    /// so getters observe animation pose rather than a stale bind snapshot.
+    func boneConfiguration(
+        sceneTime: Double,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> ScenePuppetLayerLoad.BoneConfiguration? {
+        let frameSamples: [ScenePuppetAnimationEvaluator.FrameSample?] =
+            selection.clips.map { clip in
+                guard isVisible(clip.layer, dynamicValues: dynamicValues) else {
+                    return nil
+                }
+                return ScenePuppetAnimationEvaluator.frameSample(
+                    sceneTime: sceneTime,
+                    rate: clip.layer.rate ?? 1,
+                    animation: clip.animation
+                )
+            }
+        guard let transforms = try? evaluator.boneTransforms(
+            selection: selection,
+            frameSamples: frameSamples,
+            boneOverrides: scriptBoneOverrides
+        ) else { return nil }
+        func flatten(_ matrix: simd_float4x4) -> [Double] {
+            [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
+                .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
+        }
+        return ScenePuppetLayerLoad.BoneConfiguration(
+            names: evaluator.boneNames,
+            parentIndices: evaluator.boneParentIndices,
+            worldMatrices: transforms.world.flatMap(flatten),
+            localMatrices: transforms.local.flatMap(flatten)
+        )
     }
 
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
         guard scriptBoneMutations.contains(where: { $0.layerID == layerID }) else { return }
+        if boneFrameBaseline == nil { boneFrameBaseline = (scriptBoneOverrides, boneRevision) }
         var next = scriptBoneOverrides
+        var accepted = false
         for mutation in scriptBoneMutations where mutation.layerID == layerID {
-            guard mutation.boneIndex > 0, mutation.matrix.count == 16 else { continue }
+            guard mutation.boneIndex > 0,
+                  mutation.boneIndex <= evaluator.boneCount,
+                  mutation.matrix.count == 16,
+                  mutation.matrix.allSatisfy(\.isFinite) else { continue }
+            let values = mutation.matrix.map(Float.init)
+            guard values.allSatisfy(\.isFinite) else { continue }
             let columns = stride(from: 0, to: 16, by: 4).map { offset in
-                SIMD4<Float>(Float(mutation.matrix[offset]), Float(mutation.matrix[offset + 1]), Float(mutation.matrix[offset + 2]), Float(mutation.matrix[offset + 3]))
+                SIMD4<Float>(values[offset], values[offset + 1], values[offset + 2], values[offset + 3])
             }
+            let matrix = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
             if mutation.localSpace {
-                next[mutation.boneIndex - 1] = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
+                next[mutation.boneIndex - 1] = .local(matrix)
             } else {
-                scriptWorldBoneOverrides[mutation.boneIndex - 1] = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
+                next[mutation.boneIndex - 1] = .world(matrix)
             }
+            accepted = true
         }
         scriptBoneOverrides = next
+        if accepted { boneRevision &+= 1 }
+    }
+
+    func commitBoneFrame() { boneFrameBaseline = nil }
+
+    func discardBoneFrame() {
+        if let baseline = boneFrameBaseline {
+            scriptBoneOverrides = baseline.overrides
+            boneRevision = baseline.revision
+        }
+        boneFrameBaseline = nil
     }
 
     private func isVisible(
@@ -409,6 +490,10 @@ final class ScenePuppetPlaybackState {
             count: matrixScratchCount
         )
         self.skinMatrixScratch = Array(
+            repeating: matrix_identity_float4x4,
+            count: matrixScratchCount
+        )
+        self.worldMatrixScratch = Array(
             repeating: matrix_identity_float4x4,
             count: matrixScratchCount
         )

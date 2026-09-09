@@ -22,6 +22,23 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-10-b9-wiring-review"></a>
+### 2026-09-10 B9 上层接线审核、真实 bone drag 与剩余可见验收
+
+本批纠正 `6ae3ce50` 后的上层接线，owned boundary 为 SceneScript vector/cursor、Puppet pose/playback 和动态 provider demand。真实 `thisLayer` 现在安装 bone API；MDL 父索引替代 index−1 推断，world setter 逆变换真实父世界矩阵并原子生成 local journal，后代按父序更新。cursor mutation 先于 update，owner discard 与未提交 surface frame 均恢复 pose。无 animation clip 的 script Puppet 复用既有 playback，以独立 bone revision 触发蒙皮；camera parallax 关闭时 authored 非零 depth 不再阻止 cursor admission，Vec3 补 `length/normalize`。启动安装名称，帧刷新来自当前动画/override 和同一 image model-to-world；未新增第二套持久骨骼 owner。
+
+这条链暴露并修复动态 graph 的两处现状错误：静态可能 provider 不等于当帧 demanded provider；动态可见层不能重复走隐藏 provider prepass。现有 reservation runtime 记录 epoch 内真实 demand，实际尺寸/identity/epoch/hazard 检查保持。对应 Metal fixture 同时验证 undemanded 无 reservation 可通过和 demanded 错尺寸拒绝。
+
+**实际执行身份**：Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `465ef1e4e18d17d23f5145f0a5d109c8e4b562e7`，executable SHA-256 `facb3d550966cae228d24c5c250364f91fa22344e8425576c73a1becd7126f58`；benchmark 前后签名验证通过。只读真实 `2959875782` 的隔离副本 package SHA-256 `e8c983c5990942f0ca0774064425b869ec289d1c0d42baf9f1fd0cc6e7464d7b`，无属性/脚本修改。runtime `e7baebea-b2f0-4bd0-b0b7-5dd71a69d3d8`，03:54–03:55 跨真实 Date 秒窗。注入坐标以相机投影修正为 down `[0.1126,0.3164]`、drag `[0.1646,0.3164]`；此前 Y 反向的运行不计拖拽证据。
+
+**执行结果**：layer 813 cursorDown/Up 成功，03:54:23.566 记录 `puppet-bone-skin revision=1 vertices=869 maxBindDisplacement=139.050323`；动态 visibility 实际经历 true→false→true。strict effect-stage admission、effect execution、graph execution 全部通过，layer 813 terminal effect 4 有 GPU completion、publication、compositorConsumed=true 与 next-frame 记录。该 graph 记录是既有里程碑采样，尚未为每个 bone revision 建立专属 completion/next-frame 对照，不能把它与 CPU 位移日志拼接冒充完整的变形可见裁决。窗口统计 565/564/0 submitted/completed/failed，CPU p95 90.601ms、GPU p95 33.675ms、12.35 FPS；这不是性能消融，B7 CPU 预算仍开放。
+
+**原始结果仍为 NON-PASS**：唯一 benchmark failure 为 `drag interaction output did not preserve settled position`。全场景动画参与 hover→after 差异；尚无控制变量/限定 ROI 证明差异来自背景还是骨骼保持错误，因此不能宣称这个 failure 无关，不能放宽阈值。当前记为 `S3 bone mutation and mesh execution`；最终 ROI、限幅/release 的产品事件链和全部参数正确仍是 B9 下一验收门。parallax-enabled bone interaction、multi-surface、完整 Mat4、官方 index parity 均未验证。
+
+复现：`scene_wallpaper_benchmark.py --app <上述身份可执行文件> --sample-root <隔离样本父目录> --matrix <包含上述 down/drag 坐标的单样本 matrix> --output-dir <fresh目录> --duration 65 --after-snapshot-delay 12 --periodic-snapshot-interval 6 --require-effect-stage-admission --require-effect-execution --require-graph-execution`。原始 run 位于 `/private/tmp/mwx-b9-review-camera-drag-20260910`，运行副本和 staged App 已由工具清理；本机提纯缓存标签 `b9-wiring-review-20260910`，manifest SHA-256 `d93b9969693c8314ca9174f4cf8839c329f8e1138e4cb3220285222368381a53`。report/app.log/runtime evidence SHA-256 分别为 `f856b47663f2da85a22ae84ee114a7e7227e152f77cadf6d9083607680b84971` / `e96f630aa2089745bb7c7237ab0b00fac88e0209e622ca1c124284780fb3fea6` / `315e8a92ab4760037bd146d50453a1796762f73326c00a6219e9cf7ab284fbee`。
+
+验证：Debug build6 成功；code health 与 `git diff --check` 通过。真实 QuickJS hierarchy/local journal/rollback/singular/Vec3 与同一 owner 的 cursor→update 限幅、release/outside 零写入共 5/5，通过源文件集合/文档角色测试后最终组 29/29；boolean visibility 12/12、Puppet playback 11/11、dependency graph+bone catalog+cursor 基础组 19/19、关闭/开启 parallax 的 cursor 回归 2/2。独立夹具的通过不替代上述剩余真实 ROI 验收。
+
 <a id="e-2026-09-10-b5-feedback-frontend"></a>
 ### 2026-09-10 B5 feedback 编译恢复与 terminal 数据边界
 
@@ -53,7 +70,7 @@ MDLS reader 现在保留 bone name；`ScenePuppetBoneCatalog` 保留作者顺序
 
 B7 的唯一 playback owner 预分配并复用 local/skin matrix scratch，分配式 evaluator 与 runtime 共享同一采样计算；没有第二套骨骼长期状态。`python3 -m unittest script.tests.test_scene_puppet_rig script.tests.test_scene_puppet_playback script.tests.test_scene_puppet_bone_catalog -q`：**27 项，26 PASS / 1 skip**（隔离的三份真实 rig fixture 不在该测试约定位置），覆盖帧输出等价、层级及 world setter、非法输入原子性。当前 Developer ID Debug build 成功；该骨骼基础批次没有 Puppet 专用 fresh GPU/ROI 或 3-run 性能消融；后继普通 playback 回放见上方 B3 证据，仍没有 bone mutation 产品执行，旧 CPU p95 不能证明新增 scratch 的收益。
 
-证据上限：name/identity 保留 `S1`；typed frame fixture 与 playback scratch 接线 `S2`。**B9 仍开放**：QuickJS layer host 尚无 bone API，必须继续接同一 vector/cursor owner 的帧 pose 输入、typed Mat4 mutation journal、generation/epoch rollback，再提交至 Puppet evaluator/mesh。骨骼 helper 不是可交互产品实现；不得把 layer 813 记为恢复。
+本段记录基础批次当时的证据上限：name/identity `S1`，typed frame fixture 与 scratch 接线 `S2`。QuickJS→mesh 的后继实现和真实拖拽结果已由 [B9 接线审核](#e-2026-09-10-b9-wiring-review) 取代；B9 仍因最终 ROI/全部参数验收开放，不能继续沿用“host 尚无 bone API”作为当前断点。
 
 ### 2026-09-09 当前身份复跑与阶段判定
 

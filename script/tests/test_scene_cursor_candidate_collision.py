@@ -79,7 +79,13 @@ enum Harness {
             frame: frame,
             userPropertiesJSON: "{}"
         )
+        var parallaxDescriptor = descriptor
+        parallaxDescriptor.camera.parallaxEnabled = true
+        let parallaxProgram = SceneScriptCursorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(), descriptor: parallaxDescriptor,
+            scriptBindings: [standaloneBinding(layerID: 30, index: 2)], generation: 42)
         let payload: [String: Any] = [
+            "enabledParallaxOwners": parallaxProgram.ownerCount,
             "domainCommitted": candidate.domain != nil,
             "preflightRequiresReconstruction": preflight.requiresDomainReconstruction,
             "complete": report.isComplete,
@@ -129,7 +135,8 @@ enum Harness {
                 copyBackground: false,
                 passthrough: false
             ),
-            parentID: id == 30 ? 10 : nil
+            parentID: id == 30 ? 10 : nil,
+            parallaxDepthXY: [1, 1]
         )
     }
 
@@ -230,6 +237,12 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temp_dir.cleanup()
+
+    def test_disabled_camera_accepts_authored_depth_but_enabled_camera_rejects_it(self):
+        result = json.loads(subprocess.run([str(self.binary)], check=True,
+            capture_output=True, text=True).stdout)
+        self.assertEqual(result["enabledParallaxOwners"], 0)
+        self.assertEqual(result["cursorOwners"], [30, 40])
 
     def test_collisions_stay_local_parented_image_and_borrowed_visibility_survive(
         self,

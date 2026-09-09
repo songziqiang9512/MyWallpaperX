@@ -294,9 +294,14 @@ struct MWXSceneQuickJSOwner {
     size_t puppet_bone_mutation_count;
     int64_t puppet_bone_layer_id;
     uint32_t puppet_bone_count;
+    int32_t puppet_bone_parent[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES];
+    double puppet_layer_to_world[16];
     char *puppet_bone_names[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES];
     double puppet_bone_world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
     double puppet_bone_local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    bool puppet_bone_transaction_active;
+    double puppet_bone_world_baseline[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    double puppet_bone_local_baseline[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
     MWXSceneQuickJSPuppetBoneMutation puppet_bone_mutations[
         MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS
     ];

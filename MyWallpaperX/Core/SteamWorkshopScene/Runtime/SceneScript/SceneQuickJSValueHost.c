@@ -242,6 +242,8 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "this.z=Number(x.z===undefined?y:x.z);return;}"
         "this.x=Number(x);this.y=Number(y);this.z=Number(z);}"
         "copy(){return new Vec3(this.x,this.y,this.z);}"
+        "length(){return Math.hypot(this.x,this.y,this.z);}"
+        "normalize(){const n=this.length();return n===0?new Vec3():this.divide(n);}"
         "add(v){if(typeof v==='number'){return new Vec3(this.x+v,this.y+v,this.z+v);}"
         "return new Vec3(this.x+v.x,this.y+v.y,this.z+v.z);}"
         "subtract(v){if(typeof v==='number'){return new Vec3(this.x-v,this.y-v,this.z-v);}"

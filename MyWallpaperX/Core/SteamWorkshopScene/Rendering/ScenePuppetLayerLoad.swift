@@ -1,5 +1,6 @@
 import Foundation
 import Metal
+import simd
 
 /// Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
 /// mesh, and creates either a bounded playback state or a static
@@ -8,6 +9,54 @@ import Metal
 /// unsupported puppets stay visible in diagnostics instead of silently
 /// pretending to be supported.
 enum ScenePuppetLayerLoad {
+    /// Launch-time payload installed into any existing SceneScript owner for
+    /// the same authored layer.  The rig reader remains the sole source of
+    /// names, parent order, and bind-local matrices; no sample-specific
+    /// routing is involved.
+    struct BoneConfiguration {
+        let names: [String]
+        let parentIndices: [Int]
+        let worldMatrices: [Double]
+        let localMatrices: [Double]
+    }
+
+    static func boneConfiguration(
+        for layer: SceneRenderDescriptor.Layer,
+        cacheDirectory: URL
+    ) -> BoneConfiguration? {
+        guard let puppetMeshPath = layer.puppetMeshPath,
+              let meshURL = containedFileURL(
+                  relativePath: puppetMeshPath,
+                  cacheDirectory: cacheDirectory
+              ),
+              let data = try? Data(contentsOf: meshURL),
+              let mesh = try? SceneMdlPuppetMeshReader.read(data: data),
+              let rig = try? SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
+        else { return nil }
+        let localMatrices: [simd_float4x4] = rig.bones.map { bone in
+            let values = bone.bindLocalMatrixColumnMajor
+            return simd_float4x4(
+                SIMD4(values[0], values[1], values[2], values[3]),
+                SIMD4(values[4], values[5], values[6], values[7]),
+                SIMD4(values[8], values[9], values[10], values[11]),
+                SIMD4(values[12], values[13], values[14], values[15])
+            )
+        }
+        guard let frame = try? ScenePuppetBoneTransformFrame(
+            rig: rig, animatedLocalMatrices: localMatrices
+        ) else { return nil }
+        func flatten(_ matrix: simd_float4x4) -> [Double] {
+            [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
+                .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
+        }
+        return BoneConfiguration(
+            names: rig.bones.map(\.name),
+            parentIndices: rig.bones.map(\.parentIndex),
+            worldMatrices: frame.worldMatrices.flatMap(flatten),
+            localMatrices: frame.localMatrices.flatMap(flatten)
+        )
+    }
+
     struct StaticRecomposeIdentity: Hashable {
         fileprivate let puppetMeshSource: SceneTextureLoader.SourceKey
         fileprivate let atlasTexture: ObjectIdentifier
@@ -37,6 +86,7 @@ enum ScenePuppetLayerLoad {
     ) -> StaticRecomposeIdentity? {
         guard atlasIsAnimated == false,
               layer.puppetAnimationLayers.isEmpty,
+              !layer.hasInlineScript,
               let puppetMeshPath = layer.puppetMeshPath,
               let renderSize = layer.renderSizeWH,
               renderSize.count >= 2,
@@ -185,6 +235,25 @@ enum ScenePuppetLayerLoad {
                 animationFallbackMessage = "animation data rejected: \(failure.description)"
             } catch {
                 animationFallbackMessage = "animation rejected: unknown parse failure"
+            }
+        }
+        // A script can deform a rig without an authored animation clip. Keep
+        // it in the same playback/evaluator owner, seeded by the bind pose.
+        if layer.puppetAnimationLayers.isEmpty, layer.hasInlineScript,
+           let rig = try? SceneMdlPuppetRigReader.read(data: data, mesh: mesh) {
+            switch ScenePuppetPlaybackState.make(
+                layerID: layer.id, mesh: mesh, rig: rig,
+                selection: .init(clips: [], composition: .layered),
+                atlasTexture: atlasTexture, layerWidth: layerWidth,
+                layerHeight: layerHeight, remainingByteBudget: remainingByteBudget,
+                device: device, pipeline: pipeline
+            ) {
+            case let .success(output):
+                return Outcome(texture: output.texture, playback: output.state,
+                    byteCost: output.byteCost, message: "puppet script pose prepared",
+                    coverage: output.coverage)
+            case let .failure(failure):
+                animationFallbackMessage = "script pose rejected: \(failure.description)"
             }
         }
         return staticOutcome(

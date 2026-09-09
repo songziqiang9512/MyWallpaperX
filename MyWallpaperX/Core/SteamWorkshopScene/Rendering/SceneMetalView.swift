@@ -47,7 +47,10 @@ class SceneMetalView: NSView {
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
     private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
-    private var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
+#if DEBUG
+    var recordedPuppetPoseLayerIDs: Set<Int> = []
+#endif
+    var puppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
     private var imagePipeline: SceneImageLayerPipeline?
     var particlePlayback: SceneParticlePlaybackState?
     private var dynamicTextTextures: SceneDynamicTextTextureStore?

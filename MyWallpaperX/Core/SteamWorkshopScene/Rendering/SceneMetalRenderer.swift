@@ -297,6 +297,7 @@ struct SceneMetalRenderer {
             }
             if let providerGraphEncoded = executeDependencyGraphProviderIfRequired(
                 layer: layer,
+                isVisibleExecutionRoot: frameVisibleLayerIDs.contains(layer.id),
                 framePlan: resolvedMaterialFrameTargetPlans[layer.id],
                 textureRegistry: textureRegistry,
                 dependencyRuntime: dependencyRuntime,
@@ -464,7 +465,7 @@ struct SceneMetalRenderer {
                         matching: texture
                     )
                 let layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)?
-                if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
                     layerSourceGraphFallbackPublisher = { fallbackTexture in
                         guard fallbackTexture === texture else { return false }
                         return dependencyRuntime
@@ -485,7 +486,7 @@ struct SceneMetalRenderer {
                     layerSourceGraphFallbackPublisher = nil
                 }
                 let resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)?
-                if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
+                if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
                     resolvedMaterialGraphOutputPublisher = { graphOutput, content in
                         dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,

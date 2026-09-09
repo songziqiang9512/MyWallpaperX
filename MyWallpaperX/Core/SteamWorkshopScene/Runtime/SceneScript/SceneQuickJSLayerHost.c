@@ -1,6 +1,7 @@
 #include "SceneQuickJSInternal.h"
 
 #include <math.h>
+#include <float.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -142,6 +143,62 @@ static bool bone_handle_ready(MWXSceneQuickJSLayerHandle *handle,
     return owner->puppet_bone_count > 0;
 }
 
+// Column-major matrices at the VM boundary. Reject values that cannot reach
+// the Float skinning ABI; all candidate work stays off the committed pose.
+static bool puppet_matrix_finite(const double m[16]) {
+    for (int i = 0; i < 16; ++i)
+        if (!isfinite(m[i]) || fabs(m[i]) > FLT_MAX) return false;
+    return true;
+}
+
+static bool puppet_matrix_multiply(const double a[16], const double b[16], double out[16]) {
+    double result[16] = {0};
+    for (int col = 0; col < 4; ++col)
+        for (int row = 0; row < 4; ++row)
+            for (int k = 0; k < 4; ++k)
+                result[col * 4 + row] += a[k * 4 + row] * b[col * 4 + k];
+    if (!puppet_matrix_finite(result)) return false;
+    memcpy(out, result, sizeof(result));
+    return true;
+}
+
+static bool puppet_matrix_inverse(const double source[16], double result[16]) {
+    double rows[4][8] = {0};
+    if (!puppet_matrix_finite(source)) return false;
+    for (int row = 0; row < 4; ++row) {
+        for (int col = 0; col < 4; ++col) rows[row][col] = source[col * 4 + row];
+        rows[row][row + 4] = 1;
+    }
+    for (int col = 0; col < 4; ++col) {
+        int pivot = col;
+        for (int row = col + 1; row < 4; ++row)
+            if (fabs(rows[row][col]) > fabs(rows[pivot][col])) pivot = row;
+        if (!isfinite(rows[pivot][col]) || rows[pivot][col] == 0) return false;
+        for (int k = 0; k < 8; ++k) {
+            double swap = rows[col][k]; rows[col][k] = rows[pivot][k]; rows[pivot][k] = swap;
+        }
+        double divisor = rows[col][col];
+        for (int k = 0; k < 8; ++k) rows[col][k] /= divisor;
+        for (int row = 0; row < 4; ++row) if (row != col) {
+            double factor = rows[row][col];
+            for (int k = 0; k < 8; ++k) rows[row][k] -= factor * rows[col][k];
+        }
+    }
+    for (int row = 0; row < 4; ++row)
+        for (int col = 0; col < 4; ++col) result[col * 4 + row] = rows[row][col + 4];
+    return puppet_matrix_finite(result);
+}
+
+static bool puppet_world_pose(uint32_t count, const int32_t *parents,
+    const double layer[16], const double local[][16], double world[][16]) {
+    for (uint32_t bone = 0; bone < count; ++bone) {
+        int32_t parent = parents[bone];
+        if (parent < -1 || parent >= (int32_t)bone || !puppet_matrix_finite(local[bone])) return false;
+        if (!puppet_matrix_multiply(parent < 0 ? layer : world[parent], local[bone], world[bone])) return false;
+    }
+    return true;
+}
+
 static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
                                 int argc, JSValueConst *argv, int magic,
                                 void *opaque) {
@@ -170,13 +227,13 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
             }
             JS_FreeCString(context, name);
             return JS_NewInt32(context, magic == PUPPET_BONE_PARENT_INDEX && found > 0
-                ? (found == 1 ? 0 : found - 1) : found);
+                ? owner->puppet_bone_parent[found - 1] + 1 : found);
         }
         if (JS_ToInt64(context, &index, argv[0]) < 0 || index <= 0 ||
             index > (int64_t)owner->puppet_bone_count)
             return JS_NewInt32(context, 0);
         if (magic == PUPPET_BONE_INDEX) return JS_NewInt64(context, index);
-        return JS_NewInt32(context, index == 1 ? 0 : (int32_t)index - 1);
+        return JS_NewInt32(context, owner->puppet_bone_parent[index - 1] + 1);
     }
     const bool setter = magic == PUPPET_BONE_SET_WORLD || magic == PUPPET_BONE_SET_LOCAL;
     if (argc != (setter ? 2 : 1))
@@ -196,15 +253,32 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
         return JS_ThrowTypeError(context, "bone transform expects Mat4");
     if (owner->puppet_bone_mutation_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS)
         return JS_ThrowInternalError(context, "Puppet bone mutation buffer exceeded");
+    double local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    memcpy(local, owner->puppet_bone_local, sizeof(local));
+    if (magic == PUPPET_BONE_SET_WORLD) {
+        int32_t parent = owner->puppet_bone_parent[bone];
+        double inverse[16];
+        if (!puppet_matrix_inverse(parent < 0 ? owner->puppet_layer_to_world
+                                               : owner->puppet_bone_world[parent], inverse) ||
+            !puppet_matrix_multiply(inverse, matrix, local[bone]))
+            return JS_ThrowRangeError(context, "Puppet parent transform is singular or out of range");
+    } else {
+        memcpy(local[bone], matrix, sizeof(matrix));
+    }
+    if (!puppet_world_pose(owner->puppet_bone_count, owner->puppet_bone_parent,
+                          owner->puppet_layer_to_world, local, world))
+        return JS_ThrowRangeError(context, "Puppet pose is out of range");
     MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[
         owner->puppet_bone_mutation_count++];
     mutation->layer_id = owner->puppet_bone_layer_id;
     mutation->bone_index = (int32_t)script_index;
-    mutation->local_space = magic == PUPPET_BONE_SET_LOCAL ? 1u : 0u;
-    memcpy(mutation->matrix, matrix, sizeof(matrix));
-    memcpy(magic == PUPPET_BONE_SET_LOCAL ? owner->puppet_bone_local[bone]
-                                          : owner->puppet_bone_world[bone],
-           matrix, sizeof(matrix));
+    // Publish the resolved parent-relative transform, never a surface-world
+    // coordinate mislabeled as evaluator-local data.
+    mutation->local_space = 1u;
+    memcpy(mutation->matrix, local[bone], sizeof(matrix));
+    memcpy(owner->puppet_bone_local, local, owner->puppet_bone_count * sizeof(local[0]));
+    memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
     return JS_UNDEFINED;
 }
 
@@ -1780,7 +1854,7 @@ static bool define_puppet_bone_functions(
         if (JS_IsException(function) || JS_DefinePropertyValueStr(
                 context, layer, functions[i].name, function,
                 JS_PROP_ENUMERABLE
-            ) < 0) { JS_FreeValue(context, layer); return false; }
+            ) < 0) return false;
     }
     return true;
 }
@@ -2373,6 +2447,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!define_get_parent(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
+    if (!define_puppet_bone_functions(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
     JSValue scene = JS_NewObject(context);
     if (JS_IsException(scene)) return false;
     struct { const char *name; JSCClosure *function; int argc; } functions[] = {
@@ -2401,7 +2478,13 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     if (owner == NULL || owner->domain == NULL) return;
     finish_dynamic_layer_transaction(owner, false);
     clear_layer_mutation_buffers(owner);
+    if (owner->puppet_bone_transaction_active)
+    for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
+        memcpy(owner->puppet_bone_world[bone], owner->puppet_bone_world_baseline[bone], sizeof(double) * 16);
+        memcpy(owner->puppet_bone_local[bone], owner->puppet_bone_local_baseline[bone], sizeof(double) * 16);
+    }
     owner->puppet_bone_mutation_count = 0;
+    owner->puppet_bone_transaction_active = false;
 }
 
 void mwx_scene_quickjs_owner_commit_layer_mutations(
@@ -2411,6 +2494,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     finish_dynamic_layer_transaction(owner, true);
     clear_layer_mutation_buffers(owner);
     owner->puppet_bone_mutation_count = 0;
+    owner->puppet_bone_transaction_active = false;
 }
 
 void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) {
@@ -2418,6 +2502,12 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     ensure_dynamic_layer_transaction(owner);
     clear_layer_mutation_buffers(owner);
     owner->puppet_bone_mutation_count = 0;
+    if (!owner->puppet_bone_transaction_active)
+    for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
+        memcpy(owner->puppet_bone_world_baseline[bone], owner->puppet_bone_world[bone], sizeof(double) * 16);
+        memcpy(owner->puppet_bone_local_baseline[bone], owner->puppet_bone_local[bone], sizeof(double) * 16);
+    }
+    owner->puppet_bone_transaction_active = true;
     owner->video_command_count = 0;
     owner->video_command_overflow = false;
 }
@@ -2832,12 +2922,35 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
                 );
                 return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
             }
-            owner->puppet_bone_world[bone][component] = world;
-            owner->puppet_bone_local[bone][component] = local;
         }
     }
+    memcpy(owner->puppet_bone_world, world_matrices, bone_count * sizeof(double) * 16);
+    memcpy(owner->puppet_bone_local, local_matrices, bone_count * sizeof(double) * 16);
     owner->puppet_bone_layer_id = layer_id;
     owner->puppet_bone_count = bone_count;
+    for (uint32_t bone = 0; bone < bone_count; ++bone) owner->puppet_bone_parent[bone] = -1;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_hierarchy(
+    MWXSceneQuickJSOwner *owner, const int32_t *parents, const double *layer_to_world,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (!owner || !parents || !layer_to_world || owner->puppet_bone_count == 0) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (int i=0;i<16;i++) if (!isfinite(layer_to_world[i])) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t i = 0; i < owner->puppet_bone_count; ++i) {
+        if (parents[i] < -1 || parents[i] >= (int32_t)i) {
+            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid Puppet bone parent");
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        }
+    }
+    double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    if (!puppet_world_pose(owner->puppet_bone_count, parents, layer_to_world,
+                          owner->puppet_bone_local, world)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    memcpy(owner->puppet_bone_parent, parents, sizeof(int32_t) * owner->puppet_bone_count);
+    memcpy(owner->puppet_layer_to_world, layer_to_world, sizeof(double) * 16);
+    memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
     return MWX_SCENE_QUICKJS_OK;
 }
 

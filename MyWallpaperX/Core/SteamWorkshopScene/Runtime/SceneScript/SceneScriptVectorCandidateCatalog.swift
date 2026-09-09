@@ -464,8 +464,8 @@ nonisolated extension SceneScriptVectorProgram {
     }
 
     /// A visibility wrapper may also be the authored scene-state producer for
-    /// later bindings. It runs as an effectful QuickJS owner so `shared` and
-    /// `thisScene` mutations keep using the existing frame journals.
+    /// later bindings. Layer, shared, and scene mutations all use the
+    /// existing effectful QuickJS owner and frame journals.
     private static func statefulBooleanOwnerSource(_ source: String) -> Bool {
         guard source.utf8.count <= 256 * 1024,
               source.range(
@@ -473,7 +473,8 @@ nonisolated extension SceneScriptVectorProgram {
                   options: .regularExpression
               ) != nil,
               containsIdentifier("shared", in: source)
-                || containsIdentifier("thisScene", in: source),
+                || containsIdentifier("thisScene", in: source)
+                || containsIdentifier("thisLayer", in: source),
               !source.contains("\\u"), !source.contains("\\x") else {
             return false
         }

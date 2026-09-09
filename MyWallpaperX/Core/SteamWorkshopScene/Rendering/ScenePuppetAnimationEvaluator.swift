@@ -1,5 +1,4 @@
 import simd
-
 struct ScenePuppetAnimationEvaluator {
     /// A source-FPS interval sample.  MDLA stores frameCount + 1 poses, so a
     /// frame is an interval between two authored poses rather than a single
@@ -17,7 +16,7 @@ struct ScenePuppetAnimationEvaluator {
         }
     }
 
-    private struct Pose {
+    struct Pose {
         var translation: SIMD3<Float>
         var rotation: simd_quatf
         var scale: SIMD3<Float>
@@ -41,7 +40,7 @@ struct ScenePuppetAnimationEvaluator {
     }
 
     private let mesh: SceneMdlPuppetMesh
-    private let rig: SceneMdlPuppetRig
+    let rig: SceneMdlPuppetRig
     private let bindLocalMatrices: [simd_float4x4]
     private let bindPoses: [Pose]
     private let inverseBindWorldMatrices: [simd_float4x4]
@@ -204,6 +203,28 @@ struct ScenePuppetAnimationEvaluator {
     func writeDeformedPositions(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
+        into output: UnsafeMutableBufferPointer<SIMD2<Float>>,
+        localMatricesScratch: inout [simd_float4x4],
+        skinMatricesScratch: inout [simd_float4x4]
+    ) throws {
+        var worldMatricesScratch = Array(
+            repeating: matrix_identity_float4x4,
+            count: rig.bones.count
+        )
+        try writeDeformedPositions(
+            selection: selection,
+            frameSamples: frameSamples,
+            into: output,
+            localMatricesScratch: &localMatricesScratch,
+            skinMatricesScratch: &skinMatricesScratch,
+            worldMatricesScratch: &worldMatricesScratch
+        )
+    }
+
+    /// Fills caller-owned positions using the same per-vertex accumulation order.
+    func writeDeformedPositions(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
         into output: UnsafeMutableBufferPointer<SIMD2<Float>>
     ) throws {
         var localMatrices = Array(
@@ -227,8 +248,8 @@ struct ScenePuppetAnimationEvaluator {
         into output: UnsafeMutableBufferPointer<SIMD2<Float>>,
         localMatricesScratch: inout [simd_float4x4],
         skinMatricesScratch: inout [simd_float4x4],
-        boneOverrides: [Int: simd_float4x4] = [:],
-        worldBoneOverrides: [Int: simd_float4x4] = [:]
+        worldMatricesScratch: inout [simd_float4x4],
+        boneOverrides: [Int: ScenePuppetBoneOverride] = [:]
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -237,28 +258,19 @@ struct ScenePuppetAnimationEvaluator {
               skinMatricesScratch.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
+        guard worldMatricesScratch.count >= rig.bones.count else {
+            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+        }
         try writeLocalMatrices(
             selection: selection,
             frameSamples: frameSamples,
             into: &localMatricesScratch
         )
-        for (index, matrix) in boneOverrides where rig.bones.indices.contains(index) {
-            localMatricesScratch[index] = matrix
-        }
-        if !worldBoneOverrides.isEmpty {
-            var worlds = Array(repeating: matrix_identity_float4x4, count: rig.bones.count)
-            for bone in rig.bones {
-                worlds[boneIndex(bone, in: rig)] = bone.parentIndex >= 0
-                    ? worlds[bone.parentIndex] * localMatricesScratch[boneIndex(bone, in: rig)]
-                    : localMatricesScratch[boneIndex(bone, in: rig)]
-            }
-            for (index, matrix) in worldBoneOverrides where rig.bones.indices.contains(index) {
-                let parent = rig.bones[index].parentIndex
-                localMatricesScratch[index] = parent >= 0
-                    ? simd_inverse(worlds[parent]) * matrix : matrix
-                worlds[index] = matrix
-            }
-        }
+        try applyOverrides(
+            boneOverrides,
+            to: &localMatricesScratch,
+            worlds: &worldMatricesScratch
+        )
         try writeSkinMatrices(
             localMatrices: localMatricesScratch,
             into: &skinMatricesScratch
@@ -272,8 +284,73 @@ struct ScenePuppetAnimationEvaluator {
         }
     }
 
-    private func boneIndex(_ bone: SceneMdlPuppetRig.Bone, in rig: SceneMdlPuppetRig) -> Int {
-        rig.bones.firstIndex { $0.name == bone.name && $0.parentIndex == bone.parentIndex } ?? 0
+    func applyOverrides(
+        _ overrides: [Int: ScenePuppetBoneOverride],
+        to locals: inout [simd_float4x4],
+        worlds: inout [simd_float4x4]
+    ) throws {
+        for (index, override) in overrides {
+            guard rig.bones.indices.contains(index) else {
+                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+            }
+            let matrix: simd_float4x4
+            switch override {
+            case let .local(value), let .world(value): matrix = value
+            }
+            guard Self.isFinite(matrix) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+            }
+            if case let .local(value) = override {
+                locals[index] = value
+            }
+        }
+        // Authored rig order is parent-first. Resolve world overrides in that
+        // order so a child sees the effective world transform of its parent.
+        for (index, bone) in rig.bones.enumerated() {
+            let parentWorld: simd_float4x4?
+            if bone.parentIndex >= 0 {
+                parentWorld = worlds[bone.parentIndex]
+            } else {
+                parentWorld = nil
+            }
+            if case let .world(value) = overrides[index] {
+                if let parentWorld {
+                    let determinant = simd_determinant(parentWorld)
+                    guard determinant.isFinite, abs(determinant) > 0.000001 else {
+                        throw ScenePuppetAnimationEvaluationFailure.singularBindMatrix(index)
+                    }
+                    let local = simd_inverse(parentWorld) * value
+                    guard Self.isFinite(local) else {
+                        throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+                    }
+                    locals[index] = local
+                } else {
+                    locals[index] = value
+                }
+                worlds[index] = value
+            } else {
+                let local = locals[index]
+                guard Self.isFinite(local) else {
+                    throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+                }
+                worlds[index] = parentWorld.map { $0 * local } ?? local
+            }
+            guard Self.isFinite(worlds[index]) else {
+                throw ScenePuppetAnimationEvaluationFailure.invalidBindTransform(index)
+            }
+            let determinant = simd_determinant(worlds[index])
+            guard determinant.isFinite, abs(determinant) > 0.000001 else {
+                throw ScenePuppetAnimationEvaluationFailure.singularBindMatrix(index)
+            }
+        }
+    }
+
+    private static func isFinite(_ matrix: simd_float4x4) -> Bool {
+        [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
+            .allSatisfy { column in
+                column.x.isFinite && column.y.isFinite
+                    && column.z.isFinite && column.w.isFinite
+            }
     }
 
     /// Computes only the origin-centred extent needed by load-time target
@@ -371,7 +448,7 @@ struct ScenePuppetAnimationEvaluator {
         return output
     }
 
-    private func writeLocalMatrices(
+    func writeLocalMatrices(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
         into output: inout [simd_float4x4]
@@ -720,104 +797,4 @@ struct ScenePuppetAnimationEvaluator {
         }
     }
 
-    private static func matrix(fromColumnMajor values: [Float]) -> simd_float4x4 {
-        simd_float4x4(columns: (
-            SIMD4(values[0], values[1], values[2], values[3]),
-            SIMD4(values[4], values[5], values[6], values[7]),
-            SIMD4(values[8], values[9], values[10], values[11]),
-            SIMD4(values[12], values[13], values[14], values[15])
-        ))
-    }
-
-    private static func matrix(
-        from transform: SceneMdlPuppetAnimation.Transform
-    ) -> simd_float4x4 {
-        SceneMatrix.translation(transform.translation)
-            * SceneMatrix.eulerXYZ(transform.rotation)
-            * SceneMatrix.scale(transform.scale)
-    }
-
-    private static func matrix(from pose: Pose) -> simd_float4x4 {
-        SceneMatrix.translation(pose.translation)
-            * simd_float4x4(pose.rotation)
-            * SceneMatrix.scale(pose.scale)
-    }
-
-    private static func pose(
-        from transform: SceneMdlPuppetAnimation.Transform
-    ) -> Pose? {
-        guard Self.isFinite(transform.translation),
-              Self.isFinite(transform.rotation),
-              Self.isFinite(transform.scale) else {
-            return nil
-        }
-        let rotation4 = SceneMatrix.eulerXYZ(transform.rotation)
-        let rotation3 = simd_float3x3(columns: (
-            SIMD3(rotation4.columns.0.x, rotation4.columns.0.y, rotation4.columns.0.z),
-            SIMD3(rotation4.columns.1.x, rotation4.columns.1.y, rotation4.columns.1.z),
-            SIMD3(rotation4.columns.2.x, rotation4.columns.2.y, rotation4.columns.2.z)
-        ))
-        let rotation = simd_quatf(rotation3)
-        guard Self.isFinite(rotation.vector) else { return nil }
-        return Pose(
-            translation: transform.translation,
-            rotation: rotation,
-            scale: transform.scale
-        )
-    }
-
-    private static func pose(from matrix: simd_float4x4) -> Pose? {
-        let c0 = SIMD3(matrix.columns.0.x, matrix.columns.0.y, matrix.columns.0.z)
-        let c1 = SIMD3(matrix.columns.1.x, matrix.columns.1.y, matrix.columns.1.z)
-        let c2 = SIMD3(matrix.columns.2.x, matrix.columns.2.y, matrix.columns.2.z)
-        var scale = SIMD3(simd_length(c0), simd_length(c1), simd_length(c2))
-        guard Self.isFinite(scale),
-              scale.x > 0.000001, scale.y > 0.000001, scale.z > 0.000001 else { return nil }
-        var r0 = c0 / scale.x
-        let r1 = c1 / scale.y
-        let r2 = c2 / scale.z
-        let rotationMatrix = simd_float3x3(columns: (r0, r1, r2))
-        let determinant = simd_determinant(rotationMatrix)
-        guard determinant.isFinite, abs(determinant) > 0.000001 else { return nil }
-        if determinant < 0 {
-            scale.x = -scale.x
-            r0 = -r0
-        }
-        let rotation = simd_quatf(simd_float3x3(columns: (r0, r1, r2)))
-        guard Self.isFinite(rotation.vector) else { return nil }
-        let translation = SIMD3(matrix.columns.3.x, matrix.columns.3.y, matrix.columns.3.z)
-        guard Self.isFinite(translation) else { return nil }
-        return Pose(translation: translation, rotation: rotation, scale: scale)
-    }
-
-    private static func isFinite(_ value: SIMD3<Float>) -> Bool {
-        value.x.isFinite && value.y.isFinite && value.z.isFinite
-    }
-
-    private static func isFinite(_ value: SIMD4<Float>) -> Bool {
-        value.x.isFinite && value.y.isFinite && value.z.isFinite && value.w.isFinite
-    }
-
-    private static func maxDifference(_ lhs: Pose, _ rhs: Pose) -> Float {
-        max(
-            max(
-                simd_length(lhs.translation - rhs.translation),
-                simd_length(lhs.scale - rhs.scale)
-            ),
-            simd_length(lhs.rotation.vector - rhs.rotation.vector)
-        )
-    }
-
-    private static func maxDifference(
-        _ lhs: simd_float4x4,
-        _ rhs: simd_float4x4
-    ) -> Float {
-        var maximum: Float = 0
-        for column in 0..<4 {
-            for row in 0..<4 {
-                maximum = max(maximum, abs(lhs[column][row] - rhs[column][row]))
-            }
-        }
-        return maximum
-    }
 }

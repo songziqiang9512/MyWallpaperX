@@ -390,6 +390,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     char *diagnostic,
     size_t diagnostic_capacity
 );
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_hierarchy(
+    MWXSceneQuickJSOwner *owner, const int32_t *parents, const double *layer_to_world,
+    char *diagnostic, size_t diagnostic_capacity
+);
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_puppet_bone_name(
     MWXSceneQuickJSOwner *owner,
     uint32_t bone_index,

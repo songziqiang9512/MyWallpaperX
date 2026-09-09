@@ -25,7 +25,7 @@
 
 ### 0.1 当前续跑状态（2026-09-10）
 
-当前仍在 P1 公共断点修复。最新结构增量：B3 的 `3448845950` 四处 attachment 清零，`3665307769` 从 NON-PASS 恢复 strict PASS；B5 已越过 varying 和 float→int 编译错误，首断点推进至 terminal data/color 合同；B9 只补齐骨骼身份/frame 合同，VM→mesh 未接。下面 09-09 的 12 样本 `5/12` 与 159 个视觉 verdict 都是原始快照，不用两次后继回放改写总数。详见 [B3 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
+当前仍在 P1 公共断点修复。最新结构增量：B3 的 `3448845950` 四处 attachment 清零，`3665307769` 从 NON-PASS 恢复 strict PASS；B5 已越过 varying 和 float→int 编译错误，首断点推进至 terminal data/color 合同；B9 已接通同一 VM/cursor→bone journal→Puppet playback，进入真实拖拽与可见参数验收。下面 09-09 的 12 样本 `5/12` 与 159 个视觉 verdict 都是原始快照，不用两次后继回放改写总数。详见 [B3 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
 
 #### 2026-09-09 接手与 12 样本历史基线
 
@@ -42,7 +42,7 @@
 | B3 | 三分量 user→script 切片已执行，event-only 分支开放 | 3448845950 四层八个 uniform 完成 VM/material/GPU/compositor/next-frame；3665307769 strict PASS | 扩面 3601964477，再补 2902406982 的 media-event/Timeline producer；不扩大 scalar/vec2 或不明 wrapper |
 | B4/B5 | B4 结构闭合但 geodraw/视觉开放，B5 与后继 owner 开放 | 当前包 `3662790108` 严格结构 PASS（35/35 active effect、81/81 GraphExecutor），但 8 个 geodraw2_1 request 仍走 `generatedStraightAlpha/colorTransfer → boundedSwift`；`3792249095` 仍有 layer 254 `degraded-layer-source-passthrough`，09-10 `3448845950` 已推进到 terminal data/color 合同。09-09 包的 366 启动约 48.09s、7.49 FPS（总报告 SHA `0104f3…`） | 修 geodraw 通用 color-transfer，再独立处理 sampler-schema/owner-revoked；结构 PASS 不等于视觉闭合 |
 | B6 | 开放（作者类型不匹配） | `3747492842` 的 string-as-Vec3 与 scalar `.add` 错误已由 payload 复核；QuickJS 保持 fail-closed | 补合法 Vec3/scalar 正例及可重复异常 payload；不做字符串强转或伪造 API |
-| B9 | 开放（09-10 已补 bone identity/frame 合同，VM 事务待接） | `2959875782` layer 813 的 visibility 脚本同时依赖 `thisLayer` Puppet bone API、cursor callbacks 与 `Date`；当前没有相应投影 owner，作者 seed=false 保持休眠 | 在同一 SceneScript vector/cursor 事务 owner 内补 Puppet bone handle 与 visibility publication；先做 identity-free 正反门，再做跨时间窗口和交互实跑 |
+| B9 | 开放：接线审核完成，交互验收中 | 同一 vector/cursor owner 已消费 MDL rig、真实层级、world/local Mat4 与有序 bone journal；layer 813 已进入 visibility 与 strict graph 执行 | 完成真实拖拽的位移、限幅、release 保持及 ROI 证据；不得用 graph PASS 代替全部参数正确 |
 | B7 | teardown/启动闭合，稳定帧 CPU 待降 | 当前包 `3665307769` exit 0、teardown `surfaces=0`，09-10 后继 B3 layer 412 已执行且样本 strict PASS；CPU p95 `35.667 ms`、GPU p95 `10.160 ms`、driver `26.57 FPS` | 对 Puppet source-update CPU 做 profile/通用降本，目标回到 16.67ms 帧预算；B3 独立处理 |
 | B8 | 记录完成，严格观察门仍保留 FAIL | 当前包 `3775355045` / `3775373546` 均在首帧记录 `22:layer-source-not-ready`，随后 frame 10/12 起 Program、GPU、compositor、next-frame 成立；strict benchmark 仍 FAIL | 不改门禁；若改变等待策略另立产品/门禁条目，并把旧 ledger 行标为 snapshot conflict |
 
@@ -165,15 +165,14 @@
 - **裁决**：这是可观察的 provider readiness 瞬态，不是当前公共执行首断点。产品等待策略与 benchmark 观察合同仍是独立后续决策；本条不改 benchmark 门禁，也不把该瞬态改写为 PASS。
 - **完工动作**：保留现有证据与严格 FAIL 事实；若未来要改变首帧等待或观察合同，另立有明确产品/门禁授权的条目。当前版本的两例运行详情已纳入 2026-09-09 总报告，不把它们计为现役 P1 清零。
 
-### B9 Puppet visibility 脚本缺少 `thisLayer` bone/cursor 事务 owner
+### B9 Puppet visibility、bone/cursor 事务与交互验收
 
-- **状态**：`open（2026-09-10：骨骼身份与 typed frame 已补；QuickJS→mesh 事务仍待接线）`
-- **问题**：`2959875782` layer 813（Puppet layer `S2rboob`）的 `visible` authored wrapper seed 为 `false`，脚本的 `update(value)`、`cursorDown`、`cursorUp` 与 `init` 共同使用 `input.cursorWorldPosition`、`thisLayer.getBoneIndex/getBoneTransform/setBoneTransform` 和 `Date.getSeconds()`。当前 binding 没有投影为 `.layer(813, .visibility)`，因此没有 VM、dynamic visibility 或 graph execution 记录，预览日志为 `disposition=previous-current reason=awaiting-scenescript-publication`。
-- **已核实 owner**：`SceneScriptVectorCandidateCatalog.visibilityProjection` 的 independent boolean route 明确排除 `thisLayer`，stateful route 要求 `shared` 或 `thisScene`；standalone cursor route 又把含 `update(value)` 的 image binding留给 vector owner。现有 QuickJS 已有 `thisLayer` identity/effect/部分 transform bridge 与 cursor transaction 基础，但没有 Puppet bone handle 的 typed mutation/publication 合同。
-- **进一步归因**：当前 `SceneQuickJSLayerHost/HandleHost` 没有 `getBoneIndex/getBoneTransform/setBoneTransform`，`MWXSceneQuickJSLayerMutation` journal 也没有 bone mutation；MDLS reader 已补 name 保留，catalog 与带 layer-to-world 的原子 frame helper 已通过正反门；见 [B7/B9 最新证据](semantics/runtime-evidence-current.md#e-2026-09-10-puppet-bone-frame)。QuickJS 与 mesh 尚未消费该 helper，因此这不是单个 visibility flag 的漏接，而是约 26 个 census 对象共用的 bone handle/typed Mat4 owner 缺口。实现应保留 name→index identity、有限 Mat4/translation 读写和原子 rollback，仍复用现有 vector/cursor transaction owner。
-- **表现**：作者 seed=false 时该 Puppet layer 保持休眠；当前运行窗口 09:23:48–09:24:01 也在脚本 true 窗口 03–39 秒之外，所以不能仅凭该次无执行判为 graph failure。缺失的是同一 owner 对 visibility、cursor capture 与 bone transform mutation 的有序提交。
-- **边界**：不得为 layer 813、名字、时间窗口或样本 ID 加特例；不得在 Puppet evaluator 外再建骨骼状态。失败时只丢弃该 owner 当帧 mutation，保留 previous-current visibility/mesh 与唯一 compositor。
-- **完工动作**：先用 identity-free fixture 锁定 bone name/index lookup、transform read/write、cursor down/up、update 顺序、generation rollback 与非法/stale handle 反例；再用隔离真实样本跨 hidden/visible 秒窗和一次 cursor drag，证明 typed mutation → Puppet evaluator → graph execution → GPU/publication/compositor/next-frame。
+- **状态**：`open（2026-09-10：上层接线审核及 VM→mesh 修复已完成；真实交互验收推进中）`。
+- **已修复职责链**：`thisLayer` visibility 进入现有 stateful vector owner；cursor 借用同一 owner。真实 MDL 名称/顺序/父索引在启动安装，帧 pose 使用当前动画、override 与 image model-to-world；world setter 原子转换为 local journal，更新后代，按 cursor→update 次序交给唯一 Puppet playback。无动画但含 inline script 的 Puppet 也创建既有 playback；bone revision 独立驱动空 clip 的 mesh 更新。
+- **审核发现并修复**：真实 `thisLayer` 对象漏装 bone 方法；错误的 index−1 父关系；world setter 未逆变换父矩阵；失败回调/未提交帧未恢复 pose；cursor 丢失 bone journal；静态 Puppet 没有运行 owner；关闭 parallax 时非零 authored depth 被错拒；`Vec3.length()` 缺失。未改样本脚本或添加按 ID 分派。
+- **动态 graph 联动**：provider 集合只证明静态可能性，实际 publication 必须来自当帧有效 reservation。现有 runtime 记录 demanded provider，动态可见层不再重复走隐藏 provider prepass；实际 demand 的身份、尺寸、epoch 拒绝保持。
+- **证据和下一入口**：[B9 接线审核证据](semantics/runtime-evidence-current.md#e-2026-09-10-b9-wiring-review)。必须区分方法执行、mesh 变形、GPU/compositor 和 ROI；整场景动画的 settle 差异保留原始 NON-PASS，不修改阈值掩盖。
+- **剩余边界**：真实 authored 拖拽半径/限幅、release 后保持、隐藏/显示窗口与相称 ROI；parallax-enabled interactive bone 和 multi-surface 尚无证据。不得将 bounded Mat4/translation 扩称完整 Mat4 或官方 parity。失败仍由现有 owner/frame transaction 回滚，保留安全输出。
 
 ---
 

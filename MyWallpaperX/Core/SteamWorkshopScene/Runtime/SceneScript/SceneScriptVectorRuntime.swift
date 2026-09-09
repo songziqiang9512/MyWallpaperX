@@ -1,30 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
-    let value: SceneDynamicValue
-    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
-    let animationMutations: [SceneTimelinePlaybackMutation]
-    let layerMutations: [SceneScriptLayerMutation]
-    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
-    let videoCommands: [SceneScriptVideoCommand]
-
-    init(
-        value: SceneDynamicValue,
-        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
-        animationMutations: [SceneTimelinePlaybackMutation],
-        layerMutations: [SceneScriptLayerMutation],
-        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        videoCommands: [SceneScriptVideoCommand]
-    ) {
-        self.value = value
-        self.materialFunctionMutations = materialFunctionMutations
-        self.animationMutations = animationMutations
-        self.layerMutations = layerMutations
-        self.puppetBoneMutations = puppetBoneMutations
-        self.videoCommands = videoCommands
-    }
-}
-
 nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let target: SceneDynamicTarget
     let generation: UInt64
@@ -34,7 +9,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     let handlesMediaProperties: Bool
     let handlesMediaTimeline: Bool
     let exportedCursorEvents: Set<SceneScriptCursorEventKind>
-    private let handle: OpaquePointer
+    let handle: OpaquePointer
     private let domain: SceneScriptQuickJSDomain
     private let budget: SceneScriptScalarBudget
     private let valueType: SceneDynamicValueType
@@ -188,53 +163,6 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
     }
 
     deinit { mwx_scene_quickjs_owner_destroy(handle) }
-
-    /// Installs the launch-prepared Puppet pose into thisLayer's existing
-    /// callback owner. The arrays are copied once per frame generation; bone
-    /// writes still leave through the normal owner mutation journal.
-    func configurePuppetBones(
-        layerID: Int,
-        worldMatrices: [Double],
-        localMatrices: [Double],
-        names: [String] = []
-    ) throws {
-        guard worldMatrices.count == localMatrices.count,
-              worldMatrices.count % 16 == 0,
-              !worldMatrices.isEmpty else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                "invalid Puppet bone matrix payload"
-            )
-        }
-        var diagnostic = [CChar](repeating: 0, count: 512)
-        let result = worldMatrices.withUnsafeBufferPointer { world in
-            localMatrices.withUnsafeBufferPointer { local in
-                mwx_scene_quickjs_owner_configure_puppet_bones(
-                    handle, Int64(layerID), UInt32(worldMatrices.count / 16),
-                    world.baseAddress, local.baseAddress,
-                    &diagnostic, diagnostic.count
-                )
-            }
-        }
-        guard result == MWX_SCENE_QUICKJS_OK else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                String(cString: diagnostic)
-            )
-        }
-        for (index, name) in names.enumerated() where index < worldMatrices.count / 16 {
-            var nameDiagnostic = [CChar](repeating: 0, count: 512)
-            let nameResult = name.withCString {
-                mwx_scene_quickjs_owner_set_puppet_bone_name(
-                    handle, UInt32(index), $0, name.utf8.count,
-                    &nameDiagnostic, nameDiagnostic.count
-                )
-            }
-            guard nameResult == MWX_SCENE_QUICKJS_OK else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                    String(cString: nameDiagnostic)
-                )
-            }
-        }
-    }
 
     func refreshAudio(
         _ snapshot: SceneAudioSpectrumSnapshot
@@ -826,7 +754,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         )
     }
 
-    private static func failure(
+    static func failure(
         _ raw: MWXSceneQuickJSResult,
         _ buffer: [CChar]
     ) -> SceneScriptScalarRuntimeFailure {

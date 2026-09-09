@@ -56,6 +56,7 @@ extension SceneMetalRenderer {
     /// composites the hidden provider directly into the main target.
     func executeDependencyGraphProviderIfRequired(
         layer: SceneRenderDescriptor.Layer,
+        isVisibleExecutionRoot: Bool,
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         textureRegistry: SceneFrameTextureRegistry,
         dependencyRuntime: SceneDependencyFrameRuntime,
@@ -63,10 +64,10 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         executionTrace: SceneEffectExecutionFrameTrace
     ) -> Bool? {
-        guard dependencyRuntime.requiresGraphOutputCapture(
+        guard dependencyRuntime.requiresDemandedGraphOutputCapture(
             for: layer.id
         ) else { return nil }
-        guard layer.visible == false else { return nil }
+        guard !isVisibleExecutionRoot else { return nil }
         // A visual frame-local fallback intentionally publishes nothing. Any
         // downstream consumer then takes the ordinary provider-miss path.
         guard framePlan != nil else { return true }
@@ -231,6 +232,7 @@ extension SceneMetalRenderer {
                 }
                 guard executeDependencyGraphProviderIfRequired(
                     layer: provider,
+                    isVisibleExecutionRoot: false,
                     framePlan: framePlans[provider.id],
                     textureRegistry: textureRegistry,
                     dependencyRuntime: dependencyRuntime,

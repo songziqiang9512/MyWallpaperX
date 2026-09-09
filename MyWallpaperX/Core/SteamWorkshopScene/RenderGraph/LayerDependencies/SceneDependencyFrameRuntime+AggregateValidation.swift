@@ -11,7 +11,7 @@ extension SceneDependencyFrameRuntime {
         frameEpoch: UInt64
     ) -> Bool {
         synchronizeReservations(to: frameEpoch)
-        for providerLayerID in plan.requiredGraphOutputProviderLayerIDs.sorted() {
+        for providerLayerID in demandedGraphOutputProviderLayerIDs.sorted() {
             guard let output = outputsByLayerID[providerLayerID] else {
                 // A frame-local visual fallback deliberately leaves the
                 // provisional reservation unpublished so dependants take the

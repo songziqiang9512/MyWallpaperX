@@ -1,6 +1,34 @@
 import Foundation
 
 extension SceneScriptVectorProgram {
+    /// Installs launch-prepared Puppet rig identity into matching owners. The
+    /// owner remains the sole QuickJS mutation journal; this is only a
+    /// launch-time snapshot and performs no sample-specific dispatch.
+    @discardableResult
+    func configurePuppetBones(
+        layerID: Int,
+        worldMatrices: [Double],
+        localMatrices: [Double],
+        names: [String],
+        parents: [Int32]? = nil,
+        layerToWorld: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+    ) throws -> Bool {
+        var configured = false
+        for binding in bindings {
+            guard SceneScriptLayerMutationBridge.layerID(
+                for: binding.definition.target
+            ) == layerID else { continue }
+            try binding.owner.configurePuppetBones(
+                layerID: layerID,
+                worldMatrices: worldMatrices,
+                localMatrices: localMatrices,
+                names: names, parents: parents, layerToWorld: layerToWorld
+            )
+            configured = true
+        }
+        return configured
+    }
+
     var hasAudioConsumers: Bool {
         bindings.contains(where: { $0.owner.hasAudioRegistration })
     }

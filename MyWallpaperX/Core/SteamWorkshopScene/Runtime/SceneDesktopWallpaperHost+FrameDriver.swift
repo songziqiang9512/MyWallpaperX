@@ -281,6 +281,11 @@ extension SceneDesktopWallpaperHost {
                     runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs,
                     awaitingHostFrameOutcome: true
                 )
+            if surfaces.count == 1 {
+                try surfaces.values.first?.metalView.refreshSceneScriptPuppetBones(
+                    context: launchContext, timing: timing,
+                    dynamicValues: preliminaryForSceneScript)
+            }
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
             sceneScriptLayerSnapshotFailure = failure
@@ -427,8 +432,10 @@ extension SceneDesktopWallpaperHost {
             }
         }
         let layerTopology = layerMutationSnapshot
-        let ownerEffects = coordinatedSceneScript.ownerEffects
-            + cursorResult.ownerEffects
+        // Cursor callbacks run before update; preserve that order for writes
+        // to the same owner/bone in one frame.
+        let ownerEffects = cursorResult.ownerEffects
+            + coordinatedSceneScript.ownerEffects
         let layerMutationCount = ownerEffects.reduce(0) {
             $0 + $1.layerMutations.count
         }
@@ -667,7 +674,10 @@ extension SceneDesktopWallpaperHost {
             launchContext.sceneScriptStorageSession?.discardFrameTransaction()
             _ = launchContext.propertyVectorScriptProgram.domain?
                 .discardSharedFrameTransaction()
-            surfaces.values.forEach { $0.metalView.discardPreparedParticleFrame() }
+            surfaces.values.forEach {
+                $0.metalView.discardPreparedParticleFrame()
+                $0.metalView.puppetPlaybackStates.values.forEach { $0.discardBoneFrame() }
+            }
             surfaces.values.forEach { $0.metalView.discardPreparedSpriteFrames() }
             surfaces.values.forEach { $0.metalView.discardPreparedMaterialAssetFrame() }
             surfaces.values.forEach { $0.metalView.discardPreparedFrameTexturePublication() }
@@ -678,7 +688,10 @@ extension SceneDesktopWallpaperHost {
             return frameOutcomes.contains(where: { $0.isDeferred })
                 ? .busy : .dropped
         }
-        surfaces.values.forEach { $0.metalView.commitPreparedParticleFrame() }
+        surfaces.values.forEach {
+            $0.metalView.commitPreparedParticleFrame()
+            $0.metalView.puppetPlaybackStates.values.forEach { $0.commitBoneFrame() }
+        }
         surfaces.values.forEach { $0.metalView.commitPreparedMaterialAssetFrame() }
         surfaces.values.forEach { $0.metalView.commitPreparedFrameTexturePublication() }
         surfaces.values.forEach { $0.metalView.commitPreparedMediaThumbnailUpdate() }

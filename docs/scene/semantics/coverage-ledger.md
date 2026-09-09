@@ -984,7 +984,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 逐 Puppet、Model、Lighting、产品预算、RGB 和 offline 项见 [高级对象覆盖表](advanced-object-coverage.md)。
 
-09-10 B7/B9 后继：MDLS name/顺序身份已保留（S1），带 layer-to-world 的原子 bone frame 与 playback matrix scratch 已有 typed fixture/接线（S2）；QuickJS bone API、cursor mutation→mesh 尚未接通，既有 Puppet L3 不能外推到骨骼交互。正反门与剩余入口见 [B7/B9 证据](runtime-evidence-current.md#e-2026-09-10-puppet-bone-frame)。
+09-10 B9 接线审核后继：同一 vector/cursor owner 已安装真实 rig 名称/父索引，当前 pose→world/local Mat4→原子 local journal→唯一 Puppet playback；静态无 clip 的 script rig 以 bone revision 驱动 mesh，callback/未提交帧恢复 pose。真实样本 visibility、cursor callbacks 与 strict graph 已执行；骨骼交互的最终可见/参数边界与运行身份由 [B9 审核证据](runtime-evidence-current.md#e-2026-09-10-b9-wiring-review) 拥有，不将其外推为完整 Mat4、parallax/multi-surface 或官方 parity。
 
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|

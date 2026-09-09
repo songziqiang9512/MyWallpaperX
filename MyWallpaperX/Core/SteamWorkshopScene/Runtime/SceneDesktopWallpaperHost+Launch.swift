@@ -107,7 +107,6 @@ struct SceneDesktopWallpaperLaunchContext {
             capturesExecutionObservations: capturesExecutionObservations
         )
     }
-
 }
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
@@ -761,6 +760,7 @@ extension SceneDesktopWallpaperHost {
             recordID: recordID,
             capturesExecutionObservations: Self.usesDebugEvidenceWindow
         )
+        try context.configurePreparedPuppetBones()
         try cancellation?.check()
         return PreparedLaunch(model: model, context: context)
     }

@@ -354,7 +354,8 @@ final class SceneFrameTextureRegistry {
     func publishReservedNamedLayerTarget(
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64,
-        texture: MTLTexture
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) -> Bool {
         guard frameEpoch > 0 else { return false }
         typedPublicationCount += 1
@@ -440,7 +441,12 @@ enum SceneTextureSampling {
         }
     }
 }
-struct SceneTextureContent { let isResolved: Bool }
+enum StubAlpha { case premultipliedAlpha }
+enum StubColor { case resolved(StubAlpha) }
+struct SceneTextureContent {
+    let isResolved: Bool
+    static func color(_ value: StubColor) -> Self { .init(isResolved: true) }
+}
 
 struct SceneTextureCandidate {
     let texture: MTLTexture
@@ -1145,8 +1151,12 @@ enum Harness {
         case .ready, .unavailable:
             epochAdvanceClearsReservation = false
         }
+        let inactiveProviderNeedsNoReservation = runtime.installPreparedGraphOutputs(
+            [400: output], frameEpoch: 14
+        ) && !runtime.requiresDemandedGraphOutputCapture(for: 400)
         let result: [String: Any] = [
             "metalAvailable": true,
+            "inactiveProviderNeedsNoReservation": inactiveProviderNeedsNoReservation,
             "reserved": provisionalInput != nil && reservationFailure == nil,
             "mixedConsumerKindsShareProviderPublication":
                 mixedConsumerKindsShareProviderPublication,
@@ -1250,6 +1260,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                 result,
                 {
                     "metalAvailable": True,
+                    "inactiveProviderNeedsNoReservation": True,
                     "reserved": True,
                     "mixedConsumerKindsShareProviderPublication": True,
                     "preparedExtentReserved": True,

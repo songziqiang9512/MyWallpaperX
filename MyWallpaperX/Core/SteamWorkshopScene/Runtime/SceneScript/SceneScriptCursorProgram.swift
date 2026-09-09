@@ -90,7 +90,7 @@ nonisolated struct SceneScriptCursorEdgeState: Sendable {
     )
 }
 
-private nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
+nonisolated struct SceneScriptCursorBinding: @unchecked Sendable {
     let layerID: Int
     let authoredOrder: Int
     let owner: SceneScriptVectorOwner
@@ -107,7 +107,7 @@ private nonisolated struct SceneScriptCursorAuthoredMutationKey: Hashable {
 /// testing remains a typed host responsibility; JavaScript receives immutable
 /// world/local positions and can only publish through existing mutation paths.
 nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
-    private let bindings: [SceneScriptCursorBinding]
+    let bindings: [SceneScriptCursorBinding]
     private let generation: UInt64
     private var previousHits: [Int: SceneScriptCursorHit] = [:]
     private var capturedHits: [Int: SceneScriptCursorHit] = [:]
@@ -118,6 +118,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     let ownerLayerIDs: Set<Int>
     var capturedOwnerLayerIDs: Set<Int> { Set(capturedHits.keys) }
     var ownerCount: Int { bindings.count }
+
 
     func edgeStateSnapshot() -> SceneScriptCursorEdgeState {
         .init(
@@ -356,6 +357,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerLayerID: Int,
             mutation: SceneTimelinePlaybackMutation
         )] = []
+        var puppetBones: [(ownerLayerID: Int, mutation: SceneScriptPuppetBoneMutation)] = []
         var layers: [(
             ownerLayerID: Int,
             mutation: SceneScriptLayerMutation
@@ -367,6 +369,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             materialFunctions.removeAll { $0.ownerLayerID == ownerLayerID }
             animations.removeAll { $0.ownerLayerID == ownerLayerID }
             layers.removeAll { $0.ownerLayerID == ownerLayerID }
+            puppetBones.removeAll { $0.ownerLayerID == ownerLayerID }
             authoredMutationIndices = [:]
             for (index, candidate) in layers.enumerated()
                 where !candidate.mutation.isDynamic
@@ -405,6 +408,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(mutations):
+                puppetBones.append(contentsOf: mutations.puppetBones.map { (binding.layerID, $0) })
                 materialFunctions.append(contentsOf: mutations.materialFunctions.map {
                     (binding.layerID, $0)
                 })
@@ -574,7 +578,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 layerMutations: layers.compactMap {
                     $0.ownerLayerID == binding.layerID ? $0.mutation : nil
                 },
-                videoCommands: []
+                videoCommands: [],
+                puppetBoneMutations: puppetBones.compactMap {
+                    $0.ownerLayerID == binding.layerID ? $0.mutation : nil
+                }
             )
             return effects.isEmpty ? nil : effects
         }
@@ -701,7 +708,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         borrowedOwners.compactMap { registration in
             guard let layer = descriptor.layers.first(where: {
                 $0.id == registration.layerID
-            }), validHitLayer(layer) else { return nil }
+            }), validHitLayer(layer, parallaxEnabled: descriptor.camera.parallaxEnabled) else { return nil }
             let events = exportedEvents(registration.owner)
             guard !events.isEmpty else { return nil }
             return .init(
@@ -757,7 +764,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                   of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
                   options: .regularExpression
               ) == nil,
-              validHitLayer(layer) else { return nil }
+              validHitLayer(layer, parallaxEnabled: descriptor.camera.parallaxEnabled) else { return nil }
         return .init(layerID: layerID, authoredOrder: index)
     }
 
@@ -768,7 +775,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
     }
 
     private static func validHitLayer(
-        _ layer: SceneRenderDescriptor.Layer
+        _ layer: SceneRenderDescriptor.Layer,
+        parallaxEnabled: Bool
     ) -> Bool {
         guard let origin = layer.originXYZ, origin.count == 3,
               let size = layer.sizeWH, size.count == 2,
@@ -782,6 +790,6 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             && size.allSatisfy { $0.isFinite && $0 > 0 }
             && scale.allSatisfy { $0.isFinite && $0 != 0 }
             && angles.allSatisfy(\.isFinite)
-            && parallax.allSatisfy { $0 == 0 }
+            && parallax.allSatisfy { $0.isFinite && (!parallaxEnabled || $0 == 0) }
     }
 }

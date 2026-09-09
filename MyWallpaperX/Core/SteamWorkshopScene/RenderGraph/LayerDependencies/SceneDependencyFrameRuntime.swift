@@ -56,6 +56,7 @@ final class SceneDependencyFrameRuntime {
     )
     let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
+    var demandedGraphOutputProviderLayerIDs: Set<Int> = []
     var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
 #if DEBUG
     private var debugCaptureFault = SceneDependencyCaptureFault()
@@ -91,6 +92,10 @@ final class SceneDependencyFrameRuntime {
 
     func requiresGraphOutputCapture(for providerLayerID: Int) -> Bool {
         plan.requiredGraphOutputProviderLayerIDs.contains(providerLayerID)
+    }
+
+    func requiresDemandedGraphOutputCapture(for providerLayerID: Int) -> Bool {
+        demandedGraphOutputProviderLayerIDs.contains(providerLayerID)
     }
 
     func resolvedMaterialPreparationOrder(
@@ -179,6 +184,9 @@ final class SceneDependencyFrameRuntime {
             return nil
         }
         synchronizeReservations(to: frameEpoch)
+        if plan.requiredGraphOutputProviderLayerIDs.contains(providerLayer.id) {
+            demandedGraphOutputProviderLayerIDs.insert(providerLayer.id)
+        }
 
         let texture: MTLTexture
         if let reservation = reservationsByProviderLayerID[providerLayer.id] {
@@ -778,5 +786,6 @@ final class SceneDependencyFrameRuntime {
         guard reservationFrameEpoch != frameEpoch else { return }
         reservationFrameEpoch = frameEpoch
         reservationsByProviderLayerID.removeAll(keepingCapacity: true)
+        demandedGraphOutputProviderLayerIDs.removeAll(keepingCapacity: true)
     }
 }

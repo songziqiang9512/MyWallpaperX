@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationSelection.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+Transforms.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+FrameSampling.swift",
 ]
 
@@ -217,6 +218,26 @@ enum Harness {
             selection: singleSelection,
             frameSamples: [.init(frameA: 1, frameB: 1)]
         )
+        let worldOverrideTransforms = try evaluator.boneTransforms(
+            selection: singleSelection,
+            frameSamples: [.init(frameA: 0, frameB: 0)],
+            boneOverrides: [1: .world(SceneMatrix.translation(SIMD3(20, 0, 0)))]
+        )
+        let worldOverrideChildX = worldOverrideTransforms.world[1].columns.3.x
+        let worldOverrideLocalX = worldOverrideTransforms.local[1].columns.3.x
+        var nonFiniteOverride = matrix_identity_float4x4
+        nonFiniteOverride.columns.0.x = .nan
+        let nonFiniteRejected: Bool
+        do {
+            _ = try evaluator.boneTransforms(
+                selection: singleSelection,
+                frameSamples: [.init(frameA: 0, frameB: 0)],
+                boneOverrides: [0: .local(nonFiniteOverride)]
+            )
+            nonFiniteRejected = false
+        } catch {
+            nonFiniteRejected = true
+        }
         let staticAnimation = SceneMdlPuppetAnimation(
             id: 600,
             name: "Static",
@@ -407,6 +428,9 @@ enum Harness {
             "scratchFrame1": [scratchPositions[0].x, scratchPositions[0].y],
             "frame1Bounds": [frame1Bounds.x, frame1Bounds.y],
             "frame1BoundsMatch": frame1Bounds == expectedFrame1Bounds,
+            "worldOverrideChildX": worldOverrideChildX,
+            "worldOverrideLocalX": worldOverrideLocalX,
+            "nonFiniteOverrideRejected": nonFiniteRejected,
             "conservativeBoundsCover": conservativeBounds.x >= expectedFrame1Bounds.x
                 && conservativeBounds.y >= expectedFrame1Bounds.y,
             "dynamicAnimationTimeVarying": !invariantEvaluator.isTimeInvariant(animationID: 100),
@@ -515,6 +539,11 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         self.assertEqual(self.result["frame0"], [2, 1])
         self.assertEqual(self.result["frame1"], [5, 1])
         self.assertEqual(self.result["scratchFrame1"], self.result["frame1"])
+
+    def test_world_override_is_parent_relative_and_nonfinite_is_rejected(self) -> None:
+        self.assertAlmostEqual(self.result["worldOverrideChildX"], 20)
+        self.assertAlmostEqual(self.result["worldOverrideLocalX"], 16)
+        self.assertTrue(self.result["nonFiniteOverrideRejected"])
 
     def test_bounds_only_reduction_matches_deformed_positions(self) -> None:
         self.assertEqual(self.result["frame1Bounds"], [6, 4])

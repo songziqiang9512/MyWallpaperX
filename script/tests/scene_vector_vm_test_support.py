@@ -51,6 +51,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorProgram+Registrations.swift",
     VM / "SceneScriptVectorRuntime.swift",
+    VM / "SceneScriptVectorOwner+PuppetBones.swift",
     VM / "SceneScriptQuickJSProgramCandidate.swift",
 ]
 
@@ -176,6 +177,8 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
+    struct Camera { var parallaxEnabled = false }
+    var camera = Camera()
     struct ModelMaterialLink {
         let modelPath: String
         let materialPath: String? = nil

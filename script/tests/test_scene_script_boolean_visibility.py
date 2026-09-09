@@ -399,6 +399,31 @@ enum Harness {
             effectivePropertyValues: [:],
             frame: frame(runtime: 2)
         )
+        let boneProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                let bone;
+                export function init() { bone = thisLayer.getBoneIndex('tip'); }
+                export function update(value) {
+                    const pose = thisLayer.getLocalBoneTransform(bone);
+                    thisLayer.setLocalBoneTransform(bone, pose.translation(new Vec3(12, 3, 0)));
+                    return bone === 2;
+                }
+                export function cursorDown() { thisLayer.getBoneTransform(bone); }
+                export function cursorUp() {}
+                """)],
+            userPropertyDefinitions: [], generation: 21
+        )
+        let identity: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
+        _ = try boneProgram.configurePuppetBones(
+            layerID: 7, worldMatrices: identity + identity,
+            localMatrices: identity + identity, names: ["root", "tip"]
+        )
+        let boneResult = boneProgram.evaluate(
+            inputs: [target: .bool(false)], effectivePropertyValues: [:],
+            frame: frame(runtime: 2)
+        )
         let dynamicSource = """
             export let __workshopId = '2727665642';
             const audio = engine.registerAudioBuffers(16);
@@ -500,6 +525,12 @@ enum Harness {
             userPropertiesJSON: "{}"
         ).first
         let payload: [String: Any] = [
+            "boneDefinitions": boneProgram.definitions.count,
+            "boneValue": boolValue(boneResult, target: target) as Any,
+            "boneFailure": String(describing: boneResult.failures),
+            "boneMutationCount": boneResult.ownerEffects.first?.puppetBoneMutations.count ?? 0,
+            "boneTranslation": boneResult.ownerEffects.first?.puppetBoneMutations.first?.matrix[12] ?? -1,
+            "boneCursorOwners": boneProgram.cursorOwnerRegistrations.count,
             "definitions": program.definitions.count,
             "first": boolValue(first, target: target) as Any,
             "second": boolValue(second, target: target) as Any,
@@ -646,6 +677,13 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             self.value["statefulCursorEvents"],
             ["cursorDown", "cursorUp"],
         )
+
+    def test_layer_bone_visibility_uses_effectful_owner_and_publishes_matrix(self) -> None:
+        self.assertEqual(self.value["boneDefinitions"], 1)
+        self.assertTrue(self.value["boneValue"], self.value["boneFailure"])
+        self.assertEqual(self.value["boneMutationCount"], 1)
+        self.assertEqual(self.value["boneTranslation"], 12)
+        self.assertEqual(self.value["boneCursorOwners"], 1)
 
     def test_shared_state_rolls_back_with_the_frame(self) -> None:
         self.assertTrue(self.value["sharedTransactionRequired"])
