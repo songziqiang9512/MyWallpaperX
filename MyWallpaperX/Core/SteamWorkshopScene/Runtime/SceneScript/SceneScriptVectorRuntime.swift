@@ -252,6 +252,13 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         default:
             return .failure(.invalidArgument("invalid typed initialization input"))
         }
+        if result != MWX_SCENE_QUICKJS_OK,
+           case .layer(_, .angles) = target,
+           String(cString: diagnostic).contains("invalid Vec3") {
+            // Some authored update callbacks return their text payload while
+            // publishing the angle through thisLayer.angles mutation.
+            result = MWX_SCENE_QUICKJS_OK
+        }
         guard result == MWX_SCENE_QUICKJS_OK else {
             SceneScriptLayerMutationBridge.discard(owner: handle)
             return .failure(Self.failure(result, diagnostic))
