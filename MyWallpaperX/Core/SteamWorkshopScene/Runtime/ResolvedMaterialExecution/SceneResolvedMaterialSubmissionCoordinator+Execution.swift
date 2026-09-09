@@ -197,6 +197,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 identity: identity,
                 epoch: executionEpoch,
                 finalTextureIdentity: ObjectIdentifier(ledger.prepared.finalTexture),
+                finalContent: ledger.prepared.finalResource.publication.candidate.content,
                 consumesExternalPrimaryDependency:
                     consumesExternalPrimaryDependency,
                 effectFailures: ledger.prepared.stages.compactMap { stage in

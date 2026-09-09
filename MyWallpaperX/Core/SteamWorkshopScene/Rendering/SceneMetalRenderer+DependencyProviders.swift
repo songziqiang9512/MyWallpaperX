@@ -160,7 +160,8 @@ extension SceneMetalRenderer {
             texture: texture,
             publicationRole: .namedProviderPrepass,
             textureRegistry: textureRegistry,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            content: ticket.finalContent
         ) == true
         dependencyRuntime.recordBindingIfRequired(
             for: layer.id,

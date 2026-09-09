@@ -698,7 +698,8 @@ final class SceneDependencyFrameRuntime {
         texture: MTLTexture,
         publicationRole: GraphOutputPublicationRole,
         textureRegistry: SceneFrameTextureRegistry,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) -> Bool? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
@@ -756,7 +757,8 @@ final class SceneDependencyFrameRuntime {
         guard textureRegistry.publishReservedNamedLayerTarget(
             reference: reference,
             frameEpoch: frameEpoch,
-            texture: reservation.texture
+            texture: reservation.texture,
+            content: content
         ), textureRegistry.completeNamedLayerTargetTexture(
             reference: reference,
             frameEpoch: frameEpoch

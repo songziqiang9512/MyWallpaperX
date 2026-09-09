@@ -253,7 +253,8 @@ nonisolated struct SceneFrameTextureResource {
     static func reservedNamedLayerTarget(
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64,
-        texture: MTLTexture
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) -> Self? {
         guard frameEpoch > 0,
               reference.variant == .primary,
@@ -273,8 +274,8 @@ nonisolated struct SceneFrameTextureResource {
                 frameEpoch: frameEpoch
             )),
             generation: .provider(contentGeneration: frameEpoch),
-            purpose: .premultipliedColor,
-            content: .color(.resolved(.premultipliedAlpha)),
+            purpose: { switch content { case .data, .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16, .redGreenFloat16: return .preservedChannels; case .color: return .premultipliedColor } }(),
+            content: content,
             physicalSize: size,
             mappedSize: size,
             uvTransform: .identity,

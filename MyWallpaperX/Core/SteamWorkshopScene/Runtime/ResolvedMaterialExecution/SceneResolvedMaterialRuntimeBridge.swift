@@ -68,6 +68,7 @@ final class SceneResolvedMaterialRuntimeBridge {
 
         let identity, epoch: UInt64
         let finalTextureIdentity: ObjectIdentifier
+        let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
         let effectFailures: [EffectFailure]
     }

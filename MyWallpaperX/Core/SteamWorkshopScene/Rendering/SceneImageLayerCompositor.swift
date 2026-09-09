@@ -63,7 +63,7 @@ struct SceneImageLayerCompositor {
     func drawOutcome(
         _ request: SceneImageLayerDrawRequest,
         explicitLayerSourcePublication: SceneTextureProviderPublication?,
-        resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)? = nil,
+        resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)? = nil,
         layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)? = nil,
         pipeline: SceneImageLayerPipeline,
         mainPass: SceneMainPassEncoder,
@@ -288,7 +288,7 @@ struct SceneImageLayerCompositor {
             }
             if let resolvedMaterialGraphOutputPublisher {
                 guard let graphExecutionTicket,
-                      resolvedMaterialGraphOutputPublisher(finalTexture) else {
+                      resolvedMaterialGraphOutputPublisher(finalTexture, graphExecutionTicket.finalContent) else {
                     if let graphExecutionTicket {
                         _ = consumeResolvedMaterialComposite(
                             graphExecutionTicket,

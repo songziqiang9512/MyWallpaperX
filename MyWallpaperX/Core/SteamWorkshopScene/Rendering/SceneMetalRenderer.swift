@@ -484,15 +484,16 @@ struct SceneMetalRenderer {
                 } else {
                     layerSourceGraphFallbackPublisher = nil
                 }
-                let resolvedMaterialGraphOutputPublisher: ((MTLTexture) -> Bool)?
+                let resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)?
                 if dependencyRuntime.requiresGraphOutputCapture(for: layer.id) {
-                    resolvedMaterialGraphOutputPublisher = { graphOutput in
+                    resolvedMaterialGraphOutputPublisher = { graphOutput, content in
                         dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,
                             texture: graphOutput,
                             publicationRole: .visibleMainLoop,
                             textureRegistry: textureRegistry,
-                            commandBuffer: commandBuffer
+                            commandBuffer: commandBuffer,
+                            content: content
                         ) == true
                     }
                 } else {

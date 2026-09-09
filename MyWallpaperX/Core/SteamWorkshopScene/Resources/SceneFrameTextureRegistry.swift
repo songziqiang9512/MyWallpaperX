@@ -299,13 +299,15 @@ final class SceneFrameTextureRegistry {
     func publishReservedNamedLayerTarget(
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64,
-        texture: MTLTexture
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) -> Bool {
         guard frameEpoch == self.frameEpoch,
               let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
             reference: reference,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: content
         ) else { return false }
         let identity = SceneFrameTextureIdentity.namedLayerTarget(reference)
         set(resource.publication, for: identity)
