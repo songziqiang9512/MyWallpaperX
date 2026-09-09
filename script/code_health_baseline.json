@@ -9,10 +9,6 @@
   ],
   "legacyFiles": {
     "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift": 1175,
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderArtifactBuilder+ColorTransfer.swift": 871,
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift": 869,
-    "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderStraightAlphaPreservingLowering.swift": 877,
-    "MyWallpaperX/Core/SteamWorkshopScene/Rendering/SceneMetalRenderer.swift": 819,
     "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift": 866,
     "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift": 840,
     "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift": 884,

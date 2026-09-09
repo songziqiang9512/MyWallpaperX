@@ -143,7 +143,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_unmapped_change_is_blocked_instead_of_succeeding_with_zero_gates(self) -> None:
         gates, groups = verify.build_plan(
-            ["script/code_health_baseline.json"],
+            ["script/unmapped_fixture.json"],
             arguments(),
             self.registry,
         )
@@ -153,7 +153,7 @@ class SceneValidationSelectionTests(unittest.TestCase):
 
     def test_unmapped_change_remains_blocked_beside_mapped_change(self) -> None:
         gates, _ = verify.build_plan(
-            ["docs/README.md", "script/code_health_baseline.json"],
+            ["docs/README.md", "script/unmapped_fixture.json"],
             arguments(),
             self.registry,
         )

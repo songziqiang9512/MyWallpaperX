@@ -612,6 +612,7 @@
       "patterns": [
         "script/scene_shader_compiler_dependencies.json",
         "script/scene_shader_compiler_*.py",
+        "script/tests/scene_generic_shader_provider_test_support.py",
         "script/fixtures/scene_shader_compiler/**",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneGenericShaderCompiler*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
@@ -661,6 +662,7 @@
       "id": "validation-governance",
       "patterns": [
         "script/scene_fast_suite.json",
+        "script/code_health_baseline.json",
         "script/run_scene_tests.py",
         "script/verify_scene_change.py",
         "script/scene_validation_gates.json",
@@ -668,6 +670,7 @@
       ],
       "modules": [
         "test_scene_governance_contract",
+        "test_check_code_health",
         "test_scene_test_runner",
         "test_verify_scene_change"
       ]

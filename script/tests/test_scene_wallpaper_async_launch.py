@@ -23,6 +23,22 @@ HOST = (
     / "Runtime"
     / "SceneDesktopWallpaperHost.swift"
 )
+FRAME_DRIVER = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Runtime"
+    / "SceneDesktopWallpaperHost+FrameDriver.swift"
+)
+SURFACE_TEARDOWN = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Runtime"
+    / "SceneDesktopWallpaperHost+SurfaceTeardown.swift"
+)
 COORDINATOR = ROOT / "MyWallpaperX" / "App" / "MainWindowCoordinator.swift"
 DEBUG_RUNNER = ROOT / "MyWallpaperX" / "App" / "DebugScenePlaybackRunner.swift"
 INSPECTION = (
@@ -73,6 +89,14 @@ RENDERER_DIAGNOSTICS = (
     / "Rendering"
     / "SceneMetalRenderer+Diagnostics.swift"
 )
+RENDERER_EXECUTION_EVIDENCE = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "Rendering"
+    / "SceneMetalRenderer+ExecutionEvidence.swift"
+)
 TEXT_LOADER = (
     ROOT
     / "MyWallpaperX"
@@ -88,6 +112,24 @@ DEFERRED_BASE_IMAGES = (
     / "SteamWorkshopScene"
     / "Runtime"
     / "SceneDesktopWallpaperHost+DeferredBaseImages.swift"
+)
+SHADER_REACHABILITY = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "RenderGraph"
+    / "MaterialProgram"
+    / "SceneResolvedMaterialShaderSchema+Reachability.swift"
+)
+VARIANT_CACHE = (
+    ROOT
+    / "MyWallpaperX"
+    / "Core"
+    / "SteamWorkshopScene"
+    / "RenderGraph"
+    / "MaterialProgram"
+    / "SceneResolvedMaterialExecutionCapabilityVariant.swift"
 )
 def function_body(source: str, signature: str) -> str:
     start = source.index(signature)
@@ -108,6 +150,11 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.launch = LAUNCH.read_text(encoding="utf-8")
         cls.host = HOST.read_text(encoding="utf-8")
+        cls.frame_driver = (
+            FRAME_DRIVER.read_text(encoding="utf-8")
+            + "\n"
+            + SURFACE_TEARDOWN.read_text(encoding="utf-8")
+        )
         cls.coordinator = COORDINATOR.read_text(encoding="utf-8")
         cls.debug_runner = DEBUG_RUNNER.read_text(encoding="utf-8")
         cls.inspection = INSPECTION.read_text(encoding="utf-8")
@@ -122,6 +169,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         cls.deferred_base_images = DEFERRED_BASE_IMAGES.read_text(
             encoding="utf-8"
         )
+        cls.shader_reachability = SHADER_REACHABILITY.read_text(encoding="utf-8")
+        cls.variant_cache = VARIANT_CACHE.read_text(encoding="utf-8")
 
     def test_product_request_uses_background_preparation_entrypoint(self) -> None:
         observer = function_body(
@@ -169,6 +218,30 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
         self.assertIn(".preparingPrograms", prepare)
         self.assertIn(".preparingResources", prepare)
         self.assertNotIn("percent", prepare.lower())
+
+    def test_launch_envelope_projects_only_relevant_availability_masks(self) -> None:
+        """The envelope must share the bounded mask projection with reachability."""
+        self.assertIn(
+            ".launchAvailabilityMasks(template)",
+            self.variant_cache,
+        )
+        self.assertNotIn(
+            "for rawAvailability in UInt16(0) ... UInt16(UInt8.max)",
+            self.variant_cache,
+        )
+        self.assertIn("readinessComboSlotMask(template)", self.shader_reachability)
+        self.assertIn("Array(UInt8.min ... UInt8.max)", self.shader_reachability)
+
+    def test_launch_availability_projection_preserves_fail_closed_fallback(self) -> None:
+        """Unknown or out-of-range schema metadata keeps exhaustive rejection semantics."""
+        projection = function_body(
+            self.shader_reachability,
+            "nonisolated static func launchAvailabilityMasks(",
+        )
+        self.assertIn("guard let readinessSlots = readinessComboSlotMask(template)", projection)
+        self.assertIn("guard (0 ..< 8).contains(slot.index)", projection)
+        self.assertGreaterEqual(projection.count("Array(UInt8.min ... UInt8.max)"), 2)
+        self.assertIn("availability & ~relevantSlots == 0", projection)
 
     def test_device_resources_prepare_before_surface_activation(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
@@ -294,7 +367,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
     def test_product_launch_does_not_construct_startup_diagnostics(self) -> None:
         load = function_body(self.metal_view, "func loadImageLayers(")
         install = function_body(
-            self.metal_renderer,
+            RENDERER_EXECUTION_EVIDENCE.read_text(encoding="utf-8"),
             "func installResolvedMaterialExecutionEvidence()",
         )
         runtime_report = function_body(
@@ -331,6 +404,17 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
     def test_host_stop_cancels_pending_preparation(self) -> None:
         stop = function_body(self.host, "func stop()")
         self.assertIn("cancelPendingLaunch()", stop)
+
+    def test_surface_teardown_reports_after_surfaces_are_cleared(self) -> None:
+        teardown = function_body(self.frame_driver, "func teardownSurfaces(")
+        clear_index = teardown.index("surfaces.removeAll()")
+        log_index = teardown.index('phase=surface-teardown')
+        self.assertGreater(
+            log_index,
+            clear_index,
+            "teardown evidence must report the post-close surface count",
+        )
+        self.assertIn("surfaces.count", teardown[log_index:])
 
     def test_debug_smoke_exercises_the_async_product_entrypoint(self) -> None:
         self.assertIn("--mwx-debug-scene-async-launch-smoke", self.debug_runner)

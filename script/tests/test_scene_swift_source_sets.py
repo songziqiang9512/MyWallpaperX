@@ -30,7 +30,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         core = scene_swift_source_relpaths("authored_shader_frontend_core")
 
         self.assertEqual(len(support), 4)
-        self.assertEqual(len(implementation), 85)
+        self.assertEqual(len(implementation), 87)
         self.assertEqual(core, (*support, *implementation))
         syntax = next(
             index for index, path in enumerate(implementation)
@@ -169,7 +169,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         self.assertEqual(preprocessing[:3], environment)
         self.assertEqual(len(preparation), 16)
         self.assertEqual(preparation[:14], preprocessing)
-        self.assertEqual(len(generic_compiler), 45)
+        self.assertEqual(len(generic_compiler), 48)
         preparation_directory = (
             REPOSITORY_ROOT
             / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/ShaderPreparation"
@@ -215,7 +215,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
         )
         self.assertEqual(len(schema), 6)
         self.assertEqual(len(texture_finalization), 9)
-        self.assertEqual(len(variant_preparation), 19)
+        self.assertEqual(len(variant_preparation), 20)
         self.assertIn(
             "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/MaterialProgram/"
             "SceneResolvedMaterialProgramFinalizer+CoordinateOwnership.swift",
@@ -266,7 +266,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *texture_finalization,
             ),
         )
-        self.assertEqual(len(frame_finalization), 43)
+        self.assertEqual(len(frame_finalization), 44)
         self.assertEqual(len(template_compilation), 2)
         self.assertEqual(
             complete,
@@ -275,7 +275,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 45)
+        self.assertEqual(len(complete), 46)
 
         material_program_directory = (
             REPOSITORY_ROOT
