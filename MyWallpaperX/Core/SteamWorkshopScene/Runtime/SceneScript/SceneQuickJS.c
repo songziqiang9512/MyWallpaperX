@@ -870,6 +870,24 @@ bool mwx_scene_quickjs_assign_script_properties(
 }
 
 static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) {
+    if (JS_IsString(value)) {
+        const char *text = JS_ToCString(context, value);
+        if (text == NULL) return false;
+        char *cursor = (char *)text;
+        bool valid = true;
+        for (size_t index = 0; index < 3; ++index) {
+            char *end = NULL;
+            output[index] = strtod(cursor, &end);
+            if (end == cursor || !isfinite(output[index])) { valid = false; break; }
+            cursor = end;
+        }
+        while (valid && *cursor != '\0') {
+            if (!isspace((unsigned char)*cursor) && *cursor != ',') { valid = false; break; }
+            cursor++;
+        }
+        JS_FreeCString(context, text);
+        if (valid) return true;
+    }
     if (!JS_IsObject(value)) {
         double scalar = 0;
         if (JS_ToFloat64(context, &scalar, value) < 0 || !isfinite(scalar)) {
