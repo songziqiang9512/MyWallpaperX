@@ -1046,7 +1046,11 @@ static MWXSceneQuickJSResult call_vec3(
         return discard_layer_mutations_after_failure(owner, result_code);
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
-    const bool valid = read_vec3(domain->context, value, output);
+    bool valid = read_vec3(domain->context, value, output);
+    if (!valid && owner->layer_mutation_count > 0) {
+        memcpy(output, input, sizeof(double) * 3);
+        valid = true;
+    }
     const char *return_shape = valid
         ? NULL : vec3_return_shape(domain->context, value);
     JS_FreeValue(domain->context, argument);
