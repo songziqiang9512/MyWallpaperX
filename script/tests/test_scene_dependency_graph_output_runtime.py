@@ -19,6 +19,9 @@ RUNTIME_SOURCE = (
 STATIC_MODEL_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+StaticModel.swift"
 )
+AGGREGATE_VALIDATION_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+AggregateValidation.swift"
+)
 GEOMETRY_RUNTIME_SOURCE = RUNTIME_SOURCE.with_name(
     "SceneDependencyFrameRuntime+Geometry.swift"
 )
@@ -69,6 +72,7 @@ struct SceneRenderDescriptor {
     let layers: [Layer]
     let bindings: [Int: SceneDependencyRenderPlan.Binding]
     let graphOutputProviderLayerIDs: Set<Int>
+    var aggregates: [Int: SceneDependencyRenderPlan.MultiProviderAggregate] = [:]
     var staticModelConsumerProviders: [Int: Int] = [:]
 }
 
@@ -91,10 +95,92 @@ struct SceneDependencyRenderPlan {
         let consumerLayerID: Int
         let providerLayerID: Int
         let slot: SceneEffectPassSlot
+        let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
-        let requiresForwardCapture = false
-        let requiresResolvedMaterialProgram = false
+        let requiresForwardCapture: Bool
+        let requiresResolvedMaterialProgram: Bool
+
+        init(
+            consumerLayerID: Int,
+            providerLayerID: Int,
+            slot: SceneEffectPassSlot,
+            referenceSlots: [SceneEffectPassSlot]? = nil,
+            blendMode: Int,
+            kind: Kind,
+            requiresForwardCapture: Bool = false,
+            requiresResolvedMaterialProgram: Bool = false
+        ) {
+            self.consumerLayerID = consumerLayerID
+            self.providerLayerID = providerLayerID
+            self.slot = slot
+            self.referenceSlots = referenceSlots ?? [slot]
+            self.blendMode = blendMode
+            self.kind = kind
+            self.requiresForwardCapture = requiresForwardCapture
+            self.requiresResolvedMaterialProgram =
+                requiresResolvedMaterialProgram
+        }
+    }
+
+    struct MultiProviderAggregate: Hashable {
+        let consumerLayerID: Int
+        let bindings: [Binding]
+        let authoredSlotOrder: [SceneEffectPassSlot]
+
+        var orderedBindings: [Binding] {
+            guard authoredSlotOrder.count == bindings.count else { return [] }
+            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
+            for binding in bindings {
+                guard bindingsBySlot.updateValue(
+                    binding, forKey: binding.slot
+                ) == nil else { return [] }
+            }
+            guard bindingsBySlot.count == authoredSlotOrder.count else {
+                return []
+            }
+            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
+        }
+
+        var providerLayerIDs: Set<Int> {
+            Set(bindings.map(\.providerLayerID))
+        }
+
+        var referenceSlots: [SceneEffectPassSlot] {
+            authoredSlotOrder
+        }
+
+        var hasStrictBindingVector: Bool {
+            guard bindings.count >= 2,
+                  authoredSlotOrder.count == bindings.count,
+                  Set(authoredSlotOrder).count == authoredSlotOrder.count,
+                  Set(authoredSlotOrder) == Set(bindings.map(\.slot)),
+                  bindings == orderedBindings,
+                  Set(bindings.map(\.providerLayerID)).count > 1 else {
+                return false
+            }
+            return bindings.allSatisfy { binding in
+                binding.consumerLayerID == consumerLayerID
+                    && binding.providerLayerID != consumerLayerID
+                    && binding.referenceSlots == [binding.slot]
+                    && binding.kind == .imageLayerBlend
+                    && binding.blendMode == 0
+                    && binding.requiresResolvedMaterialProgram
+            }
+        }
+
+        func admits(_ references: [Reference]) -> Bool {
+            guard hasStrictBindingVector else { return false }
+            let expected = orderedBindings.map {
+                Reference(
+                    consumerLayerID: consumerLayerID,
+                    providerLayerID: $0.providerLayerID,
+                    slot: $0.slot,
+                    variant: .primary
+                )
+            }
+            return references == expected
+        }
     }
 
     struct StaticModelBinding {
@@ -108,6 +194,8 @@ struct SceneDependencyRenderPlan {
     }
 
     let bindingsByConsumerLayerID: [Int: Binding]
+    let multiProviderAggregatesByConsumerLayerID:
+        [Int: MultiProviderAggregate]
     let staticModelBindingsByConsumerLayerID: [Int: StaticModelBinding]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
@@ -125,6 +213,7 @@ struct SceneDependencyRenderPlan {
         _ = verifiedXRayStageKeys
         _ = admittedResolvedMaterialReferences
         bindingsByConsumerLayerID = descriptor.bindings
+        multiProviderAggregatesByConsumerLayerID = descriptor.aggregates
         staticModelBindingsByConsumerLayerID = Dictionary(
             uniqueKeysWithValues: descriptor.staticModelConsumerProviders.map {
                 consumer, provider in
@@ -141,10 +230,55 @@ struct SceneDependencyRenderPlan {
         )
         requiredProviderLayerIDs = Set(descriptor.bindings.values.map(
             \.providerLayerID
-        )).union(descriptor.staticModelConsumerProviders.values)
+        )).union(
+            descriptor.aggregates.values.flatMap { $0.providerLayerIDs }
+        ).union(descriptor.staticModelConsumerProviders.values)
         requiredGraphOutputProviderLayerIDs =
             descriptor.graphOutputProviderLayerIDs
         requiredEffectConsumerLayerIDs = Set(descriptor.bindings.keys)
+            .union(descriptor.aggregates.keys)
+    }
+
+    func aggregateBindingIsPlanned(_ binding: Binding) -> Bool {
+        guard let aggregate = multiProviderAggregatesByConsumerLayerID[
+            binding.consumerLayerID
+        ], aggregate.hasStrictBindingVector else {
+            return false
+        }
+        return aggregate.bindings.contains(binding)
+    }
+
+    func resolvedMaterialExecutionLayerIDs(
+        visibleRootLayerIDs: Set<Int>,
+        availableExecutionLayerIDs: Set<Int>
+    ) -> Set<Int> {
+        var reachable = visibleRootLayerIDs.intersection(
+            availableExecutionLayerIDs
+        )
+        var changed = true
+        while changed {
+            changed = false
+            for binding in bindingsByConsumerLayerID.values
+            where reachable.contains(binding.consumerLayerID)
+                && requiredGraphOutputProviderLayerIDs.contains(
+                    binding.providerLayerID
+                )
+                && availableExecutionLayerIDs.contains(binding.providerLayerID)
+            {
+                changed = reachable.insert(binding.providerLayerID).inserted
+                    || changed
+            }
+            for aggregate in multiProviderAggregatesByConsumerLayerID.values
+            where reachable.contains(aggregate.consumerLayerID) {
+                for providerID in aggregate.providerLayerIDs
+                where requiredGraphOutputProviderLayerIDs.contains(providerID)
+                    && availableExecutionLayerIDs.contains(providerID) {
+                    changed = reachable.insert(providerID).inserted
+                        || changed
+                }
+            }
+        }
+        return reachable
     }
 
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
@@ -479,6 +613,219 @@ enum Harness {
             sampling: .linearClamp,
             uvTransform: .identity
         )
+        // A provider owns one publication target even when different consumers
+        // describe how they consume it with different binding kinds. This is
+        // the real shape used by a visible graph provider that also feeds an
+        // aggregate composition.
+        let mixedProvider = SceneRenderDescriptor.Layer(
+            id: 710,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let mixedSibling = SceneRenderDescriptor.Layer(
+            id: 711,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let mixedVisibleBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 712,
+            providerLayerID: 710,
+            slot: .init(effectID: "visible", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .visibleImageGraphOutput
+        )
+        let mixedAggregateBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 713,
+            providerLayerID: 710,
+            slot: .init(effectID: "aggregate-a", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .imageLayerBlend,
+            requiresResolvedMaterialProgram: true
+        )
+        let mixedSiblingBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 713,
+            providerLayerID: 711,
+            slot: .init(effectID: "aggregate-b", passIndex: 0, slotIndex: 1),
+            blendMode: 0,
+            kind: .imageLayerBlend,
+            requiresResolvedMaterialProgram: true
+        )
+        let mixedAggregate = SceneDependencyRenderPlan.MultiProviderAggregate(
+            consumerLayerID: 713,
+            bindings: [mixedAggregateBinding, mixedSiblingBinding],
+            authoredSlotOrder: [
+                mixedAggregateBinding.slot,
+                mixedSiblingBinding.slot,
+            ]
+        )
+        let mixedRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [mixedProvider, mixedSibling],
+                bindings: [712: mixedVisibleBinding],
+                graphOutputProviderLayerIDs: [710],
+                aggregates: [713: mixedAggregate]
+            ),
+            visibleLayerIDs: [710, 712, 713],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        var mixedAggregateReservationFailure: String?
+        let mixedAggregateInput = mixedRuntime.reserveEffectInput(
+            for: mixedAggregateBinding,
+            providerLayer: mixedProvider,
+            providerTexture: source,
+            providerCandidate: candidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            frameEpoch: 18,
+            failureReason: &mixedAggregateReservationFailure
+        )
+        var mixedVisibleReservationFailure: String?
+        let mixedVisibleInput = mixedRuntime.reserveEffectInput(
+            for: mixedVisibleBinding,
+            providerLayer: mixedProvider,
+            providerTexture: source,
+            providerCandidate: candidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 2, height: 2),
+            frameEpoch: 18,
+            failureReason: &mixedVisibleReservationFailure
+        )
+        let mixedOutput = texture(device, label: "mixed-provider-output")
+        let mixedRegistry = SceneFrameTextureRegistry(frameEpoch: 18)
+        let mixedOutputInstalled = mixedRuntime.installPreparedGraphOutputs(
+            [710: mixedOutput],
+            frameEpoch: 18
+        )
+        let mixedPublicationSucceeded = mixedRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 710,
+                texture: mixedOutput,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: mixedRegistry,
+                commandBuffer: commandBuffer
+            ) == true
+        let mixedConsumerKindsShareProviderPublication =
+            mixedAggregate.hasStrictBindingVector
+                && mixedAggregateReservationFailure == nil
+                && mixedVisibleReservationFailure == nil
+                && mixedAggregateInput?.texture === mixedVisibleInput?.texture
+                && mixedOutputInstalled
+                && mixedPublicationSucceeded
+                && mixedRegistry.completeNamedLayerTargetTexture(
+                    reference: .init(providerLayerID: 710, variant: .primary),
+                    frameEpoch: 18
+                ) === mixedAggregateInput?.texture
+        // A prepared graph target can be larger than the physical carrier
+        // texture (for example a puppet/image provider rendered at a
+        // normalized logical extent). Reservation, source fallback capture,
+        // and graph publication must all use that one prepared extent.
+        let preparedExtentProvider = SceneRenderDescriptor.Layer(
+            id: 700,
+            contentKind: "image",
+            utilityLayer: nil,
+            alpha: 1,
+            colorRGB: [1, 1, 1]
+        )
+        let preparedExtentBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: 701,
+            providerLayerID: 700,
+            slot: .init(effectID: "prepared", passIndex: 0, slotIndex: 0),
+            blendMode: 0,
+            kind: .visibleImageGraphOutput
+        )
+        let preparedExtentRuntime = SceneDependencyFrameRuntime(
+            descriptor: .init(
+                layers: [preparedExtentProvider],
+                bindings: [701: preparedExtentBinding],
+                graphOutputProviderLayerIDs: [700]
+            ),
+            visibleLayerIDs: [700, 701],
+            executableUtilityConsumerLayerIDs: [],
+            device: device
+        )
+        let physicalCarrier = texture(
+            device,
+            width: 7,
+            height: 5,
+            label: "prepared-extent-source"
+        )
+        let physicalCarrierCandidate = SceneTextureCandidate(
+            texture: physicalCarrier,
+            purpose: .premultipliedColor,
+            content: .init(isResolved: true),
+            sampling: .linearClamp,
+            uvTransform: .identity
+        )
+        var preparedExtentFailure: String?
+        let preparedExtentInput = preparedExtentRuntime.reserveEffectInput(
+            for: preparedExtentBinding,
+            providerLayer: preparedExtentProvider,
+            providerTexture: physicalCarrier,
+            providerCandidate: physicalCarrierCandidate,
+            layerMVP: matrix_identity_float4x4,
+            viewportSize: CGSize(width: 7, height: 5),
+            preparedOutputExtent: (width: 8, height: 4),
+            frameEpoch: 17,
+            failureReason: &preparedExtentFailure
+        )
+        let preparedExtentOutput = texture(
+            device,
+            width: 8,
+            height: 4,
+            label: "prepared-extent-output"
+        )
+        let preparedExtentRegistry = SceneFrameTextureRegistry(frameEpoch: 17)
+        let preparedExtentInstalled = preparedExtentRuntime
+            .installPreparedGraphOutputs(
+                [700: preparedExtentOutput],
+                frameEpoch: 17
+            )
+        let preparedExtentFallbackCaptured = preparedExtentRuntime
+            .captureGraphSourceFallbackIfRequired(
+                layer: preparedExtentProvider,
+                sourceTexture: physicalCarrier,
+                sourceCandidate: physicalCarrierCandidate,
+                layerMVP: matrix_identity_float4x4,
+                viewportSize: CGSize(width: 7, height: 5),
+                pipeline: .init(),
+                textureRegistry: preparedExtentRegistry,
+                mainPass: .init(
+                    texture: physicalCarrier,
+                    commandBuffer: commandBuffer
+                )
+            ) == true
+        let preparedExtentCapturePublished = preparedExtentRegistry
+            .completeNamedLayerTargetTexture(
+                reference: .init(providerLayerID: 700, variant: .primary),
+                frameEpoch: 17
+            ) === preparedExtentInput?.texture
+        let preparedExtentPublished = preparedExtentRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 700,
+                texture: preparedExtentOutput,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: preparedExtentRegistry,
+                commandBuffer: commandBuffer
+            ) == true
+        let preparedExtentWrongSize = texture(
+            device,
+            width: 7,
+            height: 5,
+            label: "prepared-extent-wrong-size"
+        )
+        let preparedExtentWrongSizeRejected = preparedExtentRuntime
+            .publishGraphOutputIfRequired(
+                layerID: 700,
+                texture: preparedExtentWrongSize,
+                publicationRole: .visibleMainLoop,
+                textureRegistry: preparedExtentRegistry,
+                commandBuffer: commandBuffer
+            ) == false
         var reservationFailure: String?
         let provisionalInput = runtime.reserveEffectInput(
             for: binding,
@@ -616,6 +963,7 @@ enum Harness {
         let wrongObjectRejected = runtime.publishGraphOutputIfRequired(
             layerID: 400,
             texture: provisionalInput!.texture,
+            publicationRole: .visibleMainLoop,
             textureRegistry: registry,
             commandBuffer: commandBuffer
         ) == false
@@ -624,6 +972,7 @@ enum Harness {
         let published = runtime.publishGraphOutputIfRequired(
             layerID: 400,
             texture: output,
+            publicationRole: .visibleMainLoop,
             textureRegistry: registry,
             commandBuffer: commandBuffer
         ) == true
@@ -799,6 +1148,18 @@ enum Harness {
         let result: [String: Any] = [
             "metalAvailable": true,
             "reserved": provisionalInput != nil && reservationFailure == nil,
+            "mixedConsumerKindsShareProviderPublication":
+                mixedConsumerKindsShareProviderPublication,
+            "preparedExtentReserved": preparedExtentInput?.texture.width == 8
+                && preparedExtentInput?.texture.height == 4
+                && preparedExtentFailure == nil
+                && physicalCarrier.width == 7
+                && physicalCarrier.height == 5,
+            "preparedExtentInstalled": preparedExtentInstalled,
+            "preparedExtentFallbackCaptured": preparedExtentFallbackCaptured,
+            "preparedExtentCapturePublished": preparedExtentCapturePublished,
+            "preparedExtentPublished": preparedExtentPublished,
+            "preparedExtentWrongSizeRejected": preparedExtentWrongSizeRejected,
             "resolvedMaterialReservesFromGeometryWithoutBaseSource":
                 resolvedMaterialReservesFromGeometryWithoutBaseSource,
             "imageProviderStillRequiresExactSource":
@@ -863,6 +1224,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "macosx",
                     "swiftc",
                     str(RUNTIME_SOURCE),
+                    str(AGGREGATE_VALIDATION_RUNTIME_SOURCE),
                     str(GEOMETRY_RUNTIME_SOURCE),
                     str(STATIC_MODEL_RUNTIME_SOURCE),
                     str(harness),
@@ -889,6 +1251,13 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                 {
                     "metalAvailable": True,
                     "reserved": True,
+                    "mixedConsumerKindsShareProviderPublication": True,
+                    "preparedExtentReserved": True,
+                    "preparedExtentInstalled": True,
+                    "preparedExtentFallbackCaptured": True,
+                    "preparedExtentCapturePublished": True,
+                    "preparedExtentPublished": True,
+                    "preparedExtentWrongSizeRejected": True,
                     "resolvedMaterialReservesFromGeometryWithoutBaseSource": True,
                     "imageProviderStillRequiresExactSource": True,
                     "graphCaptureRequired": True,

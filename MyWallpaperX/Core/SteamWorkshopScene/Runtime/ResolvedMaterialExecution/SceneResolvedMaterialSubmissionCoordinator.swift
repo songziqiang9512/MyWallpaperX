@@ -47,6 +47,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             SceneResolvedMaterialExecutionCapabilityCatalog.Token
         let prepared: SceneResolvedMaterialGraphExecutor.PreparedGraph
         let preparedDependencyEffect: SceneDependencyEffectInput?
+        let preparedDependencyEffects: [SceneDependencyEffectInput]
         let preparedDependencyUnavailability:
             Bridge.FrameInputs.DependencyUnavailability?
         let commandBuffer: MTLCommandBuffer
@@ -269,12 +270,21 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                   capability.pairPlan.layerID == claim.layerID,
                   capability.effectSubjectsAreConserved,
                   capability.dependencyOwnership == claim.dependencyOwnership,
-                  dependencyReservationMatches(
-                      request.frameInputs.dependencyEffect,
-                      unavailability:
-                        request.frameInputs.dependencyUnavailability,
-                      ownership: claim.dependencyOwnership
-                  ), sceneBackgroundReservationMatches(
+                  (claim.dependencyOwnership.isAggregate
+                    ? request.frameInputs.dependencyEffect == nil
+                        && request.frameInputs.dependencyUnavailability == nil
+                        && dependencyEffectsReservationMatches(
+                            request.frameInputs.dependencyEffects,
+                            ownership: claim.dependencyOwnership,
+                            frameEpoch:
+                                frame.textureRegistrySnapshot.frameEpoch
+                        )
+                    : dependencyReservationMatches(
+                        request.frameInputs.dependencyEffect,
+                        unavailability:
+                            request.frameInputs.dependencyUnavailability,
+                        ownership: claim.dependencyOwnership
+                    )), sceneBackgroundReservationMatches(
                       request.sceneBackgroundResource,
                       requirement: claim.sceneBackgroundRequirement,
                       frameEpoch: frame.textureRegistrySnapshot.frameEpoch
@@ -315,11 +325,16 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
 
         var candidates: [PreparedFrameCandidate] = []
         var provisionalTails = scheduledTails
-        let externallyConsumedProviderLayerIDs = Set(requests.compactMap {
-            request -> Int? in
-            guard case let .externalPrimary(binding) =
-                request.claim.dependencyOwnership else { return nil }
-            return binding.providerLayerID
+        let externallyConsumedProviderLayerIDs = Set(requests.flatMap {
+            request -> [Int] in
+            switch request.claim.dependencyOwnership {
+            case let .externalPrimary(binding):
+                return [binding.providerLayerID]
+            case let .externalAggregate(aggregate):
+                return Array(aggregate.providerLayerIDs)
+            default:
+                return []
+            }
         })
         for index in requests.indices {
             let request = requests[index]
@@ -376,6 +391,10 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 } else {
                     preparedDependencyEffect = original
                 }
+            case .externalAggregate:
+                // The ordered vector is carried by FrameInputs and validated
+                // at executeClaimed; keep the legacy singular ledger empty.
+                preparedDependencyEffect = nil
             }
             let frameInputs = request.frameInputs
                 .withDependencyEffect(preparedDependencyEffect)
@@ -476,6 +495,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 capabilityToken: claim.token,
                 prepared: prepared,
                 preparedDependencyEffect: preparedDependencyEffect,
+                preparedDependencyEffects: requests[index].frameInputs.dependencyEffects,
                 preparedDependencyUnavailability:
                     preparedDependencyUnavailability,
                 commandBuffer: commandBuffer,
@@ -540,6 +560,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 capabilityToken: candidate.capabilityToken,
                 prepared: candidate.prepared,
                 preparedDependencyEffect: candidate.preparedDependencyEffect,
+                preparedDependencyEffects: candidate.preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     candidate.preparedDependencyUnavailability,
                 commandBuffer: candidate.commandBuffer,

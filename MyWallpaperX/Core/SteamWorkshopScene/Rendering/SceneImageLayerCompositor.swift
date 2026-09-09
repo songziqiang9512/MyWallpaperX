@@ -151,6 +151,34 @@ struct SceneImageLayerCompositor {
             return .failed
         }
         let dependencyEffect = request.dependencyEffect
+        let hasDependencyInput = dependencyEffect != nil
+            || !request.dependencyEffects.isEmpty
+        if !request.dependencyEffects.isEmpty {
+            // An aggregate vector is meaningful only to the exact resolved
+            // material owner that claimed the same ordered binding atom. Do
+            // not let an unclaimed/direct draw report the vector as consumed
+            // while silently ignoring it in the legacy main-pass path.
+            guard dependencyEffect == nil,
+                  let claim = resolvedMaterialClaim,
+                  case let .externalAggregate(aggregate) =
+                    claim.dependencyOwnership,
+                  aggregate.hasStrictBindingVector,
+                  request.dependencyEffects.count == aggregate.bindings.count
+            else {
+                _ = rejectResolvedMaterialClaim(
+                    resolvedMaterialClaim,
+                    reasonCode: "dependency-aggregate-input-invalid"
+                )
+                return .failed
+            }
+        } else if let claim = resolvedMaterialClaim,
+                  case .externalAggregate = claim.dependencyOwnership {
+            _ = rejectResolvedMaterialClaim(
+                resolvedMaterialClaim,
+                reasonCode: "dependency-aggregate-input-missing"
+            )
+            return .failed
+        }
 
         let graphConsumesExternalPrimary = request
             .resolvedMaterialFrameTargetPlan?
@@ -220,6 +248,7 @@ struct SceneImageLayerCompositor {
                     framePlan: request.resolvedMaterialFrameTargetPlan,
                     layerID: request.layer.id,
                     dependencyEffect: dependencyEffect,
+                    dependencyEffects: request.dependencyEffects,
                     mainPass: mainPass,
                     executionTrace: executionTrace,
                     executionOrigin: executionOrigin
@@ -311,12 +340,12 @@ struct SceneImageLayerCompositor {
                 ) else { return .failed }
             }
             return composited
-                ? .normal(consumedDependency: dependencyEffect != nil)
+                ? .normal(consumedDependency: hasDependencyInput)
                 : .failed
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
-            || (routesOffscreen && dependencyEffect != nil) {
+            || (routesOffscreen && hasDependencyInput) {
             _ = rejectResolvedMaterialClaim(resolvedMaterialClaim,
                 reasonCode: "offscreen-pool-unavailable")
             return .failed
@@ -332,7 +361,7 @@ struct SceneImageLayerCompositor {
             mainPass: mainPass
         )
         return rendered
-            ? .normal(consumedDependency: dependencyEffect != nil)
+            ? .normal(consumedDependency: hasDependencyInput)
             : .failed
     }
 
@@ -416,6 +445,7 @@ struct SceneImageLayerCompositor {
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         layerID: Int,
         dependencyEffect: SceneDependencyEffectInput?,
+        dependencyEffects: [SceneDependencyEffectInput] = [],
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
@@ -426,6 +456,7 @@ struct SceneImageLayerCompositor {
             framePlan: framePlan,
             layerID: layerID,
             dependencyEffect: dependencyEffect,
+            dependencyEffects: dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,
             executionOrigin: executionOrigin

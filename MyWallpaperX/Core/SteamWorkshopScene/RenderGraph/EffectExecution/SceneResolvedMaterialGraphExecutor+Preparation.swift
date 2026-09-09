@@ -118,19 +118,23 @@ extension SceneResolvedMaterialGraphExecutor {
         ) {
             return result
         }
-        let dependencyFrame: SceneResolvedMaterialFrameSnapshot
-        if let dependency = frameInputs.dependencyEffect {
+        let dependencyInputs: [SceneDependencyEffectInput]
+        if !frameInputs.dependencyEffects.isEmpty {
+            dependencyInputs = frameInputs.dependencyEffects
+        } else {
+            dependencyInputs = frameInputs.dependencyEffect.map { [$0] } ?? []
+        }
+        var dependencyFrame = frame
+        for dependency in dependencyInputs {
             guard dependency.frameEpoch > 0,
                   let resource = dependency.reservedMaterialResource,
                   let replacement = frameTextureSnapshot(
-                    frame,
+                    dependencyFrame,
                     overlaying: dependency.namedReference,
                     resource: resource,
                     frameEpoch: dependency.frameEpoch
                   ) else { return .graphPublicationRejected }
             dependencyFrame = replacement
-        } else {
-            dependencyFrame = frame
         }
         let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map {
             ($0.nodeIndex, $0)

@@ -3,6 +3,45 @@ import Metal
 import simd
 
 extension SceneDependencyFrameRuntime {
+    func captureExtentForProvider(
+        layer: SceneRenderDescriptor.Layer,
+        providerBindings: [SceneDependencyRenderPlan.Binding],
+        hasStaticModelBinding: Bool,
+        reservation: EffectTargetReservation?,
+        frameEpoch: UInt64,
+        sourceTexture: MTLTexture?,
+        sourceCandidate: SceneTextureCandidate?,
+        layerMVP: simd_float4x4,
+        viewportSize: CGSize,
+        failureReason: inout String?
+    ) -> (width: Int, height: Int)? {
+        if plan.requiredGraphOutputProviderLayerIDs.contains(layer.id),
+           let reservation,
+           reservation.frameEpoch == frameEpoch {
+            // A graph provider may carry a lower-resolution source texture.
+            // Its named target follows the prepared graph allocation extent.
+            return (reservation.width, reservation.height)
+        }
+        if let binding = providerBindings.first {
+            return Self.captureExtent(
+                binding: binding,
+                providerLayer: layer,
+                providerTexture: sourceTexture,
+                providerCandidate: sourceCandidate,
+                layerMVP: layerMVP,
+                viewportSize: viewportSize,
+                failureReason: &failureReason
+            )
+        }
+        guard hasStaticModelBinding else { return nil }
+        return Self.staticModelCaptureExtent(
+            providerLayer: layer,
+            providerTexture: sourceTexture,
+            providerCandidate: sourceCandidate,
+            failureReason: &failureReason
+        )
+    }
+
     static func normalizedExtent(
         width: Int,
         height: Int
@@ -27,6 +66,7 @@ extension SceneDependencyFrameRuntime {
         providerCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
+        preparedOutputExtent: (width: Int, height: Int)? = nil,
         failureReason: inout String?
     ) -> (width: Int, height: Int)? {
         switch binding.kind {
@@ -42,8 +82,8 @@ extension SceneDependencyFrameRuntime {
                 return nil
             }
             return normalizedExtent(
-                width: providerTexture.width,
-                height: providerTexture.height
+                width: preparedOutputExtent?.width ?? providerTexture.width,
+                height: preparedOutputExtent?.height ?? providerTexture.height
             )
         case .resolvedMaterial:
             guard let utility = providerLayer.utilityLayer,

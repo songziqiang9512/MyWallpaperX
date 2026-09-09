@@ -27,6 +27,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+StaticModel.swift",
     SCENE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+Aggregate.swift",
+    SCENE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
 ]
 
 
@@ -36,6 +40,7 @@ import Foundation
 private let providerLayerID = 260
 private let consumerLayerID = 261
 private let consumerEffectID = "xray-provider-consumer"
+private let nestedRootLayerID = 262
 
 private func provider() -> SceneRenderDescriptor.Layer {
     let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
@@ -65,7 +70,8 @@ private func provider() -> SceneRenderDescriptor.Layer {
 private func consumer(
     passIndex: Int = 0,
     slotIndex: Int = 1,
-    variantSuffix: String = "a"
+    variantSuffix: String = "a",
+    visible: Bool = true
 ) -> SceneRenderDescriptor.Layer {
     let path = "_rt_imageLayerComposite_\(providerLayerID)_\(variantSuffix)"
     var slots = [String?](repeating: nil, count: max(3, slotIndex + 1))
@@ -87,9 +93,35 @@ private func consumer(
         utilityLayer: nil,
         dependencyLayerIDs: [providerLayerID],
         childLayerIDs: [],
-        visible: true,
+        visible: visible,
         effects: [.init(
             id: consumerEffectID,
+            file: "effects/xray/effect.json",
+            visible: true,
+            passes: [pass]
+        )]
+    )
+}
+
+private func nestedRoot() -> SceneRenderDescriptor.Layer {
+    let path = "_rt_imageLayerComposite_\(consumerLayerID)_a"
+    let pass = SceneRenderDescriptor.EffectDescriptor.PassDescriptor(
+        passIndex: 0,
+        texturePaths: [path],
+        textureSlots: [nil, path],
+        userTextureInputs: [],
+        combos: ["BLENDMODE": 0],
+        constantShaderValues: ["multiply": .init(components: [1])]
+    )
+    return .init(
+        id: nestedRootLayerID,
+        contentKind: "image",
+        utilityLayer: nil,
+        dependencyLayerIDs: [consumerLayerID],
+        childLayerIDs: [],
+        visible: true,
+        effects: [.init(
+            id: "nested-root-effect",
             file: "effects/xray/effect.json",
             visible: true,
             passes: [pass]
@@ -124,6 +156,23 @@ private func plan(
     )
 }
 
+private func nestedPlan() -> SceneDependencyRenderPlan {
+    let layers = [
+        provider(),
+        consumer(visible: false),
+        nestedRoot(),
+    ]
+    let references = Set(SceneDependencyGraphAnalysis.references(in: layers))
+    return SceneDependencyRenderPlan(
+        descriptor: .init(
+            layers: layers,
+            renderOrderLayerIDs: layers.map(\.id)
+        ),
+        visibleLayerIDs: [providerLayerID, nestedRootLayerID],
+        admittedResolvedMaterialReferences: references
+    )
+}
+
 @main
 private enum VisibleGraphOutputPlanHarness {
     static func main() throws {
@@ -132,6 +181,13 @@ private enum VisibleGraphOutputPlanHarness {
         let wrongPass = plan(passIndex: 1)
         let wrongSlot = plan(slotIndex: 2)
         let secondary = plan(variantSuffix: "b")
+        let nested = nestedPlan()
+        let nestedConsumerBinding = nested.bindingsByConsumerLayerID[
+            consumerLayerID
+        ]
+        let nestedRootBinding = nested.bindingsByConsumerLayerID[
+            nestedRootLayerID
+        ]
         let result: [String: Any] = [
             "positiveKind": binding?.kind == .visibleImageGraphOutput,
             "positivePass": binding?.slot.passIndex ?? -1,
@@ -148,6 +204,14 @@ private enum VisibleGraphOutputPlanHarness {
                 wrongSlot.bindingsByConsumerLayerID[consumerLayerID] == nil,
             "secondaryRejected":
                 secondary.bindingsByConsumerLayerID[consumerLayerID] == nil,
+            "hiddenConsumerVisibleProvider": [
+                "kind": nestedConsumerBinding?.kind
+                    == .visibleImageGraphOutput,
+                "provider": nestedConsumerBinding?.providerLayerID ?? -1,
+                "rootKind": nestedRootBinding?.kind == .imageLayerBlend,
+                "graphProviders": nested.requiredGraphOutputProviderLayerIDs
+                    .sorted(),
+            ],
         ]
         let data = try JSONSerialization.data(
             withJSONObject: result,
@@ -228,6 +292,21 @@ class SceneVisibleGraphOutputRenderPlanTests(unittest.TestCase):
         result = self.run_harness(route_disabled=True)
         self.assertTrue(result["positiveKind"], result)
         self.assertEqual(result["positiveGraphProviders"], [260], result)
+
+    def test_hidden_consumer_can_bind_visible_effectful_provider_in_nested_closure(
+        self,
+    ) -> None:
+        result = self.run_harness()
+        self.assertEqual(
+            result["hiddenConsumerVisibleProvider"],
+            {
+                "kind": True,
+                "provider": 260,
+                "rootKind": True,
+                "graphProviders": [260, 261],
+            },
+            result,
+        )
 
 
 if __name__ == "__main__":

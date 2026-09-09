@@ -5277,7 +5277,7 @@ utility layer 763: skippedHidden kind=composition
     ) -> None:
         preview_text = "\n".join([
             "resolved material execution capabilities: "
-            "schema=layer-graph-capability-v1 candidates=3 accepted=3 "
+            "schema=layer-graph-capability-v1 candidates=4 accepted=4 "
             "rejected=0 variantLimit=8",
             "resolved material execution capability: "
             "schema=layer-graph-route-v1 layer=68 status=accepted "
@@ -5288,6 +5288,9 @@ utility layer 763: skippedHidden kind=composition
             "resolved material execution capability: "
             "schema=layer-graph-route-v1 layer=72 status=accepted "
             "dependency=external-primary dependencyReferences=1",
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=74 status=accepted "
+            "dependency=external-aggregate dependencyReferences=3",
         ])
 
         metrics = benchmark.resolved_material_graph_execution_metrics(
@@ -5297,7 +5300,7 @@ utility layer 763: skippedHidden kind=composition
 
         self.assertEqual(
             metrics["capability"]["accepted_layer_ids"],
-            [68, 70, 72],
+            [68, 70, 72, 74],
         )
         self.assertEqual(
             metrics["capability"]["malformed_route_observation_count"],
@@ -5308,25 +5311,35 @@ utility layer 763: skippedHidden kind=composition
             metrics["validation_failures"],
         )
 
-        malformed = benchmark.resolved_material_graph_execution_metrics(
-            "\n".join([
-                "resolved material execution capabilities: "
-                "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
-                "rejected=0 variantLimit=8",
-                "resolved material execution capability: "
-                "schema=layer-graph-route-v1 layer=72 status=accepted "
-                "dependency=external-primary dependencyReferences=0",
-            ]),
-            "",
-        )
-        self.assertEqual(
-            malformed["capability"]["malformed_route_observation_count"],
-            1,
-        )
-        self.assertIn(
-            "resolved material graph accepted layer evidence malformed",
-            malformed["validation_failures"],
-        )
+        malformed_dependencies = [
+            "dependency=none dependencyReferences=1",
+            "dependency=external-primary dependencyReferences=0",
+            "dependency=external-aggregate dependencyReferences=0",
+            "dependency=external-unknown dependencyReferences=1",
+        ]
+        for malformed_dependency in malformed_dependencies:
+            with self.subTest(malformed_dependency=malformed_dependency):
+                malformed = benchmark.resolved_material_graph_execution_metrics(
+                    "\n".join([
+                        "resolved material execution capabilities: "
+                        "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+                        "rejected=0 variantLimit=8",
+                        "resolved material execution capability: "
+                        "schema=layer-graph-route-v1 layer=72 status=accepted "
+                        + malformed_dependency,
+                    ]),
+                    "",
+                )
+                self.assertEqual(
+                    malformed["capability"][
+                        "malformed_route_observation_count"
+                    ],
+                    1,
+                )
+                self.assertIn(
+                    "resolved material graph accepted layer evidence malformed",
+                    malformed["validation_failures"],
+                )
 
         malformed_background = benchmark.resolved_material_graph_execution_metrics(
             preview_text

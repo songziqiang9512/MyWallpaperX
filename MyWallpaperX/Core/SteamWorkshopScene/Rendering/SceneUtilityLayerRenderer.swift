@@ -17,6 +17,8 @@ enum SceneUtilityLayerRenderer {
         dynamicValues: SceneDynamicSnapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot,
         dependencyEffect: SceneDependencyEffectInput?,
+        dependencyEffects: [SceneDependencyEffectInput] = [],
+        requiresDependencyEffect: Bool = false,
         pipeline: SceneImageLayerPipeline,
         compositor: SceneImageLayerCompositor,
         offscreenTexturePool: SceneOffscreenTexturePool,
@@ -60,6 +62,8 @@ enum SceneUtilityLayerRenderer {
                     requiresSourceCopy: true,
                     finalCompositeAlpha: finalCompositeAlpha,
                     dependencyEffect: dependencyEffect,
+                    dependencyEffects: dependencyEffects,
+                    requiresDependencyEffect: requiresDependencyEffect,
                     dynamicValues: dynamicValues,
                     audioSpectrum: audioSpectrum
                 )

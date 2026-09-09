@@ -13,11 +13,23 @@ extension SceneDependencyRenderPlan {
         let authoredIndex = Dictionary(uniqueKeysWithValues:
             authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
         )
+        let aggregateBindings = multiProviderAggregatesByConsumerLayerID.values
+            .flatMap(\.bindings)
+        func bindingsForConsumer(_ layerID: Int) -> [Binding] {
+            var result = bindingsByConsumerLayerID.values.filter {
+                $0.consumerLayerID == layerID
+            }
+            result.append(contentsOf: aggregateBindings.filter {
+                $0.consumerLayerID == layerID
+            })
+            return result
+        }
         var indegree = Dictionary(uniqueKeysWithValues:
             authoredLayerIDs.map { ($0, 0) }
         )
         var successors: [Int: Set<Int>] = [:]
-        for binding in bindingsByConsumerLayerID.values
+        for binding in Array(bindingsByConsumerLayerID.values)
+            + aggregateBindings
         where available.contains(binding.providerLayerID)
             && available.contains(binding.consumerLayerID)
             && binding.providerLayerID != binding.consumerLayerID
@@ -37,7 +49,8 @@ extension SceneDependencyRenderPlan {
         var remaining = available
         var result: [Int] = []
         result.reserveCapacity(authoredLayerIDs.count)
-        var forwardGraphProviders = Set(bindingsByConsumerLayerID.values
+        var forwardGraphProviders = Set((Array(bindingsByConsumerLayerID.values)
+            + aggregateBindings)
             .filter(\.requiresForwardCapture)
             .map(\.providerLayerID))
             .intersection(requiredGraphOutputProviderLayerIDs)
@@ -45,13 +58,14 @@ extension SceneDependencyRenderPlan {
         while changed {
             changed = false
             for providerLayerID in forwardGraphProviders {
-                guard let upstream = bindingsByConsumerLayerID[providerLayerID],
-                      requiredGraphOutputProviderLayerIDs.contains(
-                        upstream.providerLayerID
-                      ) else { continue }
-                changed = forwardGraphProviders.insert(
+                for upstream in bindingsForConsumer(providerLayerID)
+                where requiredGraphOutputProviderLayerIDs.contains(
                     upstream.providerLayerID
-                ).inserted || changed
+                ) {
+                    changed = forwardGraphProviders.insert(
+                        upstream.providerLayerID
+                    ).inserted || changed
+                }
             }
         }
         while let next = remaining.filter({ indegree[$0] == 0 }).min(by: {
@@ -86,8 +100,29 @@ extension SceneDependencyRenderPlan {
         let authoredIndex = Dictionary(uniqueKeysWithValues:
             authoredLayerIDs.enumerated().map { ($0.element, $0.offset) }
         )
+        // Aggregate consumers own several independently captured providers.
+        // Keep these bindings in the same forward-preparation ledger as the
+        // legacy one-provider route; otherwise a provider authored after its
+        // consumer would never be published before the consumer executes.
+        let aggregateBindings = multiProviderAggregatesByConsumerLayerID.values
+            .flatMap(\.bindings)
+        func bindingsForConsumer(_ layerID: Int) -> [Binding] {
+            var result = bindingsByConsumerLayerID.values.filter {
+                $0.consumerLayerID == layerID
+            }
+            result.append(contentsOf: aggregateBindings.filter {
+                $0.consumerLayerID == layerID
+            })
+            return result
+        }
         var providers = Set<Int>(bindingsByConsumerLayerID.values.compactMap {
             binding in
+            guard binding.requiresForwardCapture,
+                  activeExecutionLayerIDs.contains(binding.consumerLayerID)
+            else { return nil }
+            return binding.providerLayerID
+        })
+        providers.formUnion(aggregateBindings.compactMap { binding in
             guard binding.requiresForwardCapture,
                   activeExecutionLayerIDs.contains(binding.consumerLayerID)
             else { return nil }
@@ -103,10 +138,10 @@ extension SceneDependencyRenderPlan {
         while changed {
             changed = false
             for providerLayerID in providers {
-                guard let upstream = bindingsByConsumerLayerID[providerLayerID]
-                else { continue }
-                changed = providers.insert(upstream.providerLayerID).inserted
-                    || changed
+                for upstream in bindingsForConsumer(providerLayerID) {
+                    changed = providers.insert(upstream.providerLayerID).inserted
+                        || changed
+                }
             }
         }
         guard providers.isSubset(of: available) else { return nil }
@@ -115,11 +150,12 @@ extension SceneDependencyRenderPlan {
         )
         var successors: [Int: Set<Int>] = [:]
         for consumerLayerID in providers {
-            guard let binding = bindingsByConsumerLayerID[consumerLayerID],
-                  providers.contains(binding.providerLayerID) else { continue }
-            if successors[binding.providerLayerID, default: []]
-                .insert(consumerLayerID).inserted {
-                indegree[consumerLayerID, default: 0] += 1
+            for binding in bindingsForConsumer(consumerLayerID)
+            where providers.contains(binding.providerLayerID) {
+                if successors[binding.providerLayerID, default: []]
+                    .insert(consumerLayerID).inserted {
+                    indegree[consumerLayerID, default: 0] += 1
+                }
             }
         }
         var remaining = providers

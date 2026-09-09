@@ -178,6 +178,18 @@ extension SceneMetalRenderer {
                 }
         }
         for layer in orderedLayers {
+            // A utility composition owns a graph transaction only when its
+            // typed utility plan can actually capture and consume that
+            // transaction.  Keeping an unsupported utility claim in the
+            // prepared ledger would leave it allocation-committed forever;
+            // the strict predecessor gate would then reject an unrelated
+            // later image layer.  The ordinary composition fallback remains
+            // available for this frame-local unsupported unit.
+            if layer.contentKind == "composition",
+               layer.utilityLayer?.kind == .composition,
+               !utilityCaptureLayerIDs.contains(layer.id) {
+                continue
+            }
             // An accepted dynamic root that is false in the committed frame
             // owns no graph transaction and cannot make its hidden provider
             // reject unrelated visible output. Product-authority rejections
@@ -421,6 +433,7 @@ extension SceneMetalRenderer {
                 return invalid("layer-\(layerID)-claim-token-mismatch")
             }
             let dependencyEffect: SceneDependencyEffectInput?
+            var dependencyEffects: [SceneDependencyEffectInput] = []
             let dependencyUnavailability:
                 SceneResolvedMaterialRuntimeBridge.FrameInputs
                     .DependencyUnavailability?
@@ -437,6 +450,7 @@ extension SceneMetalRenderer {
                     providerLayer,
                     imageTextures.layerSourceRenderSize(for: providerLayer.id)
                 )
+                let preparedOutputExtent = preparedGraphOutputExtent(for: binding.providerLayerID, plans: plans)
                 var dependencyFailureReason: String?
                 func reserveDependencyInput(
                     _ source: SceneBaseMaterialTextureSource?
@@ -448,6 +462,7 @@ extension SceneMetalRenderer {
                         providerCandidate: source?.candidate,
                         layerMVP: providerMVP,
                         viewportSize: frameContext.screenSize,
+                        preparedOutputExtent: preparedOutputExtent,
                         frameEpoch: textureRegistry.frameEpoch,
                         failureReason: &dependencyFailureReason
                     )
@@ -503,6 +518,26 @@ extension SceneMetalRenderer {
                     )
                 }
                 dependencyEffect = reservedInput
+                dependencyUnavailability = nil
+            case let .externalAggregate(aggregate):
+                var aggregateFailureReason: String?
+                guard let reservedInputs =
+                    reserveExternalAggregateDependencyInputs(
+                        aggregate: aggregate,
+                        plans: plans,
+                        imageTextures: imageTextures,
+                        frameContext: frameContext,
+                        imageMVP: imageMVP,
+                        baseMaterialSelections: &baseMaterialSelections,
+                        failureReason: &aggregateFailureReason
+                    ) else {
+                    return invalid(
+                        aggregateFailureReason
+                            ?? "multi-provider-reservation-invalid"
+                    )
+                }
+                dependencyEffects = reservedInputs
+                dependencyEffect = nil
                 dependencyUnavailability = nil
             }
             let sourceMVP: simd_float4x4
@@ -705,6 +740,7 @@ extension SceneMetalRenderer {
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,
                 dependencyEffect: dependencyEffect,
+                dependencyEffects: dependencyEffects,
                 dependencyUnavailability: dependencyUnavailability
             )
             let materialFunctionInvocations =
@@ -750,16 +786,14 @@ extension SceneMetalRenderer {
         readyProviderUsesAuthoredLayerColor: Bool,
         cache: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> SceneBaseMaterialTextureSelection {
-        if let cached = cache[layer.id] {
-            return cached
-        }
-        let selection = baseMaterialTextureSelection(
+        // The companion delegates to the canonical `baseMaterialTextureSelection(`
+        // owner; this private wrapper preserves the original cache surface.
+        cachedBaseMaterialTextureSelectionImpl(
             for: layer,
             imageTextures: imageTextures,
             readyProviderUsesAuthoredLayerColor:
-                readyProviderUsesAuthoredLayerColor
+                readyProviderUsesAuthoredLayerColor,
+            cache: &cache
         )
-        cache[layer.id] = selection
-        return selection
     }
 }

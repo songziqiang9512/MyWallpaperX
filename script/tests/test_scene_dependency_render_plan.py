@@ -49,6 +49,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT
     / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+StaticModel.swift",
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+Aggregate.swift",
+    SOURCE_ROOT
+    / "RenderGraph/LayerDependencies/SceneDependencyRenderPlan+BindingCompilation.swift",
 ]
 
 HARNESS_SOURCE = r'''
@@ -347,6 +351,62 @@ enum Harness {
             visibleLayerIDs: [
                 shadowedProvider.id, selectedMultiReferenceConsumer.id,
             ]
+        )
+        let multiProviderPositivePlan = multiProviderCompositionPlan()
+        let multiProviderAuthoredOrderPlan = multiProviderCompositionPlan(
+            reverseEffectIDs: true
+        )
+        let multiProviderMismatchPlan = multiProviderCompositionPlan(
+            dependencies: [601]
+        )
+        let multiProviderDuplicatePlan = multiProviderCompositionPlan(
+            duplicateSlot: true
+        )
+        let multiProviderUnsafePlan = multiProviderCompositionPlan(
+            providerChildLayerIDs: [699]
+        )
+        let multiProviderWrongPassPlan = multiProviderCompositionPlan(
+            passIndex: 1
+        )
+        let multiProviderWrongSlotPlan = multiProviderCompositionPlan(
+            slotIndex: 2
+        )
+        let multiProviderUserTexturePlan = multiProviderCompositionPlan(
+            userTexture: true
+        )
+        let multiProviderExtraPassPlan = multiProviderCompositionPlan(
+            extraPass: true
+        )
+        let multiProviderExtraSlotsPlan = multiProviderCompositionPlan(
+            extraSlotCount: 2
+        )
+        let multiProviderUnknownComboPlan = multiProviderCompositionPlan(
+            unknownCombo: true
+        )
+        let multiProviderMissingProviderOrderPlan =
+            multiProviderCompositionPlan(omitRenderOrderID: 601)
+        let multiProviderMissingConsumerOrderPlan =
+            multiProviderCompositionPlan(omitRenderOrderID: 603)
+        let multiProviderInactiveSupersetPlan =
+            multiProviderInactiveSupersetCompositionPlan()
+        let multiProviderVisibleProviderPlan = multiProviderCompositionPlan(
+            providerVisible: true
+        )
+        let multiProviderVisibleEffectfulProviderPlan =
+            multiProviderCompositionPlan(
+                providerVisible: true,
+                providerEffectful: true,
+                providerTexturePaths: ["assets/provider-source.tex"]
+            )
+        let multiProviderForwardSafeProviderPlan = multiProviderCompositionPlan(
+            providerEffectful: true,
+            providerTexturePaths: ["assets/noise.tex"],
+            providerFirst: false
+        )
+        let multiProviderForwardUnsafeProviderPlan = multiProviderCompositionPlan(
+            providerEffectful: true,
+            providerTexturePaths: ["_rt_FullFrameBuffer"],
+            providerFirst: false
         )
         let routeUtilityProvider = layer(410, kind: .composition, visible: false)
         let routeUtilityConsumer = SceneRenderDescriptor.Layer(
@@ -857,6 +917,167 @@ enum Harness {
                 && selectedMultiReferencePlan.requiredProviderLayerIDs == [
                     shadowedProvider.id
                 ],
+            "multiProviderCandidate": [
+                "candidate": multiProviderPositivePlan
+                    .multiProviderCandidateLayerIDs.contains(603),
+                "aggregate": multiProviderPositivePlan
+                    .multiProviderAggregatesByConsumerLayerID[603]
+                    .map { aggregate in
+                        let reversed =
+                            SceneDependencyRenderPlan.MultiProviderAggregate(
+                                consumerLayerID: aggregate.consumerLayerID,
+                                bindings: Array(aggregate.bindings.reversed()),
+                                authoredSlotOrder: aggregate.authoredSlotOrder
+                            )
+                        let wrongBlend =
+                            SceneDependencyRenderPlan.MultiProviderAggregate(
+                                consumerLayerID: aggregate.consumerLayerID,
+                                bindings: aggregate.bindings.enumerated().map {
+                                    index, binding in
+                                    guard index == 0 else { return binding }
+                                    return .init(
+                                        consumerLayerID: binding.consumerLayerID,
+                                        providerLayerID: binding.providerLayerID,
+                                        slot: binding.slot,
+                                        referenceSlots: binding.referenceSlots,
+                                        blendMode: 5,
+                                        kind: binding.kind,
+                                        requiresForwardCapture:
+                                            binding.requiresForwardCapture,
+                                        requiresResolvedMaterialProgram:
+                                            binding.requiresResolvedMaterialProgram
+                                    )
+                                },
+                                authoredSlotOrder: aggregate.authoredSlotOrder
+                            )
+                        return [
+                            "providers": aggregate.providerLayerIDs.sorted(),
+                            "slots": aggregate.referenceSlots.map {
+                                "\($0.effectID):\($0.passIndex):\($0.slotIndex)"
+                            },
+                            "strict": aggregate.hasStrictBindingVector,
+                            "reversedStrict": reversed.hasStrictBindingVector,
+                            "wrongBlendStrict": wrongBlend.hasStrictBindingVector,
+                        ]
+                    },
+                "authoredOrder": multiProviderAuthoredOrderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603]
+                    .map { aggregate in
+                        [
+                            "slots": aggregate.authoredSlotOrder.map {
+                                "\($0.effectID):\($0.passIndex):\($0.slotIndex)"
+                            },
+                            "bindingSlots": aggregate.bindings.map {
+                                "\($0.slot.effectID):\($0.slot.passIndex):\($0.slot.slotIndex)"
+                            },
+                            "strict": aggregate.hasStrictBindingVector,
+                            "admitted": aggregate.admits(
+                                multiProviderAuthoredOrderPlan.references
+                                    .filter { $0.consumerLayerID == 603 }
+                            ),
+                        ]
+                    },
+                "aggregateAdmission": multiProviderPositivePlan
+                    .multiProviderAggregatesByConsumerLayerID[603]
+                    .map { aggregate in
+                        let references = multiProviderPositivePlan.references
+                            .filter { $0.consumerLayerID == 603 }
+                        let missing = Array(references.dropLast())
+                        let duplicate = references + [references[0]]
+                        let wrongProvider = references.enumerated().map {
+                            offset, reference in
+                            offset == 0 ? .init(
+                                consumerLayerID: reference.consumerLayerID,
+                                providerLayerID: 999,
+                                slot: reference.slot,
+                                variant: reference.variant
+                            ) : reference
+                        }
+                        return [
+                            "positive": aggregate.admits(references),
+                            "reversed": aggregate.admits(
+                                Array(references.reversed())
+                            ),
+                            "missing": aggregate.admits(missing),
+                            "duplicate": aggregate.admits(duplicate),
+                            "wrongProvider": aggregate.admits(wrongProvider),
+                        ]
+                    },
+                "binding": multiProviderPositivePlan
+                    .bindingsByConsumerLayerID[603] == nil,
+                "requiredProviders": multiProviderPositivePlan
+                    .requiredProviderLayerIDs.sorted(),
+                "requiredEffect": multiProviderPositivePlan
+                    .requiredEffectConsumerLayerIDs.contains(603),
+            ],
+            "multiProviderRejects": [
+                "dependencyMismatch": multiProviderMismatchPlan
+                    .multiProviderCandidateLayerIDs.contains(603)
+                    && multiProviderMismatchPlan
+                        .bindingsByConsumerLayerID[603] == nil,
+                "duplicateSlot": multiProviderDuplicatePlan
+                    .multiProviderCandidateLayerIDs.contains(603)
+                    && multiProviderDuplicatePlan
+                        .bindingsByConsumerLayerID[603] == nil,
+                "unsafeProvider": multiProviderUnsafePlan
+                    .multiProviderCandidateLayerIDs.contains(603)
+                    && multiProviderUnsafePlan
+                        .bindingsByConsumerLayerID[603] == nil,
+                "unsafeAggregate": multiProviderUnsafePlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "wrongPass": multiProviderWrongPassPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "wrongSlot": multiProviderWrongSlotPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "userTexture": multiProviderUserTexturePlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "extraPass": multiProviderExtraPassPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "extraSlots": multiProviderExtraSlotsPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "unknownCombo": multiProviderUnknownComboPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "missingProviderOrder": multiProviderMissingProviderOrderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "missingConsumerOrder": multiProviderMissingConsumerOrderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "visibleProvider": multiProviderVisibleProviderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+                "visibleEffectfulProvider":
+                    multiProviderVisibleEffectfulProviderPlan
+                        .multiProviderAggregatesByConsumerLayerID[603] != nil,
+                "forwardSafeProvider": multiProviderForwardSafeProviderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] != nil,
+                "forwardUnsafeProvider": multiProviderForwardUnsafeProviderPlan
+                    .multiProviderAggregatesByConsumerLayerID[603] == nil,
+            ],
+            "multiProviderInactiveSuperset": [
+                "candidate": multiProviderInactiveSupersetPlan
+                    .multiProviderCandidateLayerIDs.contains(603),
+                "references": multiProviderInactiveSupersetPlan.references
+                    .filter { $0.consumerLayerID == 603 }
+                    .map { reference in
+                        [
+                            "provider": reference.providerLayerID,
+                            "slot": "\(reference.slot.effectID):\(reference.slot.passIndex):\(reference.slot.slotIndex)",
+                        ]
+                    },
+                "aggregate": multiProviderInactiveSupersetPlan
+                    .multiProviderAggregatesByConsumerLayerID[603]
+                    .map { aggregate in
+                        [
+                            "providers": aggregate.providerLayerIDs.sorted(),
+                            "strict": aggregate.hasStrictBindingVector,
+                            "admitted": aggregate.admits(
+                                multiProviderInactiveSupersetPlan.references
+                                    .filter { $0.consumerLayerID == 603 }
+                            ),
+                        ]
+                    },
+                "requiredProviders": multiProviderInactiveSupersetPlan
+                    .requiredProviderLayerIDs.sorted(),
+                "declaredProviders": [601, 602, 604],
+            ],
             "resolvedMaterialUtilityRoute": [
                 "binding": routeUtilityPlan.bindingsByConsumerLayerID[
                     routeUtilityConsumer.id
@@ -1927,6 +2148,219 @@ enum Harness {
             authored
         )
     }
+
+    static func multiProviderCompositionPlan(
+        dependencies: [Int] = [601, 602],
+        duplicateSlot: Bool = false,
+        providerChildLayerIDs: [Int] = [],
+        providerVisible: Bool? = false,
+        providerEffectful: Bool = false,
+        providerTexturePaths: [String] = [],
+        providerFirst: Bool = true,
+        passIndex: Int = 0,
+        slotIndex: Int = 1,
+        userTexture: Bool = false,
+        extraPass: Bool = false,
+        extraSlotCount: Int = 0,
+        unknownCombo: Bool = false,
+        omitRenderOrderID: Int? = nil,
+        reverseEffectIDs: Bool = false
+    ) -> SceneDependencyRenderPlan {
+        func providerEffects(_ id: Int) -> [SceneRenderDescriptor.EffectDescriptor] {
+            guard providerEffectful else { return [] }
+            return [.init(
+                id: "provider-\(id)",
+                file: "effects/workshop/unseen/provider/effect.json",
+                visible: true,
+                passes: providerTexturePaths.isEmpty ? [] : [.init(
+                    passIndex: 0,
+                    texturePaths: providerTexturePaths,
+                    textureSlots: providerTexturePaths.map(Optional.some),
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                )]
+            )]
+        }
+        let providerA = SceneRenderDescriptor.Layer(
+            id: 601,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: providerVisible,
+            effects: providerEffects(601)
+        )
+        let providerB = SceneRenderDescriptor.Layer(
+            id: 602,
+            contentKind: "image",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: providerChildLayerIDs,
+            visible: providerVisible,
+            effects: providerEffects(602)
+        )
+        let pathA = "_rt_imageLayerComposite_601_a"
+        let pathB = "_rt_imageLayerComposite_602_a"
+        func namedEffect(
+            id: String,
+            path: String
+        ) -> SceneRenderDescriptor.EffectDescriptor {
+            let authoredSlotCount = max(2, slotIndex + 1)
+            var authoredSlots = Array<String?>(
+                repeating: nil,
+                count: authoredSlotCount
+            )
+            authoredSlots[slotIndex] = path
+            authoredSlots.append(contentsOf: Array(
+                repeating: nil,
+                count: max(0, extraSlotCount)
+            ))
+            var userTextureInputs: [SceneEffectTextureInput?] = []
+            if userTexture {
+                userTextureInputs = Array(
+                    repeating: nil,
+                    count: authoredSlots.count
+                )
+                userTextureInputs[0] = .init(kind: .path, value: "override")
+            }
+            var combos = ["BLENDMODE": 0]
+            if unknownCombo {
+                combos["UNSAFE_COMBO"] = 1
+            }
+            let primaryPass = SceneRenderDescriptor.EffectDescriptor
+                .PassDescriptor(
+                    passIndex: passIndex,
+                    texturePaths: authoredSlots.compactMap { $0 },
+                    textureSlots: authoredSlots,
+                    userTextureInputs: userTextureInputs,
+                    combos: combos,
+                    constantShaderValues: [:]
+                )
+            var passes = [primaryPass]
+            if extraPass {
+                passes.append(.init(
+                    passIndex: passIndex + 1,
+                    texturePaths: [],
+                    textureSlots: [],
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                ))
+            }
+            return .init(
+                id: id,
+                file: "effects/workshop/unseen/multi/effect.json",
+                visible: true,
+                passes: passes
+            )
+        }
+        let consumer = SceneRenderDescriptor.Layer(
+            id: 603,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: dependencies,
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                namedEffect(
+                    id: duplicateSlot
+                        ? "same"
+                        : (reverseEffectIDs ? "z-authored-first" : "first"),
+                    path: pathA
+                ),
+                namedEffect(
+                    id: duplicateSlot
+                        ? "same"
+                        : (reverseEffectIDs ? "a-authored-second" : "second"),
+                    path: pathB
+                ),
+            ]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: [providerA, providerB, consumer],
+                renderOrderLayerIDs: (providerFirst
+                    ? [601, 602, 603] : [603, 601, 602]).filter {
+                    $0 != omitRenderOrderID
+                }
+            ),
+            visibleLayerIDs: providerVisible == true
+                ? [601, 602, 603] : [603],
+            executableUtilityConsumerLayerIDs: [603]
+        )
+    }
+
+    /// Regression fixture for the authored declaration superset contract:
+    /// provider 604 is named only by an inactive effect, while the active
+    /// graph consumes providers 601 and 602. The aggregate must admit the
+    /// active vector and still require the full declaration to be known.
+    static func multiProviderInactiveSupersetCompositionPlan()
+        -> SceneDependencyRenderPlan {
+        func namedEffect(
+            id: String,
+            path: String,
+            visible: Bool
+        ) -> SceneRenderDescriptor.EffectDescriptor {
+            .init(
+                id: id,
+                file: "effects/workshop/unseen/multi/effect.json",
+                visible: visible,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [path],
+                    textureSlots: [nil, path],
+                    userTextureInputs: [],
+                    combos: ["BLENDMODE": 0],
+                    constantShaderValues: [:]
+                )]
+            )
+        }
+        let providers = [601, 602, 604].map { providerID in
+            SceneRenderDescriptor.Layer(
+                id: providerID,
+                contentKind: "image",
+                utilityLayer: nil,
+                dependencyLayerIDs: [],
+                childLayerIDs: [],
+                visible: false,
+                effects: []
+            )
+        }
+        let consumer = SceneRenderDescriptor.Layer(
+            id: 603,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [601, 602, 604],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                namedEffect(
+                    id: "first",
+                    path: "_rt_imageLayerComposite_601_a",
+                    visible: true
+                ),
+                namedEffect(
+                    id: "second",
+                    path: "_rt_imageLayerComposite_602_a",
+                    visible: true
+                ),
+                namedEffect(
+                    id: "inactive",
+                    path: "_rt_imageLayerComposite_604_a",
+                    visible: false
+                ),
+            ]
+        )
+        return SceneDependencyRenderPlan(
+            descriptor: .init(
+                layers: providers + [consumer],
+                renderOrderLayerIDs: [601, 602, 604, 603]
+            ),
+            visibleLayerIDs: [603],
+            executableUtilityConsumerLayerIDs: [603]
+        )
+    }
 }
 '''
 
@@ -2179,6 +2613,87 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "admittedReferences": 1,
                 "admittedBinding": True,
                 "admittedProvider": 1331,
+            },
+        )
+
+    def test_multi_provider_composition_candidate_is_fail_closed(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["multiProviderCandidate"],
+            {
+                "candidate": True,
+                "aggregate": {
+                    "providers": [601, 602],
+                    "slots": ["first:0:1", "second:0:1"],
+                    "strict": True,
+                    "reversedStrict": False,
+                    "wrongBlendStrict": False,
+                },
+                "authoredOrder": {
+                    "slots": [
+                        "z-authored-first:0:1",
+                        "a-authored-second:0:1",
+                    ],
+                    "bindingSlots": [
+                        "z-authored-first:0:1",
+                        "a-authored-second:0:1",
+                    ],
+                    "strict": True,
+                    "admitted": True,
+                },
+                "aggregateAdmission": {
+                    "positive": True,
+                    "reversed": False,
+                    "missing": False,
+                    "duplicate": False,
+                    "wrongProvider": False,
+                },
+                "binding": True,
+                "requiredProviders": [601, 602],
+                "requiredEffect": True,
+            },
+        )
+        self.assertEqual(
+            self.result["multiProviderRejects"],
+            {
+                "dependencyMismatch": True,
+                "duplicateSlot": True,
+                "unsafeProvider": True,
+                "unsafeAggregate": True,
+                "wrongPass": True,
+                "wrongSlot": True,
+                "userTexture": True,
+                "extraPass": True,
+                "extraSlots": True,
+                "unknownCombo": True,
+                "missingProviderOrder": True,
+                "missingConsumerOrder": True,
+                "visibleProvider": True,
+                "visibleEffectfulProvider": True,
+                "forwardSafeProvider": True,
+                "forwardUnsafeProvider": True,
+            },
+        )
+
+    def test_multi_provider_inactive_effect_keeps_declaration_superset_strict(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["multiProviderInactiveSuperset"],
+            {
+                "candidate": True,
+                "references": [
+                    {"provider": 601, "slot": "first:0:1"},
+                    {"provider": 602, "slot": "second:0:1"},
+                ],
+                "aggregate": {
+                    "providers": [601, 602],
+                    "strict": True,
+                    "admitted": True,
+                },
+                "requiredProviders": [601, 602],
+                "declaredProviders": [601, 602, 604],
             },
         )
 

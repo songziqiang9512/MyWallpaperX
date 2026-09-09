@@ -395,7 +395,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
         Self.retainExecutableDependencyClosure(
             in: &accepted,
-            rejected: &rejected
+            rejected: &rejected,
+            candidateLayerIDs: Set(admissionCandidates.map(\.layerID))
         )
         capabilitiesByLayerID = accepted
         productAuthorityRejectionReasonsByLayerID =
@@ -413,7 +414,8 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     /// no named-target reservation and would otherwise drop the whole frame.
     private static func retainExecutableDependencyClosure(
         in accepted: inout [Int: LayerCapability],
-        rejected: inout [String: Int]
+        rejected: inout [String: Int],
+        candidateLayerIDs: Set<Int>
     ) {
         var didChange = true
         while didChange {
@@ -423,12 +425,35 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 capability.isGraphOutputProvider ? layerID : nil
             })
             let unavailableConsumers = accepted.compactMap { layerID, capability -> Int? in
-                guard case let .externalPrimary(binding) =
-                        capability.dependencyOwnership,
-                      binding.consumerLayerID == layerID,
-                      capability.requiresGraphOutputProvider else { return nil }
-                return graphProviderLayerIDs.contains(binding.providerLayerID)
-                    ? nil : layerID
+                guard capability.requiresGraphOutputProvider else { return nil }
+                let providerLayerIDs: Set<Int>
+                switch capability.dependencyOwnership {
+                case let .externalPrimary(binding):
+                    guard binding.consumerLayerID == layerID else { return layerID }
+                    providerLayerIDs = [binding.providerLayerID]
+                case let .externalAggregate(aggregate):
+                    guard aggregate.consumerLayerID == layerID,
+                          aggregate.hasStrictBindingVector else {
+                        return layerID
+                    }
+                    providerLayerIDs = aggregate.providerLayerIDs
+                case .none, .graphInternal:
+                    return layerID
+                }
+                // A static provider with no admitted graph candidate has no
+                // execution capability by design. Candidate IDs distinguish
+                // that terminal source from a graph provider that was rejected
+                // during admission/program preparation and therefore must make
+                // the complete consumer closure unavailable.
+                let knownGraphOrCandidateProviderIDs = graphProviderLayerIDs
+                    .union(candidateLayerIDs)
+                let expectedProviderIDs = providerLayerIDs.intersection(
+                    knownGraphOrCandidateProviderIDs
+                )
+                guard !expectedProviderIDs.isEmpty else { return layerID }
+                return expectedProviderIDs.allSatisfy {
+                    accepted[$0] != nil
+                } ? nil : layerID
             }
             if !unavailableConsumers.isEmpty {
                 for layerID in unavailableConsumers {
@@ -444,15 +469,27 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             })
             var frontier = Array(reachable)
             while let layerID = frontier.popLast() {
-                guard let capability = accepted[layerID],
-                      case let .externalPrimary(binding) =
-                        capability.dependencyOwnership,
-                      let provider = accepted[binding.providerLayerID],
-                      provider.isGraphOutputProvider,
-                      reachable.insert(binding.providerLayerID).inserted else {
+                guard let capability = accepted[layerID] else { continue }
+                switch capability.dependencyOwnership {
+                case let .externalPrimary(binding):
+                    guard let provider = accepted[binding.providerLayerID],
+                          provider.isGraphOutputProvider,
+                          reachable.insert(binding.providerLayerID).inserted else {
+                        continue
+                    }
+                    frontier.append(binding.providerLayerID)
+                case let .externalAggregate(aggregate):
+                    for providerLayerID in aggregate.providerLayerIDs {
+                        guard let provider = accepted[providerLayerID],
+                              provider.isGraphOutputProvider,
+                              reachable.insert(providerLayerID).inserted else {
+                            continue
+                        }
+                        frontier.append(providerLayerID)
+                    }
+                case .none, .graphInternal:
                     continue
                 }
-                frontier.append(binding.providerLayerID)
             }
             let unreachableProviders = accepted.compactMap {
                 layerID, capability -> Int? in
@@ -536,15 +573,30 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     var admittedResolvedMaterialReferences: Set<SceneDependencyRenderPlan.Reference> {
         capabilitiesByLayerID.values.reduce(into: []) { result, capability in
-            guard case let .externalPrimary(binding) =
-                    capability.dependencyOwnership else { return }
-            for slot in binding.referenceSlots {
-                result.insert(.init(
-                    consumerLayerID: binding.consumerLayerID,
-                    providerLayerID: binding.providerLayerID,
-                    slot: slot,
-                    variant: .primary
-                ))
+            switch capability.dependencyOwnership {
+            case let .externalPrimary(binding):
+                for slot in binding.referenceSlots {
+                    result.insert(.init(
+                        consumerLayerID: binding.consumerLayerID,
+                        providerLayerID: binding.providerLayerID,
+                        slot: slot,
+                        variant: .primary
+                    ))
+                }
+            case let .externalAggregate(aggregate):
+                // Preserve every authored slot in a multi-provider owner so a
+                // subsequent generation can re-admit the exact aggregate
+                // vector before any dependent MaterialProgram is compiled.
+                for binding in aggregate.orderedBindings {
+                    result.insert(.init(
+                        consumerLayerID: binding.consumerLayerID,
+                        providerLayerID: binding.providerLayerID,
+                        slot: binding.slot,
+                        variant: .primary
+                    ))
+                }
+            case .none, .graphInternal:
+                break
             }
         }
     }
@@ -678,105 +730,4 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     /// This launch-time gate is intentionally no broader than Finalizer's
     /// per-frame policy. It prevents a predictable post-claim failure from
     /// preventing duplicate execution ownership.
-    static func dynamicUniformExecutionRejection(
-        _ template: Template,
-        node: Graph.Node,
-        producers: DynamicProducerCatalog
-    ) -> Rejection? {
-        for declaration in template.uniformDeclarations {
-            guard case let .dynamic(dynamic) = declaration.value else { continue }
-            guard case let .effectConstant(
-                layerID, effectIndex, passIndex, name
-            ) = dynamic.target,
-                layerID == node.effect.layerID,
-                effectIndex == node.effect.effectIndex,
-                passIndex == node.instancePassIndex,
-                name == declaration.name else {
-                return rejection("dynamic-uniform-unavailable")
-            }
-            let hasProducer: (Template.DynamicUniformSource) -> Bool = { contributor in
-                switch contributor {
-                case let .userProperty(propertyKey):
-                    return soleUserPropertyProducerMatches(
-                        propertyKey, dynamic: dynamic, producers: producers
-                    )
-                case .timeline:
-                    return timelineDefinitionMatches(
-                        dynamic,
-                        producers: producers
-                    )
-                case .sceneScript:
-                    return producers.sceneScriptTargets.contains(dynamic.target)
-                }
-            }
-            let hasMismatchedProducerIdentity: (
-                Template.DynamicUniformSource
-            ) -> Bool = { contributor in
-                switch contributor {
-                case let .userProperty(propertyKey):
-                    return producers.userProperties.contains {
-                        $0.propertyKey == propertyKey && $0.target != dynamic.target
-                    }
-                case .timeline, .sceneScript:
-                    return false
-                }
-            }
-            if dynamic.valueContributors.isEmpty {
-                guard dynamic.authoredFallback != nil,
-                      dynamic.scriptAttachments == [.unproven] else {
-                    return rejection("dynamic-uniform-unavailable")
-                }
-                return rejection("material-dynamic-uniform-script-attachment-unproven")
-            }
-            guard dynamic.valueContributors.count == 1 else {
-                guard dynamic.scriptAttachments.isEmpty,
-                      !dynamic.valueContributors.contains(
-                          where: hasMismatchedProducerIdentity
-                      ) else {
-                    return rejection("dynamic-uniform-unavailable")
-                }
-                guard dynamic.valueContributors.allSatisfy(hasProducer) else {
-                    return rejection(
-                        "material-dynamic-uniform-contributor-producer-unavailable"
-                    )
-                }
-                return rejection("material-dynamic-uniform-contributor-policy")
-            }
-            guard let contributor = dynamic.valueContributors.first else {
-                return rejection("dynamic-uniform-unavailable")
-            }
-            if !hasProducer(contributor) {
-                if hasAuthoredUserPropertyFallback(
-                    contributor, dynamic: dynamic, producers: producers
-                ) {
-                    guard dynamic.scriptAttachments.isEmpty else {
-                        return rejection("dynamic-uniform-unavailable")
-                    }
-                    continue
-                }
-                guard dynamic.scriptAttachments.isEmpty,
-                      !hasMismatchedProducerIdentity(contributor) else {
-                    return rejection("dynamic-uniform-unavailable")
-                }
-                return rejection("material-dynamic-uniform-producer-unavailable")
-            }
-            if dynamic.scriptAttachments == [.unproven] {
-                return rejection("material-dynamic-uniform-script-attachment-unproven")
-            }
-            guard dynamic.scriptAttachments.isEmpty else {
-                return rejection("dynamic-uniform-unavailable")
-            }
-        }
-        return nil
-    }
-
-    static func rejection(
-        _ code: String,
-        programFailureAttribution: Rejection.ProgramFailureAttribution? = nil
-    ) -> Rejection {
-        .init(
-            code: code,
-            programFailureAttribution: programFailureAttribution
-        )
-    }
 }

@@ -144,13 +144,86 @@ struct SceneDependencyRenderPlan {
         let variant: SceneNamedTextureReference.Variant
     }
 
+    /// This production-facing harness has no aggregate fixtures, but the
+    /// ownership compiler still needs the evolved type to compile. Keep the
+    /// stub typed and fail-closed so adding the catalog does not change any
+    /// existing single-provider assertions.
+    struct MultiProviderAggregate: Hashable {
+        let consumerLayerID: Int
+        let bindings: [Binding]
+        let authoredSlotOrder: [SceneEffectPassSlot]
+
+        var orderedBindings: [Binding] {
+            guard authoredSlotOrder.count == bindings.count else { return [] }
+            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
+            for binding in bindings {
+                guard bindingsBySlot.updateValue(
+                    binding, forKey: binding.slot
+                ) == nil else { return [] }
+            }
+            guard bindingsBySlot.count == authoredSlotOrder.count else {
+                return []
+            }
+            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
+        }
+
+        var providerLayerIDs: Set<Int> {
+            Set(bindings.map(\.providerLayerID))
+        }
+
+        var referenceSlots: [SceneEffectPassSlot] {
+            authoredSlotOrder
+        }
+
+        var hasStrictBindingVector: Bool {
+            bindings.count >= 2
+                && authoredSlotOrder.count == bindings.count
+                && Set(authoredSlotOrder).count == authoredSlotOrder.count
+                && Set(authoredSlotOrder) == Set(bindings.map(\.slot))
+                && bindings == orderedBindings
+                && Set(bindings.map(\.providerLayerID)).count > 1
+        }
+
+        func admits(_ references: [Reference]) -> Bool {
+            guard hasStrictBindingVector else { return false }
+            let expected = orderedBindings.map {
+                Reference(
+                    consumerLayerID: consumerLayerID,
+                    providerLayerID: $0.providerLayerID,
+                    slot: $0.slot,
+                    variant: .primary
+                )
+            }
+            return references == expected
+        }
+    }
+
     let references: [Reference]
     let namedReferenceConsumerLayerIDs: Set<Int>
     let requiredEffectConsumerLayerIDs: Set<Int>
     let bindingsByConsumerLayerID: [Int: Binding]
+    let multiProviderAggregatesByConsumerLayerID:
+        [Int: MultiProviderAggregate] = [:]
     let requiredProviderLayerIDs: Set<Int>
     let requiredGraphOutputProviderLayerIDs: Set<Int>
     let staticLayerSourcePassthroughBlockedLayerIDs: Set<Int>
+
+    static func isMultiProviderUtilityCandidate(
+        layer: SceneRenderDescriptor.Layer,
+        references: [Reference]
+    ) -> Bool {
+        _ = layer
+        _ = references
+        return false
+    }
+
+    static func activeDependencyProviderLayerIDs(
+        layer: SceneRenderDescriptor.Layer,
+        references: [Reference]
+    ) -> Set<Int>? {
+        _ = layer
+        return Set(references.map(\.providerLayerID))
+    }
 
     static func potentialOptionalNamedFallbackBindings(
         descriptor: SceneRenderDescriptor,
@@ -252,6 +325,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         let layerModelMatrix: simd_float4x4
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let dependencyEffect: SceneDependencyEffectInput?
+        // The production frame contract now carries an aggregate vector. The
+        // executor fixture exercises only singular dependencies, so keep the
+        // vector empty and let production preparation use its legacy fallback.
+        let dependencyEffects: [SceneDependencyEffectInput] = []
         let dependencyUnavailability: DependencyUnavailability?
 
         init(

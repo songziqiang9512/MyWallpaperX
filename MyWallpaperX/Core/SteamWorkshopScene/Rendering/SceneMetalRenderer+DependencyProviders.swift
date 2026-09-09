@@ -3,6 +3,53 @@ import Metal
 import simd
 
 extension SceneMetalRenderer {
+    /// Resolves the complete dependency input vector for one image draw. The
+    /// aggregate path remains lossless; a missing or invalid member falls
+    /// through to the same typed failure used by the legacy single input.
+    func resolveDependencyEffectInputs(
+        layerID: Int,
+        requiresDependencyEffect: Bool,
+        hasResolvedFramePlan: Bool,
+        bypassReason: String?,
+        dependencyRuntime: SceneDependencyFrameRuntime,
+        textureRegistry: SceneFrameTextureRegistry
+    ) -> (
+        dependencyEffect: SceneDependencyEffectInput?,
+        dependencyEffects: [SceneDependencyEffectInput],
+        failure: (reasonCode: String, isOrdinaryUnavailable: Bool)?
+    ) {
+        if bypassReason != nil {
+            return (nil, [], nil)
+        }
+        if requiresDependencyEffect, hasResolvedFramePlan {
+            if let aggregate = dependencyRuntime.aggregateEffectInputs(
+                for: layerID,
+                textureRegistry: textureRegistry
+            ) {
+                return (nil, aggregate, nil)
+            }
+            switch dependencyRuntime.resolvedMaterialEffectInputResolution(
+                for: layerID,
+                textureRegistry: textureRegistry
+            ) {
+            case let .ready(input):
+                return (input, [], nil)
+            case let .unavailable(reasonCode):
+                return (nil, [], (reasonCode, true))
+            case let .invalid(reasonCode):
+                return (nil, [], (reasonCode, false))
+            }
+        }
+        return (
+            dependencyRuntime.effectInput(
+                for: layerID,
+                textureRegistry: textureRegistry
+            ),
+            [],
+            nil
+        )
+    }
+
     /// Executes an effectful hidden dependency provider through the same
     /// resolved graph runtime as a visible image layer, then publishes that
     /// intermediate output to the existing named-target registry. It never
@@ -29,27 +76,44 @@ extension SceneMetalRenderer {
                 layerID: layer.id
             )
         let dependencyEffect: SceneDependencyEffectInput?
+        var dependencyEffects: [SceneDependencyEffectInput] = []
         if dependencyRuntime.requiresEffect(for: layer.id),
            dependencyBypassReason == nil {
-            switch dependencyRuntime.resolvedMaterialEffectInputResolution(
-                for: layer.id,
-                textureRegistry: textureRegistry
-            ) {
-            case let .ready(input):
-                dependencyEffect = input
-            case let .unavailable(reasonCode):
-                dependencyRuntime.recordBindingFailure(for: layer.id)
-                return imageCompositor
-                    .rejectResolvedMaterialDependencySubgraphLocally(
-                        layerID: layer.id,
-                        reasonCode: reasonCode
+            if let aggregate = dependencyRuntime.plan
+                .multiProviderAggregatesByConsumerLayerID[layer.id] {
+                guard let inputs = dependencyRuntime.aggregateEffectInputs(
+                    for: aggregate,
+                    textureRegistry: textureRegistry
+                ), inputs.count == aggregate.bindings.count else {
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                        "external-primary-aggregate-input-unavailable"
                     )
-            case let .invalid(reasonCode):
-                dependencyRuntime.recordBindingFailure(for: layer.id)
-                imageCompositor.recordResolvedMaterialFramePreflightFailure(
-                    reasonCode
-                )
-                return false
+                    return false
+                }
+                dependencyEffects = inputs
+                dependencyEffect = nil
+            } else {
+                switch dependencyRuntime.resolvedMaterialEffectInputResolution(
+                    for: layer.id,
+                    textureRegistry: textureRegistry
+                ) {
+                case let .ready(input):
+                    dependencyEffect = input
+                case let .unavailable(reasonCode):
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    return imageCompositor
+                        .rejectResolvedMaterialDependencySubgraphLocally(
+                            layerID: layer.id,
+                            reasonCode: reasonCode
+                        )
+                case let .invalid(reasonCode):
+                    dependencyRuntime.recordBindingFailure(for: layer.id)
+                    imageCompositor.recordResolvedMaterialFramePreflightFailure(
+                        reasonCode
+                    )
+                    return false
+                }
             }
         } else {
             dependencyEffect = nil
@@ -77,6 +141,7 @@ extension SceneMetalRenderer {
             framePlan: framePlan,
             layerID: layer.id,
             dependencyEffect: dependencyEffect,
+            dependencyEffects: dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,
             executionOrigin: .image
@@ -93,6 +158,7 @@ extension SceneMetalRenderer {
         let published = dependencyRuntime.publishGraphOutputIfRequired(
             layerID: layer.id,
             texture: texture,
+            publicationRole: .namedProviderPrepass,
             textureRegistry: textureRegistry,
             commandBuffer: commandBuffer
         ) == true

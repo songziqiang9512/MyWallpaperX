@@ -20,11 +20,17 @@ SOURCE_COVERAGE_SOURCE = (
 )
 UTILITY_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneUtilityLayerRenderer.swift"
 METAL_RENDERER_SOURCE = SOURCE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER_INITIALIZATION_SOURCE = (
+    SOURCE_ROOT / "Rendering/SceneMetalRenderer+Initialization.swift"
+)
 UTILITY_FRAME_RENDERER_SOURCE = (
     SOURCE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
 DEPENDENCY_RUNTIME_SOURCE = (
     SOURCE_ROOT / "RenderGraph/LayerDependencies/SceneDependencyFrameRuntime.swift"
+)
+DEPENDENCY_GEOMETRY_SOURCE = DEPENDENCY_RUNTIME_SOURCE.with_name(
+    "SceneDependencyFrameRuntime+Geometry.swift"
 )
 AUTHORED_CATALOG_SOURCE = (
     SOURCE_ROOT / "RenderGraph/EffectCompilation/SceneEffectAdmissionCatalog.swift"
@@ -168,8 +174,11 @@ class SceneUtilityLayerTests(unittest.TestCase):
 
     def test_utility_capture_receives_the_frame_audio_snapshot(self) -> None:
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+        metal_renderer = (
+            METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+            + METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8")
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
+        )
         self.assertIn("audioSpectrum: SceneAudioSpectrumSnapshot", utility_renderer)
         self.assertIn("audioSpectrum: audioSpectrum", utility_renderer)
         self.assertIn("audioSpectrum: frameContext.audioSpectrum", metal_renderer)
@@ -215,7 +224,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         )
         self.assertIn(
             r"by: \.triggerLayerID",
-            METAL_RENDERER_SOURCE.read_text(encoding="utf-8"),
+            METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8"),
         )
         self.assertIn("case .capturedMainTargetTexture:", preflight)
         self.assertEqual(
@@ -315,13 +324,22 @@ class SceneUtilityLayerTests(unittest.TestCase):
     def test_composition_capture_receives_named_dependency_atomically(self) -> None:
         runtime_plan = RUNTIME_PLAN_SOURCE.read_text(encoding="utf-8")
         utility_renderer = UTILITY_RENDERER_SOURCE.read_text(encoding="utf-8")
-        metal_renderer = METAL_RENDERER_SOURCE.read_text(encoding="utf-8") \
+        metal_renderer = (
+            METAL_RENDERER_SOURCE.read_text(encoding="utf-8")
+            + METAL_RENDERER_INITIALIZATION_SOURCE.read_text(encoding="utf-8")
             + UTILITY_FRAME_RENDERER_SOURCE.read_text(encoding="utf-8")
-        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        )
+        dependency_runtime = (
+            DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+            + "\n"
+            + DEPENDENCY_GEOMETRY_SOURCE.read_text(encoding="utf-8")
+        )
         self.assertIn(
-            "dependencyPlan.bindingsByConsumerLayerID[layer.id] != nil",
+            "let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]",
             runtime_plan,
         )
+        self.assertIn("let isAggregate = dependencyPlan", runtime_plan)
+        self.assertIn("(isAggregate || isLegacyExecutable)", runtime_plan)
         self.assertIn(
             "executableUtilityConsumerLayerIDs.contains(layer.id)",
             runtime_plan,
@@ -350,7 +368,11 @@ class SceneUtilityLayerTests(unittest.TestCase):
         )
 
     def test_hidden_solid_provider_uses_source_texture_capture(self) -> None:
-        dependency_runtime = DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+        dependency_runtime = (
+            DEPENDENCY_RUNTIME_SOURCE.read_text(encoding="utf-8")
+            + "\n"
+            + DEPENDENCY_GEOMETRY_SOURCE.read_text(encoding="utf-8")
+        )
         self.assertNotIn(
             "case .resolvedMaterial, .solidLayer:",
             dependency_runtime,

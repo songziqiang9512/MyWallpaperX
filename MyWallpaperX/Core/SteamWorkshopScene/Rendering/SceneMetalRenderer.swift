@@ -33,19 +33,6 @@ struct SceneMetalRenderer {
     /// Dynamic layer descriptor projection is invalidated by the runtime's
     /// topology revision, not by every frame that reuses the same snapshot.
     let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()
-
-    func installResolvedMaterialExecutionEvidence() {
-        let dispositionCatalog = SceneEffectRuntimeDispositionCatalog(
-            descriptor: renderDescriptor,
-            admissionCatalog: effectAdmissionCatalog,
-            resolvedMaterialSubjects: imageCompositor.resolvedMaterialRuntime?
-                .runtimeDispositionSubjects ?? []
-        )
-        imageCompositor.resolvedMaterialRuntime?.installExecutionEvidence(
-            dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects
-        )
-    }
-
     func renderFrame(
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,
@@ -378,36 +365,17 @@ struct SceneMetalRenderer {
                     resolvedFramePlan?.consumesExternalPrimaryDependency
                         ?? dependencyRuntime.requiresEffect(for: layer.id)
                 ) && dependencyBypassReason == nil
-                let dependencyEffect: SceneDependencyEffectInput?
-                let resolvedDependencyFailure: (
-                    reasonCode: String,
-                    isOrdinaryUnavailable: Bool
-                )?
-                if dependencyBypassReason != nil {
-                    dependencyEffect = nil
-                    resolvedDependencyFailure = nil
-                } else if requiresDependencyEffect, resolvedFramePlan != nil {
-                    switch dependencyRuntime.resolvedMaterialEffectInputResolution(
-                        for: layer.id,
-                        textureRegistry: textureRegistry
-                    ) {
-                    case let .ready(input):
-                        dependencyEffect = input
-                        resolvedDependencyFailure = nil
-                    case let .unavailable(reasonCode):
-                        dependencyEffect = nil
-                        resolvedDependencyFailure = (reasonCode, true)
-                    case let .invalid(reasonCode):
-                        dependencyEffect = nil
-                        resolvedDependencyFailure = (reasonCode, false)
-                    }
-                } else {
-                    dependencyEffect = dependencyRuntime.effectInput(
-                        for: layer.id,
-                        textureRegistry: textureRegistry
-                    )
-                    resolvedDependencyFailure = nil
-                }
+                let dependencyResolution = resolveDependencyEffectInputs(
+                    layerID: layer.id,
+                    requiresDependencyEffect: requiresDependencyEffect,
+                    hasResolvedFramePlan: resolvedFramePlan != nil,
+                    bypassReason: dependencyBypassReason,
+                    dependencyRuntime: dependencyRuntime,
+                    textureRegistry: textureRegistry
+                )
+                let dependencyEffect = dependencyResolution.dependencyEffect
+                let dependencyEffects = dependencyResolution.dependencyEffects
+                let resolvedDependencyFailure = dependencyResolution.failure
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
@@ -480,6 +448,7 @@ struct SceneMetalRenderer {
                     requiresSourceCopy: false,
                     finalCompositeAlpha: nil,
                     dependencyEffect: dependencyEffect,
+                    dependencyEffects: dependencyEffects,
                     requiresDependencyEffect: requiresDependencyEffect,
                     blocksStaticLayerSourcePassthrough:
                         dependencyRuntime.blocksStaticLayerSourcePassthrough(
@@ -521,6 +490,7 @@ struct SceneMetalRenderer {
                         dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,
                             texture: graphOutput,
+                            publicationRole: .visibleMainLoop,
                             textureRegistry: textureRegistry,
                             commandBuffer: commandBuffer
                         ) == true
@@ -545,7 +515,8 @@ struct SceneMetalRenderer {
                     break frameLayers
                 }
                 if request.requiresDependencyEffect,
-                   request.dependencyEffect == nil {
+                   request.dependencyEffect == nil,
+                   request.dependencyEffects.isEmpty {
                     dependencyRuntime.recordBindingFailure(for: layer.id)
                     continue
                 }

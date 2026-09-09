@@ -463,6 +463,7 @@ struct SceneTextureProviderPublication {
 struct SceneLayerSourcePublication {
     let publication: SceneTextureProviderPublication
     let renderSizeWH: [Float]?
+    let effectRenderSizeWH: [Float]? = nil
 
     static func supportsDirectTextureLane(
         layerID: Int,

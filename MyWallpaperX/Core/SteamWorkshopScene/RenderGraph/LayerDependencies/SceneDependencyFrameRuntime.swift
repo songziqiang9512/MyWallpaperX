@@ -9,9 +9,36 @@ enum SceneResolvedMaterialDependencyInputResolution {
 }
 
 final class SceneDependencyFrameRuntime {
-    private struct EffectTargetReservation {
+    enum GraphOutputPublicationRole {
+        /// The authored visible layer publishes before its normal main-pass
+        /// composite consumes the same graph execution ticket.
+        case visibleMainLoop
+        /// A hidden provider prepass publishes as its terminal output.
+        case namedProviderPrepass
+    }
+
+    struct EffectTargetReservation {
+        enum Kind: Hashable {
+            case image
+            case resolvedMaterial
+            case solidLayer
+
+            init(_ bindingKind: SceneDependencyRenderPlan.Binding.Kind) {
+                switch bindingKind {
+                case .imageLayerBlend, .visibleImageGraphOutput:
+                    self = .image
+                case .resolvedMaterial:
+                    self = .resolvedMaterial
+                case .solidLayer:
+                    self = .solidLayer
+                }
+            }
+        }
+
         let providerLayerID: Int
-        let kind: SceneDependencyRenderPlan.Binding.Kind
+        /// Provider-target shape. Consumer route kinds remain on each binding;
+        /// both image binding forms publish the same provider-owned texture.
+        let kind: Kind
         let texture: MTLTexture
         let width: Int
         let height: Int
@@ -29,9 +56,10 @@ final class SceneDependencyFrameRuntime {
     )
     let bindingTelemetry = SceneGPUCompletionTelemetry(phase: "named-target-binding")
     private var reservationFrameEpoch: UInt64?
-    private var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
+    var reservationsByProviderLayerID: [Int: EffectTargetReservation] = [:]
 #if DEBUG
     private var debugCaptureFault = SceneDependencyCaptureFault()
+    var debugPreparedOutputInstallFailureRecorded = false
 #endif
 
     init(
@@ -77,26 +105,10 @@ final class SceneDependencyFrameRuntime {
         visibleRootLayerIDs: Set<Int>,
         availableExecutionLayerIDs: Set<Int>
     ) -> Set<Int> {
-        var reachable = visibleRootLayerIDs.intersection(
-            availableExecutionLayerIDs
+        plan.resolvedMaterialExecutionLayerIDs(
+            visibleRootLayerIDs: visibleRootLayerIDs,
+            availableExecutionLayerIDs: availableExecutionLayerIDs
         )
-        var changed = true
-        while changed {
-            changed = false
-            for binding in plan.bindingsByConsumerLayerID.values
-            where reachable.contains(binding.consumerLayerID)
-                && plan.requiredGraphOutputProviderLayerIDs.contains(
-                    binding.providerLayerID
-                )
-                && availableExecutionLayerIDs.contains(
-                    binding.providerLayerID
-                )
-            {
-                changed = reachable.insert(binding.providerLayerID).inserted
-                    || changed
-            }
-        }
-        return reachable
     }
 
     func forwardDependencyPreparationOrder(
@@ -112,40 +124,6 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
-    /// Verifies that every prepared provider output can be copied into its
-    /// independently reserved named target. The reservation must remain a
-    /// distinct texture because graph target allocation is free to reuse a
-    /// provider's final texture for a later transaction in the same frame.
-    func installPreparedGraphOutputs(
-        _ outputsByLayerID: [Int: MTLTexture],
-        frameEpoch: UInt64
-    ) -> Bool {
-        synchronizeReservations(to: frameEpoch)
-        for providerLayerID in plan.requiredGraphOutputProviderLayerIDs.sorted() {
-            guard let output = outputsByLayerID[providerLayerID] else {
-                // A frame-local visual fallback deliberately leaves the
-                // provisional reservation unpublished so dependants take the
-                // existing ordinary provider-miss path.
-                continue
-            }
-            guard let reservation = reservationsByProviderLayerID[providerLayerID],
-                  reservation.frameEpoch == frameEpoch,
-                  reservation.providerLayerID == providerLayerID,
-                  reservation.width == output.width,
-                  reservation.height == output.height,
-                  reservation.texture !== output,
-                  reservation.texture.pixelFormat == output.pixelFormat,
-                  output.textureType == .type2D,
-                  output.sampleCount == 1,
-                  output.mipmapLevelCount == 1,
-                  output.usage.contains(.renderTarget),
-                  output.usage.contains(.shaderRead) else {
-                return false
-            }
-        }
-        return true
-    }
-
     func blocksStaticLayerSourcePassthrough(for layerID: Int) -> Bool {
         plan.blocksStaticLayerSourcePassthrough(for: layerID)
     }
@@ -157,6 +135,7 @@ final class SceneDependencyFrameRuntime {
         providerCandidate: SceneTextureCandidate?,
         layerMVP: simd_float4x4,
         viewportSize: CGSize,
+        preparedOutputExtent: (width: Int, height: Int)? = nil,
         frameEpoch: UInt64,
         failureReason: inout String?
     ) -> SceneDependencyEffectInput? {
@@ -168,9 +147,24 @@ final class SceneDependencyFrameRuntime {
             failureReason = "provider-layer-mismatch"
             return nil
         }
-        guard plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding else {
+        guard plan.bindingsByConsumerLayerID[binding.consumerLayerID] == binding
+            || plan.aggregateBindingIsPlanned(binding) else {
             failureReason = "binding-not-planned"
             return nil
+        }
+        // Aggregate members are an ordered, image-primary vector. Keep the
+        // strict shape check at reservation time so a forged/partially
+        // reconstructed member cannot acquire a named target and only fail
+        // later during graph execution.
+        if plan.aggregateBindingIsPlanned(binding) {
+            guard binding.consumerLayerID != binding.providerLayerID,
+                  binding.referenceSlots == [binding.slot],
+                  binding.kind == .imageLayerBlend,
+                  binding.blendMode == 0,
+                  binding.requiresResolvedMaterialProgram else {
+                failureReason = "aggregate-binding-shape-mismatch"
+                return nil
+            }
         }
         guard let extent = Self.captureExtent(
             binding: binding,
@@ -179,6 +173,7 @@ final class SceneDependencyFrameRuntime {
             providerCandidate: providerCandidate,
             layerMVP: layerMVP,
             viewportSize: viewportSize,
+            preparedOutputExtent: preparedOutputExtent,
             failureReason: &failureReason
         ) else {
             return nil
@@ -189,9 +184,10 @@ final class SceneDependencyFrameRuntime {
         if let reservation = reservationsByProviderLayerID[providerLayer.id] {
             guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == providerLayer.id,
-                  reservation.kind == binding.kind,
+                  reservation.kind == .init(binding.kind),
                   reservation.width == extent.width,
-                  reservation.height == extent.height else {
+                  reservation.height == extent.height,
+                  Self.isValidDependencyTexture(reservation.texture) else {
                 failureReason = "reservation-mismatch"
                 return nil
             }
@@ -202,13 +198,14 @@ final class SceneDependencyFrameRuntime {
                       width: extent.width,
                       height: extent.height
                   ), reservedTexture.width == extent.width,
-                  reservedTexture.height == extent.height else {
+                  reservedTexture.height == extent.height,
+                  Self.isValidDependencyTexture(reservedTexture) else {
                 failureReason = "target-pool-unavailable"
                 return nil
             }
             reservationsByProviderLayerID[providerLayer.id] = EffectTargetReservation(
                 providerLayerID: providerLayer.id,
-                kind: binding.kind,
+                kind: .init(binding.kind),
                 texture: reservedTexture,
                 width: extent.width,
                 height: extent.height,
@@ -252,6 +249,64 @@ final class SceneDependencyFrameRuntime {
         )
     }
 
+    /// Resolves every publication in a multi-provider aggregate in authored
+    /// slot order. Missing or mismatched members reject the whole aggregate so
+    /// execution cannot silently consume a partial provider set.
+    func aggregateEffectInputs(
+        for aggregate: SceneDependencyRenderPlan.MultiProviderAggregate,
+        textureRegistry: SceneFrameTextureRegistry
+    ) -> [SceneDependencyEffectInput]? {
+        let frameEpoch = textureRegistry.frameEpoch
+        guard frameEpoch > 0,
+              aggregate.hasStrictBindingVector,
+              plan.multiProviderAggregatesByConsumerLayerID[
+                  aggregate.consumerLayerID
+              ] == aggregate else { return nil }
+        synchronizeReservations(to: frameEpoch)
+        // `hasStrictBindingVector` proves this is already canonical. Do not
+        // sort here: silently reordering a corrupted aggregate would hide an
+        // authored slot/order mismatch from the execution ledger.
+        let orderedBindings = aggregate.bindings
+        var inputs: [SceneDependencyEffectInput] = []
+        for binding in orderedBindings {
+            let reference = SceneNamedTextureReference(
+                providerLayerID: binding.providerLayerID,
+                variant: .primary
+            )
+            guard let reservation = reservationsByProviderLayerID[
+                binding.providerLayerID
+            ], reservation.frameEpoch == frameEpoch,
+                  let texture = textureRegistry.completeNamedLayerTargetTexture(
+                      reference: reference,
+                      frameEpoch: frameEpoch
+                  ), texture === reservation.texture else { return nil }
+            inputs.append(makeEffectInput(
+                binding: binding,
+                frameEpoch: frameEpoch,
+                texture: texture
+            ))
+        }
+        return aggregateInputVectorIsValid(
+            inputs,
+            aggregate: aggregate,
+            frameEpoch: frameEpoch
+        ) ? inputs : nil
+    }
+
+    func aggregateEffectInputs(
+        for consumerLayerID: Int,
+        textureRegistry: SceneFrameTextureRegistry
+    ) -> [SceneDependencyEffectInput]? {
+        guard let aggregate = plan
+            .multiProviderAggregatesByConsumerLayerID[consumerLayerID] else {
+            return nil
+        }
+        return aggregateEffectInputs(
+            for: aggregate,
+            textureRegistry: textureRegistry
+        )
+    }
+
     /// Resolves a dependency already reserved by unified frame preparation.
     /// A valid reservation without a same-frame publication is an ordinary
     /// provider visual failure; reservation/epoch/object drift remains an
@@ -275,7 +330,7 @@ final class SceneDependencyFrameRuntime {
         }
         guard reservation.frameEpoch == frameEpoch,
               reservation.providerLayerID == binding.providerLayerID,
-              reservation.kind == binding.kind else {
+              reservation.kind == .init(binding.kind) else {
             return .invalid(reasonCode: "external-primary-reservation-mismatch")
         }
         let reference = SceneNamedTextureReference(
@@ -305,7 +360,10 @@ final class SceneDependencyFrameRuntime {
         encoded: Bool,
         on commandBuffer: MTLCommandBuffer
     ) {
-        guard plan.bindingsByConsumerLayerID[consumerLayerID] != nil else { return }
+        guard plan.bindingsByConsumerLayerID[consumerLayerID] != nil
+            || plan.multiProviderAggregatesByConsumerLayerID[
+                consumerLayerID
+            ] != nil else { return }
         bindingTelemetry.record(layerID: consumerLayerID, encoded: encoded, on: commandBuffer)
     }
 
@@ -363,39 +421,43 @@ final class SceneDependencyFrameRuntime {
         }
         let providerBindings = plan.bindingsByConsumerLayerID.values.filter {
             $0.providerLayerID == layer.id
+        } + plan.multiProviderAggregatesByConsumerLayerID.values.flatMap {
+            $0.bindings.filter { $0.providerLayerID == layer.id }
         }
         let staticModelBindings = plan.staticModelBindingsByConsumerLayerID.values
             .filter { $0.providerLayerID == layer.id }
         var captureFailureReason: String?
+        let extent = captureExtentForProvider(
+            layer: layer,
+            providerBindings: providerBindings,
+            hasStaticModelBinding: !staticModelBindings.isEmpty,
+            reservation: reservation,
+            frameEpoch: frameEpoch,
+            sourceTexture: sourceTexture,
+            sourceCandidate: sourceCandidate,
+            layerMVP: layerMVP,
+            viewportSize: viewportSize,
+            failureReason: &captureFailureReason
+        )
         guard (providerBindings.isEmpty != staticModelBindings.isEmpty),
-              let extent = providerBindings.first.map({ binding in
-                  Self.captureExtent(
-                      binding: binding,
-                      providerLayer: layer,
-                      providerTexture: sourceTexture,
-                      providerCandidate: sourceCandidate,
-                      layerMVP: layerMVP,
-                      viewportSize: viewportSize,
-                      failureReason: &captureFailureReason
-                  )
-              }) ?? Self.staticModelCaptureExtent(
-                  providerLayer: layer,
-                  providerTexture: sourceTexture,
-                  providerCandidate: sourceCandidate,
-                  failureReason: &captureFailureReason
-              ) else {
+              let extent else {
             captureTelemetry.recordFailure(layerID: layer.id)
             return false
         }
         let binding = providerBindings.first
+        let providerTargetKind = binding.map {
+            EffectTargetReservation.Kind($0.kind)
+        }
         guard binding == nil || providerBindings.allSatisfy({
-            $0.kind == binding?.kind
+            EffectTargetReservation.Kind($0.kind) == providerTargetKind
         }) else { return false }
         let target: MTLTexture
         if let reservation {
             guard reservation.frameEpoch == frameEpoch,
                   reservation.providerLayerID == layer.id,
-                  binding.map({ reservation.kind == $0.kind }) == true,
+                  binding.map({
+                      reservation.kind == .init($0.kind)
+                  }) == true,
                   reservation.width == extent.width,
                   reservation.height == extent.height,
                   reservation.texture.width == extent.width,
@@ -634,15 +696,24 @@ final class SceneDependencyFrameRuntime {
     func publishGraphOutputIfRequired(
         layerID: Int,
         texture: MTLTexture,
+        publicationRole: GraphOutputPublicationRole,
         textureRegistry: SceneFrameTextureRegistry,
         commandBuffer: MTLCommandBuffer
     ) -> Bool? {
         guard plan.requiredGraphOutputProviderLayerIDs.contains(layerID) else {
             return nil
         }
-        guard let publicationTelemetry = graphOutputPublicationTelemetry(
-            for: layerID
-        ) else { return false }
+        // Publication is a provider action. One provider may legitimately feed
+        // aggregate `.imageLayerBlend` consumers and singular
+        // `.visibleImageGraphOutput` consumers at the same time, so consumer
+        // binding kinds cannot select or veto this route.
+        let publicationTelemetry: SceneGPUCompletionTelemetry
+        switch publicationRole {
+        case .visibleMainLoop:
+            publicationTelemetry = visibleGraphOutputPublicationTelemetry
+        case .namedProviderPrepass:
+            publicationTelemetry = namedGraphOutputPublicationTelemetry
+        }
         let frameEpoch = textureRegistry.frameEpoch
         synchronizeReservations(to: frameEpoch)
         guard let reservation = reservationsByProviderLayerID[layerID],
@@ -701,38 +772,9 @@ final class SceneDependencyFrameRuntime {
         return true
     }
 
-    private func graphOutputPublicationTelemetry(
-        for providerLayerID: Int
-    ) -> SceneGPUCompletionTelemetry? {
-        let kinds = Set(plan.bindingsByConsumerLayerID.values.compactMap {
-            $0.providerLayerID == providerLayerID ? $0.kind : nil
-        })
-        guard kinds.count == 1, let kind = kinds.first else { return nil }
-        return kind == .visibleImageGraphOutput
-            ? visibleGraphOutputPublicationTelemetry
-            : namedGraphOutputPublicationTelemetry
-    }
-
-    private func makeEffectInput(
-        binding: SceneDependencyRenderPlan.Binding,
-        frameEpoch: UInt64,
-        texture: MTLTexture
-    ) -> SceneDependencyEffectInput {
-        SceneDependencyEffectInput(
-            consumerLayerID: binding.consumerLayerID,
-            providerLayerID: binding.providerLayerID,
-            variant: .primary,
-            slot: binding.slot,
-            blendMode: binding.blendMode,
-            frameEpoch: frameEpoch,
-            texture: texture
-        )
-    }
-
-    private func synchronizeReservations(to frameEpoch: UInt64) {
+    func synchronizeReservations(to frameEpoch: UInt64) {
         guard reservationFrameEpoch != frameEpoch else { return }
         reservationFrameEpoch = frameEpoch
         reservationsByProviderLayerID.removeAll(keepingCapacity: true)
     }
-
 }

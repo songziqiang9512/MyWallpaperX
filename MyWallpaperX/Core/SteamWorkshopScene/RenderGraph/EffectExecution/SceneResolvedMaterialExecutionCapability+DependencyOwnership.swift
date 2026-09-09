@@ -6,6 +6,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case none
     case graphInternal(referenceCount: Int)
     case externalPrimary(Binding)
+    case externalAggregate(SceneDependencyRenderPlan.MultiProviderAggregate)
 
     var reportKind: String {
         switch self {
@@ -15,6 +16,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             "graph-internal"
         case .externalPrimary:
             "external-primary"
+        case .externalAggregate:
+            "external-aggregate"
         }
     }
 
@@ -26,7 +29,14 @@ nonisolated enum SceneResolvedMaterialDependencyOwnership: Equatable {
             referenceCount
         case let .externalPrimary(binding):
             binding.referenceSlots.count
+        case let .externalAggregate(aggregate):
+            aggregate.referenceSlots.count
         }
+    }
+
+    var isAggregate: Bool {
+        if case .externalAggregate = self { return true }
+        return false
     }
 
 }
@@ -44,8 +54,16 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             guard layer.contentKind == "composition",
                   layer.utilityLayer?.kind == .composition,
                   layer.childLayerIDs.isEmpty,
-                  layer.dependencyLayerIDs.count == 1,
-                  layer.authoredDependencies.isEmpty else { return nil }
+                  !layer.dependencyLayerIDs.isEmpty,
+                  layer.authoredDependencies.isEmpty,
+                  (layer.dependencyLayerIDs.count == 1
+                    || SceneDependencyRenderPlan
+                        .isMultiProviderUtilityCandidate(
+                            layer: layer,
+                            references: SceneDependencyGraphAnalysis.references(
+                                in: descriptor.layers
+                            ).filter { $0.consumerLayerID == layer.id }
+                        )) else { return nil }
             return layer.id
         })
     }
@@ -54,7 +72,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         layer: SceneRenderDescriptor.Layer,
         graph: Graph?,
         references: [Reference],
-        binding: SceneDependencyRenderPlan.Binding?
+        binding: SceneDependencyRenderPlan.Binding?,
+        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate? = nil
     ) -> SceneResolvedMaterialDependencyOwnership? {
         let effectiveReferences = ownerRequiringReferences(
             references,
@@ -66,6 +85,30 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             || !effectiveReferences.isEmpty
         guard hasDependencyMetadata else {
             return SceneResolvedMaterialDependencyOwnership.none
+        }
+
+        if let aggregate {
+            let declaredProviderIDs = Set(
+                layer.dependencyLayerIDs.filter { $0 != layer.id }
+            )
+            let activeProviderIDs = SceneDependencyRenderPlan
+                .activeDependencyProviderLayerIDs(
+                    layer: layer,
+                    references: effectiveReferences
+                )
+            guard binding == nil,
+                  aggregate.consumerLayerID == layer.id,
+                  layer.authoredDependencies.isEmpty,
+                  layer.dependencyLayerIDs.count > 1,
+                  layer.dependencyLayerIDs.count == declaredProviderIDs.count,
+                  activeProviderIDs != nil,
+                  Set(aggregate.bindings.map(\.providerLayerID))
+                      == (activeProviderIDs ?? []),
+                  aggregate.admits(effectiveReferences),
+                  aggregate.bindings.allSatisfy({ candidate in
+                      candidate.consumerLayerID == layer.id
+                  }) else { return nil }
+            return .externalAggregate(aggregate)
         }
 
         if let binding {

@@ -158,11 +158,14 @@ extension SceneDependencyRenderPlan {
         return edges
     }
 
-    /// Generic carrier for one source-proven Program sampler backed by an
-    /// earlier visible image layer's graph-final publication. Shader identity,
+    /// Generic carrier for one source-proven Program sampler backed by a
+    /// visible image layer's graph-final publication. Shader identity,
     /// effect name and scalar values deliberately do not participate here;
     /// MaterialProgram admission owns those contracts after this compiler has
-    /// conserved the exact authored primary reference.
+    /// conserved the exact authored primary reference. The consumer may be a
+    /// hidden graph provider: reachability is established by the surrounding
+    /// dependency plan, while this helper only proves the provider publication
+    /// contract.
     nonisolated static func visibleImageGraphOutputReference(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
@@ -172,8 +175,6 @@ extension SceneDependencyRenderPlan {
     ) -> Reference? {
         guard layer.contentKind == "image",
               hasNoUtilityLayer(layer),
-              layer.visible != false,
-              visibleLayerIDs.contains(layer.id),
               layer.childLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
               references.count == 1,
@@ -186,14 +187,10 @@ extension SceneDependencyRenderPlan {
                   references: references
               ) == [reference.providerLayerID],
               let provider = layersByID[reference.providerLayerID],
-              provider.contentKind == "image",
-              hasNoUtilityLayer(provider),
-              provider.visible != false,
-              visibleLayerIDs.contains(provider.id),
-              provider.childLayerIDs.isEmpty,
-              provider.authoredDependencies.isEmpty,
-              provider.dependencyLayerIDs.isEmpty,
-              provider.effects.contains(where: { $0.visible != false }) else {
+              isVisibleGraphOutputProvider(
+                  provider,
+                  visibleLayerIDs: visibleLayerIDs
+              ) else {
             return nil
         }
         let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
@@ -216,6 +213,25 @@ extension SceneDependencyRenderPlan {
             return nil
         }
         return reference
+    }
+
+    /// A visible image can publish only its already-admitted graph-final output
+    /// into the named target registry. Keep this predicate independent of the
+    /// consumer so hidden nested providers can use the same publication owner.
+    /// Static visible images, child/utility layers, and any provider with an
+    /// authored dependency stay out of this route.
+    nonisolated static func isVisibleGraphOutputProvider(
+        _ layer: SceneRenderDescriptor.Layer,
+        visibleLayerIDs: Set<Int>
+    ) -> Bool {
+        layer.contentKind == "image"
+            && hasNoUtilityLayer(layer)
+            && layer.visible != false
+            && visibleLayerIDs.contains(layer.id)
+            && layer.childLayerIDs.isEmpty
+            && layer.authoredDependencies.isEmpty
+            && layer.dependencyLayerIDs.isEmpty
+            && layer.effects.contains(where: { $0.visible != false })
     }
 
     nonisolated static func supportedImageLayerBlendDeclaration(

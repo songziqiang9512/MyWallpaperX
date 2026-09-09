@@ -75,6 +75,7 @@ enum SceneResolvedMaterialGraphComposition {
             framePlan: request.resolvedMaterialFrameTargetPlan,
             layerID: request.layer.id,
             dependencyEffect: request.dependencyEffect,
+            dependencyEffects: request.dependencyEffects,
             mainPass: mainPass,
             executionTrace: executionTrace,
             executionOrigin: executionOrigin
@@ -87,6 +88,7 @@ enum SceneResolvedMaterialGraphComposition {
         framePlan: SceneResolvedMaterialFrameTargetPlan?,
         layerID: Int,
         dependencyEffect: SceneDependencyEffectInput?,
+        dependencyEffects: [SceneDependencyEffectInput] = [],
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace?,
         executionOrigin: SceneEffectExecutionOrigin
@@ -112,6 +114,7 @@ enum SceneResolvedMaterialGraphComposition {
             runtime.executeClaimed(
                 claim: claim,
                 dependencyEffect: dependencyEffect,
+                dependencyEffects: dependencyEffects,
                 sceneBackgroundTexture: sceneBackgroundTexture,
                 commandBuffer: commandBuffer
             )
@@ -237,7 +240,7 @@ enum SceneResolvedMaterialGraphComposition {
             }
             let consumesExternalPrimaryDependency: Bool
             switch request.claim.dependencyOwnership {
-            case .externalPrimary:
+            case .externalPrimary, .externalAggregate:
                 consumesExternalPrimaryDependency = true
             default:
                 consumesExternalPrimaryDependency = false

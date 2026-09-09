@@ -30,6 +30,10 @@ extension SceneDependencyFrameRuntime {
     func requiresForwardCapture(for providerLayerID: Int) -> Bool {
         plan.bindingsByConsumerLayerID.values.contains {
             $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
+        } || plan.multiProviderAggregatesByConsumerLayerID.values.flatMap {
+            $0.bindings
+        }.contains {
+            $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
         } || plan.staticModelBindingsByConsumerLayerID.values.contains {
             $0.providerLayerID == providerLayerID && $0.requiresForwardCapture
         }
@@ -70,6 +74,13 @@ extension SceneDependencyFrameRuntime {
         activeStaticModelConsumerLayerIDs: Set<Int>
     ) -> Bool {
         if plan.bindingsByConsumerLayerID.values.contains(where: {
+            $0.providerLayerID == providerLayerID
+        }) {
+            return true
+        }
+        if plan.multiProviderAggregatesByConsumerLayerID.values.flatMap({
+            $0.bindings
+        }).contains(where: {
             $0.providerLayerID == providerLayerID
         }) {
             return true

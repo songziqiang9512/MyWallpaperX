@@ -134,7 +134,45 @@ final class SceneResolvedMaterialRuntimeBridge {
         let time: Float
         let audioSpectrum: SceneAudioSpectrumSnapshot
         let dependencyEffect: SceneDependencyEffectInput?
+        /// Ordered aggregate inputs for a composition that names multiple
+        /// external providers. The singular field remains for legacy owners;
+        /// aggregate consumers must use this list and never project it down.
+        let dependencyEffects: [SceneDependencyEffectInput]
         var dependencyUnavailability: DependencyUnavailability? = nil
+
+        init(
+            dynamicValues: SceneDynamicSnapshot,
+            cursorUV: SIMD2<Float>,
+            previousCursorUV: SIMD2<Float>,
+            pointerIsInside: Bool,
+            previousPointerIsInside: Bool,
+            pointerMovement: Float,
+            primaryButtonIsDown: Bool,
+            layerModelMatrix: simd_float4x4,
+            effectTextureProjectionMatrixInverse: simd_float4x4,
+            frameTime: Float,
+            time: Float,
+            audioSpectrum: SceneAudioSpectrumSnapshot,
+            dependencyEffect: SceneDependencyEffectInput?,
+            dependencyEffects: [SceneDependencyEffectInput] = [],
+            dependencyUnavailability: DependencyUnavailability? = nil
+        ) {
+            self.dynamicValues = dynamicValues
+            self.cursorUV = cursorUV
+            self.previousCursorUV = previousCursorUV
+            self.pointerIsInside = pointerIsInside
+            self.previousPointerIsInside = previousPointerIsInside
+            self.pointerMovement = pointerMovement
+            self.primaryButtonIsDown = primaryButtonIsDown
+            self.layerModelMatrix = layerModelMatrix
+            self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
+            self.frameTime = frameTime
+            self.time = time
+            self.audioSpectrum = audioSpectrum
+            self.dependencyEffect = dependencyEffect
+            self.dependencyEffects = dependencyEffects
+            self.dependencyUnavailability = dependencyUnavailability
+        }
 
         func withDependencyEffect(
             _ dependencyEffect: SceneDependencyEffectInput?
@@ -154,6 +192,7 @@ final class SceneResolvedMaterialRuntimeBridge {
                 time: time,
                 audioSpectrum: audioSpectrum,
                 dependencyEffect: dependencyEffect,
+                dependencyEffects: dependencyEffects,
                 dependencyUnavailability: dependencyUnavailability
             )
         }
@@ -400,12 +439,14 @@ final class SceneResolvedMaterialRuntimeBridge {
     func executeClaimed(
         claim: ClaimedExecution,
         dependencyEffect: SceneDependencyEffectInput?,
+        dependencyEffects: [SceneDependencyEffectInput] = [],
         sceneBackgroundTexture: MTLTexture? = nil,
         commandBuffer: MTLCommandBuffer
     ) -> ExecutionResult {
         submissions.executeClaimed(
             claim: claim,
             dependencyEffect: dependencyEffect,
+            dependencyEffects: dependencyEffects,
             sceneBackgroundTexture: sceneBackgroundTexture,
             commandBuffer: commandBuffer
         )

@@ -178,187 +178,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
-    private struct SceneBackgroundCandidate {
-        let product: SceneGraphAdmissionProduct
-        let key: MaterialKey
-        let slot: Int
-        let consumerLayerID: Int
-        let variants: SceneResolvedMaterialVariantCache
-    }
-
-    private static func sceneBackgroundRequirement(
-        admitted: SceneResolvedMaterialAdmittedLayer,
-        stages: [StageCapability]
-    ) -> Result<SceneBackgroundRequirement?, Rejection> {
-        var candidates: [SceneBackgroundCandidate] = []
-        for stage in stages {
-            guard case let .resolved(product, materials, _) = stage else { continue }
-            for material in materials.values {
-                let snapshot = material.variants.launchEnvelopeCapabilitySnapshot()
-                guard snapshot.allEntriesReady,
-                      !snapshot.variants.isEmpty,
-                      let activeSlots = material.variants
-                        .launchEnvelopeActiveTextureSlots else { continue }
-                for slot in activeSlots.sorted() {
-                    let selected = material.template.textureSlots.indices.contains(slot)
-                        ? material.template.textureSlots[slot]?
-                            .candidates.last?.reference : nil
-                    let consumerLayerID: Int?
-                    if case let .provider(.sceneBackground(layerID))? = selected {
-                        consumerLayerID = layerID
-                    } else if selected == nil,
-                              snapshot.variants.allSatisfy({ variant in
-                                  guard let sampler = variant.activeSamplers[slot]
-                                  else { return false }
-                                  return SceneResolvedMaterialTextureResolver
-                                    .sceneBackgroundDefault(
-                                        template: material.template,
-                                        sampler: sampler,
-                                        slot: slot
-                                    ) != nil
-                              }) {
-                        consumerLayerID = material.template.effectContext?
-                            .key.layerID
-                    } else {
-                        consumerLayerID = nil
-                    }
-                    guard let consumerLayerID else { continue }
-                    candidates.append(.init(
-                        product: product,
-                        key: material.key,
-                        slot: slot,
-                        consumerLayerID: consumerLayerID,
-                        variants: material.variants
-                    ))
-                }
-            }
-        }
-        guard !candidates.isEmpty else { return .success(nil) }
-        guard Set(candidates.map(\.key)).count == candidates.count,
-              let candidate = candidates.sorted(by: {
-                  if $0.key.effect.effectIndex != $1.key.effect.effectIndex {
-                      return $0.key.effect.effectIndex < $1.key.effect.effectIndex
-                  }
-                  if $0.key.nodeIndex != $1.key.nodeIndex {
-                      return $0.key.nodeIndex < $1.key.nodeIndex
-                  }
-                  return $0.slot < $1.slot
-              }).first else {
-            return .failure(rejection("scene-background-provider-ambiguous"))
-        }
-        let dependencyIsCompatible = switch admitted.dependencyOwnership {
-        case .none, .externalPrimary: true
-        case .graphInternal: false
-        }
-        guard admitted.sourceRoute == .capturedLayerTexture,
-              admitted.isVisibleExecutionRoot,
-              !admitted.isGraphOutputProvider,
-              dependencyIsCompatible,
-              candidates.allSatisfy({ sceneBackgroundCandidateIsOrdered(
-                  $0,
-                  admittedLayerID: admitted.layerID,
-                  pairPlan: admitted.pairPlan
-              ) }) else {
-            return .failure(rejection("scene-background-compose-shape"))
-        }
-        return .success(.init(
-            layerID: admitted.layerID,
-            effect: candidate.key.effect,
-            nodeIndex: candidate.key.nodeIndex,
-            slot: candidate.slot,
-            bindingCount: candidates.count
-        ))
-    }
-
-    private static func sceneBackgroundCandidateIsOrdered(
-        _ candidate: SceneBackgroundCandidate,
-        admittedLayerID: Int,
-        pairPlan: SceneLayerFullFramePairPlan
-    ) -> Bool {
-        let graph = candidate.product.graph
-        let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
-        guard candidate.consumerLayerID == admittedLayerID,
-              graph.layerID == admittedLayerID,
-              graph.effects.count == 1,
-              graph.blockers.isEmpty,
-              let effect = graph.effects.first,
-              candidate.key.effect == effect.key,
-              let candidateNode = nodes.first(where: {
-                  $0.nodeIndex == candidate.key.nodeIndex
-              }),
-              candidateNode.kind == .material,
-              candidateNode.effect == effect.key,
-              candidateNode.commandSource == nil,
-              candidateNode.commandTarget == nil,
-              let pairStep = pairPlan.effects.first(where: {
-                  $0.effect == effect.key
-              }),
-              pairStep.nodes.count == nodes.count else { return false }
-
-        if graph.renderTargets.isEmpty {
-            if sceneBackgroundCandidateHasTypedSinglePassColorABI(candidate) {
-                guard nodes.count == 1,
-                      candidateNode.nodeIndex == nodes[0].nodeIndex,
-                      candidateNode.target == effect.output,
-                      candidateNode.compose == nil
-                        || candidateNode.compose == .bool(false),
-                      pairStep.composeTransitionCount == 0,
-                      pairStep.fullFrameOutputWriteCount == 1,
-                      pairStep.inputMember != pairStep.outputMember else {
-                    return false
-                }
-                return true
-            }
-            guard nodes.count == 2,
-                  candidateNode.nodeIndex == nodes[0].nodeIndex,
-                  candidate.slot == 1,
-                  nodes[0].kind == .material,
-                  nodes[1].kind == .material,
-                  nodes[0].effect == effect.key,
-                  nodes[1].effect == effect.key,
-                  nodes[0].target == effect.output,
-                  nodes[1].target == effect.output,
-                  nodes[0].compose == .bool(true),
-                  nodes[1].compose == nil || nodes[1].compose == .bool(false),
-                  nodes.allSatisfy({ node in
-                      node.bindings.allSatisfy { $0.texture == effect.input }
-                  }),
-                  pairStep.composeTransitionCount == 1,
-                  pairStep.fullFrameOutputWriteCount == 2,
-                  pairStep.inputMember == pairStep.outputMember else { return false }
-            return true
-        }
-
-        guard candidate.product.clearFunctions.functions.isEmpty,
-              candidateNode.nodeIndex == nodes.last?.nodeIndex,
-              candidateNode.target == effect.output,
-              candidateNode.compose == nil
-                || candidateNode.compose == .bool(false),
-              nodes.dropLast().allSatisfy({ $0.target != effect.output }),
-              pairStep.composeTransitionCount == 0,
-              pairStep.fullFrameOutputWriteCount == 1,
-              pairStep.inputMember != pairStep.outputMember
-        else { return false }
-        return true
-    }
-
-    private static func sceneBackgroundCandidateHasTypedSinglePassColorABI(
-        _ candidate: SceneBackgroundCandidate
-    ) -> Bool {
-        let snapshot = candidate.variants.launchEnvelopeCapabilitySnapshot()
-        guard snapshot.allEntriesReady,
-              !snapshot.variants.isEmpty else { return false }
-        return snapshot.variants.allSatisfy { variant in
-            guard variant.activeSamplers[candidate.slot] != nil else {
-                return true
-            }
-            return variant.premultipliedColorInputSlots.contains(candidate.slot)
-        } && snapshot.variants.contains { variant in
-            variant.activeSamplers[candidate.slot] != nil
-                && variant.premultipliedColorInputSlots.contains(candidate.slot)
-        }
-    }
-
     /// Only a launch-time visual contract, unproven texture purpose, or
     /// ambiguous dynamic value-owner failure may become a visual no-op. Live
     /// resource availability, target, dependency, state and lifecycle failures
@@ -382,7 +201,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let dependencySlots = dependencyOwnership
                 .preEncodeVisualFailureSlots(in: product.graph),
                   dependencySlots.isEmpty
-                    || product.graph.renderTargets.isEmpty else { return false }
+                  || product.graph.renderTargets.isEmpty else { return false }
+        case let .externalAggregate(aggregate):
+            // An aggregate may contain ordinary resolved stages and stages
+            // whose visual program failed at launch. A failed stage can retain
+            // the aggregate owner only when its exact authored external slot
+            // is proven by the same single-stage pre-encode topology used by
+            // the legacy owner. Unrelated local stages remain eligible for
+            // the ordinary visual-failure proof below.
+            guard aggregateVisualFailureMayPassthrough(
+                product: product,
+                aggregate: aggregate
+            ) else { return false }
         }
         let ordinaryVisualFailure = [
             "material-generic-owner-revoked",
@@ -459,85 +289,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         return true
     }
 
-    /// Product Timeline admission conserves the exact typed definition and
-    /// author fallback. Identity-only catalogs remain available to legacy
-    /// standalone harnesses, but product launch always supplies definitions.
-    static func timelineDefinitionMatches(
-        _ dynamic: Template.DynamicUniform,
-        producers: DynamicProducerCatalog
-    ) -> Bool {
-        guard !producers.timelineDefinitions.isEmpty else {
-            return producers.timelineTargets.contains(dynamic.target)
-        }
-        let matches = producers.timelineDefinitions.filter {
-            $0.target == dynamic.target
-        }
-        guard matches.count == 1,
-              let definition = matches.first,
-              let fallback = dynamic.authoredFallback,
-              let authoredBits = timelineAuthoredBitPatterns(definition) else {
-            return false
-        }
-        return fallback.componentBitPatterns == authoredBits
-    }
-
-    private static func timelineAuthoredBitPatterns(
-        _ definition: SceneDynamicTargetDefinition
-    ) -> [UInt64]? {
-        guard definition.authoredValue.valueType == definition.valueType,
-              definition.authoredValue.isFinite else { return nil }
-        let components: [Double]
-        switch definition.authoredValue {
-        case let .scalar(x): components = [x]
-        case let .vector2(x, y): components = [x, y]
-        case let .vector3(x, y, z): components = [x, y, z]
-        case let .vector4(x, y, z, w): components = [x, y, z, w]
-        case .bool, .string: return nil
-        }
-        return components.map(\.bitPattern)
-    }
-
-    static func soleUserPropertyProducerMatches(
-        _ propertyKey: String,
-        dynamic: Template.DynamicUniform,
-        producers: DynamicProducerCatalog
-    ) -> Bool {
-        let targetProducers = producers.userProperties.filter {
-            $0.target == dynamic.target
-        }
-        guard targetProducers.count == 1,
-              let producer = targetProducers.first else { return false }
-        return producer.propertyKey == propertyKey
-            && userPropertyValueTypeMatches(producer.valueType, dynamic: dynamic)
-    }
-
-    /// Exact direct bindings conserve the producer type before Program claims
-    /// product output. Legacy/test catalogs without a type retain the previous
-    /// identity-only behavior; product launch always publishes the real type.
-    static func userPropertyValueTypeMatches(
-        _ producerType: SceneDynamicValueType?,
-        dynamic: Template.DynamicUniform
-    ) -> Bool {
-        guard let producerType else { return true }
-        guard let fallback = dynamic.authoredFallback,
-              fallback.valueKind.localizedLowercase == "binding",
-              SceneResolvedMaterialDirectUserBindingContract.matches(
-                  dynamic: dynamic,
-                  fallback: fallback
-              ) else {
-            return true
-        }
-        let expected: SceneDynamicValueType
-        switch fallback.componentBitPatterns.count {
-        case 1: expected = .scalar
-        case 2: expected = .vector2
-        case 3: expected = .vector3
-        case 4: expected = .vector4
-        default: return true
-        }
-        return producerType == expected
-    }
-
     private static func finalizeDependencyOwnership(
         _ ownership: SceneResolvedMaterialDependencyOwnership,
         potentialBindings: [SceneDependencyRenderPlan.Binding],
@@ -592,7 +343,97 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 + passthroughDependencyStages
             return matches(ordinaryDependencyStages, binding: binding)
                 ? ownership : nil
+        case let .externalAggregate(aggregate):
+            guard potentialBindings.isEmpty,
+                  aggregate.referenceSlots.count >= 2,
+                  let aggregateDependencies = aggregateStageDependencies(
+                      stages,
+                      aggregate: aggregate
+                  ),
+                  aggregateDependenciesMatch(
+                      aggregateDependencies,
+                      aggregate: aggregate
+                  ) else { return nil }
+            return ownership
         }
+    }
+
+    /// Conserves one dependency atom for each aggregate slot while retaining
+    /// authored stage order. Resolved stages contribute the provider selected
+    /// by their admitted MaterialProgram. A visual-failure stage contributes
+    /// its slot only after the exact single-stage previous-current topology is
+    /// proven; an unrelated local stage contributes no aggregate dependency.
+    private static func aggregateStageDependencies(
+        _ stages: [StageCapability],
+        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate
+    ) -> [BindingDependency]? {
+        var result: [BindingDependency] = []
+        let orderedBindings = aggregate.orderedBindings
+        guard !orderedBindings.isEmpty else { return nil }
+        for stage in stages {
+            guard let effect = stage.product.graph.effects.first else {
+                return nil
+            }
+            let matches = orderedBindings.filter {
+                $0.slot.effectID == effect.key.descriptorID
+            }
+            guard matches.count <= 1 else { return nil }
+            if let binding = matches.first {
+                switch resolvedExternalDependencies(in: stage) {
+                case let .exact(dependencies):
+                    guard dependencies.count == 1 else { return nil }
+                    result.append(contentsOf: dependencies.map(\.bindingDependency))
+                case .none:
+                    guard case .visualFailurePassthrough = stage,
+                          let slots = SceneResolvedMaterialDependencyOwnership
+                              .externalPrimary(binding)
+                              .preEncodeVisualFailureSlots(in: stage.product.graph),
+                          slots == [binding.slot] else {
+                        return nil
+                    }
+                    result.append(.init(
+                        consumerLayerID: aggregate.consumerLayerID,
+                        providerLayerID: binding.providerLayerID,
+                        slot: binding.slot
+                    ))
+                case .invalid:
+                    return nil
+                }
+                continue
+            }
+            // A local stage unrelated to the aggregate may still be resolved
+            // or pass through visually; only named external dependencies are
+            // part of the aggregate vector.
+            switch resolvedExternalDependencies(in: stage) {
+            case .none:
+                continue
+            case let .exact(dependencies):
+                result.append(contentsOf: dependencies.map(\.bindingDependency))
+            case .invalid:
+                return nil
+            }
+        }
+        return result
+    }
+
+    private static func aggregateVisualFailureMayPassthrough(
+        product: SceneGraphAdmissionProduct,
+        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate
+    ) -> Bool {
+        guard let effect = product.graph.effects.first else { return false }
+        let matches = aggregate.orderedBindings.filter {
+            $0.slot.effectID == effect.key.descriptorID
+        }
+        guard matches.count <= 1 else { return false }
+        guard let binding = matches.first else {
+            return true
+        }
+        guard let slots = SceneResolvedMaterialDependencyOwnership
+            .externalPrimary(binding)
+            .preEncodeVisualFailureSlots(in: product.graph) else {
+            return false
+        }
+        return slots == [binding.slot]
     }
 
     private static func matches(
@@ -610,6 +451,27 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             && expected.count == binding.referenceSlots.count
             && dependencies.count == expected.count
             && Set(dependencies) == expected
+    }
+
+    private static func aggregateDependenciesMatch(
+        _ dependencies: [BindingDependency],
+        aggregate: SceneDependencyRenderPlan.MultiProviderAggregate
+    ) -> Bool {
+        // Preserve the aggregate's authored slot vector. A set comparison
+        // would accept a valid provider set routed to the wrong material
+        // stage/slot and make the later frame reservation disagree with the
+        // program's dependency ownership.
+        let expected = aggregate.orderedBindings.flatMap { binding in
+            binding.referenceSlots.map { slot in
+                BindingDependency(
+                    consumerLayerID: aggregate.consumerLayerID,
+                    providerLayerID: binding.providerLayerID,
+                    slot: slot
+                )
+            }
+        }
+        return !dependencies.isEmpty
+            && dependencies == expected
     }
 
     private struct BindingDependency: Hashable {
@@ -678,7 +540,35 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .none
         }
         var namedCandidates: [ResolvedNamedCandidate] = []
-        for material in materials.values {
+        // `materials` is a dictionary keyed by material identity. Its
+        // iteration order is intentionally unspecified, while an aggregate
+        // dependency is an authored slot vector. Use the graph's authored
+        // effect/node order rather than lexical effect IDs at both collection
+        // and final-vector boundaries.
+        func authoredMaterialPrecedes(
+            _ lhs: MaterialCapability,
+            _ rhs: MaterialCapability
+        ) -> Bool {
+            let lhsEffectIndex = lhs.key.effect.effectIndex
+            let rhsEffectIndex = rhs.key.effect.effectIndex
+            if lhsEffectIndex != rhsEffectIndex {
+                return lhsEffectIndex < rhsEffectIndex
+            }
+            let lhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == lhs.key.nodeIndex && $0.effect == lhs.key.effect
+            } ?? Int.max
+            let rhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == rhs.key.nodeIndex && $0.effect == rhs.key.effect
+            } ?? Int.max
+            if lhsNodeOrder != rhsNodeOrder {
+                return lhsNodeOrder < rhsNodeOrder
+            }
+            if lhs.key.nodeIndex != rhs.key.nodeIndex {
+                return lhs.key.nodeIndex < rhs.key.nodeIndex
+            }
+            return lhs.key.effect.descriptorID < rhs.key.effect.descriptorID
+        }
+        for material in materials.values.sorted(by: authoredMaterialPrecedes) {
             for slot in material.template.textureSlots.compactMap({ $0 }) {
                 let reference: SceneNamedTextureReference?
                 let origin: ResolvedExternalDependency.Origin?
@@ -722,8 +612,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               candidate.key.effect.layerID == product.graph.layerID,
               namedCandidates.allSatisfy({ item in
                   item.reference.variant == .primary
-                      && item.reference.providerLayerID
-                          == candidate.reference.providerLayerID
+                      && item.key.effect.layerID == product.graph.layerID
               }) else { return .invalid }
         var result: [ResolvedExternalDependency] = []
         for item in namedCandidates {
@@ -752,44 +641,43 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             ))
         }
         guard Set(result).count == result.count else { return .invalid }
-        return .exact(result)
-    }
-}
-
-nonisolated extension SceneResolvedMaterialDependencyOwnership {
-    /// Returns the external provider slots owned by this exact single-effect
-    /// stage. `nil` means the dependency owner cannot authorize a visual
-    /// fallback for the stage. Empty slots mean this stage is independent of
-    /// the layer's external dependency; it may use the ordinary framebuffer
-    /// rollback proof without consuming or publishing that provider.
-    func preEncodeVisualFailureSlots(
-        in graph: SceneAuthoredEffectRenderPlan
-    ) -> [SceneEffectPassSlot]? {
-        switch self {
-        case .none, .graphInternal:
-            return []
-        case let .externalPrimary(binding):
-            guard graph.effects.count == 1,
-                  let effect = graph.effects.first,
-                  graph.layerID == binding.consumerLayerID,
-                  effect.key.layerID == binding.consumerLayerID else {
-                return nil
+        let orderedResult = result.sorted {
+            let lhs = $0
+            let rhs = $1
+            // Effect index and graph node order are the authored authority;
+            // descriptor IDs are arbitrary labels and must never reorder the
+            // aggregate provider vector.
+            if lhs.materialKey.effect.effectIndex
+                != rhs.materialKey.effect.effectIndex {
+                return lhs.materialKey.effect.effectIndex
+                    < rhs.materialKey.effect.effectIndex
             }
-            let slots = binding.referenceSlots.filter {
-                $0.effectID == effect.key.descriptorID
+            let lhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == lhs.materialKey.nodeIndex
+                    && $0.effect == lhs.materialKey.effect
+            } ?? Int.max
+            let rhsNodeOrder = product.graph.nodes.firstIndex {
+                $0.nodeIndex == rhs.materialKey.nodeIndex
+                    && $0.effect == rhs.materialKey.effect
+            } ?? Int.max
+            if lhsNodeOrder != rhsNodeOrder {
+                return lhsNodeOrder < rhsNodeOrder
             }
-            guard !slots.isEmpty else { return [] }
-            guard graph.renderTargets.isEmpty else { return nil }
-            guard Set(slots).count == slots.count,
-                  slots.allSatisfy({ slot in
-                      graph.nodes.filter({ node in
-                          node.effect == effect.key
-                              && node.kind == .material
-                              && node.instancePassIndex == slot.passIndex
-                              && node.materialOrdinal != nil
-                      }).count == 1
-                  }) else { return nil }
-            return slots
+            if lhs.slot.passIndex != rhs.slot.passIndex {
+                return lhs.slot.passIndex < rhs.slot.passIndex
+            }
+            if lhs.slot.slotIndex != rhs.slot.slotIndex {
+                return lhs.slot.slotIndex < rhs.slot.slotIndex
+            }
+            if lhs.providerLayerID != rhs.providerLayerID {
+                return lhs.providerLayerID < rhs.providerLayerID
+            }
+            if lhs.materialKey.nodeIndex != rhs.materialKey.nodeIndex {
+                return lhs.materialKey.nodeIndex < rhs.materialKey.nodeIndex
+            }
+            return lhs.materialKey.effect.descriptorID
+                < rhs.materialKey.effect.descriptorID
         }
+        return .exact(orderedResult)
     }
 }

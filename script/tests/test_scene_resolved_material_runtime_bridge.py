@@ -40,6 +40,9 @@ GRAPH_COMPOSITION = (
 RENDERER_DIAGNOSTICS = (
     SCENE_ROOT / "Rendering/SceneMetalRenderer+Diagnostics.swift"
 )
+RENDERER_EXECUTION_EVIDENCE = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+ExecutionEvidence.swift"
+)
 FRAME_PREFLIGHT = (
     SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
 )
@@ -66,6 +69,9 @@ UTILITY_FRAME_RENDERER = (
     SCENE_ROOT / "Rendering/SceneUtilityPlanFrameRenderer.swift"
 )
 METAL_RENDERER = SCENE_ROOT / "Rendering/SceneMetalRenderer.swift"
+METAL_RENDERER_DEPENDENCY_PROVIDERS = (
+    SCENE_ROOT / "Rendering/SceneMetalRenderer+DependencyProviders.swift"
+)
 METAL_VIEW_FRAME_CONTEXT = (
     SCENE_ROOT / "Rendering/SceneMetalView+FrameContext.swift"
 )
@@ -87,6 +93,9 @@ DEBUG_PAUSE_RESUME_RUNNER = (
 )
 HOST_FRAME_DRIVER = (
     SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+FrameDriver.swift"
+)
+HOST_SURFACE_TEARDOWN = (
+    SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+SurfaceTeardown.swift"
 )
 SUBMISSION_COORDINATOR = (
     SCENE_ROOT
@@ -723,12 +732,74 @@ struct SceneDependencyRenderPlan {
         let slot: SceneEffectPassSlot
         let variant: SceneNamedTextureReference.Variant
     }
+    struct MultiProviderAggregate: Hashable {
+        let consumerLayerID: Int
+        let bindings: [Binding]
+        let authoredSlotOrder: [SceneEffectPassSlot]
+
+        var orderedBindings: [Binding] {
+            guard authoredSlotOrder.count == bindings.count else { return [] }
+            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
+            for binding in bindings {
+                guard bindingsBySlot.updateValue(
+                    binding, forKey: binding.slot
+                ) == nil else { return [] }
+            }
+            guard bindingsBySlot.count == authoredSlotOrder.count else {
+                return []
+            }
+            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
+        }
+
+        var referenceSlots: [SceneEffectPassSlot] {
+            authoredSlotOrder
+        }
+
+        var providerLayerIDs: Set<Int> { Set(bindings.map(\.providerLayerID)) }
+        var hasStrictBindingVector: Bool {
+            guard bindings.count >= 2,
+                  authoredSlotOrder.count == bindings.count,
+                  Set(authoredSlotOrder).count == authoredSlotOrder.count,
+                  Set(authoredSlotOrder) == Set(bindings.map(\.slot)),
+                  bindings == orderedBindings,
+                  Set(bindings.map(\.providerLayerID)).count > 1 else {
+                return false
+            }
+            return bindings.allSatisfy { binding in
+                binding.consumerLayerID == consumerLayerID
+                    && binding.providerLayerID != consumerLayerID
+                    && binding.referenceSlots == [binding.slot]
+                    && binding.kind == .imageLayerBlend
+                    && binding.blendMode == 0
+                    && binding.requiresResolvedMaterialProgram
+            }
+        }
+
+        func admits(_ references: [Reference]) -> Bool {
+            guard hasStrictBindingVector else { return false }
+            let expected = orderedBindings.map {
+                Reference(
+                    consumerLayerID: consumerLayerID,
+                    providerLayerID: $0.providerLayerID,
+                    slot: $0.slot,
+                    variant: .primary
+                )
+            }
+            return references == expected
+        }
+    }
 }
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case none
     case graphInternal(referenceCount: Int)
     case externalPrimary(SceneDependencyRenderPlan.Binding)
-}
+    case externalAggregate(SceneDependencyRenderPlan.MultiProviderAggregate)
+
+    var isAggregate: Bool {
+        if case .externalAggregate = self { return true }
+                return false
+            }
+        }
 struct SceneEffectStageExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
     struct SceneBackgroundRequirement: Equatable {
@@ -1518,6 +1589,7 @@ private func makeLedger(
         capabilityToken: .init(value: 7),
         prepared: prepared,
         preparedDependencyEffect: preparedDependencyEffect,
+        preparedDependencyEffects: [],
         preparedDependencyUnavailability: nil,
         commandBuffer: commandBuffer,
         committedBaseTails: coordinator.committedTails,
@@ -4373,6 +4445,12 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         bridge = RUNTIME_BRIDGE.read_text(encoding="utf-8")
         metal_renderer = METAL_RENDERER.read_text(encoding="utf-8")
+        execution_evidence = RENDERER_EXECUTION_EVIDENCE.read_text(
+            encoding="utf-8"
+        )
+        metal_renderer_dependency_providers = (
+            METAL_RENDERER_DEPENDENCY_PROVIDERS.read_text(encoding="utf-8")
+        )
 
         self.assertIn("static func executeClaimed(", composition)
         self.assertIn("static func preflight(", composition)
@@ -4394,13 +4472,13 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertEqual(diagnostics.count("SceneEffectRuntimeDispositionCatalog("), 1)
         self.assertNotIn("installExecutionEvidence(", diagnostics)
         self.assertIn("resolvedMaterialSubjects:", diagnostics)
-        self.assertIn("let dispositionCatalog =", metal_renderer)
-        self.assertIn("installExecutionEvidence(", metal_renderer)
-        self.assertIn("resolvedMaterialSubjects:", metal_renderer)
+        self.assertIn("let dispositionCatalog =", execution_evidence)
+        self.assertIn("installExecutionEvidence(", execution_evidence)
+        self.assertIn("resolvedMaterialSubjects:", execution_evidence)
         self.assertIn("runtimeDispositionSubjects", diagnostics)
         self.assertIn(
             "dispositionCatalog.resolvedMaterialExecutionEvidenceSubjects",
-            metal_renderer,
+            execution_evidence,
         )
         self.assertIn('backend: "resolved-material-graph"', composition)
         self.assertNotIn("authored-effect-graph", composition)
@@ -4446,9 +4524,9 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compositor,
         )
         self.assertIn(
-            "if dependencyBypassReason != nil {\n"
-            "                    dependencyEffect = nil",
-            metal_renderer,
+            "if bypassReason != nil {\n"
+            "            return (nil, [], nil)",
+            metal_renderer_dependency_providers,
         )
         self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
         self.assertIn("unclaimed-visible-effects-\\(reason.rawValue)", compositor)
@@ -4545,8 +4623,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         compact_execution = "".join(execution.split())
         self.assertIn(
             "dependenciesMatch(prepared:ledger.preparedDependencyEffect,"
+            "preparedEffects:ledger.preparedDependencyEffects,"
             "preparedUnavailability:ledger.preparedDependencyUnavailability,"
-            "ready:dependencyEffect,ownership:claim.dependencyOwnership)",
+            "ready:dependencyEffect,readyEffects:dependencyEffects,"
+            "ownership:claim.dependencyOwnership)",
             compact_execution,
         )
         for contract in (
@@ -4798,7 +4878,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             + surface_stop_runner
             + pause_resume_runner
         )
-        host_driver = HOST_FRAME_DRIVER.read_text(encoding="utf-8")
+        host_driver = (
+            HOST_FRAME_DRIVER.read_text(encoding="utf-8")
+            + "\n"
+            + HOST_SURFACE_TEARDOWN.read_text(encoding="utf-8")
+        )
 
         self.assertIn("submissions.invalidate(reason: reason)", bridge)
         invalidate = view.index(

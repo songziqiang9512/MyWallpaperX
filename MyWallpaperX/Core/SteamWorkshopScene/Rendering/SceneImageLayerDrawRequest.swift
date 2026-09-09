@@ -242,6 +242,7 @@ struct SceneImageLayerDrawRequest {
     let requiresSourceCopy: Bool
     let finalCompositeAlpha: Float?
     let dependencyEffect: SceneDependencyEffectInput?
+    var dependencyEffects: [SceneDependencyEffectInput] = []
     var requiresDependencyEffect: Bool = false
     var blocksStaticLayerSourcePassthrough: Bool = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)

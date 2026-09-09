@@ -330,7 +330,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     graph: (rawGroups[layerID]?.count == 1)
                         ? rawGroups[layerID]?.first : nil,
                     references: layerReferences,
-                    binding: binding
+                    binding: binding,
+                    aggregate: dependencyPlan
+                        .multiProviderAggregatesByConsumerLayerID[layerID]
                 )
             let unavailableDependencyStageReasons: [Graph.EffectKey: String]
             if compiledDependencyOwnership != nil {
@@ -472,11 +474,18 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     isGraphOutputProvider:
                         graphOutputProviderLayerIDs.contains(layerID),
                     requiresGraphOutputProvider: {
-                        guard case let .externalPrimary(binding) =
-                                dependencyOwnership else { return false }
-                        return graphOutputProviderLayerIDs.contains(
-                            binding.providerLayerID
-                        )
+                        switch dependencyOwnership {
+                        case let .externalPrimary(binding):
+                            return graphOutputProviderLayerIDs.contains(
+                                binding.providerLayerID
+                            )
+                        case let .externalAggregate(aggregate):
+                            return aggregate.providerLayerIDs.contains {
+                                graphOutputProviderLayerIDs.contains($0)
+                            }
+                        default:
+                            return false
+                        }
                     }(),
                     conditionSchemaEvidence: conditionSchemaEvidence
                 )
@@ -517,6 +526,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                       binding.kind == .resolvedMaterial
                         || binding.kind == .solidLayer else {
                     return .failure(failure("execution-route-utility-shape"))
+                }
+            case let .externalAggregate(aggregate):
+                guard aggregate.consumerLayerID == layer.id,
+                      aggregate.bindings.count > 1 else {
+                    return .failure(failure("execution-route-aggregate-shape"))
                 }
             case .graphInternal:
                 return .failure(failure("execution-route-utility-shape"))

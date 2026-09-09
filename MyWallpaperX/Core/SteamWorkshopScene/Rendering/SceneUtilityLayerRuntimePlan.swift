@@ -58,15 +58,19 @@ enum SceneUtilityLayerRuntimePlanner {
                 disposition = .skippedHidden
             } else if !layer.dependencyLayerIDs.isEmpty {
                 let binding = dependencyPlan.bindingsByConsumerLayerID[layer.id]
-                // With a binding the consumer must also be an executable
-                // utility consumer. Without one, admission has already
-                // replaced the referencing effects by previous-current, so the
-                // remaining admitted chain captures like any other utility.
+                let isAggregate = dependencyPlan
+                    .multiProviderAggregatesByConsumerLayerID[layer.id] != nil
+                let isLegacyExecutable = binding != nil
+                    && executableUtilityConsumerLayerIDs.contains(layer.id)
+                // A dependency-bearing utility captures only with an exact
+                // aggregate owner or the legacy single-provider binding. A
+                // missing binding is not evidence that an effect was safely
+                // replaced; treating it as capture would publish a base image
+                // under an unowned named target.
                 if utility.kind == .composition,
                    sourceRoute?.capturesCompositionSubtree == false,
                    resolvedMaterialLayerIDs.contains(layer.id),
-                   binding == nil
-                       || executableUtilityConsumerLayerIDs.contains(layer.id) {
+                   (isAggregate || isLegacyExecutable) {
                     disposition = .capture
                 } else {
                     disposition = .unsupportedDependencies
@@ -100,12 +104,19 @@ enum SceneUtilityLayerRuntimePlanner {
     ) -> Set<Int> {
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         return Set(descriptor.layers.compactMap { layer in
+            let multiProvider = SceneDependencyRenderPlan
+                .isMultiProviderUtilityCandidate(
+                    layer: layer,
+                    references: SceneDependencyGraphAnalysis.references(
+                        in: descriptor.layers
+                    ).filter { $0.consumerLayerID == layer.id }
+                )
             guard visibleLayerIDs.contains(layer.id),
                   resolvedMaterialLayerIDs.contains(layer.id),
                   layer.utilityLayer?.kind == .composition,
                   layer.contentKind == "composition",
                   layer.childLayerIDs.isEmpty,
-                  layer.dependencyLayerIDs.count == 1,
+                  (layer.dependencyLayerIDs.count == 1 || multiProvider),
                   layer.effects.contains(where: { $0.visible != false }) else {
                 return nil
             }

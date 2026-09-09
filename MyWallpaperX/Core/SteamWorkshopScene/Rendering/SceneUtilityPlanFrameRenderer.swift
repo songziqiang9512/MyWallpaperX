@@ -46,8 +46,19 @@ enum SceneUtilityPlanFrameRenderer {
                 for: layer.id,
                 textureRegistry: renderer.textureRegistry
             )
+            // A composition utility may own a lossless multi-provider
+            // aggregate. Resolve the complete authored slot vector before
+            // entering the shared compositor; projecting it onto the legacy
+            // singular input would silently drop every provider after the
+            // first one.
+            let dependencyEffects = dependencyRuntime.aggregateEffectInputs(
+                for: layer.id,
+                textureRegistry: renderer.textureRegistry
+            ) ?? []
             let captured: Bool
-            if requiresDependencyEffect && dependencyEffect == nil {
+            if requiresDependencyEffect,
+               dependencyEffect == nil,
+               dependencyEffects.isEmpty {
                 dependencyRuntime.recordBindingFailure(for: layer.id)
                 captured = false
             } else {
@@ -68,6 +79,8 @@ enum SceneUtilityPlanFrameRenderer {
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
                     dependencyEffect: dependencyEffect,
+                    dependencyEffects: dependencyEffects,
+                    requiresDependencyEffect: requiresDependencyEffect,
                     pipeline: imagePipeline,
                     compositor: imageCompositor,
                     offscreenTexturePool: offscreenTexturePool,

@@ -581,7 +581,7 @@ RESOLVED_MATERIAL_LAYER_ROUTE_V1_RE = re.compile(
 RESOLVED_MATERIAL_LAYER_ROUTE_V2_RE = re.compile(
     r"resolved material execution capability: "
     r"schema=layer-graph-route-v1 layer=(?P<id>\d+) status=accepted "
-    r"dependency=(?P<dependency>none|graph-internal|external-primary) "
+    r"dependency=(?P<dependency>none|graph-internal|external-primary|external-aggregate) "
     r"dependencyReferences=(?P<dependency_references>\d+)"
 )
 DYNAMIC_LAYER_VISIBILITY_RE = re.compile(
