@@ -748,7 +748,9 @@ static MWXSceneQuickJSResult call_string(
     JSValue argument = JS_NewStringLen(domain->context, input, input_length);
     JSValue result = JS_IsException(argument)
         ? JS_EXCEPTION
-        : JS_Call(domain->context, function, owner->module, 1, &argument);
+        : (JS_IsFunction(domain->context, function)
+            ? JS_Call(domain->context, function, owner->module, 1, &argument)
+            : JS_ThrowTypeError(domain->context, "SceneScript callback is not callable"));
     JS_FreeValue(domain->context, argument);
     MWXSceneQuickJSResult job_result = drain_jobs_after_call(
         owner, result, diagnostic, diagnostic_capacity
