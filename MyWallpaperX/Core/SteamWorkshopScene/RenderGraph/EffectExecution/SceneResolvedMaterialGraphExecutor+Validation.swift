@@ -126,13 +126,15 @@ extension SceneResolvedMaterialGraphExecutor {
         identity: Graph.TextureIdentity,
         member: Pair.Member,
         generation: UInt64,
-        representation: SceneShaderColorRepresentation
+        representation: SceneShaderColorRepresentation,
+        content: SceneTextureContent? = nil
     ) -> SceneFrameTextureResource? {
         guard case let .success(resource) = lease.fullFrameResource(
             for: identity,
             member: member,
             contentGeneration: generation,
-            fragmentColorRepresentation: .resolved(representation)
+            fragmentColorRepresentation: .resolved(representation),
+            content: content
         ) else { return nil }
         return resource
     }

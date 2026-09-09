@@ -404,7 +404,8 @@ extension SceneResolvedMaterialGraphExecutor {
                         identity: identity,
                         member: member,
                         generation: generation,
-                        representation: fragmentOutput
+                        representation: fragmentOutput,
+                        content: prepared.storedContent
                     ) else { return .graphPublicationRejected }
                     publications[identity] = publication
                     if pairNode.rotatesAfterNode {
@@ -416,7 +417,8 @@ extension SceneResolvedMaterialGraphExecutor {
                             identity: pairStep.inputIdentity,
                             member: member,
                             generation: generation,
-                            representation: fragmentOutput
+                            representation: fragmentOutput,
+                            content: prepared.storedContent
                         ) else { return .graphPublicationRejected }
                         publications[pairStep.inputIdentity] = input
                         pair = .init(

@@ -148,7 +148,8 @@ extension SceneGraphRenderTargetLease {
         for logicalIdentity: Graph.TextureIdentity,
         member: SceneLayerFullFramePairPlan.Member,
         contentGeneration: UInt64,
-        fragmentColorRepresentation: SceneShaderColorRepresentationResolution
+        fragmentColorRepresentation: SceneShaderColorRepresentationResolution,
+        content: SceneTextureContent? = nil
     ) -> Result<SceneFrameTextureResource, PublicationFailure> {
         guard logicalIdentity == table.plan.input
                 || logicalIdentity == table.plan.output else {
@@ -183,7 +184,7 @@ extension SceneGraphRenderTargetLease {
             allocationGeneration: generation,
             descriptor: descriptor,
             contentGeneration: contentGeneration,
-            content: .color(fragmentColorRepresentation),
+            content: content ?? .color(fragmentColorRepresentation),
             texture: texture
         )
     }
