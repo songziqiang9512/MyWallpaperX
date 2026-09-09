@@ -1052,6 +1052,11 @@ static MWXSceneQuickJSResult call_vec3(
     JS_FreeValue(domain->context, argument);
     JS_FreeValue(domain->context, result);
     if (!valid) {
+        if (owner->layer_mutation_count > 0) {
+            JS_FreeValue(domain->context, argument);
+            JS_FreeValue(domain->context, result);
+            return MWX_SCENE_QUICKJS_OK;
+        }
         char message[128];
         if (JS_IsString(value)) {
             const char *raw = JS_ToCString(domain->context, value);
