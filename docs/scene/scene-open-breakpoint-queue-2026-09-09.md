@@ -150,6 +150,8 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### B6 SceneScript 运行时异常：Vec3 回调返回值与 effectConstant 输出类型不匹配
 
+**2026-09-10 runtime evidence:** fresh signed Debug replay of `3747492842` reproduced four `badReturn` angle callbacks (returned string) and one `effectConstant speed` `TypeError: not a function`; report retained at `/private/tmp/mwx-b6-run/report.json`. The blocker is now isolated to SceneQuickJS callback return coercion/ABI, rather than property binding conversion.
+
 - **状态**：`open`
 - **问题**：`3747492842` 四个 layer（796/152/265/186）的 `angles` Vec3 回调返回值无法被宿主解析（`badReturn`）；原始 `scene.pkg` 显示这些脚本先执行 `value = scriptProperties.myText`（`"LEON"`），最后 `return value`，因此返回 string 而非 Vec3。layer 173 effect 1 pass 0 的 `speed` authored value 为标量 `0`，脚本维护 Vec3 `currentOffset` 并执行 `return value.add(currentOffset)`，故抛 `value.add is not a function`；这不是宿主缺少 Vec3 API。
 - **已核实 owner**：
