@@ -24,9 +24,12 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
     ) -> Binding? {
         var sources: [Template.DynamicUniformSource] = []
         var attachments: [Template.DynamicUniformScriptAttachment] = []
+        let authoredUserProperty: String?
         if let raw = authored?.userBinding {
-            guard let value = normalizedProviderValue(raw) else { return nil }
-            sources.append(.userProperty(value))
+            guard let normalized = normalizedProviderValue(raw) else { return nil }
+            authoredUserProperty = normalized
+        } else {
+            authoredUserProperty = nil
         }
         let projection = authored.flatMap {
             classify(
@@ -43,13 +46,29 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         }
         if let projection {
             switch projection {
-            case let .value(source): sources.append(source)
-            case let .scriptAttachment(attachment): attachments.append(attachment)
+            case let .value(source):
+                // A proven property-bound SceneScript owns the value channel;
+                // `user` is its typed input and must not be treated as a
+                // competing producer for the same material uniform.
+                sources.append(source)
+            case let .scriptAttachment(attachment):
+                if let authoredUserProperty {
+                    sources.append(.userProperty(authoredUserProperty))
+                }
+                attachments.append(attachment)
             }
+        } else if let authoredUserProperty {
+            sources.append(.userProperty(authoredUserProperty))
         }
         if let raw = userValue {
             guard let value = normalizedProviderValue(raw) else { return nil }
-            sources.append(.userProperty(value))
+            // Runtime user input is consumed by the proven SceneScript
+            // projection as its parameter; it is not a second material writer.
+            if case .value(.sceneScript)? = projection {
+                // keep the typed input in the SceneScript frame channel
+            } else {
+                sources.append(.userProperty(value))
+            }
         }
         return Binding(valueContributors: sources, scriptAttachments: attachments)
     }
@@ -64,7 +83,6 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         }
         if let target,
            authored.valueKind.localizedLowercase == "binding",
-           authored.userBinding == nil,
            authored.timelineDiagnostics.isEmpty,
            isProvenValueWrapper(authored),
            provenSceneScriptValueTargets.contains(target) {
@@ -80,8 +98,15 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         case ["script", "value"],
              ["script", "scriptproperties", "value"]:
             authored.userValueKind == nil && authored.timeline == nil
-        case ["script", "user", "value"]:
-            authored.userValueKind == .null && authored.timeline == nil
+        case ["script", "user", "value"],
+             ["script", "scriptproperties", "user", "value"]:
+            authored.timeline == nil && (
+                (authored.userValueKind == .null && authored.userBinding == nil)
+                    || (authored.userValueKind == .string
+                        && authored.userBinding.flatMap(normalizedProviderValue) != nil
+                        && authored.components?.count == 3
+                        && authored.components?.allSatisfy(\.isFinite) == true)
+            )
         case ["animation", "script", "value"]:
             authored.userValueKind == nil && authored.timeline != nil
         default:

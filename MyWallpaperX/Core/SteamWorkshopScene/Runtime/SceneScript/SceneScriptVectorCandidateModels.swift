@@ -17,6 +17,8 @@ nonisolated struct SceneScriptVectorCandidate: Sendable {
     /// driven by this typed owner. Dynamic instances reuse the target value;
     /// the model path never selects an algorithm.
     let dynamicMaterialModelPath: String?
+    /// A validated user-property input feeding this sole value producer.
+    var userPropertyInputKey: String? = nil
 
     var allowsDynamicLayerSideEffects: Bool {
         requiresStatefulOwner || !dynamicImageReferences.isEmpty
@@ -60,6 +62,15 @@ nonisolated struct SceneScriptVectorCandidateCatalog: Sendable {
             }
             return candidate.definition.target
         })
+    }
+
+    func consumesUserProperty(
+        key: String, target: SceneDynamicTarget, valueType: SceneDynamicValueType?
+    ) -> Bool {
+        uniqueCandidates.contains {
+            $0.userPropertyInputKey == key && $0.definition.target == target
+                && $0.definition.valueType == valueType
+        }
     }
 
     var nonPassTargets: Set<SceneDynamicTarget> {

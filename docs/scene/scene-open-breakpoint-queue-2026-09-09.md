@@ -23,7 +23,11 @@
 - 口径：队列中的"复现"指结构门 FAIL 或日志中出现对应 passthrough/reason，**不等于视觉验收**。结构 PASS 但人工裁决 fail 的样本清单见附录 C。
 - 09-07 归档中 `texture-load`、`particle-load`、`scenescript` 三个集群与 `effect-chain` 的 9 个样本（2824109832、3233141951、3287715210、3470948192、3477054430、3554161528、3750813609、3754630802、3788897599）**在该归档快照中结构 PASS**；这不代表今日 P1 完成，新的首断点仍须回到现役台账核对。
 
-### 0.1 当前工作树进行中快照（2026-09-09）
+### 0.1 当前续跑状态（2026-09-10）
+
+当前仍在 P1 公共断点修复。最新结构增量：B3 的 `3448845950` 四处 attachment 清零，`3665307769` 从 NON-PASS 恢复 strict PASS；B5 已越过 varying 和 float→int 编译错误，首断点推进至 terminal data/color 合同；B9 只补齐骨骼身份/frame 合同，VM→mesh 未接。下面 09-09 的 12 样本 `5/12` 与 159 个视觉 verdict 都是原始快照，不用两次后继回放改写总数。详见 [B3 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
+
+#### 2026-09-09 接手与 12 样本历史基线
 
 这是接手时的可续跑状态，供下一次开发直接定位；它不替代下面各条的最终证据。接手时分支 `codex/scene-capability-baseline` 的 `HEAD=a99d96eab3cbf6687f1b75ad09d8c7d8dab2192e`，工作树有 **97 个 tracked 修改、18 个新文件、0 个 staged 路径**，尚未提交。改动按职责分成 B1（shader backend arithmetic）、B2（multi-provider dependency）、B4/B5（material envelope/owner）、B7（Puppet 与 surface teardown）四组；B3/B6 目前只完成 fail-closed 归类和诊断边界。接手后的代码与治理已按职责集群固化为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本次证据文档提交后，下一轮开发从这些提交和下方的 residual 条目续跑。
 
@@ -35,11 +39,11 @@
 | --- | --- | --- | --- |
 | B1 | 代表与两例扩面均结构闭合，视觉待复核 | 当前 Developer ID 包的 `3749463715`、`3754639143`、`3782740481` 均严格 PASS；三例 active effect / graph layer 均有 GPU、compositor、next-frame 证据。当前批次总报告列为 5/12 PASS（report SHA `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`） | B1 的结构首断点可关闭；转入三例视觉/参数复核，若发现新 exact failure 再开后继条目 |
 | B2 | 代表依赖/publication 已闭合，扩展样本按原因拆分 | `2959875782` 当前运行中 aggregate admission、utility `[520]`、named publication `[19,134,138]` 与 visible publication `[130,1413]` 均保留；唯一 graph contract 缺口是 layer 813 的 SceneScript/Puppet visibility，归 B9。`3448845950` 的 dependency-stage passthrough 与 `3792249095` 的 layer 254 不再混写成代表 B2 失败 | B2 代表可关闭；继续核对 3448845950 的多 provider/未认领 effect 与 3792249095 的 sampler/owner，均以公共 owner 修复 |
-| B3 | 开放（证据边界已收窄） | typed producer attachment 仍无法证明；当前 focused owner/shape 门通过 | 只有拿到完整 authored wrapper、owner、target/type/source 与同帧消费证据才扩大合同 |
+| B3 | 三分量 user→script 切片已执行，event-only 分支开放 | 3448845950 四层八个 uniform 完成 VM/material/GPU/compositor/next-frame；3665307769 strict PASS | 扩面 3601964477，再补 2902406982 的 media-event/Timeline producer；不扩大 scalar/vec2 或不明 wrapper |
 | B4/B5 | B4 结构闭合但 geodraw/视觉开放，B5 与后继 owner 开放 | 当前包 `3662790108` 严格结构 PASS（35/35 active effect、81/81 GraphExecutor），但 8 个 geodraw2_1 request 仍走 `generatedStraightAlpha/colorTransfer → boundedSwift`；`3792249095` 仍有 layer 254 `degraded-layer-source-passthrough`，`3448845950` 仍有 `material-generic-owner-revoked`。当前包的 366 启动约 48.09s、7.49 FPS（总报告 SHA `0104f3…`） | 修 geodraw 通用 color-transfer，再独立处理 sampler-schema/owner-revoked；结构 PASS 不等于视觉闭合 |
 | B6 | 开放（作者类型不匹配） | `3747492842` 的 string-as-Vec3 与 scalar `.add` 错误已由 payload 复核；QuickJS 保持 fail-closed | 补合法 Vec3/scalar 正例及可重复异常 payload；不做字符串强转或伪造 API |
 | B9 | 开放（09-10 已补 bone identity/frame 合同，VM 事务待接） | `2959875782` layer 813 的 visibility 脚本同时依赖 `thisLayer` Puppet bone API、cursor callbacks 与 `Date`；当前没有相应投影 owner，作者 seed=false 保持休眠 | 在同一 SceneScript vector/cursor 事务 owner 内补 Puppet bone handle 与 visibility publication；先做 identity-free 正反门，再做跨时间窗口和交互实跑 |
-| B7 | teardown/启动闭合，稳定帧 CPU 待降 | 当前包 `3665307769` exit 0、teardown `surfaces=0`，但 B3 layer 412 passthrough 仍在；CPU p95 `34.535 ms`、GPU p95 `10.300 ms`、driver `27.46 FPS` | 对 Puppet source-update CPU 做 profile/通用降本，目标回到 16.67ms 帧预算；B3 独立处理 |
+| B7 | teardown/启动闭合，稳定帧 CPU 待降 | 当前包 `3665307769` exit 0、teardown `surfaces=0`，09-10 后继 B3 layer 412 已执行且样本 strict PASS；CPU p95 `35.667 ms`、GPU p95 `10.160 ms`、driver `26.57 FPS` | 对 Puppet source-update CPU 做 profile/通用降本，目标回到 16.67ms 帧预算；B3 独立处理 |
 | B8 | 记录完成，严格观察门仍保留 FAIL | 当前包 `3775355045` / `3775373546` 均在首帧记录 `22:layer-source-not-ready`，随后 frame 10/12 起 Program、GPU、compositor、next-frame 成立；strict benchmark 仍 FAIL | 不改门禁；若改变等待策略另立产品/门禁条目，并把旧 ledger 行标为 snapshot conflict |
 
 聚焦门当前已通过：B2 post-fix runtime/plan 26 项（此前 B2 集群 32 项也通过）、B4/B5 233 项（1 skip）、B7 61 项，以及 source-set/code-health/diff-check。统一 checkpoint 选择 122 个模块，**121 个并行通过**；唯一失败为 `test_scene_shader_compiler_harness` 在 8-way glslang 竞争下触发 2 秒 timeout，隔离 `-j1` **20/20 通过**。`run_checkpoint_build.sh` 的隔离 unsigned Debug build 为 **BUILD SUCCEEDED**。随后由当前工作树构建的 Developer ID Debug 包也通过 deep/strict codesign：CDHash `7ce6a2fff1b12f8771c4fc768f9a2f204107e1c1`，executable SHA-256 `6edd66b54bbf6486560efe92e270a8bba616faf0b5619c6b9c504bf01c3570e5`，Team `H9QWU9XN8R`。12 样本串行复跑的 matrix SHA-256 为 `fd5f7fd4b52729115cd6f5e6120e80fc3a5dc8992237804f08ec1ed311b7d745`，report SHA-256 为 `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`，结果为 **5/12 strict PASS、7/12 NON-PASS**（2959875782、3448845950、3792249095、3665307769、2775915974、3775355045、3775373546）。这组结果只描述结构/执行门，不改变 ledger 的 0 visual pass；运行输出在 `/private/tmp/mwx-handoff-current-runtime-20260909-1945`，仅作 provenance。
@@ -95,13 +99,13 @@
 
 ### B3 SceneScript→material uniform 的 script attachment 无 typed producer
 
-- **状态**：`open`
-- **问题**：动态 uniform 的 `scriptAttachments == [.unproven]`（SceneScript 写入该 uniform，但无 typed 投影 owner 认领该 target），effect 拒绝并走局部 passthrough。当前已核对的 payload 表明这是 attachment/owner 证据缺口，不是可直接放宽的通用 producer：`2902406982` layer 702/e0 `multiply` 是 `animation+script+value` 且脚本只有 `mediaThumbnailChanged`；`3601964477` layer 383/e0、`3665307769` layer 412/e0 以及 `3448845950` layers 57/227/627/1341 的 Color 均为 `script+scriptproperties+user+value`，外层 user 与脚本 producer 混合。
+- **状态**：`user-color→SceneScript 切片 S3；其余 producer 仍 open（2026-09-10）`
+- **修复前问题**：动态 uniform 的 `scriptAttachments == [.unproven]`（SceneScript 写入该 uniform，但无 typed 投影 owner 认领该 target），effect 拒绝并走局部 passthrough。前序核对的 payload 表明这是 attachment/owner 证据缺口，不是可直接放宽的通用 producer：`2902406982` layer 702/e0 `multiply` 是 `animation+script+value` 且脚本只有 `mediaThumbnailChanged`；`3601964477` layer 383/e0、`3665307769` layer 412/e0 以及 `3448845950` layers 57/227/627/1341 的 Color 均为 `script+scriptproperties+user+value`，外层 user 与脚本 producer 混合。
 - **已核实 owner**：`SceneResolvedMaterialExecutionCapability.swift:763-765`（有 producer 但 attachment unproven → `material-dynamic-uniform-script-attachment-unproven`）；`:726-729`（无 contributor 且 attachment unproven 的同码分支）。target 执行侧：`SceneScriptScalarRuntime.swift:358`（`effectConstant` 分支）。passthrough 白名单见 B1 文件 `:79` 区域。
 - **命中样本**：`2902406982`（`material-finalizer-dynamic-uniform-binding`，L702e0，finalizer 变体，producer `SceneResolvedMaterialGraphExecutor+Preparation.swift:267`）；`3601964477`（L383e0）；`3665307769`（L412e0）；`3448845950`（×4：L57e6/L227e7/L627e7/L1341e7）。
-- **表现**：script 驱动的动态 uniform 不更新，相关视觉保持 authored fallback/previous-current。`SceneScriptVectorCandidateCatalog` 的 passConstant 合同仅在 user 缺失/null 且 source、owner identity、target path、component bit pattern 均闭合时认领；当前样本不满足该边界。
+- **表现**：script 驱动的动态 uniform 不更新，相关视觉保持 authored fallback/previous-current。09-10 已补 named user 的 typed input identity，不再将 resolver 当前值与原始 fallback 误比较。3448845950 四层八个 uniform 与 3665307769 layer 412 均有实际 VM→uniform→GPU/compositor/next-frame；后者 strict PASS。详情见 [最新证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
 - **关联债**：能力台账 V4 shader-constant family（122 条 census）与 script instance properties（43 条）均已登记为 L1 未接线。
-- **完工动作**：先取得 authored binding 的完整 wrapper、owner identity、target/type、source 与 typed frame consumption 证据；只有同一 generic passConstant owner 在正例和 user/event-only/mismatched-owner 反例中均闭合，才可更新投影合同。不得为上述样本放宽 wrapper 或并行 producer。
+- **下一步**：先复跑 3601964477 的相同 typed color 合同；2902406982 的 event-only + Timeline 要在现有 media/vector transaction 内建立 producer 顺序，不能把只有事件回调的 wrapper 当作普通 update producer。标量/vec2、未知 wrapper、owner/key/type 错配保持拒绝。
 
 ### B4 material variant envelope 拒绝（frontend / color-contract / sampler-schema）
 

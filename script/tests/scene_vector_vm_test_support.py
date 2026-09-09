@@ -195,6 +195,7 @@ struct SceneRenderDescriptor {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        var userBinding: String? = nil
         let bindingKeys: [String]
         let timeline: Bool?
         let timelineDiagnostics: [String]

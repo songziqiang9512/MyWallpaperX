@@ -183,6 +183,7 @@ struct SceneRenderDescriptor {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        var userBinding: String? = nil
         let bindingKeys: [String]
         let timeline: Bool?
         let timelineDiagnostics: [String]
@@ -191,6 +192,7 @@ struct SceneRenderDescriptor {
         init(
             scriptSource: String?, components: [Double]?,
             userValueKind: SceneShaderUserValueKind? = nil,
+            userBinding: String? = nil,
             bindingKeys: [String] = [],
             timeline: Bool? = nil,
             timelineDiagnostics: [String] = [],
@@ -199,6 +201,7 @@ struct SceneRenderDescriptor {
             self.scriptSource = scriptSource
             self.components = components
             self.userValueKind = userValueKind
+            self.userBinding = userBinding
             self.bindingKeys = bindingKeys
             self.timeline = timeline
             self.timelineDiagnostics = timelineDiagnostics
@@ -316,6 +319,13 @@ enum Harness {
                                 scriptSource: passVectorSource,
                                 components: [1, 1],
                                 userValueKind: .string
+                            ),
+                            "userColor": .init(
+                                scriptSource: passVectorSource,
+                                components: [0.123456789, 0.25, 0.5],
+                                userValueKind: .string,
+                                userBinding: "palette",
+                                bindingKeys: ["script", "scriptproperties", "user", "value"]
                             ),
                             "color": .init(
                                 scriptSource: passColorSource,
@@ -504,6 +514,57 @@ enum Harness {
         let passColorTarget = SceneDynamicTarget.effectConstant(
             layerID: 10, effectIndex: 0, passIndex: 0, name: "color"
         )
+        let userColorRoot: [String: Any] = ["objects": [[
+            "id": 10, "effects": [["id": 100, "passes": [[
+                "id": 200, "constantshadervalues": ["userColor": [
+                    "script": passVectorSource, "scriptproperties": [:],
+                    "user": "palette", "value": "1 1 1",
+                ]],
+            ]]]],
+        ]]]
+        let userColorIR = SceneScriptBindingIRParser.parse(document: userColorRoot)
+        func projectedUserColor(_ key: String?) -> Int {
+            let original = userColorIR.bindings[0]
+            let binding = SceneScriptBindingIR(
+                source: original.source, owner: original.owner,
+                targetPath: original.targetPath, properties: original.properties,
+                authoredValue: original.authoredValue, valueType: original.valueType,
+                wrapperKeys: original.wrapperKeys, userPropertyKey: key
+            )
+            return SceneScriptVectorProgram.project(
+                descriptor: descriptor, scriptBindings: [binding]
+            ).passTargets.count
+        }
+        let userColorTarget = SceneDynamicTarget.effectConstant(
+            layerID: 10, effectIndex: 0, passIndex: 0, name: "userColor"
+        )
+        let palette = SceneUserPropertyDefinition(
+            key: "palette", title: "Palette", kind: .color, runtimeType: "color",
+            order: 0, index: nil, minimumValue: nil, maximumValue: nil,
+            stepValue: nil, allowsFractionalValues: true, fractionalPrecision: nil,
+            displayCondition: nil, defaultValue: .string("1 1 1"), options: []
+        )
+        let userColorInput = ScenePropertyBindingCompiler().compile(
+            report: SceneUserPropertyBindingParser().parse(root: userColorRoot),
+            catalog: .init(definitions: [palette])
+        ).program
+        let userColorProgram = SceneScriptVectorProgram.compile(
+            domain: domain, descriptor: descriptor, scriptBindings: userColorIR.bindings,
+            userPropertyDefinitions: [palette], generation: 120
+        )
+        func evaluateUserColor(_ raw: String) -> SceneScriptVectorFrameResult {
+            let properties: [String: SceneUserPropertyValue] = ["palette": .string(raw)]
+            return userColorProgram.evaluate(
+                inputs: userColorInput.evaluate(effectiveValues: properties).userValues,
+                effectivePropertyValues: properties, frame: frame
+            )
+        }
+        let userColorProjection = SceneScriptVectorProgram.project(
+            descriptor: descriptor, scriptBindings: userColorIR.bindings
+        )
+        let userColorFirst = evaluateUserColor("0.2 0.3 0.4")
+        let userColorChanged = evaluateUserColor("0.1 0.2 0.3")
+        let userColorInvalid = evaluateUserColor("not a color")
         let passColorProgram = SceneScriptVectorProgram.compile(
             domain: domain,
             descriptor: descriptor,
@@ -1669,6 +1730,21 @@ enum Harness {
             "passVectorFailures": passVectorResult.failures.count,
             "passVectorWrongWrapperRejected": rejectedPassVectorProgram.bindings.isEmpty,
             "passVectorUserProviderRejected": userBoundPassVectorProgram.bindings.isEmpty,
+            "userColorExactInput": userColorProjection.consumesUserProperty(
+                key: "palette", target: userColorTarget, valueType: .vector3),
+            "userColorForeignInput": userColorProjection.consumesUserProperty(
+                key: "foreign", target: userColorTarget, valueType: .vector3),
+            "userColorScalarInput": userColorProjection.consumesUserProperty(
+                key: "palette", target: userColorTarget, valueType: .scalar),
+            "userColorInputKey": userColorIR.bindings.first?.userPropertyKey ?? "missing",
+            "userColorMismatchedKeyCount": projectedUserColor("foreignPalette"),
+            "userColorMissingKeyCount": projectedUserColor(nil),
+            "userColorIRCount": userColorIR.bindings.count,
+            "userColorOwnerCount": userColorProgram.bindings.count,
+            "userColorInputCount": userColorInput.instructions.count,
+            "userColorFirst": vector(userColorFirst.values[userColorTarget]),
+            "userColorChanged": vector(userColorChanged.values[userColorTarget]),
+            "userColorInvalidUnpublished": userColorInvalid.values[userColorTarget] == nil,
             "passColorBindings": passColorProgram.bindings.count,
             "passColorValue": vector(passColorResult.values[passColorTarget]),
             "passColorFailures": passColorResult.failures.count,
@@ -2571,6 +2647,22 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["passVectorFailures"], 0)
         self.assertTrue(value["passVectorWrongWrapperRejected"])
         self.assertTrue(value["passVectorUserProviderRejected"])
+
+    def test_pass_color_user_input_reaches_one_script_owner_before_update(self) -> None:
+        value = self.result()
+        self.assertTrue(value["userColorExactInput"])
+        self.assertFalse(value["userColorForeignInput"])
+        self.assertFalse(value["userColorScalarInput"])
+        self.assertEqual(value["userColorInputKey"], "palette")
+        self.assertEqual(value["userColorMismatchedKeyCount"], 0)
+        self.assertEqual(value["userColorMissingKeyCount"], 0)
+        for key in ["userColorIRCount", "userColorOwnerCount", "userColorInputCount"]:
+            self.assertEqual(value[key], 1, key)
+        for actual, expected in zip(value["userColorFirst"], [0.4, 0.6, 0.8]):
+            self.assertAlmostEqual(actual, expected)
+        for actual, expected in zip(value["userColorChanged"], [0.2, 0.4, 0.6]):
+            self.assertAlmostEqual(actual, expected)
+        self.assertTrue(value["userColorInvalidUnpublished"])
 
     def test_direct_image_color_uses_shared_vec3_vm_and_current_fallback(self) -> None:
         value = self.result()

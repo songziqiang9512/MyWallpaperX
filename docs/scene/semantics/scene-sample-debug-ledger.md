@@ -12,6 +12,10 @@
 
 当前代码集群已经提交为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本页记录的是这些提交构建出的 12 样本结构/执行复跑，不能把 `5/12` strict PASS 解释成视觉通过。视觉完成仍以 159 样本台账的 `0 pass / 19 fail / 140 unreviewed` 为准。
 
+### 2026-09-10 B3 颜色输入修复后继
+
+`3448845950` 四层八个 scripted Color uniform 已完成 VM、frame 0/1 material 消费、GPU/publication/compositor/next-frame；整体仍 NON-PASS，当前 residual 为三处 dependency-stage、B5 terminal data/color 与 207/322/416/524 exact graph 缺口。`3665307769` layer 412 的同源 attachment 消失，9/9 graph layer 完整、72/72 GraphExecutor、55/55 transaction，**strict PASS**；CPU p95 35.667ms，视觉与性能仍未通过。App identity、复现参数、逐报告 hash 与边界统一见 [B3 当前证据](runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。旧 12 样本总报告不覆盖；159 个视觉裁决未重生成。
+
 ### 用户可见失败待办（按当前复现更新，不以公共修复代替逐项验收）
 
 以下均以真实播放截图/事件恢复正常为验收，不以历史 probe 状态覆盖用户反馈。每项修复须补共享首断点及 next-frame/event 证据。
@@ -28,7 +32,7 @@
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | Puppet atlas重组预算被前序图层耗尽，最后一层退回原图集；按候选层均衡预算后头部回到身体，见E-V4-PUPPET-BUDGET-FAIRNESS | 构图修复，整体验收未通过 |
-| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；当前复跑仍见 dependency-stage、B3 dynamic attachment 与 layer 1475 owner-revoked，脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，结构部分恢复，整体验收未通过 |
+| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；09-10 已清除四层 B3 attachment，仍见 dependency-stage 与 layer 1475 terminal data/color 合同拒绝，脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，结构部分恢复，整体验收未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |

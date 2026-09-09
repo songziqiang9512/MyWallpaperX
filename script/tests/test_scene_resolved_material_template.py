@@ -619,6 +619,20 @@ enum Harness {
             ]),
             provenSceneScriptValueTargets: [boundedScriptTarget]
         ))
+        func colorUserBinding(_ user: String, proven: Bool, runtimeUser: String? = nil)
+            -> SceneResolvedMaterialScriptBindingClassifier.Binding? {
+            SceneResolvedMaterialScriptBindingClassifier.binding(
+                authored: .init(
+                    rawValue: "0.2 0.3 0.4", valueKind: "binding",
+                    userBinding: user, userValueKind: .string, components: [0.2, 0.3, 0.4],
+                    scriptSource: "export function update(value) { return value.multiply(2); }",
+                    bindingKeys: ["script", "scriptproperties", "user", "value"]
+                ), userValue: runtimeUser, target: boundedScriptTarget,
+                provenSceneScriptValueTargets: proven ? [boundedScriptTarget] : []
+            )
+        }
+        let colorUserProven = colorUserBinding("palette", proven: true, runtimeUser: "palette")
+        let colorUserUnproven = colorUserBinding("palette", proven: false)
         let boundedMissingUserKindScriptProven = template(compile(
             material(constants: [
                 "g_Fade": .init(
@@ -947,6 +961,13 @@ enum Harness {
                     return value.valueContributors.isEmpty
                         && value.scriptAttachments == [.unproven]
                 } == true,
+            "colorUserScriptOwnsSingleValue": colorUserProven?.valueContributors == [.sceneScript]
+                && colorUserProven?.scriptAttachments.isEmpty == true,
+            "colorUserUnprovenRemainsAttached": colorUserUnproven?.valueContributors == [.userProperty("palette")]
+                && colorUserUnproven?.scriptAttachments == [.unproven],
+            "colorUserMalformedRejected": colorUserBinding("", proven: true) == nil
+                && colorUserBinding("pal\u{01}ette", proven: true) == nil
+                && colorUserBinding("palette", proven: true, runtimeUser: "") == nil,
             "boundedNullUserScriptExactProofBecomesSoleValue":
                 boundedNullUserScriptProven?.uniformDeclarations.first.map {
                     declaration in
@@ -1177,6 +1198,9 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "boundedNullUserScriptNeedsExactProof",
             "boundedNullUserScriptExactProofBecomesSoleValue",
             "boundedNullUserProofDoesNotAuthorizeOtherProducers",
+            "colorUserScriptOwnsSingleValue",
+            "colorUserUnprovenRemainsAttached",
+            "colorUserMalformedRejected",
         ])
 
     def test_vfs_and_shader_lexical_boundaries_match_production(self) -> None:

@@ -22,12 +22,25 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-10-b3-property-vector-input"></a>
+### 2026-09-10 B3 颜色属性输入 → SceneScript → material uniform
+
+三个共同缺口已修复：原始 wrapper 的非空 `user` 被 parser 作为 competing producer 拒绝；property resolver 更新 descriptor 后，投影仍把当前颜色与原始 fallback 逐位比较；launch/material classifier 又把属性输入与脚本输出算成两个 writer。现行 IR 保留 `userPropertyKey`，pass projection 按 exact owner/path/source/wrapper/type 和 property key 认领三分量输入；launch 仅允许与 typed property instruction 完全匹配的输入重叠，material 只认 SceneScript 最终输出。无 user 的 wrapper 保留原有逐位校验；未知键、缺失 identity、标量/vec2、timeline 冲突和 event-only attachment 不随本批放宽。公开合同来自 `reference/official/lib.sceneScript-v2.8.d.ts:51–64`：init/update 的参数为当前绑定值，返回值更新该属性。
+
+`3448845950` 的隔离 12 秒 / after 9 秒 / silence-fixture 严格回放：四层 `57/e6, 227/e7, 627/e7, 1341/e7` 的 **8 个 Color uniform** 均由 generic-only VM 执行，frame 0/1 的 typed material consumption、Program `62cf6f46ea5b314c0e43019f0b0d7b72b97a3e8ee6883c2688ae8287f70d32fb`、GPU completion、effect publication、terminal compositor 与 next-frame 齐全。passCandidates/consumers/owners = `21/8/8`、failedPass=0，原四处 attachment passthrough 清零。该次 App CDHash `3a82bcea091ec2278c9057264eec54a26416793e`，executable SHA-256 `36c2a5a8e1f5ea2363aec642662af335fbcc664b72b9e6e7abaae08c2e786d55`；report/app.log/runtime-input SHA-256 为 `cebe549c67a410458aab24fb37165a5f68f1e577c75638dd853504266fd9382b` / `1afeb5b246fa0a3f4ba5da62fc3e120cd1bc20fc4e6c2c43e4a9e158257a76c6` / `60b0bf1abf52d82414ddb8108204eb54749babc8e356adb54ba231c6c9d1b15e`；matrix SHA `1f1face85e703d26fef406fa70823f1533f9ef4a2470009581b0656add7314a8`。原始现场 `/private/tmp/mwx-b3-b5-owner-20260910` 仅作本机 provenance。
+
+第二个真实样本 `3665307769` 在最终 Developer ID Debug 包中 **strict PASS（1/1，failures=[]）**：layer `412/e0` 的 Color 持续进入 VM→material，Program `6bc9a6c2e74c1c4f4c427f015da1a4aac94590356c55616d50bae0e1c24f811d` 完成 GPU/publication/compositor/next-frame；9/9 required graph layer 完整，72/72 claimed/encoded/GPU、55/55 transaction terminal success、0 local fallback。App `com.songziqiang.MyWallpaperX` 2.0.9 (277)、Team H9QWU9XN8R，CDHash `e363220c1d2b8877399b86bc39c1b7b083d473a0`，executable SHA `6a7167bb208d9d3c9092ea24f4d1b882c40d424b3c23c8f13a443c5bdf4d3576`；signed Debug build / deep strict signature 通过。report/app.log/runtime-input SHA 为 `dbadec19adb64681b10026b21f8655830db42dd868239ee5d02ba7b031d6e24c` / `82d09757a5bbf77fb4649c9da973b2b835b58c2bacf21fc4b864590cd05425ac` / `5611196f477bd54ae7278a1b7d03077b13242a1f2c07b7a50eb91cc41a402a2d`；matrix SHA `623e27258ec626a355a87a15035cf76443ec2fd4016057b6b5bd8a0e85c163d5`。隔离输入/输出分别在 `/private/tmp/mwx-b3-puppet-input-20260910`、`/private/tmp/mwx-b3-puppet-output-20260910`，benchmark 已清理运行副本。
+
+本切片最高 **S3 executed**，不是 S4/S5：没有独立 ROI 或官方 parity。`3448845950` 整体仍 NON-PASS，剩余三处 dependency-stage、B5 terminal data/color 与 layers 207/322/416/524 的 exact graph 缺口。`3601964477` 尚未用本批复跑，`2902406982` 的 media-event-only/Timeline owner 仍开放。B7 此次启动 17.620s、182/181/0 submitted/completed/failed、停止 surfaces=0；CPU p95 **35.667ms**、GPU p95 10.160ms、26.57 FPS，不能关闭 16.67ms CPU 预算，且并非性能消融。
+
+复现门：`test_scene_property_vector_script` 覆盖完整 JSON parser→typed property snapshot→VM，当前值与 authored fallback 不同、live value 改变、坏颜色不发布、错 key/错 type/缺 identity 拒绝；`test_scene_resolved_material_template` 覆盖 single SceneScript producer 与未证明 attachment 反例；另跑 binding parser、frame context、layer-transform projection；本组 **76/76 PASS**。测试日志 `/private/tmp/mwx-b3-batch-final-20260910.log` 保留本机 provenance，构建日志 `/private/tmp/mwx-scene-batch-final-signed-20260910.log`。
+
 <a id="e-2026-09-10-puppet-bone-frame"></a>
 ### 2026-09-10 Puppet 骨骼身份、坐标合同与矩阵复用（B7/B9）
 
 MDLS reader 现在保留 bone name；`ScenePuppetBoneCatalog` 保留作者顺序、父索引和唯一非空 name→index，未命名骨骼仍可按数字访问。`ScenePuppetBoneTransformFrame` 是帧内值：local/world 转换包括调用者传入的 layer-to-world，world 不含 skinning inverse-bind；非法 handle、重复名、坏 parent、非有限矩阵、奇异 parent 与乘法溢出在发布前拒绝，失败保留原 local/world。官方公开 `lib.sceneScript-v2.8.d.ts:1832–1880` 定义 world/local API；数字 adapter 的 1-based/unknown=0 来自参考项目 MirageWallpaper `117896110c795270f3125f283b4183ca70a3f058` 的 `PuppetRig.cpp::boneIndex`，只记参考合同，不冒充官方 index parity。
 
-B7 的唯一 playback owner 预分配并复用 local/skin matrix scratch，分配式 evaluator 与 runtime 共享同一采样计算；没有第二套骨骼长期状态。`python3 -m unittest script.tests.test_scene_puppet_rig script.tests.test_scene_puppet_playback script.tests.test_scene_puppet_bone_catalog -q`：**27 项，26 PASS / 1 skip**（隔离的三份真实 rig fixture 不在该测试约定位置），覆盖帧输出等价、层级及 world setter、非法输入原子性。当前 Developer ID Debug build 成功；本批没有 Puppet 专用 fresh GPU/ROI 或 3-run 性能消融，旧 CPU p95 不能证明新增 scratch 的收益。
+B7 的唯一 playback owner 预分配并复用 local/skin matrix scratch，分配式 evaluator 与 runtime 共享同一采样计算；没有第二套骨骼长期状态。`python3 -m unittest script.tests.test_scene_puppet_rig script.tests.test_scene_puppet_playback script.tests.test_scene_puppet_bone_catalog -q`：**27 项，26 PASS / 1 skip**（隔离的三份真实 rig fixture 不在该测试约定位置），覆盖帧输出等价、层级及 world setter、非法输入原子性。当前 Developer ID Debug build 成功；该骨骼基础批次没有 Puppet 专用 fresh GPU/ROI 或 3-run 性能消融；后继普通 playback 回放见上方 B3 证据，仍没有 bone mutation 产品执行，旧 CPU p95 不能证明新增 scratch 的收益。
 
 证据上限：name/identity 保留 `S1`；typed frame fixture 与 playback scratch 接线 `S2`。**B9 仍开放**：QuickJS layer host 尚无 bone API，必须继续接同一 vector/cursor owner 的帧 pose 输入、typed Mat4 mutation journal、generation/epoch rollback，再提交至 Puppet evaluator/mesh。骨骼 helper 不是可交互产品实现；不得把 layer 813 记为恢复。
 

@@ -895,6 +895,8 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 ### 6.1 Timeline 与 SceneScript
 
+09-10 新增 bounded 三分量 pass user-property→SceneScript 输入合同：IR 保留属性键、投影保留 authored fallback，launch/material 只发布唯一脚本输出。3448845950 的八个 Color uniform 与 3665307769 layer 412 已取得 S3 执行证据，后者 strict PASS；这不升级整个 shader-constant family，event-only/Timeline 分支仍开放。见 [B3 证据](runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
+
 > 当前纠偏：下表中的 **48/48** 是既有 44 个已解包 `scene.json` 快照，不是对当前 Workshop 根的实时总数。当前代码能力已经扩大为 effect constant 严格 1–4 维 typed shape，并有 vector3 representative-content 的 shared Program/GPU/compositor/next-frame 正证，以及真实 `3748311238:728` 两个 vector2 Shake consumer 的 Program/GPU/publication/compositor 与局部 frame fault 恢复证据；corpus fingerprint/schema 未在本批正式刷新，因此旧快照数字只保留其原始统计边界，不再用于声称“当前根全部枚举”。
 
 | 能力 | 当前级别 | 升级门 |

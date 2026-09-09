@@ -598,6 +598,17 @@ nonisolated extension SceneScriptVectorProgram {
               descriptorValue.scriptSource == binding.source else {
             return nil
         }
+        // A named property has already resolved the descriptor's current
+        // value. Compare its retained input identity, not that current value
+        // with the original fallback. Unbound wrappers still require exact
+        // component agreement below.
+        let namedPropertyInput = binding.userPropertyKey.map {
+            !$0.isEmpty && $0 == descriptorValue.userBinding
+                && descriptorValue.userValueKind == .string
+                && binding.wrapperKeys == descriptorValue.bindingKeys
+                && descriptorValue.components?.count == 3
+                && descriptorValue.components?.allSatisfy(\.isFinite) == true
+        } == true
         let definition: SceneDynamicTargetDefinition
         if let authored = vector2(sourceValue),
            descriptorValue.components?.count == 2,
@@ -613,9 +624,11 @@ nonisolated extension SceneScriptVectorProgram {
             )
         } else if let authored = vector3(sourceValue),
                   descriptorValue.components?.count == 3,
-                  descriptorValue.components?[0].bitPattern == authored.x.bitPattern,
-                  descriptorValue.components?[1].bitPattern == authored.y.bitPattern,
-                  descriptorValue.components?[2].bitPattern == authored.z.bitPattern {
+                  namedPropertyInput || (
+                    descriptorValue.components?[0].bitPattern == authored.x.bitPattern
+                    && descriptorValue.components?[1].bitPattern == authored.y.bitPattern
+                    && descriptorValue.components?[2].bitPattern == authored.z.bitPattern
+                  ) {
             definition = .init(
                 target: .effectConstant(
                     layerID: layerID, effectIndex: effectIndex,
@@ -640,7 +653,10 @@ nonisolated extension SceneScriptVectorProgram {
                     || descriptorValue.userValueKind == .null))
             || (binding.wrapperKeys == ["script", "user", "value"]
                 && binding.properties.isEmpty
-                && descriptorValue.userValueKind == .null)
+                && (descriptorValue.userValueKind == .null
+                    || (namedPropertyInput && definition.valueType == .vector3)))
+            || (binding.wrapperKeys == ["script", "scriptproperties", "user", "value"]
+                && namedPropertyInput && definition.valueType == .vector3)
         guard validWrapper else { return nil }
         var properties: [String: SceneScriptPropertyInput] = [:]
         for entry in binding.properties {
@@ -662,7 +678,8 @@ nonisolated extension SceneScriptVectorProgram {
             dynamicImageReferences: [],
             requiresStatefulOwner: false,
             evaluatesAfterSharedProviders: false,
-            dynamicMaterialModelPath: nil
+            dynamicMaterialModelPath: nil,
+            userPropertyInputKey: namedPropertyInput ? binding.userPropertyKey : nil
         )
     }
 

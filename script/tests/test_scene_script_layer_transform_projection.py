@@ -108,6 +108,7 @@ nonisolated struct SceneScriptBindingIR: Sendable {
     let authoredValue: SceneJSONValue?
     let valueType: SceneScriptBindingValueType
     let wrapperKeys: [String]?
+    var userPropertyKey: String? = nil
 
     var targetKey: String {
         guard case let .key(key)? = targetPath.last else { return "" }
@@ -205,7 +206,7 @@ nonisolated enum SceneBaseMaterialColorModulationCompiler {
 }
 
 nonisolated struct SceneRenderDescriptor: Sendable {
-    enum SceneShaderUserValueKind: Sendable { case null }
+    enum SceneShaderUserValueKind: Sendable { case null, string }
 
     struct TextStyle: Sendable {}
 
@@ -213,6 +214,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let scriptSource: String?
         let components: [Double]?
         let userValueKind: SceneShaderUserValueKind?
+        var userBinding: String? = nil
         var bindingKeys: [String] = []
         var timeline: Int? = nil
         var timelineDiagnostics: [String] = []

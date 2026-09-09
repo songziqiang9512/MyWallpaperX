@@ -339,21 +339,14 @@ extension SceneDesktopWallpaperHost {
         let timelineProgram = SceneTimelineTargetCompiler.compile(
             descriptor: runtimeInput.renderDescriptor
         )
-        let propertyVectorNonPassTargets =
-            model.propertyVectorProjection.nonPassTargets
-        let propertyVectorPassCandidateTargets =
-            model.propertyVectorProjection.passTargets
+        let propertyVectorNonPassTargets = model.propertyVectorProjection.nonPassTargets
+        let propertyVectorPassCandidateTargets = model.propertyVectorProjection.passTargets
         let propertyVectorScriptTargets = propertyVectorNonPassTargets
             .union(propertyVectorPassCandidateTargets)
-        let timelineDefinitions = Set(
-            timelineProgram.bindings.map(\.definition)
-        )
+        let timelineDefinitions = Set(timelineProgram.bindings.map(\.definition))
         let timelineTargets = Set(timelineDefinitions.map(\.target))
-        let propertyBindingDefinitions =
-            runtimeInput.propertyBindingProgram.definitions
-        let propertyBindingTargets = Set(
-            propertyBindingDefinitions.map(\.target)
-        )
+        let propertyBindingDefinitions = runtimeInput.propertyBindingProgram.definitions
+        let propertyBindingTargets = Set(propertyBindingDefinitions.map(\.target))
         let userPropertyProducers = Set(
             runtimeInput.propertyBindingProgram.instructions.map {
                 SceneDynamicUserPropertyProducer(
@@ -364,8 +357,7 @@ extension SceneDesktopWallpaperHost {
             }
         )
         typealias VisibilityOwner =
-            SceneResolvedMaterialExecutionCapabilityAdmission
-                .DynamicEffectVisibilityOwner
+            SceneResolvedMaterialExecutionCapabilityAdmission.DynamicEffectVisibilityOwner
         // Script/Timeline owners only register candidates; effects keep authored value.
         var frameDrivenEffectVisibilityOwners = Set<VisibilityOwner>()
         let initiallyInactiveMediaOwners =
@@ -399,24 +391,32 @@ extension SceneDesktopWallpaperHost {
             SceneEffectStageAuthoredFallbackOwnerPartition.executableTargets(
                 definitions: propertyBindingDefinitions
             )
+        let vectorPropertyInputTargets = Set(userPropertyProducers.filter {
+            model.propertyVectorProjection.consumesUserProperty(
+                key: $0.propertyKey, target: $0.target, valueType: $0.valueType
+            )
+        }.map(\.target))
         let boundedProducerTargets: [(
-            String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>
+            String, Set<SceneDynamicTarget>, Int, Set<SceneDynamicTarget>,
+            Set<SceneDynamicTarget>
         )] = [
             ("property-vector", propertyVectorScriptTargets,
              propertyVectorScriptTargets.count,
-             model.propertyVectorProjection.animationTargets),
+             model.propertyVectorProjection.animationTargets, vectorPropertyInputTargets),
             ("shared-alpha", Set(model.sharedLayerAlphaProgram.definitions.map(\.target)),
-             model.sharedLayerAlphaProgram.definitions.count, []),
+             model.sharedLayerAlphaProgram.definitions.count, [], []),
         ]
         var boundedSceneScriptTargets: Set<SceneDynamicTarget> = []
         var boundedProducerConflicts: [String] =
             model.propertyVectorProjection.duplicateTargets.isEmpty
                 ? [] : ["property-vector/duplicate"]
-        for (name, targets, definitionCount, allowedTimelineTargets) in boundedProducerTargets {
+        for (name, targets, definitionCount, allowedTimelineTargets, allowedPropertyInputs)
+            in boundedProducerTargets {
             if targets.count != definitionCount {
                 boundedProducerConflicts.append("\(name)/duplicate")
             }
-            if !targets.isDisjoint(with: propertyBindingTargets) {
+            if !targets.intersection(propertyBindingTargets)
+                .subtracting(allowedPropertyInputs).isEmpty {
                 boundedProducerConflicts.append("\(name)/property")
             }
             let unownedTimelineOverlap = targets.intersection(timelineTargets)

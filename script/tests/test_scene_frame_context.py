@@ -769,7 +769,7 @@ class SceneFrameContextTests(unittest.TestCase):
         self.assertNotIn('("launch-origin"', bounded_ownership)
         self.assertIn('("property-vector"', bounded_ownership)
         self.assertIn(
-            "targets.isDisjoint(with: propertyBindingTargets)",
+            "targets.intersection(propertyBindingTargets)",
             bounded_ownership,
         )
         self.assertIn(
@@ -777,6 +777,7 @@ class SceneFrameContextTests(unittest.TestCase):
             bounded_ownership,
         )
         self.assertIn(".subtracting(allowedTimelineTargets)", bounded_ownership)
+        self.assertIn(".subtracting(allowedPropertyInputs)", bounded_ownership)
         self.assertIn(
             "targets.isDisjoint(with: boundedSceneScriptTargets)",
             bounded_ownership,

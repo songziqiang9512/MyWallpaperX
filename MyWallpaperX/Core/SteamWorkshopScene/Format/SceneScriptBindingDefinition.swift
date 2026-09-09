@@ -135,6 +135,8 @@ nonisolated struct SceneScriptBindingIR: Codable, Equatable, Sendable {
     let authoredValue: SceneJSONValue?
     let valueType: SceneScriptBindingValueType
     let wrapperKeys: [String]?
+    /// Named input retained before user-property resolution changes `value`.
+    let userPropertyKey: String?
 
     nonisolated init(
         source: String,
@@ -143,7 +145,8 @@ nonisolated struct SceneScriptBindingIR: Codable, Equatable, Sendable {
         properties: [String: SceneJSONValue],
         authoredValue: SceneJSONValue?,
         valueType: SceneScriptBindingValueType,
-        wrapperKeys: [String]? = nil
+        wrapperKeys: [String]? = nil,
+        userPropertyKey: String? = nil
     ) {
         self.source = source
         self.owner = owner
@@ -152,6 +155,7 @@ nonisolated struct SceneScriptBindingIR: Codable, Equatable, Sendable {
         self.authoredValue = authoredValue
         self.valueType = valueType
         self.wrapperKeys = wrapperKeys
+        self.userPropertyKey = userPropertyKey
     }
 
     nonisolated var targetKey: String {
@@ -376,8 +380,22 @@ nonisolated enum SceneScriptBindingIRParser {
             && path.count == 3
             && wrapper["user"] is String
             && SceneJSONValue(jsonObject: wrapper["value"] as Any)?.boolValue != nil
+        let directPassPropertyOwner: Bool
+        if owner.kind == .pass,
+           let property = wrapper["user"] as? String,
+           !property.isEmpty,
+           property == property.trimmingCharacters(in: .whitespacesAndNewlines),
+           !property.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+           let value = wrapper["value"] as? String {
+            let components = value.split(whereSeparator: \.isWhitespace)
+            directPassPropertyOwner = components.count == 3
+                && components.allSatisfy { Double($0)?.isFinite == true }
+        } else {
+            directPassPropertyOwner = false
+        }
         if let userValue = wrapper["user"], !(userValue is NSNull),
-           !directTextPropertyOwner && !directBooleanVisibilityOwner {
+           !directTextPropertyOwner && !directBooleanVisibilityOwner
+            && !directPassPropertyOwner {
             diagnostics.append(.init(code: .conflictingSources, targetPath: path))
             return
         }
@@ -406,7 +424,8 @@ nonisolated enum SceneScriptBindingIRParser {
             properties: properties,
             authoredValue: authoredValue,
             valueType: .init(authoredValue: authoredValue),
-            wrapperKeys: wrapper.keys.sorted()
+            wrapperKeys: wrapper.keys.sorted(),
+            userPropertyKey: wrapper["user"] as? String
         ))
     }
 
