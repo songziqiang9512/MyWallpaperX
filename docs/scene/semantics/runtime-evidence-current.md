@@ -22,6 +22,15 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-10-b3-event-only-closure"></a>
+### 2026-09-10 B3 event-only SceneScript producer 闭环
+
+仅导出 `mediaThumbnailChanged` 且不导出 `update/init` 的脚本现在被识别为事件触发器，而不是 material uniform writer；含 `update/init` 的未知脚本仍保持 fail-closed。该逻辑复用现有 MaterialProgram/GraphExecutor。
+
+改后签名 Debug App executable SHA-256 `e339d52130dac955333eb6a18cf67301ee63fbe324e30449bda751fd181a32a9` 对真实只读样本 `3601964477` 与 `2902406982` 均 strict PASS；report SHA-256 分别为 `df4942cb4027bd58f0d7dc2085cf3d667a195cd063e588107e5bb1a3a900d7de`、`0e039b536d6daf2573a29ef91d3687490953de681bb3167e275487ebb01a0146`。`3601964477` 的 `383#effect#384` 有 SceneScript Color typed consumption、GPU/compositor/next-frame；`2902406982` 的 `702#effect#708` 不再出现 `material-dynamic-uniform-script-attachment-unproven`，54 个 active effect 均 admitted-generic/complete。
+
+正反门覆盖带 `update/init`、未知 wrapper、错 type/owner/key；本批仅关闭两个 event-only producer 样本，不外推完整 shader-constant family、Timeline/SceneScript API 或官方 parity。
+
 <a id="e-2026-09-10-b9-spring-closure"></a>
 ### 2026-09-10 B9 完成：真实骨骼拖动、限幅与 Spring 回弹
 
