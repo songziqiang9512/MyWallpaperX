@@ -200,7 +200,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         var frameInput = frame.quickJSValue
         var didInitialize: UInt32 = 0
         var diagnostic = [CChar](repeating: 0, count: 512)
-        let result: MWXSceneQuickJSResult
+        var result: MWXSceneQuickJSResult
         let publishedValue: SceneDynamicValue
         switch scriptInput {
         case let .bool(value):
