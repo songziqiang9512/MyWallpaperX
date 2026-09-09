@@ -33,6 +33,12 @@ enum ScenePuppetLayerLoad {
               let mesh = try? SceneMdlPuppetMeshReader.read(data: data),
               let rig = try? SceneMdlPuppetRigReader.read(data: data, mesh: mesh)
         else { return nil }
+        for (index, bone) in rig.bones.enumerated() {
+            if let diagnostic = bone.physicsDiagnostic {
+                NSLog("MWX Puppet: layer=%d bone=%d fallback=authored-pose reason=%@",
+                      layer.id, index, diagnostic)
+            }
+        }
         let localMatrices: [simd_float4x4] = rig.bones.map { bone in
             let values = bone.bindLocalMatrixColumnMajor
             return simd_float4x4(

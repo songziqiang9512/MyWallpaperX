@@ -408,7 +408,7 @@ enum Harness {
                 export function update(value) {
                     const pose = thisLayer.getLocalBoneTransform(bone);
                     thisLayer.setLocalBoneTransform(bone, pose.translation(new Vec3(12, 3, 0)));
-                    return bone === 2;
+                    return bone === 1;
                 }
                 export function cursorDown() { thisLayer.getBoneTransform(bone); }
                 export function cursorUp() {}

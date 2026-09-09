@@ -57,8 +57,8 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
             var diagnostic = [CChar](repeating: 0, count: 512)
             let result = mwx_scene_quickjs_owner_puppet_bone_mutation_at(owner, index, &raw, &diagnostic, diagnostic.count)
             guard result == MWX_SCENE_QUICKJS_OK, raw.layer_id >= -9_007_199_254_740_991,
-                  raw.layer_id <= 9_007_199_254_740_991, raw.bone_index > 0,
-                  raw.bone_index <= 256, raw.local_space <= 1 else {
+                  raw.layer_id <= 9_007_199_254_740_991, raw.bone_index >= 0,
+                  raw.bone_index < 256, raw.local_space <= 1 else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
             let matrix = withUnsafeBytes(of: raw.matrix) { bytes in

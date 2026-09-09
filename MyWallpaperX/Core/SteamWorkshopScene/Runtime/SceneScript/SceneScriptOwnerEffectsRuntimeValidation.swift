@@ -34,7 +34,7 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
                 }
             }()
             let valid = ownerLayerID != nil && owner.puppetBoneMutations.allSatisfy {
-                $0.layerID == ownerLayerID && $0.boneIndex > 0 && $0.matrix.count == 16 && $0.matrix.allSatisfy(\.isFinite)
+                $0.layerID == ownerLayerID && $0.boneIndex >= 0 && $0.matrix.count == 16 && $0.matrix.allSatisfy(\.isFinite)
             }
             if !valid {
                 failures.append(.init(

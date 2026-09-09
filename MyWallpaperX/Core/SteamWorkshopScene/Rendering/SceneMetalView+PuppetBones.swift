@@ -19,6 +19,8 @@ extension SceneMetalView {
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: camera, viewportSize: frame.screenSize)
         for (layerID, playback) in puppetPlaybackStates {
+            playback.advanceBonePhysics(sceneTime: timing.sceneTime,
+                deltaTime: timing.simulationFrameTime, dynamicValues: dynamicValues)
             guard let layer = renderer.layersByID[layerID],
                   let bones = playback.boneConfiguration(
                     sceneTime: timing.sceneTime, dynamicValues: dynamicValues)

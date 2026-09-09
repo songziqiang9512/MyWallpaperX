@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import unquote
 
+from scene_puppet_interaction_evidence import collect_puppet_interaction_evidence
 from scene_matrix_contract import (
     AUTHORED_EFFECT_RUNTIME_EXPECTATIONS,
     EFFECT_EXECUTION_EXACT_KINDS,
@@ -904,6 +905,32 @@ def cursor_interaction_output_failures(
     hover_motion: dict[str, dict[str, float] | None] | None,
     drag_pointer: tuple[float, float] | None,
 ) -> list[str]:
+    response = sample.get("cursor_drag_response", "hold")
+    if response == "spring-return":
+        moved = (hover_motion or {}).get("before_to_drag")
+        returned = (hover_motion or {}).get("before_to_spring_after")
+        failures = []
+        if moved is None or moved["changed_ratio"] <= float(sample.get("minimum_hover_changed_ratio", 0)):
+            failures.append("spring drag has no visible displacement")
+        return_space = sample.get("cursor_drag_return_space", "window")
+        if return_space == "window":
+            if returned is None or returned["changed_ratio"] > float(sample.get("maximum_drag_settle_changed_ratio", 0.001)):
+                failures.append("spring drag did not return to its visible baseline")
+        elif return_space == "puppet-source":
+            # Post-deformation effects can continue animating after geometry
+            # returns. The mandatory exact GPU-source/terminal-frame contract
+            # is checked separately; visible displacement is still required.
+            if not sample.get("puppet_interaction_layer_ids"):
+                failures.append("source-space return requires explicit Puppet owners")
+            if returned is None:
+                failures.append("missing post-return window observation")
+        else:
+            failures.append("unknown spring return space")
+        return failures
+    if response not in {"hold", "no-capture"}:
+        return ["unknown cursor drag response"]
+    if response == "no-capture":
+        return []  # The exact GPU-source no-capture contract is mandatory below.
     minimum = float(sample.get("minimum_hover_changed_ratio", 0))
     before = (hover_motion or {}).get("before_to_hover")
     after = (hover_motion or {}).get("hover_to_after")
@@ -6609,6 +6636,10 @@ def run_sample(
     primary_click = cursor_primary_click(sample)
     subframe_click = cursor_primary_click_subframe(sample)
     drag_pointer = cursor_drag_to_normalized(sample)
+    if sample.get("cursor_drag_response") in {"spring-return", "no-capture"} and (
+        drag_pointer is None or hover_pointer is None
+    ):
+        raise ValueError("Puppet interaction needs an explicit press and drag position")
     if hover_pointer is not None:
         command.extend([
             "--mwx-debug-scene-hover-pointer-json",
@@ -6634,6 +6665,16 @@ def run_sample(
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
+    if "cursor_start_second" in sample:
+        second = float(sample["cursor_start_second"])
+        if not math.isfinite(second) or not 0 <= second < 60:
+            raise ValueError("cursor_start_second must be in [0, 60)")
+        environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"] = str(second)
+    if sample.get("cursor_drag_response") in {"spring-return", "no-capture"}:
+        layers = sample.get("puppet_interaction_layer_ids", [])
+        if not layers or any(type(layer) is not int for layer in layers):
+            raise ValueError("Puppet interaction requires explicit integer layer IDs")
+        environment["MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"] = ",".join(map(str, layers))
     if require_cursor_ripple_persistence:
         environment["MYWALLPAPERX_SCENE_DEBUG_CURSOR_RIPPLE_EVIDENCE"] = "1"
     timed_out = False
@@ -6879,6 +6920,18 @@ def run_sample(
         if hover_pointer is not None
         else None
     )
+    puppet_interaction = None
+    response = sample.get("cursor_drag_response", "hold")
+    if response in {"spring-return", "no-capture"}:
+        roi = sample.get("cursor_interaction_roi")
+        if response == "spring-return":
+            hover_motion = dict(hover_motion or {})
+            hover_motion["before_to_drag"] = png_motion_metrics(
+                ready_snapshot, result_dir / "scene-drag-held-window.png", region=roi)
+            hover_motion["before_to_spring_after"] = png_motion_metrics(
+                ready_snapshot, result_dir / "scene-spring-after-window.png", region=roi)
+        puppet_interaction = collect_puppet_interaction_evidence(
+            log_text, sample.get("puppet_interaction_layer_ids", []), response=response)
     preview_visual = collect_preview_visual_evidence(
         runtime_sample,
         after_snapshot,
@@ -7342,6 +7395,8 @@ def run_sample(
     if hover_pointer is not None:
         if not hover_non_black:
             failures.append("hover window evidence missing")
+        if puppet_interaction is not None:
+            failures.extend(puppet_interaction["failures"])
         failures.extend(cursor_interaction_output_failures(
             sample, hover_motion, drag_pointer
         ))
@@ -7407,6 +7462,7 @@ def run_sample(
             "flat_border_ratio": flat_border_ratio,
             "motion": motion,
             "hover_motion": hover_motion,
+            "puppet_interaction": puppet_interaction,
             "preview_visual": preview_visual,
         },
         "runtime": {

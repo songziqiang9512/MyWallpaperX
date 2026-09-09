@@ -984,7 +984,7 @@ R3 起，本表旧 bounded executor 摘要中“property 缺失时作者 fallbac
 
 逐 Puppet、Model、Lighting、产品预算、RGB 和 offline 项见 [高级对象覆盖表](advanced-object-coverage.md)。
 
-09-10 B9 接线审核后继：同一 vector/cursor owner 已安装真实 rig 名称/父索引，当前 pose→world/local Mat4→原子 local journal→唯一 Puppet playback；静态无 clip 的 script rig 以 bone revision 驱动 mesh，callback/未提交帧恢复 pose。真实样本 visibility、cursor callbacks 与 strict graph 已执行；骨骼交互的最终可见/参数边界与运行身份由 [B9 审核证据](runtime-evidence-current.md#e-2026-09-10-b9-wiring-review) 拥有，不将其外推为完整 Mat4、parallax/multi-surface 或官方 parity。
+09-10 B9 回弹后继：同一 vector/cursor owner 使用真实 rig 名称/父索引与统一 0-based identity；当前 pose→world/local Mat4→原子 local journal→唯一 Puppet playback。MDLS 平移 spring/rigid 参数进入该 playback，速度随 pose/revision 一并 commit/discard；静态无 clip 的 script rig 也能拖动和回弹。具体合同见 [Puppet 平移约束](scene-format-and-render-graph.md#11-二进制资产合同tex-bc-与-puppet-mdl)，真实样本的拖动、限幅、release、区域外不捕获与可见 ROI/终端消费由 [B9 回弹证据](runtime-evidence-current.md#e-2026-09-10-b9-spring-closure) 拥有。该有界能力不外推为完整 Mat4、parallax/multi-surface、旋转/重力/IK 或官方数值 parity。
 
 | 能力族 | 当前级别 | 最小可用门 |
 |---|---|---|

@@ -211,39 +211,34 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
         if (argc != 0) return JS_ThrowTypeError(context, "getBoneCount expects no arguments");
         return JS_NewInt32(context, (int32_t)owner->puppet_bone_count);
     }
-    if (magic == PUPPET_BONE_INDEX || magic == PUPPET_BONE_PARENT_INDEX) {
-        if (argc != 1) return JS_ThrowTypeError(context, "bone lookup expects one argument");
-        int64_t index = 0;
-        if (JS_IsString(argv[0])) {
-            size_t length = 0; const char *name = JS_ToCStringLen(context, &length, argv[0]);
-            if (name == NULL) return JS_EXCEPTION;
-            int32_t found = 0;
-            for (uint32_t bone = 0; bone < owner->puppet_bone_count; ++bone) {
-                if (owner->puppet_bone_names[bone] != NULL &&
-                    strlen(owner->puppet_bone_names[bone]) == length &&
-                    memcmp(owner->puppet_bone_names[bone], name, length) == 0) {
-                    found = (int32_t)bone + 1; break;
-                }
-            }
-            JS_FreeCString(context, name);
-            return JS_NewInt32(context, magic == PUPPET_BONE_PARENT_INDEX && found > 0
-                ? owner->puppet_bone_parent[found - 1] + 1 : found);
-        }
-        if (JS_ToInt64(context, &index, argv[0]) < 0 || index <= 0 ||
-            index > (int64_t)owner->puppet_bone_count)
-            return JS_NewInt32(context, 0);
-        if (magic == PUPPET_BONE_INDEX) return JS_NewInt64(context, index);
-        return JS_NewInt32(context, owner->puppet_bone_parent[index - 1] + 1);
-    }
+    const bool lookup = magic == PUPPET_BONE_INDEX || magic == PUPPET_BONE_PARENT_INDEX;
     const bool setter = magic == PUPPET_BONE_SET_WORLD || magic == PUPPET_BONE_SET_LOCAL;
     if (argc != (setter ? 2 : 1))
-        return JS_ThrowTypeError(context, setter ? "bone setter expects index and Mat4" : "bone transform expects one argument");
-    int64_t script_index = 0;
-    if (JS_IsString(argv[0])) return JS_ThrowTypeError(context, "named bone lookup requires catalog binding");
-    if (JS_ToInt64(context, &script_index, argv[0]) < 0 || script_index <= 0 ||
-        script_index > (int64_t)owner->puppet_bone_count)
-        return JS_ThrowRangeError(context, "bone index is out of range");
-    uint32_t bone = (uint32_t)(script_index - 1);
+        return JS_ThrowTypeError(context, "invalid bone API argument count");
+    int32_t bone_index = -1;
+    if (JS_IsString(argv[0])) {
+        size_t length = 0;
+        const char *name = JS_ToCStringLen(context, &length, argv[0]);
+        if (name == NULL) return JS_EXCEPTION;
+        for (uint32_t i = 0; i < owner->puppet_bone_count; ++i) {
+            if (length > 0 && owner->puppet_bone_names[i] != NULL &&
+                strlen(owner->puppet_bone_names[i]) == length &&
+                memcmp(owner->puppet_bone_names[i], name, length) == 0) {
+                bone_index = (int32_t)i; break;
+            }
+        }
+        JS_FreeCString(context, name);
+    } else {
+        double index;
+        if (JS_ToFloat64(context, &index, argv[0]) < 0) return JS_EXCEPTION;
+        if (isfinite(index) && index >= 0 && index < owner->puppet_bone_count && floor(index) == index)
+            bone_index = (int32_t)index;
+    }
+    if (lookup) return JS_NewInt32(context,
+        magic == PUPPET_BONE_PARENT_INDEX && bone_index >= 0
+            ? owner->puppet_bone_parent[bone_index] : bone_index);
+    if (bone_index < 0) return JS_ThrowRangeError(context, "bone index is out of range");
+    uint32_t bone = (uint32_t)bone_index;
     if (magic == PUPPET_BONE_GET_WORLD || magic == PUPPET_BONE_GET_LOCAL)
         return make_mat4(context, handle->domain,
             magic == PUPPET_BONE_GET_WORLD
@@ -272,7 +267,7 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[
         owner->puppet_bone_mutation_count++];
     mutation->layer_id = owner->puppet_bone_layer_id;
-    mutation->bone_index = (int32_t)script_index;
+    mutation->bone_index = bone_index;
     // Publish the resolved parent-relative transform, never a surface-world
     // coordinate mislabeled as evaluator-local data.
     mutation->local_space = 1u;

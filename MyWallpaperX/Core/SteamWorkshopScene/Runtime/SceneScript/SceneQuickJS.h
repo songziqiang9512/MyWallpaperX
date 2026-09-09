@@ -106,7 +106,7 @@ typedef struct MWXSceneQuickJSLayerMutation {
 /// from the owner until the next transaction boundary.
 typedef struct MWXSceneQuickJSPuppetBoneMutation {
     int64_t layer_id;
-    int32_t bone_index; /* public 1-based index */
+    int32_t bone_index; /* dense zero-based index */
     uint32_t local_space;
     double matrix[16];
 } MWXSceneQuickJSPuppetBoneMutation;

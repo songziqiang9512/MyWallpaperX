@@ -83,7 +83,7 @@ enum Harness {
             "unnamedCount": unnamed.boneCount,
             "unnamedIndex": unnamed.index(forName: "") as Any,
             "unnamedNumericIndex": ScenePuppetBoneScriptIndex.denseIndex(
-                fromScriptIndex: 2, catalog: unnamed
+                fromScriptIndex: 1, catalog: unnamed
             ) as Any,
             "invalidParentRejected": rejected(invalidParent),
             "computedView": rig(["root", "MouseBone"], parents: [-1, 0]).boneCatalog != nil,
@@ -95,21 +95,21 @@ enum Harness {
                 translation(3),
             ]
         )
-        let initialWorld = frame.getBoneTransform(forScriptIndex: 2)!
+        let initialWorld = frame.getBoneTransform(forScriptIndex: 1)!
         try frame.setBoneTransform(
             translation(10),
-            forScriptIndex: 2,
+            forScriptIndex: 1,
             rig: rig(["root", "MouseBone"], parents: [-1, 0])
         )
-        let updatedLocal = frame.localTransform(forScriptIndex: 2)!
-        let updatedWorld = frame.worldTransform(forScriptIndex: 2)!
+        let updatedLocal = frame.localTransform(forScriptIndex: 1)!
+        let updatedWorld = frame.worldTransform(forScriptIndex: 1)!
         payload["scriptRootIndex"] = ScenePuppetBoneScriptIndex.getBoneIndex(
             "root", catalog: valid
         )
         payload["scriptUnknownIndex"] = ScenePuppetBoneScriptIndex.scriptIndex(
             forName: "missing", catalog: valid
         )
-        payload["numericZeroUnknown"] = frame.worldTransform(forScriptIndex: 0) == nil
+        payload["numericNegativeUnknown"] = frame.worldTransform(forScriptIndex: -1) == nil
         payload["initialWorldX"] = initialWorld.columns.3.x
         payload["updatedLocalX"] = updatedLocal.columns.3.x
         payload["updatedWorldX"] = updatedWorld.columns.3.x
@@ -119,7 +119,7 @@ enum Harness {
             layerToWorld: translation(100)
         )
         payload["placedChildWorldX"] = placedFrame.worldMatrices[1].columns.3.x
-        try placedFrame.setWorldTransform(translation(110), forScriptIndex: 1, rig: boneRig)
+        try placedFrame.setWorldTransform(translation(110), forScriptIndex: 0, rig: boneRig)
         payload["placedRootLocalX"] = placedFrame.localMatrices[0].columns.3.x
         payload["placedUpdatedChildWorldX"] = placedFrame.worldMatrices[1].columns.3.x
         let beforeLocal = frame.localMatrices
@@ -127,10 +127,10 @@ enum Harness {
         var nonFinite = matrix_identity_float4x4
         nonFinite.columns.0.x = .infinity
         payload["nonFiniteRejected"] = rejected(Result {
-            try frame.setLocalTransform(nonFinite, forScriptIndex: 1, rig: boneRig)
+            try frame.setLocalTransform(nonFinite, forScriptIndex: 0, rig: boneRig)
         })
         payload["foreignRigRejected"] = rejected(Result {
-            try frame.setBoneTransform(translation(7), forScriptIndex: 2,
+            try frame.setBoneTransform(translation(7), forScriptIndex: 1,
                 rig: rig(["other", "tip"], parents: [-1, 0]))
         })
         payload["rejectionsPreserveFrame"] = frame.localMatrices == beforeLocal
@@ -142,7 +142,7 @@ enum Harness {
         let overflowBefore = overflowFrame.worldMatrices
         payload["worldOverflowRejected"] = rejected(Result {
             try overflowFrame.setLocalTransform(
-                translation(huge), forScriptIndex: 2, rig: boneRig
+                translation(huge), forScriptIndex: 1, rig: boneRig
             )
         })
         payload["overflowPreservesFrame"] = overflowFrame.worldMatrices == overflowBefore
@@ -153,7 +153,7 @@ enum Harness {
             rig: boneRig, animatedLocalMatrices: [singular, translation(0)]
         )
         payload["singularParentRejected"] = rejected(Result {
-            try singularFrame.setBoneTransform(translation(1), forScriptIndex: 2, rig: boneRig)
+            try singularFrame.setBoneTransform(translation(1), forScriptIndex: 1, rig: boneRig)
         })
         let data = try JSONSerialization.data(withJSONObject: payload)
         FileHandle.standardOutput.write(data)
@@ -249,9 +249,9 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
         self.assertIsNone(self.result["unknownIndex"])
         self.assertIsNone(self.result["emptyIndex"])
         self.assertIsNone(self.result["outOfRange"])
-        self.assertEqual(self.result["scriptRootIndex"], 1)
-        self.assertEqual(self.result["scriptUnknownIndex"], 0)
-        self.assertTrue(self.result["numericZeroUnknown"])
+        self.assertEqual(self.result["scriptRootIndex"], 0)
+        self.assertEqual(self.result["scriptUnknownIndex"], -1)
+        self.assertTrue(self.result["numericNegativeUnknown"])
 
     def test_world_transform_is_not_skin_inverse_bind_and_world_setter_is_parent_relative(self):
         self.assertEqual(self.result["initialWorldX"], 5)

@@ -380,6 +380,7 @@ def png_motion_metrics(
     first_path: Path,
     second_path: Path,
     threshold: int = 2,
+    region: tuple[float, float, float, float] | None = None,
 ) -> dict[str, float] | None:
     first = _decode_png_rows(first_path)
     second = _decode_png_rows(second_path)
@@ -387,10 +388,18 @@ def png_motion_metrics(
         return None
     width, height, channels, color_channels, first_rows = first
     second_rows = second[4]
+    left, top, right, bottom = 0, 0, width, height
+    if region is not None:
+        if len(region) != 4 or not (0 <= region[0] < region[2] <= 1 and 0 <= region[1] < region[3] <= 1):
+            raise ValueError("motion ROI must be normalized left, top, right, bottom")
+        left, top = int(region[0] * width), int(region[1] * height)
+        right, bottom = int(region[2] * width), int(region[3] * height)
+        if left == right or top == bottom:
+            raise ValueError("motion ROI is empty")
     changed_pixels = 0
     total_delta = 0
-    for first_row, second_row in zip(first_rows, second_rows):
-        for pixel in range(0, width * channels, channels):
+    for first_row, second_row in zip(first_rows[top:bottom], second_rows[top:bottom]):
+        for pixel in range(left * channels, right * channels, channels):
             deltas = [
                 abs(first_row[pixel + channel] - second_row[pixel + channel])
                 for channel in range(color_channels)
@@ -398,7 +407,7 @@ def png_motion_metrics(
             total_delta += sum(deltas)
             if max(deltas) > threshold:
                 changed_pixels += 1
-    pixel_count = width * height
+    pixel_count = (right - left) * (bottom - top)
     component_count = pixel_count * color_channels
     return {
         "mean_delta": total_delta / max(component_count * 255, 1),

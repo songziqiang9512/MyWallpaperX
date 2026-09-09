@@ -4,12 +4,18 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
     typealias LogSink = @Sendable (String) -> Void
 
     private static let maximumTransactionsPerSubject = 64
+#if DEBUG
+    private static let explicitSourceEvidenceLayers = Set(
+        (ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_PUPPET_BONE_EVIDENCE"] ?? "")
+            .split(separator: ",").compactMap { Int($0) })
+#endif
 
     private enum Trigger: String {
         case firstFrame = "first-frame", nextFrame = "next-frame", reset
         case firstSuccess = "first-success", firstFailure = "first-failure"
         case compositorConsume = "compositor-consume"
         case gpuCompleted = "gpu-completed", gpuFailed = "gpu-failed"
+        case explicitSourceEvidence = "explicit-source-evidence"
 
         var order: Int {
             switch self {
@@ -21,6 +27,7 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
             case .compositorConsume: 5
             case .gpuCompleted: 6
             case .gpuFailed: 7
+            case .explicitSourceEvidence: 8
             }
         }
     }
@@ -174,6 +181,13 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         reduceReset(observation, state: &state, triggers: &triggers)
         reduceStickyFacts(observation, state: &state, triggers: &triggers)
         states[key] = state
+#if DEBUG
+        if observation.frameIndex < 2048,
+           Self.explicitSourceEvidenceLayers.contains(observation.identity.layerID),
+           observation.gpuCompletionStatus == .completed {
+            triggers.append(.explicitSourceEvidence)
+        }
+#endif
         triggers.sort { $0.order < $1.order }
         return triggers.isEmpty ? .none : .emit(triggers)
     }

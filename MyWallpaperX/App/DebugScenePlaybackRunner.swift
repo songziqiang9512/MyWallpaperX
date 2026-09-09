@@ -436,7 +436,13 @@ enum DebugScenePlaybackRunner {
         primaryClick: Bool,
         dragPointer: SIMD2<Float>?
     ) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        var startDelay = 1.0
+        if let raw = ProcessInfo.processInfo.environment["MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND"],
+           let second = Double(raw), second.isFinite, (0..<60).contains(second) {
+            let current = Date().timeIntervalSince1970.truncatingRemainder(dividingBy: 60)
+            startDelay = (second - current + 60).truncatingRemainder(dividingBy: 60)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + startDelay) {
             requestSnapshot(reason: "before", outputDirectory: outputDirectory)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 if stationaryEntry {

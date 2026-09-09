@@ -95,6 +95,19 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
             self.assertGreater(changed_metrics["mean_delta"], 0)
             self.assertEqual(changed_metrics["changed_ratio"], 1.0)
 
+    def test_motion_roi_excludes_unrelated_pixels_and_rejects_empty_regions(self):
+        first = (2, 1, 3, 3, [bytes([0, 0, 0, 0, 0, 0])])
+        second = (2, 1, 3, 3, [bytes([255, 255, 255, 0, 0, 0])])
+        def measure(region):
+            with mock.patch.object(capture, "_decode_png_rows", side_effect=[first, second]):
+                return capture.png_motion_metrics(Path("first"), Path("second"), region=region)
+        self.assertEqual(measure(None)["changed_ratio"], .5)
+        self.assertEqual(measure((0, 0, .5, 1))["changed_ratio"], 1)
+        self.assertEqual(measure((.5, 0, 1, 1)), {"mean_delta": 0, "changed_ratio": 0})
+        for region in [(-1, 0, 1, 1), (0, 0, 0, 1), (0, 0, .1, 1), (0, 0, float("nan"), 1)]:
+            with self.assertRaises(ValueError):
+                measure(region)
+
     @mock.patch.object(capture, "_identity_values")
     @mock.patch.object(capture, "_verify_signature")
     @mock.patch.object(capture, "_ditto_copy")

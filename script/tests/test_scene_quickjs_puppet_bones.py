@@ -22,7 +22,7 @@ import Foundation
             source: """
             let dragging = false, start, offset;
             export function cursorDown(e) {
-                const root = thisLayer.getBoneTransform(1).translation();
+                const root = thisLayer.getBoneTransform(0).translation();
                 const distance = root.copy().subtract(input.cursorWorldPosition);
                 if (distance.length() < 10) { start = root; offset = distance; dragging = true; }
             }
@@ -32,26 +32,26 @@ import Foundation
                     const delta = input.cursorWorldPosition.subtract(start);
                     const distance = delta.length();
                     const point = start.add(delta.divide(distance).multiply(Math.min(10,distance))).add(offset);
-                    thisLayer.setBoneTransform(2, thisLayer.getBoneTransform(2).translation(point));
+                    thisLayer.setBoneTransform(1, thisLayer.getBoneTransform(1).translation(point));
                 }
                 if (v.x === 1) {
-                    thisLayer.setBoneTransform(1, Mat4.fromTranslation(new Vec3(20,0,0)));
-                    thisLayer.setBoneTransform(2, Mat4.fromTranslation(new Vec3(31,0,0)));
+                    thisLayer.setBoneTransform(0, Mat4.fromTranslation(new Vec3(20,0,0)));
+                    thisLayer.setBoneTransform(1, Mat4.fromTranslation(new Vec3(31,0,0)));
                 }
                 if (v.x === 4) {
                     const delta = new Vec3(3,4,12);
-                    const translated = thisLayer.getBoneTransform(2).translation(delta.copy());
+                    const translated = thisLayer.getBoneTransform(1).translation(delta.copy());
                     return new Vec3(translated.translation().length(),
                         delta.normalize().length(), new Vec3().normalize().length());
                 }
                 if (v.x === 3) {
                     const m = Mat4.identity(); m.m[0] = 0;
-                    thisLayer.setLocalBoneTransform(1, m);
-                    thisLayer.setBoneTransform(2, Mat4.identity());
+                    thisLayer.setLocalBoneTransform(0, m);
+                    thisLayer.setBoneTransform(1, Mat4.identity());
                 }
-                return new Vec3(thisLayer.getBoneTransform(2).translation().x,
-                    thisLayer.getLocalBoneTransform(2).translation().x,
-                    thisLayer.getBoneTransform(3).translation().x);
+                return new Vec3(thisLayer.getBoneTransform(1).translation().x,
+                    thisLayer.getLocalBoneTransform(1).translation().x,
+                    thisLayer.getBoneTransform(2).translation().x);
             }
             """,
             target: .layer(layerID: 42, field: .origin),

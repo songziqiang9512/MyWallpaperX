@@ -1273,6 +1273,24 @@ class SceneWallpaperBenchmarkTests(unittest.TestCase):
             ):
                 benchmark.load_matrix(path)
 
+    def test_spring_return_preserves_window_gate_and_requires_explicit_source_owner(self):
+        sample = {"cursor_drag_response": "spring-return", "minimum_hover_changed_ratio": 0.005}
+        motion = {"before_to_drag": {"changed_ratio": .8},
+                  "before_to_spring_after": {"changed_ratio": .9}}
+        check = lambda: benchmark.cursor_interaction_output_failures(sample, motion, (.2, .2))
+        self.assertTrue(check())
+        sample["cursor_drag_return_space"] = "puppet-source"
+        self.assertTrue(check())
+        sample["puppet_interaction_layer_ids"] = [42]
+        self.assertEqual(check(), [])
+        motion["before_to_drag"]["changed_ratio"] = 0
+        self.assertTrue(check())
+        motion["before_to_drag"]["changed_ratio"] = .8
+        motion["before_to_spring_after"] = None
+        self.assertTrue(check())
+        sample["cursor_drag_return_space"] = "invalid"
+        self.assertTrue(check())
+
     def test_cursor_drag_output_changes_then_preserves_settled_position(self) -> None:
         motion = {
             "before_to_hover": {"changed_ratio": 0.08},

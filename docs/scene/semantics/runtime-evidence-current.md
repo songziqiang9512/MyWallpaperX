@@ -22,8 +22,45 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-10-b9-spring-closure"></a>
+### 2026-09-10 B9 完成：真实骨骼拖动、限幅与 Spring 回弹
+
+**结论：B9 的 `2959875782 / layer 813` 可见交互断点闭环，最高 S4 visible。** 原样本普通拖动、超半径拖动、区域外不捕获，以及隔离单因素可见回弹对照共 **4/4 strict PASS**，exit=0、无 timeout、failures=[]。这里关闭该已知断点，不代表全样本所有效果的 Windows 像素 parity、159 样本视觉总验收或 B7 性能预算完成。
+
+**纠正的合同与根因**：此前参考项目导出的 1-based/unknown=0 假设错误。官方公开 [Interactive 教程与可下载示例](https://docs.wallpaperengine.io/en/scene/puppet-warp/interactive.html) 的两骨骼 rig 使用 root=0、child=1；实际样本 `MouseBone` 同为 index 1。现在 C host、Swift journal、catalog helper 与 playback 全部使用 dense 0-based/unknown=-1，字符串与数字访问同一骨骼。旧点击 139.050323 的 mesh 突跳不再成立，当前初次按下最大位移只有浮点基线 0.000034。第二个根因是 MDLS 平移物理参数此前被丢弃，持久 override 无法回弹；唯一 playback 现消费 typed spring/rigid、stiffness/friction/inertia/max-distance，先更新 physics 再接受脚本写入，velocity/pose/revision 一起 commit/discard。[官方约束说明](https://docs.wallpaperengine.io/en/scene/puppet-warp/boneconstraints.html) 明确 Spring 回原位、Rigid 保留位置；旧“release 必须保持”验收不适用于本样本。完整边界由[格式合同 §11](scene-format-and-render-graph.md#11-二进制资产合同tex-bc-与-puppet-mdl)拥有。本批未消费官方私有实现表达。
+
+**实际执行身份**：签名 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`；CDHash `1cb5d712b5d1ea1687eb72221887290a3d7fdf86`，executable SHA-256 `ae8342a0b7704db4cb67909b15f87839575eef8b4875131d55b8bf809e795d10`，四次运行签名前后验证均通过。原始 package SHA-256 `e8c983c5990942f0ca0774064425b869ec289d1c0d42baf9f1fd0cc6e7464d7b`，真实样本根未写入。control 仅在隔离副本把所有 authored `effects/shake/effect.json` 的 pass `constantshadervalues.strength` 设为 0，保留脚本、骨骼、其他效果和真实 Date；control package SHA-256 `61d70c56274bf4e01f1468199a0acd68034beae89d4f4b640621724476202cc9`。这是移除一种持续视觉运动的消融，不是性能消融。
+
+| 运行 | 真实输入/验收 | 变形终端帧 / 精确回原终端帧 | 最大 mesh 位移 | 可见主体 ROI |
+|---|---|---|---|---|
+| normal-final | 全部原始效果；普通拖动、松手回弹 | 4 / 222 | 33.874146 | 拖动变化 91.25%；回弹后仍有 Shake 动画 |
+| clamp-complete | 全部原始效果；拖到作者 100 半径以外 | 4 / 154 | 45.112034 | 拖动变化 97.78%；GPU 源精确回原 |
+| outside-final | 在捕获区域外按下并移动 | 0 / 154 | 0.000034（浮点基线） | 无骨骼写入，所有源像素不变 |
+| control-final | 仅禁用 Shake 强度；同一普通拖动 | 4 / 294 | 33.874146 | 拖动变化 **85.49%**，回弹后 **0.0% / mean_delta=0** |
+
+1514×851 Puppet GPU 源在回弹后逐像素 SHA-256 恢复为 `ec865f24f101e075e489f7ba02859d6e4199175c46c86d6f28487e19e388c5ef`。证据由显式 DEBUG readback 的 **同一 surface command buffer completion** 固定 source hash/frame/revision，再匹配同 frame `graph-execution outcome=succeeded gpuCompletion=completed compositorConsumed=true`；不是拼接 CPU 位移与另一帧合成记录。release 后至少 3 个 later terminal frame 回原，区域外还要求按住期间与后续 terminal 消费、零 pose 写入。正常回放的 813 Date visibility 有 true→false→true，strict effect-stage admission / effect execution / graph execution、publication 与 next-frame 均通过，teardown surfaces=0。GPU hash/完整 graph observation 仅显式诊断开启且有采样上限，不进入普通播放要求。
+
+**验收修正及原失败保留**：原样本回弹后的窗口 ROI 仍有 68.25%（普通拖动）/94.05%（限幅）变化，因为作者的 Shake 等效果继续运行；不能把这些变化抹成 0。旧 broad ROI 还包含背景/头发；先前 `spring-visible`、`spring-control-all` 的 NON-PASS 保留。最终统一主体 ROI 为 `[0.58,0.30,0.63,0.35]`，control 用默认 `window` return gate，normal/clamp 显式 `puppet-source` return gate，仍强制可见拖动及精确 GPU 回原/同帧终端证据；没有放宽既有 hold gate，也没有删 required layer。75 秒 `clamp-final` 因真实秒窗等待导致尾部不足，原 FAIL 也保留，115 秒 `clamp-complete` 才计最终通过。
+
+**复现入口**：仓库 `script/scene_puppet_interaction_matrix.json` 固定普通拖动的输入、ROI、响应与诊断 owner；执行 `python3 script/scene_wallpaper_benchmark.py --app <上述签名 executable> --sample-root <隔离样本父目录> --matrix script/scene_puppet_interaction_matrix.json --output-dir <fresh目录> --duration 115 --after-snapshot-delay 12 --require-effect-stage-admission --require-effect-execution --require-graph-execution`。`cursor_start_second=20.5` 等待真实时钟窗口，不替换 Date；按下 `[0.3231,0.3711]`，普通目标 `[0.3751,0.3711]`。限幅仅将目标改为 `[0.60,0.3711]`；outside 将 response 改 `no-capture`，按下 `[-0.7,-0.7]`、目标 `[-0.65,-0.7]`。control 用上述一次 Shake 强度消融并移除 `cursor_drag_return_space`，回原窗口阈值保持默认 0.001。报告保留原 matrix SHA；仓库 matrix 仅重排格式/标题，不改变运行参数。
+
+**验证**：最终产品定向 **31/31**（真实 QuickJS bone/cursor、boolean visibility、catalog/world-local、平移物理），工具/ROI/graph telemetry/source sets **177/177**；此前 checkpoint 197 项中 196 PASS、1 real-fixture skip，未用 skip 代替上述真实运行。参数 fixture 覆盖 15/120 FPS 回弹、stiffness/friction/inertia 响应、rigid 保持、max-distance、非法参数、事务 rollback、半径限幅及 release/outside 零写入。签名 Debug build、code-health（933 Swift，197 review warnings，无 hard-limit error）、diff-check 通过。未执行 fixed/full corpus、长稳、多屏、parallax-enabled bone 或官方数值对照；旋转/重力/IK 对应骨骼仍局部诊断保留合法 rig/动画，这些不冒充本次平移交互完成。
+
+**工作区产物**：benchmark 已清理各次 staged App/HOME/sample runtime；本批隔离 control、提取资产及可重建编译中间缓存已清理。保留上述身份的 `Build/Products/Debug/MyWallpaperX.app`、原始失败现场与提纯证据供复核；清理精确清单记录在本机批次 `cleanup-manifest.json`。
+
+**证据固定**：本机忽略缓存批次 `b9-spring-closure-20260910`，主 manifest SHA-256 `114d3c80d33c4a4e0e3b46df1dfc60d9a8aeaf1879659ca5b98cea0edbc91f36`，补充快照/输入矩阵/消融清单/测试构建日志 manifest SHA `4d78b49904fe5eddfaf487069e34edd4ffdf54b0ae24d4bd8851127c042049fd`。缓存缺失时按上述协议重跑，摘要不冒充 fresh 结果。
+
+| 原始 report | SHA-256 |
+|---|---|
+| normal-final | `388590024c9927b3f3d867e9241f9ec748d3f82bc5a218cf8efba4ea13d246a9` |
+| control-final | `7b8a747f6b2b06f767a9dbf1c6102545298a04a0450a4f774e0400b5d98455fd` |
+| clamp-complete | `e44f342b52b3cecda733655f61546f733a4f5b84329e55efe8841b35817709e5` |
+| outside-final | `f701dcb0f693880a969236dc0a14c3ad650fbd4da539cf50e45122ef79000141` |
+
 <a id="e-2026-09-10-b9-wiring-review"></a>
 ### 2026-09-10 B9 上层接线审核、真实 bone drag 与剩余可见验收
+
+> 本段为 `fb3e1ed0` 前置批次历史证据，索引与 release 合同已被 [B9 回弹闭环](#e-2026-09-10-b9-spring-closure) 纠正；下述 NON-PASS 原始报告保留，不作为当前状态。
 
 本批纠正 `6ae3ce50` 后的上层接线，owned boundary 为 SceneScript vector/cursor、Puppet pose/playback 和动态 provider demand。真实 `thisLayer` 现在安装 bone API；MDL 父索引替代 index−1 推断，world setter 逆变换真实父世界矩阵并原子生成 local journal，后代按父序更新。cursor mutation 先于 update，owner discard 与未提交 surface frame 均恢复 pose。无 animation clip 的 script Puppet 复用既有 playback，以独立 bone revision 触发蒙皮；camera parallax 关闭时 authored 非零 depth 不再阻止 cursor admission，Vec3 补 `length/normalize`。启动安装名称，帧刷新来自当前动画/override 和同一 image model-to-world；未新增第二套持久骨骼 owner。
 
@@ -66,13 +103,15 @@ Graph target plan 已识别“唯一 history seed + 同格式同 authored extent
 <a id="e-2026-09-10-puppet-bone-frame"></a>
 ### 2026-09-10 Puppet 骨骼身份、坐标合同与矩阵复用（B7/B9）
 
-MDLS reader 现在保留 bone name；`ScenePuppetBoneCatalog` 保留作者顺序、父索引和唯一非空 name→index，未命名骨骼仍可按数字访问。`ScenePuppetBoneTransformFrame` 是帧内值：local/world 转换包括调用者传入的 layer-to-world，world 不含 skinning inverse-bind；非法 handle、重复名、坏 parent、非有限矩阵、奇异 parent 与乘法溢出在发布前拒绝，失败保留原 local/world。官方公开 `lib.sceneScript-v2.8.d.ts:1832–1880` 定义 world/local API；数字 adapter 的 1-based/unknown=0 来自参考项目 MirageWallpaper `117896110c795270f3125f283b4183ca70a3f058` 的 `PuppetRig.cpp::boneIndex`，只记参考合同，不冒充官方 index parity。
+MDLS reader 现在保留 bone name；`ScenePuppetBoneCatalog` 保留作者顺序、父索引和唯一非空 name→index，未命名骨骼仍可按数字访问。`ScenePuppetBoneTransformFrame` 是帧内值：local/world 转换包括调用者传入的 layer-to-world，world 不含 skinning inverse-bind；非法 handle、重复名、坏 parent、非有限矩阵、奇异 parent 与乘法溢出在发布前拒绝，失败保留原 local/world。官方公开 `lib.sceneScript-v2.8.d.ts:1832–1880` 定义 world/local API；当时数字 adapter 的 1-based/unknown=0 来自参考项目 MirageWallpaper `117896110c795270f3125f283b4183ca70a3f058` 的 `PuppetRig.cpp::boneIndex`，该假设现已由官方公开示例推翻：当前统一为 0-based/unknown=-1，见 [B9 回弹闭环](#e-2026-09-10-b9-spring-closure)。
 
 B7 的唯一 playback owner 预分配并复用 local/skin matrix scratch，分配式 evaluator 与 runtime 共享同一采样计算；没有第二套骨骼长期状态。`python3 -m unittest script.tests.test_scene_puppet_rig script.tests.test_scene_puppet_playback script.tests.test_scene_puppet_bone_catalog -q`：**27 项，26 PASS / 1 skip**（隔离的三份真实 rig fixture 不在该测试约定位置），覆盖帧输出等价、层级及 world setter、非法输入原子性。当前 Developer ID Debug build 成功；该骨骼基础批次没有 Puppet 专用 fresh GPU/ROI 或 3-run 性能消融；后继普通 playback 回放见上方 B3 证据，仍没有 bone mutation 产品执行，旧 CPU p95 不能证明新增 scratch 的收益。
 
-本段记录基础批次当时的证据上限：name/identity `S1`，typed frame fixture 与 scratch 接线 `S2`。QuickJS→mesh 的后继实现和真实拖拽结果已由 [B9 接线审核](#e-2026-09-10-b9-wiring-review) 取代；B9 仍因最终 ROI/全部参数验收开放，不能继续沿用“host 尚无 bone API”作为当前断点。
+本段记录基础批次当时的证据上限：name/identity `S1`，typed frame fixture 与 scratch 接线 `S2`。QuickJS→mesh 的后继实现和真实拖拽结果已由 [B9 接线审核](#e-2026-09-10-b9-wiring-review) 取代；当前闭环状态以 [B9 回弹闭环](#e-2026-09-10-b9-spring-closure) 为准，不能继续沿用“host 尚无 bone API”作为当前断点。
 
 ### 2026-09-09 当前身份复跑与阶段判定
+
+> 09-09 历史快照，后继 B3/B9 状态见本页上方；不据此恢复已修复断点。
 
 当前工作的阶段仍是 **P1 公共首断点清零（effect-chain 优先）**，并与 P2 用户反馈样本逐项闭合并行；尚未进入 P4 视觉复核收口或 P5 稳定性/发布门。代表结构切片的状态是：B1 三例结构闭合，B2 代表的 aggregate/provider publication 闭合，B4 代表的 color-contract 结构闭合，B7 只完成启动/teardown 生命周期；B3、B5、B6、B9、B7 CPU 预算以及各代表的视觉/作者参数复核仍开放。
 

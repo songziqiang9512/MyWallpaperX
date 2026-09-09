@@ -32,12 +32,18 @@ extension DebugScenePlaybackRunner {
                 primaryButtonIsDown: true,
                 state: "drag"
             )
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) {
+                requestSnapshot(reason: "drag-held", outputDirectory: outputDirectory)
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
                 setPointer(
                     at: destination,
                     primaryButtonIsDown: false,
                     state: "release"
                 )
+                DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+                    requestSnapshot(reason: "spring-after", outputDirectory: outputDirectory)
+                }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
                     requestSnapshot(
                         reason: "hover",

@@ -1,22 +1,21 @@
 import simd
 
-/// Script-facing Puppet bone identity is 1-based.  The format/evaluator side
-/// remains dense and zero-based; zero is reserved for an unknown name/handle.
+/// Script and MDLS use the same dense zero-based identity. The official
+/// two-bone interactive example addresses its child at index 1; -1 is invalid.
 nonisolated enum ScenePuppetBoneScriptIndex {
     static func scriptIndex(
         forName name: String,
         catalog: ScenePuppetBoneCatalog
     ) -> Int {
-        guard let dense = catalog.index(forName: name) else { return 0 }
-        return dense + 1
+        guard let dense = catalog.index(forName: name) else { return -1 }
+        return dense
     }
 
     static func denseIndex(
         fromScriptIndex scriptIndex: Int,
         catalog: ScenePuppetBoneCatalog
     ) -> Int? {
-        guard scriptIndex > 0 else { return nil }
-        let dense = scriptIndex - 1
+        let dense = scriptIndex
         guard catalog.entries.indices.contains(dense) else { return nil }
         return dense
     }

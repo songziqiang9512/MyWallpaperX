@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 
 struct SceneMdlPuppetRig {
     struct Bone {
@@ -7,16 +8,60 @@ struct SceneMdlPuppetRig {
         /// discarding it while reading the MDLS record.
         let name: String
         let parentIndex: Int
+        let translationPhysics: TranslationPhysics?
+        let physicsDiagnostic: String?
         let bindLocalMatrixColumnMajor: [Float]
 
         init(
             name: String = "",
             parentIndex: Int,
-            bindLocalMatrixColumnMajor: [Float]
+            bindLocalMatrixColumnMajor: [Float],
+            translationPhysics: TranslationPhysics? = nil,
+            physicsDiagnostic: String? = nil
         ) {
             self.name = name
+            self.translationPhysics = translationPhysics
+            self.physicsDiagnostic = physicsDiagnostic
             self.parentIndex = parentIndex
             self.bindLocalMatrixColumnMajor = bindLocalMatrixColumnMajor
+        }
+    }
+
+    struct TranslationPhysics: Equatable {
+        let spring: Bool
+        let stiffness: Float
+        let friction: Float
+        let inertia: Float
+        let maxDistance: Float
+
+        static func read(metadata: Data) throws -> Self? {
+            guard !metadata.isEmpty else { return nil }
+            guard let object = try JSONSerialization.jsonObject(with: metadata) as? [String: Any]
+            else { throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata }
+            let spring = object["se"] as? Bool == true
+            let rigid = object["re"] as? Bool == true
+            guard spring || rigid, object["t"] as? Bool == true else { return nil }
+            // This slice admits the documented translational spring/rigid
+            // mode. Other enabled solvers cannot silently become this one.
+            guard object["r"] as? Bool != true, object["ge"] as? Bool != true,
+                  object["ik"] as? Bool != true else {
+                throw SceneMdlPuppetRigReadError.unsupportedPhysicsMode
+            }
+            func finite(_ key: String, fallback: Float) throws -> Float {
+                guard let value = object[key] else { return fallback }
+                guard let number = value as? NSNumber,
+                      CFGetTypeID(number) != CFBooleanGetTypeID(),
+                      number.doubleValue.isFinite, number.doubleValue >= 0,
+                      number.doubleValue <= 1_000_000 else {
+                    throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata
+                }
+                return number.floatValue
+            }
+            return try Self(spring: spring,
+                stiffness: finite("ts", fallback: 200),
+                friction: finite("tf", fallback: 10),
+                inertia: finite("ti", fallback: 30),
+                maxDistance: finite("tm", fallback: 200))
         }
     }
 
@@ -30,6 +75,8 @@ struct SceneMdlPuppetRig {
 }
 
 enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
+    case invalidPhysicsMetadata
+    case unsupportedPhysicsMode
     case unsupportedMagic(String)
     case skeletonBlockMissing
     case invalidSkeletonBounds
@@ -43,6 +90,8 @@ enum SceneMdlPuppetRigReadError: Error, CustomStringConvertible, Equatable {
 
     nonisolated var description: String {
         switch self {
+        case .invalidPhysicsMetadata: return "invalid bone physics metadata"
+        case .unsupportedPhysicsMode: return "unsupported enabled bone physics mode"
         case let .unsupportedMagic(magic):
             return "unsupported rig mdl magic \(magic)"
         case .skeletonBlockMissing:
@@ -185,11 +234,24 @@ enum SceneMdlPuppetRigReader {
             ) else {
                 throw SceneMdlPuppetRigReadError.invalidBoneRecord(boneIndex)
             }
+            let physics: SceneMdlPuppetRig.TranslationPhysics?
+            var physicsDiagnostic: String?
+            do {
+                physics = try SceneMdlPuppetRig.TranslationPhysics.read(
+                    metadata: Data(data[cursor..<metadataEnd]))
+            } catch SceneMdlPuppetRigReadError.unsupportedPhysicsMode {
+                // An unsupported visual solver is local to this bone; it
+                // must not discard an otherwise valid animated skeleton.
+                physics = nil
+                physicsDiagnostic = "unsupported-enabled-physics"
+            }
             cursor = metadataEnd + 1
             bones.append(.init(
                 name: name,
                 parentIndex: parentIndex,
-                bindLocalMatrixColumnMajor: matrix
+                bindLocalMatrixColumnMajor: matrix,
+                translationPhysics: physics,
+                physicsDiagnostic: physicsDiagnostic
             ))
         }
         return bones

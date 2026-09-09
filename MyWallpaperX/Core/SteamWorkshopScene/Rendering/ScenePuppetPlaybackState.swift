@@ -89,9 +89,13 @@ final class ScenePuppetPlaybackState {
     private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
+    private let boneEvidence = ScenePuppetBoneEvidence()
+    private var boneWrittenInFrame = false
 #endif
     private var boneRevision: UInt64 = 0
-    private var boneFrameBaseline: (overrides: [Int: ScenePuppetBoneOverride], revision: UInt64)?
+    private var translationMotions: [Int: ScenePuppetTranslationMotion] = [:]
+    private var boneFrameBaseline: (overrides: [Int: ScenePuppetBoneOverride], revision: UInt64,
+        motions: [Int: ScenePuppetTranslationMotion])?
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -360,6 +364,16 @@ final class ScenePuppetPlaybackState {
             submission.frameSignature = signature
             submission.boneRevision = boneRevision
         }
+#if DEBUG
+        if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
+        boneEvidence.record(layerID: layerID, revision: boneRevision,
+            frame: dynamicValues.frameIndex, sceneTime: sceneTime,
+            scriptWritten: boneWrittenInFrame,
+            displacement: zip(positionScratch, mesh.vertices).reduce(Float(0)) {
+                max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
+            }, texture: targetTexture, commandBuffer: commandBuffer)
+        }
+#endif
     }
 
     /// Returns the current animated pose for SceneScript getters. This uses
@@ -397,14 +411,51 @@ final class ScenePuppetPlaybackState {
         )
     }
 
+    /// The authored pose/physics is evaluated before callbacks each frame;
+    /// scripts may replace that result only for the frame they write.
+    func advanceBonePhysics(sceneTime: Double, deltaTime: Double,
+                            dynamicValues: SceneDynamicSnapshot) {
+#if DEBUG
+        boneWrittenInFrame = false
+#endif
+        guard evaluator.rig.bones.contains(where: { $0.translationPhysics != nil }) else { return }
+        if boneFrameBaseline == nil {
+            boneFrameBaseline = (scriptBoneOverrides, boneRevision, translationMotions)
+        }
+        let samples = selection.clips.map { clip in
+            isVisible(clip.layer, dynamicValues: dynamicValues)
+                ? ScenePuppetAnimationEvaluator.frameSample(sceneTime: sceneTime,
+                    rate: clip.layer.rate ?? 1, animation: clip.animation) : nil
+        }
+        guard let base = try? evaluator.boneTransforms(selection: selection, frameSamples: samples)
+        else { return }
+        for (index, bone) in evaluator.rig.bones.enumerated() {
+            guard let configuration = bone.translationPhysics else { continue }
+            var pose = base.local[index]
+            if case let .local(override) = scriptBoneOverrides[index] { pose = override }
+            let target = SIMD3(base.local[index].columns.3.x,
+                base.local[index].columns.3.y, base.local[index].columns.3.z)
+            let position = SIMD3(pose.columns.3.x, pose.columns.3.y, pose.columns.3.z)
+            var motion = translationMotions[index] ?? .init()
+            let next = motion.advance(position: position, target: target,
+                deltaTime: deltaTime, configuration: configuration)
+            translationMotions[index] = motion
+            if next != position {
+                pose.columns.3 = SIMD4(next, 1)
+                scriptBoneOverrides[index] = .local(pose)
+                boneRevision &+= 1
+            }
+        }
+    }
+
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
         guard scriptBoneMutations.contains(where: { $0.layerID == layerID }) else { return }
-        if boneFrameBaseline == nil { boneFrameBaseline = (scriptBoneOverrides, boneRevision) }
+        if boneFrameBaseline == nil { boneFrameBaseline = (scriptBoneOverrides, boneRevision, translationMotions) }
         var next = scriptBoneOverrides
         var accepted = false
         for mutation in scriptBoneMutations where mutation.layerID == layerID {
-            guard mutation.boneIndex > 0,
-                  mutation.boneIndex <= evaluator.boneCount,
+            guard mutation.boneIndex >= 0,
+                  mutation.boneIndex < evaluator.boneCount,
                   mutation.matrix.count == 16,
                   mutation.matrix.allSatisfy(\.isFinite) else { continue }
             let values = mutation.matrix.map(Float.init)
@@ -414,10 +465,14 @@ final class ScenePuppetPlaybackState {
             }
             let matrix = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
             if mutation.localSpace {
-                next[mutation.boneIndex - 1] = .local(matrix)
+                next[mutation.boneIndex] = .local(matrix)
             } else {
-                next[mutation.boneIndex - 1] = .world(matrix)
+                next[mutation.boneIndex] = .world(matrix)
             }
+            translationMotions[mutation.boneIndex]?.velocity = .zero
+#if DEBUG
+            boneWrittenInFrame = true
+#endif
             accepted = true
         }
         scriptBoneOverrides = next
@@ -430,6 +485,7 @@ final class ScenePuppetPlaybackState {
         if let baseline = boneFrameBaseline {
             scriptBoneOverrides = baseline.overrides
             boneRevision = baseline.revision
+            translationMotions = baseline.motions
         }
         boneFrameBaseline = nil
     }
