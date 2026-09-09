@@ -31,8 +31,11 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
         } else {
             authoredUserProperty = nil
         }
-        let projection = authored.flatMap {
-            classify(
+        let projection: Projection? = authored.flatMap {
+            if isInertEventOnlyScript($0.scriptSource) {
+                return nil
+            }
+            return classify(
                 authored: $0,
                 target: target,
                 provenSceneScriptValueTargets: provenSceneScriptValueTargets
@@ -64,13 +67,28 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
             guard let value = normalizedProviderValue(raw) else { return nil }
             // Runtime user input is consumed by the proven SceneScript
             // projection as its parameter; it is not a second material writer.
-            if case .value(.sceneScript)? = projection {
+            if let projection, case .value(.sceneScript) = projection {
                 // keep the typed input in the SceneScript frame channel
             } else {
                 sources.append(.userProperty(value))
             }
         }
         return Binding(valueContributors: sources, scriptAttachments: attachments)
+    }
+
+    /// Media event callbacks such as `mediaThumbnailChanged` may start an
+    /// authored object animation without producing a value for this material
+    /// constant. Treat that exact event-only shape as inert for uniform
+    /// ownership; any script containing update/init remains unproven.
+    private static func isInertEventOnlyScript(_ source: String?) -> Bool {
+        guard let source else { return false }
+        let normalized = source.replacingOccurrences(
+            of: "\\s+", with: "", options: .regularExpression)
+        guard normalized.contains("exportfunctionmediaThumbnailChanged(") else {
+            return false
+        }
+        return !normalized.contains("exportfunctionupdate(")
+            && !normalized.contains("exportfunctioninit(")
     }
 
     static func classify(
