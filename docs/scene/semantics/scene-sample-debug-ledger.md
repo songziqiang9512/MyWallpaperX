@@ -2,7 +2,15 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
-## 2026-09-08 current corpus probe
+## 2026-09-09 current handoff rerun
+
+为把工作树代码、运行身份和现役队列对齐，使用当前工作树构建的 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `7ce6a2fff1b12f8771c4fc768f9a2f204107e1c1`，executable SHA-256 `6edd66b54bbf6486560efe92e270a8bba616faf0b5619c6b9c504bf01c3570e5`）串行复跑 12 个断点样本。matrix SHA-256 为 `fd5f7fd4b52729115cd6f5e6120e80fc3a5dc8992237804f08ec1ed311b7d745`，总 report SHA-256 为 `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`，现场目录为 `/private/tmp/mwx-handoff-current-runtime-20260909-1945`。
+
+结构/执行门结果为 **5/12 strict PASS**：`3662790108`、`3768020435`、`3749463715`、`3754639143`、`3782740481`；**7/12 NON-PASS**：`2959875782`（只剩 layer 813 visibility/Puppet owner）、`3448845950`（dependency-stage、B3 attachment、owner-revoked）、`3792249095`（layer 254 degraded source passthrough）、`3665307769`（layer 412 B3 passthrough，CPU p95 34.535 ms）、`2775915974`（identity-only probe 未取得 required graph execution）、`3775355045`、`3775373546`（首帧 `layer-source-not-ready` 观察诊断，后继帧已恢复）。所有样本 loaded ratio 为 1.000，ready/after 截图均非黑；这些结果只证明结构/生命周期边界，不改变 159 样本的视觉裁决。
+
+其中 B1 的三个命中样本均有完整 GPU/compositor/next-frame 证据，可把该公共编译首断点标为结构闭合；B2 代表的 aggregate/provider publication 在 `2959875782` 仍成立，缺口已从 dependency binding 拆到 B9。B8 两例分别在 frame 12/10 后恢复同一 Program 和唯一 compositor，但严格观察门仍保留 FAIL。该段是当前版本后继证据，旧 2026-09-08 archive 与验收生成页不被覆盖；生成器刷新前必须同时注明时间差。
+
+当前代码集群已经提交为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本页记录的是这些提交构建出的 12 样本结构/执行复跑，不能把 `5/12` strict PASS 解释成视觉通过。视觉完成仍以 159 样本台账的 `0 pass / 19 fail / 140 unreviewed` 为准。
 
 ### 用户可见失败待办（按当前复现更新，不以公共修复代替逐项验收）
 
@@ -14,16 +22,20 @@
 | 3765760121 | 上下颠倒 | utility model/投影策略不一致已修；默认鱼眼开启的当前截图恢复正向，见 E-V4-UTILITY-CAMERA-CONSISTENCY | 倒置修复，整样本未全面验收 |
 | 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | fallback extent 与 fractional additive selector 已修；当前运行已选中 7 个动画片段且人物不再压缩，脸部黑线/缺块仍在 | 部分修复，未通过 |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
-| 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
+| 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；当前 identity-only 复跑仍未取得 required graph execution，顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
 | 3238423642 | 人物头部错位 | Puppet atlas重组预算被前序图层耗尽，最后一层退回原图集；按候选层均衡预算后头部回到身体，见E-V4-PUPPET-BUDGET-FAIRNESS | 构图修复，整体验收未通过 |
-| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，整体验收未通过 |
+| 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；当前复跑仍见 dependency-stage、B3 dynamic attachment 与 layer 1475 owner-revoked，脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，结构部分恢复，整体验收未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
-| 3662790108 | 启动卡在不正确的画面 | 15秒播放有CPU invocation failure及effect-local passthrough，状态推进仍未验收 | 已运行，未通过 |
+| 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
+
+## 2026-09-08 current corpus probe（archive snapshot）
+
+以下内容保留 09-08 静态/隔离 probe 的原始时间边界；它不会覆盖上面的 09-09 handoff rerun。
 
 权威样本根是 `/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`。本次静态 census 发现 **159** 个 numeric sample，`159/159` 的 project、PKGV 和入口 JSON 可解析；sample-id manifest SHA-256 为 `dce37464a0d15c860e3bd8566784f227419d4b2f5e9f4e7f053e38139d760776`。对应的静态快照是 [`scene_capability_census_snapshot.json`](../../../script/scene_capability_census_snapshot.json)（SHA-256 `0346d55c384f90d4931984098e2fd5f01bba18849f952beac9049153747b8351`），摘要清单见[`全样本能力分类与修复台账`](scene-corpus-capability-inventory.md)。
 
