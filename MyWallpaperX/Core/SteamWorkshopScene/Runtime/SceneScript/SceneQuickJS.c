@@ -875,7 +875,7 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
         const char *text = JS_ToCString(context, value);
         if (text == NULL) return false;
         char *cursor = (char *)text;
-        while (isspace((unsigned char)*cursor) || *cursor == '(' || *cursor == '[') cursor++;
+        while (isspace((unsigned char)*cursor) || *cursor == '(' || *cursor == '[' || *cursor == '{') cursor++;
         bool valid = true;
         for (size_t index = 0; index < 3; ++index) {
             char *end = NULL;
@@ -884,7 +884,7 @@ static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) 
             cursor = end;
         }
         while (valid && *cursor != '\0') {
-            if (!isspace((unsigned char)*cursor) && *cursor != ',' && *cursor != ')' && *cursor != ']') { valid = false; break; }
+            if (!isspace((unsigned char)*cursor) && *cursor != ',' && *cursor != ';' && *cursor != ')' && *cursor != ']' && *cursor != '}') { valid = false; break; }
             cursor++;
         }
         JS_FreeCString(context, text);
