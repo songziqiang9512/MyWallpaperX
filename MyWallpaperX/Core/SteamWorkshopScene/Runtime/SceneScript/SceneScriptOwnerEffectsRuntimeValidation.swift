@@ -4,6 +4,7 @@ nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
     enum Subsystem: Sendable {
         case animation
         case video
+        case puppetBone
     }
 
     let ownerTarget: SceneDynamicTarget
@@ -23,6 +24,27 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
         timing: SceneFrameTiming
     ) -> [SceneScriptOwnerEffectsRuntimeFailure] {
         var failures: [SceneScriptOwnerEffectsRuntimeFailure] = []
+        for owner in effects where !owner.puppetBoneMutations.isEmpty {
+            let ownerLayerID: Int? = {
+                switch owner.ownerTarget {
+                case let .layer(id, _), let .text(id, _), let .particle(id, _),
+                     let .effectConstant(id, _, _, _), let .effectVisibility(id, _),
+                     let .scriptInstanceProperty(id, _): return id
+                default: return nil
+                }
+            }()
+            let valid = ownerLayerID != nil && owner.puppetBoneMutations.allSatisfy {
+                $0.layerID == ownerLayerID && $0.boneIndex > 0 && $0.matrix.count == 16 && $0.matrix.allSatisfy(\.isFinite)
+            }
+            if !valid {
+                failures.append(.init(
+                    ownerTarget: owner.ownerTarget,
+                    subsystem: .puppetBone,
+                    commandCount: owner.puppetBoneMutations.count,
+                    reason: "invalid Puppet bone mutation identity or matrix"
+                ))
+            }
+        }
         for owner in effects where !owner.animationMutations.isEmpty {
             if case let .failure(failure) = timelineRuntime.validate(
                 owner.animationMutations,

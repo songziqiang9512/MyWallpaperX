@@ -39,6 +39,40 @@ nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {
     let action: Action
 }
 
+nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {
+    let layerID: Int
+    let boneIndex: Int
+    let localSpace: Bool
+    let matrix: [Double]
+}
+
+nonisolated enum SceneScriptPuppetBoneMutationBridge {
+    static func mutations(owner: OpaquePointer) -> Result<[SceneScriptPuppetBoneMutation], SceneScriptScalarRuntimeFailure> {
+        let count = mwx_scene_quickjs_owner_puppet_bone_mutation_count(owner)
+        guard count <= 256 else { return .failure(.mutationOverflow("Puppet bone mutation buffer exceeded")) }
+        var output: [SceneScriptPuppetBoneMutation] = []
+        output.reserveCapacity(count)
+        for index in 0..<count {
+            var raw = MWXSceneQuickJSPuppetBoneMutation()
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = mwx_scene_quickjs_owner_puppet_bone_mutation_at(owner, index, &raw, &diagnostic, diagnostic.count)
+            guard result == MWX_SCENE_QUICKJS_OK, raw.layer_id >= -9_007_199_254_740_991,
+                  raw.layer_id <= 9_007_199_254_740_991, raw.bone_index > 0,
+                  raw.bone_index <= 256, raw.local_space <= 1 else {
+                return .failure(.invalidArgument(String(cString: diagnostic)))
+            }
+            let matrix = withUnsafeBytes(of: raw.matrix) { bytes in
+                Array(bytes.bindMemory(to: Double.self))
+            }
+            guard matrix.count == 16, matrix.allSatisfy(\.isFinite) else {
+                return .failure(.invalidArgument("invalid Puppet bone matrix"))
+            }
+            output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index), localSpace: raw.local_space != 0, matrix: matrix))
+        }
+        return .success(output)
+    }
+}
+
 /// Keeps one callback owner's heterogeneous side effects together until the
 /// frame transaction has admitted or rejected that owner. Destination layer,
 /// effect, animation and video identities are not owner identities and must
@@ -49,10 +83,28 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
     let videoCommands: [SceneScriptVideoCommand]
+    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+
+    init(
+        ownerTarget: SceneDynamicTarget,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        videoCommands: [SceneScriptVideoCommand],
+        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
+    ) {
+        self.ownerTarget = ownerTarget
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.videoCommands = videoCommands
+        self.puppetBoneMutations = puppetBoneMutations
+    }
 
     var isEmpty: Bool {
         materialFunctionMutations.isEmpty && animationMutations.isEmpty
             && layerMutations.isEmpty && videoCommands.isEmpty
+            && puppetBoneMutations.isEmpty
     }
 }
 

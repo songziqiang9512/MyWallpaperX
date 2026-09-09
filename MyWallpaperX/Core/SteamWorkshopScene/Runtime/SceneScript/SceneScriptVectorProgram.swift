@@ -300,6 +300,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
         var animationMutations: [SceneTimelinePlaybackMutation] = []
         var layerMutations: [SceneScriptLayerMutation] = []
+        var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
         var videoCommands: [SceneScriptVideoCommand] = []
         var videoCommandTargets: Set<SceneDynamicTarget> = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
@@ -353,6 +354,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var initializationLayerMutations: [SceneScriptLayerMutation] = []
             var callbackVideoCommands: [SceneScriptVideoCommand] = []
+            var callbackPuppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
             var playbackMutationCount = 0
             var propertiesLayerMutationCount = 0
             var thumbnailMutationCount = 0
@@ -625,6 +627,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     contentsOf: evaluation.animationMutations
                 )
                 callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackPuppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
                 callbackLayerMutations = SceneScriptLayerMutation.coalescing(
                     callbackLayerMutations
                 )
@@ -634,7 +637,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     materialFunctionMutations: callbackMaterialMutations,
                     animationMutations: callbackAnimationMutations,
                     layerMutations: callbackLayerMutations,
-                    videoCommands: callbackVideoCommands
+                    videoCommands: callbackVideoCommands,
+                    puppetBoneMutations: callbackPuppetBoneMutations
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value
@@ -643,6 +647,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 )
                 animationMutations.append(contentsOf: callbackAnimationMutations)
                 layerMutations.append(contentsOf: callbackLayerMutations)
+                puppetBoneMutations.append(contentsOf: callbackPuppetBoneMutations)
                 videoCommands.append(contentsOf: callbackVideoCommands)
                 if !callbackVideoCommands.isEmpty {
                     videoCommandTargets.insert(target)
@@ -734,7 +739,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             layerMutations: layerMutations,
             videoCommands: videoCommands,
             videoCommandTargets: videoCommandTargets,
-            ownerEffects: ownerEffects
+            ownerEffects: ownerEffects,
+            puppetBoneMutations: puppetBoneMutations
         )
     }
 

@@ -253,6 +253,14 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "isFinite(){return Number.isFinite(this.x)&&Number.isFinite(this.y)&&Number.isFinite(this.z);}"
         "toString(){return `${this.x} ${this.y} ${this.z}`;}"
         "}"
+        "class Mat4 {"
+        "constructor(m){this.m=Array.isArray(m)&&m.length===16?m.slice():[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];}"
+        "static identity(){return new Mat4();}"
+        "static fromTranslation(v){const r=new Mat4();r.m[12]=Number(v.x);r.m[13]=Number(v.y);r.m[14]=Number(v.z||0);return r;}"
+        "translation(v){if(v===undefined)return new Vec3(this.m[12],this.m[13],this.m[14]);this.m[12]=Number(v.x);this.m[13]=Number(v.y);this.m[14]=Number(v.z||0);return this;}"
+        "copy(){return new Mat4(this.m);}"
+        "toString(){return this.m.join(' ');}"
+        "}"
         "function createScriptProperties(){"
         "const values=Object.create(null);"
         "const add=d=>{if(!d||typeof d.name!=='string'||d.name.length===0)throw new TypeError('invalid script property');values[d.name]=d.value;return builder;};"
@@ -267,7 +275,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "function deepFreeze(value){if(value&&typeof value==='object'){Object.getOwnPropertyNames(value).forEach(k=>deepFreeze(value[k]));Object.freeze(value);}return value;}"
         "const console={log(...args){},error(...args){}};"
         "const MediaPlaybackEvent=Object.freeze({PLAYBACK_STOPPED:0,PLAYBACK_PLAYING:1,PLAYBACK_PAUSED:2});"
-        "return {Vec2,Vec3,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
+        "return {Vec2,Vec3,Mat4,createScriptProperties,assignScriptProperties,deepFreeze,console,MediaPlaybackEvent};"
         "})()";
     JSContext *context = domain->context;
     JSValue host = JS_Eval(
@@ -283,6 +291,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     }
     JSValue vec2 = JS_GetPropertyStr(context, host, "Vec2");
     JSValue vec3 = JS_GetPropertyStr(context, host, "Vec3");
+    JSValue mat4 = JS_GetPropertyStr(context, host, "Mat4");
     JSValue builder = JS_GetPropertyStr(context, host, "createScriptProperties");
     JSValue media_playback = JS_GetPropertyStr(
         context, host, "MediaPlaybackEvent"
@@ -294,12 +303,14 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     domain->deep_freeze = JS_GetPropertyStr(context, host, "deepFreeze");
     JS_FreeValue(context, host);
     if (!JS_IsFunction(context, vec2) || !JS_IsFunction(context, vec3) ||
+        !JS_IsFunction(context, mat4) ||
         !JS_IsFunction(context, builder) ||
         !JS_IsObject(media_playback) || !JS_IsObject(console) ||
         !JS_IsFunction(context, domain->script_property_assigner) ||
         !JS_IsFunction(context, domain->deep_freeze)) {
         JS_FreeValue(context, vec2);
         JS_FreeValue(context, vec3);
+        JS_FreeValue(context, mat4);
         JS_FreeValue(context, builder);
         JS_FreeValue(context, media_playback);
         JS_FreeValue(context, console);
@@ -311,6 +322,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     }
     domain->vec2_constructor = JS_DupValue(context, vec2);
     domain->vec3_constructor = JS_DupValue(context, vec3);
+    domain->mat4_constructor = JS_DupValue(context, mat4);
     JSValue global = JS_GetGlobalObject(context);
     const int read_only = JS_PROP_ENUMERABLE;
     int vec2_result = JS_DefinePropertyValueStr(
@@ -318,6 +330,9 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     );
     int vec3_result = JS_DefinePropertyValueStr(
         context, global, "Vec3", vec3, read_only
+    );
+    int mat4_result = JS_DefinePropertyValueStr(
+        context, global, "Mat4", mat4, read_only
     );
     int builder_result = JS_DefinePropertyValueStr(
         context,
@@ -369,7 +384,7 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
     JS_FreeValue(context, shared_get);
     JS_FreeValue(context, shared_set);
     JS_FreeValue(context, global);
-    return vec2_result >= 0 && vec3_result >= 0 && builder_result >= 0
+    return vec2_result >= 0 && vec3_result >= 0 && mat4_result >= 0 && builder_result >= 0
         && media_playback_result >= 0 && console_result >= 0
         && shared_result >= 0;
 }

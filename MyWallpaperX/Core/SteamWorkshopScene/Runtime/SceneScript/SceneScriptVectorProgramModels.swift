@@ -6,6 +6,7 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
     let layerMutations: [SceneScriptLayerMutation]
+    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
     let videoCommands: [SceneScriptVideoCommand]
     let videoCommandTargets: Set<SceneDynamicTarget>
     let ownerEffects: [SceneScriptOwnerEffects]
@@ -18,13 +19,15 @@ nonisolated struct SceneScriptVectorFrameResult: Equatable, Sendable {
         layerMutations: [SceneScriptLayerMutation],
         videoCommands: [SceneScriptVideoCommand],
         videoCommandTargets: Set<SceneDynamicTarget>,
-        ownerEffects: [SceneScriptOwnerEffects] = []
+        ownerEffects: [SceneScriptOwnerEffects] = [],
+        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
     ) {
         self.values = values
         self.failures = failures
         self.materialFunctionMutations = materialFunctionMutations
         self.animationMutations = animationMutations
         self.layerMutations = layerMutations
+        self.puppetBoneMutations = puppetBoneMutations
         self.videoCommands = videoCommands
         self.videoCommandTargets = videoCommandTargets
         self.ownerEffects = ownerEffects

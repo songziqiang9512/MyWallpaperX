@@ -190,6 +190,19 @@ class ScenePuppetBoneCatalogTests(unittest.TestCase):
     def tearDownClass(cls):
         cls._tmp.cleanup()
 
+    def test_quickjs_layer_host_exposes_typed_puppet_bone_transaction(self):
+        host = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneQuickJSLayerHost.c"
+        ).read_text()
+        for method in (
+            "getBoneCount", "getBoneIndex", "getBoneTransform",
+            "getLocalBoneTransform", "setBoneTransform",
+            "setLocalBoneTransform",
+        ):
+            self.assertIn(f'"{method}"', host)
+        self.assertIn("MWXSceneQuickJSPuppetBoneMutation", host)
+
     def test_layer_world_transform_is_applied_to_root_and_world_setter(self):
         self.assertEqual(self.result["placedChildWorldX"], 105)
         self.assertEqual(self.result["placedRootLocalX"], 10)

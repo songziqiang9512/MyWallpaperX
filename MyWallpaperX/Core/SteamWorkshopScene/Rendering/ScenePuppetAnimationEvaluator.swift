@@ -226,7 +226,9 @@ struct ScenePuppetAnimationEvaluator {
         frameSamples: [FrameSample?],
         into output: UnsafeMutableBufferPointer<SIMD2<Float>>,
         localMatricesScratch: inout [simd_float4x4],
-        skinMatricesScratch: inout [simd_float4x4]
+        skinMatricesScratch: inout [simd_float4x4],
+        boneOverrides: [Int: simd_float4x4] = [:],
+        worldBoneOverrides: [Int: simd_float4x4] = [:]
     ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -240,6 +242,23 @@ struct ScenePuppetAnimationEvaluator {
             frameSamples: frameSamples,
             into: &localMatricesScratch
         )
+        for (index, matrix) in boneOverrides where rig.bones.indices.contains(index) {
+            localMatricesScratch[index] = matrix
+        }
+        if !worldBoneOverrides.isEmpty {
+            var worlds = Array(repeating: matrix_identity_float4x4, count: rig.bones.count)
+            for bone in rig.bones {
+                worlds[boneIndex(bone, in: rig)] = bone.parentIndex >= 0
+                    ? worlds[bone.parentIndex] * localMatricesScratch[boneIndex(bone, in: rig)]
+                    : localMatricesScratch[boneIndex(bone, in: rig)]
+            }
+            for (index, matrix) in worldBoneOverrides where rig.bones.indices.contains(index) {
+                let parent = rig.bones[index].parentIndex
+                localMatricesScratch[index] = parent >= 0
+                    ? simd_inverse(worlds[parent]) * matrix : matrix
+                worlds[index] = matrix
+            }
+        }
         try writeSkinMatrices(
             localMatrices: localMatricesScratch,
             into: &skinMatricesScratch
@@ -251,6 +270,10 @@ struct ScenePuppetAnimationEvaluator {
             )
             output[vertexIndex] = point
         }
+    }
+
+    private func boneIndex(_ bone: SceneMdlPuppetRig.Bone, in rig: SceneMdlPuppetRig) -> Int {
+        rig.bones.firstIndex { $0.name == bone.name && $0.parentIndex == bone.parentIndex } ?? 0
     }
 
     /// Computes only the origin-centred extent needed by load-time target

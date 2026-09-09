@@ -78,6 +78,8 @@ final class ScenePuppetPlaybackState {
     /// every changed frame on large rigs.
     private var localMatrixScratch: [simd_float4x4]
     private var skinMatrixScratch: [simd_float4x4]
+    private var scriptBoneOverrides: [Int: simd_float4x4] = [:]
+    private var scriptWorldBoneOverrides: [Int: simd_float4x4] = [:]
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -267,7 +269,9 @@ final class ScenePuppetPlaybackState {
                     frameSamples: frameSamples,
                     into: positions,
                     localMatricesScratch: &localMatrixScratch,
-                    skinMatricesScratch: &skinMatrixScratch
+                    skinMatricesScratch: &skinMatrixScratch,
+                    boneOverrides: scriptBoneOverrides,
+                    worldBoneOverrides: scriptWorldBoneOverrides
                 )) != nil
             }
             guard evaluated else { return }
@@ -330,6 +334,23 @@ final class ScenePuppetPlaybackState {
             encoder.endEncoding()
             submission.frameSignature = signature
         }
+    }
+
+    func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
+        guard scriptBoneMutations.contains(where: { $0.layerID == layerID }) else { return }
+        var next = scriptBoneOverrides
+        for mutation in scriptBoneMutations where mutation.layerID == layerID {
+            guard mutation.boneIndex > 0, mutation.matrix.count == 16 else { continue }
+            let columns = stride(from: 0, to: 16, by: 4).map { offset in
+                SIMD4<Float>(Float(mutation.matrix[offset]), Float(mutation.matrix[offset + 1]), Float(mutation.matrix[offset + 2]), Float(mutation.matrix[offset + 3]))
+            }
+            if mutation.localSpace {
+                next[mutation.boneIndex - 1] = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
+            } else {
+                scriptWorldBoneOverrides[mutation.boneIndex - 1] = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
+            }
+        }
+        scriptBoneOverrides = next
     }
 
     private func isVisible(

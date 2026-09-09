@@ -501,11 +501,15 @@ class SceneMetalView: NSView {
         dynamicTextFieldsByLayerID:
             [Int: Set<SceneDynamicTextField>] = [:],
         materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = [],
+        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneMetalRenderer.FrameOutcome {
         pendingDynamicTextUpdate = nil
+        for playback in puppetPlaybackStates.values {
+            playback.apply(scriptBoneMutations: puppetBoneMutations)
+        }
         let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         guard let drawable = metalLayer.nextDrawable() else {
             performanceTelemetry?.recordDrawableMiss()

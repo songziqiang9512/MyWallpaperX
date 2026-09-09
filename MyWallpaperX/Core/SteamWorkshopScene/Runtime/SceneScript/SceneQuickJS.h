@@ -100,6 +100,16 @@ typedef struct MWXSceneQuickJSLayerMutation {
     const char *font;
     const char *asset_path;
 } MWXSceneQuickJSLayerMutation;
+
+/// A typed Puppet bone write emitted by the existing layer owner transaction.
+/// Matrices use the public Mat4 column-major `m` order and remain borrowed
+/// from the owner until the next transaction boundary.
+typedef struct MWXSceneQuickJSPuppetBoneMutation {
+    int64_t layer_id;
+    int32_t bone_index; /* public 1-based index */
+    uint32_t local_space;
+    double matrix[16];
+} MWXSceneQuickJSPuppetBoneMutation;
 // text/font/asset_path are borrowed from the owner/domain. Callers must copy
 // them before the next layer-mutation begin/discard, snapshot replacement, or
 // owner/domain destruction.
@@ -367,6 +377,33 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
 
 size_t mwx_scene_quickjs_owner_layer_mutation_count(
     const MWXSceneQuickJSOwner *owner
+);
+size_t mwx_scene_quickjs_owner_puppet_bone_mutation_count(
+    MWXSceneQuickJSOwner *owner
+);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
+    MWXSceneQuickJSOwner *owner,
+    int64_t layer_id,
+    uint32_t bone_count,
+    const double *world_matrices,
+    const double *local_matrices,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_puppet_bone_name(
+    MWXSceneQuickJSOwner *owner,
+    uint32_t bone_index,
+    const char *name,
+    size_t name_length,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_puppet_bone_mutation_at(
+    MWXSceneQuickJSOwner *owner,
+    size_t index,
+    MWXSceneQuickJSPuppetBoneMutation *mutation,
+    char *diagnostic,
+    size_t diagnostic_capacity
 );
 
 // Layer mutations remain visible to subsequent callbacks in the same frame.

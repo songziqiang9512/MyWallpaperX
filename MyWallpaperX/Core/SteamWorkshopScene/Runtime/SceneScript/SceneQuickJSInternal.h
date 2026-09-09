@@ -32,6 +32,8 @@
 #define MWX_SCENE_QUICKJS_MAX_STORAGE_VALUE_BYTES (64u * 1024u)
 #define MWX_SCENE_QUICKJS_MAX_DYNAMIC_LAYER_OPERATIONS \
     (MWX_SCENE_QUICKJS_MAX_LAYERS * 2)
+#define MWX_SCENE_QUICKJS_MAX_PUPPET_BONES 256
+#define MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS 256
 
 enum MWXSceneQuickJSDynamicLayerTopologyOperationKind {
     MWX_SCENE_QUICKJS_DYNAMIC_LAYER_CREATE = 1,
@@ -193,6 +195,7 @@ struct MWXSceneQuickJSDomain {
     JSContext *context;
     JSValue vec2_constructor;
     JSValue vec3_constructor;
+    JSValue mat4_constructor;
     JSValue deep_freeze;
     JSValue script_property_assigner;
     JSValue active_engine;
@@ -288,6 +291,15 @@ struct MWXSceneQuickJSOwner {
     MWXSceneQuickJSTimerRecord timers[MWX_SCENE_QUICKJS_MAX_TIMERS];
     bool rejection_overflow;
     size_t layer_mutation_count;
+    size_t puppet_bone_mutation_count;
+    int64_t puppet_bone_layer_id;
+    uint32_t puppet_bone_count;
+    char *puppet_bone_names[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES];
+    double puppet_bone_world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    double puppet_bone_local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+    MWXSceneQuickJSPuppetBoneMutation puppet_bone_mutations[
+        MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS
+    ];
     bool dynamic_layer_transaction_active;
     bool dynamic_layer_topology_participating;
     size_t dynamic_layer_created_count;

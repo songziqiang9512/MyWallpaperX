@@ -1089,6 +1089,7 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     mwx_scene_quickjs_install_job_host(domain);
     domain->vec2_constructor = JS_UNDEFINED;
     domain->vec3_constructor = JS_UNDEFINED;
+    domain->mat4_constructor = JS_UNDEFINED;
     domain->deep_freeze = JS_UNDEFINED;
     domain->script_property_assigner = JS_UNDEFINED;
     domain->active_engine = JS_UNDEFINED;
@@ -1121,6 +1122,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     if (domain->context != NULL) {
         JS_FreeValue(domain->context, domain->vec2_constructor);
         JS_FreeValue(domain->context, domain->vec3_constructor);
+        JS_FreeValue(domain->context, domain->mat4_constructor);
         JS_FreeValue(domain->context, domain->deep_freeze);
         JS_FreeValue(domain->context, domain->script_property_assigner);
         JS_FreeValue(domain->context, domain->active_engine);
@@ -1524,6 +1526,8 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     if (owner == NULL) {
         return;
     }
+    for (uint32_t i = 0; i < MWX_SCENE_QUICKJS_MAX_PUPPET_BONES; ++i)
+        free(owner->puppet_bone_names[i]);
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);

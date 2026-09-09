@@ -509,6 +509,8 @@ extension SceneDesktopWallpaperHost {
                 subsystem = "animationCommands"
             case .video:
                 subsystem = "videoCommands"
+            case .puppetBone:
+                subsystem = "puppetBoneMutations"
             }
             NSLog(
                 "MWX SceneScript VM: %@=%d owner=%@ callback=rejected failure=%@ fallback=previous-current",
@@ -520,6 +522,9 @@ extension SceneDesktopWallpaperHost {
         }
         let animationMutations = admittedOwnerEffects.flatMap(
             \.animationMutations
+        )
+        let puppetBoneMutations = admittedOwnerEffects.flatMap(
+            \.puppetBoneMutations
         )
         let videoCommands = admittedOwnerEffects.flatMap(\.videoCommands)
         func admittedValues(
@@ -620,6 +625,7 @@ extension SceneDesktopWallpaperHost {
                 dynamicTextFieldsByLayerID:
                     launchContext.frameSchema.dynamicTextFieldsByLayerID,
                 materialFunctionMutations: materialFunctionMutations,
+                puppetBoneMutations: puppetBoneMutations,
                 mediaThumbnail: mediaThumbnailSnapshot,
                 audioSpectrum: audioSpectrum,
                 performanceTelemetry: Self.usesDebugEvidenceWindow
