@@ -48,6 +48,11 @@ struct ScenePuppetAnimationEvaluator {
     private let preparedAnimationsByID: [Int: PreparedAnimation]
     private let preparedVertices: [PreparedVertex]
 
+    /// Launch-stable skeleton size used by the playback owner's reusable
+    /// matrix storage.  The rig itself remains private so callers cannot
+    /// bypass the evaluator's hierarchy and validation contracts.
+    var boneCount: Int { rig.bones.count }
+
     init(
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
@@ -195,27 +200,54 @@ struct ScenePuppetAnimationEvaluator {
         return positions
     }
 
-    /// Fills a caller-owned position buffer for the runtime path. Keeping the
-    /// storage outside the evaluator avoids a large temporary allocation on
-    /// every frame while preserving the same per-vertex accumulation order as
-    /// `deformedPositions`.
+    /// Fills caller-owned positions using the same per-vertex accumulation order.
     func writeDeformedPositions(
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?],
         into output: UnsafeMutableBufferPointer<SIMD2<Float>>
     ) throws {
+        var localMatrices = Array(
+            repeating: matrix_identity_float4x4,
+            count: rig.bones.count
+        )
+        var skinMatrices = localMatrices
+        try writeDeformedPositions(
+            selection: selection,
+            frameSamples: frameSamples,
+            into: output,
+            localMatricesScratch: &localMatrices,
+            skinMatricesScratch: &skinMatrices
+        )
+    }
+
+    /// Playback reuses both matrix arrays after its frame signature changes.
+    func writeDeformedPositions(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
+        into output: UnsafeMutableBufferPointer<SIMD2<Float>>,
+        localMatricesScratch: inout [simd_float4x4],
+        skinMatricesScratch: inout [simd_float4x4]
+    ) throws {
         guard output.count >= preparedVertices.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
-        let matrices = try localMatrices(
+        guard localMatricesScratch.count >= rig.bones.count,
+              skinMatricesScratch.count >= rig.bones.count else {
+            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+        }
+        try writeLocalMatrices(
             selection: selection,
-            frameSamples: frameSamples
+            frameSamples: frameSamples,
+            into: &localMatricesScratch
         )
-        let skinMatrices = try skinMatrices(localMatrices: matrices)
+        try writeSkinMatrices(
+            localMatrices: localMatricesScratch,
+            into: &skinMatricesScratch
+        )
         for vertexIndex in preparedVertices.indices {
             let point = deformedPoint(
                 vertex: preparedVertices[vertexIndex],
-                skinMatrices: skinMatrices
+                skinMatrices: skinMatricesScratch
             )
             output[vertexIndex] = point
         }
@@ -311,29 +343,44 @@ struct ScenePuppetAnimationEvaluator {
         selection: ScenePuppetAnimationSelection,
         frameSamples: [FrameSample?]
     ) throws -> [simd_float4x4] {
-        guard selection.clips.count == frameSamples.count else {
+        var output = bindLocalMatrices
+        try writeLocalMatrices(selection: selection, frameSamples: frameSamples, into: &output)
+        return output
+    }
+
+    private func writeLocalMatrices(
+        selection: ScenePuppetAnimationSelection,
+        frameSamples: [FrameSample?],
+        into output: inout [simd_float4x4]
+    ) throws {
+        guard selection.clips.count == frameSamples.count,
+              output.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
         switch selection.composition {
         case .singleAbsolute:
             guard selection.clips.count == 1,
                   let frameSample = frameSamples[0] else {
-                return bindLocalMatrices
+                for boneIndex in rig.bones.indices {
+                    output[boneIndex] = bindLocalMatrices[boneIndex]
+                }
+                return
             }
-            return try localMatrices(
-                animation: selection.clips[0].animation,
-                frameSample: frameSample
-            )
+            let animation = selection.clips[0].animation
+            guard animation.transformsByBone.count == rig.bones.count else {
+                throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
+            }
+            for boneIndex in rig.bones.indices {
+                output[boneIndex] = Self.matrix(from: try Self.sample(
+                    animation.transformsByBone[boneIndex],
+                    frameSample: frameSample
+                ))
+            }
+
         case .layered:
-            var localMatrices: [simd_float4x4] = []
-            localMatrices.reserveCapacity(rig.bones.count)
             for boneIndex in rig.bones.indices {
                 var pose = bindPoses[boneIndex]
-                // A replacement layer owns the base pose for each bone.  If
-                // the authored stack contains only additive clips, the first
-                // active additive track is promoted to that base; otherwise
-                // its frame-0 offset would be discarded and the whole puppet
-                // would be displaced toward bind space.
+                // The first replacement, or first active additive track, owns the base pose.
                 let baseClipIndex = Self.baseClipIndex(
                     boneIndex: boneIndex,
                     clips: selection.clips,
@@ -342,23 +389,21 @@ struct ScenePuppetAnimationEvaluator {
                 )
                 if let baseClipIndex,
                    let baseSample = frameSamples[baseClipIndex],
-                   let prepared = preparedAnimationsByID[selection.clips[baseClipIndex].animation.id],
+                   let prepared = preparedAnimationsByID[
+                       selection.clips[baseClipIndex].animation.id
+                   ],
                    prepared.authoredBones.contains(boneIndex) {
                     pose = try Self.sample(
                         prepared.posesByBone[boneIndex],
                         frameSample: baseSample
                     )
                 }
-
                 for (clipIndex, clip) in selection.clips.enumerated() {
                     guard let frameSample = frameSamples[clipIndex],
                           let prepared = preparedAnimationsByID[clip.animation.id],
-                          prepared.posesByBone.indices.contains(boneIndex) else {
-                        continue
-                    }
-                    guard prepared.authoredBones.contains(boneIndex) else { continue }
-                    // The base replacement (including a promoted additive
-                    // layer) is already represented by `pose`.
+                          prepared.posesByBone.indices.contains(boneIndex),
+                          prepared.authoredBones.contains(boneIndex)
+                    else { continue }
                     if clipIndex == baseClipIndex { continue }
                     if clip.layer.additive == true {
                         pose = try Self.additive(
@@ -370,9 +415,8 @@ struct ScenePuppetAnimationEvaluator {
                         )
                     }
                 }
-                localMatrices.append(Self.matrix(from: pose))
+                output[boneIndex] = Self.matrix(from: pose)
             }
-            return localMatrices
         }
     }
 
@@ -624,19 +668,33 @@ struct ScenePuppetAnimationEvaluator {
     private func skinMatrices(
         localMatrices: [simd_float4x4]
     ) throws -> [simd_float4x4] {
-        guard localMatrices.count == rig.bones.count else {
+        var result = Array(
+            repeating: matrix_identity_float4x4,
+            count: rig.bones.count
+        )
+        try writeSkinMatrices(localMatrices: localMatrices, into: &result)
+        return result
+    }
+
+    /// Build parent-first world transforms before converting the same storage
+    /// to skin matrices, so children never consume an inverse-bind transform.
+    private func writeSkinMatrices(
+        localMatrices: [simd_float4x4],
+        into output: inout [simd_float4x4]
+    ) throws {
+        guard localMatrices.count >= rig.bones.count,
+              output.count >= rig.bones.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
         }
-        var animatedWorldMatrices: [simd_float4x4] = []
-        animatedWorldMatrices.reserveCapacity(rig.bones.count)
         for (boneIndex, bone) in rig.bones.enumerated() {
             let local = localMatrices[boneIndex]
-            let world = bone.parentIndex >= 0
-                ? animatedWorldMatrices[bone.parentIndex] * local
+            output[boneIndex] = bone.parentIndex >= 0
+                ? output[bone.parentIndex] * local
                 : local
-            animatedWorldMatrices.append(world)
         }
-        return zip(animatedWorldMatrices, inverseBindWorldMatrices).map(*)
+        for boneIndex in rig.bones.indices {
+            output[boneIndex] *= inverseBindWorldMatrices[boneIndex]
+        }
     }
 
     private static func matrix(fromColumnMajor values: [Float]) -> simd_float4x4 {

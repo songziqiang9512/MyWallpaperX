@@ -38,7 +38,7 @@
 | B3 | 开放（证据边界已收窄） | typed producer attachment 仍无法证明；当前 focused owner/shape 门通过 | 只有拿到完整 authored wrapper、owner、target/type/source 与同帧消费证据才扩大合同 |
 | B4/B5 | B4 结构闭合但 geodraw/视觉开放，B5 与后继 owner 开放 | 当前包 `3662790108` 严格结构 PASS（35/35 active effect、81/81 GraphExecutor），但 8 个 geodraw2_1 request 仍走 `generatedStraightAlpha/colorTransfer → boundedSwift`；`3792249095` 仍有 layer 254 `degraded-layer-source-passthrough`，`3448845950` 仍有 `material-generic-owner-revoked`。当前包的 366 启动约 48.09s、7.49 FPS（总报告 SHA `0104f3…`） | 修 geodraw 通用 color-transfer，再独立处理 sampler-schema/owner-revoked；结构 PASS 不等于视觉闭合 |
 | B6 | 开放（作者类型不匹配） | `3747492842` 的 string-as-Vec3 与 scalar `.add` 错误已由 payload 复核；QuickJS 保持 fail-closed | 补合法 Vec3/scalar 正例及可重复异常 payload；不做字符串强转或伪造 API |
-| B9 | 开放（owner 已定位） | `2959875782` layer 813 的 visibility 脚本同时依赖 `thisLayer` Puppet bone API、cursor callbacks 与 `Date`；当前没有相应投影 owner，作者 seed=false 保持休眠 | 在同一 SceneScript vector/cursor 事务 owner 内补 Puppet bone handle 与 visibility publication；先做 identity-free 正反门，再做跨时间窗口和交互实跑 |
+| B9 | 开放（09-10 已补 bone identity/frame 合同，VM 事务待接） | `2959875782` layer 813 的 visibility 脚本同时依赖 `thisLayer` Puppet bone API、cursor callbacks 与 `Date`；当前没有相应投影 owner，作者 seed=false 保持休眠 | 在同一 SceneScript vector/cursor 事务 owner 内补 Puppet bone handle 与 visibility publication；先做 identity-free 正反门，再做跨时间窗口和交互实跑 |
 | B7 | teardown/启动闭合，稳定帧 CPU 待降 | 当前包 `3665307769` exit 0、teardown `surfaces=0`，但 B3 layer 412 passthrough 仍在；CPU p95 `34.535 ms`、GPU p95 `10.300 ms`、driver `27.46 FPS` | 对 Puppet source-update CPU 做 profile/通用降本，目标回到 16.67ms 帧预算；B3 独立处理 |
 | B8 | 记录完成，严格观察门仍保留 FAIL | 当前包 `3775355045` / `3775373546` 均在首帧记录 `22:layer-source-not-ready`，随后 frame 10/12 起 Program、GPU、compositor、next-frame 成立；strict benchmark 仍 FAIL | 不改门禁；若改变等待策略另立产品/门禁条目，并把旧 ledger 行标为 snapshot conflict |
 
@@ -142,6 +142,7 @@
 ### B7 运行稳定性：极慢启动 + 停止时 surface 未释放
 
 - **状态**：`teardown 与极慢启动已闭合；稳定帧 CPU 仍 open（2026-09-09）`
+- **09-10 后继**：playback 已复用 local/skin matrix scratch，26 项通过 / 1 real-fixture skip；尚无新增性能消融，不关闭 CPU 预算，见 [证据](semantics/runtime-evidence-current.md#e-2026-09-10-puppet-bone-frame)。
 - **问题**：`3665307769` 启动 `startupElapsedMS=56245`（56 秒，其余样本约 8–17 秒），播放与截图正常，但 benchmark 停止窗口内 surface 未归零，进程被 SIGKILL（`process exit -15`）。
 - **已核实 owner**：
   - 判定来源：benchmark `script/scene_wallpaper_benchmark.py:6921-6924`——app 日志 `phase=surface-teardown` 的 `surfaces=` 值必须为 0，否则 "Scene surfaces not released"。
@@ -161,10 +162,10 @@
 
 ### B9 Puppet visibility 脚本缺少 `thisLayer` bone/cursor 事务 owner
 
-- **状态**：`open（2026-09-09 从 B2 实跑拆分）`
+- **状态**：`open（2026-09-10：骨骼身份与 typed frame 已补；QuickJS→mesh 事务仍待接线）`
 - **问题**：`2959875782` layer 813（Puppet layer `S2rboob`）的 `visible` authored wrapper seed 为 `false`，脚本的 `update(value)`、`cursorDown`、`cursorUp` 与 `init` 共同使用 `input.cursorWorldPosition`、`thisLayer.getBoneIndex/getBoneTransform/setBoneTransform` 和 `Date.getSeconds()`。当前 binding 没有投影为 `.layer(813, .visibility)`，因此没有 VM、dynamic visibility 或 graph execution 记录，预览日志为 `disposition=previous-current reason=awaiting-scenescript-publication`。
 - **已核实 owner**：`SceneScriptVectorCandidateCatalog.visibilityProjection` 的 independent boolean route 明确排除 `thisLayer`，stateful route 要求 `shared` 或 `thisScene`；standalone cursor route 又把含 `update(value)` 的 image binding留给 vector owner。现有 QuickJS 已有 `thisLayer` identity/effect/部分 transform bridge 与 cursor transaction 基础，但没有 Puppet bone handle 的 typed mutation/publication 合同。
-- **进一步归因**：当前 `SceneQuickJSLayerHost/HandleHost` 没有 `getBoneIndex/getBoneTransform/setBoneTransform`，`MWXSceneQuickJSLayerMutation` journal 也没有 bone mutation；`SceneMdlPuppetRig.Bone` 只保留 parent/matrix，读取时丢弃 authored bone name。因此这不是单个 visibility flag 的漏接，而是约 26 个 census 对象共用的 bone handle/typed Mat4 owner 缺口。实现应保留 name→index identity、有限 Mat4/translation 读写和原子 rollback，仍复用现有 vector/cursor transaction owner。
+- **进一步归因**：当前 `SceneQuickJSLayerHost/HandleHost` 没有 `getBoneIndex/getBoneTransform/setBoneTransform`，`MWXSceneQuickJSLayerMutation` journal 也没有 bone mutation；MDLS reader 已补 name 保留，catalog 与带 layer-to-world 的原子 frame helper 已通过正反门；见 [B7/B9 最新证据](semantics/runtime-evidence-current.md#e-2026-09-10-puppet-bone-frame)。QuickJS 与 mesh 尚未消费该 helper，因此这不是单个 visibility flag 的漏接，而是约 26 个 census 对象共用的 bone handle/typed Mat4 owner 缺口。实现应保留 name→index identity、有限 Mat4/translation 读写和原子 rollback，仍复用现有 vector/cursor transaction owner。
 - **表现**：作者 seed=false 时该 Puppet layer 保持休眠；当前运行窗口 09:23:48–09:24:01 也在脚本 true 窗口 03–39 秒之外，所以不能仅凭该次无执行判为 graph failure。缺失的是同一 owner 对 visibility、cursor capture 与 bone transform mutation 的有序提交。
 - **边界**：不得为 layer 813、名字、时间窗口或样本 ID 加特例；不得在 Puppet evaluator 外再建骨骼状态。失败时只丢弃该 owner 当帧 mutation，保留 previous-current visibility/mesh 与唯一 compositor。
 - **完工动作**：先用 identity-free fixture 锁定 bone name/index lookup、transform read/write、cursor down/up、update 顺序、generation rollback 与非法/stale handle 反例；再用隔离真实样本跨 hidden/visible 秒窗和一次 cursor drag，证明 typed mutation → Puppet evaluator → graph execution → GPU/publication/compositor/next-frame。

@@ -182,6 +182,27 @@ enum Harness {
             frameIndex: 1
         )
         let frame1 = frame1Positions[0]
+        var scratchPositions = Array(
+            repeating: SIMD2<Float>.zero,
+            count: mesh.vertices.count
+        )
+        var localMatrixScratch = Array(
+            repeating: matrix_identity_float4x4,
+            count: evaluator.boneCount
+        )
+        var skinMatrixScratch = localMatrixScratch
+        try scratchPositions.withUnsafeMutableBufferPointer { output in
+            try evaluator.writeDeformedPositions(
+                selection: ScenePuppetAnimationSelection(
+                    clips: [.init(layer: layer(), animation: animation)],
+                    composition: .singleAbsolute
+                ),
+                frameSamples: [.init(frameA: 1, frameB: 1)],
+                into: output,
+                localMatricesScratch: &localMatrixScratch,
+                skinMatricesScratch: &skinMatrixScratch
+            )
+        }
         let expectedFrame1Bounds = frame1Positions.reduce(
             into: SIMD2<Float>(repeating: 0)
         ) { bounds, position in
@@ -383,6 +404,7 @@ enum Harness {
             "mirrorPositions": mirrorPositions,
             "frame0": [frame0.x, frame0.y],
             "frame1": [frame1.x, frame1.y],
+            "scratchFrame1": [scratchPositions[0].x, scratchPositions[0].y],
             "frame1Bounds": [frame1Bounds.x, frame1Bounds.y],
             "frame1BoundsMatch": frame1Bounds == expectedFrame1Bounds,
             "conservativeBoundsCover": conservativeBounds.x >= expectedFrame1Bounds.x
@@ -492,6 +514,7 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
     def test_bind_identity_and_later_frame_movement(self) -> None:
         self.assertEqual(self.result["frame0"], [2, 1])
         self.assertEqual(self.result["frame1"], [5, 1])
+        self.assertEqual(self.result["scratchFrame1"], self.result["frame1"])
 
     def test_bounds_only_reduction_matches_deformed_positions(self) -> None:
         self.assertEqual(self.result["frame1Bounds"], [6, 4])

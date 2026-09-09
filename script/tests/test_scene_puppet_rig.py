@@ -44,6 +44,7 @@ enum Harness {
                 entry["stride"] = mesh.vertexStride
                 entry["vertexCount"] = mesh.vertices.count
                 entry["boneCount"] = rig.bones.count
+                entry["boneNames"] = rig.bones.map(\.name)
                 entry["parents"] = rig.bones.map(\.parentIndex)
                 entry["bindTranslations"] = rig.bones.map {
                     [
@@ -124,7 +125,8 @@ def build_rig_mdl(
         parent = -1 if bone == 0 else bone - 1
         if bad_parent and bone == 1:
             parent = 1
-        mdls += b"\0"
+        bone_name = b"root" if bone == 0 else b"MouseBone"
+        mdls += bone_name + b"\0"
         mdls += struct.pack(
             "<IiI16f",
             1,
@@ -210,6 +212,7 @@ class SceneMdlPuppetRigReaderTests(unittest.TestCase):
         entry = self.results["stride80.mdl"]
         self.assertTrue(entry["ok"], entry)
         self.assertEqual((entry["stride"], entry["boneCount"]), (80, 2))
+        self.assertEqual(entry["boneNames"], ["root", "MouseBone"])
         self.assertEqual(entry["parents"], [-1, 0])
         self.assertEqual(entry["bindTranslations"], [[0, 0], [10, 20]])
         self.assertEqual(entry["weights"][1]["indices"], [0, 1, 0, 0])

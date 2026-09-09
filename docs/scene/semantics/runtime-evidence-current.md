@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-09
+> 最近核对：2026-09-10
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -21,6 +21,15 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-10-puppet-bone-frame"></a>
+### 2026-09-10 Puppet 骨骼身份、坐标合同与矩阵复用（B7/B9）
+
+MDLS reader 现在保留 bone name；`ScenePuppetBoneCatalog` 保留作者顺序、父索引和唯一非空 name→index，未命名骨骼仍可按数字访问。`ScenePuppetBoneTransformFrame` 是帧内值：local/world 转换包括调用者传入的 layer-to-world，world 不含 skinning inverse-bind；非法 handle、重复名、坏 parent、非有限矩阵、奇异 parent 与乘法溢出在发布前拒绝，失败保留原 local/world。官方公开 `lib.sceneScript-v2.8.d.ts:1832–1880` 定义 world/local API；数字 adapter 的 1-based/unknown=0 来自参考项目 MirageWallpaper `117896110c795270f3125f283b4183ca70a3f058` 的 `PuppetRig.cpp::boneIndex`，只记参考合同，不冒充官方 index parity。
+
+B7 的唯一 playback owner 预分配并复用 local/skin matrix scratch，分配式 evaluator 与 runtime 共享同一采样计算；没有第二套骨骼长期状态。`python3 -m unittest script.tests.test_scene_puppet_rig script.tests.test_scene_puppet_playback script.tests.test_scene_puppet_bone_catalog -q`：**27 项，26 PASS / 1 skip**（隔离的三份真实 rig fixture 不在该测试约定位置），覆盖帧输出等价、层级及 world setter、非法输入原子性。当前 Developer ID Debug build 成功；本批没有 Puppet 专用 fresh GPU/ROI 或 3-run 性能消融，旧 CPU p95 不能证明新增 scratch 的收益。
+
+证据上限：name/identity 保留 `S1`；typed frame fixture 与 playback scratch 接线 `S2`。**B9 仍开放**：QuickJS layer host 尚无 bone API，必须继续接同一 vector/cursor owner 的帧 pose 输入、typed Mat4 mutation journal、generation/epoch rollback，再提交至 Puppet evaluator/mesh。骨骼 helper 不是可交互产品实现；不得把 layer 813 记为恢复。
 
 ### 2026-09-09 当前身份复跑与阶段判定
 

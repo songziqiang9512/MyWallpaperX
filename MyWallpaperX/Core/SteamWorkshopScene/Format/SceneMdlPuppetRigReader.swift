@@ -2,8 +2,22 @@ import Foundation
 
 struct SceneMdlPuppetRig {
     struct Bone {
+        /// Authored bone identity is part of the Puppet scripting contract.
+        /// Keep the UTF-8 name beside the validated hierarchy instead of
+        /// discarding it while reading the MDLS record.
+        let name: String
         let parentIndex: Int
         let bindLocalMatrixColumnMajor: [Float]
+
+        init(
+            name: String = "",
+            parentIndex: Int,
+            bindLocalMatrixColumnMajor: [Float]
+        ) {
+            self.name = name
+            self.parentIndex = parentIndex
+            self.bindLocalMatrixColumnMajor = bindLocalMatrixColumnMajor
+        }
     }
 
     struct VertexWeights {
@@ -139,7 +153,9 @@ enum SceneMdlPuppetRigReader {
                 from: cursor,
                 bound: endOffset,
                 maxBytes: maxNameBytes
-            ), String(data: data[cursor ..< nameEnd], encoding: .utf8) != nil else {
+            ), let name = String(
+                data: data[cursor ..< nameEnd], encoding: .utf8
+            ) else {
                 throw SceneMdlPuppetRigReadError.invalidBoneRecord(boneIndex)
             }
             cursor = nameEnd + 1
@@ -171,6 +187,7 @@ enum SceneMdlPuppetRigReader {
             }
             cursor = metadataEnd + 1
             bones.append(.init(
+                name: name,
                 parentIndex: parentIndex,
                 bindLocalMatrixColumnMajor: matrix
             ))

@@ -73,6 +73,11 @@ final class ScenePuppetPlaybackState {
     /// source update was a measurable part of the frame callback cost.
     private var positionScratch: [SIMD2<Float>]
     private var vertexScratch: [SceneQuadVertex]
+    /// Matrix storage is also retained across source updates.  Position and
+    /// vertex reuse alone still left two bone-count-sized arrays allocated for
+    /// every changed frame on large rigs.
+    private var localMatrixScratch: [simd_float4x4]
+    private var skinMatrixScratch: [simd_float4x4]
     private let submissions = SceneSourceUpdateStateFIFO(
         initial: SubmissionState()
     )
@@ -260,7 +265,9 @@ final class ScenePuppetPlaybackState {
                 (try? evaluator.writeDeformedPositions(
                     selection: selection,
                     frameSamples: frameSamples,
-                    into: positions
+                    into: positions,
+                    localMatricesScratch: &localMatrixScratch,
+                    skinMatricesScratch: &skinMatrixScratch
                 )) != nil
             }
             guard evaluated else { return }
@@ -375,5 +382,14 @@ final class ScenePuppetPlaybackState {
                 texcoord: SIMD2(vertex.u, vertex.v)
             )
         }
+        let matrixScratchCount = evaluator.boneCount
+        self.localMatrixScratch = Array(
+            repeating: matrix_identity_float4x4,
+            count: matrixScratchCount
+        )
+        self.skinMatrixScratch = Array(
+            repeating: matrix_identity_float4x4,
+            count: matrixScratchCount
+        )
     }
 }
