@@ -150,6 +150,8 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### B6 SceneScript 运行时异常：Vec3 回调返回值与 effectConstant 输出类型不匹配
 
+**2026-09-10 exact runtime value:** SHA-matched `--keep-runtime` replay (`b9c601618a31372cdac091edf7e16b72f7e02f318541c2100ac9743e6ec9d3b7`) records all four angle callbacks returning the literal string `LEON`; the effectConstant `speed` callback still raises `TypeError: not a function`. The failure is now reproducible at the authored callback payload, not a staging mismatch.
+
 **2026-09-10 runtime evidence:** fresh signed Debug replay of `3747492842` reproduced four `badReturn` angle callbacks (returned string) and one `effectConstant speed` `TypeError: not a function`; report retained at `/private/tmp/mwx-b6-run/report.json`. The blocker is now isolated to SceneQuickJS callback return coercion/ABI, rather than property binding conversion.
 
 - **状态**：`open`
