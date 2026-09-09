@@ -136,6 +136,8 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### B5 generic owner 撤权
 
+**2026-09-10 progress:** pair publication now preserves the prepared attachment's typed `SceneTextureContent`; effect-output and rotation publications no longer reinterpret `.data` as color. Debug build passed (`/private/tmp/mwx-b5-build.log`). Runtime corpus closure and recovery-frame evidence remain pending.
+
 - **状态**：`open（09-10：编译已恢复，1475 首断点为 terminal data/color 合同）`
 - **问题**：generic route 内 `materialFailure.mapsToGenericOwnerRevokedVisualFailure` 成立时撤权到 previous-current。
 - **已核实 owner**：产生点 `SceneResolvedMaterialExecutionCapability+Stages.swift:397-404`；消费/回滚语义 `SceneResolvedMaterialGraphComposition.swift:294/430/461`；白名单 `ProgramFirstStages.swift:388`。
