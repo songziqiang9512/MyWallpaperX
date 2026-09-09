@@ -1053,11 +1053,21 @@ static MWXSceneQuickJSResult call_vec3(
     JS_FreeValue(domain->context, result);
     if (!valid) {
         char message[128];
+        if (JS_IsString(value)) {
+            const char *raw = JS_ToCString(domain->context, value);
+            if (raw) {
+                snprintf(message, sizeof(message), "callback returned invalid Vec3 string: %.96s", raw);
+                JS_FreeCString(domain->context, raw);
+            } else {
+                snprintf(message, sizeof(message), "callback returned invalid Vec3 value (returned %s)", return_shape);
+            }
+        } else {
         snprintf(
             message, sizeof(message),
             "callback returned invalid Vec3 value (returned %s)",
             return_shape
         );
+        }
         write_diagnostic(diagnostic, diagnostic_capacity, message);
         return discard_layer_mutations_after_failure(
             owner, MWX_SCENE_QUICKJS_BAD_RETURN
