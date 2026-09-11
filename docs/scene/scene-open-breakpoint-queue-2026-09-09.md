@@ -66,6 +66,12 @@ Provenance：签名 Debug App（Developer ID，Team `H9QWU9XN8R`）executable SH
 
 **29 NON-PASS 的构成复核（2026-09-12）**：12 个为 `effects=0` 的纯 composition/particle 样本（1300076567、1439846152、1507593643、2356604986、2808874251、3002649614、3629927359、3712499998、3766415113、3790726145、3792817546、3793978239）——本轮回放带了 `--require-effect-execution --require-graph-execution` 严格门，对无 material effect 的样本按构造不可满足，属**门选择造成的假 NON-PASS**（这些样本本身 55 FPS、非黑、teardown 干净）；17 个为真实结构失败（partial claim 的 effect-chain 尾部与首帧 B8 瞬态样本 3775355045/3775373546 等）。后续逐样本收敛针对这 17 个；corpus 级基线重放应去掉不可满足门或按样本能力选择门。
 
+**17 个真实 NON-PASS 的最终分解（2026-09-12 逐样本证据）**：
+- **B8 瞬态观察 FAIL（5 个， sanctioned）**：3743305891（L23）、3747492842（L186）、3775355045（L22）、3775373546（L22）、3780940857（L17）——全部为 `layer-source-not-ready` 首帧瞬态后完全恢复（failure_count=0、expected==succeeded）；corpus 内 `transient_recovered_fallback_layer_ids` 全程为空，按 B8 裁决"观察 FAIL 如实记录瞬态"不改门禁。
+- **effect-local passthrough / CPU invocation 严格合同（4 个）**：3323988600、3395777145、3472940912、3754630802——`execution_succeeded=true`、`contract_succeeded=true`，仅剩 effect CPU invocation 与 effect-local passthrough 严格观察（B3 归属的 effect 合同类）。
+- **真实执行缺口（7 个，下一批修复入口）**：2134765860（expected 14/succeeded 12，gap L526、L674）、3238423642（gap L299，该层日志 outcome=succeeded 但未计入 succeeded 集合——观察合同归因待查）、3396722575（gap L120）、3448845950（gap L1475——B4/B5 历史层，dependency 豁免链需复核）、3788897599（gap L17、L283，L17 同样日志 succeeded 未计入）、3585875739（expected 1/succeeded 0，L17 有 fallback 且 25s 未恢复，非纯瞬态）、3749463715（expected 16/succeeded 0 + window snapshot failed——整链未执行，独立调查）。
+- **产品正确的隐藏链（1 个）**：3788066613——唯一 effect 链在 authored-hidden 层上，capability 正确拒绝（`execution-route-layer-hidden`），观察记录 `contract_succeeded=true`；严格门不可满足，归入门语义而非产品缺口。
+
 | 集群 | 当前阶段 | 已有门 / 当前首断点 | 下一步 |
 | --- | --- | --- | --- |
 | B1 | 代表与两例扩面均结构闭合，视觉待复核 | 当前 Developer ID 包的 `3749463715`、`3754639143`、`3782740481` 均严格 PASS；三例 active effect / graph layer 均有 GPU、compositor、next-frame 证据。当前批次总报告列为 5/12 PASS（report SHA `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`） | B1 的结构首断点可关闭；转入三例视觉/参数复核，若发现新 exact failure 再开后继条目 |
