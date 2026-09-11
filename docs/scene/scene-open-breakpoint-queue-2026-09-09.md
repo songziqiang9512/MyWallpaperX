@@ -30,7 +30,7 @@
 2. **B4/B5 剩余 owner**（2026-09-11 二次收敛）：**`3792249095` 严格 PASS 闭合**（failures=[]，audit `claimed=7 encoded=7 failures=0`，全程 outcome=failed 为 0；非黑 + 运动 mean_delta=0.061 证据齐；report SHA-256 `18ddbf63737fe4b9707ca28be0cb4515881fd230997c1963a7194e9b23c64ba2`，app.log SHA-256 `048f9f17b701a2b9ffc9a181566838228c9be7cf22027e6a68758706dc51f50e`，现场 `/private/tmp/mwx-b45-replay`）。闭合的第五个公共合同：**scene-background × graphInternal × compose 形状优先级**——target identity 合同（named namespace 不与 scene background alias）证明自引用与背景正交后，`dependencyIsCompatible` 接受 `.graphInternal`（aggregate 仍拒）；背景 slot 跟随 authored sampler（移除 Water Waves 时代的 `slot == 1` 残留，E-V4 Shine 任意 slot 前例）；compose 优先于 typed single-pass 分支（两者可同时满足）；多 effect generic-only 链走 per-effect 单写 ordered 路径。加上此前同批的 label 通道/passthrough 自引用颜色/source-carried 辅助数据槽/format 注解 purpose，379 全部 effect 执行。同批 **geodraw `3662790108` 严格 PASS**（详见 runtime evidence）。`same_slot::wrongCompilerSlotRejected` **已闭合（2026-09-11）**：探针证明该形状 authored 分类 unresolved 且全部 strict fact 未命中，产品默认边界回退吞掉编译器漂移拒绝——`hasStrictCompilerOwner` 补入 `SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer` 后恢复拒绝（same_slot 3/3）。连带修复 `independent_signal_producer_lowering` HEAD 既有断裂（harness 补 `premultipliedColorInputSlots` 参数；route 断言同步产品 authority——ordinaryShader→generic-only 在 68dee38b 即如此，prefer-generic 为出生即错的过期期望）。
 3. **B6 / 类型语义**（2026-09-11 闭环 ✅）：用含 B2 全链修复的当前签名包真实回放 `3747492842`——四个 angle target（796/152/265/186）全部 `callback=completed`（typed Vec3 输出）、`badReturn` 全程 0、effectConstant 无 `TypeError`；audit `claimed=7 encoded=7 failures=0`、missing/unexpected 全空。strict 报告仅剩的 2 项失败全部来自 1 次 `186:layer-source-not-ready` 首帧瞬态（B8 类观察，本条目原登记"不单列"）。quickjs 候选（authored_layer_mutation_count 收紧、同值 setter journal、string 返回诊断、launch property overlap）就此定案，错误类型保持 fail-closed。
 4. **B7 / 稳定帧 CPU**：对 Puppet source-update 做 profile，按共享 owner 降低稳定帧 CPU；不以旧 FPS 快照代替新基线。
-5. **B8 / readiness 观察合同**：决定产品等待策略或门禁合同，并保留首帧 readiness 的原始证据，不静默放宽失败。
+5. **B8 / readiness 观察合同**（2026-09-12 闭环 ✅）：官方证据三角（公开文档无 readiness API、静态取证内部 frame-ready 状态、二进制无首帧门字符串）定案为**异步就绪、无阻塞等待**；产品现行 layer-local fallback + 自然恢复与官方一致，不改等待策略、不放宽门禁，观察 FAIL 继续如实记录瞬态。
 6. **全样本视觉收口**：重新生成验收台账，逐项裁决 `19 fail / 140 unreviewed`；任何新首断点回到 P1/P2。
 
 B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办；旋转/重力/IK、多屏、parallax 和官方 parity 是 Puppet 的后续能力边界，不冒充 B9 未完成。
@@ -195,7 +195,12 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### B8 首帧视频源瞬时 fallback 触发观察门
 
-- **状态**：`已重分类为记录完成（2026-09-09；见 [E-V4-TEX-MEDIA-IDENTITY](semantics/scene-sample-debug-ledger.md#e-v4-tex-media-identity图片身份与首帧资源准入2026-09-08)）`
+- **状态**：`closed（2026-09-12：官方证据三角定案——产品异步模型与官方一致，不改等待策略，不放宽门禁）`
+- **2026-09-12 官方证据定案**：三条独立证据均指向同一合同。
+  ① **公开文档**：[IVideoTexture](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IVideoTexture.html) 全部 API 只有 duration/rate/loop/play/pause/stop/isPlaying/getCurrentTime/setCurrentTime/addEndedCallback——**没有任何 readiness、loading、first-frame 查询或等待 API**；作者无法也不需要阻塞首帧。
+  ② **2.8.42 客户端静态取证 §5.3/5.4**：资源/视频 readiness 只影响内部 active/wait 渲染路径；requested-playing、实际 running、frame-ready/dirty 是分开的**内部状态**；stall recovery 从当前时间重启并退避——不存在对外的首帧门。
+  ③ **wallpaper64.exe 二进制复核**（radare2 字符串与导入扫描）：无 first-frame/not-ready/preroll/wait-for-frame 类字符串；Media Foundation 事件处理只有失败/卡顿诊断（`Failed handling MF video event`、`Video stutter detected`、`videomfstutterhack` 配置），视频纹理按"类似 image layer texture 渲染"（`getVideoTexture` 桥接）。
+- **裁决**：官方合同是**异步就绪、无阻塞等待**——层立即存在，纹理内容由 decoder 异步发布。MyWallpaperX 现行行为（首帧 layer-local fallback 保留 previous-current，frame 10/12 起 Program/GPU/compositor/next-frame 自然恢复）与该模型一致，**不需要产品等待策略变更**。strict benchmark 观察门的 FAIL 继续如实记录该瞬态（证据模式观察，非产品缺陷），保持不放宽。
 - **问题**：`3775355045`、`3775373546` frame 0 出现 `diagnostic=layer-local-fallback entries=22:layer-source-not-ready`（视频层首帧源未就绪），当前包分别在 frame 12 / frame 10 起 Program 恢复，GPU/compositor/next-frame 全部成立。benchmark 因此仍记 "resolved material graph observation diagnostic reported" FAIL。
 - **已核实 owner**：benchmark 解析 `layer-local-fallback`（`scene_wallpaper_benchmark.py:625、:2875`）并把观察诊断计为失败（`:3506` 在 allowlist token 集合中，但该 token 属于"记录"而非豁免，最终仍计入 failures）。
 - **表现**：两样本的首帧结构观察仍会记录 FAIL，但播放已恢复；现有 E-V4-TEX-MEDIA-IDENTITY 已证明第 10 帧恢复 Program、第 11 帧继续，publication、GPU completion、compositor 与下一帧成立。当前代码的等待/重试和 layer-local fallback 已有定向覆盖，且没有伪造 source 或扩大失败豁免。
