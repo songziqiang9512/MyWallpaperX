@@ -3,7 +3,10 @@ extension SceneMetalRenderer {
         let utilityLines = SceneUtilityLayerRuntimePlanner.reportLines(
             descriptor: renderDescriptor,
             resolvedMaterialLayerIDs:
-                imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
+                imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? [],
+            admittedResolvedMaterialReferences:
+                imageCompositor.resolvedMaterialRuntime?
+                    .admittedResolvedMaterialReferences ?? []
         )
         let candidateCount = renderDescriptor.layers.filter {
             $0.contentKind == "spotLight"

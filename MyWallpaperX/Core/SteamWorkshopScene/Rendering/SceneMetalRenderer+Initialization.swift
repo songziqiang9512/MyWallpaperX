@@ -75,7 +75,9 @@ extension SceneMetalRenderer {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: renderDescriptor,
             executableUtilityConsumerLayerIDs: executableUtilityConsumerLayerIDs,
-            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs
+            resolvedMaterialLayerIDs: resolvedMaterialLayerIDs,
+            admittedResolvedMaterialReferences: resolvedMaterialRuntime?
+                .admittedResolvedMaterialReferences ?? []
         )
         self.utilityPlansByTriggerLayerID = Dictionary(
             grouping: utilityPlans.values.filter(\.shouldCapture),

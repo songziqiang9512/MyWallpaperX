@@ -6,6 +6,7 @@ extension SceneMetalRenderer {
     func admitResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         userPropertyTextures: [String: MTLTexture],
@@ -35,6 +36,7 @@ extension SceneMetalRenderer {
         switch preflightResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             offscreenTexturePool: offscreenTexturePool,
+            performanceTelemetry: performanceTelemetry,
             frameContext: frameContext,
             worldFramesByLayerID: worldFramesByLayerID,
             cameraFrame: cameraFrame,
@@ -59,6 +61,7 @@ extension SceneMetalRenderer {
                 plans: plans,
                 imageTextures: imageTextures,
                 spriteAnimations: spriteAnimations,
+                performanceTelemetry: performanceTelemetry,
                 specializedBaseTextureSamplings: specializedBaseTextureSamplings,
                 imagePipeline: imagePipeline,
                 offscreenTexturePool: offscreenTexturePool,
@@ -79,10 +82,13 @@ extension SceneMetalRenderer {
                         ?? "frame-preparation-request-invalid"
                 )
             }
+            performanceTelemetry?.beginStage("admit-prepare-frame")
+            defer { performanceTelemetry?.endStage("admit-prepare-frame") }
             switch imageCompositor.prepareResolvedMaterialFrame(
                 requests,
                 pool: offscreenTexturePool,
-                commandBuffer: commandBuffer
+                commandBuffer: commandBuffer,
+                performanceTelemetry: performanceTelemetry
             ) {
             case .ready:
                 guard let preparedOutputs = imageCompositor
@@ -122,6 +128,7 @@ extension SceneMetalRenderer {
     func preflightResolvedMaterialFrameTargets(
         imageTextures: SceneBaseImageTextureSnapshot,
         offscreenTexturePool: SceneOffscreenTexturePool?,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         frameContext: SceneFrameContext,
         worldFramesByLayerID: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
@@ -129,6 +136,8 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
+        performanceTelemetry?.beginStage("admit-preflight-targets")
+        defer { performanceTelemetry?.endStage("admit-preflight-targets") }
         let viewportSize = frameContext.screenSize
         guard let orderedLayers = resolvedMaterialPreparationLayers else {
             return .rejected(
@@ -377,6 +386,7 @@ extension SceneMetalRenderer {
         plans: [Int: SceneResolvedMaterialFrameTargetPlan],
         imageTextures: SceneBaseImageTextureSnapshot,
         spriteAnimations: [Int: SceneSpriteAnimation],
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:],
         imagePipeline: SceneImageLayerPipeline?,
         offscreenTexturePool: SceneOffscreenTexturePool?,
@@ -388,6 +398,8 @@ extension SceneMetalRenderer {
         failureReason: inout String?,
         baseMaterialSelections: inout [Int: SceneBaseMaterialTextureSelection]
     ) -> [SceneResolvedMaterialRuntimeBridge.FramePreparationRequest]? {
+        performanceTelemetry?.beginStage("admit-prep-requests")
+        defer { performanceTelemetry?.endStage("admit-prep-requests") }
         func invalid(_ reasonCode: String) -> [
             SceneResolvedMaterialRuntimeBridge.FramePreparationRequest
         ]? {

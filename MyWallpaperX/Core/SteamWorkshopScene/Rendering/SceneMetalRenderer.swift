@@ -82,7 +82,9 @@ struct SceneMetalRenderer {
         let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
             frameIndex: frameContext.frameIndex
         )
+        performanceTelemetry?.beginStage("source-update")
         encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
+        performanceTelemetry?.endStage("source-update")
         let frameDescriptor: SceneRenderDescriptor
         let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
         let frameStaticWorldFrames: [Int: simd_float4x4]
@@ -107,6 +109,7 @@ struct SceneMetalRenderer {
             frameOrderedLayers = authoredLayers
             frameDynamicLayerIDs = []; frameLightLayerIDs = lightLayerIDs
         }
+        performanceTelemetry?.beginStage("world-resolve")
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: frameDescriptor, byID: frameLayersByID,
             snapshot: frameContext.dynamicValues,
@@ -114,23 +117,33 @@ struct SceneMetalRenderer {
             dynamicLayerIDs: frameDynamicLayerIDs
         )
 #if DEBUG
-        let dynamicVisibleLayerCount = frameDynamicLayerIDs.intersection(
-            SceneLayerVisibility.visibleLayerIDs(
-                in: frameDescriptor,
-                layersByID: frameLayersByID,
-                snapshot: frameContext.dynamicValues)
-        ).count
-        let dynamicSourcePublicationCount = frameDynamicLayerIDs.reduce(into: 0) {
-            count, layerID in
-            guard let texture = imageTextures[layerID],
-                  imageTextures.explicitLayerSourcePublication(
-                      for: layerID, matching: texture
-                  ) != nil else { return }
-            count += 1
+        // These counters only feed the first-frame evidence log line; a
+        // second full-visibility pass and per-layer publication probing on
+        // every frame is pure diagnostic cost, so compute them lazily at
+        // the logging gate instead.
+        var dynamicVisibleLayerCount = 0
+        var dynamicSourcePublicationCount = 0
+        func computeDynamicLayerRenderStatistics() {
+            dynamicVisibleLayerCount = frameDynamicLayerIDs.intersection(
+                SceneLayerVisibility.visibleLayerIDs(
+                    in: frameDescriptor,
+                    layersByID: frameLayersByID,
+                    snapshot: frameContext.dynamicValues)
+            ).count
+            dynamicSourcePublicationCount = frameDynamicLayerIDs.reduce(into: 0) {
+                count, layerID in
+                guard let texture = imageTextures[layerID],
+                      imageTextures.explicitLayerSourcePublication(
+                          for: layerID, matching: texture
+                      ) != nil else { return }
+                count += 1
+            }
         }
         var dynamicEncodedLayerCount = 0
         var dynamicPassthroughLayerCount = 0
 #endif
+        performanceTelemetry?.endStage("world-resolve")
+        performanceTelemetry?.beginStage("prologue")
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
@@ -161,9 +174,11 @@ struct SceneMetalRenderer {
             worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
             candidateLayerIDs: frameLightLayerIDs, layersByID: frameLayersByID
         )
+        performanceTelemetry?.beginStage("frame-admission")
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
+            performanceTelemetry: performanceTelemetry,
             specializedBaseTextureSamplings: specializedBaseTextureSamplings,
             imagePipeline: imagePipeline,
             userPropertyTextures: userPropertyTextures,
@@ -177,6 +192,7 @@ struct SceneMetalRenderer {
             mainTarget: drawable.texture,
             commandBuffer: commandBuffer
         )
+        performanceTelemetry?.endStage("frame-admission")
         let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
         switch resolvedMaterialFrameAdmission {
         case let .ready(plans):
@@ -186,6 +202,8 @@ struct SceneMetalRenderer {
         case let .rejected(reasonCode):
             return .dropped(reasonCode: reasonCode)
         }
+        performanceTelemetry?.endStage("prologue")
+        performanceTelemetry?.beginStage("prepass")
         let particleBatches = particleBatchesProvider()
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         defer {
@@ -240,6 +258,8 @@ struct SceneMetalRenderer {
                 stopsAfterClaimedFailure = true
             }
         }
+        performanceTelemetry?.endStage("prepass")
+        performanceTelemetry?.beginStage("layer-loop")
         frameLayers: for layer in orderedLayers {
             if stopsAfterClaimedFailure { break frameLayers }
             defer {
@@ -740,7 +760,9 @@ struct SceneMetalRenderer {
                 continue
             }
         }
+        performanceTelemetry?.endStage("layer-loop")
 
+        performanceTelemetry?.beginStage("compositor-seal")
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
@@ -750,6 +772,7 @@ struct SceneMetalRenderer {
         if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
            frameContext.frameIndex <= 2,
            !frameDynamicLayerIDs.isEmpty {
+            computeDynamicLayerRenderStatistics()
             NSLog(
                 "MWX DEBUG SCENE: phase=dynamic-layer-render frame=%llu topologyRevision=%llu cacheHit=%@ descriptor=%d visible=%d sourcePublications=%d encoded=%d passthrough=%d",
                 frameContext.frameIndex,
@@ -782,6 +805,7 @@ struct SceneMetalRenderer {
         commandBuffer.commit()
         didCommitParticleSubmission = true
         sourceUpdateTransaction.didSubmit()
+        performanceTelemetry?.endStage("compositor-seal")
         if let cpuStart {
             performanceTelemetry?.recordCPUFrame(
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart

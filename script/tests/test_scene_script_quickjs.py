@@ -1097,6 +1097,31 @@ int main(void) {
         "Vec3 callback returns host Vec3 input after layer mutation"
     );
 
+    const char *vec3_noop_mutation_source =
+        "export function update(value) {"
+        "thisLayer.angles = new Vec3(0, 0, 0);"
+        "return 'LEON';"
+        "}";
+    MWXSceneQuickJSOwner *vec3_noop_mutation = mwx_scene_quickjs_owner_create(
+        domain, vec3_noop_mutation_source,
+        strlen(vec3_noop_mutation_source), 134,
+        diagnostic, sizeof(diagnostic)
+    );
+    failures += check(
+        vec3_noop_mutation != NULL,
+        "Vec3 no-op mutation callback compile",
+        diagnostic
+    );
+    failures += configure_owner_layer(
+        vec3_noop_mutation, 42,
+        "Vec3 no-op mutation callback layer identity"
+    );
+    failures += update_vec3(
+        vec3_noop_mutation, 134, vec3_input, "", "{}",
+        MWX_SCENE_QUICKJS_OK, vec3_input,
+        "Vec3 no-op layer mutation preserves typed input"
+    );
+
     const char *vec3_invalid_return_source =
         "export function update(value) { return [value.x, value.y, value.z]; }";
     MWXSceneQuickJSOwner *vec3_invalid_return = mwx_scene_quickjs_owner_create(
@@ -3285,6 +3310,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(immutable_frame);
     mwx_scene_quickjs_owner_destroy(vec3);
     mwx_scene_quickjs_owner_destroy(vec3_return_contract);
+    mwx_scene_quickjs_owner_destroy(vec3_noop_mutation);
     mwx_scene_quickjs_owner_destroy(vec3_invalid_return);
     mwx_scene_quickjs_owner_destroy(vec3_nonfinite_return);
     mwx_scene_quickjs_owner_destroy(vec3_string_return);

@@ -302,6 +302,27 @@ struct SceneImageLayerCompositor {
                     return .failed
                 }
             }
+            if let graphExecutionTicket,
+               graphExecutionTicket.finalContent == .data {
+                // Typed RGBA data is a named-provider payload. It must never
+                // enter the color compositor, even when the provider also
+                // appears in the visible render order.
+                guard resolvedMaterialGraphOutputPublisher != nil,
+                      consumeResolvedMaterialNamedPublication(
+                          graphExecutionTicket,
+                          texture: finalTexture,
+                          published: true,
+                          layerID: request.layer.id,
+                          executionTrace: executionTrace,
+                          executionOrigin: executionOrigin
+                      ) else {
+                    return .failed
+                }
+                return .normal(
+                    consumedDependency:
+                        graphExecutionTicket.consumesExternalPrimaryDependency
+                )
+            }
             let finalValues = SceneImageLayerUniformValues(
                 time: request.uniforms.time,
                 alpha: request.finalCompositeAlpha ?? 1,

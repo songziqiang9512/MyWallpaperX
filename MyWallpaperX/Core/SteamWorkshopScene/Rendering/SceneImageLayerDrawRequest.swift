@@ -193,6 +193,7 @@ struct SceneDependencyEffectInput {
     let blendMode: Int
     let frameEpoch: UInt64
     let texture: MTLTexture
+    private(set) var content: SceneTextureContent
 
     var slotIndex: Int { slot.slotIndex }
 
@@ -204,7 +205,8 @@ struct SceneDependencyEffectInput {
         SceneFrameTextureResource.reservedNamedLayerTarget(
             reference: namedReference,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: content
         )
     }
 
@@ -215,7 +217,8 @@ struct SceneDependencyEffectInput {
         slot: SceneEffectPassSlot,
         blendMode: Int,
         frameEpoch: UInt64,
-        texture: MTLTexture
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) {
         self.consumerLayerID = consumerLayerID
         self.providerLayerID = providerLayerID
@@ -224,6 +227,13 @@ struct SceneDependencyEffectInput {
         self.blendMode = blendMode
         self.frameEpoch = frameEpoch
         self.texture = texture
+        self.content = content
+    }
+
+    func withContent(_ content: SceneTextureContent) -> Self {
+        var result = self
+        result.content = content
+        return result
     }
 }
 

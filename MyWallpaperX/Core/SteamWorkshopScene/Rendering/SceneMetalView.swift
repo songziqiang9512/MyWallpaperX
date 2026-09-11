@@ -110,7 +110,9 @@ class SceneMetalView: NSView {
         layer.pixelFormat = .bgra8Unorm
         layer.framebufferOnly = !renderDescriptor.requiresReadableFramebuffer(
             resolvedMaterialLayerIDs: resolvedMaterialRuntime.executionLayerIDs,
-            sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs
+            sceneBackgroundLayerIDs: resolvedMaterialRuntime.sceneBackgroundLayerIDs,
+            admittedResolvedMaterialReferences:
+                resolvedMaterialRuntime.admittedResolvedMaterialReferences
         )
         #if DEBUG
             debugFrameCapture.configure(layer)

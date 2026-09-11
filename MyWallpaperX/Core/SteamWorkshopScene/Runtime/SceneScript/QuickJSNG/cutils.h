@@ -135,7 +135,7 @@ extern "C" {
 # define JS__PATH_MAX 8192
 #endif
 
-static inline void js__pstrcpy(char *buf, int buf_size, const char *str);
+static inline void js__pstrcpy(char *buf, size_t buf_size, const char *str);
 static inline char *js__pstrcat(char *buf, int buf_size, const char *s);
 static inline int js__strstart(const char *str, const char *val, const char **ptr);
 static inline int js__has_suffix(const char *str, const char *suffix);
@@ -685,12 +685,12 @@ static inline int js_thread_join(js_thread_t thrd);
 #undef NANOSEC
 #define NANOSEC ((uint64_t) 1e9)
 
-static inline void js__pstrcpy(char *buf, int buf_size, const char *str)
+static inline void js__pstrcpy(char *buf, size_t buf_size, const char *str)
 {
     int c;
     char *q = buf;
 
-    if (buf_size <= 0)
+    if (buf_size == 0)
         return;
 
     for(;;) {
@@ -705,10 +705,14 @@ static inline void js__pstrcpy(char *buf, int buf_size, const char *str)
 /* strcat and truncate. */
 static inline char *js__pstrcat(char *buf, int buf_size, const char *s)
 {
-    int len;
+    size_t len;
+
+    if (buf_size <= 0)
+        return buf;
+
     len = strlen(buf);
-    if (len < buf_size)
-        js__pstrcpy(buf + len, buf_size - len, s);
+    if (len < (size_t)buf_size)
+        js__pstrcpy(buf + len, (size_t)buf_size - len, s);
     return buf;
 }
 

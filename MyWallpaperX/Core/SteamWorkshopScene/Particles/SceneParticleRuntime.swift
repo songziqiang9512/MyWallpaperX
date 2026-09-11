@@ -266,7 +266,7 @@ final class SceneParticleRuntime {
             let controlPointAngles = dynamicValues.particleControlPointAngles(
                 layerID: layerID
             )
-            if var root = layers[index].rootRender {
+            if let root = layers[index].rootRender {
                 let pointerValues = root.definition.pointerControlPointValues(
                     at: pointerLocalPositions[layerID],
                     identities: root.pointerControlPointIdentities

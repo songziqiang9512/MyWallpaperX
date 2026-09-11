@@ -1047,7 +1047,7 @@ static MWXSceneQuickJSResult call_vec3(
     }
     JSValueConst value = JS_IsUndefined(result) ? argument : result;
     bool valid = read_vec3(domain->context, value, output);
-    if (!valid && owner->layer_mutation_count > 0) {
+    if (!valid && owner->authored_layer_mutation_count > 0) {
         memcpy(output, input, sizeof(double) * 3);
         valid = true;
     }
@@ -1060,7 +1060,7 @@ static MWXSceneQuickJSResult call_vec3(
         if (JS_IsString(value)) {
             const char *raw = JS_ToCString(domain->context, value);
             if (raw) {
-                snprintf(message, sizeof(message), "callback returned invalid Vec3 string: %.96s", raw);
+                snprintf(message, sizeof(message), "callback returned invalid Vec3 string (returned string): %.80s", raw);
                 JS_FreeCString(domain->context, raw);
             } else {
                 snprintf(message, sizeof(message), "callback returned invalid Vec3 value (returned %s)", return_shape);
