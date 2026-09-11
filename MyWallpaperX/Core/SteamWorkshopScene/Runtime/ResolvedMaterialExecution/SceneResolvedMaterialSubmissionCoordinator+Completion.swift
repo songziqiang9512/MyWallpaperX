@@ -290,7 +290,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                             terminalCompositorConsumed:
                                 ledger.compositorConsumed,
                             outcome: .succeeded,
-                            gpu: .completed
+                            gpu: .completed,
+                            dependencyProviders:
+                                ledger.preparedDependencyEffects
+                                    .map(\.providerLayerID)
+                                    + [ledger.preparedDependencyEffect?
+                                        .providerLayerID]
+                                        .compactMap { $0 }
                         )
                     )
                 } catch let failure as
@@ -341,7 +347,13 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                         ].effect,
                         terminalCompositorConsumed: false,
                         outcome: .failed(reasonCode: reasonCode),
-                        gpu: gpu
+                        gpu: gpu,
+                        dependencyProviders:
+                            ledger.preparedDependencyEffects
+                                .map(\.providerLayerID)
+                            + [ledger.preparedDependencyEffect?
+                                .providerLayerID]
+                                .compactMap { $0 }
                     )
                 )
             } catch {

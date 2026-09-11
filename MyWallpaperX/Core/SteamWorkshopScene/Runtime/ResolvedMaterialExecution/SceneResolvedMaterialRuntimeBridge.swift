@@ -176,7 +176,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         }
 
         func withDependencyEffect(
-            _ dependencyEffect: SceneDependencyEffectInput?
+            _ dependencyEffect: SceneDependencyEffectInput?,
+            dependencyEffects: [SceneDependencyEffectInput]
         ) -> Self {
             .init(
                 dynamicValues: dynamicValues,
@@ -456,12 +457,14 @@ final class SceneResolvedMaterialRuntimeBridge {
     func prepareFrame(
         _ requests: [FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> FramePreparationResult {
         submissions.prepareFrame(
             requests,
             pool: pool,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            performanceTelemetry: performanceTelemetry
         )
     }
 

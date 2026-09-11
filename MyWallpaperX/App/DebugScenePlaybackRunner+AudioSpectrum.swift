@@ -2,10 +2,10 @@
 import Foundation
 
 private enum DebugSceneAudioSpectrumFixtureState {
-    static let queue = DispatchQueue(
+    nonisolated static let queue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.debug-scene-audio-spectrum"
     )
-    static let observationQueue = DispatchQueue(
+    nonisolated static let observationQueue = DispatchQueue(
         label: "com.songziqiang.MyWallpaperX.debug-scene-audio-observation"
     )
     static let analyzer = SystemAudioSceneSpectrumAnalyzer()

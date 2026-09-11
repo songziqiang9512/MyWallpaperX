@@ -406,6 +406,7 @@ nonisolated extension SceneGraphExecutionObservation {
             "outcome=\(outcome.details.value)",
             "failure=\(SceneGraphExecutionLogToken.encode(outcome.details.reason))",
             "gpuCompletion=\(gpuCompletionStatus?.rawValue ?? "-")",
+            "dependencyProviders=\(dependencyProviders.isEmpty ? "-" : dependencyProviders.map(String.init).joined(separator: ","))",
         ]
     }
 

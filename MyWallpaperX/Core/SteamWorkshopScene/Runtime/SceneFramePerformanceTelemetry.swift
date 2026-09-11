@@ -50,6 +50,8 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     private var failed = 0
     private var drawableMissed = 0
     private var callbackIntervals: [TimeInterval] = []
+    private var stageDurations: [String: [TimeInterval]] = [:]
+    private var openStages: [String: TimeInterval] = [:]
     private var discontinuityCount = 0
     private var droppedFrameTime: TimeInterval = 0
     private var maximumRawFrameTime: TimeInterval = 0
@@ -70,6 +72,7 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
             failed = 0
             drawableMissed = 0
             callbackIntervals.removeAll(keepingCapacity: true)
+            stageDurations.removeAll(keepingCapacity: true)
             discontinuityCount = 0
             droppedFrameTime = 0
             maximumRawFrameTime = 0
@@ -94,6 +97,34 @@ nonisolated final class SceneFramePerformanceTelemetry: @unchecked Sendable {
     func recordCPUFrame(duration: TimeInterval) {
         withLock {
             cpuFrameDurations.append(max(0, duration))
+        }
+    }
+
+    /// Coarse CPU stage attribution for active profiling runs only; the
+    /// telemetry itself exists exclusively in benchmark/evidence mode, so
+    /// ordinary playback never pays for these readings beyond a clock read.
+    func beginStage(_ name: String) {
+        withLock { openStages[name] = ProcessInfo.processInfo.systemUptime }
+    }
+
+    func endStage(_ name: String) {
+        let now = ProcessInfo.processInfo.systemUptime
+        withLock {
+            if let start = openStages.removeValue(forKey: name) {
+                stageDurations[name, default: []].append(max(0, now - start))
+            }
+        }
+    }
+
+    func stageSummary() -> [String: (p50: TimeInterval, p95: TimeInterval, count: Int)] {
+        withLock {
+            stageDurations.mapValues { values in
+                (
+                    Self.percentile(values, 0.50),
+                    Self.percentile(values, 0.95),
+                    values.count
+                )
+            }
         }
     }
 

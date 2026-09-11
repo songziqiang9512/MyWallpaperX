@@ -31,6 +31,10 @@ ASSET_CATALOG = (
 LAUNCH = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 TEXTURE_FRAME = SCENE_ROOT / "Rendering/SceneMetalRenderer+TextureFrame.swift"
 COMPOSITOR = SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+CAPABILITY_STAGES = (
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+Stages.swift"
+)
 LAYER_SOURCE_PASSTHROUGH_PLAN = (
     SCENE_ROOT / "Rendering/SceneLayerSourcePassthroughPlan.swift"
 )
@@ -542,12 +546,19 @@ enum SceneShaderStableDigest {
         "graph-\(graph.layerID)-\(graph.nodes.count)"
     }
 }
+enum StubAlpha: Hashable { case premultipliedAlpha }
+enum StubColor: Hashable { case resolved(StubAlpha) }
+enum SceneTextureContent: Hashable {
+    case data
+    case color(StubColor)
+}
 enum SceneTextureSampling { case linearClamp, linearRepeat }
 struct SceneTextureCandidate {
     let texture: MTLTexture
     let identity: SceneTextureCandidateIdentity
     let purpose: SceneTextureLoadPurpose
     let sampling: SceneTextureSampling
+    let content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
 
     init(
         texture: MTLTexture,
@@ -918,6 +929,11 @@ enum SceneOffscreenTextureFramePreflight {
         case rejected(reasonCode: String)
     }
 }
+final class SceneFramePerformanceTelemetry: @unchecked Sendable {
+    func beginStage(_ name: String) {}
+    func endStage(_ name: String) {}
+}
+
 final class SceneOffscreenTexturePool {
     typealias Factory = (
         ScenePersistentGraphTargetFramePlan
@@ -1001,7 +1017,13 @@ struct SceneDependencyEffectInput {
     let frameEpoch: UInt64
     let texture: MTLTexture
 
+    var content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     var slotIndex: Int { slot.slotIndex }
+    func withContent(_ content: SceneTextureContent) -> Self {
+        var result = self
+        result.content = content
+        return result
+    }
 }
 struct SceneResolvedMaterialFailure: Error {}
 struct SceneFrameTextureRegistrySnapshot { let frameIndex: UInt64; let valid: Bool; var frameEpoch: UInt64 { frameIndex } }
@@ -1610,7 +1632,8 @@ private func externalPrimaryBinding(
     providerLayerID: Int = 42,
     slotIndex: Int = 1,
     blendMode: Int = 0,
-    kind: SceneDependencyRenderPlan.Binding.Kind = .resolvedMaterial
+    kind: SceneDependencyRenderPlan.Binding.Kind = .resolvedMaterial,
+    requiresResolvedMaterialProgram: Bool = false
 ) -> SceneDependencyRenderPlan.Binding {
     .init(
         consumerLayerID: consumerLayerID,
@@ -1621,7 +1644,8 @@ private func externalPrimaryBinding(
             slotIndex: slotIndex
         ),
         blendMode: blendMode,
-        kind: kind
+        kind: kind,
+        requiresResolvedMaterialProgram: requiresResolvedMaterialProgram
     )
 }
 
@@ -2117,6 +2141,40 @@ enum Harness {
             )
             results["solidDependencyWrongPassRejected"] =
                 wrongPass.reasonCode == "prepared-frame-consumption-rejected"
+
+            let programBinding = externalPrimaryBinding(
+                slotIndex: 1,
+                blendMode: 0,
+                kind: .solidLayer,
+                requiresResolvedMaterialProgram: true
+            )
+            let programReserved = dependencyInput(
+                binding: programBinding,
+                texture: reservedTexture
+            ).withContent(.data)
+            let programExact = executeExternalDependency(
+                device: device,
+                queue: queue,
+                binding: programBinding,
+                preparedDependencyEffect: programReserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: programBinding,
+                    texture: reservedTexture
+                ).withContent(.data)
+            )
+            results["solidProgramDependencySlotOneIssuesTicket"] =
+                programExact.reasonCode == "encoded"
+                && programExact.consumesExternalPrimaryDependency == true
+            let changedContent = executeExternalDependency(
+                device: device, queue: queue, binding: programBinding,
+                preparedDependencyEffect: programReserved,
+                readyDependencyEffect: dependencyInput(
+                    binding: programBinding, texture: reservedTexture
+                )
+            )
+            results["solidProgramDependencyContentDriftRejected"] =
+                changedContent.reasonCode == "prepared-frame-consumption-rejected"
+
         }
 
         do {
@@ -3632,6 +3690,7 @@ enum Harness {
                         identity: 0,
                         epoch: 0,
                         finalTextureIdentity: ObjectIdentifier(device),
+                        finalContent: .color(.resolved(.premultipliedAlpha)),
                         consumesExternalPrimaryDependency: false,
                         effectFailures: []
                     )
@@ -3651,6 +3710,7 @@ enum Harness {
                     identity: 1,
                     epoch: 1,
                     finalTextureIdentity: ObjectIdentifier(device),
+                    finalContent: .color(.resolved(.premultipliedAlpha)),
                     consumesExternalPrimaryDependency: false,
                     effectFailures: [.init(
                         layerID: key7.layerID,
@@ -3940,6 +4000,7 @@ enum Harness {
                 identity: 1,
                 epoch: coordinator.executionEpoch,
                 finalTextureIdentity: ObjectIdentifier(texture),
+                finalContent: .color(.resolved(.premultipliedAlpha)),
                 consumesExternalPrimaryDependency: false,
                 effectFailures: []
             )
@@ -4379,6 +4440,48 @@ enum Harness {
 
 
 class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
+    def test_typed_data_provider_never_enters_color_compositor(self) -> None:
+        stages = CAPABILITY_STAGES.read_text(encoding="utf-8")
+        compositor = COMPOSITOR.read_text(encoding="utf-8")
+        self.assertIn("graphTextureContentFacts: graphTextureContentFacts", stages)
+        self.assertIn(
+            "binding.texture.kind == .framebuffer,\n"
+            "               graphTextureContentFacts[binding.texture] == .data",
+            stages,
+        )
+        self.assertIn(
+            "return (.preservedRGBAUnorm, .rgbaBackbuffer)", stages
+        )
+        self.assertIn(
+            "if attachment.storage == .preservedRGBAUnorm {", stages
+        )
+        preparation = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/EffectExecution/"
+            "SceneResolvedMaterialGraphExecutor+Preparation.swift"
+        ).read_text(encoding="utf-8")
+        publication = (
+            REPOSITORY_ROOT
+            / "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/GraphTargets/"
+            "SceneGraphRenderTargetLease+Publication.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("let content = storableContent(sourcePublication)", preparation)
+        self.assertIn("content: content", preparation)
+        self.assertIn("case (.rgbaBackbuffer, .data)", publication)
+        data_branch = compositor.index(
+            "graphExecutionTicket.finalContent == .data"
+        )
+        draw_call = compositor.index(
+            "SceneImageLayerMainPassRenderer.draw(", data_branch
+        )
+        self.assertIn(
+            "consumeResolvedMaterialNamedPublication(",
+            compositor[data_branch:draw_call],
+        )
+        self.assertIn(
+            "return .normal(", compositor[data_branch:draw_call]
+        )
+
     def test_preview_and_inline_reporting_only_describe_typed_execution_owners(self) -> None:
         diagnostics = RENDERER_DIAGNOSTICS.read_text(encoding="utf-8")
         view = METAL_VIEW.read_text(encoding="utf-8")
@@ -5020,6 +5123,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "externalDependencyWrongEpochRejected",
                 "externalDependencyWrongObjectRejected",
                 "solidDependencyExactReadyMatchIssuesTicket",
+                "solidProgramDependencySlotOneIssuesTicket",
+                "solidProgramDependencyContentDriftRejected",
                 "solidDependencyMissingReadyRejected",
                 "solidDependencySecondaryRejected",
                 "solidDependencyWrongEffectRejected",

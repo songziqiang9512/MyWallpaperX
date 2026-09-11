@@ -55,6 +55,14 @@ extension DebugScenePlaybackRunner {
                 value.gpuOverBudget,
                 value.gpuOverDoubleBudget
             )
+            let stages = SceneFramePerformanceTelemetry.debugEvidence.stageSummary()
+            let stageLine = stages.keys.sorted().map { name in
+                let summary = stages[name] ?? (0, 0, 0)
+                return "\(name)=p50:\(String(format: "%.3f", summary.0 * 1_000))ms p95:\(String(format: "%.3f", summary.1 * 1_000))ms n:\(summary.2)"
+            }.joined(separator: " ")
+            if !stageLine.isEmpty {
+                NSLog("MWX DEBUG SCENE: phase=performance-stages %@", stageLine)
+            }
         }
     }
 }

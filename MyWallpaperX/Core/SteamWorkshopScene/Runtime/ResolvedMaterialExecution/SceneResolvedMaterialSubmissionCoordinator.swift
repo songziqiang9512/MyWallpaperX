@@ -210,7 +210,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     func prepareFrame(
         _ requests: [Bridge.FramePreparationRequest],
         pool: SceneOffscreenTexturePool?,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> Bridge.FramePreparationResult {
         var emission = Emission()
         lock.lock()
@@ -298,6 +299,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             return .rejected(reasonCode: reason)
         }
         let targetAllocations = requests.map { $0.targetPlan.allocation }
+        performanceTelemetry?.beginStage("admit-target-pool")
         switch pool.preflightPersistentGraphTargets(targetAllocations) {
         case .ready:
             break
@@ -316,6 +318,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         guard let preparedTargets = pool.preparePersistentGraphTargets(
             framePlans: targetAllocations
         ) else {
+            performanceTelemetry?.endStage("admit-target-pool")
             let reason = "frame-target-plan-allocation-failed"
             emission = framePreparationFailureLocked([], reason: reason)
             lock.unlock()
@@ -323,6 +326,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             return .rejected(reasonCode: reason)
         }
 
+        performanceTelemetry?.endStage("admit-target-pool")
         var candidates: [PreparedFrameCandidate] = []
         var provisionalTails = scheduledTails
         let externallyConsumedProviderLayerIDs = Set(requests.flatMap {
@@ -387,7 +391,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                     // reserved named target as the consumer input; the
                     // renderer copies the provider final into it between the
                     // ordered transactions.
-                    preparedDependencyEffect = original
+                    preparedDependencyEffect = original.withContent(
+                        provider.prepared.finalResource.publication.candidate.content
+                    )
                 } else {
                     preparedDependencyEffect = original
                 }
@@ -396,8 +402,20 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 // at executeClaimed; keep the legacy singular ledger empty.
                 preparedDependencyEffect = nil
             }
-            let frameInputs = request.frameInputs
-                .withDependencyEffect(preparedDependencyEffect)
+            let preparedDependencyEffects = request.frameInputs.dependencyEffects.map {
+                input in
+                guard let provider = candidates.first(where: {
+                    $0.layerID == input.providerLayerID
+                }) else { return input }
+                return input.withContent(
+                    provider.prepared.finalResource.publication.candidate.content
+                )
+            }
+            let frameInputs = request.frameInputs.withDependencyEffect(
+                preparedDependencyEffect,
+                dependencyEffects: preparedDependencyEffects
+            )
+            performanceTelemetry?.beginStage("admit-executor-prepare")
             let result = executor.prepare(
                 token: claim.token,
                 leases: targets.leases,
@@ -418,6 +436,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             )
+            performanceTelemetry?.endStage("admit-executor-prepare")
             guard case let .success(prepared) = result else {
                 let reason: String
                 switch result {
@@ -495,7 +514,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                 capabilityToken: claim.token,
                 prepared: prepared,
                 preparedDependencyEffect: preparedDependencyEffect,
-                preparedDependencyEffects: requests[index].frameInputs.dependencyEffects,
+                preparedDependencyEffects: preparedDependencyEffects,
                 preparedDependencyUnavailability:
                     preparedDependencyUnavailability,
                 commandBuffer: commandBuffer,

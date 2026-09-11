@@ -26,7 +26,8 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         terminalEffect: Graph.EffectKey,
         terminalCompositorConsumed: Bool,
         outcome: SceneGraphExecutionOutcome,
-        gpu: SceneGraphExecutionGPUCompletionStatus?
+        gpu: SceneGraphExecutionGPUCompletionStatus?,
+        dependencyProviders: [Int] = []
     ) throws -> SceneGraphExecutionObservation {
         let transaction = value.transition.transaction
         guard State.maximumNodeCount
@@ -104,7 +105,8 @@ enum SceneResolvedMaterialGraphObservationBuilder {
                 && terminalCompositorConsumed
                 && value.effect == terminalEffect,
             outcome: outcome,
-            gpuCompletionStatus: gpu
+            gpuCompletionStatus: gpu,
+            dependencyProviders: dependencyProviders
         )
     }
 

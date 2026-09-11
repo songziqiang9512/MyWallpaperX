@@ -286,7 +286,11 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                       binding.blendMode == 0 else { return false }
             case .solidLayer:
                 guard binding.slot.passIndex == 0,
-                      binding.slot.slotIndex == 3,
+                      (
+                        binding.slot.slotIndex == 3
+                            || (binding.slot.slotIndex == 1
+                                && binding.requiresResolvedMaterialProgram)
+                      ),
                       binding.blendMode == 0 else { return false }
             case .imageLayerBlend:
                 guard binding.slot.passIndex == 0,
@@ -376,6 +380,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                     && $0.slot == $1.slot
                     && $0.blendMode == $1.blendMode
                     && $0.frameEpoch == $1.frameEpoch
+                    && $0.content == $1.content
                     && $0.texture === $1.texture
             }
         }
@@ -393,6 +398,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         if preparedUnavailability != nil { return true }
         guard let prepared, let ready else { return true }
         return prepared.frameEpoch == ready.frameEpoch
+            && prepared.content == ready.content
             && prepared.texture === ready.texture
     }
 

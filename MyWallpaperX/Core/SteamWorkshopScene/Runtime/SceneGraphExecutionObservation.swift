@@ -118,6 +118,11 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     let compositorConsumed: Bool
     let outcome: SceneGraphExecutionOutcome
     let gpuCompletionStatus: SceneGraphExecutionGPUCompletionStatus?
+    /// Provider layers whose typed dependency inputs this execution
+    /// consumed. It attributes downstream consumption to the publishing
+    /// layer when its graph final feeds a dependency slot instead of the
+    /// terminal compositor.
+    let dependencyProviders: [Int]
 
     init(
         runtimeInstanceIdentity: String,
@@ -146,7 +151,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         finalOutput: SceneGraphExecutionFinalOutputPublication?,
         compositorConsumed: Bool,
         outcome: SceneGraphExecutionOutcome,
-        gpuCompletionStatus: SceneGraphExecutionGPUCompletionStatus? = nil
+        gpuCompletionStatus: SceneGraphExecutionGPUCompletionStatus? = nil,
+        dependencyProviders: [Int] = []
     ) throws {
         guard Self.hasText(runtimeInstanceIdentity),
               identity.layerID >= 0,
@@ -268,6 +274,7 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         self.compositorConsumed = compositorConsumed
         self.outcome = outcome
         self.gpuCompletionStatus = gpuCompletionStatus
+        self.dependencyProviders = dependencyProviders
     }
 
     private static func validateNodes(
