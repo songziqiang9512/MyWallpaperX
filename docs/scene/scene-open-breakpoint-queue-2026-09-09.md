@@ -54,9 +54,15 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 这是接手时的可续跑状态，供下一次开发直接定位；它不替代下面各条的最终证据。接手时分支 `codex/scene-capability-baseline` 的 `HEAD=a99d96eab3cbf6687f1b75ad09d8c7d8dab2192e`，工作树有 **97 个 tracked 修改、18 个新文件、0 个 staged 路径**，尚未提交。改动按职责分成 B1（shader backend arithmetic）、B2（multi-provider dependency）、B4/B5（material envelope/owner）、B7（Puppet 与 surface teardown）四组；B3/B6 目前只完成 fail-closed 归类和诊断边界。接手后的代码与治理已按职责集群固化为 `fdf430b7`、`82ef0133`、`1626ce42`、`14fe586c`、`50d2a2be`；本次证据文档提交后，下一轮开发从这些提交和下方的 residual 条目续跑。
 
-#### 验收台账基线（生成于 2026-09-08，未由本批重生成）
+#### 验收台账基线（2026-09-12 全 corpus 刷新，替换 2026-09-08 生成页）
 
-真实 numeric corpus 为 159 个样本：视觉裁决 `pass=0`、`fail=19`、`unreviewed=140`、`platform-unsupported=0`。旧隔离运行的首断点分布为 `effect-chain=25`、`particle-load=9`、`texture-load=3`、`scenescript=5`，另有 `visual-review=117`、`not-run=0`；因此按最终完成门仍有 **159/159** 个样本未完成视觉验收（19 个待修复/复裁，140 个未裁决）。这是生成页的时间快照，不是本日 exact corpus verdict；例如 B8 的后继运行已观察到 provider readiness 恢复，但旧生成页仍记为 `blocked/graph-execution-missing`，在生成器刷新前保留两者并明确时间差。
+真实 numeric corpus 为 159 个样本：视觉裁决 `pass=0`、`fail=19`、`unreviewed=140`、`platform-unsupported=0`（人工裁决层不变，运行时证据不写入裁决）。**2026-09-12 用当前签名包（含 B2/B3/B4-B8 全部修复与 B7 selection memoization）5 路并行重放全部 159 样本**（matrix `mwx-full-corpus-refresh-2026-09-12-part-1..5-of-5`，报告与归档在 `/private/tmp/mwx-corpus-refresh-20260912`，源只读、benchmark 自隔离）：**130/159 strict PASS**、29 NON-PASS。新首断点分布：`scenescript=20`、`effect-chain=15`、`particle-load=9`、`texture-load=3`、`visual-review=112`、`not-run=0`；运行状态 `structural-chain-complete-visual-review=112`、`degraded-runtime=44`、`blocked=3`。相比 09-08 生成页（effect-chain=25、visual-review=117、blocked=5）：effect-chain 收敛 25→15，blocked 5→3。
+
+**scenescript 5→20 不是结构回归**：其中 15 个样本 strict PASS（failures=[]），新增可见项全部是 typed per-target VM 失败日志——作者脚本调用未实现的官方 API（实证：`3299228616` 等的 `thisLayer.getTextureAnimation().setFrame(...)` 触发 `TypeError: not a function`，`fallback=current-frame-lower-priority` 局部 fail-soft、composition 保持）。该 TypeError 一直存在，近期 typed QuickJS 诊断与 visibility/angles owner 工作使其进入首断点分类。登记为**新集群：SceneScript 官方 API surface 缺口**（getTextureAnimation/setFrame 等，影响脚本驱动的贴图动画等动态保真，不改安全边界）。剩余 5 个 NON-PASS 的 script 样本各有独立 graph/snapshot/capability 失败，归原集群处理。
+
+按最终完成门仍是 **159/159 未完成视觉验收**（19 待人工复裁——其中多数现已 strict PASS，可优先人工复裁、140 未裁决）。
+
+Provenance：签名 Debug App（Developer ID，Team `H9QWU9XN8R`）executable SHA-256 `42b2ec670ff56b01…`（同 B7 memo 切片回放包）；五份 report SHA-256 `1506443318c3c8de…`/`6bc897e017c59fff…`/`4eda1155c6bd6b91…`/`3d2c07688a07a89a…`/`c074adca5a49b09f…`；归档 `script/scene_sample_debug_archive.json` SHA-256 `8032a435298bbd26…`。
 
 | 集群 | 当前阶段 | 已有门 / 当前首断点 | 下一步 |
 | --- | --- | --- | --- |
