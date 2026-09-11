@@ -27,7 +27,8 @@ extension SceneGenericShaderArtifactBuilder {
             (source.contains("reconstructed.w = sampledGA.x")
             || source.contains(").xy;")
             || source.contains("float escapedGA = sampledGA.x")
-            || source.contains("float hidden = g_Texture0.sample")) {
+            || source.contains("float hidden = g_Texture0.sample")
+            || source.contains("out.mwxFragColor = mix(reconstructed, snapshot")) {
             throw Failure.colorTransfer
         }
         do {
