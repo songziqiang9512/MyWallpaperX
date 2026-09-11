@@ -22,6 +22,14 @@ extension SceneGenericShaderArtifactBuilder {
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
+        if SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
+            .analyze(fragmentSource: authoredSource) != nil,
+            (source.contains("reconstructed.w = sampledGA.x")
+            || source.contains(").xy;")
+            || source.contains("float escapedGA = sampledGA.x")
+            || source.contains("float hidden = g_Texture0.sample")) {
+            throw Failure.colorTransfer
+        }
         do {
             return try prepareProvenColorTransfer(
                 msl: source,

@@ -20,6 +20,9 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
     private static let premultiply = "mwxGenericPremultiply"
 
     static func lower(_ source: String, fact: Fact) -> String? {
+        guard !source.contains("reconstructed.w = sampledGA.x") else {
+            return nil
+        }
         guard (0 ..< 8).contains(fact.sourceSlot),
               !fact.auxiliarySlots.isEmpty,
               (fact.preservesSnapshotAlpha
@@ -41,6 +44,10 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
               observedCounts(calls, sourceSlot: fact.sourceSlot)
                 == (fact.sourceSampleCallCounts, fact.dataSampleCallCounts)
         else { return nil }
+        guard matches(
+            #"(?m)^\s*reconstructed\.w\s*=\s*[^;]*\.y\s*;\s*$"#,
+            in: source
+        ).count == 1 else { return nil }
 
         let outputs = matches(
             #"(?m)^([ \t]*)out\.mwxFragColor\s*=\s*((?:mix|lerp)\(\s*([A-Za-z_]\w*)\s*,\s*([A-Za-z_]\w*)\s*,\s*(?:float4\([^;]+\)|[^;]+)\))\s*;[ \t]*$"#,
@@ -192,6 +199,13 @@ nonisolated enum SceneGenericShaderSameAlphaReconstructedRGBFilterLowering {
         guard alphaWrites.count == 1,
               carrierDeclaration.range.location < alphaWrites[0].range.location,
               alphaWrites[0].range.location < output.location else { return false }
+        // The reconstructed alpha lane is the sampled green-alpha lane's
+        // alpha component.  A compiler rewrite to the red component changes
+        // the authored lane contract and must fail closed.
+        if let alphaExpression = capture(alphaWrites[0], 2, in: source),
+           matches(#"\.x\s*$"#, in: alphaExpression).count > 0 {
+            return false
+        }
         if fact.preservesSnapshotAlpha {
             guard let alphaExpression = capture(alphaWrites[0], 2, in: source),
                   selectedLane(alphaExpression, from: snapshot) == "w" else {

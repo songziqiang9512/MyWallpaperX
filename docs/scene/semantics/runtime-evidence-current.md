@@ -859,3 +859,5 @@ fresh 隔离回放现已完成：Developer ID Debug app `com.songziqiang.MyWallp
 随后在同一共享 owner 内加入无 bone override 的快速路径：普通 Puppet 帧跳过仅为 override 事务服务的 world-matrix 解析与 determinant 校验，仍由 `writeSkinMatrices` 按 parent-first 顺序生成 skin 矩阵；override 非空时原有有限性、奇异矩阵和局部失败边界保持不变。Puppet 三模块回归与 generic shader artifact 80-test 回归均通过，checkpoint Debug build `BUILD SUCCEEDED`。尚未取得该增量的新的签名样本 A/B profile，因此 B7 预算继续保持开放。
 
 2026-09-12 全量 Scene 回归在用户中断前暴露并复现了一组当前工作树合同问题：`SceneScriptVectorEvaluation` 已移入显式 harness 可见的 `SceneScriptVectorCandidateModels.swift`；`SceneScriptVectorOwner+PuppetBones.swift` 与两个 Puppet bridge 文件登记到 source-layout；Puppet source-update guard 保留 rollback 合同。修复后 `test_scene_property_vector_script`（19 项）、`test_scene_source_update_transaction` 与 `test_scene_semantics_coverage` 均通过。其余失败仍按原始失败保留：部分独立 harness 未同步当前新增 finalization `layerID`/shader source set，sample archive import 环境问题，以及 sampled-alpha/template 合同漂移；未将这些失败改写为通过。
+
+针对 sampled-alpha compiler 反例，generic same-alpha preparation 现在对编译器 alpha-lane、sample projection、临时额外读取和隐藏 source 逃逸执行 fail-closed 检查；该职责集群的 focused suite 仍需最终重跑确认，未提前宣称通过。
