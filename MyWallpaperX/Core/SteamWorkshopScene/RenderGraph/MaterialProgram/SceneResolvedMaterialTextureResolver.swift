@@ -419,7 +419,7 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
               resourceGeneration > 0,
               publication.contentGeneration > 0,
               publication.requestIdentity == identity,
-              publicationGenerationIsCurrent(publication) else {
+              publication.generationIsCurrent else {
             return nil
         }
         if publication.candidate.purpose != purpose {
@@ -429,22 +429,6 @@ nonisolated enum SceneResolvedMaterialTextureResolver {
             return .optionalTextureContentMismatch
         }
         return nil
-    }
-
-    private static func publicationGenerationIsCurrent(
-        _ publication: SceneTextureProviderPublication
-    ) -> Bool {
-        switch (
-            publication.candidate.identity,
-            publication.candidate.generation
-        ) {
-        case (.file, .file), (.builtIn, .immutable):
-            return true
-        case let (.provider, .provider(contentGeneration)):
-            return contentGeneration == publication.contentGeneration
-        default:
-            return false
-        }
     }
 
     private static func optionalVisualFallback(

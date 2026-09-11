@@ -96,6 +96,20 @@ nonisolated struct SceneTextureProviderPublication {
         }
     }
 
+    /// Whether the candidate generation still names the publication's own
+    /// content generation. Selection diagnostics read this to distinguish a
+    /// stale publication from a currently published one.
+    var generationIsCurrent: Bool {
+        switch (candidate.identity, candidate.generation) {
+        case (.file, .file), (.builtIn, .immutable):
+            return true
+        case let (.provider, .provider(contentGeneration)):
+            return contentGeneration == self.contentGeneration
+        default:
+            return false
+        }
+    }
+
     func publication(
         for requestIdentity: SceneFrameTextureIdentity
     ) -> SceneTextureProviderPublication {
@@ -536,10 +550,195 @@ nonisolated enum SceneFrameTextureLookupStatus {
     case unavailable
 }
 
+/// Selection-relevant facts of one frame texture snapshot, folded into a
+/// commutative 128-bit digest. This covers the exact read closure of the
+/// MaterialProgram variant-selection path (slot selection, variant-key
+/// readiness/format/purpose derivation and their effect-local fallback
+/// diagnostics): a snapshot mutation that cannot change one of these facts
+/// cannot change a variant selection. Content-only republication — same
+/// identity, purpose, content class, authored format, sampling resolution
+/// and publication completeness — is intentionally invisible, so
+/// generation-scoped selection memoization stays valid across frames while
+/// live texture atoms keep flowing through the resolver. The XOR fold lets
+/// overlays update the digest in O(changed) instead of O(entries); the
+/// 128-bit width keeps an accidental equal fold between different fact sets
+/// (a wrong memo hit) below 2^-128 per compared pair, with the frame
+/// variant-selection invariant as the downstream backstop.
+nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
+    fileprivate enum Fact: Hashable {
+        case absent(SceneFrameTextureIdentity)
+        case pending(SceneFrameTextureIdentity)
+        case unavailable(SceneFrameTextureIdentity)
+        case incompleteBare(
+            SceneFrameTextureIdentity, generationPublished: Bool
+        )
+        case incompletePublication(
+            SceneFrameTextureIdentity,
+            resourceGenerationPublished: Bool,
+            contentGenerationPublished: Bool,
+            requestIdentityMatches: Bool,
+            generationIsCurrent: Bool,
+            purpose: SceneTextureLoadPurpose,
+            content: SceneTextureContent
+        )
+        case ready(
+            SceneFrameTextureIdentity,
+            requestIdentityMatches: Bool,
+            isComplete: Bool,
+            purpose: SceneTextureLoadPurpose,
+            content: SceneTextureContent,
+            samplingResolvedForMaterialProgram: Bool,
+            authoredFormat: SceneShaderTextureFormat?,
+            isCompleteGraphResource: Bool
+        )
+    }
+
+    private static let mixSeedA: UInt64 = 0x5345_4C45_4354_5F41
+    private static let mixSeedB: UInt64 = 0x5345_4C45_4354_5F42
+
+    let mixA: UInt64
+    let mixB: UInt64
+    let entryCount: Int
+
+    private init(mixA: UInt64, mixB: UInt64, entryCount: Int) {
+        self.mixA = mixA
+        self.mixB = mixB
+        self.entryCount = entryCount
+    }
+
+    static func empty() -> Self {
+        .init(mixA: 0, mixB: 0, entryCount: 0)
+    }
+
+    fileprivate init(_ entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]) {
+        var mixA: UInt64 = 0
+        var mixB: UInt64 = 0
+        for (identity, status) in entries {
+            let entry = Self.entryMix(identity, status)
+            mixA ^= entry.0
+            mixB ^= entry.1
+        }
+        self.mixA = mixA
+        self.mixB = mixB
+        self.entryCount = entries.count
+    }
+
+    /// Folds one replaced entry into an existing digest. The fold is
+    /// commutative and invertible on the changed identities only, so an
+    /// overlay never revisits unchanged entries.
+    fileprivate func replacing(
+        _ identity: SceneFrameTextureIdentity,
+        previous: SceneFrameTextureLookupStatus?,
+        with status: SceneFrameTextureLookupStatus
+    ) -> Self {
+        var mixA = self.mixA
+        var mixB = self.mixB
+        if let previous {
+            let removed = Self.entryMix(identity, previous)
+            mixA ^= removed.0
+            mixB ^= removed.1
+        }
+        let inserted = Self.entryMix(identity, status)
+        mixA ^= inserted.0
+        mixB ^= inserted.1
+        return .init(
+            mixA: mixA,
+            mixB: mixB,
+            entryCount: entryCount + (previous == nil ? 1 : 0)
+        )
+    }
+
+    private static func entryMix(
+        _ identity: SceneFrameTextureIdentity,
+        _ status: SceneFrameTextureLookupStatus
+    ) -> (UInt64, UInt64) {
+        let fact: Fact
+        switch status {
+        case .absent:
+            fact = .absent(identity)
+        case .pending:
+            fact = .pending(identity)
+        case .unavailable:
+            fact = .unavailable(identity)
+        case let .incomplete(incomplete):
+            switch incomplete {
+            case let .bare(_, resourceGeneration):
+                fact = .incompleteBare(
+                    identity,
+                    generationPublished: resourceGeneration > 0
+                )
+            case let .publication(publication, resourceGeneration):
+                fact = .incompletePublication(
+                    identity,
+                    resourceGenerationPublished: resourceGeneration > 0,
+                    contentGenerationPublished:
+                        publication.contentGeneration > 0,
+                    requestIdentityMatches:
+                        publication.requestIdentity == identity,
+                    generationIsCurrent: publication.generationIsCurrent,
+                    purpose: publication.candidate.purpose,
+                    content: publication.candidate.content
+                )
+            }
+        case let .ready(resource):
+            fact = .ready(
+                identity,
+                requestIdentityMatches:
+                    resource.publication.requestIdentity == identity,
+                isComplete: resource.publication.isComplete,
+                purpose: resource.publication.candidate.purpose,
+                content: resource.publication.candidate.content,
+                samplingResolvedForMaterialProgram:
+                    resource.publication.candidate.sampling
+                        .isResolvedForMaterialProgram,
+                authoredFormat: resource.publication.candidate.authoredFormat,
+                isCompleteGraphResource: resource.isCompleteGraphResource
+            )
+        }
+        var hasherA = Hasher()
+        hasherA.combine(mixSeedA)
+        hasherA.combine(fact)
+        var hasherB = Hasher()
+        hasherB.combine(mixSeedB)
+        hasherB.combine(fact)
+        return (UInt64(bitPattern: Int64(hasherA.finalize())),
+                UInt64(bitPattern: Int64(hasherB.finalize())))
+    }
+}
+
 nonisolated struct SceneFrameTextureRegistrySnapshot {
     let frameEpoch: UInt64
     let frameIndex: UInt64
     let entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    /// Selection-fact digest of `entries`, folded once per snapshot (and
+    /// updated incrementally by overlays) so per-frame variant selection can
+    /// memoize on it.
+    let selectionDigest: SceneFrameTextureSelectionDigest
+
+    init(
+        frameEpoch: UInt64,
+        frameIndex: UInt64,
+        entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]
+    ) {
+        self.init(
+            frameEpoch: frameEpoch,
+            frameIndex: frameIndex,
+            entries: entries,
+            selectionDigest: SceneFrameTextureSelectionDigest(entries)
+        )
+    }
+
+    fileprivate init(
+        frameEpoch: UInt64,
+        frameIndex: UInt64,
+        entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
+        selectionDigest: SceneFrameTextureSelectionDigest
+    ) {
+        self.frameEpoch = frameEpoch
+        self.frameIndex = frameIndex
+        self.entries = entries
+        self.selectionDigest = selectionDigest
+    }
 
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
         entries[identity]
@@ -565,13 +764,21 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         }) else { return nil }
 
         var overlaid = entries
+        var digest = selectionDigest
         for (identity, resource) in resources {
+            let previous = overlaid[.graph(identity)]
             overlaid[.graph(identity)] = .ready(resource)
+            digest = digest.replacing(
+                .graph(identity),
+                previous: previous,
+                with: .ready(resource)
+            )
         }
         return Self(
             frameEpoch: frameEpoch,
             frameIndex: frameIndex,
-            entries: overlaid
+            entries: overlaid,
+            selectionDigest: digest
         )
     }
 
@@ -585,11 +792,17 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
             frameEpoch: frameEpoch
         ) else { return nil }
         var overlaid = entries
+        let previous = overlaid[identity]
         overlaid[identity] = .ready(resource)
         return Self(
             frameEpoch: frameEpoch,
             frameIndex: frameIndex,
-            entries: overlaid
+            entries: overlaid,
+            selectionDigest: selectionDigest.replacing(
+                identity,
+                previous: previous,
+                with: .ready(resource)
+            )
         )
     }
 
@@ -603,11 +816,17 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
             frameEpoch: frameEpoch
         ) else { return nil }
         var overlaid = entries
+        let previous = overlaid[identity]
         overlaid[identity] = .ready(resource)
         return Self(
             frameEpoch: frameEpoch,
             frameIndex: frameIndex,
-            entries: overlaid
+            entries: overlaid,
+            selectionDigest: selectionDigest.replacing(
+                identity,
+                previous: previous,
+                with: .ready(resource)
+            )
         )
     }
 }

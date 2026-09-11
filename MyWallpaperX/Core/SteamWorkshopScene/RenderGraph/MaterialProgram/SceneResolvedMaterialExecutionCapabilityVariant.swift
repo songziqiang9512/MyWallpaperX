@@ -44,6 +44,22 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private var cachedGraphTextureContentFacts: [
         Graph.TextureIdentity: SceneTextureContent
     ]?
+    /// Stable-frame variant-selection memo. Selection depends only on the
+    /// template identity (guarded above), the reachability identity, the
+    /// snapshot's selection digest and this cache's own variant state, so a
+    /// repeated (digest, framebuffer identity) pair reproduces the same
+    /// selection without re-deriving per-variant keys. Entries are dropped
+    /// whenever variant state itself changes.
+    private var memoizedSelections: [
+        SelectionMemoKey: Result<Selection, Failure>
+    ] = [:]
+
+    private struct SelectionMemoKey: Hashable {
+        let selectionDigest: SceneFrameTextureSelectionDigest
+        let implicitFramebufferIdentity: Graph.TextureIdentity?
+    }
+
+    private static let maximumMemoizedSelections = 32
 
     private init(
         template: Template,
@@ -458,6 +474,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             }
         }
         cachedLaunchEnvelopeKeys = admittedKeys
+        memoizedSelections.removeAll()
         cachedReachableSamplers = reachableSamplers
         cachedReachabilityIdentity = implicitFramebufferIdentity
         hasCachedReachability = true
@@ -469,19 +486,45 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     ) -> Result<Selection, Failure> {
         lock.lock()
         defer { lock.unlock() }
+        guard input.template.diagnosticProvenance.contractCanonicalSHA256
+                == template.diagnosticProvenance.contractCanonicalSHA256,
+              input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
+              input.template.uniformDeclarations == template.uniformDeclarations,
+              input.template.compatibilityTarget
+                == template.compatibilityTarget,
+              input.template.effectContext == template.effectContext else {
+            return .failure(Self.failure(
+                .variantSelectionTemplateIdentityInvariant,
+                phase: .invariant
+            ))
+        }
+        guard hasCachedReachability,
+              cachedReachabilityIdentity == input.implicitFramebufferIdentity,
+              cachedReachableSamplers != nil else {
+            return .failure(Self.failure(
+                .variantSelectionReachabilityIdentityInvariant,
+                phase: .invariant
+            ))
+        }
+        let memoKey = SelectionMemoKey(
+            selectionDigest: input.textureSnapshot.selectionDigest,
+            implicitFramebufferIdentity: input.implicitFramebufferIdentity
+        )
+        if let memoized = memoizedSelections[memoKey] {
+            return memoized
+        }
+        let resolved = resolveSelectionUncached(input)
+        if memoizedSelections.count >= Self.maximumMemoizedSelections {
+            memoizedSelections.removeAll()
+        }
+        memoizedSelections[memoKey] = resolved
+        return resolved
+    }
+
+    private func resolveSelectionUncached(
+        _ input: SceneResolvedMaterialFinalizationInput
+    ) -> Result<Selection, Failure> {
         do {
-            guard input.template.diagnosticProvenance.contractCanonicalSHA256
-                    == template.diagnosticProvenance.contractCanonicalSHA256,
-                  input.template.diagnosticProvenance.nodeIndex == template.diagnosticProvenance.nodeIndex,
-                  input.template.uniformDeclarations == template.uniformDeclarations,
-                  input.template.compatibilityTarget
-                    == template.compatibilityTarget,
-                  input.template.effectContext == template.effectContext else {
-                throw Self.failure(
-                    .variantSelectionTemplateIdentityInvariant,
-                    phase: .invariant
-                )
-            }
             guard hasCachedReachability,
                   cachedReachabilityIdentity == input.implicitFramebufferIdentity,
                   let reachableSamplers = cachedReachableSamplers else {
@@ -633,9 +676,11 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 onBoundedFrontendCompilation: { frontendCompilations += 1 }
             )
             entries[key] = .ready(variant)
+            memoizedSelections.removeAll()
             return variant
         } catch let failure as Failure {
             entries[key] = .failed(failure)
+            memoizedSelections.removeAll()
             throw failure
         }
     }
