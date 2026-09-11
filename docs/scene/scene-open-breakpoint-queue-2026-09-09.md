@@ -22,7 +22,7 @@
 
 当前工作树全量回归曾暴露三个可复现断点，已按公共 owner 修复并完成专项回归：SceneScript visibility owner 排除直接 `thisLayer.visible` 写入、effectful owner 保留视频句柄；generic straight-alpha default boundary 将 authored `directOutputFact` 纳入 strict compiler owner，避免额外 output component write 或 compiler sample 漂移被 fallback 掩盖；external primary passthrough harness 补齐当前 `FrameInputs.DependencyEffect.texture` 合同。专项三模块 `ALL OK`，checkpoint Debug build `BUILD SUCCEEDED`。全量回归尚未重新收尾，B7/B8/全样本视觉仍开放。
 
-2026-09-11 B7 代码切片：`ScenePuppetPlaybackState` 复用 launch-stable 的 frame sample/signature scratch，避免每次 source-update 在 signature guard 前创建两个数组；动态 visibility、scene time、timeInvariant 和 bone revision 仍实时写入。Puppet animation/playback/rig 三模块回归通过，checkpoint Debug build 成功。尚未以当前签名包完成真实 Puppet fresh profile 或 CPU A/B，B7 仍开放。
+2026-09-11 B7 代码切片：`ScenePuppetPlaybackState` 复用 launch-stable 的 frame sample/signature scratch，避免每次 source-update 在 signature guard 前创建两个数组；动态 visibility、scene time、timeInvariant 和 bone revision 仍实时写入。Puppet animation/playback/rig 三模块回归通过，checkpoint Debug build 成功。当前签名 Debug app 对隔离只读样本 `3665307769` 的 fresh 25 秒回放严格 PASS（loaded=1.0、failures=[]、GPU/compositor/next-frame 成立），但 `cpu_frame_p95=34.815 ms`、`main_frame_p95=35.08 ms`、driver `26.425 FPS`，GPU p95 `10.608 ms`；scratch 改动保持可见正确性，16.67ms CPU 预算仍开放。
 
 以下条目是本次交接时的实际修复队列，按共享 owner 依赖排序；每项完成后必须补充运行证据并提交一个完整职责批次：
 

@@ -853,3 +853,5 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 ### 2026-09-11 B7 source-update scratch reuse
 
 `ScenePuppetPlaybackState` 现在在 launch 时按选定 clip 数量准备并复用 frame sample 与 FrameSignature 容器；普通帧只更新 visibility、scene-time sample、timeInvariant 与 boneRevision，skin matrix、position、vertex scratch 继续由同一 playback owner 持有。`test_scene_puppet_animation`、`test_scene_puppet_playback`、`test_scene_puppet_rig` 全部通过，checkpoint Debug build 为 `BUILD SUCCEEDED`。本批未运行当前签名包的真实样本 profile/CPU A-B，因此只记 B7 shared hot-path preparation wiring，不关闭 16.67ms 稳定帧预算。
+
+fresh 隔离回放现已完成：Developer ID Debug app `com.songziqiang.MyWallpaperX` 2.0.9 (277)，CDHash `e1389d3709d638d735c0c2a008a531d5e74d2b12`，样本副本 `/private/tmp/mwx-b7-sample-root/Scene/3665307769`，最小回放矩阵 SHA-256 `e3e175e013833f3ef6aea3f27c1fb447fd595e2609e0528f8b283c33e70402e3`，report `/private/tmp/mwx-b7-scratch-replay/report.json`。运行 25 秒、`loaded=1.0`、`failures=[]`、submitted/completed/failed=`521/520/0`，GPU/compositor/next-frame 门成立；性能为 driver `26.425 FPS`、CPU p95 `34.815 ms`、main-frame p95 `35.08 ms`、GPU p95 `10.608 ms`。该结果证明本批 scratch 复用未改变可见安全链，但仍未关闭 16.67ms CPU 预算。
