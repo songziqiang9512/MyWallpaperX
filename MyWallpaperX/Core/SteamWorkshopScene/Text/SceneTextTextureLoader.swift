@@ -31,8 +31,17 @@ enum SceneTextTextureLoader {
         effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
     ) -> SceneTextTextureLoadResult {
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        // A text layer named as another layer's authored dependency is a
+        // composite source even when it stays invisible in the main pass;
+        // its rasterized publication must exist for the named-target
+        // capture path.
+        let dependencySourceIDs = Set(
+            descriptor.layers.flatMap { $0.dependencyLayerIDs }
+        )
         let candidates = descriptor.layers.filter {
-            $0.contentKind == "text" && visibleIDs.contains($0.id)
+            $0.contentKind == "text"
+                && (visibleIDs.contains($0.id)
+                    || dependencySourceIDs.contains($0.id))
         }
         var textures: [Int: MTLTexture] = [:]
         var renderSizes: [Int: [Float]] = [:]

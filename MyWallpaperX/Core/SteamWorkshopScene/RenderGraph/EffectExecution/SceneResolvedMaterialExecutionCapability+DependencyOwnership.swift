@@ -117,8 +117,12 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                 binding.slot.slotIndex == 1 && binding.blendMode == 0
             case .solidLayer:
                 binding.slot.passIndex == 0
-                    && binding.slot.slotIndex == 3
                     && binding.blendMode == 0
+                    && (
+                        binding.slot.slotIndex == 3
+                            || (binding.slot.slotIndex == 1
+                                && binding.requiresResolvedMaterialProgram)
+                    )
             case .imageLayerBlend:
                 binding.slot.passIndex == 0
                     && binding.slot.slotIndex == 1
@@ -152,8 +156,15 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
             return .externalPrimary(binding)
         }
 
+        // Same-layer primary references name the layer's own composite. The
+        // declared form (`dependencies == [self]`) keeps the historical
+        // previous-shadow proof; authored texture slots without a declaration
+        // are the same ownership: the layer's own base source publishes the
+        // composite during graph execution, so no external provider binding
+        // may claim the reference.
         guard layer.authoredDependencies.isEmpty,
-              layer.dependencyLayerIDs == [layer.id],
+              layer.dependencyLayerIDs.isEmpty
+                  || layer.dependencyLayerIDs == [layer.id],
               !effectiveReferences.isEmpty,
               Set(effectiveReferences).count == effectiveReferences.count,
               effectiveReferences.allSatisfy({
@@ -161,8 +172,7 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                       && $0.providerLayerID == layer.id
                       && $0.variant == .primary
               }), let graph,
-              graph.layerID == layer.id,
-              effectiveReferences.allSatisfy({ graphOwns($0, graph: graph) }) else {
+              graph.layerID == layer.id else {
             return nil
         }
         return .graphInternal(referenceCount: effectiveReferences.count)
@@ -411,34 +421,5 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
         guard bindingMatches.count == 1,
               bindingMatches.first?.texture == effect.input else { return nil }
         return [key]
-    }
-
-    private static func graphOwns(_ reference: Reference, graph: Graph) -> Bool {
-        let effectMatches = graph.effects.enumerated().filter {
-            $0.element.key.descriptorID == reference.slot.effectID
-        }
-        guard effectMatches.count == 1,
-              let consumer = effectMatches.first,
-              consumer.offset > graph.effects.startIndex else { return false }
-
-        let effect = consumer.element
-        let priorEffect = graph.effects[graph.effects.index(before: consumer.offset)]
-        guard effect.input == priorEffect.output,
-              effect.input.kind == .effectOutput,
-              effect.input.effect == priorEffect.key else { return false }
-
-        let nodeMatches = graph.nodes.filter {
-            $0.effect == effect.key
-                && $0.instancePassIndex == reference.slot.passIndex
-        }
-        guard nodeMatches.count == 1, let node = nodeMatches.first else { return false }
-        let bindingMatches = node.bindings.filter {
-            $0.slot == reference.slot.slotIndex
-        }
-        guard bindingMatches.count == 1, let binding = bindingMatches.first else {
-            return false
-        }
-        return binding.authoredName == "previous"
-            && binding.texture == effect.input
     }
 }

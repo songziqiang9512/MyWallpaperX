@@ -192,7 +192,10 @@ extension SceneDesktopWallpaperHost {
         let utilityPlans = SceneUtilityLayerRuntimePlanner.plans(
             in: descriptor,
             resolvedMaterialLayerIDs:
-                resolvedMaterialExecutionCapabilities.executionLayerIDs
+                resolvedMaterialExecutionCapabilities.executionLayerIDs,
+            admittedResolvedMaterialReferences:
+                resolvedMaterialExecutionCapabilities
+                    .admittedResolvedMaterialReferences
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets

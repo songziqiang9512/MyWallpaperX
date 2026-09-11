@@ -361,7 +361,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard let attachment = attachment(
                 for: node,
                 in: product.graph,
-                preservedRGBADataTargets: preservedRGBADataTargets
+                preservedRGBADataTargets: preservedRGBADataTargets,
+                graphTextureContentFacts: graphTextureContentFacts
             ) else { return .failure(rejection("material-target-storage-unproven")) }
             let variants: SceneResolvedMaterialVariantCache
             switch SceneResolvedMaterialVariantCache.launchValidated(
@@ -475,8 +476,7 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             if let target = node.target,
                node.conditions == nil,
                node.compose == nil {
-                if preservedRGBADataTargets.contains(target),
-                   attachment.storage == .preservedRGBAUnorm {
+                if attachment.storage == .preservedRGBAUnorm {
                     // The accumulation owner writes an RGBA8 state vector;
                     // its channels remain data through validated copies.
                     // A terminal consumer must prove its own content contract.
@@ -604,7 +604,8 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
     private static func attachment(
         for node: Graph.Node,
         in graph: Graph,
-        preservedRGBADataTargets: Set<Graph.TextureIdentity>
+        preservedRGBADataTargets: Set<Graph.TextureIdentity>,
+        graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent]
     ) -> (
         storage: SceneResolvedMaterialAttachmentKind,
         format: SceneGraphRenderTargetPlan.TextureFormat
@@ -612,6 +613,17 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         guard let target = node.target else { return nil }
         switch target.kind {
         case .effectOutput:
+            // A terminal material that reads one already-proven RGBA data
+            // target remains a data provider. The prepared variant still has
+            // to prove the whole-output preserved-data contract before it can
+            // execute.
+            if node.bindings.count == 1,
+               let binding = node.bindings.first,
+               binding.conditions == nil,
+               binding.texture.kind == .framebuffer,
+               graphTextureContentFacts[binding.texture] == .data {
+                return (.preservedRGBAUnorm, .rgbaBackbuffer)
+            }
             return (.color, .rgbaBackbuffer)
         case .framebuffer:
             let declarations = graph.renderTargets.filter { $0.texture == target }

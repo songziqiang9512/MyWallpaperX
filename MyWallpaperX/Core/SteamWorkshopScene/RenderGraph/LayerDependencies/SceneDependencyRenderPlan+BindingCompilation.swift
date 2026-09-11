@@ -360,7 +360,14 @@ extension SceneDependencyRenderPlan {
             kind: Binding.Kind,
             requiresResolvedMaterialProgram: Bool
         )?
-        if let reference = singleSlot3SolidLayerReference(
+        if let reference = materialProgramSolidLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID
+        ) {
+            contract = (reference, 0, .solidLayer, true)
+        } else if let reference = singleSlot3SolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references
@@ -521,11 +528,28 @@ extension SceneDependencyRenderPlan {
         case .solidLayer:
             provider.contentKind == "solid"
                 && hasNoUtilityLayer(provider)
-                && provider.visible == false
+                && (
+                    provider.visible == false
+                    || (
+                        contract.requiresResolvedMaterialProgram
+                            && provider.visible != false
+                            && provider.effects.contains(where: {
+                                $0.visible != false
+                            })
+                            && provider.dependencyLayerIDs.isEmpty
+                            && provider.authoredDependencies.isEmpty
+                    )
+                )
         case .imageLayerBlend:
             provider.contentKind == "image"
                 && hasNoUtilityLayer(provider)
                 && provider.visible == false
+                || provider.contentKind == "text"
+                    && hasNoUtilityLayer(provider)
+                    && provider.childLayerIDs.isEmpty
+                    && !provider.effects.contains(where: { $0.visible != false })
+                    && provider.dependencyLayerIDs.isEmpty
+                    && provider.authoredDependencies.isEmpty
         case .visibleImageGraphOutput:
             provider.contentKind == "image"
                 && hasNoUtilityLayer(provider)
@@ -538,6 +562,8 @@ extension SceneDependencyRenderPlan {
                   (contract.kind == .imageLayerBlend
                       && provider.visible == false)
                     || contract.kind == .visibleImageGraphOutput
+                    || (contract.kind == .solidLayer
+                        && contract.requiresResolvedMaterialProgram)
               )),
               provider.childLayerIDs.isEmpty,
               (providerActiveDependencies.isEmpty || providerHasVisibleEffects),
@@ -618,6 +644,14 @@ extension SceneDependencyRenderPlan {
             return true
         }
         if materialProgramImageLayerReference(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID
+        ) != nil {
+            return true
+        }
+        if materialProgramSolidLayerReference(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,

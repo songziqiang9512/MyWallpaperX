@@ -507,7 +507,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         guard let dependencyOwnership else {
             return .failure(failure("execution-route-dependency-owner"))
         }
-        if layer.utilityLayer != nil {
+        if let _ = layer.utilityLayer {
             let utilityRoute: SceneUtilityLayerSourceRoute.Resolution
             switch SceneUtilityLayerSourceRoute.resolve(
                 layer: layer,
@@ -524,7 +524,11 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             case let .externalPrimary(binding):
                 guard binding.consumerLayerID == layer.id,
                       binding.kind == .resolvedMaterial
-                        || binding.kind == .solidLayer else {
+                        || binding.kind == .solidLayer
+                        // A plain text/raster provider rides the
+                        // imageLayerBlend carrier; the utility captures the
+                        // same typed publication through its own route.
+                        || binding.kind == .imageLayerBlend else {
                     return .failure(failure("execution-route-utility-shape"))
                 }
             case let .externalAggregate(aggregate):
@@ -533,7 +537,10 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     return .failure(failure("execution-route-aggregate-shape"))
                 }
             case .graphInternal:
-                return .failure(failure("execution-route-utility-shape"))
+                // Same-layer primary composite references resolve from the
+                // utility's own base capture; the captured main-target route
+                // already owns that source.
+                break
             }
             if utilityRoute.capturesCompositionSubtree,
                dependencyOwnership != .none {

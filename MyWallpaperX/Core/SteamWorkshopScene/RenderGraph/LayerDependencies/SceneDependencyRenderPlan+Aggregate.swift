@@ -347,20 +347,17 @@ extension SceneDependencyRenderPlan {
                         slotIndex: candidate.slot.slotIndex,
                         pass: pass
                     )
-            let hasOnlyNeutralAuthoredConstants = pass.constantShaderValues.values
-                .allSatisfy { value in
-                    guard let components = value.components,
-                          !components.isEmpty else { return false }
-                    return components.allSatisfy { $0 == 1 }
-                }
+            // Authored constants and combos select shader semantics only;
+            // the admitted MaterialProgram owns them. The dependency binding
+            // keeps proving the structural carrier: exact slot path, single
+            // provider/variant, and no user-texture override on the slot.
             guard pass.textureSlots.indices.contains(candidate.slot.slotIndex),
                   let path = pass.textureSlots[candidate.slot.slotIndex],
                   SceneNamedTextureReference.parse(path) == .init(
                       providerLayerID: candidate.providerLayerID,
                       variant: candidate.variant
                   ),
-                  userTextureAllowsNamedFallback,
-                  hasOnlyNeutralAuthoredConstants else {
+                  userTextureAllowsNamedFallback else {
                 return nil
             }
         }

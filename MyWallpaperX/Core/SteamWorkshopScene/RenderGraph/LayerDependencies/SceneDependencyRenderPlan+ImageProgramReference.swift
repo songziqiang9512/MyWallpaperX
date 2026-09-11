@@ -248,14 +248,24 @@ extension SceneDependencyRenderPlan {
     /// scalar values deliberately do not select this resource route. A static
     /// provider must be dependency-free; an effectful provider may carry the
     /// single dependency closed later by the shared dependency-plan compiler.
+    /// A plain text provider joins the same carrier: its composite is the
+    /// per-frame rasterized text publication, so the layer's main-pass
+    /// visibility does not change the named-target content. A childless
+    /// composition-utility consumer may ride the same carrier for one such
+    /// provider; `supportsEffectConsumer` still requires the structural
+    /// utility admission set.
     nonisolated static func materialProgramImageLayerReference(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer]
     ) -> Reference? {
-        guard layer.contentKind == "image",
-              hasNoUtilityLayer(layer),
+        let consumerIsCompositionUtility = layer.contentKind == "composition"
+            && layer.utilityLayer?.kind == .composition
+        guard layer.contentKind == "image"
+                  || layer.contentKind == "text"
+                  || consumerIsCompositionUtility,
+              consumerIsCompositionUtility || hasNoUtilityLayer(layer),
               layer.childLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
               references.count == 1,
@@ -268,12 +278,7 @@ extension SceneDependencyRenderPlan {
                   references: references
               ) == [reference.providerLayerID],
               let provider = layersByID[reference.providerLayerID],
-              provider.contentKind == "image",
-              hasNoUtilityLayer(provider),
-              provider.visible == false,
-              provider.childLayerIDs.isEmpty,
-              provider.dependencyLayerIDs.isEmpty
-                || provider.effects.contains(where: { $0.visible != false }) else {
+              isImageOrTextCompositeProvider(provider) else {
             return nil
         }
         let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
@@ -295,10 +300,89 @@ extension SceneDependencyRenderPlan {
         return reference
     }
 
+    /// A childless composition utility may consume one authored primary
+    /// named target from an effectful solid provider.  The MaterialProgram
+    /// owns the utility shader semantics; this carrier only proves the
+    /// provider/slot shape so the shared graph publication can supply the
+    /// typed payload (including `.data`).
+    nonisolated static func materialProgramSolidLayerReference(
+        layer: SceneRenderDescriptor.Layer,
+        visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
+        references: [Reference],
+        layersByID: [Int: SceneRenderDescriptor.Layer]
+    ) -> Reference? {
+        guard supportsStructuralUtilityConsumer(layer),
+              visibleEffects.count == 1,
+              references.count == 1,
+              let reference = references.first,
+              reference.variant == .primary,
+              reference.slot.passIndex == 0,
+              reference.slot.slotIndex == 1,
+              activeDependencyProviderLayerIDs(
+                  layer: layer,
+                  references: references
+              ) == [reference.providerLayerID],
+              layer.dependencyLayerIDs == [reference.providerLayerID],
+              let provider = layersByID[reference.providerLayerID],
+              provider.contentKind == "solid",
+              hasNoUtilityLayer(provider),
+              provider.childLayerIDs.isEmpty,
+              provider.authoredDependencies.isEmpty,
+              provider.dependencyLayerIDs.isEmpty,
+              provider.visible != false,
+              provider.effects.contains(where: { $0.visible != false }) else {
+            return nil
+        }
+        guard let effect = visibleEffects.first,
+              effect.id == reference.slot.effectID,
+              effect.passes.count == 1,
+              let pass = effect.passes.first,
+              pass.passIndex == reference.slot.passIndex,
+              pass.textureSlots.count == 2,
+              pass.textureSlots[0] == nil,
+              let path = pass.textureSlots[reference.slot.slotIndex],
+              pass.texturePaths == [path],
+              pass.userTextureInputs.isEmpty,
+              SceneNamedTextureReference.parse(path) == .init(
+                  providerLayerID: reference.providerLayerID,
+                  variant: .primary
+              ) else {
+            return nil
+        }
+        return reference
+    }
+
     nonisolated static func hasNoUtilityLayer(
         _ layer: SceneRenderDescriptor.Layer
     ) -> Bool {
         if case nil = layer.utilityLayer { return true }
+        return false
+    }
+
+    /// Providers whose named composite is their own rendered base content.
+    /// A hidden (or effectful-with-single-closed-dependency) image provider
+    /// and a plain dependency-free text provider both publish exactly their
+    /// rasterized source into the named target; authored main-pass visibility
+    /// of a text layer never changes that composite.
+    nonisolated static func isImageOrTextCompositeProvider(
+        _ provider: SceneRenderDescriptor.Layer
+    ) -> Bool {
+        if provider.contentKind == "image" {
+            return hasNoUtilityLayer(provider)
+                && provider.visible == false
+                && provider.childLayerIDs.isEmpty
+                && (provider.dependencyLayerIDs.isEmpty
+                    || provider.effects.contains(where: { $0.visible != false }))
+        }
+        if provider.contentKind == "text" {
+            // Authored-invisible effects never execute, so the composite is
+            // still the plain per-frame rasterized text publication.
+            return hasNoUtilityLayer(provider)
+                && provider.childLayerIDs.isEmpty
+                && !provider.effects.contains(where: { $0.visible != false })
+                && provider.dependencyLayerIDs.isEmpty
+                && provider.authoredDependencies.isEmpty
+        }
         return false
     }
 }

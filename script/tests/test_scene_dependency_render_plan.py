@@ -71,6 +71,53 @@ enum Harness {
         let partialConsumer = consumer(8, provider: 1, extraEffect: true)
         let neutralOpacityConsumer = consumer(9, provider: 1, opacity: 1)
         let nonNeutralOpacityConsumer = consumer(10, provider: 1, opacity: 0.5)
+        let userTextureOverrideConsumer = consumer(
+            33,
+            provider: 1,
+            opacity: 0.5,
+            userTextureOverride: true
+        )
+        let textMaskProvider = SceneRenderDescriptor.Layer(
+            id: 34,
+            contentKind: "text",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: true,
+            effects: []
+        )
+        let textMaskConsumer = SceneRenderDescriptor.Layer(
+            id: 35,
+            contentKind: "text",
+            utilityLayer: nil,
+            dependencyLayerIDs: [34],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 35, provider: 34, opacity: 1)]
+        )
+        let effectfulTextProvider = SceneRenderDescriptor.Layer(
+            id: 36,
+            contentKind: "text",
+            utilityLayer: nil,
+            dependencyLayerIDs: [],
+            childLayerIDs: [],
+            visible: true,
+            effects: [.init(
+                id: "effect-36",
+                file: "effects/tint/effect.json",
+                visible: true,
+                passes: []
+            )]
+        )
+        let effectfulTextMaskConsumer = SceneRenderDescriptor.Layer(
+            id: 37,
+            contentKind: "text",
+            utilityLayer: nil,
+            dependencyLayerIDs: [36],
+            childLayerIDs: [],
+            visible: true,
+            effects: [effect(id: 37, provider: 36, opacity: 1)]
+        )
         let alternateEffectConsumer = consumer(
             11,
             provider: 1,
@@ -429,7 +476,10 @@ enum Harness {
             layers: [
                 provider, visibleConsumer, hiddenConsumer,
                 cycleA, cycleB, forwardConsumer, forwardProvider, partialConsumer,
-                neutralOpacityConsumer, nonNeutralOpacityConsumer, alternateEffectConsumer,
+                neutralOpacityConsumer, nonNeutralOpacityConsumer,
+                userTextureOverrideConsumer, textMaskProvider, textMaskConsumer,
+                effectfulTextProvider, effectfulTextMaskConsumer,
+                alternateEffectConsumer,
                 supportedGradientConsumer, reversedGradientConsumer, invalidGradientConsumer,
                 utilityConsumer, alternatePathConsumer, projectUtilityConsumer,
                 childUtilityConsumer, extraDependencyUtilityConsumer,
@@ -437,16 +487,20 @@ enum Harness {
             ],
             renderOrderLayerIDs: [
                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
-                30, 31, 32,
+                30, 31, 32, 33, 34, 35, 36, 37,
             ]
         )
         let visibleLayerIDs: Set<Int> = [
             1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32,
+            33, 34, 35, 36, 37,
         ]
         let plan = SceneDependencyRenderPlan(
             descriptor: descriptor,
             visibleLayerIDs: visibleLayerIDs,
-            executableUtilityConsumerLayerIDs: [15, 31]
+            executableUtilityConsumerLayerIDs: [15, 31],
+            admittedResolvedMaterialReferences: Set(
+                SceneDependencyGraphAnalysis.references(in: descriptor.layers)
+            )
         )
         let defaultPlan = SceneDependencyRenderPlan(
             descriptor: descriptor,
@@ -635,6 +689,7 @@ enum Harness {
             SceneNamedTextureReference.parse("_rt_imageLayerComposite_42_b")?.variant.rawValue ?? "nil",
         ]
         let solidCarrier = plan.bindingsByConsumerLayerID[31]
+        let materialProgramSolidCarrier = materialProgramSolidCarrierBinding()
         let imageBlend = imageBlendBinding()
         let forwardImageBlend = imageBlendBinding(providerFirst: false)
         let forwardEffectfulImageBlend = imageBlendBinding(
@@ -784,6 +839,15 @@ enum Harness {
             "invalidReference": SceneNamedTextureReference.parse("_rt_imageLayerComposite_bad_a") == nil,
             "referenceCount": plan.references.count,
             "namedConsumers": plan.namedReferenceConsumerLayerIDs.sorted(),
+            "textMaskRoute": plan.bindingsByConsumerLayerID[35].map {
+                [
+                    "kind": "\($0.kind)",
+                    "provider": $0.providerLayerID,
+                    "slot": $0.slot.slotIndex,
+                    "requiresProgram": $0.requiresResolvedMaterialProgram,
+                ]
+            },
+            "effectfulTextMaskBinding": plan.bindingsByConsumerLayerID[37] != nil,
             "executableUtilityConsumers": plan.executableUtilityConsumerLayerIDs.sorted(),
             "requiredEffectConsumers": plan.requiredEffectConsumerLayerIDs.sorted(),
             "bindingConsumers": plan.bindingsByConsumerLayerID.keys.sorted(),
@@ -1209,6 +1273,44 @@ enum Harness {
                 "forwardProvider": solidCarrierBinding(providerFirst: false) == nil,
                 "cycle": solidCarrierBinding(providerDependencies: [91]) == nil,
             ],
+            "materialProgramSolidCarrier": [
+                "provider": materialProgramSolidCarrier?.providerLayerID ?? -1,
+                "slot": materialProgramSolidCarrier?.slot.slotIndex ?? -1,
+                "solid": materialProgramSolidCarrier?.kind == .solidLayer,
+                "requiresProgram": materialProgramSolidCarrier?
+                    .requiresResolvedMaterialProgram ?? false,
+                "forward": materialProgramSolidCarrier?
+                    .requiresForwardCapture ?? false,
+            ],
+            "materialProgramSolidCarrierRejects": [
+                "unadmitted": materialProgramSolidCarrierBinding(
+                    admitProgram: false
+                ) == nil,
+                "hiddenProvider": materialProgramSolidCarrierBinding(
+                    providerVisible: false
+                ) == nil,
+                "plainProvider": materialProgramSolidCarrierBinding(
+                    providerEffectful: false
+                ) == nil,
+                "providerDependency": materialProgramSolidCarrierBinding(
+                    providerDependencies: [92]
+                ) == nil,
+                "providerChild": materialProgramSolidCarrierBinding(
+                    providerChildLayerIDs: [92]
+                ) == nil,
+                "secondary": materialProgramSolidCarrierBinding(
+                    variantSuffix: "b"
+                ) == nil,
+                "wrongSlot": materialProgramSolidCarrierBinding(
+                    slotIndex: 0
+                ) == nil,
+                "extraTexture": materialProgramSolidCarrierBinding(
+                    extraTexture: true
+                ) == nil,
+                "forwardProvider": materialProgramSolidCarrierBinding(
+                    providerFirst: false
+                ) == nil,
+            ],
             "imageBlendBinding": [
                 "consumer": imageBlend?.consumerLayerID ?? -1,
                 "provider": imageBlend?.providerLayerID ?? -1,
@@ -1424,6 +1526,7 @@ enum Harness {
         extraEffect: Bool = false,
         opacity: Double? = nil,
         variantSuffix: String = "a",
+        userTextureOverride: Bool = false,
         effectPath: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.Layer {
         var effects = [effect(
@@ -1431,6 +1534,7 @@ enum Harness {
             provider: provider,
             opacity: opacity,
             variantSuffix: variantSuffix,
+            userTextureOverride: userTextureOverride,
             path: effectPath
         )]
         if extraEffect {
@@ -1578,6 +1682,7 @@ enum Harness {
         provider: Int,
         opacity: Double? = nil,
         variantSuffix: String = "a",
+        userTextureOverride: Bool = false,
         path: String = "effects/workshop/2800594362/clipping_mask/effect.json"
     ) -> SceneRenderDescriptor.EffectDescriptor {
         .init(
@@ -1590,6 +1695,9 @@ enum Harness {
                 textureSlots: opacity == nil
                     ? [nil, "_rt_imageLayerComposite_\(provider)_\(variantSuffix)"]
                     : [nil, "_rt_imageLayerComposite_\(provider)_\(variantSuffix)", nil],
+                userTextureInputs: userTextureOverride
+                    ? [nil, SceneEffectTextureInput(kind: .path, value: "user.png")]
+                    : [],
                 combos: opacity == nil ? ["BLENDMODE": 5] : [:],
                 constantShaderValues: opacity.map {
                     ["Opacity": SceneDocument.ShaderValue(components: [$0])]
@@ -1786,6 +1894,91 @@ enum Harness {
             descriptor: descriptor,
             visibleLayerIDs: [consumerID],
             executableUtilityConsumerLayerIDs: [consumerID]
+        ).bindingsByConsumerLayerID[consumerID]
+    }
+
+    static func materialProgramSolidCarrierBinding(
+        providerVisible: Bool? = true,
+        providerEffectful: Bool = true,
+        providerDependencies: [Int] = [],
+        providerChildLayerIDs: [Int] = [],
+        variantSuffix: String = "a",
+        slotIndex: Int = 1,
+        extraTexture: Bool = false,
+        admitProgram: Bool = true,
+        providerFirst: Bool = true
+    ) -> SceneDependencyRenderPlan.Binding? {
+        let providerID = 94
+        let consumerID = 95
+        let providerEffects: [SceneRenderDescriptor.EffectDescriptor] =
+            providerEffectful ? [.init(
+                id: "provider-material",
+                file: "effects/workshop/unseen/data_provider/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: [],
+                    textureSlots: [],
+                    userTextureInputs: [],
+                    combos: [:],
+                    constantShaderValues: [:]
+                )]
+            )] : []
+        let provider = SceneRenderDescriptor.Layer(
+            id: providerID,
+            contentKind: "solid",
+            utilityLayer: nil,
+            dependencyLayerIDs: providerDependencies,
+            childLayerIDs: providerChildLayerIDs,
+            visible: providerVisible,
+            effects: providerEffects
+        )
+        let path = "_rt_imageLayerComposite_\(providerID)_\(variantSuffix)"
+        let authoredSlotCount = max(2, slotIndex + 1)
+        var textureSlots = Array<String?>(
+            repeating: nil,
+            count: authoredSlotCount
+        )
+        textureSlots[slotIndex] = path
+        if extraTexture {
+            textureSlots[0] = "assets/noise.tex"
+        }
+        let consumer = SceneRenderDescriptor.Layer(
+            id: consumerID,
+            contentKind: "composition",
+            utilityLayer: .init(kind: .composition),
+            dependencyLayerIDs: [providerID],
+            childLayerIDs: [],
+            visible: true,
+            effects: [.init(
+                id: "data-consumer",
+                file: "effects/workshop/unseen/data_consumer/effect.json",
+                visible: true,
+                passes: [.init(
+                    passIndex: 0,
+                    texturePaths: textureSlots.compactMap { $0 },
+                    textureSlots: textureSlots,
+                    userTextureInputs: [],
+                    combos: ["SOURCE": 0],
+                    constantShaderValues: [
+                        "Scale": .init(components: [0.125, 4]),
+                    ]
+                )]
+            )]
+        )
+        let descriptor = SceneRenderDescriptor(
+            layers: [provider, consumer],
+            renderOrderLayerIDs: providerFirst
+                ? [providerID, consumerID] : [consumerID, providerID]
+        )
+        let references = Set(SceneDependencyGraphAnalysis.references(
+            in: descriptor.layers
+        ))
+        return SceneDependencyRenderPlan(
+            descriptor: descriptor,
+            visibleLayerIDs: [providerID, consumerID],
+            executableUtilityConsumerLayerIDs: [consumerID],
+            admittedResolvedMaterialReferences: admitProgram ? references : []
         ).bindingsByConsumerLayerID[consumerID]
     }
 
@@ -2421,22 +2614,35 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
 
     def test_named_consumers_share_path_independent_backward_binding(self) -> None:
-        self.assertEqual(self.result["referenceCount"], 17)
+        self.assertEqual(self.result["referenceCount"], 19)
         self.assertEqual(
             self.result["namedConsumers"],
-            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32, 35, 37],
         )
         self.assertEqual(
             self.result["requiredEffectConsumers"],
-            [2, 6, 8, 9, 11, 12, 13, 14, 15, 16, 31, 32],
+            [2, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 32, 35, 37],
         )
         self.assertEqual(self.result["executableUtilityConsumers"], [15, 31])
         self.assertEqual(
             self.result["bindingConsumers"],
-            [2, 8, 9, 11, 12, 13, 14, 15, 16, 31],
+            [2, 8, 9, 10, 11, 12, 13, 14, 15, 16, 31, 35],
         )
         self.assertFalse(self.result["defaultUtilityBinding"])
-        self.assertEqual(self.result["requiredProviders"], [1, 30])
+        self.assertEqual(self.result["requiredProviders"], [1, 30, 34])
+        # A plain dependency-free text provider carries the same composite
+        # route as a hidden image provider; a text provider with authored
+        # effects has no plain-raster composite contract yet.
+        self.assertEqual(
+            self.result["textMaskRoute"],
+            {
+                "kind": "imageLayerBlend",
+                "provider": 34,
+                "slot": 1,
+                "requiresProgram": True,
+            },
+        )
+        self.assertFalse(self.result["effectfulTextMaskBinding"])
 
     def test_named_provider_route_rollback_is_generic_only_and_fail_closed(self) -> None:
         self.assertEqual(
@@ -2702,7 +2908,13 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("2:dependencyMismatch:1", self.result["issues"])
         self.assertIn("6:forwardUtilityProvider:7", self.result["issues"])
         self.assertIn("32:missingProvider:999", self.result["issues"])
-        self.assertIn("10:unsupportedConsumer:-1", self.result["issues"])
+        # Non-neutral authored constants no longer gate the structural
+        # carrier; the MaterialProgram owns shader semantics. A path-kind
+        # user-texture override keeps the slot out of dependency references
+        # entirely: no binding and no dependency issue is produced.
+        self.assertNotIn("10:unsupportedConsumer:-1", self.result["issues"])
+        self.assertNotIn("33:unsupportedConsumer:-1", self.result["issues"])
+        self.assertNotIn(33, self.result["bindingConsumers"])
         self.assertNotIn("15:unsupportedConsumer:-1", self.result["issues"])
         self.assertNotIn("16:unsupportedConsumer:-1", self.result["issues"])
         for layer_id in (17, 18, 19):
@@ -2939,6 +3151,23 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         )
         self.assertTrue(self.result["solidCarrierGeneralizesAuthoredShaderShape"])
         self.assertTrue(all(self.result["solidCarrierRejects"].values()))
+
+    def test_visible_effectful_solid_data_provider_requires_admitted_program(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["materialProgramSolidCarrier"],
+            {
+                "provider": 94,
+                "slot": 1,
+                "solid": True,
+                "requiresProgram": True,
+                "forward": False,
+            },
+        )
+        self.assertTrue(
+            all(self.result["materialProgramSolidCarrierRejects"].values())
+        )
 
     def test_exact_plain_image_blend_dependency_is_typed_and_fail_closed(self) -> None:
         self.assertEqual(

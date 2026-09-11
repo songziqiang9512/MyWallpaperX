@@ -414,8 +414,9 @@ extension SceneDesktopWallpaperHost {
             if targets.count != definitionCount {
                 boundedProducerConflicts.append("\(name)/duplicate")
             }
-            if !targets.intersection(propertyBindingTargets)
-                .subtracting(allowedPropertyInputs).isEmpty {
+            if !targets.isDisjoint(with: propertyBindingTargets) &&
+                !targets.intersection(propertyBindingTargets)
+                    .subtracting(allowedPropertyInputs).isEmpty {
                 boundedProducerConflicts.append("\(name)/property")
             }
             let unownedTimelineOverlap = targets.intersection(timelineTargets)
@@ -796,5 +797,4 @@ extension SceneDesktopWallpaperHost {
         ))
         completion(.failure(error))
     }
-
 }
