@@ -280,6 +280,7 @@ final class ScenePuppetPlaybackState {
         let frameSamples = frameSamplesScratch
         let signature = signatureScratch
         submissions.update(transaction: transaction) { submission in
+            // guard signature != submission.frameSignature else { return }
             guard signature != submission.frameSignature
                     || submission.boneRevision != boneRevision else { return }
             // Keep the expensive CPU skinning behind the frame signature

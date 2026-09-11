@@ -39,6 +39,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
 
     func finalizationInput(
         template: SceneResolvedMaterialTemplate,
+        layerID: Int = 0,
         renderSize: CGSize,
         modelViewProjection: simd_float4x4,
         layerModelMatrix: simd_float4x4,
@@ -47,6 +48,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
             template: template,
+            layerID: layerID,
             frameSnapshot: self,
             renderSize: renderSize,
             modelViewProjection: modelViewProjection,
@@ -92,10 +94,23 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         return replacingTextureSnapshot(replacement)
     }
 
+    func overlayingNamedLayerTarget(
+        _ reference: SceneNamedTextureReference,
+        resource: SceneFrameTextureResource
+    ) -> Self? {
+        guard let replacement = textureSnapshot.overlayingNamedLayerTarget(
+            reference,
+            resource: resource
+        ) else { return nil }
+        return replacingTextureSnapshot(replacement)
+    }
+
 }
 
 nonisolated struct SceneResolvedMaterialFinalizationInput {
     let template: SceneResolvedMaterialTemplate
+    /// Consumer layer identity for same-layer composite provenance.
+    let layerID: Int
     fileprivate let frameSnapshot: SceneResolvedMaterialFrameSnapshot
     let renderSize: CGSize
     let modelViewProjection: simd_float4x4
@@ -360,6 +375,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 ) {
                     return neutral
                 }
+                if let selfComposite = selfCompositeTextureResolutionUniform(
+                    field: field,
+                    schema: schema,
+                    input: input,
+                    variant: variant
+                ) {
+                    return selfComposite
+                }
                 guard let fallback = schema.defaultValue,
                       let encoded = SceneResolvedMaterialUniformEncoder.encode(
                           fallback,
@@ -473,6 +496,52 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                 )
             }
         }
+    }
+
+    /// A same-layer composite slot may exist purely as metadata for host
+    /// uniforms (e.g. `g_Texture0Resolution`) without any authored sampler.
+    /// The layer's graph owns that reference and captures the base composite
+    /// at the execution render size, so the resolution uniform encodes that
+    /// size directly instead of inventing a texture identity.
+    private static func selfCompositeTextureResolutionUniform(
+        field: SceneAuthoredShaderUniformLayout.Field,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        input: SceneResolvedMaterialFinalizationInput,
+        variant: SceneResolvedMaterialCompiledVariant
+    ) -> Program.ResolvedUniform? {
+        guard field.type == .float4,
+              field.arrayCount == nil,
+              field.authoredName == field.name,
+              field.name.hasPrefix("g_Texture"),
+              field.name.hasSuffix("Resolution"),
+              schema.defaultValue == nil,
+              schema.materialKeys == [field.name],
+              let slot = Int(field.name.dropFirst("g_Texture".count)
+                  .dropLast("Resolution".count)),
+              (0 ..< 8).contains(slot),
+              variant.activeSamplers[slot] == nil,
+              input.template.textureSlots.indices.contains(slot),
+              let templateSlot = input.template.textureSlots[slot],
+              let terminal = templateSlot.candidates.last,
+              case let .provider(.namedLayerTarget(reference)) =
+                  terminal.reference,
+              reference.providerLayerID == input.layerID,
+              reference.variant == .primary,
+              let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
+                  [
+                      input.renderSize.width,
+                      input.renderSize.height,
+                      input.renderSize.width,
+                      input.renderSize.height,
+                  ],
+                  as: field.type
+              )
+        else { return nil }
+        return .init(
+            field: field,
+            source: .selfCompositeTextureResolution(slot: slot),
+            encodedValue: encoded
+        )
     }
 
     private static func neutralTextureResolutionUniform(

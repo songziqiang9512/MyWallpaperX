@@ -193,6 +193,7 @@
           "SceneScriptAnimationHandleBridge.swift",
           "SceneScriptAudioHost.swift",
           "SceneScriptCursorProgram.swift",
+          "SceneScriptCursorProgram+PuppetBones.swift",
           "SceneScriptFallbackCatalog.swift",
           "SceneScriptVectorMediaRouteCandidate.swift",
           "SceneScriptDynamicImageReferenceAnalysis.swift",
@@ -211,10 +212,12 @@
           "SceneScriptQuickJSProgramCandidate.swift",
           "SceneScriptVectorCandidateCatalog.swift",
           "SceneScriptVectorCandidateModels.swift",
+          "SceneScriptVectorOwner+PuppetBones.swift",
           "SceneScriptVectorProgram.swift",
           "SceneScriptVectorProgram+Registrations.swift",
           "SceneScriptVectorProgramModels.swift",
-          "SceneScriptVectorRuntime.swift"
+          "SceneScriptVectorRuntime.swift",
+          "ScenePuppetBoneTransformBridge.swift"
         ],
         "responsibility": "SceneScript VM owners, typed scalar/String/Vec and particle target projection plus callback-scoped cursor/media/property events and effect/scene/layer/object-animation bridges; excludes QuickJS core source, remaining host event API breadth, and GPU rendering consumers."
       },

@@ -1,5 +1,30 @@
 import Foundation
 
+nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
+    let value: SceneDynamicValue
+    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
+    let animationMutations: [SceneTimelinePlaybackMutation]
+    let layerMutations: [SceneScriptLayerMutation]
+    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
+    let videoCommands: [SceneScriptVideoCommand]
+
+    init(
+        value: SceneDynamicValue,
+        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
+        animationMutations: [SceneTimelinePlaybackMutation],
+        layerMutations: [SceneScriptLayerMutation],
+        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
+        videoCommands: [SceneScriptVideoCommand]
+    ) {
+        self.value = value
+        self.materialFunctionMutations = materialFunctionMutations
+        self.animationMutations = animationMutations
+        self.layerMutations = layerMutations
+        self.puppetBoneMutations = puppetBoneMutations
+        self.videoCommands = videoCommands
+    }
+}
+
 nonisolated struct SceneScriptVectorCandidate: Sendable {
     let authoredOrdinal: Int
     let source: String

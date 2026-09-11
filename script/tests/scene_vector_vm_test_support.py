@@ -52,6 +52,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptVectorProgram+Registrations.swift",
     VM / "SceneScriptVectorRuntime.swift",
     VM / "SceneScriptVectorOwner+PuppetBones.swift",
+    VM / "SceneScriptVectorOwner+PuppetBones.swift",
     VM / "SceneScriptQuickJSProgramCandidate.swift",
 ]
 

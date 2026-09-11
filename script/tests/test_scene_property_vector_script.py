@@ -56,6 +56,7 @@ SOURCES = [
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorProgram+Registrations.swift",
     VM / "SceneScriptVectorRuntime.swift",
+    VM / "SceneScriptVectorOwner+PuppetBones.swift",
 ]
 
 HARNESS = r'''

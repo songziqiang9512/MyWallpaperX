@@ -1,30 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptVectorEvaluation: Equatable, Sendable {
-    let value: SceneDynamicValue
-    let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
-    let animationMutations: [SceneTimelinePlaybackMutation]
-    let layerMutations: [SceneScriptLayerMutation]
-    let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
-    let videoCommands: [SceneScriptVideoCommand]
-
-    init(
-        value: SceneDynamicValue,
-        materialFunctionMutations: [SceneScriptMaterialFunctionMutation],
-        animationMutations: [SceneTimelinePlaybackMutation],
-        layerMutations: [SceneScriptLayerMutation],
-        puppetBoneMutations: [SceneScriptPuppetBoneMutation] = [],
-        videoCommands: [SceneScriptVideoCommand]
-    ) {
-        self.value = value
-        self.materialFunctionMutations = materialFunctionMutations
-        self.animationMutations = animationMutations
-        self.layerMutations = layerMutations
-        self.puppetBoneMutations = puppetBoneMutations
-        self.videoCommands = videoCommands
-    }
-}
-
 extension SceneScriptVectorOwner {
     /// Installs the launch-prepared Puppet pose into thisLayer's existing
     /// callback owner. The arrays are copied once per frame generation; bone
