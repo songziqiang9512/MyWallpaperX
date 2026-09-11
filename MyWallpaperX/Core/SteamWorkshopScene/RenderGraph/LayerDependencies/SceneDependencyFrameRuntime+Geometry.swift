@@ -109,8 +109,8 @@ extension SceneDependencyFrameRuntime {
                 return nil
             }
             return normalizedExtent(
-                width: providerTexture.width,
-                height: providerTexture.height
+                width: preparedOutputExtent?.width ?? providerTexture.width,
+                height: preparedOutputExtent?.height ?? providerTexture.height
             )
         }
     }

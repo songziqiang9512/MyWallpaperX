@@ -351,17 +351,37 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             switch candidate.result {
             case let .failure(failure):
                 rejected[failure.code, default: 0] += 1
+#if DEBUG
+                NSLog(
+                    "MWX DEBUG SCENE: phase=capability-admission layer=%d outcome=rejected-by-admission reason=%@",
+                    candidate.layerID,
+                    failure.code
+                )
+#endif
                 if failure.code == "material-generic-owner-revoked" {
                     productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
                 }
             case let .success(admitted):
                 guard let preparation = preparations[index] else {
                     rejected["parallel-preparation-missing", default: 0] += 1
+#if DEBUG
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=capability-admission layer=%d outcome=rejected-by-preparation reason=parallel-preparation-missing",
+                        candidate.layerID
+                    )
+#endif
                     continue
                 }
                 switch preparation {
                 case let .failure(failure):
                     rejected[failure.code, default: 0] += 1
+#if DEBUG
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=capability-admission layer=%d outcome=rejected-by-preparation reason=%@",
+                        candidate.layerID,
+                        failure.code
+                    )
+#endif
                     if let attribution = failure.programFailureAttribution {
                         programFailures.append(attribution)
                     }
@@ -459,6 +479,12 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 for layerID in unavailableConsumers {
                     accepted.removeValue(forKey: layerID)
                     rejected["dependency-graph-provider-unavailable", default: 0] += 1
+#if DEBUG
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=capability-admission layer=%d outcome=rejected-by-closure reason=dependency-graph-provider-unavailable",
+                        layerID
+                    )
+#endif
                 }
                 didChange = true
                 continue

@@ -312,6 +312,7 @@ struct SceneDependencyEffectInput {
     let blendMode: Int
     let frameEpoch: UInt64
     let texture: MTLTexture
+    var content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
 }
 
 enum SceneFrameTextureIdentity: Hashable {
@@ -325,6 +326,7 @@ final class SceneFrameTextureRegistry {
     private(set) var readyPublicationCount = 0
     private(set) var typedPublicationCount = 0
     private var textures: [SceneFrameTextureIdentity: MTLTexture] = [:]
+    private var contents: [SceneFrameTextureIdentity: SceneTextureContent] = [:]
 
     init(frameEpoch: UInt64) {
         self.frameEpoch = frameEpoch
@@ -340,6 +342,27 @@ final class SceneFrameTextureRegistry {
     ) -> MTLTexture? {
         guard frameEpoch == self.frameEpoch else { return nil }
         return texture(for: .namedLayerTarget(reference))
+    }
+
+    struct Resource {
+        struct Publication {
+            struct Candidate { let content: SceneTextureContent }
+            let texture: MTLTexture
+            let candidate: Candidate
+        }
+        let publication: Publication
+    }
+    func completeNamedLayerTargetResource(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64
+    ) -> Resource? {
+        guard frameEpoch == self.frameEpoch,
+              let texture = texture(for: .namedLayerTarget(reference)) else { return nil }
+        return .init(publication: .init(
+            texture: texture,
+            candidate: .init(content: contents[.namedLayerTarget(reference)]
+                ?? .color(.resolved(.premultipliedAlpha)))
+        ))
     }
 
     func set(_ status: Status, for identity: SceneFrameTextureIdentity) {
@@ -359,6 +382,7 @@ final class SceneFrameTextureRegistry {
     ) -> Bool {
         guard frameEpoch > 0 else { return false }
         typedPublicationCount += 1
+        contents[.namedLayerTarget(reference)] = content
         set(.ready(texture), for: .namedLayerTarget(reference))
         return self.texture(
             for: .namedLayerTarget(reference)
@@ -443,8 +467,10 @@ enum SceneTextureSampling {
 }
 enum StubAlpha { case premultipliedAlpha }
 enum StubColor { case resolved(StubAlpha) }
-struct SceneTextureContent {
+struct SceneTextureContent: Equatable {
     let isResolved: Bool
+    var isData = false
+    static let data = Self(isResolved: true, isData: true)
     static func color(_ value: StubColor) -> Self { .init(isResolved: true) }
 }
 
@@ -884,9 +910,9 @@ enum Harness {
                 && compositionReservationFailure == nil
         let output = texture(device, label: "provider-graph-output")
         let expectedOutputBytes: [UInt8] = [
-            5, 17, 29, 255,
-            41, 53, 67, 223,
-            79, 83, 97, 191,
+            251, 17, 29, 5,
+            41, 253, 67, 23,
+            79, 83, 197, 91,
             101, 113, 127, 159,
         ]
         output.replace(
@@ -980,7 +1006,8 @@ enum Harness {
             texture: output,
             publicationRole: .visibleMainLoop,
             textureRegistry: registry,
-            commandBuffer: commandBuffer
+            commandBuffer: commandBuffer,
+            content: .data
         ) == true
         let readyInput: SceneDependencyEffectInput?
         switch runtime.resolvedMaterialEffectInputResolution(
@@ -1189,6 +1216,8 @@ enum Harness {
             "publicationCount": registry.readyPublicationCount,
             "gpuCompleted": gpuCompleted,
             "copiedGraphOutputBytes": copiedGraphOutputBytes,
+            "namedDataRetained": readyInput?.content == .data
+                && directInput?.content == .data,
             "readyUsesDistinctNamedTarget":
                 readyInput?.texture === provisionalInput?.texture
                 && readyInput?.texture !== output,
@@ -1285,6 +1314,7 @@ class SceneDependencyGraphOutputRuntimeTests(unittest.TestCase):
                     "captureTypedPublication": True,
                     "gpuCompleted": True,
                     "copiedGraphOutputBytes": True,
+                    "namedDataRetained": True,
                     "readyUsesDistinctNamedTarget": True,
                     "directInputUsesDistinctNamedTarget": True,
                     "capturedNonDefaultSourceAtom": True,

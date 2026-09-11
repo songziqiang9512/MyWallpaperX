@@ -405,6 +405,7 @@ private func resolveProgram(
     }
     let input = value.finalizationInput(
         template: template(),
+        layerID: 9001,
         renderSize: CGSize(width: 2, height: 2),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: matrix_identity_float4x4,
@@ -727,11 +728,18 @@ private enum Harness {
             && rgbaDataCandidate.content == .data
             && rgbaDataCandidate.pixelFormat == .rgba8Unorm
             && rgbaDataCandidate.authoredFormat == nil
-        let backbufferDataFailure = failure(lease.graphResource(
+        let backbufferDataResource = require(lease.graphResource(
             for: first,
             versionedResource: firstPhysical,
             storedContent: .data
         ))
+        let backbufferDataCandidate = backbufferDataResource.publication.candidate
+        let backbufferDataPublicationContract =
+            backbufferDataResource.isCompleteGraphResource
+                && backbufferDataCandidate.purpose == .preservedChannels
+                && backbufferDataCandidate.content == .data
+                && backbufferDataCandidate.pixelFormat == .bgra8Unorm
+                && backbufferDataCandidate.authoredFormat == nil
         let repeatPhysical = repeatLease.allocation.resources[first]!.versioned(15)
         let repeatResource = require(repeatLease.graphResource(
             for: first,
@@ -867,8 +875,9 @@ private enum Harness {
             "r8ScalarPublication": r8ScalarPublication,
             "rg88Publication": channelPublicationContracts["rg88"] ?? false,
             "r16Publication": channelPublicationContracts["r16"] ?? false,
-            "rg16Publication": channelPublicationContracts["rg16"] ?? false,
-            "rgbaDataPublication": rgbaDataPublicationContract,
+                "rg16Publication": channelPublicationContracts["rg16"] ?? false,
+                "rgbaDataPublication": rgbaDataPublicationContract,
+                "backbufferDataPublication": backbufferDataPublicationContract,
             "r8ScalarCannotRewrapAsLayerSource":
                 r8ScalarCannotRewrapAsLayerSource,
                 "r8ScalarCannotRewrapAsEffectOutput":
@@ -892,7 +901,6 @@ private enum Harness {
                 "rg88WrongStorage": channelWrongStorageFailures["rg88"],
                 "r16WrongStorage": channelWrongStorageFailures["r16"],
                 "rg16WrongStorage": channelWrongStorageFailures["rg16"],
-                "backbufferData": backbufferDataFailure,
                 "forgedR8AuthoredFormat": forgedR8AuthoredFormat
                     .isCompleteGraphResource ? "accepted" : "rejected",
                 "forgedR8WrongAuthoredFormat": forgedR8WrongAuthoredFormat
@@ -1004,7 +1012,6 @@ class SceneGraphTexturePublicationTests(unittest.TestCase):
                 "rg88WrongStorage": "storageSemanticUnavailable",
                 "r16WrongStorage": "storageSemanticUnavailable",
                 "rg16WrongStorage": "storageSemanticUnavailable",
-                "backbufferData": "storageSemanticUnavailable",
                 "forgedR8AuthoredFormat": "rejected",
                 "forgedR8WrongAuthoredFormat": "rejected",
                 "forgedR8ColorPurpose": "rejected",

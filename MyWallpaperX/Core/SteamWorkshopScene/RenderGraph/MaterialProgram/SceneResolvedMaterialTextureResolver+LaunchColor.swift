@@ -19,6 +19,19 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         for variant in variants {
             for binding in variant.frontendProgram.textureBindings
             where readinessMask & (1 << UInt8(binding.slot)) == 0 {
+#if DEBUG
+                if let sampler = variant.activeSamplers[binding.slot] {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=launch-program-failure slot=%d material=%@ label=%@ hidden=%d mode=%@ alias=%d",
+                        binding.slot,
+                        sampler.materialKey ?? "-",
+                        sampler.labelKey ?? "-",
+                        sampler.isHidden ? 1 : 0,
+                        String(describing: sampler.mode),
+                        sampler.usesGraphInputMaterialAlias ? 1 : 0
+                    )
+                }
+#endif
                 guard !formatSlots.contains(binding.slot),
                       let sampler = variant.activeSamplers[binding.slot],
                       presenceIndependentDefault(
@@ -54,6 +67,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     readinessMask: readinessMask,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     graphTextureContentFacts: graphTextureContentFacts,
+                    preservedChannelsProviderSlots:
+                        variant.preservedChannelsProviderInputSlots,
                     assetStates: assetStates
                 ) {
                 case .unknownInternalGraph:
@@ -109,6 +124,8 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     readinessMask: readinessMask,
                     implicitFramebufferIdentity: implicitFramebufferIdentity,
                     graphTextureContentFacts: graphTextureContentFacts,
+                    preservedChannelsProviderSlots:
+                        variant.preservedChannelsProviderInputSlots,
                     assetStates: assetStates
                 ) {
                 case .unknownInternalGraph:
@@ -215,6 +232,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         readinessMask: UInt8,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
+        preservedChannelsProviderSlots: Set<Int>,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchColorProfiles {
         var profiles = [Array<LaunchColorFact?>(repeating: nil, count: 8)]
@@ -261,8 +279,11 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 for: reference,
                 resolvedPurpose: resolvedPurpose,
                 sampler: sampler,
+                slot: binding.slot,
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphTextureContentFacts: graphTextureContentFacts,
+                preservedChannelsProviderSlots:
+                    preservedChannelsProviderSlots,
                 assetStates: assetStates
             ) else { return .invalid }
             for profile in profiles {
@@ -368,8 +389,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         for reference: Template.TextureReference,
         resolvedPurpose: SceneTextureLoadPurpose?,
         sampler: SceneResolvedMaterialShaderSchema.Sampler,
+        slot: Int,
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         graphTextureContentFacts: [Graph.TextureIdentity: SceneTextureContent],
+        preservedChannelsProviderSlots: Set<Int>,
         assetStates: [SceneAssetTextureIdentity: SceneAssetTextureLaunchState]
     ) -> LaunchColorFact? {
         if case let .graph(identity) = reference {
@@ -395,7 +418,9 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                 return .init(
                     isGraphReference: false,
                     isFramebufferInput: false,
-                    content: .color(.resolved(.premultipliedAlpha))
+                    content: preservedChannelsProviderSlots.contains(slot)
+                        ? .data
+                        : .color(.resolved(.premultipliedAlpha))
                 )
             case .sceneBackground:
                 return .init(

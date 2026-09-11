@@ -256,7 +256,8 @@ extension SceneGraphRenderTargetLease {
             return true
         case (.rg1616f, .redGreenFloat16):
             return true
-        case (.rgba8888, .data):
+        case (.rgbaBackbuffer, .data),
+             (.rgba8888, .data):
             return true
         case (.rgbaBackbuffer, .color(.resolved(let representation))),
              (.rgba8888, .color(.resolved(let representation))):

@@ -485,6 +485,18 @@ nonisolated enum SceneResolvedMaterialProgramDerivation {
                   activeTextureSlots.contains(fact.coordinateTextureSlot)
             else { return nil }
             return .neutralMissingTextureResolution(fact)
+        case let .selfCompositeTextureResolution(slot):
+            // Structural proof (authored same-layer named-target candidate,
+            // no sampler) lives in the finalizer; assembly only rejects a
+            // shape the shader's own active bindings contradict.
+            guard expectedHost == nil,
+                  field.type == .float4,
+                  field.arrayCount == nil,
+                  field.authoredName == field.name,
+                  field.name == "g_Texture\(slot)Resolution",
+                  !activeTextureSlots.contains(slot)
+            else { return nil }
+            return .staticValue
         case let .dynamic(declared, _, resolved, _):
             guard expectedHost == nil,
                   let kind = dynamicKind(declared, resolved: resolved) else {

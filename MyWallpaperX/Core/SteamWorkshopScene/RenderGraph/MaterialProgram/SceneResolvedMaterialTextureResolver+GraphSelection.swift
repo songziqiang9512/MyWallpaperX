@@ -29,10 +29,21 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                   Set(purposes).count == 1 else { return nil }
             declared = purposes.first
         }
-        guard case let .graph(identity) = reference,
-              identity.kind == .framebuffer else { return declared }
-        guard case let .ready(resource)? = input.textureSnapshot.lookup(.graph(identity))
-        else { return declared }
+        let resource: SceneFrameTextureResource
+        switch reference {
+        case let .provider(.namedLayerTarget(namedReference)):
+            guard case let .ready(namedResource)? = input.textureSnapshot.lookup(
+                .namedLayerTarget(namedReference)
+            ) else { return declared }
+            resource = namedResource
+        case let .graph(identity) where identity.kind == .framebuffer:
+            guard case let .ready(graphResource)? = input.textureSnapshot.lookup(
+                .graph(identity)
+            ) else { return declared }
+            resource = graphResource
+        default:
+            return declared
+        }
         switch resource.publication.candidate.content {
         case .scalarRedUnorm, .scalarRedFloat16:
             guard let channelUse,
@@ -46,6 +57,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                   activeSampler?.mode == .regular else { return nil }
             return .preservedChannels
         case .data:
+            // A named provider may carry packed RGBA state into an exact
+            // material dependency. Its publication is the frame-time purpose
+            // authority; treating that state as compositor color would change
+            // channel values before the authored shader reads them.
             guard activeSampler?.mode == .regular else { return nil }
             return .preservedChannels
         case .color:

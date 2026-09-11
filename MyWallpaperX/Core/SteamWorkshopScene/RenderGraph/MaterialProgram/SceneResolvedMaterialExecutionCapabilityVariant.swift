@@ -538,14 +538,25 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                    selectionFailures.allSatisfy({ $0 == failure }) {
                     throw failure
                 }
+                let invariantDetails = [([
+                    "admitted-\(cachedLaunchEnvelopeKeys.count)",
+                    "resolved-\(resolvedCandidateCount)",
+                    "matches-\(matches.count)",
+                ] + keyMismatchDetails + selectionFailures.prefix(2)
+                    .map { failure in
+                        "selfail-\(failure.code.rawValue)"
+                            + (failure.slot.map { "-s\($0)" } ?? "")
+                    }).joined(separator: ",")]
+#if DEBUG
+                NSLog(
+                    "MWX DEBUG SCENE: phase=variant-selection key-invariant detail=%@",
+                    invariantDetails.joined(separator: " ")
+                )
+#endif
                 throw Self.failure(
                     .variantSelectionKeyInvariant,
                     phase: .invariant,
-                    details: [([
-                        "admitted-\(cachedLaunchEnvelopeKeys.count)",
-                        "resolved-\(resolvedCandidateCount)",
-                        "matches-\(matches.count)",
-                    ] + keyMismatchDetails).joined(separator: ",")]
+                    details: [invariantDetails.joined(separator: ",")]
                 )
             }
             return .success(.init(

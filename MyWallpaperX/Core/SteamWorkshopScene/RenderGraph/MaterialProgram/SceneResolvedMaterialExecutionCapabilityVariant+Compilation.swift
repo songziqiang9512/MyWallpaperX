@@ -108,6 +108,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 fragmentSource: compilerSources.fragment,
                 provenRuntimeLoopBounds: runtimeLoopBounds.fragment
             )
+        let sourceCarriedRGBAFact =
+            SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .analyzeSourceCarried(fragmentSource: compilerSources.fragment)
         let rgba8UnormAccumulatorSourceSlot = outputIsRGBA8Unorm
             ? SceneAuthoredShaderIndependentSignalAccumulatorAnalyzer
                 .rgba8UnormAttachmentSourceSlot(
@@ -139,6 +142,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             spatialWeightedColorBlendFact.map {
                 .straightAlphaPreserving(textureSlot: $0.sourceSlot)
             } ?? targetAwareSourceColorTransfer
+        let sourceCarriedAuxiliaryDataSlots =
+            sourceCarriedRGBAFact?.colorTransfer == sourceColorTransfer
+            ? sourceCarriedRGBAFact?.auxiliaryDataSlots ?? [] : []
         let spatialWeightedColorBlendTypedAuxiliarySlots = Set(
             sourceActiveSamplers.compactMap { slot, sampler in
                 sampler.sourceProvenPurpose == nil ? nil : slot
@@ -184,7 +190,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             terminalNamedLayerProviderTextureSlots(
                 in: template,
                 activeTextureSlots: Set(sourceActiveSamplers.keys)
-            ).subtracting(mixedProviderSlots)
+            )
+            .subtracting(mixedProviderSlots)
+            .subtracting(sourceCarriedAuxiliaryDataSlots)
         let activeTerminalNamedLayerProviderTextureSlots =
             staticallyTerminalNamedLayerProviderTextureSlots.union(
                 selectedMixedPremultipliedSlots
@@ -352,7 +360,11 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             activeOpacityMaskSlots: activeOpacityMaskSlots,
             typedStaticDataAuxiliarySlots: typedStaticDataAuxiliarySlots,
             preservedChannelsExternalProviderTextureSlots:
-                selectedMixedDataSlots,
+                selectedMixedDataSlots.union(
+                    sourceCarriedAuxiliaryDataSlots.intersection(
+                        activeExternalProviderTextureSlots
+                    )
+                ),
             premultipliedColorAuxiliarySlots:
                 premultipliedColorAuxiliarySlots,
             spatialWeightedColorBlendSourceSlot:
@@ -382,6 +394,24 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             outputSemantics: outputSemantics,
             runtimeLoopBounds: runtimeLoopBounds
         )
+        // A sampler whose only source is the internal scene-background
+        // default reads a publication the registry defines as premultiplied
+        // color; that slot crosses the color boundary by contract, not by
+        // authored color-flow analysis.
+        let sceneBackgroundDefaultSlots: Set<Int> = Set(
+            sourceActiveSamplers.compactMap { (
+                slot: Int,
+                sampler: SceneResolvedMaterialShaderSchema.Sampler
+            ) -> Int? in
+                guard case .internalTarget = sampler.defaultTexture,
+                      SceneResolvedMaterialTextureResolver.sceneBackgroundDefault(
+                          template: template,
+                          sampler: sampler,
+                          slot: slot
+                      ) != nil else { return nil }
+                return slot
+            }
+        )
         let premultipliedInputSlotsForProfile: (String) -> Set<Int> = { profile in
             switch profile {
             case SceneGenericShaderCapabilityProfile
@@ -398,7 +428,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 .rawValue:
                 premultipliedColorAuxiliarySlots
             default:
-                []
+                sceneBackgroundDefaultSlots
             }
         }
         let frontend: SceneAuthoredShaderProgram
@@ -607,6 +637,12 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sourceProvenOpaqueColorSlots: sourceProvenOpaqueColorSlots,
             premultipliedColorInputSlots:
                 premultipliedInputSlotsForProfile(routeDecision.profile),
+            preservedChannelsProviderInputSlots:
+                selectedMixedDataSlots.union(
+                    sourceCarriedAuxiliaryDataSlots.intersection(
+                        activeExternalProviderTextureSlots
+                    )
+                ),
             associatedOverOverlaySlot: associatedOverOverlaySlot,
             conditionalGeneratedRGBInputContract:
                 conditionalGeneratedRGBInputContract,

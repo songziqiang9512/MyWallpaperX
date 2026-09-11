@@ -254,7 +254,8 @@ nonisolated struct SceneFrameTextureResource {
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64,
         texture: MTLTexture,
-        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        uvTransform: SceneTextureUVTransform = .identity
     ) -> Self? {
         guard frameEpoch > 0,
               reference.variant == .primary,
@@ -274,11 +275,11 @@ nonisolated struct SceneFrameTextureResource {
                 frameEpoch: frameEpoch
             )),
             generation: .provider(contentGeneration: frameEpoch),
-            purpose: { switch content { case .data, .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16, .redGreenFloat16: return .preservedChannels; case .color: return .premultipliedColor } }(),
+            purpose: content == .data ? .preservedChannels : .premultipliedColor,
             content: content,
             physicalSize: size,
             mappedSize: size,
-            uvTransform: .identity,
+            uvTransform: uvTransform,
             sampling: .linearClamp
         )
         let result = Self(
@@ -411,7 +412,7 @@ nonisolated struct SceneFrameTextureResource {
                 && identityUVScale(expectedPurpose: .preservedChannels)
         case .data:
             let format = publication.candidate.pixelFormat
-            return request.kind == .framebuffer
+            return (request.kind == .framebuffer || request.kind == .effectOutput)
                 && publication.candidate.purpose == .preservedChannels
                 && (format == .rgba8Unorm || format == .bgra8Unorm)
                 && publication.candidate.authoredFormat == nil
@@ -425,6 +426,16 @@ nonisolated struct SceneFrameTextureResource {
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64
     ) -> Bool {
+        let candidate = publication.candidate
+        let expectedPurpose: SceneTextureLoadPurpose
+        switch candidate.content {
+        case .data:
+            expectedPurpose = .preservedChannels
+        case .color(.resolved(.premultipliedAlpha)):
+            expectedPurpose = .premultipliedColor
+        default:
+            return false
+        }
         guard frameEpoch > 0,
               reference.variant == .primary,
               // Registry storage generations are monotonic across every resource
@@ -442,9 +453,7 @@ nonisolated struct SceneFrameTextureResource {
               providerLayerID == reference.providerLayerID,
               variant == reference.variant.rawValue,
               publicationEpoch == frameEpoch,
-              publication.candidate.purpose == .premultipliedColor,
-              publication.candidate.content
-                == .color(.resolved(.premultipliedAlpha)),
+              candidate.purpose == expectedPurpose,
               publication.candidate.physicalSize
                 == publication.candidate.mappedSize,
               publication.candidate.uvTransform == .identity,
@@ -457,7 +466,7 @@ nonisolated struct SceneFrameTextureResource {
               publication.candidate.pixelFormat == .bgra8Unorm
                 || publication.candidate.pixelFormat == .rgba8Unorm,
               let scale = publication.candidate.axisAlignedMappedUVScale(
-                expectedPurpose: .premultipliedColor
+                expectedPurpose: expectedPurpose
               ),
               scale.x == 1,
               scale.y == 1 else { return false }

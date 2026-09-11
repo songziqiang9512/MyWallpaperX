@@ -349,9 +349,48 @@ final class SceneResolvedMaterialRuntimeBridge {
 }
 
 struct SceneDependencyEffectInput {
+    let consumerLayerID: Int
+    let providerLayerID: Int
+    let slot: SceneEffectPassSlot
+    let variant: SceneNamedTextureReference.Variant
     let frameEpoch: UInt64
+    let blendMode: Int
+    let texture: MTLTexture
+    var content: SceneTextureContent
     let namedReference: SceneNamedTextureReference
     let reservedMaterialResource: SceneFrameTextureResource?
+
+    init(
+        consumerLayerID: Int = 1,
+        providerLayerID: Int = 2,
+        slot: SceneEffectPassSlot = SceneEffectPassSlot(
+            effectID: "fixture", passIndex: 0, slotIndex: 1
+        ),
+        variant: SceneNamedTextureReference.Variant = .primary,
+        frameEpoch: UInt64,
+        blendMode: Int = 0,
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
+        namedReference: SceneNamedTextureReference,
+        reservedMaterialResource: SceneFrameTextureResource? = nil
+    ) {
+        self.consumerLayerID = consumerLayerID
+        self.providerLayerID = providerLayerID
+        self.slot = slot
+        self.variant = variant
+        self.frameEpoch = frameEpoch
+        self.blendMode = blendMode
+        self.texture = texture
+        self.content = content
+        self.namedReference = namedReference
+        self.reservedMaterialResource = reservedMaterialResource
+    }
+
+    func withContent(_ content: SceneTextureContent) -> Self {
+        var result = self
+        result.content = content
+        return result
+    }
 }
 
 enum SceneEffectStageRenderer {
@@ -519,6 +558,18 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
 
 struct SceneLayerFragmentUniforms {
     let tint: SIMD4<Float>
+    let textureFrame0: SIMD4<Float>
+    let textureFrame1: SIMD4<Float>
+
+    init(
+        tint: SIMD4<Float>,
+        textureFrame0: SIMD4<Float> = .init(0, 0, 1, 0),
+        textureFrame1: SIMD4<Float> = .init(0, 1, 0, 0)
+    ) {
+        self.tint = tint
+        self.textureFrame0 = textureFrame0
+        self.textureFrame1 = textureFrame1
+    }
 
     static func neutral() -> Self {
         .init(tint: SIMD4<Float>(repeating: 1))
@@ -873,7 +924,7 @@ private func fragmentSource(
         gl_FragColor = color;
         """
     } else if frontendInvalid {
-        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord.xy);"
+        "gl_FragColor = texSample2D(g_Texture0, v_TexCoord.yz);"
     } else if repeatProbe {
         "gl_FragColor = texSample2D("
             + "g_Texture0, v_TexCoord + vec2(1.0));"
@@ -3741,6 +3792,7 @@ private enum Harness {
                 sourcePipeline: sourcePipeline,
                 frameInputs: .init(dependencyEffect: .init(
                     frameEpoch: 60,
+                    texture: resource.publication.texture,
                     namedReference: namedReference,
                     reservedMaterialResource: resource
                 )),
@@ -3807,6 +3859,7 @@ private enum Harness {
             capabilities: crossLayerCapabilities,
             dependency: .init(
                 frameEpoch: 60,
+                texture: wrongProviderTexture,
                 namedReference: wrongNamedReference,
                 reservedMaterialResource: wrongProviderResource
             )
@@ -3823,6 +3876,7 @@ private enum Harness {
             capabilities: crossLayerCapabilities,
             dependency: .init(
                 frameEpoch: 60,
+                texture: providerTexture,
                 namedReference: secondaryReference,
                 reservedMaterialResource:
                     SceneFrameTextureResource.reservedNamedLayerTarget(
@@ -3845,6 +3899,7 @@ private enum Harness {
             capabilities: crossLayerCapabilities,
             dependency: .init(
                 frameEpoch: 59,
+                texture: providerTexture,
                 namedReference: namedReference,
                 reservedMaterialResource: staleResource
             )
@@ -7128,6 +7183,7 @@ private enum Harness {
         let readyVariant = boundedCache.resolve(
             readyVariantFrame.finalizationInput(
                 template: cacheTemplate,
+                layerID: 9001,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,
@@ -7161,6 +7217,7 @@ private enum Harness {
         let absentGraphOverride = boundedCache.resolve(
             absentVariantFrame.finalizationInput(
                 template: cacheTemplate,
+                layerID: 9001,
                 renderSize: CGSize(width: extent.width, height: extent.height),
                 modelViewProjection: Executor.fullTargetMVP(firstTexture),
                 layerModelMatrix: matrix_identity_float4x4,

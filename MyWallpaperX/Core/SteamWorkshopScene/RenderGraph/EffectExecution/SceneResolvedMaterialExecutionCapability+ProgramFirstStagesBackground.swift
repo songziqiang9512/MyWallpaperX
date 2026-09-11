@@ -30,7 +30,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                     if case let .provider(.sceneBackground(layerID))? = selected {
                         consumerLayerID = layerID
                     } else if selected == nil,
-                              snapshot.variants.allSatisfy({ variant in
+                              snapshot.variants.contains(where: { variant in
+                                  // A readiness-combo variant may be the only
+                                  // form that samples this default slot; the
+                                  // frame requirement exists as soon as any
+                                  // launch variant can select it.
                                   guard let sampler = variant.activeSamplers[slot]
                                   else { return false }
                                   return SceneResolvedMaterialTextureResolver
@@ -69,19 +73,51 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               }).first else {
             return .failure(rejection("scene-background-provider-ambiguous"))
         }
+        // A same-layer composite reference lives in the named-target
+        // namespace while the scene background is a renderer-owned
+        // same-frame snapshot in its own identity; the target contract
+        // keeps both namespaces distinct, so an owned composite does not
+        // alias the background provider.
         let dependencyIsCompatible = switch admitted.dependencyOwnership {
-        case .none, .externalPrimary: true
-        case .graphInternal, .externalAggregate: false
+        case .none, .externalPrimary, .graphInternal: true
+        case .externalAggregate: false
         }
-        guard admitted.sourceRoute == .capturedLayerTexture,
+        let ordered = candidates.allSatisfy {
+            sceneBackgroundCandidateIsOrdered(
+                $0,
+                admittedLayerID: admitted.layerID,
+                pairPlan: admitted.pairPlan
+            )
+        }
+        // Both capture routes can supply the background requirement: an
+        // ordinary layer reads it via its captured layer texture, and a
+        // utility composition reads the same typed publication through its
+        // captured main-target execution.
+        let routeSupportsBackground = admitted.sourceRoute
+            == .capturedLayerTexture
+            || admitted.sourceRoute == .capturedMainTargetTexture
+#if DEBUG
+        if !(routeSupportsBackground
+                && admitted.isVisibleExecutionRoot
+                && !admitted.isGraphOutputProvider
+                && dependencyIsCompatible
+                && ordered) {
+            NSLog(
+                "MWX DEBUG SCENE: phase=capability-admission layer=%d scene-background-compose-shape route=%@ visible=%d provider=%d depCompat=%d ordered=%d",
+                admitted.layerID,
+                String(describing: admitted.sourceRoute),
+                admitted.isVisibleExecutionRoot ? 1 : 0,
+                admitted.isGraphOutputProvider ? 1 : 0,
+                dependencyIsCompatible ? 1 : 0,
+                ordered ? 1 : 0
+            )
+        }
+#endif
+        guard routeSupportsBackground,
               admitted.isVisibleExecutionRoot,
               !admitted.isGraphOutputProvider,
               dependencyIsCompatible,
-              candidates.allSatisfy({ sceneBackgroundCandidateIsOrdered(
-                  $0,
-                  admittedLayerID: admitted.layerID,
-                  pairPlan: admitted.pairPlan
-              ) }) else {
+              ordered else {
             return .failure(rejection("scene-background-compose-shape"))
         }
         return .success(.init(
@@ -102,8 +138,77 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
         let nodes = graph.nodes.sorted { $0.nodeIndex < $1.nodeIndex }
         guard candidate.consumerLayerID == admittedLayerID,
               graph.layerID == admittedLayerID,
-              graph.effects.count == 1,
-              graph.blockers.isEmpty,
+              graph.blockers.isEmpty else { return false }
+
+        // A multi-effect generic-only chain rides the same ordered handoff the
+        // dependency runtime proves per layer: every effect is one ordinary
+        // material node with a single full-frame output write, no raw compose,
+        // and an alternating pair member. The scene-background demand is a
+        // same-frame main-target snapshot in its own identity namespace, so it
+        // composes with same-layer composite references instead of aliasing
+        // them. FBO graphs and non-typed multi-effect shapes stay closed.
+        if graph.effects.count > 1 {
+            let renderTargetsEmpty = graph.renderTargets.isEmpty
+            let nodeShapesValid = nodes.allSatisfy { node in
+                node.kind == .material
+                    && node.commandSource == nil
+                    && node.commandTarget == nil
+                    && (node.compose == nil || node.compose == .bool(false))
+                    && node.conditions == nil
+            }
+            let stepShapesValid = pairPlan.effects.count == graph.effects.count
+                && pairPlan.effects.allSatisfy { step in
+                    step.composeTransitionCount == 0
+                        && step.fullFrameOutputWriteCount == 1
+                        && step.inputMember != step.outputMember
+                        && step.nodes.count == 1
+                        && graph.effects.contains { $0.key == step.effect }
+                }
+            let outputTargetsValid = graph.effects.allSatisfy { effect in
+                nodes.contains(where: {
+                    $0.effect == effect.key
+                        && $0.target == effect.output
+                })
+            }
+            let candidateValid = graph.effects.first(where: {
+                $0.key == candidate.key.effect
+            }).flatMap { candidateEffect -> Bool? in
+                nodes.first(where: {
+                    $0.nodeIndex == candidate.key.nodeIndex
+                        && $0.effect == candidateEffect.key
+                }).map { $0.target == candidateEffect.output }
+            } ?? false
+            let abiValid = sceneBackgroundCandidateHasTypedSinglePassColorABI(
+                candidate
+            )
+#if DEBUG
+            if !(renderTargetsEmpty && nodeShapesValid && stepShapesValid
+                    && outputTargetsValid && candidateValid && abiValid) {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=capability-admission layer=%d background-ordered effects=%d nodes=%d rt=%d nodeShapes=%d stepShapes=%d outTargets=%d candidate=%d abi=%d steps=%@",
+                    admittedLayerID,
+                    graph.effects.count,
+                    nodes.count,
+                    renderTargetsEmpty ? 1 : 0,
+                    nodeShapesValid ? 1 : 0,
+                    stepShapesValid ? 1 : 0,
+                    outputTargetsValid ? 1 : 0,
+                    candidateValid ? 1 : 0,
+                    abiValid ? 1 : 0,
+                    pairPlan.effects.map { step in
+                        "(eff\(step.effect.effectIndex) n\(step.nodes.count) c\(step.composeTransitionCount) w\(step.fullFrameOutputWriteCount) m\(step.inputMember)\(step.outputMember))"
+                    }.joined()
+                )
+            }
+#endif
+            guard renderTargetsEmpty, nodeShapesValid, stepShapesValid,
+                  outputTargetsValid, candidateValid, abiValid else {
+                return false
+            }
+            return true
+        }
+
+        guard graph.effects.count == 1,
               let effect = graph.effects.first,
               candidate.key.effect == effect.key,
               let candidateNode = nodes.first(where: {
@@ -116,25 +221,61 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
               let pairStep = pairPlan.effects.first(where: {
                   $0.effect == effect.key
               }),
-              pairStep.nodes.count == nodes.count else { return false }
+              pairStep.nodes.count == nodes.count else {
+            #if DEBUG
+            NSLog(
+                "MWX DEBUG SCENE: phase=capability-admission layer=%d background-single-identity effects=%d nodes=%d rt=%d candidateNode=%d pairSteps=%d stepNodes=%d",
+                admittedLayerID,
+                graph.effects.count,
+                nodes.count,
+                graph.renderTargets.isEmpty ? 1 : 0,
+                candidate.key.nodeIndex,
+                pairPlan.effects.count,
+                pairPlan.effects.first?.nodes.count ?? -1
+            )
+            #endif
+            return false
+        }
 
         if graph.renderTargets.isEmpty {
-            if sceneBackgroundCandidateHasTypedSinglePassColorABI(candidate) {
-                guard nodes.count == 1,
-                      candidateNode.nodeIndex == nodes[0].nodeIndex,
-                      candidateNode.target == effect.output,
-                      candidateNode.compose == nil
-                        || candidateNode.compose == .bool(false),
-                      pairStep.composeTransitionCount == 0,
-                      pairStep.fullFrameOutputWriteCount == 1,
-                      pairStep.inputMember != pairStep.outputMember else {
-                    return false
+            // A candidate may satisfy both typed color ABI and the strict
+            // two-node compose shape; evaluate the compose shape first so a
+            // two-pass chain is not hard-failed by the single-pass branch.
+            let composeShapeCandidate = nodes.count == 2
+            let typedABI = sceneBackgroundCandidateHasTypedSinglePassColorABI(
+                candidate
+            )
+            if typedABI && !composeShapeCandidate {
+                let typedShapeValid = nodes.count == 1
+                    && candidateNode.nodeIndex == nodes[0].nodeIndex
+                    && candidateNode.target == effect.output
+                    && (candidateNode.compose == nil
+                        || candidateNode.compose == .bool(false))
+                    && pairStep.composeTransitionCount == 0
+                    && pairStep.fullFrameOutputWriteCount == 1
+                    && pairStep.inputMember != pairStep.outputMember
+                #if DEBUG
+                if !typedShapeValid {
+                    NSLog(
+                        "MWX DEBUG SCENE: phase=capability-admission layer=%d background-typed-shape nodes=%d compose=%@ cTrans=%d writes=%d members=%d-%d",
+                        admittedLayerID,
+                        nodes.count,
+                        candidateNode.compose.map { "\($0)" } ?? "nil",
+                        pairStep.composeTransitionCount,
+                        pairStep.fullFrameOutputWriteCount,
+                        pairStep.inputMember == .zero ? 0 : 1,
+                        pairStep.outputMember == .zero ? 0 : 1
+                    )
                 }
+                #endif
+                guard typedShapeValid else { return false }
                 return true
             }
+            // The background slot follows the authored sampler contract
+            // (any slot may declare the `_rt_FullFrameBuffer` default); the
+            // compose shape and the typed purpose facts own the safety.
             guard nodes.count == 2,
                   candidateNode.nodeIndex == nodes[0].nodeIndex,
-                  candidate.slot == 1,
                   nodes[0].kind == .material,
                   nodes[1].kind == .material,
                   nodes[0].effect == effect.key,

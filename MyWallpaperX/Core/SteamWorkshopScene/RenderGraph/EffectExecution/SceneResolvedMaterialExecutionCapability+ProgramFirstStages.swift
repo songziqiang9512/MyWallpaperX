@@ -329,8 +329,15 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             return .externalPrimary(binding)
 
         case .graphInternal:
+            // Same-layer composite references are the owned shape: the
+            // layer's own base source publishes the named target during
+            // graph execution. Any non-self resolved dependency still has no
+            // internal owner and must keep failing closed.
             guard potentialBindings.isEmpty,
-                  resolvedDependencyStages.isEmpty else { return nil }
+                  resolvedDependencyStages.allSatisfy({
+                      $0.consumerLayerID == layerID
+                          && $0.providerLayerID == layerID
+                  }) else { return nil }
             return ownership
 
         case let .externalPrimary(binding):

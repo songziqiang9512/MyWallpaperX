@@ -1337,6 +1337,7 @@ private func finalize(
                 textureSlotsOverride: textureSlotsOverride,
                 effectContext: effectContext
             ),
+            layerID: 9001,
             renderSize: CGSize(width: 640, height: 360),
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: resolvedLayerModelMatrix,
@@ -1416,7 +1417,8 @@ private func crossTemplateRuntimeLoopCacheToken(_ device: MTLDevice) -> String {
     ) else { return "setup-failed" }
     let input = frame.finalizationInput(
         template: mismatched,
-        renderSize: CGSize(width: 640, height: 360),
+                layerID: 9001,
+                renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
@@ -1445,7 +1447,8 @@ private func reachabilityIdentityMismatchToken(_ device: MTLDevice) -> String {
     ) else { return "setup-failed" }
     let input = frame.finalizationInput(
         template: admitted,
-        renderSize: CGSize(width: 640, height: 360),
+                layerID: 9001,
+                renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse,
@@ -1500,7 +1503,8 @@ private func variantSelectionKeyMismatchTokens(
     ) else { return ["failure": "setup-failed", "details": "setup-failed"] }
     let input = frame.finalizationInput(
         template: admitted,
-        renderSize: CGSize(width: 640, height: 360),
+                layerID: 9001,
+                renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
@@ -1531,7 +1535,8 @@ private func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
     ) else { return ["setup": "failed"] }
     let readyInput = readyFrame.finalizationInput(
         template: admitted,
-        renderSize: CGSize(width: 640, height: 360),
+                layerID: 9001,
+                renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
@@ -1544,7 +1549,8 @@ private func resolverInvariantTokens(_ device: MTLDevice) -> [String: String] {
           ) else { return ["setup": "failed"] }
     let absentInput = absentFrame.finalizationInput(
         template: admitted,
-        renderSize: CGSize(width: 640, height: 360),
+                layerID: 9001,
+                renderSize: CGSize(width: 640, height: 360),
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectTextureProjectionMatrixInverse: effectProjectionInverse
@@ -3424,6 +3430,93 @@ private func mixedSystemNamedProviderTokens(
                 == countersAfter.shaderPreparationCount
             && countersBefore.frontendCompilationCount
                 == countersAfter.frontendCompilationCount,
+    ]
+}
+
+private func namedProviderRuntimePurposeTokens(
+    _ device: MTLDevice
+) -> [String: String] {
+    let reference = SceneNamedTextureReference(
+        providerLayerID: 879,
+        variant: .primary
+    )
+    let shader = contract(
+        revision: "named-provider-runtime-purpose",
+        secondSamplerMetadata: ""
+    )
+    let admitted = template(
+        shader,
+        includePrimaryCandidate: false,
+        secondReference: .provider(.namedLayerTarget(reference))
+    )
+    guard let slot = admitted.textureSlots[1] else {
+        return ["setup": "slot"]
+    }
+    func selected(
+        content: SceneTextureContent,
+        mode: SceneResolvedMaterialShaderSchema.TextureMode = .regular
+    ) -> String {
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: 2,
+            height: 2,
+            mipmapped: false
+        )
+        descriptor.usage = [.shaderRead, .renderTarget]
+        guard let texture = device.makeTexture(descriptor: descriptor),
+              let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+                reference: reference,
+                frameEpoch: 1,
+                texture: texture,
+                content: content
+              ) else { return "resource-rejected" }
+        let frame = SceneResolvedMaterialFrameSnapshot.validated(
+            textureSnapshot: snapshot(
+                device,
+                additionalEntries: [
+                    .namedLayerTarget(reference): .ready(resource),
+                ]
+            ),
+            dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+            frameInputs: frameInputs(frameIndex: 1)
+        )
+        guard case let .success(snapshot) = frame else {
+            return "frame-rejected"
+        }
+        let input = snapshot.finalizationInput(
+            template: admitted,
+                        layerID: 9001,
+                        renderSize: CGSize(width: 2, height: 2),
+            modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4,
+            implicitFramebufferIdentity: graphTexture()
+        )
+        let sampler = SceneResolvedMaterialShaderSchema.Sampler(
+            name: "g_Texture1",
+            slot: 1,
+            mode: mode,
+            materialKey: nil,
+            isHidden: false,
+            defaultTexture: nil,
+            readinessCombo: nil,
+            channelUse: .wholeVector
+        )
+        return SceneResolvedMaterialTextureResolver.selectionPurpose(
+            in: slot,
+            candidateOrdinal: 0,
+            activeSampler: sampler,
+            reachableSamplers: [sampler],
+            channelUse: .wholeVector,
+            input: input
+        )?.reportToken ?? "unproven"
+    }
+    return [
+        "color": selected(
+            content: .color(.resolved(.premultipliedAlpha))
+        ),
+        "data": selected(content: .data),
+        "dataMaskRejected": selected(content: .data, mode: .opacityMask),
     ]
 }
 
@@ -5555,10 +5648,12 @@ private enum Harness {
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
         let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
         let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
+        let namedProviderRuntimePurpose = namedProviderRuntimePurposeTokens(device)
         let result: [String: Any] = [
             "metalAvailable": true,
             "sameSlotMappedCoordinate": sameSlotMappedCoordinate,
             "mixedSystemNamedProvider": mixedSystemNamedProvider,
+            "namedProviderRuntimePurpose": namedProviderRuntimePurpose,
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
             "exactCrossStageUniformCases": exactCrossStageUniformCases,
@@ -6172,6 +6267,17 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                     "material-finalizer-system-provider-pending"
                 ),
                 "cacheStable": True,
+            },
+            self.result,
+        )
+
+    def test_named_provider_runtime_content_selects_exact_purpose(self) -> None:
+        self.assertEqual(
+            self.result["namedProviderRuntimePurpose"],
+            {
+                "color": "premultiplied-color",
+                "data": "preserved-channels",
+                "dataMaskRejected": "unproven",
             },
             self.result,
         )

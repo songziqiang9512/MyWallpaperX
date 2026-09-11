@@ -207,6 +207,7 @@ extension SceneResolvedMaterialGraphExecutor {
                 let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
                     overlaid.finalizationInput(
                         template: material.template,
+                        layerID: node.effect.layerID,
                         renderSize: CGSize(width: target.width, height: target.height),
                         modelViewProjection: Self.fullTargetMVP(target),
                         layerModelMatrix: frameInputs.layerModelMatrix,
@@ -224,6 +225,16 @@ extension SceneResolvedMaterialGraphExecutor {
                 case let .success(value):
                     program = value
                 case let .failure(failure):
+#if DEBUG
+                    if failure.code == .colorContractUnproven {
+                        NSLog(
+                            "MWX DEBUG SCENE: phase=material-finalize-color layer=%d effect=%d details=%@",
+                            node.effect.layerID,
+                            node.effect.effectIndex,
+                            failure.boundedDetails.joined(separator: " | ")
+                        )
+                    }
+#endif
                     let rejection = Failure.materialFinalizerRejected(
                         stageIndex: stageIndex,
                         effect: node.effect,
@@ -261,6 +272,15 @@ extension SceneResolvedMaterialGraphExecutor {
                     } else if failure.phase == .color,
                               failure.code == .colorContractUnproven {
                         reasonCode = "material-finalizer-color-contract"
+                    } else if failure.phase == .invariant,
+                              failure.code == .variantSelectionKeyInvariant {
+                        // The launch envelope's optional-bit enumeration may
+                        // disagree with a concrete frame's provider readiness
+                        // (e.g. a dependency publication that only exists per
+                        // frame). That drift is a bounded frame-time visual
+                        // condition: fail this effect soft instead of
+                        // rejecting the whole graph transaction.
+                        reasonCode = "material-variant-selection-key-unstable"
                     } else {
                         guard failure.phase == .uniform else {
                             return rejection
@@ -305,7 +325,9 @@ extension SceneResolvedMaterialGraphExecutor {
                     material: material,
                     target: target,
                     descriptor: fboTarget?.resource.descriptor
-                ) else { return .graphStructureRejected }
+                ) else {
+                    return .graphStructureRejected
+                }
                 guard case let .success(prepared) = passPreparation else {
                     guard case let .failure(failure) = passPreparation else {
                         return .materialPassEncoderRejected
@@ -387,13 +409,19 @@ extension SceneResolvedMaterialGraphExecutor {
                         identity: fboTarget.identity,
                         resource: fboTarget.resource,
                         content: prepared.storedContent
-                    ) else { return .graphPublicationRejected }
+                    ) else {
+                        return .graphPublicationRejected
+                    }
                     publications[fboTarget.identity] = publication
                 } else {
                     guard let identity = node.target,
                           identity == pairStep.outputIdentity,
-                          let member = pairNode.fullFrameWriteMember,
-                          let fragmentOutput = prepared.fragmentOutput else {
+                          let member = pairNode.fullFrameWriteMember else {
+                        return .graphStructureRejected
+                    }
+                    guard let fragmentOutput = prepared.fragmentOutput
+                        ?? (prepared.storedContent == .data
+                            ? pair.representation : nil) else {
                         return .graphStructureRejected
                     }
                     guard let generation = nextPairGeneration() else {
@@ -406,7 +434,9 @@ extension SceneResolvedMaterialGraphExecutor {
                         generation: generation,
                         representation: fragmentOutput,
                         content: prepared.storedContent
-                    ) else { return .graphPublicationRejected }
+                    ) else {
+                        return .graphPublicationRejected
+                    }
                     publications[identity] = publication
                     if pairNode.rotatesAfterNode {
                         guard member == pairNode.currentMemberAfterNode else {
@@ -419,7 +449,9 @@ extension SceneResolvedMaterialGraphExecutor {
                             generation: generation,
                             representation: fragmentOutput,
                             content: prepared.storedContent
-                        ) else { return .graphPublicationRejected }
+                        ) else {
+                            return .graphPublicationRejected
+                        }
                         publications[pairStep.inputIdentity] = input
                         pair = .init(
                             member: member,
@@ -445,7 +477,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     visited: &visited,
                     publications: publications
                 ), let sourcePublication = publications[source],
-                      let representation = representation(sourcePublication),
+                      let content = storableContent(sourcePublication),
                       let sourceTexture = lease.texturesByToken[sourceResource.token],
                       let targetTexture = lease.texturesByToken[targetResource.token],
                       let prepared = resourceEncoder?.prepareCopy(
@@ -455,7 +487,7 @@ extension SceneResolvedMaterialGraphExecutor {
                           lease: lease,
                           identity: target,
                           resource: targetResource,
-                          representation: representation
+                          content: content
                       ) else { return .resourceCommandRejected }
                 commands.append(.resource(prepared))
                 publications[target] = publication
@@ -489,11 +521,19 @@ extension SceneResolvedMaterialGraphExecutor {
               programKeys.count == graph.nodes.filter({ $0.kind == .material }).count
         else { return .graphStructureRejected }
         guard let final = publications[pairStep.outputIdentity],
-              let representation = representation(final),
+              let representation = representation(final)
+                ?? (final.publication.candidate.content == .data
+                    ? pair.representation : nil),
               final.publication.texture === pairTexture(
                   lease: lease,
                   member: pairStep.outputMember
-              ) else { return .graphPublicationRejected }
+              ) else {
+            return .graphPublicationRejected
+        }
+        // The boundary output is the next stage's pair atom even when the
+        // authored node leaves `compose` unset. Re-anchor the atom from the
+        // validated publication so member identity follows the graph plan,
+        // while retaining the data provider's non-color content separately.
         pair = .init(
             member: pairStep.outputMember,
             resource: final,

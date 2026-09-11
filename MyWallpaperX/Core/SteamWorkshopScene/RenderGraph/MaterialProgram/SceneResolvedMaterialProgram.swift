@@ -465,6 +465,10 @@ nonisolated struct SceneResolvedMaterialProgram {
             case neutralMissingTextureResolution(
                 SceneAuthoredShaderNeutralTextureResolutionFact
             )
+            /// Resolution metadata for a same-layer composite slot without an
+            /// authored sampler; the layer's own base capture supplies the
+            /// size, so the value rides the finalization render size.
+            case selfCompositeTextureResolution(slot: Int)
             case dynamic(
                 declared: SceneResolvedMaterialTemplate.DynamicUniformSource,
                 target: SceneDynamicTarget,

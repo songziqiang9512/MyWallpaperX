@@ -50,7 +50,8 @@ extension SceneDependencyFrameRuntime {
     func makeEffectInput(
         binding: SceneDependencyRenderPlan.Binding,
         frameEpoch: UInt64,
-        texture: MTLTexture
+        texture: MTLTexture,
+        content: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
     ) -> SceneDependencyEffectInput {
         SceneDependencyEffectInput(
             consumerLayerID: binding.consumerLayerID,
@@ -59,7 +60,8 @@ extension SceneDependencyFrameRuntime {
             slot: binding.slot,
             blendMode: binding.blendMode,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: content
         )
     }
 

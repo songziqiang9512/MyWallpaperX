@@ -393,6 +393,21 @@ extension SceneResolvedMaterialGraphExecutor {
         return value
     }
 
+    func storableContent(
+        _ resource: SceneFrameTextureResource
+    ) -> SceneTextureContent? {
+        let content = resource.publication.candidate.content
+        switch content {
+        case let .color(.resolved(value)) where value != .straightAlpha:
+            return content
+        case .scalarRedUnorm, .redGreenUnorm, .scalarRedFloat16,
+             .redGreenFloat16, .data:
+            return content
+        case .color:
+            return nil
+        }
+    }
+
     static func fullTargetMVP(_ target: MTLTexture) -> simd_float4x4 {
         simd_float4x4(diagonal: SIMD4(
             2 / Float(target.width), 2 / Float(target.height), 1, 1

@@ -242,10 +242,11 @@ final class SceneDependencyFrameRuntime {
             providerLayerID: binding.providerLayerID,
             variant: .primary
         )
-        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+        guard let resource = textureRegistry.completeNamedLayerTargetResource(
             reference: reference,
             frameEpoch: frameEpoch
         ) else { return nil }
+        let texture = resource.publication.texture
         if let reservation = reservationsByProviderLayerID[binding.providerLayerID] {
             guard reservation.frameEpoch == frameEpoch,
                   texture === reservation.texture else { return nil }
@@ -253,7 +254,8 @@ final class SceneDependencyFrameRuntime {
         return makeEffectInput(
             binding: binding,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: resource.publication.candidate.content
         )
     }
 
@@ -284,14 +286,16 @@ final class SceneDependencyFrameRuntime {
             guard let reservation = reservationsByProviderLayerID[
                 binding.providerLayerID
             ], reservation.frameEpoch == frameEpoch,
-                  let texture = textureRegistry.completeNamedLayerTargetTexture(
+                  let resource = textureRegistry.completeNamedLayerTargetResource(
                       reference: reference,
                       frameEpoch: frameEpoch
-                  ), texture === reservation.texture else { return nil }
+                  ), resource.publication.texture === reservation.texture else { return nil }
+            let texture = resource.publication.texture
             inputs.append(makeEffectInput(
                 binding: binding,
                 frameEpoch: frameEpoch,
-                texture: texture
+                texture: texture,
+                content: resource.publication.candidate.content
             ))
         }
         return aggregateInputVectorIsValid(
@@ -345,7 +349,7 @@ final class SceneDependencyFrameRuntime {
             providerLayerID: binding.providerLayerID,
             variant: .primary
         )
-        guard let texture = textureRegistry.completeNamedLayerTargetTexture(
+        guard let resource = textureRegistry.completeNamedLayerTargetResource(
             reference: reference,
             frameEpoch: frameEpoch
         ) else {
@@ -353,13 +357,15 @@ final class SceneDependencyFrameRuntime {
                 reasonCode: "external-primary-provider-capture-unavailable"
             )
         }
+        let texture = resource.publication.texture
         guard texture === reservation.texture else {
             return .invalid(reasonCode: "external-primary-publication-mismatch")
         }
         return .ready(makeEffectInput(
             binding: binding,
             frameEpoch: frameEpoch,
-            texture: texture
+            texture: texture,
+            content: resource.publication.candidate.content
         ))
     }
 
@@ -767,10 +773,10 @@ final class SceneDependencyFrameRuntime {
             frameEpoch: frameEpoch,
             texture: reservation.texture,
             content: content
-        ), textureRegistry.completeNamedLayerTargetTexture(
+        ), textureRegistry.completeNamedLayerTargetResource(
             reference: reference,
             frameEpoch: frameEpoch
-        ) === reservation.texture else {
+        )?.publication.texture === reservation.texture else {
             publicationTelemetry.recordFailure(layerID: layerID)
             return false
         }

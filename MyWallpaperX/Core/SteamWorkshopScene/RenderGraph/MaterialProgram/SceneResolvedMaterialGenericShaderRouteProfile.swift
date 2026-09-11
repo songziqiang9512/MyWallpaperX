@@ -618,7 +618,13 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   hasStereoAudioSpectrumArrays {
             self = .sourceProvenGraphInputAudioStageUniformStraightAlphaNoAuxiliary
         } else if case let .straightAlpha(sourceSlot) = colorTransfer,
-                  !hasExternalProviderTexture,
+                  (!hasExternalProviderTexture
+                    || (!preservedChannelsExternalProviderTextureSlots.isEmpty
+                      && activeTextureSlots
+                        == preservedChannelsExternalProviderTextureSlots
+                            .union([sourceSlot])
+                      && activeOpacityMaskSlots.isEmpty
+                      && premultipliedColorAuxiliarySlots.isEmpty)),
                   !producesScalarRedOutput,
                   graphInputTextureSlots.contains(sourceSlot) {
             self = .sourceProvenGraphInputStraightAlpha

@@ -257,6 +257,33 @@ enum Harness {
                     reference: primary,
                     frameEpoch: typedNamedPublicationEpoch
                 ) == true
+        let dataRegistry = SceneFrameTextureRegistry()
+        let dataEpoch = dataRegistry.beginFrame(layerSources: [:])
+        let typedDataPublication = dataRegistry.publishReservedNamedLayerTarget(
+            reference: primary, frameEpoch: dataEpoch,
+            texture: namedTexture, content: .data
+        )
+        let namedDataResource = dataRegistry.completeNamedLayerTargetResource(
+            reference: primary, frameEpoch: dataEpoch
+        )
+        let typedNamedDataRetained = typedDataPublication
+            && namedDataResource?.publication.candidate.content == .data
+            && namedDataResource?.publication.candidate.purpose == .preservedChannels
+            && namedDataResource?.publication.texture === namedTexture
+            && dataRegistry.snapshot().overlayingNamedLayerTarget(
+                primary, resource: namedDataResource!
+            )?.resource(for: named)?.publication.candidate.content == .data
+        let namedDataCannotBecomeColor = dataRegistry.completeNamedLayerTargetTexture(
+            reference: primary, frameEpoch: dataEpoch
+        ) == nil
+        let staleNamedDataRejected = dataRegistry.completeNamedLayerTargetResource(
+            reference: primary, frameEpoch: dataEpoch + 1
+        ) == nil
+        let unsupportedNamedContentRejected = SceneFrameTextureResource
+            .reservedNamedLayerTarget(
+                reference: primary, frameEpoch: dataEpoch,
+                texture: namedTexture, content: .scalarRedUnorm
+            ) == nil
         let namedPublicationAfterOtherResources = SceneFrameTextureRegistry()
         let namedPublicationAfterOtherResourcesEpoch =
             namedPublicationAfterOtherResources.beginFrame(
@@ -1144,6 +1171,10 @@ enum Harness {
             "primaryReady": primaryReady,
             "secondaryIsolated": secondaryIsolated,
             "exactNamedOverlayReady": exactNamedOverlayReady,
+            "typedNamedDataRetained": typedNamedDataRetained,
+            "namedDataCannotBecomeColor": namedDataCannotBecomeColor,
+            "staleNamedDataRejected": staleNamedDataRejected,
+            "unsupportedNamedContentRejected": unsupportedNamedContentRejected,
             "typedNamedPublicationSucceeded": typedNamedPublicationSucceeded,
             "typedNamedPublicationIsComplete": typedNamedPublicationIsComplete,
             "namedPublicationAfterOtherResourcesSucceeded":
@@ -1296,6 +1327,10 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "primaryReady",
             "secondaryIsolated",
             "exactNamedOverlayReady",
+            "typedNamedDataRetained",
+            "namedDataCannotBecomeColor",
+            "staleNamedDataRejected",
+            "unsupportedNamedContentRejected",
             "typedNamedPublicationSucceeded",
             "typedNamedPublicationIsComplete",
             "namedPublicationAfterOtherResourcesSucceeded",

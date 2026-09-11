@@ -21,6 +21,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     /// Exact color inputs converted from the shared premultiplied publication
     /// contract into authored straight-RGBA math by this compiled Program.
     let premultipliedColorInputSlots: Set<Int>
+    /// External provider slots whose source dataflow is proven to consume
+    /// independent scalar channels rather than compositor color.
+    let preservedChannelsProviderInputSlots: Set<Int>
     /// Source-proven overlay input for associated-over/overlay-alpha math.
     /// This is immutable shader analysis and must not be rediscovered while
     /// binding every frame's resources and uniform values.
@@ -51,6 +54,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         preservedAlphaRGBColorSlots: Set<Int>,
         sourceProvenOpaqueColorSlots: Set<Int>,
         premultipliedColorInputSlots: Set<Int> = [],
+        preservedChannelsProviderInputSlots: Set<Int> = [],
         associatedOverOverlaySlot: Int?,
         conditionalGeneratedRGBInputContract:
             SceneResolvedMaterialProgramDerivation
@@ -75,6 +79,8 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.preservedAlphaRGBColorSlots = preservedAlphaRGBColorSlots
         self.sourceProvenOpaqueColorSlots = sourceProvenOpaqueColorSlots
         self.premultipliedColorInputSlots = premultipliedColorInputSlots
+        self.preservedChannelsProviderInputSlots =
+            preservedChannelsProviderInputSlots
         self.associatedOverOverlaySlot = associatedOverOverlaySlot
         self.conditionalGeneratedRGBInputContract =
             conditionalGeneratedRGBInputContract

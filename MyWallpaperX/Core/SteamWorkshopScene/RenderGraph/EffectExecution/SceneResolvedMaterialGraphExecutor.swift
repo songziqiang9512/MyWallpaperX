@@ -198,7 +198,7 @@ final class SceneResolvedMaterialGraphExecutor {
         ) else {
             return .failure(.invalidClaim)
         }
-        let executionFrame: SceneResolvedMaterialFrameSnapshot
+        var executionFrame: SceneResolvedMaterialFrameSnapshot
         switch (capability.sceneBackgroundRequirement, sceneBackgroundResource) {
         case (nil, nil):
             executionFrame = frame
@@ -235,6 +235,42 @@ final class SceneResolvedMaterialGraphExecutor {
                       clear: .init(red: 0, green: 0, blue: 0, alpha: 0)
                   ) else { return .failure(.captureRejected) }
             baseCommand = initialization
+        }
+        // A same-layer primary composite reference is owned by the layer's
+        // own graph. The pair base capture holds exactly the layer's composite
+        // content (whole texture, identity UV, renderable+readable lease), so
+        // it is the publication payload for the layer's own named target.
+        if case .graphInternal = capability.dependencyOwnership {
+#if DEBUG
+            NSLog(
+                "MWX DEBUG SCENE: phase=self-composite-overlay layer=%d outcome=attempted",
+                capability.layerID
+            )
+#endif
+            let selfReference = SceneNamedTextureReference(
+                providerLayerID: capability.layerID,
+                variant: .primary
+            )
+            let resource = SceneFrameTextureResource.reservedNamedLayerTarget(
+                reference: selfReference,
+                frameEpoch: frame.textureRegistrySnapshot.frameEpoch,
+                texture: baseTarget
+            )
+#if DEBUG
+            if resource == nil {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=self-composite-overlay layer=%d outcome=skipped reason=resource-invalid",
+                    capability.layerID
+                )
+            }
+#endif
+            if let resource,
+               let overlaidSelfComposite = executionFrame.overlayingNamedLayerTarget(
+                   selfReference,
+                   resource: resource
+               ) {
+                executionFrame = overlaidSelfComposite
+            }
         }
         guard let captureGeneration = nextPairGeneration(),
               let base = pairResource(

@@ -325,6 +325,20 @@ final class SceneFrameTextureRegistry {
         reference: SceneNamedTextureReference,
         frameEpoch: UInt64
     ) -> MTLTexture? {
+        guard let resource = completeNamedLayerTargetResource(
+            reference: reference,
+            frameEpoch: frameEpoch
+        ), resource.publication.candidate.content
+            == .color(.resolved(.premultipliedAlpha)) else { return nil }
+        return resource.publication.texture
+    }
+
+    /// Material consumers retain the content atom. Color-only consumers use
+    /// the texture accessor above so packed data cannot become visible color.
+    func completeNamedLayerTargetResource(
+        reference: SceneNamedTextureReference,
+        frameEpoch: UInt64
+    ) -> SceneFrameTextureResource? {
         guard frameEpoch == self.frameEpoch,
               let resource = resource(
                   for: .namedLayerTarget(reference)
@@ -333,7 +347,7 @@ final class SceneFrameTextureRegistry {
                   reference: reference,
                   frameEpoch: frameEpoch
               ) else { return nil }
-        return resource.publication.texture
+        return resource
     }
 
     func lookup(_ identity: SceneFrameTextureIdentity) -> SceneFrameTextureLookupStatus? {
