@@ -849,3 +849,7 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 ### 2026-09-11 回归断点：visibility owner 与 strict compiler boundary
 
 当前代码回归复现了三个共享合同问题并已修复：直接 `thisLayer.visible` mutation 不进入 value-only visibility projection；effectful SceneScript owner 仍可读取并操作已发布视频句柄；`SceneAuthoredShaderAlphaAttenuationAnalyzer.directOutputFact` 纳入 strict compiler owner，未归属的额外 output component write / sample 不能由 default straight boundary 恢复。依赖 visibility、direct alpha mutation、external primary passthrough 三项专项测试全部通过，checkpoint build 成功。该证据只关闭本批结构/合同断点，不代表 B7 CPU、B8 readiness 或全样本视觉 parity。
+
+### 2026-09-11 B7 source-update scratch reuse
+
+`ScenePuppetPlaybackState` 现在在 launch 时按选定 clip 数量准备并复用 frame sample 与 FrameSignature 容器；普通帧只更新 visibility、scene-time sample、timeInvariant 与 boneRevision，skin matrix、position、vertex scratch 继续由同一 playback owner 持有。`test_scene_puppet_animation`、`test_scene_puppet_playback`、`test_scene_puppet_rig` 全部通过，checkpoint Debug build 为 `BUILD SUCCEEDED`。本批未运行当前签名包的真实样本 profile/CPU A-B，因此只记 B7 shared hot-path preparation wiring，不关闭 16.67ms 稳定帧预算。

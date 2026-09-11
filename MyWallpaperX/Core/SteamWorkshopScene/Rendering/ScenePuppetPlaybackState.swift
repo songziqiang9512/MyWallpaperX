@@ -86,6 +86,10 @@ final class ScenePuppetPlaybackState {
     private var localMatrixScratch: [simd_float4x4]
     private var skinMatrixScratch: [simd_float4x4]
     private var worldMatrixScratch: [simd_float4x4]
+    /// Clip topology is launch-stable; reuse the per-frame sample/signature
+    /// containers so source updates do not allocate before the change guard.
+    private var frameSamplesScratch: [ScenePuppetAnimationEvaluator.FrameSample?]
+    private var signatureScratch: [FrameSignature]
     private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
@@ -255,24 +259,26 @@ final class ScenePuppetPlaybackState {
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
     ) {
-        let frameSamples: [ScenePuppetAnimationEvaluator.FrameSample?] = selection.clips.map { clip in
-            guard isVisible(clip.layer, dynamicValues: dynamicValues) else { return nil }
-            return ScenePuppetAnimationEvaluator.frameSample(
+        for index in selection.clips.indices {
+            let clip = selection.clips[index]
+            frameSamplesScratch[index] = isVisible(
+                clip.layer, dynamicValues: dynamicValues
+            ) ? ScenePuppetAnimationEvaluator.frameSample(
                 sceneTime: sceneTime,
                 rate: clip.layer.rate ?? 1,
                 animation: clip.animation
-            )
-        }
-        let signature = frameSamples.enumerated().map { index, sample in
-            FrameSignature(
-                sample: sample,
-                visible: sample != nil,
+            ) : nil
+            signatureScratch[index] = FrameSignature(
+                sample: frameSamplesScratch[index],
+                visible: frameSamplesScratch[index] != nil,
                 timeInvariant: evaluator.isTimeInvariant(
-                    animationID: selection.clips[index].animation.id
+                    animationID: clip.animation.id
                 ),
                 boneRevision: boneRevision
             )
         }
+        let frameSamples = frameSamplesScratch
+        let signature = signatureScratch
         submissions.update(transaction: transaction) { submission in
             guard signature != submission.frameSignature
                     || submission.boneRevision != boneRevision else { return }
@@ -552,6 +558,13 @@ final class ScenePuppetPlaybackState {
         self.worldMatrixScratch = Array(
             repeating: matrix_identity_float4x4,
             count: matrixScratchCount
+        )
+        self.frameSamplesScratch = Array(
+            repeating: nil, count: selection.clips.count
+        )
+        self.signatureScratch = Array(
+            repeating: FrameSignature(sample: nil, visible: false),
+            count: selection.clips.count
         )
     }
 }
