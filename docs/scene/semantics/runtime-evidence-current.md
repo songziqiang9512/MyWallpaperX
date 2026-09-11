@@ -860,4 +860,4 @@ fresh 隔离回放现已完成：Developer ID Debug app `com.songziqiang.MyWallp
 
 2026-09-12 全量 Scene 回归在用户中断前暴露并复现了一组当前工作树合同问题：`SceneScriptVectorEvaluation` 已移入显式 harness 可见的 `SceneScriptVectorCandidateModels.swift`；`SceneScriptVectorOwner+PuppetBones.swift` 与两个 Puppet bridge 文件登记到 source-layout；Puppet source-update guard 保留 rollback 合同。修复后 `test_scene_property_vector_script`（19 项）、`test_scene_source_update_transaction` 与 `test_scene_semantics_coverage` 均通过。其余失败仍按原始失败保留：部分独立 harness 未同步当前新增 finalization `layerID`/shader source set，sample archive import 环境问题，以及 sampled-alpha/template 合同漂移；未将这些失败改写为通过。
 
-针对 sampled-alpha compiler 反例，generic same-alpha preparation 现在对编译器 alpha-lane、sample projection、临时额外读取和隐藏 source 逃逸执行 fail-closed 检查；该职责集群的 focused suite 仍需最终重跑确认，未提前宣称通过。
+针对 sampled-alpha compiler 反例，generic same-alpha preparation 现在对编译器 alpha-lane、sample projection、临时额外读取、隐藏 source 逃逸和终点顺序漂移执行 fail-closed 检查；focused suite `test_scene_sampled_alpha_rgba_reconstruction` 两项通过。resolved-material template 的 timeline control 仍因当前 classifier 合同与旧 harness 期待不一致而开放。
