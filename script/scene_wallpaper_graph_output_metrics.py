@@ -117,9 +117,13 @@ def resolved_material_graph_output_metrics(
             )
         ),
         "program_output_consumed_layer_ids": sorted(
-            set(program_compositor_consumed_layer_ids).union(
-                named_published_layer_ids
+            set(program_compositor_consumed_layer_ids)
+            .union(
+                graph_observations[
+                    "activation_passthrough_consumed_layer_ids"
+                ]
             )
+            .union(named_published_layer_ids)
         ),
         "named_compositor_overlap_layer_ids": sorted(
             accepted_layer_set
@@ -549,6 +553,16 @@ def resolved_material_graph_observation_metrics(
         for observation in program_terminal_successes
         if observation["compositor_consumed"]
     })
+    # A chain that executes its program effects but ends in an
+    # authored-deactivated terminal effect publishes through the
+    # activation passthrough: that terminal observation is where the
+    # compositor consumption of the chain's program output is recorded.
+    activation_passthrough_consumed_layer_ids = sorted({
+        observation["layer_id"]
+        for observation in terminal_successes
+        if observation["activation_passthrough"]
+        and observation["compositor_consumed"]
+    })
     program_next_frame_layer_ids = sorted({
         observation["layer_id"]
         for observation in program_terminal_successes
@@ -696,6 +710,9 @@ def resolved_material_graph_observation_metrics(
             )
             for observation in activation_terminal_successes
         }),
+        "activation_passthrough_consumed_layer_ids": (
+            activation_passthrough_consumed_layer_ids
+        ),
         "visual_failure_passthrough_count": len(
             visual_failure_terminal_successes
         ),

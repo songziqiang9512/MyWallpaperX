@@ -2046,6 +2046,43 @@ EFFECT_LOCAL_PASSTHROUGH_EXPECTATION_KEY = (
 EFFECT_RECOVERY_EXPECTATION_KEY = "expected_effect_recoveries"
 EFFECT_LOCAL_PASSTHROUGH_CPU_PREFIX = "effect-local-passthrough-"
 
+TYPED_EFFECT_ACTIVATION_DECISION_RE = re.compile(
+    r"channel=user-property consumer=effect-activation "
+    r"layer=(?P<layer>\d+) effect=(?P<effect>\d+) "
+    r"descriptor=(?P<descriptor>\S+) property=\S+ type=bool "
+    r"frame=\d+ generation=\d+ value=\S+ "
+    r"decision=(?P<decision>active|inactive)"
+)
+
+
+def authored_deactivated_activation_identities(
+    log_text: str,
+) -> set[tuple[int, int, str]]:
+    """Effect subjects whose typed user-property activation stayed disabled.
+
+    The product evaluates every authored effect activation per frame and
+    publishes the decision with the full (layer, effect, descriptor)
+    identity. A subject with at least one decision and no active decision
+    is authored-deactivated for the whole run: its graph transaction is
+    the activation passthrough by design, so it must not be demanded as a
+    program execution subject.
+    """
+    decisions: dict[tuple[int, int, str], set[str]] = {}
+    for match in TYPED_EFFECT_ACTIVATION_DECISION_RE.finditer(log_text):
+        identity = (
+            int(match.group("layer")),
+            int(match.group("effect")),
+            unquote(match.group("descriptor")),
+        )
+        decisions.setdefault(identity, set()).add(
+            match.group("decision")
+        )
+    return {
+        identity
+        for identity, values in decisions.items()
+        if values == {"inactive"}
+    }
+
 
 def effect_local_passthrough_expectation(
     sample: dict[str, Any],
@@ -2273,6 +2310,7 @@ def resolved_material_graph_exact_backend_metrics(
     static_disposition: dict[str, Any] | None,
     graph_observations: dict[str, Any],
     dormant_layer_ids: set[int] | None = None,
+    activation_dormant_identities: set[tuple[int, int, str]] | None = None,
 ) -> dict[str, Any]:
     accepted_layers = set(accepted_layer_ids)
     disposition_is_valid, _, eligible_exact = (
@@ -2286,6 +2324,11 @@ def resolved_material_graph_exact_backend_metrics(
         )
         for subject in eligible_exact
     }
+    # Authored-deactivated activations never execute their program subject;
+    # their passthrough encode is not a program success either.
+    activation_dormant = (
+        activation_dormant_identities or set()
+    ).intersection(eligible_exact_identities)
     required_by_layer: dict[int, set[tuple[int, str]]] = {
         layer_id: set() for layer_id in accepted_layers
     }
@@ -2299,6 +2342,8 @@ def resolved_material_graph_exact_backend_metrics(
                 and isinstance(effect_index, int)
                 and not isinstance(effect_index, bool)
                 and isinstance(descriptor_id, str)
+                and (layer_id, effect_index, descriptor_id)
+                    not in activation_dormant
             ):
                 required_by_layer[layer_id].add((effect_index, descriptor_id))
 
@@ -2425,6 +2470,8 @@ def resolved_material_graph_exact_backend_metrics(
                 continue
             if invocation.get("backend") == RESOLVED_MATERIAL_GRAPH_BACKEND:
                 resolved_backend_layer_ids.add(layer_id)
+            if exact_identity in activation_dormant:
+                continue
             if layer_id not in accepted_layers:
                 continue
             if invocation.get("backend") != RESOLVED_MATERIAL_GRAPH_BACKEND:
@@ -3048,6 +3095,9 @@ def resolved_material_graph_execution_metrics(
         static_disposition,
         graph_observations,
         dormant_layer_ids=set(dormant_layer_set),
+        activation_dormant_identities=(
+            authored_deactivated_activation_identities(log_text)
+        ),
     )
     if (
         exact_backend["unjoined_cpu_effect_local_passthroughs"]

@@ -9,9 +9,9 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `8032a435298bbd26440a8e8078f3add02fa0bdecbe9cfdffcf2dd0a5f7c036bb`（生成于 2026-09-11T22:20:58.125650+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `890397672ce261f276afa0249f5b144c2d92a18a1c64ee8850b6bc554df8f6db`（生成于 2026-09-11T23:33:33.911357+00:00）。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-11T22:20:58.264490+00:00。
+- 本页生成于 2026-09-11T23:33:34.042783+00:00。
 
 ## 2. 汇总
 
@@ -24,10 +24,10 @@
 
 | 首断点集群 | 含义 | 样本数 |
 |---|---|---:|
-| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 15 |
+| `effect-chain` | effect 准入 / 颜色合同 / graph 执行 | 14 |
 | `particle-load` | 粒子层资源加载 | 9 |
 | `texture-load` | 基础图片纹理加载 | 3 |
-| `scenescript` | SceneScript 异常 | 20 |
+| `scenescript` | SceneScript 异常 | 21 |
 | `visual-review` | 结构链完整，待视觉验收 | 112 |
 | `not-run` | 尚无隔离运行证据 | 0 |
 
@@ -173,7 +173,7 @@
 | `3770444459` | 三国杀【节气 夏至 2026】8K | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3770462923` | gt3rs@d4rk | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3775355045` | 交错战线_DAIBLOS CORE_x-ray_4K_1 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
-| `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2(0) color 1 slider 1 | `degraded-runtime` | `graph-execution / GraphExecutor / layer-source-not-ready / resolved-material-graph` | `effect-chain` | `unreviewed` |  |
+| `3775373546` | 交错战线_DAIBLOS CORE_x-ray_4K_2 | 2(0) color 1 slider 1 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-range-error / target:layer:visibility` | `scenescript` | `unreviewed` |  |
 | `3777761326` | I do Anything | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3779026256` | [魔法少女的魔女审判] 月代雪 X 樱羽艾玛 音频识别 | 13(0) bool 4 color 1 group 2 slider 6 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-reference-error / target:layer:visibility` | `scenescript` | `unreviewed` |  |
 | `3779904456` | 尤诺2 \|\| 鸣潮 | 47(21) bool 15 color 7 group 4 slider 9 text 10 textinput 2 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
