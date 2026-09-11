@@ -266,11 +266,13 @@ struct ScenePuppetAnimationEvaluator {
             frameSamples: frameSamples,
             into: &localMatricesScratch
         )
-        try applyOverrides(
-            boneOverrides,
-            to: &localMatricesScratch,
-            worlds: &worldMatricesScratch
-        )
+        if !boneOverrides.isEmpty {
+            try applyOverrides(
+                boneOverrides,
+                to: &localMatricesScratch,
+                worlds: &worldMatricesScratch
+            )
+        }
         try writeSkinMatrices(
             localMatrices: localMatricesScratch,
             into: &skinMatricesScratch

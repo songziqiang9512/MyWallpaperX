@@ -184,6 +184,7 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
   - 产品侧 teardown 链：`phase=surface-teardown` 日志的发出点（surface teardown owner，`MyWallpaperX/Core/SteamWorkshopScene/Runtime/` 内 surfaceStop 路径）；该样本播放期 audit `claimed=9 encoded=9 failures=0`，无渲染失败，怀疑点在 teardown 等待/挂起而非 encode。
 - **当前真实结果**：最终统一签名包（CDHash `7019384b…`）隔离复跑 exit 0，ready `17722.143 ms`；启动前清场与停止后 teardown 均记录 `surfaces=0`，无 timeout/SIGKILL。两层 Puppet 共 34,936 vertices / 66,049 triangles，193/192/0 submitted/completed/failed，driver `27.237 FPS`；CPU p95 `34.540 ms`、main-frame p95 `34.832 ms`，pre-encode p95 `0.095 ms`、GPU p95 `10.476 ms`。report/app.log/runtime SHA 分别为 `8acf2feaa37d08215dcdf778715a1dab114f5f08e00f040ce1029a1dbea51ba3` / `a7f31187212c06d665ec00f8eec29b4681e814a59e8d6cfcabf88c7b62adf4cf` / `5611196f477bd54ae7278a1b7d03077b13242a1f2c07b7a50eb91cc41a402a2d`。严格报告仍因 B3 layer 412 的 `material-dynamic-uniform-script-attachment-unproven` 非 B7 原因而 NON-PASS。
 - **定位提示**：Puppet 的 load-time coverage 批处理、prepared vertex/animation、重复帧 signature 与 caller-owned scratch 已把旧 56 秒启动和约 3.69 FPS 大幅收敛。当前剩余集中在 source-update 的 CPU main-frame，而非 drawable/pre-encode/GPU/teardown；下一步应先对两层 skinning/vertex upload 分段 profile，再决定 CPU 并行、GPU skinning 或更小的通用数据布局修正。
+- **最新公共修正（2026-09-11）**：普通帧没有 bone override 时跳过仅服务 override 事务的 world-matrix 解析，保留同一 `writeSkinMatrices` parent-first skinning owner；override 路径的有限性、奇异矩阵与局部失败校验不变。Puppet 三模块、generic shader artifact 80-test 与 checkpoint build 均通过；尚无新的签名样本 A/B profile，16.67ms 预算仍开放。
 - **完工动作**：同 B2；此条属于 P5 范畴时按路线降级处理，但进程被杀属于硬失败，建议保持队列内。
 
 ### B8 首帧视频源瞬时 fallback 触发观察门
