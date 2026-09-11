@@ -418,6 +418,7 @@ nonisolated extension SceneScriptVectorProgram {
             ? ["image", "solid", "text"]
             : ["image", "solid", "text", "container"]
         guard isIndependent || isStateful || !dynamicImageReferences.isEmpty,
+              !directThisLayerVisibilityMutation(binding.source),
               layer.id == layerID,
               layer.layerIndex == objectIndex,
               layer.visible == authored,
@@ -518,6 +519,13 @@ nonisolated extension SceneScriptVectorProgram {
         return mutableDependencies.allSatisfy {
             !containsIdentifier($0, in: source)
         }
+    }
+
+    private static func directThisLayerVisibilityMutation(_ source: String) -> Bool {
+        source.range(
+            of: #"(?m)\bthisLayer\s*\.\s*visible\s*="#,
+            options: .regularExpression
+        ) != nil
     }
 
     /// This is deliberately narrower than general Vec3 execution. It does not

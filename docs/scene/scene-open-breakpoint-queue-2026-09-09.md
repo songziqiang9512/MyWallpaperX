@@ -18,11 +18,15 @@
 
 ## 0.3 现役待办（2026-09-10）
 
-以下条目是 B9 闭环后的实际修复队列，按共享 owner 依赖排序；每项完成后必须补充运行证据并提交一个完整职责批次：
+### 2026-09-11 回归断点修复（visibility owner / compiler contract / passthrough fixture）
 
-1. **B3 / SceneScript 参数扩面**：复跑 `3601964477`，闭合 `2902406982` 的 media-event / Timeline producer。
-2. **B5 / terminal data-color 链**：修复 geodraw 通用 color-transfer，再处理 `3792249095` 的 sampler-schema / owner-revoked 和 `3448845950` 的 terminal data/color 合同。
-3. **B6 / 类型语义**：补合法 `Vec3/scalar` 正例和可重复异常 payload，保持错误类型 fail-closed。
+当前工作树全量回归曾暴露三个可复现断点，已按公共 owner 修复并完成专项回归：SceneScript visibility owner 排除直接 `thisLayer.visible` 写入、effectful owner 保留视频句柄；generic straight-alpha default boundary 将 authored `directOutputFact` 纳入 strict compiler owner，避免额外 output component write 或 compiler sample 漂移被 fallback 掩盖；external primary passthrough harness 补齐当前 `FrameInputs.DependencyEffect.texture` 合同。专项三模块 `ALL OK`，checkpoint Debug build `BUILD SUCCEEDED`。全量回归尚未重新收尾，B7/B8/全样本视觉仍开放。
+
+以下条目是本次交接时的实际修复队列，按共享 owner 依赖排序；每项完成后必须补充运行证据并提交一个完整职责批次：
+
+1. **B2 扩展 / `3448845950` dependency-stage**（2026-09-11 全链闭合 ✅）：三处 binding 合同 + vec3 `a_TexCoord` + variant key 漂移 + sceneBackground 合同 + **207 隐藏 text provider 链**全部修复。最终回放 `claimed=13 encoded=13 failures=0`：13 个 accepted 层全部 GPU 完成（180/e10、691、247/524/416、**207**——binding/capture/utility 全 succeeded）。207 修复链：composition 消费者合同、隐藏 effects 的 text provider 放宽、utility 的 imageLayerBlend 路由、`SceneTextTextureLoader` 与 `SceneDynamicTextTextureStore` 两处 visible 过滤并入 authored 依赖源（隐藏 text 层作为 composite 源仍栅格+发布 layerSource publication）。剩余已登记：① ~~207/e0 circular_text `.vert`~~ **已闭合（2026-09-11）**——尾部悬挂单个 `#endif` 有界恢复（至多一个；候选后遇 `#endif/#else/#elif` 或"代码分隔+后续条件块"仍硬拒；新增 preprocessor 正例 `trailing_redundant_endif`，`207/e0` 已 encoded-output）；② ~~1475 gate 合同~~ **已闭合（2026-09-11）**——`SceneGraphExecutionObservation` 新增 `dependencyProviders` 字段（ledger 的 dependency 输入 provider，logFields 输出），benchmark 解析 `dependency_consumed_provider_layer_ids` 后仅对"存在下游依赖消费证据"的发布者豁免 compositor 消费要求；gate 合同测试扩展正反两例（下游消费→豁免、无任何消费→仍 missing）。344 复放 missing 清零（dependency_consumed=[102,474,495,571,660,1475]）；③ 偶发 `frame-target-plan-allocation-failed` reset 瞬态（B8 类观察，自愈）。
+2. **B4/B5 剩余 owner**（2026-09-11 二次收敛）：**`3792249095` 严格 PASS 闭合**（failures=[]，audit `claimed=7 encoded=7 failures=0`，全程 outcome=failed 为 0；非黑 + 运动 mean_delta=0.061 证据齐；report SHA-256 `18ddbf63737fe4b9707ca28be0cb4515881fd230997c1963a7194e9b23c64ba2`，app.log SHA-256 `048f9f17b701a2b9ffc9a181566838228c9be7cf22027e6a68758706dc51f50e`，现场 `/private/tmp/mwx-b45-replay`）。闭合的第五个公共合同：**scene-background × graphInternal × compose 形状优先级**——target identity 合同（named namespace 不与 scene background alias）证明自引用与背景正交后，`dependencyIsCompatible` 接受 `.graphInternal`（aggregate 仍拒）；背景 slot 跟随 authored sampler（移除 Water Waves 时代的 `slot == 1` 残留，E-V4 Shine 任意 slot 前例）；compose 优先于 typed single-pass 分支（两者可同时满足）；多 effect generic-only 链走 per-effect 单写 ordered 路径。加上此前同批的 label 通道/passthrough 自引用颜色/source-carried 辅助数据槽/format 注解 purpose，379 全部 effect 执行。同批 **geodraw `3662790108` 严格 PASS**（详见 runtime evidence）。`same_slot::wrongCompilerSlotRejected` **已闭合（2026-09-11）**：探针证明该形状 authored 分类 unresolved 且全部 strict fact 未命中，产品默认边界回退吞掉编译器漂移拒绝——`hasStrictCompilerOwner` 补入 `SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer` 后恢复拒绝（same_slot 3/3）。连带修复 `independent_signal_producer_lowering` HEAD 既有断裂（harness 补 `premultipliedColorInputSlots` 参数；route 断言同步产品 authority——ordinaryShader→generic-only 在 68dee38b 即如此，prefer-generic 为出生即错的过期期望）。
+3. **B6 / 类型语义**（2026-09-11 闭环 ✅）：用含 B2 全链修复的当前签名包真实回放 `3747492842`——四个 angle target（796/152/265/186）全部 `callback=completed`（typed Vec3 输出）、`badReturn` 全程 0、effectConstant 无 `TypeError`；audit `claimed=7 encoded=7 failures=0`、missing/unexpected 全空。strict 报告仅剩的 2 项失败全部来自 1 次 `186:layer-source-not-ready` 首帧瞬态（B8 类观察，本条目原登记"不单列"）。quickjs 候选（authored_layer_mutation_count 收紧、同值 setter journal、string 返回诊断、launch property overlap）就此定案，错误类型保持 fail-closed。
 4. **B7 / 稳定帧 CPU**：对 Puppet source-update 做 profile，按共享 owner 降低稳定帧 CPU；不以旧 FPS 快照代替新基线。
 5. **B8 / readiness 观察合同**：决定产品等待策略或门禁合同，并保留首帧 readiness 的原始证据，不静默放宽失败。
 6. **全样本视觉收口**：重新生成验收台账，逐项裁决 `19 fail / 140 unreviewed`；任何新首断点回到 P1/P2。
@@ -38,7 +42,11 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### 0.1 当前续跑状态（2026-09-10）
 
-当前仍在 P1 公共断点修复。最新结构增量：B3 的 `3448845950` 四处 attachment 清零，`3665307769` 从 NON-PASS 恢复 strict PASS；B5 已越过 varying 和 float→int 编译错误，首断点推进至 terminal data/color 合同；B9 已完成同一 VM/cursor→bone journal→Puppet playback 的拖动、限幅、回弹及区域外不捕获闭环，四次严格回放通过，见 [B9 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b9-spring-closure)。下面 09-09 的 12 样本 `5/12` 与 159 个视觉 verdict 都是原始快照，不用两次后继回放改写总数。详见 [B3 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)。
+当前仍在 P1 公共断点修复。B3 event-only 与 property→SceneScript→material 子切片均已闭合；B9 已完成同一 VM/cursor→bone journal→Puppet playback 的拖动、限幅、回弹及区域外不捕获闭环。B5 的 `3448845950` packed RGBA accumulation → typed named publication → layer 322 color consumer 已在最新签名回放中执行，原 terminal data/color 拒绝清零；该样本现在只剩 `180/e10`、`247/e0`、`691/e1` 三处 `dependency-stage-reference-unsupported`。B6 有未提交实现候选和 focused 38 项正反门，但尚未真实复跑 `3747492842`。详见 [B5 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)、[B3 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b3-property-vector-input)与[B9 当前证据](semantics/runtime-evidence-current.md#e-2026-09-10-b9-spring-closure)。下面 09-09 的 12 样本 `5/12` 与 159 个视觉 verdict 仍是原始快照，不用后继单样本回放改写总数。
+
+#### 2026-09-10 交接现场
+
+当前 `HEAD=0784085aa2a1864e2015102d3b7b2d17fa56727f`，分支 `codex/scene-capability-baseline` 相对远端 ahead 248。文档同步前工作树有 **42 个 tracked 修改、0 个 staged 路径**，主要是 B5 typed data 链、source-carried auxiliary data proof 与 B6 QuickJS 候选；这些修改尚未作为一个已完成职责批次提交。最新 build 为 `/private/tmp/mwx-b5-current-build/Build/Products/Debug/MyWallpaperX.app`，最新 B5 回放为 `/private/tmp/mwx-b5-provider-data-run`。此前 70 个精确开发缓存路径已移入废纸篓，未清空；根卷当前约有 137 GiB 可用。保留上述 build/run 是为了交接复核，完成后可按精确路径移入废纸篓。
 
 #### 2026-09-09 接手与 12 样本历史基线
 
@@ -51,10 +59,10 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 | 集群 | 当前阶段 | 已有门 / 当前首断点 | 下一步 |
 | --- | --- | --- | --- |
 | B1 | 代表与两例扩面均结构闭合，视觉待复核 | 当前 Developer ID 包的 `3749463715`、`3754639143`、`3782740481` 均严格 PASS；三例 active effect / graph layer 均有 GPU、compositor、next-frame 证据。当前批次总报告列为 5/12 PASS（report SHA `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`） | B1 的结构首断点可关闭；转入三例视觉/参数复核，若发现新 exact failure 再开后继条目 |
-| B2 | 代表依赖/publication 已闭合，扩展样本按原因拆分 | `2959875782` 当前运行中 aggregate admission、utility `[520]`、named publication `[19,134,138]` 与 visible publication `[130,1413]` 均保留；此前唯一 graph contract 缺口是 layer 813 的 SceneScript/Puppet visibility，B9 后继已闭环。`3448845950` 的 dependency-stage passthrough 与 `3792249095` 的 layer 254 不再混写成代表 B2 失败 | B2 代表可关闭；继续核对 3448845950 的多 provider/未认领 effect 与 3792249095 的 sampler/owner，均以公共 owner 修复 |
+| B2 | 代表依赖/publication 已闭合，扩展 binding 开放 | `2959875782` 的 aggregate/publication 与 layer 813 后继 B9 均已闭合。最新 `3448845950` 只剩 `180/e10` 同层 primary、`247/e0 → 571` composition provider、`691/e1 → 660` text provider 三种精确 dependency-stage 形状 | 先为三种形状逐一证明公共 source/binding/publication owner；每次回放读取新的首断点，不扩大 legacy matcher |
 | B3 | 已闭合：user→SceneScript→material 与 event-only producer | `3601964477`、`2902406982` 均在改后签名 Debug App 中 strict PASS；event-only `mediaThumbnailChanged` 不再伪装 uniform writer，含 `update/init` 的未知脚本仍 fail-closed | 仅保留更广泛 shader-constant/script-instance target family 的后续能力债，不回退本批 owner |
-| B4/B5 | B4 结构闭合但 geodraw/视觉开放，B5 与后继 owner 开放 | 当前包 `3662790108` 严格结构 PASS（35/35 active effect、81/81 GraphExecutor），但 8 个 geodraw2_1 request 仍走 `generatedStraightAlpha/colorTransfer → boundedSwift`；`3792249095` 仍有 layer 254 `degraded-layer-source-passthrough`，09-10 `3448845950` 已推进到 terminal data/color 合同。09-09 包的 366 启动约 48.09s、7.49 FPS（总报告 SHA `0104f3…`） | 修 geodraw 通用 color-transfer，再独立处理 sampler-schema/owner-revoked；结构 PASS 不等于视觉闭合 |
-| B6 | 开放（作者类型不匹配） | `3747492842` 的 string-as-Vec3 与 scalar `.add` 错误已由 payload 复核；QuickJS 保持 fail-closed | 补合法 Vec3/scalar 正例及可重复异常 payload；不做字符串强转或伪造 API |
+| B4/B5 | `3448845950` terminal data/color 子切片 S3；geodraw/379 owner 开放 | layer 1475 material/copy/material 已发布 typed `.data`，layer 322 以 auxiliary data slot 消费并取得 GPU/compositor/next-frame；样本 NON-PASS 由上行 B2 三处造成。`3662790108` 的 geodraw 与 `3792249095` layer 254 仍未闭合 | 不再改 1475/322；继续 geodraw 通用 color-transfer 与 379 sampler/owner，结构 PASS 不等于视觉闭合 |
+| B6 | 实现候选待真实复跑 | 当前未提交 QuickJS/LayerHost/launch overlap 修改的 focused 38 项通过；`3747492842` 尚未用当前 App 复跑 | 先构建并真实回放，核对四个 angle target 的 mutation、frame consumption 与错误 payload；失败则按新首断点修复 |
 | B9 | 已闭环：目标样本平移交互 S4 | 统一 0-based bone identity，MDLS Spring 参数进入唯一 playback；普通/限幅/outside/可见回弹对照 4/4 strict PASS | 证据见下方 B9；不再从此处重复接线。通用旋转/IK、多屏、parallax 和官方 parity 仍由专项表持有 |
 | B7 | teardown/启动闭合，稳定帧 CPU 待降 | 当前包 `3665307769` exit 0、teardown `surfaces=0`，09-10 后继 B3 layer 412 已执行且样本 strict PASS；CPU p95 `35.667 ms`、GPU p95 `10.160 ms`、driver `26.57 FPS` | 对 Puppet source-update CPU 做 profile/通用降本，目标回到 16.67ms 帧预算；B3 独立处理 |
 | B8 | 记录完成，严格观察门仍保留 FAIL | 当前包 `3775355045` / `3775373546` 均在首帧记录 `22:layer-source-not-ready`，随后 frame 10/12 起 Program、GPU、compositor、next-frame 成立；strict benchmark 仍 FAIL | 不改门禁；若改变等待策略另立产品/门禁条目，并把旧 ledger 行标为 snapshot conflict |
@@ -136,17 +144,17 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 ### B5 generic owner 撤权
 
-**2026-09-10 progress:** pair publication now preserves the prepared attachment's typed `SceneTextureContent`; effect-output and rotation publications no longer reinterpret `.data` as color. Debug build passed (`/private/tmp/mwx-b5-build.log`). Runtime corpus closure and recovery-frame evidence remain pending.
+**2026-09-10 progress:** `3448845950` 的 pair publication、typed named provider 与 layer 322 auxiliary-data consumer 已在同一签名 App 中执行；当前样本首断点已转到三处 B2 扩展 binding。`3792249095` layer 254 仍开放。
 
-- **状态**：`open（09-10：编译已恢复，1475 首断点为 terminal data/color 合同）`
+- **状态**：`部分关闭（09-10：3448845950 terminal data/color S3；3792249095 owner/sampler 仍 open）`
 - **问题**：generic route 内 `materialFailure.mapsToGenericOwnerRevokedVisualFailure` 成立时撤权到 previous-current。
 - **已核实 owner**：产生点 `SceneResolvedMaterialExecutionCapability+Stages.swift:397-404`；消费/回滚语义 `SceneResolvedMaterialGraphComposition.swift:294/430/461`；白名单 `ProgramFirstStages.swift:388`。
 - **命中样本**：`3792249095` L254e0（与 B2/B4 同层叠加，建议并入 B4 的 3792249095 归因批次）；`3448845950` L1475e0（solid 辅助层）。
 - **表现**：单 effect previous-current；`3448845950` 该层是零面积 solid 层（E-V4-TEX-MEDIA-IDENTITY 曾修过其准备尺寸，此处是其后的又一拒绝）。
-- **当前复跑**：`3792249095` 的 `degraded-layer-source-passthrough` 是唯一 route operation，六个其它 accepted layer 均有 GPU/compositor/next-frame；09-10 `3448845950` 的 layer 1475 已不再因 varying/float→int 编译撤权，现为 node 2 `material-variant-envelope-color-contract`。这两项应作为 owner-local 修复，不能并入 B2 代表结论。
-- **进一步归因与已修部分**：`3448845950` 的 accumulation 是 material/copy/material 的 history seed/state 结构，已补精确 plan profile、copy content fact、反向 varying-prefix 和标量 rounding→int 编译；compiler artifact 为 generic-only accepted。合法 corpus 的 terminal combine 只传 packed RGBA，随后 layer 322 按 dependency texture 消费，因此真正剩余是 **typed data provider publication**，不是 generic-owner veto 应放宽。154 项 shader/frontend（1 skip）与 31 项 graph/source-set/environment 门、signed build/fresh 回放见 [B5 最新证据](semantics/runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)。3792249095 的 self-composite/sampler 继续归 B2/B4。
-- **下一组 owned paths / 合同**：`SceneResolvedMaterialExecutionCapability+Stages.attachment(.effectOutput)`、`SceneResolvedMaterialProgram+ColorDerivation`、`SceneResolvedMaterialGraphExecutor.PairAtom` 与 `+Preparation/+Validation`、`SceneGraphRenderTargetLease+Publication.fullFrameResource`、submission ticket、`SceneDependencyFrameRuntime`/registry publication 及下游 texture purpose。按同一 content atom 传 `.data`，保持 generation/epoch/completion；compositor 不接受数据。不得在 passthrough 中伪造 premultiplied 输出，也不得为该 sample/layer 加分支。
-- **完工动作**：补齐 owner-revoked 的公共正例、局部失败反例和恢复帧，再做两样本复跑。
+- **当前复跑**：`3792249095` 的 `degraded-layer-source-passthrough` 仍待处理。`3448845950` 的 layer 1475 已不再出现 generic-owner、frontend、terminal color 或 launch projection 拒绝；两个 material node 均 generic-only 编码，history 在后继帧复用，typed graph output 发布给 layer 322，后者有 GPU/compositor/next-frame。该样本的 strict NON-PASS 来自三处 `dependency-stage-reference-unsupported`，已回归 B2 扩展条目。
+- **进一步归因与已修部分**：`3448845950` 的 accumulation 是 material/copy/material 的 history seed/state 结构。现行合同保留 copy content fact、反向 varying-prefix、标量 rounding→int、`.data` effect-output attachment 与 named publication；source analyzer 只把逐分量标量读取的额外 sampled slot 证明为 auxiliary data，launch/runtime 不把它当颜色。source-carried 5 项、Program finalizer 25 项、frame registry/dependency runtime/bridge 27 项、graph executor 1 项、signed build/fresh 回放见 [B5 最新证据](semantics/runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)。没有独立 ROI/官方音频数值 parity，不能升级为 S4/S5。3792249095 的 self-composite/sampler 继续归 B2/B4。
+- **已闭合 owned paths / 合同**：`SceneResolvedMaterialExecutionCapability+Stages.attachment(.effectOutput)`、GraphExecutor PairAtom 与 `+Preparation/+Validation`、`SceneGraphRenderTargetLease+Publication.fullFrameResource`、submission ticket、`SceneDependencyFrameRuntime`/registry publication、下游 texture purpose 及 source-carried auxiliary data slot 共同保持 `.data`、generation/epoch/completion；compositor 只消费 layer 322 的最终颜色，不直接合成 provider 数据。
+- **完工动作**：保留 `3448845950` 子切片的回归门；对 `3792249095` 补齐 owner-revoked 的公共正例、局部失败反例和恢复帧后复跑。三处 dependency-stage 按 B2 扩展单独处理。
 
 ### B6 SceneScript 运行时异常：Vec3 回调返回值与 effectConstant 输出类型不匹配
 
@@ -154,14 +162,15 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 **2026-09-10 runtime evidence:** fresh signed Debug replay of `3747492842` reproduced four `badReturn` angle callbacks (returned string) and one `effectConstant speed` `TypeError: not a function`; report retained at `/private/tmp/mwx-b6-run/report.json`. The blocker is now isolated to SceneQuickJS callback return coercion/ABI, rather than property binding conversion.
 
-- **状态**：`open`
+- **状态**：`closed（2026-09-11：3747492842 真实回放四 angle target typed Vec3 completed、badReturn 0、effectConstant 无 TypeError；strict 残留仅 B8 类 186 首帧瞬态）`
 - **问题**：`3747492842` 四个 layer（796/152/265/186）的 `angles` Vec3 回调返回值无法被宿主解析（`badReturn`）；原始 `scene.pkg` 显示这些脚本先执行 `value = scriptProperties.myText`（`"LEON"`），最后 `return value`，因此返回 string 而非 Vec3。layer 173 effect 1 pass 0 的 `speed` authored value 为标量 `0`，脚本维护 Vec3 `currentOffset` 并执行 `return value.add(currentOffset)`，故抛 `value.add is not a function`；这不是宿主缺少 Vec3 API。
 - **已核实 owner**：
   - Vec3 校验：`Runtime/SceneScript/SceneQuickJS.c:1010-1021`——回调返回后 `read_vec3()` 不通过即 `write_diagnostic("callback returned invalid Vec3 value")` + `MWX_SCENE_QUICKJS_BAD_RETURN`。宿主入参用 `JS_CallConstructor(vec3_constructor,…)`（`:960`），返回值必须同样是可被 `read_vec3` 读取的形状（宿主 Vec3 实例或可解析结构）；作者返回普通对象/数组/含非数值字段时被拒。Swift 侧 result 映射 `SceneScriptQuickJSDomain+FrameTransaction.swift:32`。
   - effectConstant 执行：`SceneScriptScalarRuntime.swift:358`、`SceneScriptScalarProgram+Projection.swift:174`；当前 scalar runtime 会把 authored numeric input 传给脚本，QuickJS 原生异常透传。宿主 Vec3 的 `add/subtract/multiply` 已在 `SceneQuickJSValueHost.c` 实现；focused harness 也要求 string/array/non-finite Vec3 返回维持 `MWX_SCENE_QUICKJS_BAD_RETURN`。
 - **表现**：四层物体角度不动；该样本还有 layer 186 `layer-source-not-ready` 瞬时（并入 B8 类观察，不单列）。
-- **定位提示**：保持现有 typed output 合同与 fail-closed；不要把字符串强转 Vec3，也不要把 scalar input 包装成 Vec3。若要继续推进，只需补充不同 output-shape 的可重复 QuickJS payload/诊断与官方或固定黑盒语义证据。
-- **完工动作**：将该样本记为作者脚本 output-shape/type mismatch；只有独立正例证明同一 target 的合法 Vec3/scalar producer 与 frame consumption 后，才考虑 generic contract 变更。
+- **当前候选**：此前三个提交已把 angle mutation callback 的 typed result 归一化；未提交差异进一步要求 fallback 必须来自 `authored_layer_mutation_count`，并让 `thisLayer.angles` 的同值 setter 也留下 authored journal，避免无关宿主 mutation 取得返回值豁免。string 错误诊断保留 `(returned string)`，数组/非 finite/无 authored mutation 继续 `BAD_RETURN`。launch 的 property overlap 只允许已证明输入集合。focused 38 项通过，但这些事实尚无当前 App 的真实 `3747492842` 运行证据。
+- **定位提示**：保持现有 typed output 合同与 fail-closed；不要把字符串强转 Vec3，也不要把 scalar input 包装成 Vec3。先用当前工作树构建签名 App，复跑四个 angle target，核对 authored journal、typed frame result 和最终消费；effectConstant `speed` 的 scalar `.add` TypeError 应继续作为独立作者类型错误报告。
+- **完工动作**：只有真实回放证明四个合法 angle mutation target 执行、错误 target 仍局部 fail-closed，才能关闭 B6；否则读取新的最小首断点继续修复。
 
 ### B7 运行稳定性：极慢启动 + 停止时 surface 未释放
 
@@ -225,7 +234,7 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 | 3238423642 / 3264246690 / 3437487219 | PASS | -（视觉待复裁） |
 | 3323988600 | PASS* | B4-frontend[L65e0] |
 | 3395777145 | PASS* | B4-frontend[L338e0,L392e0] |
-| 3448845950 | FAIL | pre-fix B2×7 + B3×4 + B5[L1475e0]；当前复跑仍有 dependency-stage / B3 / owner-revoked，需按 owner 拆分 |
+| 3448845950 | FAIL | B3 与 B5[L1475→322] 已闭合；当前只剩 B2 扩展 `180/e10`、`247/e0→571`、`691/e1→660` 三处 dependency-stage，视觉仍待复裁 |
 | 3470948192 / 3477054430 / 3509243656 | PASS | -（视觉待复裁） |
 | 3472940912 | FAIL | B4-frontend[L50e0] |
 | 3601964477 | FAIL | B3[L383e0] |

@@ -194,6 +194,7 @@ HARNESS = replace_once(
             SceneResolvedMaterialRuntimeBridge.FrameInputs(
                 dependencyEffect: .init(
                     frameEpoch: 60,
+                    texture: providerTexture,
                     namedReference: namedReference,
                     reservedMaterialResource: $0
                 )
@@ -446,6 +447,7 @@ HARNESS = replace_once(
                 capabilities: externalLaunchFailureCapabilities,
                 dependency: .init(
                     frameEpoch: 59,
+                    texture: providerTexture,
                     namedReference: namedReference,
                     reservedMaterialResource: externalLaunchStaleResource
                 )

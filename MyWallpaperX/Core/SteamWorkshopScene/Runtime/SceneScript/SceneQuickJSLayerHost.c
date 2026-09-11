@@ -1258,7 +1258,18 @@ static JSValue layer_set(
                 mutation == NULL ? record->angles : mutation->angles,
                 record->angles
             );
-            if (memcmp(value, current, sizeof(value)) == 0) break;
+            if (memcmp(value, current, sizeof(value)) == 0) {
+                // Preserve an authored setter invocation even when the value
+                // equals the current frame.  Some official scripts publish
+                // their typed value through thisLayer.angles while returning
+                // a text payload; the mutation journal is the ABI signal that
+                // the return payload must not be decoded as Vec3.
+                mutation = stage_authored_mutation(owner, record_index);
+                if (mutation == NULL)
+                    return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
+                mutation->fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_ANGLES;
+                break;
+            }
             mutation = stage_authored_mutation(owner, record_index);
             if (mutation == NULL)
                 return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
@@ -1738,7 +1749,6 @@ static JSValue get_video_texture(
     MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getVideoTexture unavailable");
-    if (!handle->domain->active_owner->value_only) return JS_UNDEFINED;
     if (!record->video_available) return JS_UNDEFINED;
     uint32_t index = handle->owner_target
         ? handle->domain->active_owner->target_layer_index

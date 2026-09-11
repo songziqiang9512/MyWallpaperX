@@ -272,7 +272,7 @@ enum Harness {
       const frontVideo = front?.getVideoTexture?.()
       const backVideo = back?.getVideoTexture?.()
       if (!front || !back || !frontVideo || !backVideo) {
-        if (!Object.isFrozen(console)) throw new Error('mutable console')
+        if (Object.isFrozen(console)) throw new Error('frozen console')
         if (console.log('optional video API unavailable') !== undefined) {
           throw new Error('console result')
         }

@@ -63,6 +63,21 @@ extension SceneGenericShaderArtifactBuilder {
     /// result after the authored source has selected a narrower owner whose
     /// slot roles and terminal data flow are part of the contract.
     private static func hasStrictCompilerOwner(_ authoredSource: String) -> Bool {
+        let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
+            lexerOutput: SceneAuthoredShaderLexer.lex(
+                source: authoredSource, stage: .fragment
+            ),
+            stage: .fragment
+        )
+        if syntax.diagnostics.isEmpty, let fragment = syntax.unit,
+           SceneAuthoredShaderAlphaAttenuationAnalyzer
+            .directOutputFact(fragment) != nil {
+            return true
+        }
+        if SceneAuthoredShaderSameSlotColorBlendAlphaUnionAnalyzer
+            .analyze(fragmentSource: authoredSource) != nil {
+            return true
+        }
         if let fact = SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
             .analyzeSourceCarried(fragmentSource: authoredSource),
            fact.shape == .generatedCarrier {
