@@ -913,7 +913,7 @@ enum Harness {
             "timelineControlSeparated": timelineControl?
                 .uniformDeclarations.first.map { declaration in
                     guard case let .dynamic(value) = declaration.value else { return false }
-                    return value.valueContributors == [.sceneScript]
+                    return value.valueContributors == [.timeline]
                         && value.scriptAttachments.isEmpty
                 } == true,
             "unknownScriptTypedUnproven": unknownTimelineScript?
