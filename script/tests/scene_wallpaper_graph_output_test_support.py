@@ -171,6 +171,37 @@ def assert_visible_provider_requires_compositor_consumption(
         publication_only["validation_failures"],
     )
 
+    # A provider whose published graph output a downstream execution
+    # consumed through a typed dependency input satisfies the consumption
+    # contract through that dependency edge; the terminal compositor
+    # consumption belongs to the downstream consumer.
+    dependency_consumed = benchmark.resolved_material_graph_execution_metrics(
+        preview_text,
+        "\n".join([
+            "resolved material runtime audit: "
+            "schema=scene-graph-executor-v1 claimed=1 encoded=1 "
+            "failures=0 deferred=0 pending=1 gpuEncoded=1 localFallbacks=0",
+            "phase=visible-graph-output-publication layer=67 status=succeeded",
+            graph_execution_observation(
+                frame=10,
+                layer=67,
+                transaction="dependency-consumed-10",
+                trigger="first-frame+first-success+gpu-completed",
+            ),
+            graph_execution_observation(
+                frame=11,
+                layer=67,
+                transaction="dependency-consumer-11",
+                trigger="next-frame+compositor-consume+gpu-completed",
+                consumed=True,
+                dependency_providers=[67],
+            ),
+        ]),
+        effect_execution=exact_execution,
+        static_disposition=disposition,
+    )
+    test_case.assertEqual(dependency_consumed["validation_failures"], [])
+
 
 def assert_visible_publication_execution_metrics(
     test_case: Any,

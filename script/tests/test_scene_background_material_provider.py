@@ -282,7 +282,13 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         )
         self.assertIn("candidateNode.nodeIndex == nodes.last?.nodeIndex", capability)
         self.assertIn("!admitted.isGraphOutputProvider", capability)
-        self.assertIn("case .none, .externalPrimary: true", capability)
+        self.assertIn(
+            "case .none, .externalPrimary, .graphInternal: true",
+            capability,
+        )
+        # The aggregate vector has no same-layer composite to alias, so it
+        # keeps failing the background compose contract closed.
+        self.assertIn("case .externalAggregate: false", capability)
         self.assertIn("scene-background-provider-ambiguous", capability)
         self.assertIn("scene-background-compose-shape", capability)
         self.assertIn("schema=scene-background-provider-v1", capability_report)

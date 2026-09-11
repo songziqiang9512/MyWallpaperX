@@ -3084,9 +3084,16 @@ def resolved_material_graph_execution_metrics(
     missing_gpu_completed_layer_ids = sorted(
         execution_expected_layer_set.difference(observed_layer_ids)
     )
+    dependency_consumed_provider_layer_ids = graph_observations[
+        "dependency_consumed_provider_layer_ids"
+    ]
     missing_compositor_consumed_layer_ids = sorted(
         execution_expected_layer_set
         .difference(named_published_layer_ids)
+        # A layer whose typed dependency input a downstream execution
+        # consumed is published through that dependency slot; its terminal
+        # compositor consumption belongs to the consumer, not the provider.
+        .difference(dependency_consumed_provider_layer_ids)
         .difference(compositor_consumed_layer_ids)
     )
     missing_next_frame_layer_ids = sorted(

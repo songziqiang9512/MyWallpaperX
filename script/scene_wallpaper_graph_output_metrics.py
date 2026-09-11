@@ -383,6 +383,13 @@ def resolved_material_graph_observation_metrics(
             "mapping_before_sha256": fields["mappingBeforeSHA256"],
             "mapping_after_sha256": fields["mappingAfterSHA256"],
             "compositor_consumed": fields["compositorConsumed"] == "true",
+            "dependency_providers": [
+                int(provider)
+                for provider in fields.get(
+                    "dependencyProviders", "-"
+                ).split(",")
+                if provider.isdigit()
+            ],
             "outcome": outcome,
             "gpu_completion": gpu_completion,
             "target_descriptors_sha256": target_descriptors_sha256,
@@ -706,6 +713,11 @@ def resolved_material_graph_observation_metrics(
         "diagnostic_count": diagnostic_count,
         "failed_outcome_count": failed_outcome_count,
         "gpu_failed_count": gpu_failed_count,
+        "dependency_consumed_provider_layer_ids": sorted({
+            provider
+            for observation in terminal_successes
+            for provider in observation.get("dependency_providers", [])
+        }),
         "terminal_success_observations": terminal_successes,
         "validation_failures": list(dict.fromkeys(validation_failures)),
     }

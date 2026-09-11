@@ -286,7 +286,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
     def test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan(self) -> None:
         handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")
-        mutations = swift_body(handle, "static func mutations(")
+        mutations = swift_body(handle, "static func mutations(\n        owner: OpaquePointer,\n        ownerTarget: SceneDynamicTarget\n    )")
 
         # The C DTO is a safety boundary: enum values and bit fields must be
         # exact, rather than being coerced into the nearest Swift case.

@@ -38,7 +38,7 @@ final class Counter {
     }
 }
 
-final class SceneStandardBlurPipeline {
+final class SceneSpotLightPipeline {
     static let attempts = Counter()
     let deviceRegistryID: UInt64
 
@@ -47,33 +47,27 @@ final class SceneStandardBlurPipeline {
         deviceRegistryID = device.registryID
     }
 }
-final class SceneColorKeyPipeline { init?(device: MTLDevice) {} }
-final class SceneSpotLightPipeline {
-    static let attempts = Counter()
-
-    init?(device: MTLDevice) {
-        Self.attempts.increment()
-        return nil
-    }
-}
 
 @main
 enum Harness {
-    static func concurrentStandardBlur(
+    // The dedicated blur/color-key slots were retired with the dedicated
+    // effect runtimes; the surviving spot-light slot must keep the same
+    // lazy, shared, thread-safe resolution contract.
+    static func concurrentSpotLight(
         _ repository: SceneImageEffectPipelineRepository,
         count: Int
-    ) -> [SceneStandardBlurPipeline] {
+    ) -> [SceneSpotLightPipeline] {
         let queue = DispatchQueue(
-            label: "scene.pipeline.repository.standard-blur",
+            label: "scene.pipeline.repository.spot-light",
             attributes: .concurrent
         )
         let group = DispatchGroup()
         let lock = NSLock()
-        var values: [SceneStandardBlurPipeline] = []
+        var values: [SceneSpotLightPipeline] = []
         for _ in 0..<count {
             group.enter()
             queue.async {
-                if let value = repository.standardBlur() {
+                if let value = repository.spotLight() {
                     lock.lock()
                     values.append(value)
                     lock.unlock()
@@ -85,51 +79,24 @@ enum Harness {
         return values
     }
 
-    static func concurrentFailure(
-        _ repository: SceneImageEffectPipelineRepository,
-        count: Int
-    ) -> Int {
-        let queue = DispatchQueue(
-            label: "scene.pipeline.repository.failure",
-            attributes: .concurrent
-        )
-        let group = DispatchGroup()
-        let successes = Counter()
-        for _ in 0..<count {
-            group.enter()
-            queue.async {
-                if repository.spotLight() != nil {
-                    successes.increment()
-                }
-                group.leave()
-            }
-        }
-        group.wait()
-        return successes.read()
-    }
-
     static func main() throws {
         guard let device = MTLCreateSystemDefaultDevice() else {
             throw NSError(domain: "PipelineRepositoryHarness", code: 1)
         }
         let first = SceneImageEffectPipelineRepository(device: device)
         let second = SceneImageEffectPipelineRepository(device: device)
-        let attemptsAfterConstruction = SceneStandardBlurPipeline.attempts.read()
-            + SceneSpotLightPipeline.attempts.read()
+        let attemptsAfterConstruction = SceneSpotLightPipeline.attempts.read()
 
-        let firstValues = concurrentStandardBlur(first, count: 128)
+        let firstValues = concurrentSpotLight(first, count: 128)
         let firstIDs = Set(firstValues.map(ObjectIdentifier.init))
-        let failedSuccesses = concurrentFailure(first, count: 128)
-        _ = second.standardBlur()
+        _ = second.spotLight()
 
         let result: [String: Any] = [
             "attemptsAfterConstruction": attemptsAfterConstruction,
-            "firstStandardBlurValueCount": firstValues.count,
-            "firstStandardBlurIdentityCount": firstIDs.count,
-            "standardBlurAttemptsAcrossTwoRepositories":
-                SceneStandardBlurPipeline.attempts.read(),
-            "failedSuccesses": failedSuccesses,
-            "failedAttempts": SceneSpotLightPipeline.attempts.read(),
+            "firstSpotLightValueCount": firstValues.count,
+            "firstSpotLightIdentityCount": firstIDs.count,
+            "spotLightAttemptsAcrossTwoRepositories":
+                SceneSpotLightPipeline.attempts.read(),
             "deviceMatches": firstValues.allSatisfy {
                 $0.deviceRegistryID == device.registryID
             },
@@ -175,11 +142,9 @@ class ScenePipelineRepositoryTests(unittest.TestCase):
             result = json.loads(completed.stdout)
 
         self.assertEqual(result["attemptsAfterConstruction"], 0)
-        self.assertEqual(result["firstStandardBlurValueCount"], 128)
-        self.assertEqual(result["firstStandardBlurIdentityCount"], 1)
-        self.assertEqual(result["standardBlurAttemptsAcrossTwoRepositories"], 2)
-        self.assertEqual(result["failedSuccesses"], 0)
-        self.assertEqual(result["failedAttempts"], 1)
+        self.assertEqual(result["firstSpotLightValueCount"], 128)
+        self.assertEqual(result["firstSpotLightIdentityCount"], 1)
+        self.assertEqual(result["spotLightAttemptsAcrossTwoRepositories"], 2)
         self.assertTrue(result["deviceMatches"])
 
 

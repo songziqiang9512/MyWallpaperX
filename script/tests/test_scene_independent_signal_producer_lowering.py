@@ -137,6 +137,7 @@ private func artifact(
                 .init(name: "g_Texture2", slot: 2, channelUse: "redOnly"),
             ],
             staticLoopWork: 0,
+            premultipliedColorInputSlots: [],
             colorTransfer: transfer,
             fragmentOutputChannelUse: "unproven"
         )
@@ -347,11 +348,16 @@ class SceneIndependentSignalProducerLoweringTests(unittest.TestCase):
         self.assertEqual(output["producerRoute"], "generic-only")
         self.assertEqual(output["producerRollback"], "bounded-frontend")
         self.assertEqual(output["providerBackedProducerProfile"], "ordinary-shader")
-        self.assertEqual(output["providerBackedProducerRoute"], "prefer-generic")
+        # The route authority maps ordinary-shader (and every producer
+        # profile) to generic-only; provider texture presence does not
+        # reintroduce an incumbent route for this bounded producer shape.
+        self.assertEqual(output["providerBackedProducerRoute"], "generic-only")
         self.assertEqual(
             output["additionalGraphInputProducerProfile"], "ordinary-shader",
         )
-        self.assertEqual(output["additionalGraphInputProducerRoute"], "prefer-generic")
+        self.assertEqual(
+            output["additionalGraphInputProducerRoute"], "generic-only"
+        )
         self.assertEqual(
             output["accumulatorProfile"],
             "source-proven-graph-target-independent-signal-accumulator",

@@ -242,6 +242,7 @@ def graph_execution_observation(
     effect: int | None = None,
     descriptor_id: str | None = None,
     program: str | None = None,
+    dependency_providers: list[int] | None = None,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
     final_physical = f"physical-{transaction}" if publish else "-"
@@ -260,6 +261,12 @@ def graph_execution_observation(
         f"descriptor={descriptor_id} " if descriptor_id is not None else ""
     )
     program_field = f"program={program} " if program is not None else ""
+    dependency_providers_field = (
+        "dependencyProviders="
+        + ",".join(str(provider) for provider in dependency_providers)
+        + " "
+        if dependency_providers is not None else ""
+    )
     return (
         "MWX DEBUG SCENE: schema=1 axis=graph-execution "
         f"{runtime_field}frame={frame} layer={layer} "
@@ -285,6 +292,7 @@ def graph_execution_observation(
         f"publicationGeneration={publication_generation} "
         f"compositorConsumed={'true' if consumed else 'false'} "
         f"outcome={outcome} gpuCompletion={gpu_completion}"
+        + (f" {dependency_providers_field}".rstrip() if dependency_providers_field else "")
     )
 
 
