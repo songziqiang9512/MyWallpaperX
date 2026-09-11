@@ -648,21 +648,28 @@ enum Harness {
         )
         let firstVector = first.snapshot[vectorTarget]
         let secondVector = second.snapshot[vectorTarget]
+        let cameraPathFOV: Double =
+            descriptor.layers.first(where: { $0.id == 66 })?.cameraPath?.fov ?? -1
+        let firstValue = firstVector.map { describe($0.value) } ?? "missing"
+        let firstSource = firstVector?.source.rawValue ?? "missing"
+        let firstDiagnostics = first.diagnostics.map(\.code.rawValue)
+        let secondValue = secondVector.map { describe($0.value) } ?? "missing"
+        let secondSource = secondVector?.source.rawValue ?? "missing"
+        let secondDiagnostics = second.diagnostics.map(\.code.rawValue)
+        let vectorRuntime: [String: Any] = [
+            "firstValue": firstValue,
+            "firstSource": firstSource,
+            "firstGeneration": first.snapshot.generation,
+            "firstDiagnostics": firstDiagnostics,
+            "secondValue": secondValue,
+            "secondSource": secondSource,
+            "secondGeneration": second.snapshot.generation,
+            "secondDiagnostics": secondDiagnostics,
+        ]
         let payload: [String: Any] = [
             "diagnostics": program.diagnostics,
-            "cameraPathFOV": descriptor.layers.first(where: {
-                $0.id == 66
-            })?.cameraPath?.fov ?? -1,
-            "vectorRuntime": [
-                "firstValue": firstVector.map { describe($0.value) } ?? "missing",
-                "firstSource": firstVector?.source.rawValue ?? "missing",
-                "firstGeneration": first.snapshot.generation,
-                "firstDiagnostics": first.diagnostics.map(\.code.rawValue),
-                "secondValue": secondVector.map { describe($0.value) } ?? "missing",
-                "secondSource": secondVector?.source.rawValue ?? "missing",
-                "secondGeneration": second.snapshot.generation,
-                "secondDiagnostics": second.diagnostics.map(\.code.rawValue),
-            ],
+            "cameraPathFOV": cameraPathFOV,
+            "vectorRuntime": vectorRuntime,
             "bindings": program.bindings.map { binding in
                 [
                     "target": describe(binding.definition.target),

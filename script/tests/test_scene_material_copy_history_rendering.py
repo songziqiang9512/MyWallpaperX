@@ -239,6 +239,11 @@ struct SceneResolvedMaterialFrameTargetPlan {
 }
 """,
     )
+    + "\nfinal class SceneFramePerformanceTelemetry: @unchecked Sendable {\n"
+    "    func beginStage(_ name: String) {}\n"
+    "    func endStage(_ name: String) {}\n"
+    "}\n"
+
 )
 if "typealias LogSink = @Sendable (String) -> Void" not in SUPPORT:
     raise AssertionError("runtime bridge support replacement did not match")

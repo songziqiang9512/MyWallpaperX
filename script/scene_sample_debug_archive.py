@@ -20,6 +20,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+SCRIPT_PATH = Path(__file__).resolve()
+SCRIPT_DIRECTORY = SCRIPT_PATH.parent
+if str(SCRIPT_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIRECTORY))
+
 from scene_capability_census_io import iter_numeric_sample_directories
 from scene_diagnostic_report import normalize_reports
 

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from scene_sample_debug_archive import build_archive
+from script.scene_sample_debug_archive import build_archive
 
 
 class SceneSampleDebugArchiveTests(unittest.TestCase):

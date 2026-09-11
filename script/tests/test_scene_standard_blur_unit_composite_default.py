@@ -33,6 +33,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialShaderSchema.swift",
+    SCENE_ROOT / "Resources/SceneStockTextureSemanticRegistry.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
     SCENE_ROOT
@@ -139,6 +140,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let unitPreviousBlurredCompositeGenericOwnerEligible: Bool
     let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
+    let compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
 }
 '''
 
@@ -205,6 +207,7 @@ private func prepare(_ root: URL, maskReady: Bool = false)
     guard case let .accepted(prepared) =
         SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: contract,
+            compatibilityTarget: .windowsDX11ShaderModel4,
             combos: [:],
             textureReadiness: [0: true, 1: maskReady, 2: true]
         ) else { return nil }
@@ -221,6 +224,7 @@ private func prepareGaussian(_ root: URL)
     guard case let .accepted(prepared) =
         SceneAuthoredShaderPreparation.prepareShaderStages(
             contract: contract,
+            compatibilityTarget: .windowsDX11ShaderModel4,
             combos: ["KERNEL": 0, "VERTICAL": 0],
             textureReadiness: [0: true]
         ) else { return nil }

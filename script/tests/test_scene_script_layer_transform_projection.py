@@ -44,6 +44,15 @@ nonisolated enum SceneDynamicValue: Equatable, Sendable {
     case vector3(Double, Double, Double)
 }
 
+// The vector model source stores evaluation payload arrays opaquely; this
+// harness only projects transform bindings, so opaque Equatable payloads
+// stand in for the product mutation owners.
+nonisolated struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {}
+nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {}
+nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {}
+nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
+nonisolated struct SceneScriptVideoCommand: Equatable, Sendable {}
+
 nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
     case visibility, origin, scale, angles, color
 }
