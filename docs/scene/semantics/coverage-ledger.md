@@ -1098,7 +1098,7 @@ fresh真实`3749463715`仍是targeted **0/1 NON-PASS**、exit0、timed_out=false
 
 ### 2026-08-23 V1 exact runtime-bound array 与 strict varying-prefix frontend 后继
 
-**09-10 后继**：共享 linker 另已证明 vertex 较窄/fragment 声明较宽且只读已写入前缀；scalar floor/ceil/trunc 整数目标显式转换也已过 normalizer/glslang。history-copy profile 保留 raw RGBA 数据事实，真实 accumulation 编译 accepted；terminal 数据 provider→下游颜色消费者仍未接通，最高 S2，不更新整效果执行等级。见 [B5 证据与下一合同](runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)。
+**09-10 后继**：共享 linker 已证明 vertex 较窄/fragment 声明较宽且只读已写入前缀；scalar floor/ceil/trunc 整数目标显式转换也已过 normalizer/glslang。history-copy profile 保留 raw RGBA 数据事实，typed `.data` 现穿过 graph output、submission、named publication 与下游 purpose；source analyzer 只把逐分量标量读取且不进入颜色 whole-sample 数据流的额外 sampler 证明为 auxiliary data。真实 `3448845950` 的 accumulation layer 1475 与颜色 consumer layer 322 均由 generic-only Program 编码，具备 GPU completion、terminal compositor 与 next-frame，最高 S3；同一样本仍因三处 B2 dependency-stage 失败而 NON-PASS，且无独立 ROI/官方音频数值 parity，不更新整效果执行等级。见 [B5 证据与边界](runtime-evidence-current.md#e-2026-09-10-b5-feedback-frontend)。
 
 目标合同由`MyWallpaperX-strategy`限定为同一ordinary-shader shared frontend能力：MaterialProgram只从resolved template发布stage-qualified、唯一immutable `.staticExact`、单分量且alias无冲突的exact scalar fact；finite、Int32可表示、Float32 exact integral且非负才可参与loop proof，annotation range/int/default不能代替运行值证明。fact保留uniform、producer、binding、source line与Float32 bits，并进入compiled variant、dead-binding/reachability、Program semantic/exact identity。shared loop只接纳canonical `int i = lower|int(lower); i <|<= upper|int(upper); i++|++i`，把所有直接`array[i]`的fixed float array extent合取到同一min extent；每loop work不超过256、静态调用展开总量不超过4096。它不clamp、不unroll、不改作者控制流，也不按sample/layer/path/name/hash/effect选择能力。
 
