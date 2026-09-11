@@ -64,6 +64,8 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 
 Provenance：签名 Debug App（Developer ID，Team `H9QWU9XN8R`）executable SHA-256 `42b2ec670ff56b01…`（同 B7 memo 切片回放包）；五份 report SHA-256 `1506443318c3c8de…`/`6bc897e017c59fff…`/`4eda1155c6bd6b91…`/`3d2c07688a07a89a…`/`c074adca5a49b09f…`；归档 `script/scene_sample_debug_archive.json` SHA-256 `8032a435298bbd26…`。
 
+**29 NON-PASS 的构成复核（2026-09-12）**：12 个为 `effects=0` 的纯 composition/particle 样本（1300076567、1439846152、1507593643、2356604986、2808874251、3002649614、3629927359、3712499998、3766415113、3790726145、3792817546、3793978239）——本轮回放带了 `--require-effect-execution --require-graph-execution` 严格门，对无 material effect 的样本按构造不可满足，属**门选择造成的假 NON-PASS**（这些样本本身 55 FPS、非黑、teardown 干净）；17 个为真实结构失败（partial claim 的 effect-chain 尾部与首帧 B8 瞬态样本 3775355045/3775373546 等）。后续逐样本收敛针对这 17 个；corpus 级基线重放应去掉不可满足门或按样本能力选择门。
+
 | 集群 | 当前阶段 | 已有门 / 当前首断点 | 下一步 |
 | --- | --- | --- | --- |
 | B1 | 代表与两例扩面均结构闭合，视觉待复核 | 当前 Developer ID 包的 `3749463715`、`3754639143`、`3782740481` 均严格 PASS；三例 active effect / graph layer 均有 GPU、compositor、next-frame 证据。当前批次总报告列为 5/12 PASS（report SHA `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`） | B1 的结构首断点可关闭；转入三例视觉/参数复核，若发现新 exact failure 再开后继条目 |
