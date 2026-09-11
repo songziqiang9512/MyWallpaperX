@@ -156,6 +156,17 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     }
                 }
             }
+            // An `attribute vec3 a_TexCoord` whose vertex body only reads
+            // `.xy` is dead metadata: the generated Metal wrapper supplies a
+            // float2 texcoord and the `.xy` swizzle keeps its meaning.
+            if attributes.count == 2,
+               attributes["a_Position"] == Shape(type: "vec3", count: nil),
+               attributes["a_TexCoord"] == Shape(type: "vec3", count: nil),
+               bodyUsesOnlyXYComponentAccess(
+                   "a_TexCoord", in: parsed["vertex"]?.body ?? ""
+               ) {
+                attributes["a_TexCoord"] = Shape(type: "vec2", count: nil)
+            }
             guard attributes == [
                 "a_Position": Shape(type: "vec3", count: nil),
                 "a_TexCoord": Shape(type: "vec2", count: nil),
@@ -528,6 +539,27 @@ void main() {
     /// complete expression. This covers source-proven vector shrinkage such
     /// as a vec3 built-in result assigned to vec2 without teaching the helper
     /// compiler a second type-inference rule.
+    /// Every body occurrence of the attribute must read exactly `.xy`; a body
+    /// with no occurrence is also safe (the declaration is dead metadata).
+    private static func bodyUsesOnlyXYComponentAccess(
+        _ name: String, in body: String
+    ) -> Bool {
+        guard !body.isEmpty else { return true }
+        let code = lexicalMask(body)
+        let pattern = #"\b"# + NSRegularExpression.escapedPattern(for: name) + #"\b"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else {
+            return false
+        }
+        let matches = regex.matches(
+            in: code,
+            range: NSRange(code.startIndex..., in: code)
+        )
+        return matches.allSatisfy { match in
+            guard let range = Range(match.range, in: code) else { return false }
+            return code[range.upperBound...].prefix(3) == ".xy"
+        }
+    }
+
     private static func hasLocalDeclaration(_ name: String, in source: String) -> Bool {
         let types = valueTypes.map(NSRegularExpression.escapedPattern).joined(separator: "|")
         let regex = try! NSRegularExpression(pattern:

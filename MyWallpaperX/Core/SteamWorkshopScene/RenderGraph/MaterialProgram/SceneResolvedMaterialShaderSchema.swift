@@ -25,6 +25,14 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         let slot: Int
         let mode: TextureMode
         let materialKey: String?
+        /// Authored annotation `label`. Wallpaper Engine editors express the
+        /// slot-0 framebuffer input either through `material: framebuffer` or
+        /// through the framebuffer label; the label lane must survive schema
+        /// parsing for that alias to be recognized.
+        let labelKey: String?
+        /// Authored annotation `format` (e.g. `normalmap`). It declares the
+        /// asset's data role for samplers that carry no mode/material fact.
+        let formatKey: String?
         let isHidden: Bool
         let defaultTexture: DefaultTexture?
         /// An unmarked sampler combo describes whether an authored texture is
@@ -45,6 +53,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             slot: Int,
             mode: TextureMode,
             materialKey: String?,
+            labelKey: String? = nil,
+            formatKey: String? = nil,
             isHidden: Bool,
             defaultTexture: DefaultTexture?,
             readinessCombo: String?,
@@ -55,6 +65,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
             self.slot = slot
             self.mode = mode
             self.materialKey = materialKey
+            self.labelKey = labelKey
+            self.formatKey = formatKey
             self.isHidden = isHidden
             self.defaultTexture = defaultTexture
             self.readinessCombo = readinessCombo
@@ -68,6 +80,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 slot: slot,
                 mode: mode,
                 materialKey: materialKey,
+                labelKey: labelKey,
+                formatKey: formatKey,
                 isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo,
@@ -84,6 +98,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 slot: slot,
                 mode: mode,
                 materialKey: materialKey,
+                labelKey: labelKey,
+                formatKey: formatKey,
                 isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo,
@@ -97,6 +113,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                   slot == active.slot,
                   mode == active.mode,
                   materialKey == active.materialKey,
+                  labelKey == active.labelKey,
+                  formatKey == active.formatKey,
                   isHidden == active.isHidden,
                   defaultTexture == active.defaultTexture,
                   readinessCombo == active.readinessCombo else { return nil }
@@ -105,6 +123,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 slot: slot,
                 mode: mode,
                 materialKey: materialKey,
+                labelKey: labelKey,
+                formatKey: formatKey,
                 isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo,
@@ -540,6 +560,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 name: name
             )
             let material = try normalizedString(value("material", in: objects), name: name)
+            let label = try normalizedString(value("label", in: objects), name: name)
+            let format = try normalizedString(value("format", in: objects), name: name)
             let hidden = try value("hidden", in: objects)
             guard hidden == nil || hidden?.boolValue != nil else {
                 throw Issue.sampler(name)
@@ -555,6 +577,8 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 slot: slot,
                 mode: mode,
                 materialKey: material,
+                labelKey: label,
+                formatKey: format,
                 isHidden: isHidden,
                 defaultTexture: defaultTexture,
                 readinessCombo: readinessCombo

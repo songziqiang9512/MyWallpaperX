@@ -716,6 +716,24 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     )
     checks.append("redundant_top_level_endif")
 
+    try write(
+        "#if 1\nVALUE\n#endif\n#endif",
+        to: looseRoot,
+        "shaders/logic/trailing_redundant_endif.frag"
+    )
+    view = resourceView(loose: looseRoot)
+    let trailingRedundantEndif = try prepared(
+        rootPath: "shaders/logic/trailing_redundant_endif.frag",
+        graph: graph("shaders/logic/trailing_redundant_endif.frag", view: view),
+        environment: environment()
+    )
+    try expect(
+        trailingRedundantEndif.source.contains("VALUE")
+            && !trailingRedundantEndif.source.contains("#endif"),
+        "The bounded trailing duplicated #endif shape was not normalized."
+    )
+    checks.append("trailing_redundant_endif")
+
     let failureSources: [(String, String, SceneShaderPreprocessor.DiagnosticCode)] = [
         ("unmatched_elif", "#elif 1\nVALUE", .unmatchedElif),
         ("elif_after_else", "#if 0\n#else\n#elif 1\nVALUE\n#endif", .elifAfterElse),
@@ -741,7 +759,6 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         ("unmatched_else", "#else\nVALUE", .unmatchedElse),
         ("duplicate_else", "#if 0\n#else\n#else\n#endif", .duplicateElse),
         ("unmatched_endif", "#endif", .unmatchedEndif),
-        ("trailing_redundant_endif", "#if 1\nVALUE\n#endif\n#endif", .unmatchedEndif),
         ("code_separated_redundant_endif", "#if 1\nA\n#endif\n#endif\nVALUE\n#if 1\nB\n#endif", .unmatchedEndif),
         ("repeated_redundant_endif", "#if 1\nA\n#endif\n#endif\n#if 1\nB\n#endif\n#endif\n#if 1\nC\n#endif", .unmatchedEndif),
         ("unterminated", "#if 1\nVALUE", .unterminatedConditional),
@@ -1564,6 +1581,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
                 "trailing_condition_semicolon",
                 "function_macros",
                 "redundant_top_level_endif",
+                "trailing_redundant_endif",
                 "directive_failures",
                 "directive_annotation_placement",
                 "missing_cycle",

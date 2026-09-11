@@ -169,6 +169,9 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
 
     /// Audio-bar-like generated RGB: one uniform seed is blended with one
     /// sampled scene color and terminal alpha follows a bounded whitelist.
+    /// Further sampled slots may join as auxiliary data: the shared gate in
+    /// `analyzeSourceCarried` proves each of them scalar-read or revokes the
+    /// whole fact, so they can never masquerade as color here.
     static func uniformSeededBlendRGBA(
         _ arguments: [ArraySlice<Token>],
         sampled: [String: Int],
@@ -176,21 +179,27 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         fragment: Unit,
         main: Unit.Function
     ) -> SourceCarriedFact? {
-        guard sampled.count == 1, let source = sampled.first,
+        guard !sampled.isEmpty,
               let rgb = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .identifier(arguments[0]),
               let alpha = SceneAuthoredShaderConditionalStraightUnionAnalyzer
                 .identifier(arguments[1]),
-              uniformSeededRGBBlend(
-                rgb, source: source.key,
-                before: output, fragment: fragment, main: main
-              ), boundedTerminalAlpha(
-                alpha, source: source.key, rgb: rgb,
+              // The color source is identified by its role in the RGB blend,
+              // not by declaration order; with several sampled slots the
+              // auxiliary ones never satisfy the strict blend proof.
+              let sourceEntry = sampled.first(where: { name, _ in
+                  uniformSeededRGBBlend(
+                      rgb, source: name,
+                      before: output, fragment: fragment, main: main
+                  )
+              }),
+              boundedTerminalAlpha(
+                alpha, source: sourceEntry.key, rgb: rgb,
                 before: output, fragment: fragment, main: main
               ), noWholeSampleFlowsIntoRGB(
-                sourceDeclaration: source.key,
+                sourceDeclaration: sourceEntry.key,
                 before: output, tokens: fragment.tokens, body: main.bodyRange
               ) else { return nil }
-        return .init(sourceSlot: source.value, transfer: .straight)
+        return .init(sourceSlot: sourceEntry.value, transfer: .straight)
     }
 }

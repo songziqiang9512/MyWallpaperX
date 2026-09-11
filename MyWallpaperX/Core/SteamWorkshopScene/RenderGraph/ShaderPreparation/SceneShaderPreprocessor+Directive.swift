@@ -2,9 +2,13 @@ import Foundation
 
 extension SceneShaderPreprocessor.State {
     /// Some shipped authored sources contain one duplicated top-level
-    /// `#endif` between two otherwise balanced conditional blocks. Accept the
-    /// inert duplicate only for that complete structural shape; a standalone,
-    /// trailing, repeated, or code-separated unmatched directive still fails.
+    /// `#endif` in an otherwise balanced conditional layout: directly
+    /// between two balanced blocks, or dangling in the trailing region where
+    /// only unconditional code follows. Accept at most one inert duplicate
+    /// for those complete structural shapes. A duplicate that is separated
+    /// from a later conditional block by code still fails: the author may
+    /// have lost an opening directive, and the following block would then
+    /// change which lines execute.
     nonisolated static func recoverableRedundantEndifLines(
         in lines: [Substring]
     ) -> Set<Int> {
@@ -12,6 +16,7 @@ extension SceneShaderPreprocessor.State {
         var inBlockComment = false
         var justClosedTopLevel = false
         var pendingCandidate: Int?
+        var codeAfterCandidate = false
         var recovered: [Int] = []
 
         for (offset, substring) in lines.enumerated() {
@@ -22,13 +27,20 @@ extension SceneShaderPreprocessor.State {
             let code = lexical.code.trimmingCharacters(in: .whitespaces)
             guard !code.isEmpty else { continue }
             guard let directive = SceneShaderDirective.parse(code) else {
-                if pendingCandidate != nil { return [] }
+                if pendingCandidate != nil {
+                    codeAfterCandidate = true
+                }
                 justClosedTopLevel = false
                 continue
             }
             switch directive {
             case .ifExpression, .ifdef:
                 if let candidate = pendingCandidate {
+                    // Code between the duplicate and a later conditional
+                    // block means the duplicate may have closed a lost
+                    // opening directive; only a directly adjacent block
+                    // keeps the duplicate provably inert.
+                    if codeAfterCandidate { return [] }
                     recovered.append(candidate)
                     pendingCandidate = nil
                 }
@@ -50,13 +62,17 @@ extension SceneShaderPreprocessor.State {
                 guard depth > 0, pendingCandidate == nil else { return [] }
                 justClosedTopLevel = false
             default:
-                if pendingCandidate != nil { return [] }
                 justClosedTopLevel = false
             }
         }
-        guard depth == 0,
-              pendingCandidate == nil,
-              recovered.count == 1 else { return [] }
+        // Exactly one recovery is accepted: the between-blocks duplicate, or
+        // the trailing duplicate whose following lines are unconditionally
+        // live (an inert `#endif` there cannot change which lines execute).
+        if let pendingCandidate {
+            guard depth == 0, recovered.isEmpty else { return [] }
+            return Set([pendingCandidate])
+        }
+        guard depth == 0, recovered.count == 1 else { return [] }
         return Set(recovered)
     }
 

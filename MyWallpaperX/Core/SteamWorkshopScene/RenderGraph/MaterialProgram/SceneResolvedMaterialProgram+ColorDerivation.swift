@@ -394,6 +394,18 @@ nonisolated extension SceneResolvedMaterialProgramDerivation {
             framebufferInput = exactFramebufferRepresentations.contains(
                 .premultipliedAlpha
             ) ? .premultipliedAlpha : .opaque
+        } else if case let .passthrough(slot) = transfer,
+                  framebufferRepresentations.isEmpty {
+            // A passthrough whose source is a same-layer composite or
+            // another non-framebuffer publication defines its framebuffer
+            // input representation from that very slot; no framebuffer fact
+            // exists to derive it from. With real framebuffer facts present
+            // the count==1 boundary below still owns the projection.
+            guard textureFacts.indices.contains(slot),
+                  let fact = textureFacts[slot],
+                  case let .color(.resolved(representation)) = fact.content
+            else { return nil }
+            framebufferInput = representation
         } else {
             guard framebufferRepresentations.count == 1,
                   let representation = framebufferRepresentations.first else {

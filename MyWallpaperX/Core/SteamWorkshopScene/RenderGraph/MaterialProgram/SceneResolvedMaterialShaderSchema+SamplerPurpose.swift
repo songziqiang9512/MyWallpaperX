@@ -160,10 +160,25 @@ extension SceneResolvedMaterialShaderSchema {
 extension SceneResolvedMaterialShaderSchema.Sampler {
     nonisolated var usesGraphInputMaterialAlias: Bool {
         switch materialKey?.lowercased() {
-        case "framebuffer", "previous": true
+        case "framebuffer", "previous":
+            return true
         case "ui_editor_properties_framebuffer":
-            name == "g_Texture0" && slot == 0 && mode == .regular && isHidden
-        default: false
+            return name == "g_Texture0" && slot == 0
+                && mode == .regular && isHidden
+        default:
+            // Authored editors also express the slot-0 framebuffer input
+            // through its label while `material` carries a texture-role key
+            // (e.g. "mask"). Property binding keys ("source", user keys)
+            // keep the historical fail-closed contract: no real corpus
+            // evidence makes them framebuffer aliases.
+            guard name == "g_Texture0", slot == 0,
+                  mode == .regular, isHidden,
+                  let key = materialKey?.lowercased(),
+                  ["mask", "texture"].contains(key) else {
+                return false
+            }
+            return labelKey?.lowercased()
+                == "ui_editor_properties_framebuffer"
         }
     }
 
@@ -242,6 +257,12 @@ extension SceneResolvedMaterialShaderSchema.Sampler {
 
     private nonisolated var declaredPurpose: SceneTextureLoadPurpose? {
         if let purpose = mode.explicitPurpose { return purpose }
+        // An authored `format` annotation declares the asset's data role for
+        // samplers that carry no mode or material fact (e.g. workshop
+        // normal-map assets with only `format: "normalmap"`).
+        if formatKey?.caseInsensitiveCompare("normalmap") == .orderedSame {
+            return .normal
+        }
         return switch materialKey?.lowercased() {
         case "albedo": .straightAlbedo
         case "noise": .noise

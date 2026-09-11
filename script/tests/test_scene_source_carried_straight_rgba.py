@@ -92,6 +92,28 @@ void main() {
 }
 """
 
+private let dataControlled = """
+uniform sampler2D g_Texture0;
+uniform sampler2D g_Texture1;
+uniform vec3 u_color;
+uniform float u_opacity;
+varying vec2 v_TexCoord;
+vec3 ApplyBlending(const int mode, in vec3 base, in vec3 blend, in float opacity) {
+    return mix(base, (blend), opacity);
+}
+void main() {
+    vec4 externalData = texSample2D(g_Texture1, vec2(v_TexCoord.x, 0.5));
+    float bar = (externalData.x + externalData.y + externalData.z + externalData.w) * 0.25;
+    vec3 finalColor = u_color;
+    vec4 scene = texSample2D(g_Texture0, v_TexCoord);
+    finalColor = ApplyBlending(
+        0, mix(finalColor.rgb, scene.rgb, scene.a), finalColor.rgb, bar * u_opacity
+    );
+    float alpha = bar * u_opacity;
+    gl_FragColor = vec4(finalColor, alpha);
+}
+"""
+
 private let pulseModeEight = """
 uniform sampler2D g_Texture0;
 uniform sampler2D g_Texture1;
@@ -170,6 +192,12 @@ private func transfer(_ source: String) -> String {
     }
 }
 
+private func auxiliaryDataSlots(_ source: String) -> [Int] {
+    SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+        .analyzeSourceCarried(fragmentSource: source)?
+        .auxiliaryDataSlots.sorted() ?? []
+}
+
 private func compiled(_ source: String) -> String? {
     SceneAuthoredShaderFrontend.compile(
         vertexSource: vertex,
@@ -199,6 +227,7 @@ private enum Harness {
             SceneGenericShaderCapabilityProfile
                 .sourceProvenGraphInputStageUniformStraightAlphaPreserving
         let distanceMSL = compiled(scalarDistance) ?? ""
+        let dataControlledMSL = compiled(dataControlled) ?? ""
         let additive = aliased.replacingOccurrences(
             of: "return mix(base, (blend), opacity);",
             with: "return base + blend * opacity;\n    return mix(base, (blend), opacity);"
@@ -246,6 +275,24 @@ private enum Harness {
             "preservedTransfer": transfer(preservedCarrier),
             "separatedTransfer": transfer(separated),
             "aliasedTransfer": transfer(aliased),
+            "dataControlledTransfer": transfer(dataControlled),
+            "dataControlledAuxiliarySlots": auxiliaryDataSlots(dataControlled),
+            "dataControlledPremultiplies": dataControlledMSL.contains(
+                "return mwxPremultiply(mwxFragColor);"
+            ),
+            "dataControlledUnpremultipliesColor": dataControlledMSL.contains(
+                "mwxUnpremultiply(mwxTexture0.sample"
+            ),
+            "dataControlledPreservesData": !dataControlledMSL.contains(
+                "mwxUnpremultiply(mwxTexture1.sample"
+            ),
+            "wholeVectorDataRejected": SceneAuthoredShaderGeneratedStraightRGBAAnalyzer
+                .analyzeSourceCarried(
+                    fragmentSource: dataControlled.replacingOccurrences(
+                        of: "(externalData.x + externalData.y + externalData.z + externalData.w) * 0.25",
+                        with: "dot(externalData, vec4(0.25))"
+                    )
+                ) == nil,
             "pulseModeEightTransfer": transfer(pulseModeEight),
             "preservedPremultiplies": compiled(preservedCarrier)?.contains(
                 "return mwxPremultiply(mwxFragColor);"
@@ -363,6 +410,16 @@ class SceneSourceCarriedStraightRGBATests(unittest.TestCase):
         self.assertTrue(self.result["unrelatedAlphaRejected"])
         self.assertTrue(self.result["badAdditiveRejected"])
         self.assertTrue(self.result["unknownModeRejected"])
+
+    def test_uniform_seeded_rgb_keeps_auxiliary_rgba_as_data(self) -> None:
+        self.assertEqual(
+            self.result["dataControlledTransfer"], "straight-alpha-0", self.result
+        )
+        self.assertEqual(self.result["dataControlledAuxiliarySlots"], [1])
+        self.assertTrue(self.result["dataControlledPremultiplies"])
+        self.assertTrue(self.result["dataControlledUnpremultipliesColor"])
+        self.assertTrue(self.result["dataControlledPreservesData"])
+        self.assertTrue(self.result["wholeVectorDataRejected"])
 
 
 if __name__ == "__main__":

@@ -270,7 +270,23 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
             let isSourceDeclaration = index >= 3
                 && tokens[index - 2].text == name
                 && ["vec4", "float4"].contains(tokens[index - 3].text)
-            if !isSourceDeclaration { return false }
+            if isSourceDeclaration { continue }
+            // Another sampled carrier may exist only as a declared auxiliary
+            // data source (`vec4 X = texSample2D(...)`): its variable must be
+            // read exclusively per scalar component before the terminal
+            // write, or it could smuggle whole-sample color into the RGB
+            // flow. Inline whole samples stay rejected.
+            guard index >= 2, tokens[index - 1].text == "=",
+                  tokens[index - 2].kind == .identifier else {
+                return false
+            }
+            let carrier = tokens[index - 2].text
+            let uses = body.filter { $0 < output && tokens[$0].text == carrier }
+            guard uses.dropFirst().allSatisfy({ use in
+                use + 2 < output && tokens[use + 1].text == "."
+                    && ["r", "g", "b", "a", "x", "y", "z", "w"]
+                        .contains(tokens[use + 2].text)
+            }) else { return false }
         }
         return true
     }

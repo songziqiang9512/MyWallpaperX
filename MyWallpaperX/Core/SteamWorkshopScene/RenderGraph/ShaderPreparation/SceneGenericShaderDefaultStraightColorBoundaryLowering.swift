@@ -22,15 +22,6 @@ extension SceneGenericShaderArtifactBuilder {
         msl: String,
         transfer: SceneGenericShaderProgramArtifact.Program.ColorTransfer
     ) {
-        if SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
-            .analyze(fragmentSource: authoredSource) != nil,
-            (source.contains("reconstructed.w = sampledGA.x")
-            || source.contains(").xy;")
-            || source.contains("float escapedGA = sampledGA.x")
-            || source.contains("float hidden = g_Texture0.sample")
-            || source.contains("out.mwxFragColor = mix(reconstructed, snapshot")) {
-            throw Failure.colorTransfer
-        }
         do {
             return try prepareProvenColorTransfer(
                 msl: source,
@@ -42,18 +33,37 @@ extension SceneGenericShaderArtifactBuilder {
             // A profile that expects an independent signal describes a
             // non-color output; only straight-color expectations may fall
             // back to the default boundary.
-            guard expectedColorTransfer == nil
-                    || expectedColorTransfer?.kind == "straight-alpha-preserving",
-                  SceneAuthoredShaderColorTransferAnalyzer.analyze(
-                      fragmentSource: authoredSource
-                  ).permitsDefaultStraightColorBoundary,
-                  !hasStrictCompilerOwner(authoredSource),
-                  compilerPreservedAlphaRGBFilterContractIsValid(
-                      msl: source,
-                      authoredSource: authoredSource
-                  ),
-                  let lowered = SceneGenericShaderDefaultStraightColorBoundaryLowering
-                    .lower(source, colorSlots: defaultBoundaryColorSlots) else {
+            let expectedAllowsFallback = expectedColorTransfer == nil
+                    || expectedColorTransfer?.kind == "straight-alpha-preserving"
+            let classificationPermits = SceneAuthoredShaderColorTransferAnalyzer
+                .analyze(fragmentSource: authoredSource)
+                .permitsDefaultStraightColorBoundary
+            let strictOwner = hasStrictCompilerOwner(authoredSource)
+            let filterContractValid = compilerPreservedAlphaRGBFilterContractIsValid(
+                msl: source,
+                authoredSource: authoredSource
+            )
+            let lowered = SceneGenericShaderDefaultStraightColorBoundaryLowering
+                .lower(source, colorSlots: defaultBoundaryColorSlots)
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains(
+                "--mwx-debug-scene-evidence-dir"
+            ) {
+                NSLog(
+                    "MWX DEBUG SCENE: phase=artifact-color-transfer-fallback-rejected expected=%d permits=%d strictOwner=%d filter=%d lowered=%d",
+                    expectedAllowsFallback ? 1 : 0,
+                    classificationPermits ? 1 : 0,
+                    strictOwner ? 1 : 0,
+                    filterContractValid ? 1 : 0,
+                    lowered == nil ? 0 : 1
+                )
+            }
+#endif
+            guard expectedAllowsFallback,
+                  classificationPermits,
+                  !strictOwner,
+                  filterContractValid,
+                  let lowered else {
                 throw Failure.colorTransfer
             }
             return (
@@ -72,6 +82,13 @@ extension SceneGenericShaderArtifactBuilder {
     /// result after the authored source has selected a narrower owner whose
     /// slot roles and terminal data flow are part of the contract.
     private static func hasStrictCompilerOwner(_ authoredSource: String) -> Bool {
+        // The reconstruction owner validates slot projections and terminal
+        // alpha flow. A rejected compiler artifact must not bypass that proof
+        // through the default boundary, regardless of local identifier names.
+        if SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer
+            .analyze(fragmentSource: authoredSource) != nil {
+            return true
+        }
         let syntax = SceneAuthoredShaderSyntaxAnalyzer.analyze(
             lexerOutput: SceneAuthoredShaderLexer.lex(
                 source: authoredSource, stage: .fragment

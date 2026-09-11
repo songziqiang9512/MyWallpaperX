@@ -277,6 +277,23 @@ nonisolated enum SceneAuthoredShaderFrontend {
         )
     }
 
+    /// Every vertex-body occurrence of the attribute must read exactly
+    /// `.xy`; the declaration line itself (terminated by `;`) and a body
+    /// with no occurrence are both safe.
+    private static func vertexUsesOnlyXYComponentAccess(
+        _ name: String, in unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Bool {
+        let tokens = unit.tokens
+        for (index, token) in tokens.enumerated() where token.text == name {
+            let next = index + 1 < tokens.count ? tokens[index + 1].text : nil
+            let afterNext = index + 2 < tokens.count ? tokens[index + 2].text : nil
+            if next == "." && afterNext == "xy" { continue }
+            if next == ";" { continue }
+            return false
+        }
+        return true
+    }
+
     private static func validate(
         vertex: SceneAuthoredShaderSyntaxUnit,
         fragment: SceneAuthoredShaderSyntaxUnit
@@ -293,10 +310,19 @@ nonisolated enum SceneAuthoredShaderFrontend {
             "a_Position": .float3,
             "a_TexCoord": .float2,
         ]
+        // An `attribute vec3 a_TexCoord` stays ABI-compatible when the vertex
+        // body only reads `.xy`: the Metal emitter drops attribute
+        // declarations and the generated wrapper supplies a float2 texcoord.
+        let texCoordVec3IsXYOnly = vertexUsesOnlyXYComponentAccess(
+            "a_TexCoord", in: vertex
+        )
         for declaration in vertexAttributes {
             guard declaration.arraySize == nil,
                   let type = SceneAuthoredShaderValueType(authoredName: declaration.typeName),
-                  expectedAttributes[declaration.name] == type else {
+                  expectedAttributes[declaration.name] == type
+                      || (declaration.name == "a_TexCoord"
+                          && type == .float3
+                          && texCoordVec3IsXYOnly) else {
                 diagnostics.append(.init(
                     code: .unsupportedAttribute,
                     message: "Only vec3 a_Position and vec2 a_TexCoord attributes are supported.",

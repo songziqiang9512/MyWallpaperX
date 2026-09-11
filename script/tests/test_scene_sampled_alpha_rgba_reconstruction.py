@@ -67,6 +67,9 @@ private struct Output: Codable {
     let compilerEndpointDriftRejected: Bool
     let realCompilerLoweringAccepted: Bool
     let realCompilerSourceUnpremultipliedCount: Int
+    let renamedCompilerAccepted: Bool
+    let renamedCompilerDriftRejected: Bool
+    let snapshotAlphaWithAuxiliaryRGAccepted: Bool
 }
 
 @main
@@ -175,6 +178,31 @@ private enum SampledAlphaRGBAReconstructionHarness {
             .replacingOccurrences(of: "reconstructed", with: "colorCarrier")
             .replacingOccurrences(of: "snapshot", with: "entryColor")
             .replacingOccurrences(of: "field", with: "proceduralValue")
+
+        func renamedCompiler(_ text: String) -> String {
+            text.replacingOccurrences(of: "reconstructed", with: "colorCarrier")
+                .replacingOccurrences(of: "snapshot", with: "entryColor")
+                .replacingOccurrences(of: "sampledGA", with: "coveragePair")
+                .replacingOccurrences(of: "field", with: "proceduralValue")
+        }
+        // Same public reconstruction contract with snapshot alpha and a
+        // separate two-channel data input; identifier spelling is irrelevant.
+        let preservingSource = authored
+            .replacingOccurrences(
+                of: "reconstructed.ga = texSample2D(g_Texture0, v_Coordinate.zw).ga;",
+                with: "reconstructed.ga = snapshot.ga;"
+            )
+            .replacingOccurrences(of: "vec3 field", with: "vec2 field")
+            .replacingOccurrences(of: ").gbr;", with: ").rg;")
+            .replacingOccurrences(of: "reconstructed.rgb, field,", with: "reconstructed.rgb, vec3(field, 0.0),")
+        let preservingMSL = renamedCompiler(msl
+            .replacingOccurrences(
+                of: "float2 sampledGA = g_Texture0.sample(g_Texture0Smplr, in.v_Coordinate.zw).yw;\n    reconstructed.y = sampledGA.x;\n    reconstructed.w = sampledGA.y;",
+                with: "reconstructed.y = snapshot.y;\n    reconstructed.w = snapshot.w;"
+            )
+            .replacingOccurrences(of: "float3 field", with: "float2 field")
+            .replacingOccurrences(of: ").yzx;", with: ").xy;")
+            .replacingOccurrences(of: "reconstructed.xyz, field,", with: "reconstructed.xyz, float3(field, 0.0),"))
 
         let output = Output(
             transfer: {
@@ -290,7 +318,18 @@ private enum SampledAlphaRGBAReconstructionHarness {
                 realCompilerLoweredMSL.components(
                     separatedBy:
                         "mwxGenericUnpremultiply(g_Texture0.sample("
-                ).count - 1
+                ).count - 1,
+            renamedCompilerAccepted: (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: renamedCompiler(msl), authoredSource: renamed
+            ))?.transfer.kind == "straight-alpha",
+            renamedCompilerDriftRejected: (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: renamedCompiler(msl).replacingOccurrences(
+                    of: "colorCarrier.w = coveragePair.y;", with: "colorCarrier.w = coveragePair.x;"
+                ), authoredSource: renamed
+            )) == nil,
+            snapshotAlphaWithAuxiliaryRGAccepted: (try? SceneGenericShaderArtifactBuilder.prepareColorTransfer(
+                msl: preservingMSL, authoredSource: preservingSource
+            ))?.transfer.kind == "straight-alpha-preserving"
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -409,6 +448,8 @@ void main() {
         self.assertFalse(self.result["preservesSnapshotAlpha"])
         self.assertEqual(self.result["totalSamples"], 6)
         self.assertTrue(self.result["renamedAccepted"])
+        self.assertTrue(self.result["renamedCompilerAccepted"])
+        self.assertTrue(self.result["snapshotAlphaWithAuxiliaryRGAccepted"])
         self.assertTrue(self.result["loweringAccepted"])
         self.assertEqual(self.result["artifactTransfer"], "straight-alpha")
         self.assertEqual(self.result["sourceUnpremultipliedCount"], 4)
@@ -443,6 +484,7 @@ void main() {
             "compilerTemporaryEscapeRejected",
             "compilerHiddenSourceRejected",
             "compilerEndpointDriftRejected",
+            "renamedCompilerDriftRejected",
         ):
             self.assertTrue(self.result[key], (key, self.result))
 

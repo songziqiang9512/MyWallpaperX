@@ -18,15 +18,21 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         let sourceSlot: Int
         let transfer: SourceCarriedTransfer
         let shape: SourceCarriedShape
+        /// Additional sampled slots proven to be read only per scalar
+        /// component. They carry packed data into the exact material
+        /// dependency without masquerading as premultiplied color.
+        let auxiliaryDataSlots: Set<Int>
 
         init(
             sourceSlot: Int,
             transfer: SourceCarriedTransfer,
-            shape: SourceCarriedShape = .existing
+            shape: SourceCarriedShape = .existing,
+            auxiliaryDataSlots: Set<Int> = []
         ) {
             self.sourceSlot = sourceSlot
             self.transfer = transfer
             self.shape = shape
+            self.auxiliaryDataSlots = auxiliaryDataSlots
         }
 
         var colorTransfer: SceneShaderColorTransfer {
@@ -75,6 +81,7 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
         // Keep this proof ahead of the older output-constructor routes: those
         // routes intentionally reject an identifier output whose source and
         // generated carriers are separated.
+        let payload: SourceCarriedFact?
         if let generated = generatedSourceCarried(
             sampled: sampled,
             output: output,
@@ -82,10 +89,8 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
             fragment: fragment,
             main: main
         ) {
-            return generated
-        }
-
-        if let carrier = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            payload = generated
+        } else if let carrier = SceneAuthoredShaderConditionalStraightUnionAnalyzer
             .identifier(expression), let slot = sampled[carrier],
            carrierPreservesAlpha(
             carrier, before: output, tokens: tokens, body: main.bodyRange
@@ -93,23 +98,40 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
             excluding: slot, sampled: sampled,
             before: output, tokens: tokens, body: main.bodyRange
            ) {
-            return .init(sourceSlot: slot, transfer: .preserving)
-        }
-
-        guard let outputCall = SceneAuthoredShaderConditionalStraightUnionAnalyzer
+            payload = .init(sourceSlot: slot, transfer: .preserving)
+        } else if let outputCall = SceneAuthoredShaderConditionalStraightUnionAnalyzer
             .call(expression),
               ["CAST4", "vec4", "float4"].contains(outputCall.name),
-              outputCall.arguments.count == 2 else { return nil }
-        return proceduralSourceRGBA(
-            outputCall.arguments, sampled: sampled, output: output,
-            fragment: fragment, main: main
-        ) ?? conditionalGeneratedRGBA(
-            outputCall.arguments, sampled: sampled, output: output,
-            fragment: fragment, main: main
-        ) ?? uniformSeededBlendRGBA(
-            outputCall.arguments, sampled: sampled, output: output,
-            fragment: fragment, main: main
+              outputCall.arguments.count == 2 {
+            payload = proceduralSourceRGBA(
+                outputCall.arguments, sampled: sampled, output: output,
+                fragment: fragment, main: main
+            ) ?? conditionalGeneratedRGBA(
+                outputCall.arguments, sampled: sampled, output: output,
+                fragment: fragment, main: main
+            ) ?? uniformSeededBlendRGBA(
+                outputCall.arguments, sampled: sampled, output: output,
+                fragment: fragment, main: main
+            )
+        } else {
+            payload = nil
+        }
+        guard var fact = payload else { return nil }
+        // Every other sampled slot must be read only per scalar component to
+        // count as auxiliary data; a whole-vector or otherwise unaccounted
+        // use revokes the whole source-carried fact instead of silently
+        // treating that slot as color.
+        guard let auxiliarySlots = auxiliaryDataSlots(
+            excluding: fact.sourceSlot, sampled: sampled,
+            before: output, tokens: tokens, body: main.bodyRange
+        ) else { return nil }
+        fact = .init(
+            sourceSlot: fact.sourceSlot,
+            transfer: fact.transfer,
+            shape: fact.shape,
+            auxiliaryDataSlots: auxiliarySlots
         )
+        return fact
     }
 
     /// A sampled straight RGB/coverage pair may be passed to a procedural
@@ -314,6 +336,30 @@ nonisolated extension SceneAuthoredShaderGeneratedStraightRGBAAnalyzer {
             }
         }
         return true
+    }
+
+    /// Every non-source sampled slot must be read only per scalar component
+    /// (`tex.r`-style). Returns the qualifying auxiliary data slots, or nil
+    /// when any slot has a whole-vector or unaccounted use — that slot can
+    /// not be proven to carry data instead of color.
+    private static func auxiliaryDataSlots(
+        excluding sourceSlot: Int,
+        sampled: [String: Int],
+        before output: Int,
+        tokens: [Token],
+        body: Range<Int>
+    ) -> Set<Int>? {
+        var slots: Set<Int> = []
+        for (name, slot) in sampled where slot != sourceSlot {
+            let uses = body.filter { $0 < output && tokens[$0].text == name }
+            guard uses.dropFirst().allSatisfy({ index in
+                index + 2 < output && tokens[index + 1].text == "."
+                    && ["r", "g", "b", "a", "x", "y", "z", "w"]
+                        .contains(tokens[index + 2].text)
+            }) else { return nil }
+            slots.insert(slot)
+        }
+        return slots
     }
 
     private static func auxiliaryColorsRemainScalarData(
