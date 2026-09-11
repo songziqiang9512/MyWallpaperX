@@ -187,6 +187,7 @@ B9（目标样本 Puppet 交互）已由 `36d8da06` 闭环，不再列入待办�
 - **最新公共修正（2026-09-11）**：普通帧没有 bone override 时跳过仅服务 override 事务的 world-matrix 解析，保留同一 `writeSkinMatrices` parent-first skinning owner；override 路径的有限性、奇异矩阵与局部失败校验不变。Puppet 三模块、generic shader artifact 80-test 与 checkpoint build 均通过；尚无新的签名样本 A/B profile，16.67ms 预算仍开放。
 - **2026-09-12 回归纠偏**：`SceneScriptVectorEvaluation` 移入公共 vector model source，三个 Puppet bridge 登记到 source-layout，rollback guard 合同恢复；property-vector 19 项、source-update 与 semantics coverage 通过。全量回归仍有独立 fixture/source-set/template/alpha 合同失败，保持开放并逐项复现。
 - **2026-09-12 当前签名回放**：新 Developer ID Debug 包对隔离 `3665307769` 复放 `527/526/0`，GPU/compositor/next-frame 成立；strict 剩余为 effect CPU invocation 与 effect-local passthrough（B3 归属）。CPU p95 `37.332 ms`、main p95 `37.680 ms`、driver `26.585 FPS`、GPU p95 `10.633 ms`，B7 预算仍开放。
+- **B3 首断点收敛**：三个 passthrough 均来自共享 `effects/vhs` color-transfer artifact，统一诊断为 `shaderFrontendFailed → artifact(colorTransfer) → bounded-frontend-owner-revoked`；相邻 VHS 节点、Puppet graph、GPU/publication/compositor/next-frame 均成立。下一步应验证通用 VHS color-transfer 合同，不能按样本或 effect ID 放行。
 - **完工动作**：同 B2；此条属于 P5 范畴时按路线降级处理，但进程被杀属于硬失败，建议保持队列内。
 
 ### B8 首帧视频源瞬时 fallback 触发观察门
