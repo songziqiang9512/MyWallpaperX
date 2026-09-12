@@ -166,7 +166,7 @@ enum ScenePuppetMeshRecomposer {
         var indices = mesh.indices
 
         let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false
+            pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: true
         )
         targetDescriptor.usage = [.renderTarget, .shaderRead]
         targetDescriptor.storageMode = .private
@@ -215,6 +215,15 @@ enum ScenePuppetMeshRecomposer {
             indexBufferOffset: 0
         )
         encoder.endEncoding()
+        // Puppet sources are near-screen-sized textures that the layer
+        // chain samples at minification; without a mip chain that sampling
+        // shows moiré and aliased bone-region edges. The official engine
+        // generates mips for image-derived sources by default.
+        if width > 1 && height > 1,
+           let blit = commandBuffer.makeBlitCommandEncoder() {
+            blit.generateMipmaps(for: target)
+            blit.endEncoding()
+        }
         commandBuffer.commit()
         commandBuffer.waitUntilCompleted()
         guard commandBuffer.status == .completed else {

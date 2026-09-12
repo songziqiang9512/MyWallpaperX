@@ -197,9 +197,9 @@ enum SceneImageTextureUploader {
             pixelFormat: .rgba8Unorm,
             width: width,
             height: height,
-            mipmapped: false
+            mipmapped: true
         )
-        descriptor.usage = .shaderRead
+        descriptor.usage = [.shaderRead, .renderTarget]
         descriptor.storageMode = .shared
         guard let texture = device.makeTexture(descriptor: descriptor) else {
             return nil
@@ -212,6 +212,20 @@ enum SceneImageTextureUploader {
                 bytesPerRow: width * 4
             )
         }
+        // The official engine generates mipmaps for direct images by
+        // default (`nomip` is the opt-out flag) and samples
+        // min/mag/mip linear; the premultiplied rgba8Unorm texels average
+        // correctly under the standard mip filter.
+        guard let queue = device.makeCommandQueue(),
+              let commandBuffer = queue.makeCommandBuffer(),
+              let encoder = commandBuffer.makeBlitCommandEncoder()
+        else {
+            return texture
+        }
+        encoder.generateMipmaps(for: texture)
+        encoder.endEncoding()
+        commandBuffer.commit()
+        commandBuffer.waitUntilCompleted()
         return texture
     }
 
