@@ -113,7 +113,7 @@ final class ScenePuppetPlaybackState {
         layerWidth: Float,
         layerHeight: Float,
         remainingByteBudget: Int,
-        displayExtentCeiling: (width: Float, height: Float)? = nil,
+        authoredScale: (x: Float, y: Float)? = nil,
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline
     ) -> Result<Output, Failure> {
@@ -194,6 +194,15 @@ final class ScenePuppetPlaybackState {
             ]
         ) else {
             return .failure(.degenerateLayerSize)
+        }
+        let displayExtentCeiling: (width: Float, height: Float)?
+        if let authoredScale {
+            displayExtentCeiling = (
+                width: coverage.width * abs(authoredScale.x),
+                height: coverage.height * abs(authoredScale.y)
+            )
+        } else {
+            displayExtentCeiling = nil
         }
         guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
             layerWidth: coverage.width,

@@ -202,7 +202,7 @@ enum ScenePuppetLayerLoad {
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
                         remainingByteBudget: remainingByteBudget,
-                        displayExtentCeiling: displayExtentCeiling(for: layer),
+                        authoredScale: authoredScale(for: layer),
                         device: device,
                         pipeline: pipeline
                     ) {
@@ -253,7 +253,7 @@ enum ScenePuppetLayerLoad {
                 selection: .init(clips: [], composition: .layered),
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
                 layerHeight: layerHeight, remainingByteBudget: remainingByteBudget,
-                displayExtentCeiling: displayExtentCeiling(for: layer),
+                authoredScale: authoredScale(for: layer),
                 device: device, pipeline: pipeline
             ) {
             case let .success(output):
@@ -278,23 +278,19 @@ enum ScenePuppetLayerLoad {
         )
     }
 
-    /// The authored quad scaled on canvas is everything the compositor can
-    /// show of this layer; puppet mesh coverage may sprawl far beyond it and
-    /// budget-clamping that sprawl is what produced low-resolution
-    /// characters. Returns nil when the authored shape is unusable.
-    private static func displayExtentCeiling(
+    /// The puppet source is composited over its coverage logical canvas,
+    /// so the capture density it needs on screen is that canvas scaled by
+    /// the authored layer scale. Returns nil when the scale is unusable.
+    private static func authoredScale(
         for layer: SceneRenderDescriptor.Layer
-    ) -> (width: Float, height: Float)? {
-        guard let renderSize = layer.renderSizeWH,
-              renderSize.count >= 2, renderSize[0] >= 1, renderSize[1] >= 1
-        else { return nil }
+    ) -> (x: Float, y: Float)? {
         let scale = layer.scaleXYZ ?? []
         let uniformFallback = scale.first.map(abs) ?? 1
         let scaleX = scale.count >= 2 ? abs(scale[0]) : uniformFallback
         let scaleY = scale.count >= 2 ? abs(scale[1]) : uniformFallback
         guard scaleX.isFinite, scaleX > 0, scaleY.isFinite, scaleY > 0
         else { return nil }
-        return (max(1, renderSize[0] * scaleX), max(1, renderSize[1] * scaleY))
+        return (scaleX, scaleY)
     }
 
     private static func staticOutcome(
@@ -315,7 +311,7 @@ enum ScenePuppetLayerLoad {
             layerWidth: layerWidth,
             layerHeight: layerHeight,
             remainingByteBudget: remainingByteBudget,
-            displayExtentCeiling: displayExtentCeiling(for: layer),
+            authoredScale: authoredScale(for: layer),
             device: device,
             commandQueue: commandQueue,
             pipeline: pipeline

@@ -88,9 +88,6 @@ enum ScenePuppetMeshRecomposer {
         }
     }
 
-    // Apple GPU family limits are 16384; 8192 lets enlarged authored
-    // scales capture at display extent while the byte budget gates total
-    // memory.
     static let maxTextureDimension = 8192
     /// Independent from the per-frame offscreen pool: bind-pose recomposition
     /// happens once per load and the results are retained like layer sources.
@@ -146,7 +143,7 @@ enum ScenePuppetMeshRecomposer {
         layerWidth: Float,
         layerHeight: Float,
         remainingByteBudget: Int,
-        displayExtentCeiling: (width: Float, height: Float)? = nil,
+        authoredScale: (x: Float, y: Float)? = nil,
         device: MTLDevice,
         commandQueue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline
@@ -157,6 +154,19 @@ enum ScenePuppetMeshRecomposer {
             layerHeight: layerHeight
         ) else {
             return .failure(.degenerateLayerSize)
+        }
+        // The compositor maps the puppet source over the coverage logical
+        // canvas, so the on-canvas extent of that quad is coverage scaled
+        // by the authored layer scale; that is the density the capture
+        // needs (authored quad size alone would be re-stretched).
+        let displayExtentCeiling: (width: Float, height: Float)?
+        if let authoredScale {
+            displayExtentCeiling = (
+                width: coverage.width * abs(authoredScale.x),
+                height: coverage.height * abs(authoredScale.y)
+            )
+        } else {
+            displayExtentCeiling = nil
         }
         guard let dimensions = targetDimensions(
             layerWidth: coverage.width,
