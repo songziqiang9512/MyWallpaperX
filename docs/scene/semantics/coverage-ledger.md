@@ -1,8 +1,8 @@
 # Scene 官方语义与实现覆盖台账
 
-## 2026-09-12 PreparedProduct / Puppet GeometryProduct（已闭合）
+## 2026-09-12 PreparedProduct / Puppet GeometryProduct（回退，待重做）
 
-Puppet geometry 通过 `SceneBaseImageTextureStore → Snapshot → Renderer → unique compositor` 的 world-MVP draw 分支执行；playback 不再分配或绘制 coverage 中间 target。带 effect 的 GeometryProduct 在现有 offscreen pool 按 effect source extent capture 后回到既有 graph/compositor。签名 Debug 定向回放 `mwx-geometry-replay-5` 中 `3665307769` 与 `3780119725` 均严格 PASS（loaded=1.000，failures=[]）。结论限于该 GeometryProduct 纵向切片，不外推完整 Puppet 语义、官方 parity 或稳定帧 CPU 预算。
+GeometryProduct 迁移在代表样本中产生错位、尺寸异常和缺失角色，已回退到稳定 TextureProduct 路径。此前 `mwx-geometry-replay-5` 的 strict PASS 仅证明结构性 admission/graph 条件，截图证据明确否定可见正确性。当前不宣称 GeometryProduct 已启用；待重新建立 mesh coverage、origin、authored scale、world MVP、UV 与 effect capture 的统一合同后再验证。
 
 2026-09-08 的 V4 SceneScript user-property 后继打通真实default project `razer_vortex`的callback-only pass scalar：三个owner首次/变化时消费`ui_editor_properties_mode`，把exact `thisObject.colormode` own finite numeric data property读回typed scalar，并经现有dynamic snapshot、material `g_CMode`、GraphExecutor、GPU completion与唯一compositor在frame 0/120发布0/2；同一surface/window的隔离运行严格 **1/1 PASS**，property-only变化产生`changed_ratio=0.495226`。没有`update`且无待处理event/timer的owner退出稳定帧Swift/C bridge；NaN/accessor/非numeric与callback失败局部拒绝并保持previous-current。该项只记 `S4 one real authored callback-only pass-scalar visible slice`，不外推String、任意`thisObject`字段、multi-surface、长稳或官方parity。详见 [E-V4-SCENESCRIPT-CALLBACK-ONLY-PASS-SCALAR](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-callback-only-pass-scalar)。
 
