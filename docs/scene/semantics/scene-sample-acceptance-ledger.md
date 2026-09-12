@@ -9,9 +9,9 @@
 ## 1. 来源
 
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（159 个 numeric sample）。
-- 运行归档：`scene_sample_debug_archive.json` SHA-256 `890397672ce261f276afa0249f5b144c2d92a18a1c64ee8850b6bc554df8f6db`（生成于 2026-09-11T23:33:33.911357+00:00）。
+- 运行归档：`scene_sample_debug_archive.json` SHA-256 `6a15950a17594148fa98fb2a36f9782e50931b4dc18a33435ed7fc4586511c94`（生成于 2026-09-12T00:10:46.463939+00:00）。
 - 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `2bf7c1d1992b9d215b5308e6e65a322013ee06fadb3c46d0cff04fc9c2b870c6`。
-- 本页生成于 2026-09-11T23:33:34.042783+00:00。
+- 本页生成于 2026-09-12T00:10:46.619122+00:00。
 
 ## 2. 汇总
 

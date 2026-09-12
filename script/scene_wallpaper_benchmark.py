@@ -3317,6 +3317,13 @@ def resolved_material_graph_execution_metrics(
             pure_program_layer_ids
         ).intersection(
             output_consumed_layer_set
+        ),
+        # Same dependency-consumed exemption as the route-level missing
+        # list: a provider whose typed dependency input a downstream
+        # execution consumed publishes through that dependency slot, so
+        # its output evidence is the downstream consumption.
+        pure_program_layer_ids.intersection(
+            dependency_consumed_provider_layer_ids
         )
     )
     next_frame_evidence_layer_ids = program_required_layer_ids.intersection(
