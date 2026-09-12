@@ -222,7 +222,7 @@ final class ScenePuppetPlaybackState {
             return .failure(.budgetExceeded(requested: byteCost, remaining: remainingByteBudget))
         }
         let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: false
+            pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: true
         )
         targetDescriptor.usage = [.renderTarget, .shaderRead]
         targetDescriptor.storageMode = .private
@@ -379,6 +379,11 @@ final class ScenePuppetPlaybackState {
                 indexBufferOffset: 0
             )
             encoder.endEncoding()
+            if width > 1 && height > 1,
+               let blit = commandBuffer.makeBlitCommandEncoder() {
+                blit.generateMipmaps(for: targetTexture)
+                blit.endEncoding()
+            }
             submission.frameSignature = signature
             submission.boneRevision = boneRevision
         }
