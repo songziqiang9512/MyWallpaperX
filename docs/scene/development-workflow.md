@@ -13,6 +13,8 @@ authored data → loss-preserving IR → prepared Program/graph/resources
               → typed frame update → Metal encode → unique compositor/output
 ```
 
+准备结果不限定为纹理。统一主链消费有限的 `PreparedProduct`：`TextureProduct`、`GeometryProduct`、`SimulationProduct`、`ProviderProduct` 或 `GraphProduct`。它们共享 identity、时钟、资源 generation、target/publication/completion、rollback 和唯一 compositor；不得各自建立 renderer 或 registry。新 profile 必须由 authored 语义和静态预算定义，明确失败半径、fallback 退役条件及实现无关正反证据，禁止按 sample/layer/path/hash 选择算法。
+
 身份、作者顺序、frame state、property/provider、resource/target/publication、Program/graph 生命周期和最终 output 各只有一个产品 owner。新代码必须接入这些 owner，或直接消除重复 owner；不得建立第二套 registry、clock、property tree、graph、compositor 或按样本选择视觉算法。
 
 解析、shader/reflection、ABI/target 检查、graph lowering、pipeline preparation 和静态索引属于 load、generation 或明确 invalidation。普通帧只消费准备结果、更新 typed state、检查必要的 generation/epoch/target/publication/completion 并执行。任何只服务报告、hash、route 统计、census 或未来扩展的机制不能成为播放前置。
