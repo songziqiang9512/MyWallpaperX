@@ -88,10 +88,13 @@ enum ScenePuppetMeshRecomposer {
         }
     }
 
-    static let maxTextureDimension = 4096
+    // Apple GPU family limits are 16384; 8192 lets enlarged authored
+    // scales capture at display extent while the byte budget gates total
+    // memory.
+    static let maxTextureDimension = 8192
     /// Independent from the per-frame offscreen pool: bind-pose recomposition
     /// happens once per load and the results are retained like layer sources.
-    static let recomposeByteBudget = 128 * 1024 * 1024
+    static let recomposeByteBudget = 256 * 1024 * 1024
 
     /// Match the texture loader's dimension ceiling without changing the
     /// authored layer's logical extent. Large Puppet layers commonly use an
@@ -101,19 +104,35 @@ enum ScenePuppetMeshRecomposer {
     static func targetDimensions(
         layerWidth: Float,
         layerHeight: Float,
-        byteBudget: Int = .max
+        byteBudget: Int = .max,
+        displayExtentCeiling: (width: Float, height: Float)? = nil
     ) -> (width: Int, height: Int)? {
         guard layerWidth.isFinite, layerHeight.isFinite,
               layerWidth >= 1, layerHeight >= 1, byteBudget >= 4 else { return nil }
+        // Mesh coverage can sprawl far beyond the layer's authored quad
+        // (maintainer-observed puppet blur: a 7701x10155 logical coverage
+        // budget-capped to 38% resolution). Everything the compositor shows
+        // fits the authored quad scaled on canvas, so the allocation clamps
+        // to that display extent; UV/geometry still follow full coverage.
+        var clampedWidth = layerWidth
+        var clampedHeight = layerHeight
+        if let ceiling = displayExtentCeiling {
+            guard ceiling.width.isFinite, ceiling.width >= 1,
+                  ceiling.height.isFinite, ceiling.height >= 1 else {
+                return nil
+            }
+            clampedWidth = min(layerWidth, ceiling.width)
+            clampedHeight = min(layerHeight, ceiling.height)
+        }
         let scale = min(
             1.0,
-            Double(maxTextureDimension) / Double(layerWidth),
-            Double(maxTextureDimension) / Double(layerHeight),
-            sqrt(Double(byteBudget / 4) / (Double(layerWidth) * Double(layerHeight)))
+            Double(maxTextureDimension) / Double(clampedWidth),
+            Double(maxTextureDimension) / Double(clampedHeight),
+            sqrt(Double(byteBudget / 4) / (Double(clampedWidth) * Double(clampedHeight)))
         )
         guard scale.isFinite, scale > 0 else { return nil }
-        let width = max(1, Int((Double(layerWidth) * scale).rounded(.down)))
-        let height = max(1, Int((Double(layerHeight) * scale).rounded(.down)))
+        let width = max(1, Int((Double(clampedWidth) * scale).rounded(.down)))
+        let height = max(1, Int((Double(clampedHeight) * scale).rounded(.down)))
         guard width <= maxTextureDimension, height <= maxTextureDimension,
               width * height <= byteBudget / 4 else {
             return nil
@@ -127,6 +146,7 @@ enum ScenePuppetMeshRecomposer {
         layerWidth: Float,
         layerHeight: Float,
         remainingByteBudget: Int,
+        displayExtentCeiling: (width: Float, height: Float)? = nil,
         device: MTLDevice,
         commandQueue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline
@@ -141,7 +161,8 @@ enum ScenePuppetMeshRecomposer {
         guard let dimensions = targetDimensions(
             layerWidth: coverage.width,
             layerHeight: coverage.height,
-            byteBudget: remainingByteBudget
+            byteBudget: remainingByteBudget,
+            displayExtentCeiling: displayExtentCeiling
         ) else {
             return .failure(.textureTooLarge(
                 width: Int(coverage.width.rounded()),

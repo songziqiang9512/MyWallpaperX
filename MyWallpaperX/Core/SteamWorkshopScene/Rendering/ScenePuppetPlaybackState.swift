@@ -113,6 +113,7 @@ final class ScenePuppetPlaybackState {
         layerWidth: Float,
         layerHeight: Float,
         remainingByteBudget: Int,
+        displayExtentCeiling: (width: Float, height: Float)? = nil,
         device: MTLDevice,
         pipeline: SceneImageLayerPipeline
     ) -> Result<Output, Failure> {
@@ -197,7 +198,8 @@ final class ScenePuppetPlaybackState {
         guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
             layerWidth: coverage.width,
             layerHeight: coverage.height,
-            byteBudget: remainingByteBudget
+            byteBudget: remainingByteBudget,
+            displayExtentCeiling: displayExtentCeiling
         ) else {
             return .failure(.textureTooLarge(
                 width: Int(coverage.width.rounded()),

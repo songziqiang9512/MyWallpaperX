@@ -202,6 +202,7 @@ enum ScenePuppetLayerLoad {
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
                         remainingByteBudget: remainingByteBudget,
+                        displayExtentCeiling: displayExtentCeiling(for: layer),
                         device: device,
                         pipeline: pipeline
                     ) {
@@ -252,6 +253,7 @@ enum ScenePuppetLayerLoad {
                 selection: .init(clips: [], composition: .layered),
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
                 layerHeight: layerHeight, remainingByteBudget: remainingByteBudget,
+                displayExtentCeiling: displayExtentCeiling(for: layer),
                 device: device, pipeline: pipeline
             ) {
             case let .success(output):
@@ -276,6 +278,25 @@ enum ScenePuppetLayerLoad {
         )
     }
 
+    /// The authored quad scaled on canvas is everything the compositor can
+    /// show of this layer; puppet mesh coverage may sprawl far beyond it and
+    /// budget-clamping that sprawl is what produced low-resolution
+    /// characters. Returns nil when the authored shape is unusable.
+    private static func displayExtentCeiling(
+        for layer: SceneRenderDescriptor.Layer
+    ) -> (width: Float, height: Float)? {
+        guard let renderSize = layer.renderSizeWH,
+              renderSize.count >= 2, renderSize[0] >= 1, renderSize[1] >= 1
+        else { return nil }
+        let scale = layer.scaleXYZ ?? []
+        let uniformFallback = scale.first.map(abs) ?? 1
+        let scaleX = scale.count >= 2 ? abs(scale[0]) : uniformFallback
+        let scaleY = scale.count >= 2 ? abs(scale[1]) : uniformFallback
+        guard scaleX.isFinite, scaleX > 0, scaleY.isFinite, scaleY > 0
+        else { return nil }
+        return (max(1, renderSize[0] * scaleX), max(1, renderSize[1] * scaleY))
+    }
+
     private static func staticOutcome(
         layer: SceneRenderDescriptor.Layer,
         mesh: SceneMdlPuppetMesh,
@@ -294,6 +315,7 @@ enum ScenePuppetLayerLoad {
             layerWidth: layerWidth,
             layerHeight: layerHeight,
             remainingByteBudget: remainingByteBudget,
+            displayExtentCeiling: displayExtentCeiling(for: layer),
             device: device,
             commandQueue: commandQueue,
             pipeline: pipeline

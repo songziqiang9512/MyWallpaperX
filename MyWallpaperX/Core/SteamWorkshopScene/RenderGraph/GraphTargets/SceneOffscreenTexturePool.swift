@@ -62,7 +62,10 @@ final class SceneOffscreenTexturePool {
     init(
         device: MTLDevice,
         pixelFormat: MTLPixelFormat = .bgra8Unorm,
-        maxDimension: Int = 4096,
+        // Apple GPU family limits are 16384; 8192 lets enlarged authored
+        // scales (e.g. close-up characters) capture without an upscale
+        // while the resident byte budget still gates total memory.
+        maxDimension: Int = 8192,
         residentByteBudget: Int? = nil
     ) {
         self.device = device

@@ -265,7 +265,44 @@ extension SceneMetalRenderer {
                             reasonCode: "layer-effect-source-extent-unavailable"
                         )
                     }
-                    desiredSize = extent.pixelSize
+                    // The effect chain rasterizes this source once and the
+                    // compositor draws the capture with the layer transform:
+                    // when the authored scale enlarges the layer on canvas,
+                    // capturing at the authored surface size would upscale
+                    // the whole chain (maintainer-observed character blur).
+                    // The world model matrix column lengths are the layer's
+                    // on-canvas pixel extent of the unit quad and are
+                    // invariant to parallax translation, so they give a
+                    // stable per-layer size; quantize upward to absorb
+                    // script-animated scale jitter without pool churn.
+                    let model = imageModelMatrix(
+                        for: layer,
+                        worldFramesByLayerID: worldFramesByLayerID,
+                        renderSizeOverride: imageTextures.layerSourceRenderSize(
+                            for: layer.id
+                        ),
+                        parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                        configuration: parallaxConfiguration,
+                        visibleHalfExtents: cameraFrame.coverHalfExtents,
+                        usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                    )
+                    let onCanvasWidth = simd_length(model.columns.0)
+                    let onCanvasHeight = simd_length(model.columns.1)
+                    func quantizedUp(_ value: CGFloat) -> CGFloat {
+                        guard value.isFinite, value > 0 else { return 0 }
+                        let quantum: CGFloat = 128
+                        return (value / quantum).rounded(.up) * quantum
+                    }
+                    desiredSize = CGSize(
+                        width: max(
+                            extent.pixelSize.width,
+                            quantizedUp(CGFloat(onCanvasWidth))
+                        ),
+                        height: max(
+                            extent.pixelSize.height,
+                            quantizedUp(CGFloat(onCanvasHeight))
+                        )
+                    )
                     break
                 }
                 let model = imageModelMatrix(
