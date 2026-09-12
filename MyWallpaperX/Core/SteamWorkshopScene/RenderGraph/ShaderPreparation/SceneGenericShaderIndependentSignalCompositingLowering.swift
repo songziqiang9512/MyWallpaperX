@@ -114,10 +114,54 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
                 outputAssignments.first.map { signal.match.range.location < $0.range.location ? "yes" : "no" } ?? "-"
             )
         }
+        let outputName = capture(outputAssignments[0], 1, in: source)
+        // Orientation A keeps the color carrier as the output variable. The
+        // signal-carrier orientation (proven by the analyzer at the authored
+        // level) terminates with the signal variable after its rgb composites
+        // the color carrier through the authored blending and its alpha
+        // combines both carriers; mirror that proof on the compiled MSL
+        // before accepting the terminal.
+        let signalCarrierTail: Bool
+        if outputName == signal.name {
+            let colorRange = NSRange(
+                location: color.match.range.location,
+                length: outputAssignments[0].range.location
+                    - color.match.range.location
+            )
+            let colorTemp = matches(
+                #"(?m)^[ \t]*float3\s+\w+\s*=\s*"# + color.name + #"\.xyz\s*;[ \t]*$"#,
+                in: source,
+                range: colorRange
+            )
+            let signalTemp = matches(
+                #"(?m)^[ \t]*float3\s+\w+\s*=\s*"# + signal.name + #"\.xyz\s*;[ \t]*$"#,
+                in: source,
+                range: colorRange
+            )
+            let blendedComponents = matches(
+                #"(?m)^[ \t]*"# + signal.name
+                    + #"\.([xyz])\s*=\s*\w+\.\1\s*;[ \t]*$"#,
+                in: source,
+                range: colorRange
+            )
+            let combinedAlpha = matches(
+                #"(?m)^[ \t]*"# + signal.name
+                    + #"\.w\s*=\s*(?:fast::)?(?:clamp|saturate)\(\s*"#
+                    + color.name + #"\.w\s*\+\s*"# + signal.name + #"\.w\b[^;]*;"#,
+                in: source,
+                range: colorRange
+            )
+            signalCarrierTail = colorTemp.count == 1
+                && signalTemp.count == 1
+                && blendedComponents.count == 3
+                && combinedAlpha.count == 1
+        } else {
+            signalCarrierTail = false
+        }
         guard control.isEmpty,
               outputWrites.count == 1,
               outputAssignments.count == 1,
-              capture(outputAssignments[0], 1, in: source) == color.name,
+              outputName == color.name || signalCarrierTail,
               color.match.range.location < outputAssignments[0].range.location,
               signal.match.range.location < outputAssignments[0].range.location,
               matches(
@@ -125,13 +169,14 @@ nonisolated enum SceneGenericShaderIndependentSignalCompositingLowering {
               ).count == 1 else { return nil }
         if debug { NSLog("MWX DEBUG SCENE: phase=signal-compositing-lowering-tail-accepted") }
 
-        guard let outputRange = Range(outputAssignments[0].range, in: source)
+        guard let outputRange = Range(outputAssignments[0].range, in: source),
+              let outputName
         else { return nil }
 
         var transformed = source
         transformed.replaceSubrange(
             outputRange,
-            with: "out.mwxFragColor = \(premultiply)(\(color.name));"
+            with: "out.mwxFragColor = \(premultiply)(\(outputName));"
         )
         let straightColorSlots = Set(
             [expectedColorSlot] + (expectedUnderlaySlot.map { [$0] } ?? [])
