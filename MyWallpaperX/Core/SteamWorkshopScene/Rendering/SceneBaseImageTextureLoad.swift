@@ -4,7 +4,6 @@ import Metal
 
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
-    let geometryProducts: [Int: ScenePuppetPlaybackState]
     let explicitLayerSources: [Int: SceneTextureProviderPublication]
     private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
@@ -12,7 +11,6 @@ struct SceneBaseImageTextureSnapshot {
 
     init(
         textures: [Int: MTLTexture],
-        geometryProducts: [Int: ScenePuppetPlaybackState] = [:],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
         candidates: [Int: SceneTextureCandidate],
@@ -53,7 +51,6 @@ struct SceneBaseImageTextureSnapshot {
             validatedExplicitLayerSources[layerID] = layerSource.publication
         }
         self.textures = validatedTextures
-        self.geometryProducts = geometryProducts
         self.explicitLayerSources = validatedExplicitLayerSources
         self.layerSourcePublications = validatedLayerSources
         var validatedCandidates = candidates.filter { layerID, candidate in
@@ -124,7 +121,6 @@ struct SceneBaseImageTextureSnapshot {
 
 struct SceneBaseImageTextureStore {
     private(set) var textures: [Int: MTLTexture] = [:]
-    private(set) var geometryProducts: [Int: ScenePuppetPlaybackState] = [:]
     private(set) var candidates: [Int: SceneTextureCandidate] = [:]
     private(set) var publications: [Int: SceneTextureProviderPublication] = [:]
     /// Puppet sources whose bind-pose leaves the imported image box publish
@@ -140,7 +136,6 @@ struct SceneBaseImageTextureStore {
             candidates[layerID] = nil
             publications[layerID] = nil
             puppetLayerSources[layerID] = nil
-            geometryProducts[layerID] = nil
         }
     }
 
@@ -216,12 +211,6 @@ struct SceneBaseImageTextureStore {
         }
     }
 
-    mutating func setPuppetGeometry(
-        _ playback: ScenePuppetPlaybackState, layerID: Int
-    ) {
-        geometryProducts[layerID] = playback
-    }
-
     mutating func merge(_ incoming: [Int: MTLTexture]) {
         textures.merge(incoming) { _, value in value }
         for layerID in incoming.keys {
@@ -251,7 +240,6 @@ struct SceneBaseImageTextureStore {
         }
         return SceneBaseImageTextureSnapshot(
             textures: textures,
-            geometryProducts: geometryProducts,
             explicitLayerSources: combinedPublications,
             layerSourcePublications: combinedLayerSources,
             candidates: candidates,

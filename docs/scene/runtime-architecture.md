@@ -30,7 +30,7 @@ project / scene / package / texture
 
 主链的输入产品不限定为纹理。准备阶段必须把 authored 输入降低为受约束的 `PreparedProduct`，由唯一 compositor 按作者顺序消费。产品类型只有以下五类：`TextureProduct`（图片、视频、文字及栅格 effect）、`GeometryProduct`（Puppet/3D 世界空间几何）、`SimulationProduct`（粒子与物理状态）、`ProviderProduct`（异步媒体与动态资源）和 `GraphProduct`（多 pass、依赖 target、history）。这些是共享输入协议，不是平行 renderer；它们共用 identity、frame clock、resource/provider generation、target/publication/completion、rollback 和唯一最终输出。
 
-兼容 profile 只能由 authored 语义、拓扑、类型化资源/状态、静态预算和失败合同定义，禁止包含 sample/layer/path/hash/screenshot 身份。每个 profile 必须能由现有通用 primitive 表达，并声明局部失败半径、fallback 原因和退役条件；若需要第二套 registry、clock、property tree、graph 或 compositor，必须停止并重新设计。Puppet 的目标产品是 `GeometryProduct`：mesh、atlas、pose 和 world MVP 直接进入 compositor，只有在 effect 合同要求时才建立局部 capture。
+兼容 profile 只能由 authored 语义、拓扑、类型化资源/状态、静态预算和失败合同定义，禁止包含 sample/layer/path/hash/screenshot 身份。每个 profile 必须能由现有通用 primitive 表达，并声明局部失败半径、fallback 原因和退役条件；若需要第二套 registry、clock、property tree、graph 或 compositor，必须停止并重新设计。Puppet 的目标产品是 `GeometryProduct`：mesh、atlas、pose 和 world MVP 直接进入 compositor，只有在 effect 合同要求时才建立局部 capture。当前实现仍以 `TextureProduct` 作为稳定回退；在 coverage/origin/pose 与 capture 坐标合同完成并通过两个代表样本的可见验收前，不得宣称 GeometryProduct 已启用。
 
 实施时按能够闭合真实画面的纵向切片扩展这条链。不得先分别建设完整 compiler、RenderGraph、VM、particle platform，再等待它们全部完成后才允许真实内容执行。
 

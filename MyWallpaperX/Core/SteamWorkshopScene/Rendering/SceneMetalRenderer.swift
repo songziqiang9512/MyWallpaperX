@@ -477,8 +477,7 @@ struct SceneMetalRenderer {
                         ),
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
-                    authoredShaderFrameInputs: .init(frameContext: frameContext),
-                    geometryProduct: imageTextures.geometryProducts[layer.id].map { $0.geometryProduct() }
+                    authoredShaderFrameInputs: .init(frameContext: frameContext)
                 )
                 let explicitLayerSourcePublication = imageTextures
                     .explicitLayerSourcePublication(
