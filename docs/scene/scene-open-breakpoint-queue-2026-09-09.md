@@ -2,6 +2,8 @@
 
 # Scene 现存断点修复队列（2026-09-09，现役 P1 派生执行入口）
 
+2026-09-12 PreparedProduct / Puppet GeometryProduct 已闭合：Puppet geometry 通过 `SceneBaseImageTextureStore → Snapshot → Renderer → unique compositor` 的 world-MVP draw 分支执行，playback 不再分配或绘制 coverage 中间 target。带 effect 的 GeometryProduct 先在现有 offscreen pool 按 effect source extent capture，再回到既有 graph/compositor；publication、generation、GPU completion 与 rollback 仍由原 owner 管理。签名 Debug 定向回放 `/private/tmp/mwx-geometry-replay-5/report.json`：`3665307769`、`3780119725` 均 `loaded=1.000 failures=[]`。本项不外推完整 Puppet 语义、官方 parity 或稳定帧 CPU 预算。
+
 > 状态：现役高优先级 P1 派生计划队列。本文不拥有阶段顺序或完成门；唯一现役路线仍是[Scene 兼容执行路线](scene-compatibility-roadmap.md)，队列仅提供按当前证据排序的执行入口。
 
 > 本文是给修复实施者的**可执行队列**。每一条都在当前代码中核实过 owner 位置（文件 + 行号 + 符号），不是从旧文档转述。样本 ID 只用于复现证据，不得进入产品代码。

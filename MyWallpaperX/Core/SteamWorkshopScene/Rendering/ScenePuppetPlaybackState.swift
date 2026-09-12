@@ -90,6 +90,7 @@ final class ScenePuppetPlaybackState {
     /// containers so source updates do not allocate before the change guard.
     private var frameSamplesScratch: [ScenePuppetAnimationEvaluator.FrameSample?]
     private var signatureScratch: [FrameSignature]
+    private var lastPreparedVertexBufferIndex = 0
     private var scriptBoneOverrides: [Int: ScenePuppetBoneOverride] = [:]
 #if DEBUG
     private var recordedBoneSkin = false
@@ -195,41 +196,9 @@ final class ScenePuppetPlaybackState {
         ) else {
             return .failure(.degenerateLayerSize)
         }
-        let displayExtentCeiling: (width: Float, height: Float)?
-        if let authoredScale {
-            displayExtentCeiling = (
-                width: coverage.width * abs(authoredScale.x),
-                height: coverage.height * abs(authoredScale.y)
-            )
-        } else {
-            displayExtentCeiling = nil
-        }
-        guard let dimensions = ScenePuppetMeshRecomposer.targetDimensions(
-            layerWidth: coverage.width,
-            layerHeight: coverage.height,
-            byteBudget: remainingByteBudget,
-            displayExtentCeiling: displayExtentCeiling
-        ) else {
-            return .failure(.textureTooLarge(
-                width: Int(coverage.width.rounded()),
-                height: Int(coverage.height.rounded())
-            ))
-        }
-        let width = dimensions.width
-        let height = dimensions.height
-        let byteCost = width * height * 4
-        guard byteCost <= remainingByteBudget else {
-            return .failure(.budgetExceeded(requested: byteCost, remaining: remainingByteBudget))
-        }
-        let targetDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .bgra8Unorm, width: width, height: height, mipmapped: true
-        )
-        targetDescriptor.usage = [.renderTarget, .shaderRead]
-        targetDescriptor.storageMode = .private
         let vertexBufferLength = mesh.vertices.count * MemoryLayout<SceneQuadVertex>.stride
         var indices = mesh.indices
-        guard let targetTexture = device.makeTexture(descriptor: targetDescriptor),
-              let indexBuffer = device.makeBuffer(
+        guard let indexBuffer = device.makeBuffer(
                   bytes: &indices,
                   length: indices.count * MemoryLayout<UInt16>.stride
               )
@@ -249,7 +218,7 @@ final class ScenePuppetPlaybackState {
             selection: selection,
             evaluator: evaluator,
             atlasTexture: atlasTexture,
-            targetTexture: targetTexture,
+            targetTexture: atlasTexture,
             vertexBuffers: vertexBuffers,
             indexBuffer: indexBuffer,
             renderPipelineState: pipeline.state,
@@ -258,8 +227,8 @@ final class ScenePuppetPlaybackState {
         )
         return .success(Output(
             state: state,
-            texture: targetTexture,
-            byteCost: byteCost,
+            texture: atlasTexture,
+            byteCost: 0,
             coverage: coverage
         ))
     }
@@ -333,6 +302,7 @@ final class ScenePuppetPlaybackState {
                 )
             }
             let vertexBuffer = vertexBuffers[submission.nextVertexBufferIndex]
+            lastPreparedVertexBufferIndex = submission.nextVertexBufferIndex
             submission.nextVertexBufferIndex =
                 (submission.nextVertexBufferIndex + 1) % vertexBuffers.count
             vertexScratch.withUnsafeBytes { bytes in
@@ -343,47 +313,6 @@ final class ScenePuppetPlaybackState {
                 )
             }
 
-            let passDescriptor = MTLRenderPassDescriptor()
-            passDescriptor.colorAttachments[0].texture = targetTexture
-            passDescriptor.colorAttachments[0].loadAction = .clear
-            passDescriptor.colorAttachments[0].clearColor = MTLClearColor(
-                red: 0, green: 0, blue: 0, alpha: 0
-            )
-            passDescriptor.colorAttachments[0].storeAction = .store
-            guard let encoder = commandBuffer.makeRenderCommandEncoder(
-                descriptor: passDescriptor
-            ) else { return }
-            encoder.label = "Puppet animation layer \(layerID) frames \(signature)"
-            encoder.setRenderPipelineState(renderPipelineState)
-            encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
-            var mvp = SceneMatrix.scale(SIMD3<Float>(2, 2, 1))
-            encoder.setVertexBytes(
-                &mvp,
-                length: MemoryLayout<simd_float4x4>.size,
-                index: 1
-            )
-            var uniforms = SceneLayerFragmentUniforms.neutral()
-            encoder.setFragmentBytes(
-                &uniforms,
-                length: MemoryLayout<SceneLayerFragmentUniforms>.size,
-                index: 0
-            )
-            for slot in 0 ... 5 {
-                encoder.setFragmentTexture(atlasTexture, index: slot)
-            }
-            encoder.drawIndexedPrimitives(
-                type: .triangle,
-                indexCount: mesh.indices.count,
-                indexType: .uint16,
-                indexBuffer: indexBuffer,
-                indexBufferOffset: 0
-            )
-            encoder.endEncoding()
-            if width > 1 && height > 1,
-               let blit = commandBuffer.makeBlitCommandEncoder() {
-                blit.generateMipmaps(for: targetTexture)
-                blit.endEncoding()
-            }
             submission.frameSignature = signature
             submission.boneRevision = boneRevision
         }
@@ -397,6 +326,21 @@ final class ScenePuppetPlaybackState {
             }, texture: targetTexture, commandBuffer: commandBuffer)
         }
 #endif
+    }
+
+    func geometryProduct() -> SceneGeometryProduct {
+        SceneGeometryProduct { [self] encoder, mvp in
+            encoder.setRenderPipelineState(renderPipelineState)
+            encoder.setVertexBuffer(vertexBuffers[lastPreparedVertexBufferIndex], offset: 0, index: 0)
+            var matrix = mvp
+            encoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.size, index: 1)
+            var uniforms = SceneLayerFragmentUniforms.neutral()
+            encoder.setFragmentBytes(&uniforms, length: MemoryLayout<SceneLayerFragmentUniforms>.size, index: 0)
+            for slot in 0 ... 5 { encoder.setFragmentTexture(atlasTexture, index: slot) }
+            encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
+                indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
+            return true
+        }
     }
 
     /// Returns the current animated pose for SceneScript getters. This uses

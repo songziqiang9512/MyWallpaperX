@@ -307,6 +307,7 @@ class SceneMetalView: NSView {
                     }
                     if let playback = puppetOutcome.playback {
                         loadedPuppetPlaybackStates[layer.id] = playback
+                        loaded.setPuppetGeometry(playback, layerID: layer.id)
                     }
                     if report.isEnabled {
                         puppetMessage = "; \(puppetOutcome.message)"

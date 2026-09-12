@@ -1,6 +1,10 @@
 import Metal
 import simd
 
+struct SceneGeometryProduct {
+    let encode: (MTLRenderCommandEncoder, simd_float4x4) -> Bool
+}
+
 struct SceneImageLayerMasks {
     static let empty = SceneImageLayerMasks()
 
@@ -192,7 +196,7 @@ struct SceneDependencyEffectInput {
     let slot: SceneEffectPassSlot
     let blendMode: Int
     let frameEpoch: UInt64
-    let texture: MTLTexture
+    var texture: MTLTexture
     private(set) var content: SceneTextureContent
 
     var slotIndex: Int { slot.slotIndex }
@@ -239,11 +243,11 @@ struct SceneDependencyEffectInput {
 
 struct SceneImageLayerDrawRequest {
     let layer: SceneRenderDescriptor.Layer
-    let texture: MTLTexture
+    var texture: MTLTexture
     var baseTextureCandidate: SceneTextureCandidate? = nil
     var baseTextureSampling: SceneTextureSampling? = nil
     let masks: SceneImageLayerMasks
-    let textureFrame: SceneTextureUVTransform
+    var textureFrame: SceneTextureUVTransform
     let mvp: simd_float4x4
     let uniforms: SceneImageLayerUniformValues
     let offscreenTexturePool: SceneOffscreenTexturePool?
@@ -258,6 +262,7 @@ struct SceneImageLayerDrawRequest {
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
+    var geometryProduct: SceneGeometryProduct? = nil
 
     nonisolated func effectiveSourceSampling(
         for sampling: SceneTextureSampling

@@ -70,6 +70,45 @@ struct SceneImageLayerCompositor {
         executionTrace: SceneEffectExecutionFrameTrace? = nil,
         executionOrigin: SceneEffectExecutionOrigin = .image
     ) -> DrawOutcome {
+        var request = request
+        if let geometry = request.geometryProduct,
+           !request.layer.effects.isEmpty || request.layer.colorBlendMode != 0 {
+            guard let pool = request.offscreenTexturePool,
+                  let extent = request.effectSourceExtent,
+                  let target = pool.compositionTarget(
+                    width: Int(extent.pixelSize.width.rounded(.up)),
+                    height: Int(extent.pixelSize.height.rounded(.up))
+                  ),
+                  mainPass.encodeOffscreen({ commandBuffer in
+                      guard let encoder = SceneOffscreenEffectRenderer.beginEncoder(
+                          commandBuffer: commandBuffer, target: target.texture
+                      ) else { return false }
+                      let result = geometry.encode(encoder, request.mvp)
+                      encoder.endEncoding()
+                      return result
+                  }) else { return .failed }
+            request.texture = target.texture
+            request.baseTextureCandidate = nil
+            request.baseTextureSampling = nil
+            request.textureFrame = .identity
+            request.geometryProduct = nil
+        }
+        if let geometry = request.geometryProduct,
+           request.layer.effects.isEmpty,
+           request.layer.colorBlendMode == 0 {
+            guard let encoder = mainPass.encoder(), geometry.encode(encoder, request.mvp)
+            else { return .failed }
+            return .normal(consumedDependency: false)
+        }
+        if request.geometryProduct != nil { return .failed }
+        if request.geometryProduct != nil {
+            executionTrace?.recordRouteOperation(
+                layerID: request.layer.id, origin: executionOrigin,
+                operation: "geometry-product-effect-boundary",
+                outcome: .failed(reasonCode: "geometry-effect-capture-required")
+            )
+            return .failed
+        }
         guard request.resolvedMaterialFrameTargetPlan == nil
             || resolvedMaterialRuntime != nil else {
             executionTrace?.recordRouteOperation(
