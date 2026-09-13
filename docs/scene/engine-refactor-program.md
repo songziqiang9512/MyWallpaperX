@@ -69,7 +69,7 @@
 
 ### M2 引擎减税
 
-- **M2.1 Patch A** 门控每帧 EffectExecution trace（渲染器入口 + GraphComposition subjects 循环守卫为收益主体 + 7 处签名可选化）；同批处理 utilityCapture 遥测每帧注册 completion handler 的问题。
+- **M2.1 Patch A** ✅ 63de923f：trace 门控（usesDebugEvidenceWindow，Release 恒 nil）+ GraphComposition subjects 循环守卫（收益主体）+ 7 签名可选化；同批修复 utilityCaptureTelemetry 每帧注册 handler（改首次终态后停止，每层恰一次）。实测（graph 样本 2938612768 隔离副本，正常模式 20s）：after 4 tick 全程干净 exit 0，cpu 34.18±0.1ms 稳定——trace 成本本就 <0.5ms/帧，本批收益为架构合规（Release 零 evidence 对象）+ handler 有界化而非该样本毫秒级增益；旧二进制正常模式出现主线程停滞 11s + exit 133（随旧路径消失，根因未查，记观察项）。admission 25.5ms（cpu 62%）不变——M3/M4 目标。
 - **M2.2 Patch B** GPU 完成事件驱动重排帧：acceptance 翻转检测在 coordinator 锁内判、解锁后回调；re-arm 复用 startFrameDriver（禁 frameTimer==nil 前置）；2ms 兜底轮询永久保留；回调闭包捕获 launch 身份。帧时钟权威唯一（coordinator=准入权、FrameDriver=节奏权，回调只是边沿通知）。
 - **M2.3 Patch C** ClaimedExecution 按 capability token 缓存（独立 NSLock；随实例生存）。
 - 验收：各批独立提交；M1 before/after；消融确认被门控路径关闭后样本无行为差异。
