@@ -167,6 +167,126 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     typealias Failure = SceneResolvedMaterialFailure
     typealias Program = SceneResolvedMaterialProgram
     typealias Template = SceneResolvedMaterialTemplate
+    typealias PreparedUniformBinding =
+        SceneResolvedMaterialPreparedUniformBinding
+
+    /// Compiles the complete uniform ownership table for one shader variant.
+    /// Frame finalization must never rediscover whether a field is host,
+    /// authored-static, dynamic, or texture metadata.
+    static func prepareUniformBindings(
+        template: Template,
+        fields: [SceneAuthoredShaderUniformLayout.Field],
+        activeUniforms: [String: SceneResolvedMaterialShaderSchema.Uniform],
+        activeTextureSlots: Set<Int>,
+        neutralTextureResolution:
+            SceneAuthoredShaderNeutralTextureResolutionFact?
+    ) throws -> [PreparedUniformBinding] {
+        try fields.map { field in
+            let schema = activeUniforms[field.name]
+            let keys = Set(schema?.materialKeys ?? [field.name])
+            let declarations = template.uniformDeclarations.filter {
+                keys.contains($0.name)
+            }
+            if let host = SceneResolvedMaterialUniformEncoder.hostUniform(
+                field,
+                activeTextureSlots: activeTextureSlots
+            ) {
+                guard declarations.isEmpty else {
+                    throw failure(
+                        .uniform,
+                        .hostUniformDeclarationConflict,
+                        details: [field.name]
+                    )
+                }
+                return .init(field: field, source: .host(host))
+            }
+            guard let schema else {
+                throw failure(
+                    .uniform,
+                    .activeUniformSchemaMissing,
+                    details: [field.name]
+                )
+            }
+            if declarations.isEmpty {
+                if let fact = preparedNeutralTextureResolution(
+                    field: field,
+                    schema: schema,
+                    template: template,
+                    activeTextureSlots: activeTextureSlots,
+                    fact: neutralTextureResolution
+                ) {
+                    return .init(
+                        field: field,
+                        source: .neutralMissingTextureResolution(fact)
+                    )
+                }
+                if let source = preparedSelfCompositeTextureResolution(
+                    field: field,
+                    schema: schema,
+                    template: template,
+                    activeTextureSlots: activeTextureSlots
+                ) {
+                    return .init(field: field, source: source)
+                }
+                guard let fallback = schema.defaultValue,
+                      let encoded = SceneResolvedMaterialUniformEncoder.encode(
+                          fallback,
+                          as: field.type
+                      ) else {
+                    throw failure(
+                        .uniform,
+                        .staticUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+                return .init(field: field, source: .staticValue(encoded))
+            }
+            guard declarations.count == 1,
+                  let declaration = declarations.first else {
+                throw failure(
+                    .uniform,
+                    .uniformDeclarationConflict,
+                    details: [field.name]
+                )
+            }
+            switch declaration.value {
+            case let .staticExact(value):
+                guard let encoded = SceneResolvedMaterialUniformProjection
+                        .encodeAuthoredStatic(
+                            value,
+                            schema: schema,
+                            field: field
+                        ) else {
+                    throw failure(
+                        .uniform,
+                        .staticUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+                return .init(field: field, source: .staticValue(encoded))
+            case let .dynamic(dynamic):
+                let contributor = try soleValueContributor(
+                    dynamic,
+                    name: field.name
+                )
+                try validateScriptAttachments(
+                    dynamic.scriptAttachments,
+                    contributor: contributor,
+                    name: field.name
+                )
+                return .init(
+                    field: field,
+                    source: .dynamic(.init(
+                        declaration: dynamic,
+                        contributor: contributor,
+                        fallback: dynamic.authoredFallback
+                            ?? schema.defaultValue,
+                        schema: schema
+                    ))
+                )
+            }
+        }
+    }
 
     static func finalize(
         _ input: SceneResolvedMaterialFinalizationInput,
@@ -325,23 +445,21 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         sameSlotMappedCoordinateFacts:
             Set<SceneAuthoredShaderSameSlotMappedCoordinateFact>
     ) throws -> [Program.ResolvedUniform] {
-        try variant.frontendProgram.uniformLayout.fields.map { field in
-            let schema = variant.activeUniforms[field.name]
-            let keys = Set(schema?.materialKeys ?? [field.name])
-            let declarations = input.template.uniformDeclarations.filter {
-                keys.contains($0.name)
-            }
-            if let host = SceneResolvedMaterialUniformEncoder.hostUniform(
-                field,
-                slots: slots
-            ) {
-                guard declarations.isEmpty else {
-                    throw failure(
-                        .uniform,
-                        .hostUniformDeclarationConflict,
-                        details: [field.name]
-                    )
-                }
+        let fields = variant.frontendProgram.uniformLayout.fields
+        guard variant.preparedUniformBindings.count == fields.count,
+              zip(fields, variant.preparedUniformBindings).allSatisfy({
+                  $0 == $1.field
+              }) else {
+            throw failure(
+                .invariant,
+                .programAssemblyIdentityInvariant,
+                details: ["prepared-uniform-binding-layout-mismatch"]
+            )
+        }
+        return try variant.preparedUniformBindings.map { binding in
+            let field = binding.field
+            switch binding.source {
+            case let .host(host):
                 guard let value = SceneResolvedMaterialUniformEncoder.encodeHost(
                           host,
                           type: field.type,
@@ -356,60 +474,29 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                         details: [field.name]
                     )
                 }
-                return .init(field: field, source: .host(host), encodedValue: value)
-            }
-            guard let schema else {
-                throw failure(
-                    .uniform,
-                    .activeUniformSchemaMissing,
-                    details: [field.name]
+                return .init(
+                    field: field,
+                    source: .host(host),
+                    encodedValue: value
                 )
-            }
-            if declarations.isEmpty {
-                if let neutral = neutralTextureResolutionUniform(
-                    field: field,
-                    schema: schema,
-                    input: input,
-                    variant: variant,
-                    slots: slots
-                ) {
-                    return neutral
-                }
-                if let selfComposite = selfCompositeTextureResolutionUniform(
-                    field: field,
-                    schema: schema,
-                    input: input,
-                    variant: variant
-                ) {
-                    return selfComposite
-                }
-                guard let fallback = schema.defaultValue,
-                      let encoded = SceneResolvedMaterialUniformEncoder.encode(
-                          fallback,
-                          as: field.type
-                      ) else {
+            case let .staticValue(encoded):
+                guard encoded.count == field.storageByteSize else {
                     throw failure(
-                        .uniform,
-                        .staticUniformBindingInvalid,
-                        details: [field.name]
+                        .invariant,
+                        .programAssemblyIdentityInvariant,
+                        details: [field.name, "prepared-static-byte-count"]
                     )
                 }
-                return .init(field: field, source: .staticValue, encodedValue: encoded)
-            }
-            guard declarations.count == 1, let declaration = declarations.first else {
-                throw failure(
-                    .uniform,
-                    .uniformDeclarationConflict,
-                    details: [field.name]
+                return .init(
+                    field: field,
+                    source: .staticValue,
+                    encodedValue: encoded
                 )
-            }
-            switch declaration.value {
-            case let .staticExact(value):
-                guard let encoded =
-                        SceneResolvedMaterialUniformProjection.encodeAuthoredStatic(
-                    value,
-                    schema: schema,
-                    field: field
+            case let .neutralMissingTextureResolution(fact):
+                guard let neutral = neutralTextureResolutionUniform(
+                    field: field,
+                    slots: slots,
+                    fact: fact
                 ) else {
                     throw failure(
                         .uniform,
@@ -417,15 +504,29 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                         details: [field.name]
                     )
                 }
-                return .init(field: field, source: .staticValue, encodedValue: encoded)
-            case let .dynamic(dynamic):
-                let contributor = try soleValueContributor(dynamic, name: field.name)
-                try validateScriptAttachments(
-                    dynamic.scriptAttachments,
-                    contributor: contributor,
-                    name: field.name
-                )
-                let fallback = dynamic.authoredFallback ?? schema.defaultValue
+                return neutral
+            case let .selfCompositeTextureResolution(
+                slot,
+                providerLayerID
+            ):
+                guard let selfComposite = selfCompositeTextureResolutionUniform(
+                    field: field,
+                    input: input,
+                    slot: slot,
+                    providerLayerID: providerLayerID
+                ) else {
+                    throw failure(
+                        .uniform,
+                        .staticUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+                return selfComposite
+            case let .dynamic(prepared):
+                let dynamic = prepared.declaration
+                let contributor = prepared.contributor
+                let fallback = prepared.fallback
+                let schema = prepared.schema
                 guard let resolved = input.dynamicSnapshot[dynamic.target],
                       valid(
                           resolved.source,
@@ -505,28 +606,11 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
     /// size directly instead of inventing a texture identity.
     private static func selfCompositeTextureResolutionUniform(
         field: SceneAuthoredShaderUniformLayout.Field,
-        schema: SceneResolvedMaterialShaderSchema.Uniform,
         input: SceneResolvedMaterialFinalizationInput,
-        variant: SceneResolvedMaterialCompiledVariant
+        slot: Int,
+        providerLayerID: Int
     ) -> Program.ResolvedUniform? {
-        guard field.type == .float4,
-              field.arrayCount == nil,
-              field.authoredName == field.name,
-              field.name.hasPrefix("g_Texture"),
-              field.name.hasSuffix("Resolution"),
-              schema.defaultValue == nil,
-              schema.materialKeys == [field.name],
-              let slot = Int(field.name.dropFirst("g_Texture".count)
-                  .dropLast("Resolution".count)),
-              (0 ..< 8).contains(slot),
-              variant.activeSamplers[slot] == nil,
-              input.template.textureSlots.indices.contains(slot),
-              let templateSlot = input.template.textureSlots[slot],
-              let terminal = templateSlot.candidates.last,
-              case let .provider(.namedLayerTarget(reference)) =
-                  terminal.reference,
-              reference.providerLayerID == input.layerID,
-              reference.variant == .primary,
+        guard providerLayerID == input.layerID,
               let encoded = SceneResolvedMaterialUniformEncoder.encodeComponents(
                   [
                       input.renderSize.width,
@@ -546,37 +630,14 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
 
     private static func neutralTextureResolutionUniform(
         field: SceneAuthoredShaderUniformLayout.Field,
-        schema: SceneResolvedMaterialShaderSchema.Uniform,
-        input: SceneResolvedMaterialFinalizationInput,
-        variant: SceneResolvedMaterialCompiledVariant,
-        slots: [Program.TextureSlot?]
+        slots: [Program.TextureSlot?],
+        fact: SceneAuthoredShaderNeutralTextureResolutionFact
     ) -> Program.ResolvedUniform? {
-        guard let fact = variant.neutralTextureResolution,
-              field.name == fact.resolutionUniformName,
-              field.authoredName == fact.resolutionUniformName,
-              field.type == .float4,
-              field.arrayCount == nil,
-              schema.defaultValue == nil,
-              schema.materialKeys == [fact.resolutionUniformName],
-              input.template.textureSlots.indices.contains(fact.resolutionSlot),
-              input.template.textureSlots[fact.resolutionSlot] == nil,
-              slots.indices.contains(fact.resolutionSlot),
+        guard slots.indices.contains(fact.resolutionSlot),
               slots[fact.resolutionSlot] == nil,
-              variant.activeSamplers[fact.resolutionSlot] == nil,
-              !variant.frontendProgram.textureBindings.contains(where: {
-                  $0.slot == fact.resolutionSlot
-              }),
-              input.template.textureSlots.indices.contains(
-                  fact.coordinateTextureSlot
-              ),
-              input.template.textureSlots[fact.coordinateTextureSlot] != nil,
               slots.indices.contains(fact.coordinateTextureSlot),
               let source = slots[fact.coordinateTextureSlot],
               source.index == fact.coordinateTextureSlot,
-              variant.activeSamplers[fact.coordinateTextureSlot] != nil,
-              variant.frontendProgram.textureBindings.filter({
-                  $0.slot == fact.coordinateTextureSlot
-              }).count == 1,
               source.resource.publication.requestIdentity == source.registryIdentity,
               source.expectedPurpose
                   == source.resource.publication.candidate.purpose,
@@ -594,6 +655,60 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
             source: .neutralMissingTextureResolution(fact),
             encodedValue: encoded
         )
+    }
+
+    private static func preparedSelfCompositeTextureResolution(
+        field: SceneAuthoredShaderUniformLayout.Field,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        template: Template,
+        activeTextureSlots: Set<Int>
+    ) -> PreparedUniformBinding.Source? {
+        guard field.type == .float4,
+              field.arrayCount == nil,
+              field.authoredName == field.name,
+              field.name.hasPrefix("g_Texture"),
+              field.name.hasSuffix("Resolution"),
+              schema.defaultValue == nil,
+              schema.materialKeys == [field.name],
+              let slot = Int(field.name.dropFirst("g_Texture".count)
+                  .dropLast("Resolution".count)),
+              (0 ..< 8).contains(slot),
+              !activeTextureSlots.contains(slot),
+              template.textureSlots.indices.contains(slot),
+              let templateSlot = template.textureSlots[slot],
+              let terminal = templateSlot.candidates.last,
+              case let .provider(.namedLayerTarget(reference)) =
+                  terminal.reference,
+              reference.variant == .primary else { return nil }
+        return .selfCompositeTextureResolution(
+            slot: slot,
+            providerLayerID: reference.providerLayerID
+        )
+    }
+
+    private static func preparedNeutralTextureResolution(
+        field: SceneAuthoredShaderUniformLayout.Field,
+        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        template: Template,
+        activeTextureSlots: Set<Int>,
+        fact: SceneAuthoredShaderNeutralTextureResolutionFact?
+    ) -> SceneAuthoredShaderNeutralTextureResolutionFact? {
+        guard let fact,
+              field.name == fact.resolutionUniformName,
+              field.authoredName == fact.resolutionUniformName,
+              field.type == .float4,
+              field.arrayCount == nil,
+              schema.defaultValue == nil,
+              schema.materialKeys == [fact.resolutionUniformName],
+              template.textureSlots.indices.contains(fact.resolutionSlot),
+              template.textureSlots[fact.resolutionSlot] == nil,
+              !activeTextureSlots.contains(fact.resolutionSlot),
+              template.textureSlots.indices.contains(
+                  fact.coordinateTextureSlot
+              ),
+              template.textureSlots[fact.coordinateTextureSlot] != nil
+        else { return nil }
+        return fact
     }
 
     private static func soleValueContributor(

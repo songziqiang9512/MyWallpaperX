@@ -4,7 +4,7 @@
 
 > 状态：现役长期架构合同
 >
-> 最近复核：2026-09-13
+> 最近复核：2026-09-14
 >
 > 当前实现程度与缺口只查[能力台账](semantics/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
 
@@ -124,6 +124,10 @@ authored document/assets
 任何产品层类型或阶段都必须说明自己直接生产上述链上的对象、消费作者输入，或保护会导致 crash、GPU 越界、stale generation/epoch、target hazard、错误 publication/completion 的完整性边界。仅生产报告、hash、诊断、兼容判断、重复 route state 或未来扩展点的机制不得常驻播放链；诊断/benchmark 模式可以旁路观察同一执行结果，但不能反向成为提交或出画面的必要条件。
 
 复杂度按删除方向管理：优先复用和收窄现有 owner；能由不可变 prepared value、直接函数或已有 typed channel 表达时，不新增 protocol、registry、wrapper、planner、profile 或 renderer。实现通用替代并撤权后，旧 owner、旧准入、旧诊断和只验证旧内部结构的测试成族删除。衡量进展以正确画面、布局、首帧和帧时间为主，不以类型数、gate 数、diagnostic 覆盖或拒绝理由数量为正向指标。
+
+每个进入 Program/graph 的效果参数必须在 load、generation 或明确 invalidation 边界形成不可变执行合同。编译后的 variant 为每个 active uniform 精确记录一个来源：host semantic、已编码 static value、带 typed producer/fallback/schema 的 dynamic value、neutral texture metadata 或 self-composite metadata；layer capability 同时记录 effect texture projection 的几何来源及是否需要可逆矩阵。普通帧只读取 typed 动态值和仍须实时验证的资源 identity/readiness/range，再按已准备的来源编码；不得重新扫描作者声明、重新选择 host/static/dynamic lane、遍历 stage 推断 inverse 要求，或按当帧碰巧可用的纹理与矩阵改变参数含义。
+
+effect texture projection 必须对应该层最终实际提交给 effect graph 的卡片：fullscreen 使用 canonical output geometry，普通 image、Puppet、composition 与 direct draw 使用其 live emitted world geometry。source texture 的 logical extent、UV/resource metadata 与 output placement 是不同职责，不能让采样源尺寸替代放置矩阵，也不能让 coverage、atlas 或 capture texture 成为第二套几何权威。五类产品可以提供不同的动态值和资源，但其参数来源、projection source、失效键和局部失败半径都必须先降低到同一 prepared Program/graph 合同；新增参数能力时扩展 typed source 类别或现有 producer，不能在 frame preflight 中添加 effect/sample 特判。
 
 ### 3.1 数据选择数据，执行器解释数据
 

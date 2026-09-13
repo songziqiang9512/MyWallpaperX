@@ -620,6 +620,28 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 details: [String(describing: error)]
             )
         }
+        let preparedUniformBindings: [
+            SceneResolvedMaterialPreparedUniformBinding
+        ]
+        do {
+            preparedUniformBindings = try SceneResolvedMaterialProgramFinalizer
+                .prepareUniformBindings(
+                    template: template,
+                    fields: frontend.uniformLayout.fields,
+                    activeUniforms: uniforms,
+                    activeTextureSlots: activeSlots,
+                    neutralTextureResolution: neutralTextureResolution
+                )
+        } catch let failure as Failure {
+            throw failure.withGenericOwnerFailure(genericOwnerFailure)
+        } catch {
+            throw failure(
+                .uniformBindingInvalid,
+                phase: .uniform,
+                genericOwnerFailure: genericOwnerFailure,
+                details: ["prepared-uniform-binding-unexpected-failure"]
+            )
+        }
         let associatedOverOverlaySlot =
             SceneResolvedMaterialProgramDerivation.associatedOverOverlaySlot(
                 fragmentSource: prepared.fragment.source
@@ -649,6 +671,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             sameAlphaReconstructedRGBInputContract:
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,
+            preparedUniformBindings: preparedUniformBindings,
             neutralTextureResolution: neutralTextureResolution,
             sameSlotMappedCoordinateFacts: sameSlotMappedCoordinateFacts
         )

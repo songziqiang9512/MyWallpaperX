@@ -53,12 +53,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog.StageCapability {
     }
 }
 
-extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability {
-    var requiresInvertibleEffectTextureProjection: Bool {
-        stages.contains(where: \.requiresInvertibleEffectTextureProjection)
-    }
-}
-
 extension SceneResolvedMaterialExecutionCapabilityCatalog {
     static func stageActivationPolicy(
         product: SceneGraphAdmissionProduct,

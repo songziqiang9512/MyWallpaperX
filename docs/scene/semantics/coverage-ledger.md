@@ -1,5 +1,11 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-14 prepared effect 参数执行合同（S4 bounded visible）
+
+Material Program compilation 现在把每个active uniform降低为一个不可变`preparedUniformBinding`：host semantic、预编码static value、携带typed producer/fallback/schema的dynamic value、neutral texture metadata或self-composite metadata。Layer capability另持有不可变`FrameInputContract`，记录effect texture projection的几何来源与是否需要inverse。普通帧只读取dynamic snapshot和资源publication，复核source/range/identity/readiness/mapping/generation后编码；不再扫描template declaration、重选host/static/dynamic lane或遍历stage推断projection要求。
+
+projection绑定实际emitted effect card：fullscreen走canonical output geometry，image/Puppet/composition/direct draw走包含其live world placement的output MVP；source texture logical extent与output placement继续分权。该合同由共享Program/graph/runtime bridge/preflight服务五类产品，不按effect/sample/layer/path/hash分派，也不新增property、clock、resource registry、graph或compositor。9个focused模块和签名Debug build通过。真实`3747492842`恢复持续播放，7个graph layer最终完成且fullscreen layer 173三项效果执行；该次因启动视频source pending与tracked matrix旧计数仍为NON-PASS。真实`3780119725`为strict PASS，31个active Program、20/20 graph layer、360/360/360 executor且0 fallback，世界空间人物组合保持。完整身份、hash和未验证边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-prepared-effect-parameter-contract)。
+
 ## 2026-09-13 作者 media event 面板与同 provider 候选（S4 bounded visible）
 
 `3395777145` 的作者合同由 media 事件而非鼠标点击定义：layer 203 监听 playback state 改变位置，layer 125 的 Timeline wrapper 只在 thumbnail 事件中重启动画，layer 505 消费同一事件颜色。dependency preparation 现在保留同一 provider 的完整 authored reference vector；resolved MaterialProgram 为 named premultiplied color 与可选 system/user-property preserved-channel 输入准备两个 ABI。只有 exact mixed optional fact 成立时，optional candidate 的 absent/pending/unavailable 才继续使用 lower ready named candidate，ready 后由同一 selection owner 提升；identity、generation、metadata incomplete 与未证明组合继续失败关闭。

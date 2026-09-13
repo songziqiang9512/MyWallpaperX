@@ -1,5 +1,37 @@
 import Foundation
 
+/// Immutable execution route for one active authored uniform. Preparation
+/// resolves ownership and structural projection once; a frame only supplies
+/// the value carried by that route and revalidates live resource identity.
+nonisolated struct SceneResolvedMaterialPreparedUniformBinding: Hashable {
+    typealias Program = SceneResolvedMaterialProgram
+    typealias Template = SceneResolvedMaterialTemplate
+    typealias Uniform = SceneResolvedMaterialShaderSchema.Uniform
+
+    struct Dynamic: Hashable {
+        let declaration: Template.DynamicUniform
+        let contributor: Template.DynamicUniformSource
+        let fallback: Template.StaticUniformValue?
+        let schema: Uniform
+    }
+
+    enum Source: Hashable {
+        case host(Program.HostUniform)
+        case staticValue(Data)
+        case dynamic(Dynamic)
+        case neutralMissingTextureResolution(
+            SceneAuthoredShaderNeutralTextureResolutionFact
+        )
+        case selfCompositeTextureResolution(
+            slot: Int,
+            providerLayerID: Int
+        )
+    }
+
+    let field: SceneAuthoredShaderUniformLayout.Field
+    let source: Source
+}
+
 /// Immutable shader/frontend/schema facts for one texture-readiness variant.
 /// Concrete resources and uniform values are bound by each frame snapshot.
 nonisolated struct SceneResolvedMaterialCompiledVariant {
@@ -35,6 +67,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         SceneResolvedMaterialProgramDerivation
             .SameAlphaReconstructedRGBInputContract?
     let activeUniforms: [String: Uniform]
+    let preparedUniformBindings: [
+        SceneResolvedMaterialPreparedUniformBinding
+    ]
     let neutralTextureResolution:
         SceneAuthoredShaderNeutralTextureResolutionFact?
     let sameSlotMappedCoordinateFacts:
@@ -63,6 +98,9 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
             SceneResolvedMaterialProgramDerivation
                 .SameAlphaReconstructedRGBInputContract?,
         activeUniforms: [String: Uniform],
+        preparedUniformBindings: [
+            SceneResolvedMaterialPreparedUniformBinding
+        ],
         neutralTextureResolution:
             SceneAuthoredShaderNeutralTextureResolutionFact?,
         sameSlotMappedCoordinateFacts:
@@ -87,7 +125,22 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.sameAlphaReconstructedRGBInputContract =
             sameAlphaReconstructedRGBInputContract
         self.activeUniforms = activeUniforms
+        self.preparedUniformBindings = preparedUniformBindings
         self.neutralTextureResolution = neutralTextureResolution
         self.sameSlotMappedCoordinateFacts = sameSlotMappedCoordinateFacts
+    }
+
+    var requiresInvertibleEffectTextureProjection: Bool {
+        preparedUniformBindings.contains { binding in
+            guard case let .host(host) = binding.source else { return false }
+            switch host {
+            case .effectModelViewProjection,
+                 .effectTextureProjectionMatrix,
+                 .effectTextureProjectionMatrixInverse:
+                return true
+            default:
+                return false
+            }
+        }
     }
 }

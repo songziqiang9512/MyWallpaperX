@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 prepared effect 参数与 projection source 闭环
+
+旧Material Program finalizer每帧重新扫描uniform declaration并推断host/static/dynamic/texture metadata来源，effect inverse要求也在claim时重扫variant；Puppet改为世界空间直绘后，共享preflight还把source MVP同时当作effect card projection。`3747492842`的fullscreen layer 173因此在奇异source transform下被`effect-projection-inverse-invalid`拒绝并形成黑屏。现役generation preparation为每个active field保存exact binding，并给每个layer capability保存`FrameInputContract`；frame只物化typed动态值与live resource，fullscreen使用canonical output geometry，世界空间层使用实际emitted output MVP。
+
+同一签名Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `0e0d030021d24b818f7595c3622c79c186e54c43`，executable SHA-256 `c5f253770b9046f991f75276326f741e09091a795a8d8857f71ed41ee7dc28df`）完成两份25秒定向运行。`3747492842`已有552/551/0 frame、7个graph layer最终成功、208/208/208 executor、0 failure，fullscreen三项Program及utility `173 / 265 / 434`完成；启动前两次视频layer 186 source pending仍局部fallback，旧tracked matrix计数也未刷新，所以本次不是strict PASS，文字裁切、闪烁和光束视觉仍待验收。`3780119725`为strict PASS：31个active Program、20/20 graph layer、360/360/360 executor、0 failure/fallback，原分辨率ready/after保持人物、摩托及前后景世界空间组合和动态变化。完整report/hash、focused正反门与性能边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-prepared-effect-parameter-contract)。
+
 ## 2026-09-14 `3749463715` 同帧 shared-pair 驻留闭环
 
 旧 `frame-target-plan-allocation-failed` 的公共根因不是资源预算不足。一个frame batch需要多个动态尺寸shared working pair时，旧`ensureSharedPairs`逐个提交candidate；后一个LRU事务只保护自身key，可以驱逐本帧较早确认的required pair。随后的preflight把缺失pair模拟为可补齐而返回ready，allocator reserve却要求它已驻留，形成间歇整帧失败。现役cache在一个锁内验证既有required pair、原子提交全部缺失pair，并在同一eviction事务保护完整required-key集合；预算、in-flight上限、history COW和compositor均未改变。物理pair generation只标识allocation创建身份，切回较早缓存尺寸允许数值回退，但必须同时满足不同generation、不同physical identity以及递增的allocation/mapping/publication。
@@ -134,7 +140,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 2026-09-13 删除 coverage 压平后，稳定帧确认人物、摩托、猫和路牌位置/比例正常，人物细节不再被中间纹理降采样 | 本断点通过；整样本未做逐像素 parity |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；当前 identity-only 复跑仍未取得 required graph execution，顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
-| 3747492842 | 当前无法播放；历史还观察到文字错位、额外闪烁和光束位置异常 | `be9858e` 维护者观察待在当前 HEAD 最小复现；先区分启动失败与历史视觉问题 | 待复现、待归因 |
+| 3747492842 | 历史无法播放；文字错位、额外闪烁和光束位置异常 | prepared projection合同已恢复持续播放，7/7 graph layer最终完成，fullscreen三项效果和三个utility capture执行；启动视频source pending及旧tracked matrix仍使报告NON-PASS | 播放首断点关闭；视觉、启动provider与matrix待办保留 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |

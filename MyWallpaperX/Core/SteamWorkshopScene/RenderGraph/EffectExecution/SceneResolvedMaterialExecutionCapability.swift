@@ -216,6 +216,22 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
+    /// Immutable layer-level sources for host values shared by every effect
+    /// stage. Each Program variant separately owns its exact per-uniform route;
+    /// this contract fixes how renderer geometry becomes those host values.
+    struct FrameInputContract: Equatable {
+        enum EffectTextureProjectionSource: Equatable {
+            /// The geometry used to emit the layer's effect card into its
+            /// working target. This is canonical fullscreen geometry for a
+            /// fullscreen capture and live world geometry for image, Puppet,
+            /// composition, and direct-draw products.
+            case emittedOutputGeometry
+        }
+
+        let effectTextureProjectionSource: EffectTextureProjectionSource
+        let requiresInvertibleEffectTextureProjection: Bool
+    }
+
     final class LayerCapability {
         let layerID: Int
         let admittedProducts: [SceneGraphAdmissionProduct]
@@ -226,6 +242,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
+        let frameInputContract: FrameInputContract
         let graphFramebufferColorRepresentations: [
             Graph.TextureIdentity: SceneShaderColorRepresentation
         ]
@@ -251,6 +268,13 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.dependencyOwnership = dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
+            frameInputContract = .init(
+                effectTextureProjectionSource: .emittedOutputGeometry,
+                requiresInvertibleEffectTextureProjection:
+                    stages.contains(
+                        where: \.requiresInvertibleEffectTextureProjection
+                    )
+            )
             var graphColorRepresentations: [
                 Graph.TextureIdentity: SceneShaderColorRepresentation
             ] = [:]

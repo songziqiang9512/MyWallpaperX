@@ -12,6 +12,7 @@
 - [样本验收台账](semantics/scene-sample-acceptance-ledger.md)当前保存的 `19 fail / 140 unreviewed` 和各首断点集群来自 2026-09-12 的归档，早于信号载体 lowering 与 Puppet 世界空间直绘。它仍是人工裁决的唯一写入面，但其计数和部分备注不是当前 HEAD 的技术缺口统计；必须在维护者重新观看后才更新 verdict，不能用 benchmark 结果代替。
 - 2026-09-12 的 full-corpus `135/159 strict PASS` 只是一份历史结构快照。后继修复没有重新执行全 corpus，本队列也不以重复全量回放刷新数字。每个条目先用受影响样本和 focused 模块建立当前首断点。
 - 五类产品——纹理、世界空间几何、模拟状态、异步 provider、多 pass graph——都必须产出或消费同一 prepared product、typed frame state、Metal execution 和唯一 compositor 合同。它们可以拥有不同的数据形状与生命周期，但不得形成第二套 property、clock、resource registry、graph 或 output owner。
+- effect 参数执行来源现已在 generation preparation 定型：每个 active uniform 预先归属 host、static、typed dynamic 或 texture metadata lane，每个 layer capability 预先归属 effect projection 几何来源及 inverse 要求；普通帧只绑定 live value/resource 并复核 identity/readiness/range。`3747492842` 的 fullscreen layer 173 因而使用 canonical output geometry，不再被 Puppet 世界空间 source MVP 的奇异矩阵连带拒绝；`3780119725` 的 layer 21 仍使用实际 emitted world geometry，人物与摩托保持世界空间组合。现役证据见[prepared effect 参数合同](semantics/runtime-evidence-current.md#e-2026-09-14-prepared-effect-parameter-contract)。
 - `3749463715` 的 feedback content、utility capture、动态 attachment 与 target allocation 链均已闭合。旧 allocator 逐项提交同帧所需的不同尺寸 shared pair，后一个提交可由 LRU 驱逐本帧较早确认的 pair，形成 preflight ready、materialize failure。现役 cache 在一个事务中提交缺失 pair并保护完整 required-key 集；切回较早创建的尺寸 pair按物理身份变化验证，不再误用 generation 数值大小代表选择顺序。2026-09-14 fresh 回放 strict PASS，16/16 layer graph完成、3404/3404 terminal success、四个utility capture成功、0 graph diagnostic、0 allocation failure、0 GPU failed frame；见[同帧 shared-pair 驻留闭环](semantics/runtime-evidence-current.md#e-2026-09-14-whole-frame-shared-pair-residency)。
 - 旧 Q1 的四个 effect-local passthrough 观察断点已关闭。当前签名 App 对 `3323988600 / 3395777145 / 3472940912 / 3754630802` 均为 strict PASS；Pixelate 的 component-wise vector conversion、跨 stage loop guard 符号冲突、Standard Blur 静态 tint 准入和 Fire 标量 LOD data sampling 已分别修正。后继又按作者 media 事件合同关闭 `3395777145` layer 125 的三项 active unsupported：25/25 active effect 均由 Program 执行，playback state 1 正例持续显示封面/文字，无 media 反例按作者 state 0 隐藏；作者脚本没有鼠标点击回调。现役证据见[作者 media 面板闭环](semantics/runtime-evidence-current.md#e-2026-09-13-authored-media-panel)。该结论不证明 macOS live now-playing producer或整样本逐像素 parity。
 - `3754630802` 最后的 Workshop Bokeh Blur 与 Motion Blur active unsupported 已关闭。terminal Program 现在接受精确 `effect.output` 或同 effect 内部 FBO；共享全帧工作对可与独立 authored FBO history 共存，但工作对仍不进入 history closure，并以独立 storage/generation/physical token 审计。fresh 真实运行 31/31 active effect 均由 Program 执行，92/92 frame 完成、0 failed，五个 utility capture 全部成功，完整人物、舞狮、灯笼和动态构图在 ready/after 中持续存在。现役证据见[共享工作对与历史终端闭环](semantics/runtime-evidence-current.md#e-2026-09-13-shared-pair-history-terminal)。该证据不证明独立 Bokeh/Motion Blur ROI、逐像素官方 parity 或性能完成。
@@ -35,7 +36,7 @@
   | 样本 | 观察到的异常 | 当前状态 |
   |---|---|---|
   | `3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147` | 主体人物消失 | 待复现、待归因 |
-  | `3747492842` | 无法播放 | 待复现、待归因 |
+  | `3747492842` | 历史无法播放；另有文字错位、额外闪烁和光束位置异常 | 当前签名 App 已恢复持续播放：7/7 graph layer、208/208 claim/encode/GPU、0 executor failure，fullscreen layer 173 的三项效果及三个 utility capture 完成。启动前两次 layer 186 视频 source pending 仍产生局部 fallback，tracked matrix 的旧计数也使本次报告非 strict PASS；文字裁切、闪烁、光束和人工视觉验收继续开放 |
   | `3775355045 / 3775373546` | 两层视频经遮罩合成后，下层播放数秒开始卡顿并落后于上层动画 | 待复现、待归因 |
   | `1315486372` | 水波纹特效位置不正确 | 待复现、待归因 |
   | `2684431262` | 合成画面出现异常紫色块 | 待复现、待归因 |

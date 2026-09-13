@@ -449,7 +449,11 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertNotIn("atlasTexture: MTLTexture", recomposer)
         self.assertIn("geometryModelMatrix(", preflight)
         self.assertIn(
-            "SceneLayerCursorGeometry.effectProjectionInverse(\n                        sourceMVP,",
+            "SceneLayerCursorGeometry.effectProjectionInverse(\n                        effectProjectionMVP,",
+            preflight,
+        )
+        self.assertIn(
+            "claim.frameInputContract.effectTextureProjectionSource",
             preflight,
         )
 

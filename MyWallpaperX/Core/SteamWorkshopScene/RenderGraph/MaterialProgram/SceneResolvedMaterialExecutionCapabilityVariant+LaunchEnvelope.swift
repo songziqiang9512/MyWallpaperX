@@ -34,32 +34,17 @@ nonisolated struct SceneResolvedMaterialVariantKey: Hashable {
 extension SceneResolvedMaterialVariantCache {
     typealias ChannelUse = SceneAuthoredShaderProgram.TextureBinding.ChannelUse
 
-    /// A singular effect projection is usable only when no compiled launch
-    /// variant can observe either projection-matrix host uniform.
+    /// A singular effect projection is usable only when no prepared launch
+    /// variant consumes an effect-projection host uniform. Uniform ownership
+    /// was already compiled with the variant; do not reconstruct it here.
     var requiresInvertibleEffectTextureProjection: Bool {
         let snapshot = launchEnvelopeCapabilitySnapshot()
         guard snapshot.allEntriesReady, !snapshot.variants.isEmpty else {
             return true
         }
-        return snapshot.variants.contains { variant in
-            let activeSlots = Set(
-                variant.frontendProgram.textureBindings.map(\.slot)
-            )
-            return variant.frontendProgram.uniformLayout.fields.contains { field in
-                guard let host = SceneResolvedMaterialUniformEncoder.hostUniform(
-                    field,
-                    activeTextureSlots: activeSlots
-                ) else { return false }
-                switch host {
-                case .effectModelViewProjection,
-                     .effectTextureProjectionMatrix,
-                     .effectTextureProjectionMatrixInverse:
-                    return true
-                default:
-                    return false
-                }
-            }
-        }
+        return snapshot.variants.contains(
+            where: \.requiresInvertibleEffectTextureProjection
+        )
     }
 
     func resolve(

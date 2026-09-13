@@ -16,6 +16,7 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Rendering/SceneMatrix.swift",
     SOURCE_ROOT / "Rendering/SceneUtilityLayer.swift",
     SOURCE_ROOT / "Rendering/SceneCaptureGeometry.swift",
+    SOURCE_ROOT / "Rendering/SceneLayerCursorGeometry.swift",
 ]
 
 HARNESS_SOURCE = r'''
@@ -43,6 +44,17 @@ enum Harness {
         )!
         let fullscreen = SceneCaptureGeometryResolver.resolve(
             kind: .fullscreen, layerMVP: localMVP, viewportSize: viewport
+        )!
+        let singularLayerMVP = SceneMatrix.scale(SIMD3<Float>(0, 0, 1))
+        let fullscreenFromSingularLayer = SceneCaptureGeometryResolver.resolve(
+            kind: .fullscreen,
+            layerMVP: singularLayerMVP,
+            viewportSize: viewport
+        )!
+        let compositionFromSingularLayer = SceneCaptureGeometryResolver.resolve(
+            kind: .composition,
+            layerMVP: singularLayerMVP,
+            viewportSize: viewport
         )!
         let project = SceneCaptureGeometryResolver.resolve(
             kind: .project, layerMVP: localMVP, viewportSize: viewport
@@ -112,6 +124,16 @@ enum Harness {
             ],
             "fullscreenSize": [fullscreen.pixelSize.width, fullscreen.pixelSize.height],
             "fullscreenOutput": matrix(fullscreen.outputMVP),
+            "fullscreenCanonicalProjectionInvertible":
+                SceneLayerCursorGeometry.effectProjectionInverse(
+                    fullscreenFromSingularLayer.outputMVP,
+                    required: true
+                ) != nil,
+            "singularCompositionProjectionRejected":
+                SceneLayerCursorGeometry.effectProjectionInverse(
+                    compositionFromSingularLayer.outputMVP,
+                    required: true
+                ) == nil,
             "projectOrigin": vector(project.sourceUV.origin),
             "projectXAxis": vector(project.sourceUV.xAxis),
             "projectYAxis": vector(project.sourceUV.yAxis),
@@ -200,6 +222,12 @@ class SceneCaptureGeometryTests(unittest.TestCase):
         self.assertEqual(self.result["fullscreenSize"], [1000, 800])
         full_target = [2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
         self.assertEqual(self.result["fullscreenOutput"], full_target)
+
+    def test_fullscreen_effect_projection_uses_canonical_output_geometry(self) -> None:
+        self.assertTrue(self.result["fullscreenCanonicalProjectionInvertible"])
+
+    def test_singular_composition_effect_projection_remains_rejected(self) -> None:
+        self.assertTrue(self.result["singularCompositionProjectionRejected"])
 
     def test_project_uses_wallpaper_aligned_projected_geometry(self) -> None:
         self.assertEqual(self.result["projectOrigin"], [0.5, 0.5])

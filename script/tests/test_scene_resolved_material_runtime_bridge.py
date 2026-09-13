@@ -813,6 +813,13 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
         }
 struct SceneEffectStageExecutionPlan {}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct FrameInputContract: Equatable {
+        enum EffectTextureProjectionSource: Equatable {
+            case emittedOutputGeometry
+        }
+        let effectTextureProjectionSource: EffectTextureProjectionSource
+        let requiresInvertibleEffectTextureProjection: Bool
+    }
     struct SceneBackgroundRequirement: Equatable {
         let layerID: Int
         let effect: SceneAuthoredEffectRenderPlan.EffectKey
@@ -865,7 +872,10 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
-        let requiresInvertibleEffectTextureProjection: Bool = false
+        let frameInputContract = FrameInputContract(
+            effectTextureProjectionSource: .emittedOutputGeometry,
+            requiresInvertibleEffectTextureProjection: false
+        )
         var effectSubjectsAreConserved: Bool {
             let expected = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
             return !expected.isEmpty && Set(expected).count == expected.count
@@ -3522,6 +3532,11 @@ enum Harness {
                 exact = claim.admittedGraphs.flatMap {
                     $0.effects.map(\.key)
                 } == [effect]
+                    && claim.frameInputContract
+                        .effectTextureProjectionSource
+                        == .emittedOutputGeometry
+                    && !claim.frameInputContract
+                        .requiresInvertibleEffectTextureProjection
             case .rejected, .notMigrated:
                 exact = false
             }

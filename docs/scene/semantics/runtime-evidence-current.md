@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-prepared-effect-parameter-contract"></a>
+### 2026-09-14 prepared effect 参数执行与 emitted-geometry projection 合同
+
+**结论：Material Program 的 active uniform 来源与 layer effect projection 现在都是 generation 产物；普通帧只物化 typed live value/resource，不能重新决定参数或几何语义。** 旧 finalizer 每帧重新扫描 template uniform declaration，重复推断 host/static/dynamic/texture-resolution 路径；effect inverse 要求也在 claim 时遍历 variant。Puppet 世界空间直绘后，共享 preflight 又把 source MVP 当作所有 effect 的 projection，导致 `3747492842` fullscreen layer 173 的 authored source transform 为奇异矩阵时整条效果链被 `effect-projection-inverse-invalid` 拒绝。现役 compiled variant 为每个 field 保存 exact prepared binding：host semantic、预编码 static、typed dynamic producer/fallback/schema、neutral texture resolution 或 self-composite resolution；layer capability 保存 `FrameInputContract`，明确 effect texture projection 来自实际 emitted output geometry并预计算 inverse 要求。frame finalization仍实时验证 dynamic source/range、resource identity/readiness/mapping和generation，但不再重新解析声明或选择 lane。
+
+**代码与正反门：**fullscreen 使用 canonical output geometry；image/Puppet/composition/direct draw 的 output MVP 已包含各自 live world placement，所以 atlas/source logical extent 不再冒充放置几何。focused 门覆盖五种 uniform lane、prepared layout identity、runtime bridge 传递、singular fullscreen 正例、singular composition 拒绝反例、Puppet world request、utility layer与现有 opaque loop clone，共9个模块全部通过；规定的签名 Debug build `BUILD SUCCEEDED`，签名验证通过。该合同沿共享 Program/graph owner服务 Texture、Geometry、Simulation、Provider和GraphProduct，没有新增 effect/sample dispatch、第二套 property/clock/resource registry或 compositor。
+
+**产品身份与真实运行：**App 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `0e0d030021d24b818f7595c3622c79c186e54c43`，executable SHA-256 `c5f253770b9046f991f75276326f741e09091a795a8d8857f71ed41ee7dc28df`。`3747492842` 的25秒定向运行输出`/private/tmp/mwx-3747492842-prepared-parameters-20260914-003`：552/551/0 frame submitted/completed/failed、0 drawable miss，12个active effect全部为Program；7个graph layer最终均成功，GraphExecutor 208/208/208 claim/encode/GPU、0 failure，fullscreen layer 173的VHS/Chromatic Aberration/Iris全部执行，utility `173 / 265 / 434`均成功。前两次观察中视频layer 186仍为`layer-source-not-ready`局部fallback，随后每次均7/7执行；benchmark尚未把该恢复认作transient recovered，且tracked matrix仍保存旧effect/utility计数，因此总报告为NON-PASS。report/app-log/after PNG SHA-256为`f03c2aafa3bfd46d1e990b99cd151c44fb6271d7840dcd0fbfda4068996d9cff / 63d6d9e3d975c8840f4710c787affbaef27f47dd39d56afa7c2a235291e4b45f / 7d0154edcef061006e12c78d99963efe0d27142692c43d11e6355f7c9497b12a`。
+
+`3780119725` 的25秒定向运行输出`/private/tmp/mwx-3780119725-prepared-parameters-20260914-005`，结果`failures=[] / strict PASS`：31个active effect全部为Program，20/20 graph layer完成，GraphExecutor 360/360/360、0 failure/fallback，62/62 terminal Program transaction，五个utility capture成功；354/353/0 frame且0 drawable miss。原分辨率ready/after确认人物、摩托、猫、路牌和前后景保持同一世界比例，姿态与动态层持续变化，未再次出现coverage中间纹理。report/app-log/ready/after PNG SHA-256为`4a5962cc171e1478653909bc747b86b3dace4c473c464e8ae6c6c5dfa70b0094 / 28ae76492bafe199869545f76c94fdd953708fb7e698cd454693d55b500afca7 / 6421251f75ec23ffcf2efcff5186921f33a4374882b99498b4f467593e3cf2e5 / cbb78a3cb2d058aa5db8c774c601be1a7458aaea024379023b8323b292e53f4b`。
+
+**边界：**这项证据关闭“帧内重新决定参数来源”和fullscreen/Puppet共用错误projection的公共首断点，不自动证明全部effect参数已有producer、全部五类真实样本、官方逐像素parity或人工acceptance。`3747492842`的启动视频pending、tracked matrix、文字裁切/光束/闪烁仍开放；两样本CPU p50分别约`31.094 / 49.965 ms`，性能未完成。未运行full corpus。
+
 <a id="e-2026-09-14-whole-frame-shared-pair-residency"></a>
 ### 2026-09-14 同帧 shared-pair 驻留与 `3749463715` 唯一输出闭环
 

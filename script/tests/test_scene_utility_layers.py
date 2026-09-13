@@ -234,6 +234,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("sourceTexture = mainTarget", preflight)
         self.assertIn("textureFrame = geometry.sourceUV", preflight)
         self.assertIn("outputMVP = geometry.outputMVP", preflight)
+        self.assertIn("case .emittedOutputGeometry:", preflight)
+        self.assertIn("outputMVP", preflight)
+        self.assertEqual(
+            preflight.count("modelViewProjection: effectProjectionMVP"),
+            2,
+        )
         self.assertIn(
             "resolvedMaterialFrameTargetPlans: [",
             effect_execution + frame_renderer,

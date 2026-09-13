@@ -738,20 +738,27 @@ extension SceneMetalRenderer {
                 capturesMainTarget = false
                 effectSourceExtent = nil
             }
+            let effectProjectionMVP: simd_float4x4 = switch
+                claim.frameInputContract.effectTextureProjectionSource
+            {
+            case .emittedOutputGeometry:
+                outputMVP
+            }
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectProjectionInverse(
-                        sourceMVP,
-                        required: claim.requiresInvertibleEffectTextureProjection
+                        effectProjectionMVP,
+                        required: claim.frameInputContract
+                            .requiresInvertibleEffectTextureProjection
                     ) else {
                 return invalid("layer-\(layerID)-effect-projection-inverse-invalid")
             }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
-                modelViewProjection: sourceMVP
+                modelViewProjection: effectProjectionMVP
             )
             let previousCursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.previous,
-                modelViewProjection: sourceMVP
+                modelViewProjection: effectProjectionMVP
             )
             if let texture = sourceTexture {
                 let request = SceneImageLayerDrawRequest(

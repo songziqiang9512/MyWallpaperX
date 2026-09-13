@@ -22,7 +22,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement:
             SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement?
-        let requiresInvertibleEffectTextureProjection: Bool
+        let frameInputContract:
+            SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract
         let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
 
         fileprivate init(
@@ -35,7 +36,8 @@ final class SceneResolvedMaterialRuntimeBridge {
             sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
             sceneBackgroundRequirement:
                 SceneResolvedMaterialExecutionCapabilityCatalog.SceneBackgroundRequirement? = nil,
-            requiresInvertibleEffectTextureProjection: Bool,
+            frameInputContract:
+                SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract,
             token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
         ) {
             self.layerID = layerID
@@ -46,8 +48,7 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.dependencyOwnership = dependencyOwnership
             self.sourceRoute = sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
-            self.requiresInvertibleEffectTextureProjection =
-                requiresInvertibleEffectTextureProjection
+            self.frameInputContract = frameInputContract
             self.token = token
         }
     }
@@ -570,8 +571,7 @@ extension SceneResolvedMaterialSubmissionCoordinator {
             dependencyOwnership: capability.dependencyOwnership,
             sourceRoute: capability.sourceRoute,
             sceneBackgroundRequirement: capability.sceneBackgroundRequirement,
-            requiresInvertibleEffectTextureProjection:
-                capability.requiresInvertibleEffectTextureProjection,
+            frameInputContract: capability.frameInputContract,
             token: claim.token
         )
         guard recordsClaim else { return .claimed(execution) }

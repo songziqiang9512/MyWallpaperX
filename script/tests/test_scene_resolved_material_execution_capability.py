@@ -5,6 +5,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 EXECUTION = SCENE / "RenderGraph/EffectExecution"
+MATERIAL = SCENE / "RenderGraph/MaterialProgram"
+RUNTIME = SCENE / "Runtime/ResolvedMaterialExecution"
+RENDERING = SCENE / "Rendering"
 
 
 class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
@@ -91,6 +94,66 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         self.assertNotIn(
             "case .admittedDedicated, .admittedFallback",
             reporting,
+        )
+
+    def test_uniform_and_geometry_sources_are_prepared_before_frames(self) -> None:
+        capability = (
+            EXECUTION / "SceneResolvedMaterialExecutionCapability.swift"
+        ).read_text(encoding="utf-8")
+        stages = (
+            EXECUTION / "SceneResolvedMaterialExecutionCapability+Stages.swift"
+        ).read_text(encoding="utf-8")
+        compiled = (
+            MATERIAL / "SceneResolvedMaterialCompiledVariant.swift"
+        ).read_text(encoding="utf-8")
+        compilation = (
+            MATERIAL
+            / "SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift"
+        ).read_text(encoding="utf-8")
+        finalizer = (
+            MATERIAL / "SceneResolvedMaterialProgramFinalizer.swift"
+        ).read_text(encoding="utf-8")
+        bridge = (
+            RUNTIME / "SceneResolvedMaterialRuntimeBridge.swift"
+        ).read_text(encoding="utf-8")
+        preflight = (
+            RENDERING / "SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("struct FrameInputContract: Equatable", capability)
+        self.assertIn("case emittedOutputGeometry", capability)
+        self.assertIn("let frameInputContract: FrameInputContract", capability)
+        self.assertIn("stages.contains(", capability)
+        self.assertNotIn(
+            "extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability",
+            stages,
+        )
+        self.assertIn(
+            "struct SceneResolvedMaterialPreparedUniformBinding: Hashable",
+            compiled,
+        )
+        for route in (
+            "case host(Program.HostUniform)",
+            "case staticValue(Data)",
+            "case dynamic(Dynamic)",
+            "case neutralMissingTextureResolution(",
+            "case selfCompositeTextureResolution(",
+        ):
+            self.assertIn(route, compiled)
+        self.assertIn(".prepareUniformBindings(", compilation)
+        resolved_start = finalizer.index("private static func resolvedUniforms(")
+        resolved_end = finalizer.index(
+            "/// A same-layer composite slot may exist", resolved_start
+        )
+        resolved = finalizer[resolved_start:resolved_end]
+        self.assertIn("variant.preparedUniformBindings.map", resolved)
+        self.assertIn("switch binding.source", resolved)
+        self.assertNotIn("template.uniformDeclarations.filter", resolved)
+        self.assertNotIn("hostUniform(\n                field", resolved)
+        self.assertIn("frameInputContract: capability.frameInputContract", bridge)
+        self.assertIn(
+            "claim.frameInputContract.effectTextureProjectionSource",
+            preflight,
         )
 
 
