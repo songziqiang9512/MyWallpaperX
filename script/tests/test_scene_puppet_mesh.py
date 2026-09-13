@@ -202,6 +202,7 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         cls.fixtures = {
             "stride80.mdl": build_mdl(),
             "stride84.mdl": build_mdl(stride=84),
+            "mdlv0014.mdl": build_mdl(magic=b"MDLV0014", stride=52),
             "mdlv0016.mdl": build_mdl(magic=b"MDLV0016", stride=52),
             "mdlv0016-with-mdat.mdl": build_mdl(
                 magic=b"MDLV0016",
@@ -277,6 +278,11 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         self.assertTrue(entry["ok"], entry)
         self.assertEqual((entry["version"], entry["stride"]), ("MDLV0016", 52))
         self.assertFalse(self.results["mdlv0016-wrong-stride.mdl"]["ok"])
+
+    def test_mdlv0014_reads_only_the_verified_stride_52_mesh(self):
+        entry = self.results["mdlv0014.mdl"]
+        self.assertTrue(entry["ok"], entry)
+        self.assertEqual((entry["version"], entry["stride"]), ("MDLV0014", 52))
 
     def test_mdlv0016_does_not_expand_the_mdlv0023_attachment_contract(self):
         entry = self.results["mdlv0016-with-mdat.mdl"]

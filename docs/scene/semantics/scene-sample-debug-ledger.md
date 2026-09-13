@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 `MDLV0014 + MDLS0002` bind/script geometry
+
+`2797913147` 的layer 24引用158460字节`models/人物_puppet.mdl`（SHA-256 `47808c6ab5df6bbbe9d3c012b3dc256fc6f760794e97e837706832278bdcc769`）。只读结构验证得到唯一52-byte `MDLV0014` mesh：2479 vertices、4807 triangles、完整UInt16索引覆盖、四权重有限且只引用2个有效bone；`MDLS0002`位于offset 157805，文件没有MDLA或MDAT。现役reader只把这一已验证mesh/rig形状接入已有bind/script playback，不推测`MDLV0014`动画、attachment或未知记录。骨骼1的未实现gravity保持bone-local authored pose并诊断，合法geometry不因局部physics缺口被丢弃。
+
+签名Debug App为2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `4b9d57bf0f1f6cfdad6f1483208fef773f5a0861`，executable SHA-256 `58d29c8d620724c3a49a5e3f04dda00280a22798a7e91697ea70699350885d95`。单样本25秒fresh运行strict PASS：1158/1157/0 submitted/completed/failed、0 drawable miss，7/7 active effect为Program，3个graph layer完成，GraphExecutor 381/381 claim/encode、0 failure/fallback。layer 24的5项effect input均保持作者atlas `1406×2500`，`puppet-world-draw`记录2262/2479 visible vertices，frame 0/next-frame取得GPU completion、publication和terminal compositor；原分辨率ready/after确认完整人物、背景与logo持续存在。matrix/report/app-log SHA-256为`6b2cdd7438c604df71a420b17f597beb9e40cb1c30399a4b0fc4e2d42f2f4086 / 27e0415dea1a7b7cbf95610e673fd04cb844d97c951cd1ad1042654d1a3b2434 / dac83b6087de2f50487a67bd75147fbddfdb34d581617c03f15c2a8d8c13d346`。完整截图hash、性能和未验证边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-puppet-mdlv0014)。这关闭“主体人物消失”的技术首断点，不替代逐像素官方golden或维护者整样本人工验收。
+
 ## 2026-09-14 Puppet 原始 atlas 与精确 effect extent
 
 世界空间网格重写已经消除coverage压平，但旧effect target仍按普通layer的standard policy把大atlas缩到2048宽；`3748311238`的`5000×2200`五级embedded TEX还先被4096门直接拒绝。这说明“组合正确”和“贴图未经压缩”是两个独立合同。现役GeometryProduct在generation preparation固化source extent：普通图像保持`scalableStandard`，Puppet mesh为`exactSamplingTexture`；preflight和target plan只能消费该合同。有效多级embedded color TEX按编译后的首mip及全部mip上传。exact尺寸超出现役pool边界时局部拒绝，不降采样、不扩大预算、不恢复atlas quad。
@@ -14,7 +20,7 @@
 | `3780119725` | layer 21的7项effect保持`3874×2000`，layer 794保持`391×310` | strict PASS，人物、摩托、猫和前后景完整组合 |
 | `3264246690` | layer 389的9项effect保持`3658×2000` | strict PASS，头部、双臂和手部完整；loaded ratio `0.9412`仍是其他已知拒绝 |
 | `3238423642` | layers 20/820保持`3504×2160`，layer 2190保持`600×600` | strict PASS，主角色与红/绿偏移层完整 |
-| `2797913147` | layer 24的`1406×2500` atlas已加载；作者mesh为当前reader未支持的`MDLV0014`，未形成GeometryProduct并停在`layer-source-not-ready` | NON-PASS；下一项公共MDL reader断点，不能用atlas quad或缩放替代 |
+| `2797913147` | 本表记录精确atlas批次时的历史首断点：`MDLV0014`尚未被reader接受 | 历史NON-PASS；现已由上方`MDLV0014 + MDLS0002`后继证据关闭 |
 
 四个PASS运行的report SHA-256依次为`92869265fc2126514fc1ab26936438cd14ced550a5b5cafdea53400698f1175d / 901e1d1368b0eaa307db12b46b11824b13e4f06be4650050d45dbb85eaba8cd6 / c74f44f8c957062fcd90bb25d8a6d4e29c0106b0bf1c53f5373a8ffd96eed44f / 88262f9519afcad20c00b0d2a61bb9f5bef11f9824155ea3794cdeba88a34410`；279的NON-PASS report为`f3e7243e38a874bffd6aab3d0d477edaccee5c4b668b253926c6361ee835b819`。完整App/log/截图identity、focused正反门和性能边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-puppet-exact-atlas-effect-extent)。未运行full corpus，结果不自动改写人工acceptance verdict。
 
@@ -166,7 +172,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
 | 3748311238 | 主体人物消失 | 当前HEAD加载`5000×2200`五级atlas和MDLV0023 mesh，9项effect均保持精确atlas尺寸，完整人物持续可见 | strict PASS；本断点关闭，人工整体验收未更新 |
-| 2797913147 | 主体人物消失 | 当前HEAD已复现：atlas加载成功，作者mesh为未支持`MDLV0014`，GeometryProduct缺失并停在`layer-source-not-ready` | 下一公共reader断点 |
+| 2797913147 | 主体人物消失 | 当前HEAD严格读取52-byte `MDLV0014 + MDLS0002` bind/script geometry，5项effect保持`1406×2500` atlas，完整人物持续进入唯一compositor | strict PASS；本断点关闭，人工整体验收未更新 |
 | 2932631210 / 2813231542 / 3788467391 | 主体人物消失 | `be9858e`维护者观察；当前HEAD尚未定向刷新 | 待复现、待归因 |
 | 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |

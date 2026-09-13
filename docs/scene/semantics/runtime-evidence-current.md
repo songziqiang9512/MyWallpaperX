@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-puppet-mdlv0014"></a>
+### 2026-09-14 `MDLV0014 + MDLS0002` Puppet GeometryProduct 闭环
+
+**结论：`2797913147` 的主体人物已从unsupported mesh恢复到现役Puppet世界空间主链，达到S4 bounded visible。** 只读作者资产`models/人物_puppet.mdl`是158460字节、SHA-256 `47808c6ab5df6bbbe9d3c012b3dc256fc6f760794e97e837706832278bdcc769`。它唯一满足`MDLV0014`的52-byte顶点记录、完整UInt16索引覆盖和`MDLS0002`骨架：mesh block offset 43，2479 vertices / 4807 triangles，position范围`x=-341…440 / y=-1198…1255`，UV范围`u=0.257468…0.812945 / v=-0.002…0.9792`；四权重有限、非负、和为1且只引用2个有效bone。文件没有MDLA/MDAT，因此本批不猜测`MDLV0014`动画或attachment格式。
+
+**实现与正反门：**mesh reader只把`MDLV0014`加入已验证stride 52集合，rig reader只接受与它匹配的`MDLS0002`；其余marker、stride、索引覆盖、bone parent/matrix和weights继续沿同一严格门失败关闭。真实层带inline Puppet脚本，因此prepared load使用同一个bind-pose playback/evaluator、`exactSamplingTexture` atlas graph、world MVP和唯一compositor。骨骼1声明当前未实现的gravity solver，现役局部失败合同记录`unsupported-enabled-physics`并保持author pose，不丢弃合法mesh/rig；没有新增sample/path分派、atlas quad或第二renderer。
+
+**产品身份与真实运行：**签名Debug build `BUILD SUCCEEDED`。App为2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `4b9d57bf0f1f6cfdad6f1483208fef773f5a0861`，executable SHA-256 `58d29c8d620724c3a49a5e3f04dda00280a22798a7e91697ea70699350885d95`。只运行`2797913147` 25秒，结果`failures=[] / strict PASS / loaded=1.000`、1158/1157/0 submitted/completed/failed、0 drawable miss。7/7 active effect均为Program；3个graph layer全部执行，GraphExecutor 381/381 claim/encode、0 failure/local fallback。人物layer 24的5项effect input均保持atlas `1406×2500`，frame 0/next-frame都有GPU completion、publication与terminal compositor；`puppet-world-draw`记录2262/2479 visible vertices。ready/after原分辨率检查确认主体人物、背景与logo完整持续，motion `mean_delta=0.0060207 / changed_ratio=0.107852`。
+
+matrix/report/app-log/runtime/ready/after SHA-256为`6b2cdd7438c604df71a420b17f597beb9e40cb1c30399a4b0fc4e2d42f2f4086 / 27e0415dea1a7b7cbf95610e673fd04cb844d97c951cd1ad1042654d1a3b2434 / dac83b6087de2f50487a67bd75147fbddfdb34d581617c03f15c2a8d8c13d346 / 439e60a1eccde3202b38df9760991d61642bca913216d75e6b01810626b275a0 / d5c949885cd3e619e07ab65c4641d5e23223c1465a0a156fb66fd1bd9f613b0b / 02c6821570b6a900a385a8b8931f0cb13c2f321760bf8bc734bbe18ed8530f0e`。driver约59.006 FPS、CPU p50/p95约`6.569/6.826 ms`、GPU p95约`8.681 ms`，只作为该样本当前性能事实。
+
+**边界：**这关闭`2797913147`“主体人物消失”的格式首断点，并证明一个无MDLA的`MDLV0014 + MDLS0002` bind/script geometry形状；未验证其drag/impulse交互、gravity/rotation/IK、任何未知`MDLV0014`动画/attachment、其他样本、逐像素官方parity或人工acceptance。未运行full corpus。
+
 <a id="e-2026-09-14-puppet-exact-atlas-effect-extent"></a>
 ### 2026-09-14 Puppet 原始 atlas 与精确 effect extent 闭环
 
@@ -37,9 +50,9 @@
 | `3780119725` | layer 21的7项graph input均为atlas `3874×2000`，layer 794为`391×310`；354/353/0 frame | `failures=[] / strict PASS`；人物、摩托、猫与前后景保持完整组合。report/app-log/ready/after SHA-256为`901e1d1368b0eaa307db12b46b11824b13e4f06be4650050d45dbb85eaba8cd6 / 5b10383d763959d0871f015b66d52e67dbf2c239ba0461565d48f23bcce00dba / 5ddad21006552573acc14d1730b18b8f41ab00f8d0cf88b43016c16767afbcc8 / 1d5e648041210a96926b2a8a9e53c620e4b394277c4d3f5275a0b2f20f6bd35c` |
 | `3264246690` | layer 389的9项graph input均为atlas `3658×2000`；658/657/0 frame | `failures=[] / strict PASS`，loaded ratio仍为已知`0.9412`；头部、双臂与手部完整。report/app-log/ready/after SHA-256为`c74f44f8c957062fcd90bb25d8a6d4e29c0106b0bf1c53f5373a8ffd96eed44f / 9ec505f3818d602fa7e41498b9fdcbe387940350ced902819fdf74b65c3d8254 / 15b7ed6a2e8ac2a64006ecad2dfa0e76da9d34c2d37eb6627f6d793cc6706f51 / 941468c5eecd5f0722f5d0c10a272f477aff68e6509cea5c312bec2d7ce701e9` |
 | `3238423642` | Puppet layers 20/820的graph input均为`3504×2160`，layer 2190为`600×600`；361/360/0 frame | `failures=[] / strict PASS`；主角色和红/绿偏移组合完整。report/app-log/ready/after SHA-256为`88262f9519afcad20c00b0d2a61bb9f5bef11f9824155ea3794cdeba88a34410 / 013f508a9a79ed48654bc68a06402fcf376327302a32e644390546106ce4fa1e / 5b9d8704daafd91d4b531775ead24f37bd6cd833a7d5400be18bff4711f5518d / cf55af53ee7f13591e5deb11c804800b806ae5ba973a1e6e6f458e5bde674d60` |
-| `2797913147` | layer 24 atlas `1406×2500`已加载，但作者引用的现有mesh为当前reader未支持的`MDLV0014`，没有形成GeometryProduct | `0/1 NON-PASS`，停在`layer-source-not-ready`且人物缺失；这是下一项明确资产格式断点，不能由atlas quad、缩放或sample fallback代替。report/app-log/ready/after SHA-256为`f3e7243e38a874bffd6aab3d0d477edaccee5c4b668b253926c6361ee835b819 / 9758def8da5c41b451278095ab3e499f522291c84d6a03f13562de97de555fdf / 7b669b3b3b1157f195339a1f320bdbef593266aaae8ba2e15e768e64b03dfb89 / abd82ddfc290ab0fae61903de1f38b5ff5baa696c9e83149758784584edc87d9` |
+| `2797913147` | layer 24 atlas `1406×2500`已加载，但本批时作者现有mesh `MDLV0014`尚未被reader接受，未形成GeometryProduct | 本批历史结果为`0/1 NON-PASS`并停在`layer-source-not-ready`；现已由[`MDLV0014`后继证据](#e-2026-09-14-puppet-mdlv0014)关闭。历史report/app-log/ready/after SHA-256为`f3e7243e38a874bffd6aab3d0d477edaccee5c4b668b253926c6361ee835b819 / 9758def8da5c41b451278095ab3e499f522291c84d6a03f13562de97de555fdf / 7b669b3b3b1157f195339a1f320bdbef593266aaae8ba2e15e768e64b03dfb89 / abd82ddfc290ab0fae61903de1f38b5ff5baa696c9e83149758784584edc87d9` |
 
-**边界：**四个strict PASS证明已支持MDL族的原始atlas尺寸、effect graph、mesh采样、GPU/publication/terminal compositor和稳定画面；它们不等于官方逐像素golden或整样本人工acceptance。CPU p50仍约`18.305 / 50.622 / 25.403 / 44.666 ms`，精确输入增加了真实GPU/内存工作量，性能继续属于Q2。`2797913147`证明资源尺寸合同已不再是其首断点，同时把`MDLV0014`提升为下一项公共reader工作。
+**边界：**四个strict PASS证明当时已支持MDL族的原始atlas尺寸、effect graph、mesh采样、GPU/publication/terminal compositor和稳定画面；它们不等于官方逐像素golden或整样本人工acceptance。CPU p50仍约`18.305 / 50.622 / 25.403 / 44.666 ms`，精确输入增加了真实GPU/内存工作量，性能继续属于Q2。该批发现的`MDLV0014`首断点现由上方后继证据关闭。
 
 <a id="e-2026-09-14-prepared-effect-parameter-contract"></a>
 ### 2026-09-14 prepared effect 参数执行与 emitted-geometry projection 合同

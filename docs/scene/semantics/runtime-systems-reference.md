@@ -442,7 +442,7 @@ producer-agnostic inbox 现分别保存 playback、artwork five-color、title/ar
 
 ## 8. Puppet、3D 和 Lighting
 
-Puppet 已有受限执行子集：MDLV0016/0017/0019/0023 mesh 保留原始位置/UV，bind与动画pose经同一CPU LBS生成 `SceneGeometryProduct`，mesh以唯一world MVP直接编码主target；atlas或atlas-space graph-final只作为mesh采样资源，不再重组为coverage/bind-pose纹理或发布普通layer source。匹配的MDLS/MDLA full-TRS strict single clip与受限layered组合共用SceneClock。`MDLV0023 + MDLS0004 + MDAT0001`保留bone identity/local frame，每帧由current bone world生成attachment Scene frame；child、SceneScript layer/bone snapshot、cursor与最终skinning按同一pose顺序消费。MDLA0003 auxiliary scalar、point-property/其他版本attachment、完整冲突mixing、rotation/gravity/IK仍不消费。其余能力按现役路线属于 V5 后续，但格式和时钟设计不能提前封死：
+Puppet 已有受限执行子集：MDLV0014/0016/0017/0019/0023 mesh 保留原始位置/UV，bind与动画pose生成同一 `SceneGeometryProduct`，mesh以唯一world MVP直接编码主target；atlas或atlas-space graph-final只作为mesh采样资源，不再重组为coverage/bind-pose纹理或发布普通layer source。无MDLA/MDAT的`MDLV0014 + MDLS0002`只执行已验证bind/script pose；其余匹配的MDLS/MDLA full-TRS strict single clip与受限layered组合共用SceneClock和CPU LBS。`MDLV0023 + MDLS0004 + MDAT0001`保留bone identity/local frame，每帧由current bone world生成attachment Scene frame；child、SceneScript layer/bone snapshot、cursor与最终skinning按同一pose顺序消费。MDLV0014动画/attachment、MDLA0003 auxiliary scalar、point-property/其他版本attachment、完整冲突mixing、rotation/gravity/IK仍不消费。其余能力按现役路线属于 V5 后续，但格式和时钟设计不能提前封死：
 
 - Puppet：bone hierarchy/weights、animation、spring/rigid/rope/wind、animation events、attachment-relative child 定位；
 - 3D：model/node/material、skeletal animation、attachments、camera、physics；
