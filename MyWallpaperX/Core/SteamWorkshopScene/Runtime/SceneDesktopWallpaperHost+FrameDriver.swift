@@ -39,6 +39,9 @@ extension SceneDesktopWallpaperHost {
         frameTimer = nil
         frameDriverDeadline = nil
 #if DEBUG
+        ScenePerformanceHUDController.shared.showIfNeeded()
+#endif
+#if DEBUG
         if Self.usesDebugEvidenceWindow {
             NSLog(
                 "MWX DEBUG SCENE: phase=frame-driver-start paused=%@",
