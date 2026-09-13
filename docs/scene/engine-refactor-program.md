@@ -65,7 +65,7 @@
 - **M1.1 常开定长 counter** 🔶 e04d6a26+300f6a1a：hub 已落地（16 定长槽：帧四分类、cpuFrame/renderer/drawableWait、drawCalls、7 个帧内阶段 micros）+ launch 五阶段/firstVisibleFrame 首次时间戳；现有 `SceneFramePerformanceTelemetry` 保持仅 debug 证据窗口。剩余：textureMemory/rtMemory/pipelineSwitches/geometry 与 fallback 分支计数（随 M2/M4 批次补）。
 - **M1.2 signpost** ✅ e04d6a26：OSSignposter 薄封装 + launch-state 事件 + firstVisibleFrame 首次记录。帧内阶段 interval 待按需补（counter 已覆盖归因）。
 - **M1.3 Debug HUD** ✅ d427ddaf：`ScenePerformanceHUD`（仅 DEBUG）浮窗 1Hz 差分展示 + 每 5s 结构化 `MWX PERF:` NSLog（累计均值/阶段分解/launch 时间戳），启用门 = evidence window 或 MYWALLPAPERX_SCENE_PERF_HUD=1；不进帧路径，Release 无此类型。
-- 验收：基线**机制**就绪（MWX PERF 行可解析）；**实测基线报告**（各风险项占比 + TTFVF 数字）随 M2 Patch A 的 before 采集一并产出——需真实样本运行（benchmark 隔离副本），在 M2 批次执行。
+- 验收：基线**机制**就绪 ✅；**M1 基线数字（2026-09-14，样本 1300076567 隔离副本 /tmp/mwx-baseline，Debug+evidence 窗，20s 稳态，6 layers/1 image/0 effects 简单场景）**：稳态 60fps（rendered 1189/busy 0/dropped 0）；cpu frame 累计均值 3.92ms（renderer 2.77 + drawable 0.28）；阶段均值 world-resolve 0.01 / frame-admission 0.30 / **prepass 2.03（占 cpu 52%，首要观测项）** / layer-loop 0.31 / seal 0.07；draw=1/帧；startupElapsedMS=941.7（含 0.4s 调度延迟；runner 同步 launch 路径不经 publishLaunchState——launch 阶段日志在同步路径缺失，已记 M2 后补）。原始日志 /private/tmp/mwx-baseline/run-before.log（临时区）。该样本无 graph/particle，trace/plan 重验证等风险项在复杂样本上占比更高，Patch A/B 后在同类简单样本上先比绝对值。
 
 ### M2 引擎减税
 
