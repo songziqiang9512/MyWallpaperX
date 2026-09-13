@@ -111,6 +111,12 @@ final class AppKitSettingsContainerView: NSView {
     private let idleTimeoutPopup = NSPopUpButton()
     private var idleTimeoutRowView: NSView?
 
+    /// Scene 引擎性能预算档（60=standard 全量，30=efficient 减频减容量）。
+    private let sceneMaxFPSSegmented = NSSegmentedControl(
+        labels: ["30 FPS", "60 FPS"], trackingMode: .selectOne, target: nil,
+        action: nil
+    )
+
     private let multiDisplaySwitch = NSSwitch()
     private let fillModeFitButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFit.rawValue, target: nil, action: nil)
     private let fillModeFillButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFill.rawValue, target: nil, action: nil)
@@ -213,6 +219,8 @@ final class AppKitSettingsContainerView: NSView {
         pauseOtherAppFullscreenSwitch.state = settings.pauseWhenOtherAppFullscreen ? .on : .off
         pauseWhenUnpluggedSwitch.state = settings.pauseWhenUnplugged ? .on : .off
         pauseWhenIdleSwitch.state = settings.pauseWhenIdle ? .on : .off
+        sceneMaxFPSSegmented.selectedSegment =
+            PlaybackPerformanceProfile.current == .efficient ? 0 : 1
         idleTimeoutRowView?.isHidden = !settings.pauseWhenIdle
         selectIdleTimeout(settings.idleTimeoutMinutes)
 
@@ -593,6 +601,7 @@ final class AppKitSettingsContainerView: NSView {
         efficiencySection.addRow(makeSettingRow(title: "其他应用全屏时暂停", iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
         efficiencySection.addRow(makeSettingRow(title: "未连接电源时暂停播放", iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
         efficiencySection.addRow(makeSettingRow(title: "电脑不活跃时暂停播放", iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
+        efficiencySection.addRow(makeSettingRow(title: "最高帧率（Scene 引擎）", iconSystemName: "gauge.with.needle", subtitle: "60 全量预算；30 节能预算", trailing: sceneMaxFPSSegmented))
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: "\(value)分钟")
@@ -735,6 +744,8 @@ final class AppKitSettingsContainerView: NSView {
         pauseWhenIdleSwitch.action = #selector(handlePerformanceToggle)
         idleTimeoutPopup.target = self
         idleTimeoutPopup.action = #selector(handleIdleTimeoutChange)
+        sceneMaxFPSSegmented.target = self
+        sceneMaxFPSSegmented.action = #selector(handleSceneMaxFPSChange)
 
         multiDisplaySwitch.target = self
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
@@ -1038,7 +1049,10 @@ final class AppKitSettingsContainerView: NSView {
 
     @objc private func handleMuteToggle() {
         guard !isUpdatingUI else { return }
-        wallpaperManager.setMuted(muteSwitch.state == .on)
+        // 经命令层广播（M0.2）：video=音量归零/恢复；scene=Sound 层 0 增益。
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setMuted(muteSwitch.state == .on)
+        )
     }
 
     @objc private func handlePlaybackRateChange() {
@@ -1200,6 +1214,18 @@ final class AppKitSettingsContainerView: NSView {
         wallpaperManager.settings.pauseWhenUnplugged = (pauseWhenUnpluggedSwitch.state == .on)
         wallpaperManager.settings.pauseWhenIdle = (pauseWhenIdleSwitch.state == .on)
         wallpaperManager.applyEngineSettings()
+    }
+
+    @objc private func handleSceneMaxFPSChange() {
+        guard !isUpdatingUI else { return }
+        let profile = PlaybackPerformanceProfile(
+            rawValue: sceneMaxFPSSegmented.selectedSegment == 0 ? 30 : 60
+        ) ?? .standard
+        PlaybackPerformanceProfile.save(profile)
+        // 经命令层下发（M0.7）：引擎端热切换帧节奏与预算，不重启壁纸。
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setPerformanceProfile(maxFPS: profile.maxFPS)
+        )
     }
 
     @objc private func handleIdleTimeoutChange() {

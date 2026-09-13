@@ -35,8 +35,15 @@ extension SceneDesktopWallpaperHost: PlaybackEngineControlling {
             PlaybackMuteState.shared.setMuted(muted)
             soundPlaybackRegistry?.setMuted(muted)
             return true
-        case .setPerformanceProfile, .setProperty, .switchNext:
-            // M0.3 / M0.6 接入；switchNext 属选中层，不走引擎。
+        case let .setPerformanceProfile(maxFPS):
+            // M0.7：帧节奏与预算束热切换，下一次排帧生效。
+            guard let profile = PlaybackPerformanceProfile(rawValue: maxFPS) else {
+                return false
+            }
+            applyPerformanceProfile(profile)
+            return true
+        case .setProperty, .switchNext:
+            // M0.6 接入；switchNext 属选中层，不走引擎。
             return false
         }
     }

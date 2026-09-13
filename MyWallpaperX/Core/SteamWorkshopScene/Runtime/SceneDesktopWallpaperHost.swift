@@ -89,6 +89,13 @@ final class SceneDesktopWallpaperHost {
         launchContext != nil && !sceneClock.isPaused
     }
 
+    /// 性能预算档（M0.7）：帧节奏与预算束随命令热切换，不重启壁纸。
+    private(set) var performanceProfile: PlaybackPerformanceProfile = .current
+
+    func applyPerformanceProfile(_ profile: PlaybackPerformanceProfile) {
+        performanceProfile = profile
+    }
+
     private init() {
         installObservers()
     }

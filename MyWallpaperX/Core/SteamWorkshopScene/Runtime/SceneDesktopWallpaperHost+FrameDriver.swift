@@ -1,10 +1,5 @@
 import AppKit
 import QuartzCore
-private let sceneFrameInterval: TimeInterval = 1.0 / 60.0
-private let sceneBusyFrameRetryInterval = max(
-    0.001,
-    sceneFrameInterval / 8.0
-)
 private enum SceneFrameDriverAttempt {
     case rendered
     case busy
@@ -12,6 +7,14 @@ private enum SceneFrameDriverAttempt {
     case inactive
 }
 extension SceneDesktopWallpaperHost {
+    /// 帧节奏由性能预算档驱动（M0.7）：60=standard，30=efficient；
+    /// 档位经 `.setPerformanceProfile` 命令热切换，下一次排帧生效。
+    private var sceneFrameInterval: TimeInterval {
+        1.0 / Double(performanceProfile.maxFPS)
+    }
+    private var sceneBusyFrameRetryInterval: TimeInterval {
+        max(0.001, sceneFrameInterval / 8.0)
+    }
 #if DEBUG
     static let debugSceneTimeOverride: TimeInterval? = {
         guard usesDebugEvidenceWindow,
