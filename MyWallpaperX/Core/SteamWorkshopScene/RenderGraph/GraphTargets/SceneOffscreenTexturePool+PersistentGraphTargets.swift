@@ -246,7 +246,8 @@ extension SceneOffscreenTexturePool {
         requestedWidth: Int,
         requestedHeight: Int,
         usesSharedFullFrameWorkingPair: Bool = false,
-        orderingContext: SceneGraphCommandQueueOrderingContext? = nil
+        orderingContext: SceneGraphCommandQueueOrderingContext? = nil,
+        plansMemoIdentity: SceneOffscreenTexturePool.PersistentPlansMemoIdentity? = nil
     ) -> Result<ScenePersistentGraphTargetFramePlan,
         ScenePersistentGraphTargetPlanningFailure> {
         guard pixelFormat == .bgra8Unorm else {
@@ -261,7 +262,8 @@ extension SceneOffscreenTexturePool {
             pairPlan: pairPlan,
             extentPolicy: extentPolicy,
             requestedWidth: requestedWidth,
-            requestedHeight: requestedHeight
+            requestedHeight: requestedHeight,
+            plansMemoIdentity: plansMemoIdentity
         ) {
         case let .success(value): prepared = value
         case let .failure(failure): return .failure(failure)

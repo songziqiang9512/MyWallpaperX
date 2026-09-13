@@ -175,13 +175,33 @@ final class SceneOffscreenTexturePool {
         return value
     }
 
+    /// M4.1：persistentTargetPlansResult 的内容键身份。capability token
+    /// 值等价于 owner+capability+layer（catalog 不可变）——图集合随
+    /// capabilityID 不变；capability 换代自动换键。
+    struct PersistentPlansMemoIdentity: Hashable {
+        let capabilityToken: SceneResolvedMaterialExecutionCapabilityCatalog.Token
+        let layerID: Int
+    }
+
+    private struct PersistentPlansMemoKey: Hashable {
+        let identity: PersistentPlansMemoIdentity
+        let width: Int
+        let height: Int
+        let materialFunctionTargets: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
+    }
+
+    private var persistentPlansMemo: [PersistentPlansMemoKey: (
+        plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
+    )] = [:]
+
     func persistentTargetPlansResult(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
         materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>] = [:],
         pairPlan: SceneLayerFullFramePairPlan,
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
-        requestedHeight: Int
+        requestedHeight: Int,
+        plansMemoIdentity: PersistentPlansMemoIdentity? = nil
     ) -> Result<(
         plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
     ), ScenePersistentGraphTargetPlanningFailure> {
@@ -196,6 +216,46 @@ final class SceneOffscreenTexturePool {
             hardLimit: maxDimension,
             policy: extentPolicy
         ) else { return .failure(.invalidExtent) }
+        // M4.1：make 为纯函数，键覆盖全部输入；命中即跳过逐层 make
+        // （帧路径 adm 段 25.5ms 主项）。capability 换代自动换键；
+        // reset() 清空；失败结果不缓存（保持重试语义）。
+        if let plansMemoIdentity {
+            let memoKey = PersistentPlansMemoKey(
+                identity: plansMemoIdentity,
+                width: size.0,
+                height: size.1,
+                materialFunctionTargets: materialFunctionTargetsByEffect
+            )
+            if let cached = persistentPlansMemo[memoKey] {
+                return .success(cached)
+            }
+            let derived = persistentTargetPlans(
+                admittedGraphs: admittedGraphs,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                pairPlan: pairPlan,
+                size: size
+            )
+            guard case let .success(value) = derived else { return derived }
+            persistentPlansMemo[memoKey] = value
+            return .success(value)
+        }
+        return persistentTargetPlans(
+            admittedGraphs: admittedGraphs,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan,
+            size: size
+        )
+    }
+
+    /// make 的纯推导体（无状态；memo 未命中时执行）。
+    private func persistentTargetPlans(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>],
+        pairPlan: SceneLayerFullFramePairPlan,
+        size: (width: Int, height: Int)
+    ) -> Result<(
+        plans: [SceneGraphRenderTargetPlan], width: Int, height: Int
+    ), ScenePersistentGraphTargetPlanningFailure> {
         var plans: [SceneGraphRenderTargetPlan] = []
         plans.reserveCapacity(admittedGraphs.count)
         for (index, values) in zip(admittedGraphs, pairPlan.effects).enumerated() {
@@ -205,8 +265,8 @@ final class SceneOffscreenTexturePool {
             let planResult = SceneGraphRenderTargetPlan.make(
                 graph: graph,
                 inputRole: inputRole,
-                inputWidth: size.0,
-                inputHeight: size.1,
+                inputWidth: size.width,
+                inputHeight: size.height,
                 materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
             )
             let plan: SceneGraphRenderTargetPlan
@@ -224,11 +284,12 @@ final class SceneOffscreenTexturePool {
             }
             plans.append(plan)
         }
-        return .success((plans: plans, width: size.0, height: size.1))
+        return .success((plans: plans, width: size.width, height: size.height))
     }
 
     func reset() {
         allocationCache.reset()
+        persistentPlansMemo.removeAll(keepingCapacity: true)
     }
 
     func byteCost(width: Int, height: Int, textureCount: Int) -> Int? {

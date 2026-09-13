@@ -258,7 +258,11 @@ enum SceneResolvedMaterialGraphComposition {
                 requestedWidth: request.requestedWidth,
                 requestedHeight: request.requestedHeight,
                 usesSharedFullFrameWorkingPair: true,
-                orderingContext: orderingContext
+                orderingContext: orderingContext,
+                plansMemoIdentity: .init(
+                    capabilityToken: request.claim.token,
+                    layerID: request.claim.layerID
+                )
             ) {
             case let .success(value): allocation = value
             case let .failure(failure):
