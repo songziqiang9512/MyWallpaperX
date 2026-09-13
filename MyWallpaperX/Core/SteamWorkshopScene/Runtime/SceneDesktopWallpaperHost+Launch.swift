@@ -273,7 +273,9 @@ extension SceneDesktopWallpaperHost {
         logURL: URL? = nil,
         recordID: String? = nil
     ) throws -> SceneRuntimeModel {
-        nextSceneScriptGeneration &+= 1
+        // M3.2：同步 launch 路径（debug runner）接入 launch 阶段计时，
+        // 与异步 requestLaunch 同口径，补齐 TTFVF 归因。
+        Self.recordLaunchPhase(.accepted)
         let prepared = try Self.prepareLaunch(
             rootURL: rootURL,
             propertyOverrides: propertyOverrides,
@@ -282,9 +284,12 @@ extension SceneDesktopWallpaperHost {
             recordID: recordID,
             sceneScriptGeneration: nextSceneScriptGeneration,
             cancellation: nil,
-            progress: nil
+            progress: { phase, _ in
+                SceneDesktopWallpaperHost.recordLaunchPhase(phase)
+            }
         )
         try activate(prepared.context)
+        Self.recordLaunchPhase(.launched)
         return prepared.model
     }
 
@@ -769,6 +774,26 @@ extension SceneDesktopWallpaperHost {
         return PreparedLaunch(model: model, context: context)
     }
 
+    /// M3.2：launch 阶段 → M1 计数器 hub 的统一映射（同步/异步两条
+    /// launch 路径共用，保证 TTFVF 归因口径一致）。
+    static func recordLaunchPhase(_ phase: SceneWallpaperLaunchState.Phase) {
+        let hubPhase: SceneLaunchPhase?
+        switch phase {
+        case .accepted: hubPhase = .accepted
+        case .preparingModel: hubPhase = .preparingModel
+        case .preparingPrograms: hubPhase = .preparingPrograms
+        case .preparingResources: hubPhase = .preparingResources
+        case .preparingSurfaces: hubPhase = .preparingSurfaces
+        case .launched: hubPhase = .launched
+        case .cancelled, .failed: hubPhase = nil
+        }
+        guard let hubPhase else { return }
+        ScenePerformanceCounterHub.shared.recordLaunchPhase(
+            hubPhase,
+            uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
+        )
+    }
+
     private func publishLaunchState(_ state: SceneWallpaperLaunchState) {
         launchState = state
         NSLog(
@@ -778,23 +803,7 @@ extension SceneDesktopWallpaperHost {
             state.phase.rawValue,
             state.message
         )
-        let hubLaunchPhase: SceneLaunchPhase?
-        switch state.phase {
-        case .accepted: hubLaunchPhase = .accepted
-        case .preparingModel: hubLaunchPhase = .preparingModel
-        case .preparingPrograms: hubLaunchPhase = .preparingPrograms
-        case .preparingResources: hubLaunchPhase = .preparingResources
-        case .preparingSurfaces: hubLaunchPhase = .preparingSurfaces
-        case .launched: hubLaunchPhase = .launched
-        case .cancelled, .failed: hubLaunchPhase = nil
-        }
-        if let hubLaunchPhase {
-            // Always-on first-occurrence launch timing; bypass-only.
-            ScenePerformanceCounterHub.shared.recordLaunchPhase(
-                hubLaunchPhase,
-                uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
-            )
-        }
+        Self.recordLaunchPhase(state.phase)
         SceneSignpost.emitEvent("launch-state", state.phase.rawValue)
         NotificationCenter.default.post(
             name: .sceneWallpaperLaunchStateDidChange,
