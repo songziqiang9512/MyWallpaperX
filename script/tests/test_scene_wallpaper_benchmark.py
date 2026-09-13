@@ -4963,6 +4963,52 @@ utility layer 763: skippedHidden kind=composition
         )
         self.assertEqual(valid["validation_failures"], [])
 
+        newer_sized_pair = graph_execution_observation(
+            frame=3,
+            layer=743,
+            transaction="newer-sized-pair",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=42,
+            mapping_generation=3,
+            full_frame_pair_storage="shared",
+            full_frame_pair_generation=12,
+            final_physical_identity="shared-pair-12-primary",
+            input_width=1024,
+            input_height=577,
+            target_descriptors_sha256="b" * 64,
+            target_descriptor_counts="1024x577/rgbaBackbuffer:2",
+            history="seeded",
+            reset="allocation-reprepare",
+        )
+        cached_older_sized_pair = graph_execution_observation(
+            frame=4,
+            layer=743,
+            transaction="cached-older-sized-pair",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=43,
+            mapping_generation=4,
+            full_frame_pair_storage="shared",
+            full_frame_pair_generation=7,
+            final_physical_identity="shared-pair-7-primary",
+            input_width=1024,
+            input_height=576,
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="seeded",
+            reset="allocation-reprepare",
+        )
+        cached_pair_return = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join([
+                initial,
+                valid_reuse,
+                newer_sized_pair,
+                cached_older_sized_pair,
+            ])
+        )
+        self.assertEqual(cached_pair_return["validation_failures"], [])
+
         invalid_rebind = graph_execution_observation(
             frame=2,
             layer=743,

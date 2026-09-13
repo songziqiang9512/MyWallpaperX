@@ -158,26 +158,30 @@ extension SceneOffscreenTexturePool {
     func ensureSharedPairs(
         _ keys: Set<SceneOffscreenTextureAllocationCache.Key>
     ) -> Bool {
-        for key in keys.sorted(by: { lhs, rhs in
+        guard !keys.isEmpty else { return true }
+        let sortedKeys = keys.sorted(by: { lhs, rhs in
             switch (lhs, rhs) {
             case let (.sharedGraphPair(lw, lh), .sharedGraphPair(rw, rh)):
                 return (lw, lh) < (rw, rh)
             default:
                 return false
             }
-        }) {
+        })
+        var candidates: [SceneOffscreenTextureAllocationCache.Candidate] = []
+        for key in sortedKeys {
             guard case .sharedGraphPair(let width, let height) = key else {
                 return false
             }
-            guard allocationCache.allocation(for: key) != nil
-                || {
-                    guard let candidate = sharedPairCandidate(
-                        width: width, height: height
-                    ) else { return false }
-                    return allocationCache.commit([candidate])
-                }() else { return false }
+            guard allocationCache.allocation(for: key) == nil else { continue }
+            guard let candidate = sharedPairCandidate(
+                width: width, height: height
+            ) else { return false }
+            candidates.append(candidate)
         }
-        return true
+        return allocationCache.commitSharedGraphPairs(
+            candidates,
+            requiredKeys: keys
+        )
     }
 
 }

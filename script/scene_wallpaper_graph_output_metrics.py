@@ -692,7 +692,7 @@ def resolved_material_graph_observation_metrics(
                             observation["full_frame_pair_storage"] != "shared"
                             or previous["full_frame_pair_storage"] != "shared"
                             or observation["full_frame_pair_generation"]
-                                > previous["full_frame_pair_generation"]
+                                != previous["full_frame_pair_generation"]
                         )
                     )
                 if not (

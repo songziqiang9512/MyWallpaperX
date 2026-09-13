@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-13
+> 最近核对：2026-09-14
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -22,10 +22,23 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-whole-frame-shared-pair-residency"></a>
+### 2026-09-14 同帧 shared-pair 驻留与 `3749463715` 唯一输出闭环
+
+**结论：同一 frame batch 所需的不同尺寸 shared full-frame working pair 现以一个原子驻留集合准备；真实 `3749463715` 的 Program/GraphTargets/GraphExecutor/唯一 compositor 链达到 strict PASS 与 S4 bounded visible composition。** 旧 `ensureSharedPairs` 对每个尺寸单独提交 allocation candidate。后一个提交执行 LRU 时只保护自身 key，可以驱逐同一 frame 已确认但较早访问的另一个 required pair；第二次 preflight把缺失 pair模拟为可补齐并返回ready，真正reserve却要求全部pair已经驻留，因而间歇产生`frame-target-plan-allocation-failed`。现役 cache在一个锁内验证既有required pair、原子提交全部缺失candidate，并在同一eviction事务中保护完整required-key集合。byte budget、in-flight上限、history COW、失败半径与唯一output owner均未改变。
+
+**物理身份合同：**shared-pair generation是物理allocation创建身份，不是每帧选择epoch。动态extent切回先前缓存的pair时，该数值可以小于上一帧新建pair；正确门要求同generation继续指向同一physical identity，切换generation时physical identity必须同时变化，并继续要求allocation generation、mapping generation及publication逐次前进。focused正门构造“本帧required旧pair比无关驻留更老”的精确LRU顺序，验证两个required尺寸共同保留、无关pair被驱逐且两个graph均materialize；benchmark正门覆盖切回较早缓存pair，既有同generation伪造physical identity反门继续拒绝。最终7个focused模块全部通过，签名Debug checkpoint `BUILD SUCCEEDED`且`codesign --verify --deep --strict`通过。
+
+**产品身份与真实运行：**App 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `0c0f9dde89d76413126edf8f859b1301b67d41b2`，executable SHA-256 `b1eb4a760eb341a707be1270a76b107e67a3d1b7cffd8258f562918f3dd5e196`。只读真实样本沿用project/package SHA-256 `35392a2d2b9fd901079f7c248a9e5a58850608b0e01cb7dd90dfcfec64603bbf / 777305ee38bdcdace9a7a6e0f942d01952e9318558de38c024336e662e985ae7`及同一dynamic-attachment matrix，25秒fresh运行结果`failures=[] / strict PASS`、267/266/0 frame submitted/completed/failed、0 drawable miss。16个accepted layer全部完成；GraphExecutor为16 claim/encode/GPU、0 failure/local fallback，graph observations为3404/3404 terminal success、816次history COW、0 diagnostic/failed outcome/GPU failed/validation failure；utility capture `467 / 488 / 536 / 560`全部成功，app log中allocation/temporary-block/budget/residency diagnostic均为0。
+
+真实drag仍命中layer 562，baseline geometry SHA-256 `9f52a7218d18e8e6d13e99424faf2c8f3725f2d7a8c9a3efce59a2b7a5cb76aa`、最大位移`45.443127 px`，变形及回弹terminal frame连续，`puppet_interaction.passed=true`。原分辨率before/hover/after检查确认人物、胸部/手部组合、剑、光环、雾和动态光带持续存在；motion `mean_delta=0.0470378159 / changed_ratio=0.8346803306`。matrix/report/app-log/preview-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / 0d9ce9a8ad46922155a5e4698c0f6a0d16ef0fabf89acee081a859f993142516 / 97e95b6173f3b6c5edd221444ea6ec4c02307d69674d147521bb62198d601734 / 3bb41cf76a86be8bf5c5321125ce75f57e6170daf1095970e454317541067f46`；before/hover/after PNG为`bf6bd5526868b180227313ab0ad75c6de7c5b85dd445ba8a17ab2c95cce642e6 / 76cc818e0771531c973554200310b28afb4fdd63d1b5ebe5e64212c4de244cac / e6c8be394f353f8d1c0e792fd260d1a61b005098813929e0efe103bf77727524`。现场位于`/private/tmp/mwx-3749463715-shared-pair-atomic-final-20260913-2359`，仅作可复现provenance。
+
+**边界：**这关闭当前样本的allocation/execution strict门与旧胸手attachment观察，不等于官方逐像素golden或人工acceptance verdict，也不外推device loss、多surface及所有动态extent组合。driver约13.23 FPS、CPU frame p50/p95约`56.103/57.832 ms`仍属于Q2性能断点；未运行full corpus。
+
 <a id="e-2026-09-13-puppet-dynamic-attachment"></a>
 ### 2026-09-13 Puppet 动态 attachment current-pose 与真实拖拽闭环
 
-**结论：受限 `MDLV0023 + MDLS0004 + MDAT0001` named attachment逐帧跟随达到L3 executed，真实`3749463715`的胸部/手部组合与layer 562拖拽回弹达到S4 bounded visible；整样本仍因独立target allocation断点为NON-PASS。** 官方公开合同要求作为Puppet attachment child的layer立即移动到挂点并跟随全部animation。旧reader只发布bind-pose Scene frame；parent mesh虽已动画和世界空间直绘，胸部/手部child仍停留在bind位置。现役reader保留bone identity与attachment-local matrix；每帧current model frame=`boneWorld × attachmentLocal`，Scene基换算为`F * M * F`，child world=`parentWorld × currentAttachment × childLocal`。
+**结论：受限 `MDLV0023 + MDLS0004 + MDAT0001` named attachment逐帧跟随达到L3 executed，真实`3749463715`的胸部/手部组合与layer 562拖拽回弹达到S4 bounded visible；该批冻结时独立target allocation断点仍使整样本NON-PASS，现已由[2026-09-14同帧shared-pair驻留后继](#e-2026-09-14-whole-frame-shared-pair-residency)关闭。** 官方公开合同要求作为Puppet attachment child的layer立即移动到挂点并跟随全部animation。旧reader只发布bind-pose Scene frame；parent mesh虽已动画和世界空间直绘，胸部/手部child仍停留在bind位置。现役reader保留bone identity与attachment-local matrix；每帧current model frame=`boneWorld × attachmentLocal`，Scene基换算为`F * M * F`，child world=`parentWorld × currentAttachment × childLocal`。
 
 **单一pose与owner边界：**animation/physics先生成pre-script pose，同一typed snapshot供SceneScript layer/bone handle和cursor hit；script mutation提交后，final pose由同一evaluator生成LBS vertex与attachment frame，renderer在world resolution前消费该frame并由同一surface command buffer encode。缺失、重复、越界或非有限current frame只局部回到同一attachment已验证bind frame；parent或name无效时保留普通parent transform。没有sample/layer/path/hash分派，也没有第二套renderer、clock、property、provider、registry或compositor。世界空间`GeometryProduct`与atlas/graph-final采样合同不变。
 
@@ -35,7 +48,7 @@
 
 matrix/report/app-log/preview-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / f47f46a08432d690157b8f9a88b0e1974105667171f89a981651d9663006c179 / 6f591c67e377b2b5dffb0778459ac14beb15653894f5a57f0f2f832dfd63393c / 7de9123360cea872c25ce4e52107fb2f7a2d35742bf3e9bb27a6b3e74ff513ce`；ready/hover/after PNG SHA-256为`deed99e18b77ec82847a909540429d872e3a84afe13808a415f827fd11ada71c / 9372f499b46104f45fa0aaa8c8c892384aa2ab435d1b345011966ba96748c13d / 6a4e73c8b895e5d378266ba0964d9fc9ef0658954288704c95ff2673b417b15b`。现场位于`/private/tmp/mwx-3749463715-dynamic-attachment-final-20260913-2330`，仅作可复现provenance。
 
-**仍开放的断点：**整份benchmark为**0/1 NON-PASS**。GraphExecutor共有29次观察：15批合计240 claim/encode/GPU成功，另14次为`frame-target-plan-allocation-failed`；graph observations有2266个terminal success、16个diagnostic，131/130/0 frame submitted/completed/failed、0 drawable miss、0 GPU failed。成功与失败观察交替使allocation identity transition及required graph contract失败。这是已稳定复现的target pool/plan identity问题，不是attachment、feedback content或GPU command failure；下一批必须修公共allocator owner，不能放宽门禁或用相邻成功帧掩盖。本证据不证明point-property attachment、其他MDAT/version、rotation/gravity/IK、完整mixing、稳定帧性能、逐像素官方parity或整样本人工acceptance；未运行full corpus。
+**后继状态：**本批的整份benchmark曾为**0/1 NON-PASS**：GraphExecutor 15批成功之间有14次`frame-target-plan-allocation-failed`，形成2266个terminal success与16个diagnostic。该历史现场已由上方shared-pair原子驻留修正取代，当前同样本fresh strict PASS、0 allocation diagnostic；它不再是现役断点。本证据及后继仍不证明point-property attachment、其他MDAT/version、rotation/gravity/IK、完整mixing、稳定帧性能、逐像素官方parity或整样本人工acceptance；未运行full corpus。
 
 <a id="e-2026-09-13-authored-startup-destroy-cursor"></a>
 ### 2026-09-13 作者启动自销毁与 parent/default-transform 点击闭环

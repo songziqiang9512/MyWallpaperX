@@ -3081,6 +3081,57 @@ enum Harness {
             && batchPool.allocationCache.revision != batchRevisionBeforeCommit
         batchCommits.forEach { $0.releaseAll() }
 
+        let protectedSharedPairPool = SceneOffscreenTexturePool(
+            device: device, maxDimension: 64, residentByteBudget: 960
+        )
+        let protectedPairAKey = SceneOffscreenTextureAllocationCache.Key
+            .sharedGraphPair(width: 7, height: 8)
+        let protectedPairBKey = SceneOffscreenTextureAllocationCache.Key
+            .sharedGraphPair(width: 8, height: 8)
+        let unrelatedPairKey = SceneOffscreenTextureAllocationCache.Key
+            .sharedGraphPair(width: 6, height: 8)
+        guard let protectedPairA = protectedSharedPairPool.sharedPairCandidate(
+            width: 7, height: 8
+        ), let unrelatedPair = protectedSharedPairPool.sharedPairCandidate(
+            width: 6, height: 8
+        ), protectedSharedPairPool.allocationCache.commit([protectedPairA]),
+              protectedSharedPairPool.allocationCache.commit([unrelatedPair]) else {
+            fatalError("shared pair atomic protection seed failed")
+        }
+        let protectedFixtureA = directFixture(effectIndex: 113, layerID: 113)
+        let protectedFixtureB = directFixture(effectIndex: 114, layerID: 114)
+        guard let protectedPairPlanA = protectedSharedPairPool
+            .framePlanForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([protectedFixtureA]),
+                pairPlan: pairPlan([protectedFixtureA]),
+                requestedWidth: 7,
+                requestedHeight: 8,
+                usesSharedFullFrameWorkingPair: true
+            ), let protectedPairPlanB = protectedSharedPairPool
+            .framePlanForPersistentGraphTargets(
+                admittedGraphs: admittedGraphs([protectedFixtureB]),
+                pairPlan: pairPlan([protectedFixtureB]),
+                requestedWidth: 8,
+                requestedHeight: 8,
+                usesSharedFullFrameWorkingPair: true
+            ), protectedSharedPairPool.preflightPersistentGraphTargets([
+                protectedPairPlanA, protectedPairPlanB,
+            ]) == .ready,
+              let protectedPairPrepared = protectedSharedPairPool
+                .preparePersistentGraphTargets(framePlans: [
+                    protectedPairPlanA, protectedPairPlanB,
+                ]) else {
+            fatalError("whole-frame shared pair residency set failed")
+        }
+        let wholeFrameSharedPairSetIsAtomic =
+            protectedPairPrepared.count == 2
+                && protectedSharedPairPool.allocationCache
+                    .allocation(for: protectedPairAKey) != nil
+                && protectedSharedPairPool.allocationCache
+                    .allocation(for: protectedPairBKey) != nil
+                && protectedSharedPairPool.allocationCache
+                    .allocation(for: unrelatedPairKey) == nil
+
         let sharedResolvedPool = SceneOffscreenTexturePool(
             device: device, maxDimension: 64, residentByteBudget: 8_192
         )
@@ -3465,6 +3516,7 @@ enum Harness {
             "differentQueueSharedPairRejected": differentQueueSharedPairRejected,
             "sharedPairOrderedReuseAndReleaseStable":
                 sharedPairOrderedReuseAndReleaseStable,
+            "wholeFrameSharedPairSetIsAtomic": wholeFrameSharedPairSetIsAtomic,
             "r8PersistentAllocationTyped": r8PersistentAllocationTyped,
             "r8BudgetRejectsBeforeAllocation": r8BudgetRejectsBeforeAllocation,
             "r8HistoryCurrentCostExact": r8HistoryCurrentCostExact,
@@ -3695,6 +3747,9 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(self.result["unsafeUnsubmittedSharedPairRejected"])
         self.assertTrue(self.result["differentQueueSharedPairRejected"])
         self.assertTrue(self.result["sharedPairOrderedReuseAndReleaseStable"])
+
+    def test_whole_frame_shared_pair_residency_is_atomic(self) -> None:
+        self.assertTrue(self.result["wholeFrameSharedPairSetIsAtomic"])
 
     def test_incompatible_copy_extent_keeps_typed_frame_local_reason(self) -> None:
         self.assertTrue(self.result["incompatibleCopyProbeAccepted"])

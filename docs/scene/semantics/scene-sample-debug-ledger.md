@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 `3749463715` 同帧 shared-pair 驻留闭环
+
+旧 `frame-target-plan-allocation-failed` 的公共根因不是资源预算不足。一个frame batch需要多个动态尺寸shared working pair时，旧`ensureSharedPairs`逐个提交candidate；后一个LRU事务只保护自身key，可以驱逐本帧较早确认的required pair。随后的preflight把缺失pair模拟为可补齐而返回ready，allocator reserve却要求它已驻留，形成间歇整帧失败。现役cache在一个锁内验证既有required pair、原子提交全部缺失pair，并在同一eviction事务保护完整required-key集合；预算、in-flight上限、history COW和compositor均未改变。物理pair generation只标识allocation创建身份，切回较早缓存尺寸允许数值回退，但必须同时满足不同generation、不同physical identity以及递增的allocation/mapping/publication。
+
+最终签名Debug App为2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `0c0f9dde89d76413126edf8f859b1301b67d41b2`，executable SHA-256 `b1eb4a760eb341a707be1270a76b107e67a3d1b7cffd8258f562918f3dd5e196`。只读真实样本25秒fresh运行输出`/private/tmp/mwx-3749463715-shared-pair-atomic-final-20260913-2359`，matrix/report/app-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / 0d9ce9a8ad46922155a5e4698c0f6a0d16ef0fabf89acee081a859f993142516 / 97e95b6173f3b6c5edd221444ea6ec4c02307d69674d147521bb62198d601734`。结果`failures=[] / strict PASS`、267/266/0 frame、16/16 accepted layer完成、3404/3404 terminal success、0 graph/allocation/GPU failure；utility capture `467 / 488 / 536 / 560`全部成功。layer 562真实drag/return仍通过，原分辨率before/hover/after保持完整人物、胸手组合、剑、光环、雾和动态光带。完整验证与边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-whole-frame-shared-pair-residency)。该证据关闭本样本技术首断点，但不代替维护者人工acceptance，也不关闭约13.23 FPS的性能债务。
+
 ## 2026-09-13 `3768229922` 作者启动、自销毁与点击闭环
 
 作者 camera path 是 relative、30 FPS、180 帧：前 60 帧保持 `origin=(-99.999,681.99994)` 与 `zoom=2.4`，随后回到第 180 帧的 `(0,0)` 与 `zoom=1`。镜头由下向上展开属于作者过渡，不是 compositor 中心点错误。真正首断点是 object `visible` 的旧准入按 JavaScript 源码写法分 cohort，使 layer `354` 的 `update`/自销毁和 layer `202` 的 `cursorClick` 没有成为 typed owner；同时 cursor 候选要求 child layer 显式写出 local transform，拒绝了作者依赖 parent/default transform 的 layer 202。
@@ -89,7 +95,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 
 只读真实样本的project/package SHA-256为`35392a2d2b9fd901079f7c248a9e5a58850608b0e01cb7dd90dfcfec64603bbf / 777305ee38bdcdace9a7a6e0f942d01952e9318558de38c024336e662e985ae7`。定向drag命中layer 562，日志记录local `0.112624,0.016626`；submitted geometry从基线SHA-256 `9f52a7218d18e8e6d13e99424faf2c8f3725f2d7a8c9a3efce59a2b7a5cb76aa`变化，最大bind位移`45.451706 px`，frame 26/28同时具备deformed geometry与terminal compositor，松手后54个terminal frame回到基线，`puppet_interaction.passed=true`。原分辨率画面检查确认胸部组合与手部随parent pose保持组装。
 
-该运行整体仍为**0/1 NON-PASS**：GraphExecutor有29次观察，15批共240 claim/encode/GPU成功，另14次`frame-target-plan-allocation-failed`；2266个terminal success、16个diagnostic，130/131 frame completed/submitted、0 failed frame、0 drawable miss、0 GPU failed，但allocation identity transition门失败。此公共allocator断点保留为下一任务，不能把dynamic attachment子证据通过改写为整样本通过。运行目录`/private/tmp/mwx-3749463715-dynamic-attachment-final-20260913-2330`，matrix/report/app-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / f47f46a08432d690157b8f9a88b0e1974105667171f89a981651d9663006c179 / 6f591c67e377b2b5dffb0778459ac14beb15653894f5a57f0f2f832dfd63393c`。完整边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-puppet-dynamic-attachment)。
+该运行整体当时仍为**0/1 NON-PASS**：GraphExecutor有29次观察，15批共240 claim/encode/GPU成功，另14次`frame-target-plan-allocation-failed`；2266个terminal success、16个diagnostic，130/131 frame completed/submitted、0 failed frame、0 drawable miss、0 GPU failed，但allocation identity transition门失败。该历史现场已由上方2026-09-14 shared-pair原子驻留后继关闭，不能继续作为当前样本状态。运行目录`/private/tmp/mwx-3749463715-dynamic-attachment-final-20260913-2330`，matrix/report/app-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / f47f46a08432d690157b8f9a88b0e1974105667171f89a981651d9663006c179 / 6f591c67e377b2b5dffb0778459ac14beb15653894f5a57f0f2f832dfd63393c`。完整边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-puppet-dynamic-attachment)。
 
 ## 2026-09-13 Puppet 世界空间直绘最终定向复核
 
@@ -140,7 +146,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147 | 主体人物消失 | `be9858e` 维护者观察；当前 HEAD 尚未复现，不预判 Geometry/Product/visibility/graph owner | 待复现、待归因 |
 | 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
-| 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 已归因为静态bind attachment未消费current bone pose；当前MDAT动态follow、真实drag/return与画面组装已闭合。独立`frame-target-plan-allocation-failed`稳定复现并阻断整样本strict PASS | attachment子项通过；allocator待修 |
+| 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 静态bind attachment未消费current bone pose与同帧shared-pair非原子驻留均已修正；当前MDAT动态follow、真实drag/return、16层graph、四个utility capture和唯一compositor闭合 | fresh strict PASS；人工acceptance与性能仍开放 |
 
 ## 2026-09-08 current corpus probe（archive snapshot）
 

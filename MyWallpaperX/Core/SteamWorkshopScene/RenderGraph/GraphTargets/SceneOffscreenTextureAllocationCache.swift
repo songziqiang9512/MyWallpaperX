@@ -32,7 +32,45 @@ final class SceneOffscreenTextureAllocationCache {
         }
     }
 
-    private func stageCandidates(_ candidates: [Candidate]) -> Staged? {
+    func commitSharedGraphPairs(
+        _ candidates: [Candidate],
+        requiredKeys: Set<Key>
+    ) -> Bool {
+        locked {
+            let candidateKeys = Set(candidates.map(\.key))
+            guard !requiredKeys.isEmpty,
+                  candidateKeys.count == candidates.count,
+                  candidateKeys.isSubset(of: requiredKeys),
+                  requiredKeys.allSatisfy({ key in
+                      guard case .sharedGraphPair = key else { return false }
+                      if candidateKeys.contains(key) { return true }
+                      guard let entry = residents[.current(key)],
+                            !entry.isResetInvalidated,
+                            case .sharedGraphPair = entry.allocation else {
+                          return false
+                      }
+                      return true
+                  }), candidates.allSatisfy({ candidate in
+                      guard case .sharedGraphPair = candidate.key,
+                            case .sharedGraphPair = candidate.allocation else {
+                          return false
+                      }
+                      return candidate.keyMatchesAllocation
+                  }) else { return false }
+            guard !candidates.isEmpty else { return true }
+            guard let staged = stageCandidates(
+                candidates,
+                protectedKeys: requiredKeys
+            ) else { return false }
+            apply(staged)
+            return true
+        }
+    }
+
+    private func stageCandidates(
+        _ candidates: [Candidate],
+        protectedKeys: Set<Key> = []
+    ) -> Staged? {
         guard !candidates.isEmpty,
               Set(candidates.map(\.key)).count == candidates.count,
               candidates.allSatisfy({ $0.byteCost >= 0 && $0.keyMatchesAllocation }) else {
@@ -40,7 +78,7 @@ final class SceneOffscreenTextureAllocationCache {
         }
         var next = residents
         var access = accessCounter
-        let protected = Set(candidates.map(\.key))
+        let protected = Set(candidates.map(\.key)).union(protectedKeys)
         for candidate in candidates {
             next.removeValue(forKey: .current(candidate.key))
             guard !next.values.contains(where: {
