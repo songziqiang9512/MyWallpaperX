@@ -148,30 +148,34 @@ enum SceneResolvedMaterialGraphComposition {
         }
         switch result {
         case let .encoded(texture, ticket):
-            for subject in runtime.executionEvidenceSubjects(for: claim) {
-                let outcome: SceneEffectCPUInvocationOutcome
-                switch runtime.executionEvidenceOutcome(
-                    for: subject,
-                    claim: claim,
-                    ticket: ticket
-                ) {
-                case .encodedOutput:
-                    outcome = .encodedOutput
-                case let .failed(reasonCode):
-                    outcome = .failed(reasonCode: reasonCode)
+            // M2 Patch A：evidence subjects 构造（catalog 解析 + 锁）仅在
+            // 诊断 trace 存在时执行；正常播放 trace 为 nil，整段跳过。
+            if let executionTrace {
+                for subject in runtime.executionEvidenceSubjects(for: claim) {
+                    let outcome: SceneEffectCPUInvocationOutcome
+                    switch runtime.executionEvidenceOutcome(
+                        for: subject,
+                        claim: claim,
+                        ticket: ticket
+                    ) {
+                    case .encodedOutput:
+                        outcome = .encodedOutput
+                    case let .failed(reasonCode):
+                        outcome = .failed(reasonCode: reasonCode)
+                    }
+                    executionTrace.recordExact(
+                        identity: .init(
+                            layerID: subject.key.layerID,
+                            effectIndex: subject.key.effectIndex,
+                            descriptorID: subject.key.descriptorID
+                        ),
+                        origin: executionOrigin,
+                        family: runtime.executionEvidenceFamily(for: subject.key)
+                            ?? subject.family,
+                        backend: "resolved-material-graph",
+                        outcome: outcome
+                    )
                 }
-                executionTrace?.recordExact(
-                    identity: .init(
-                        layerID: subject.key.layerID,
-                        effectIndex: subject.key.effectIndex,
-                        descriptorID: subject.key.descriptorID
-                    ),
-                    origin: executionOrigin,
-                    family: runtime.executionEvidenceFamily(for: subject.key)
-                        ?? subject.family,
-                    backend: "resolved-material-graph",
-                    outcome: outcome
-                )
             }
             return .encoded(texture: texture, ticket: ticket)
         case let .failed(reasonCode):

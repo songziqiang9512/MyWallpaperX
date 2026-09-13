@@ -44,8 +44,13 @@ nonisolated struct SceneGPUCompletionTelemetryReducer: Sendable {
         )
     }
 
+    /// M2 Patch A：首次终态观测（成功或失败任一）后即停止注册
+    /// completed handler。旧行为要求 success+failure 双观测才停，
+    /// 健康层永不失败 → 每帧注册一个 handler（无界增长）。代价：
+    /// 成功后再失败的层不再补记失败日志（sticky 首发诊断的保真度
+    /// 让步，换取每层恰一次 handler 注册）。
     var needsCommandBufferObservation: Bool {
-        !(commandBufferSuccessObserved && commandBufferFailureObserved)
+        !(commandBufferSuccessObserved || commandBufferFailureObserved)
     }
 
     mutating func reduce(

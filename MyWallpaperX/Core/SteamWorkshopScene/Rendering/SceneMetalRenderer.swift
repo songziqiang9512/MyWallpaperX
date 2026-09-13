@@ -90,9 +90,13 @@ struct SceneMetalRenderer {
         var staticModelDepthLease: SceneParticleDepthTargetLease?
         var staticModelDepthWasCleared = false
         var staticModelDepthPlan = SceneStaticModelDepthPlan()
-        let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
-            frameIndex: frameContext.frameIndex
-        )
+        // M2 Patch A：effect 执行证据链（每帧 trace + SHA256 cohort）只属于
+        // 诊断/基准模式（runtime-architecture §5.5）；正常播放为 nil，
+        // 全部 record 调用点为 optional 旁路。
+        let effectExecutionTrace: SceneEffectExecutionFrameTrace? =
+            SceneDesktopWallpaperHost.usesDebugEvidenceWindow
+            ? effectExecutionTelemetry.makeFrame(frameIndex: frameContext.frameIndex)
+            : nil
         // Always-on stage timings mirror the telemetry-gated stages below;
         // each is bypass-only accumulation with no control-flow effect.
         @inline(__always) func hubStage(
@@ -287,21 +291,21 @@ struct SceneMetalRenderer {
             }
             let baseSource = baseSelection.source
             if let reasonCode = baseSelection.rejectedProviderReason {
-                effectExecutionTrace.recordRouteOperation(
+                effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-provider-rejected",
                     outcome: .failed(reasonCode: reasonCode)
                 )
             } else if baseSource?.usesSystemProvider == true {
-                effectExecutionTrace.recordRouteOperation(
+                effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-system-provider",
                     outcome: .encoded
                 )
             } else if baseSource?.usesUserPropertyProvider == true {
-                effectExecutionTrace.recordRouteOperation(
+                effectExecutionTrace?.recordRouteOperation(
                     layerID: layer.id,
                     origin: Self.effectExecutionOrigin(for: layer.contentKind),
                     operation: "base-material-user-property-provider",
@@ -795,10 +799,12 @@ struct SceneMetalRenderer {
         )
 #endif
         commandBuffer.present(drawable)
-        effectExecutionTelemetry.observeSharedCommandBuffer(
-            for: effectExecutionTrace,
-            on: commandBuffer
-        )
+        if let effectExecutionTrace {
+            effectExecutionTelemetry.observeSharedCommandBuffer(
+                for: effectExecutionTrace,
+                on: commandBuffer
+            )
+        }
         performanceTelemetry?.recordSubmitted(on: commandBuffer)
         sourceUpdateTransaction.arm(on: commandBuffer)
         frameDepthLeases.forEach { $0.arm(on: commandBuffer) }

@@ -5,7 +5,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
         mainPass: SceneMainPassEncoder,
-        executionTrace: SceneEffectExecutionFrameTrace
+        executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool {
         if let resolvedFramePlan {
             return drawResolvedDirectDrawQuad(
@@ -27,7 +27,7 @@ extension SceneMetalRenderer {
         imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
         mainPass: SceneMainPassEncoder,
-        executionTrace: SceneEffectExecutionFrameTrace
+        executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool {
         guard let imagePipeline else {
             return false

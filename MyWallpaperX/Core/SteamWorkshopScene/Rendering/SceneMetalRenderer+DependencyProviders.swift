@@ -62,7 +62,7 @@ extension SceneMetalRenderer {
         dependencyRuntime: SceneDependencyFrameRuntime,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        executionTrace: SceneEffectExecutionFrameTrace
+        executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool? {
         guard dependencyRuntime.requiresDemandedGraphOutputCapture(
             for: layer.id
@@ -197,7 +197,7 @@ extension SceneMetalRenderer {
         framePlans: [Int: SceneResolvedMaterialFrameTargetPlan],
         activeStaticModelConsumerLayerIDs: Set<Int>,
         commandBuffer: MTLCommandBuffer,
-        executionTrace: SceneEffectExecutionFrameTrace
+        executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Set<Int>? {
         var graphProviderLayerIDs: Set<Int> = []
         let activeExecutionLayerIDs = Set(framePlans.keys)

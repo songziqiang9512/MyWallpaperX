@@ -19,7 +19,7 @@ enum SceneUtilityPlanFrameRenderer {
         time: Float,
         mainPass: SceneMainPassEncoder,
         commandBuffer: MTLCommandBuffer,
-        effectExecutionTrace: SceneEffectExecutionFrameTrace,
+        effectExecutionTrace: SceneEffectExecutionFrameTrace?,
         resolvedMaterialFrameTargetPlans: [
             Int: SceneResolvedMaterialFrameTargetPlan
         ] = [:]

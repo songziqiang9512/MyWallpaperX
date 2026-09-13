@@ -15,7 +15,7 @@ extension SceneMetalRenderer {
         parallaxConfiguration: SceneLayerParallax.Configuration,
         time: Float,
         mainPass: SceneMainPassEncoder,
-        executionTrace: SceneEffectExecutionFrameTrace
+        executionTrace: SceneEffectExecutionFrameTrace?
     ) -> Bool? {
         guard layer.utilityLayer?.kind == .composition,
               layer.childLayerIDs.isEmpty,
@@ -107,7 +107,7 @@ extension SceneMetalRenderer {
             colorBlendPipeline: nil,
             mainPass: mainPass
         )
-        executionTrace.recordRouteOperation(
+        executionTrace?.recordRouteOperation(
             layerID: layer.id,
             origin: .utilityComposition,
             operation: "degraded-composition-source-prefix",
