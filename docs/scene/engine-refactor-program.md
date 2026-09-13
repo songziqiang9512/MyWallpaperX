@@ -64,8 +64,8 @@
 
 - **M1.1 常开定长 counter** 🔶 e04d6a26+300f6a1a：hub 已落地（16 定长槽：帧四分类、cpuFrame/renderer/drawableWait、drawCalls、7 个帧内阶段 micros）+ launch 五阶段/firstVisibleFrame 首次时间戳；现有 `SceneFramePerformanceTelemetry` 保持仅 debug 证据窗口。剩余：textureMemory/rtMemory/pipelineSwitches/geometry 与 fallback 分支计数（随 M2/M4 批次补）。
 - **M1.2 signpost** ✅ e04d6a26：OSSignposter 薄封装 + launch-state 事件 + firstVisibleFrame 首次记录。帧内阶段 interval 待按需补（counter 已覆盖归因）。
-- **M1.3 Debug HUD**：debug 构建读 counter 展示全指标；常开成本 <0.1ms/帧。
-- 验收：实测基线报告（各风险项占比 + TTFVF），作为 M2-M6 的 before。
+- **M1.3 Debug HUD** ✅ d427ddaf：`ScenePerformanceHUD`（仅 DEBUG）浮窗 1Hz 差分展示 + 每 5s 结构化 `MWX PERF:` NSLog（累计均值/阶段分解/launch 时间戳），启用门 = evidence window 或 MYWALLPAPERX_SCENE_PERF_HUD=1；不进帧路径，Release 无此类型。
+- 验收：基线**机制**就绪（MWX PERF 行可解析）；**实测基线报告**（各风险项占比 + TTFVF 数字）随 M2 Patch A 的 before 采集一并产出——需真实样本运行（benchmark 隔离副本），在 M2 批次执行。
 
 ### M2 引擎减税
 
