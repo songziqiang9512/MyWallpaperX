@@ -176,6 +176,7 @@ final class SceneFrameTextureRegistry {
         frameEpoch &+= 1
         self.frameIndex = frameIndex
         entries.removeAll(keepingCapacity: true)
+        liveSelectionDigest = SceneFrameTextureSelectionDigest.empty()
         priorFrameEntries = persistentEntries
         persistentEntries.removeAll(keepingCapacity: true)
         for layerID in orderedLayerSourceIDs.resolve(
@@ -259,6 +260,7 @@ final class SceneFrameTextureRegistry {
         committedPublications = baseline.committedPublications
         resourceGeneration = baseline.resourceGeneration
         entries.removeAll(keepingCapacity: true)
+        liveSelectionDigest = SceneFrameTextureSelectionDigest.empty()
         framePublicationBaseline = nil
     }
 
@@ -276,10 +278,30 @@ final class SceneFrameTextureRegistry {
         case .absent, .pending, .unavailable:
             resource = nil
         }
+        let previousLookup = lookup(identity)
         entries[identity] = Entry(
             status: status,
             generation: frameEpoch,
             resource: resource
+        )
+        // 新 lookup 与 lookup(identity) 的转换口径一致（bare →
+        // .incomplete(.bare)；absent/pending/unavailable 原样）。
+        let newLookup: SceneFrameTextureLookupStatus
+        switch status {
+        case let .ready(texture):
+            newLookup = .incomplete(.bare(
+                texture: texture,
+                resourceGeneration: frameEpoch
+            ))
+        case .absent:
+            newLookup = .absent
+        case .pending:
+            newLookup = .pending
+        case .unavailable:
+            newLookup = .unavailable
+        }
+        liveSelectionDigest = liveSelectionDigest.replacing(
+            identity, previous: previousLookup, with: newLookup
         )
     }
 
@@ -369,6 +391,12 @@ final class SceneFrameTextureRegistry {
         return resource
     }
 
+    /// M3.1：live digest 随每次 entries 写入增量折叠（写入点仅
+    /// set(status:for:)/publish(resource:for:) 两处与两处 removeAll），
+    /// snapshot() 不再每帧 O(entries) 全量折叠。digest 只承载选择
+    /// fact（世代仅保留 >0 布尔），跨视频帧天然稳定。
+    private var liveSelectionDigest = SceneFrameTextureSelectionDigest.empty()
+
     func snapshot() -> SceneFrameTextureRegistrySnapshot {
         SceneFrameTextureRegistrySnapshot(
             frameEpoch: frameEpoch,
@@ -377,7 +405,8 @@ final class SceneFrameTextureRegistry {
                 if let status = lookup(pair.key) {
                     result[pair.key] = status
                 }
-            }
+            },
+            selectionDigest: liveSelectionDigest
         )
     }
 
@@ -469,11 +498,15 @@ final class SceneFrameTextureRegistry {
         _ resource: PersistentEntry,
         for identity: SceneFrameTextureIdentity
     ) {
+        let previousLookup = lookup(identity)
         persistentEntries[identity] = resource
         entries[identity] = Entry(
             status: .ready(resource.stored.texture),
             generation: resource.generation,
             resource: resource
+        )
+        liveSelectionDigest = liveSelectionDigest.replacing(
+            identity, previous: previousLookup, with: resource.lookupStatus
         )
     }
 }

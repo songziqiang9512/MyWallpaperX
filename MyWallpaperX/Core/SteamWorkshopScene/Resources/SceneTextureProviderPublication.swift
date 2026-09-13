@@ -607,7 +607,7 @@ nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
         .init(mixA: 0, mixB: 0, entryCount: 0)
     }
 
-    fileprivate init(_ entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]) {
+    init(_ entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus]) {
         var mixA: UInt64 = 0
         var mixB: UInt64 = 0
         for (identity, status) in entries {
@@ -623,7 +623,7 @@ nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
     /// Folds one replaced entry into an existing digest. The fold is
     /// commutative and invertible on the changed identities only, so an
     /// overlay never revisits unchanged entries.
-    fileprivate func replacing(
+    func replacing(
         _ identity: SceneFrameTextureIdentity,
         previous: SceneFrameTextureLookupStatus?,
         with status: SceneFrameTextureLookupStatus
@@ -725,7 +725,7 @@ nonisolated struct SceneFrameTextureRegistrySnapshot {
         )
     }
 
-    fileprivate init(
+    init(
         frameEpoch: UInt64,
         frameIndex: UInt64,
         entries: [SceneFrameTextureIdentity: SceneFrameTextureLookupStatus],
