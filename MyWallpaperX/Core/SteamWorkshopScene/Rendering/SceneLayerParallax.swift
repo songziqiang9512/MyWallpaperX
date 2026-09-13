@@ -97,15 +97,10 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
         }
     }
 
-    private let delay: Double
     private var current = SIMD2<Float>.zero
     private var target = SIMD2<Float>.zero
     private var delayedTime = 0.0
     private var lastInputTimestamp: Double?
-
-    nonisolated init(delay: Float) {
-        self.delay = max(0, Double(delay))
-    }
 
     nonisolated func snapshot() -> State {
         State(
@@ -131,7 +126,13 @@ nonisolated struct SceneParallaxPointerSmoother: Sendable {
         lastInputTimestamp = timestamp.isFinite ? timestamp : lastInputTimestamp
     }
 
-    nonisolated mutating func advance(delta: Double) -> SIMD2<Float> {
+    nonisolated mutating func advance(
+        delta: Double,
+        delay authoredDelay: Float
+    ) -> SIMD2<Float> {
+        let delay = max(0, Double(
+            authoredDelay.isFinite ? authoredDelay : 0
+        ))
         guard delay > 0 else {
             current = target
             return current

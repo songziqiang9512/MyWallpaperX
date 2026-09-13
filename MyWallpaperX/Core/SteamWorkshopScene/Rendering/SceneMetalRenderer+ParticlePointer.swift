@@ -11,7 +11,8 @@ extension SceneMetalRenderer {
         let viewportSize = frameContext.screenSize
         let configuration = parallaxConfiguration(
             cameraFrame: cameraFrame,
-            viewportSize: viewportSize
+            viewportSize: viewportSize,
+            dynamicValues: frameContext.dynamicValues
         )
         let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: renderDescriptor, byID: layersByID,

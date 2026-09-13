@@ -150,7 +150,8 @@ struct SceneMetalRenderer {
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
         let parallaxConfiguration = parallaxConfiguration(
             cameraFrame: cameraFrame,
-            viewportSize: viewportSize
+            viewportSize: viewportSize,
+            dynamicValues: frameContext.dynamicValues
         )
         let orderedLayers = frameOrderedLayers
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(

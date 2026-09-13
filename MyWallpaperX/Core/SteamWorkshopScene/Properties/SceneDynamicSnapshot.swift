@@ -70,6 +70,32 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
     case parallaxAmount
     case parallaxDelay
     case parallaxMouseInfluence
+    case shakeEnabled
+    case shakeAmplitude
+    case shakeRoughness
+    case shakeSpeed
+
+    /// Consumer-side bounds for direct user-property values.  The property
+    /// catalog still owns the author's UI range; these bounds keep a wider or
+    /// malformed catalog from publishing a value the existing camera frame
+    /// cannot represent or execute.
+    nonisolated var userPropertyScalarRange: ClosedRange<Double>? {
+        let floatLimit = Double(Float.greatestFiniteMagnitude)
+        return switch self {
+        case .parallaxAmount, .parallaxMouseInfluence:
+            -floatLimit ... floatLimit
+        case .parallaxDelay:
+            0 ... floatLimit
+        case .shakeAmplitude:
+            0 ... 1
+        case .shakeRoughness:
+            0 ... 2
+        case .shakeSpeed:
+            0 ... 5
+        case .origin, .zoom, .parallaxEnabled, .shakeEnabled:
+            nil
+        }
+    }
 }
 
 nonisolated enum SceneDynamicSceneField: String, Codable, Equatable, Hashable, Sendable {
@@ -203,18 +229,29 @@ nonisolated struct SceneDynamicTargetDefinition: Codable, Equatable, Hashable, S
     }
 
     nonisolated func acceptsUserPropertyValue(_ value: SceneDynamicValue) -> Bool {
-        guard let userPropertyNumericRange else { return true }
-        switch value {
-        case let .scalar(component):
-            return component.isFinite && userPropertyNumericRange.contains(component)
-        case let .vector3(x, y, z):
-            return x.isFinite && y.isFinite && z.isFinite
-                && userPropertyNumericRange.contains(x)
-                && userPropertyNumericRange.contains(y)
-                && userPropertyNumericRange.contains(z)
-        default:
-            return false
+        let numericComponents: [Double]? = switch value {
+        case let .scalar(component): [component]
+        case let .vector3(x, y, z): [x, y, z]
+        default: nil
         }
+        if let consumerRange = target.cameraUserPropertyScalarRange {
+            guard let numericComponents,
+                  numericComponents.allSatisfy({
+                      $0.isFinite && consumerRange.contains($0)
+                  }) else { return false }
+        }
+        guard let userPropertyNumericRange else { return true }
+        guard let numericComponents else { return false }
+        return numericComponents.allSatisfy {
+            $0.isFinite && userPropertyNumericRange.contains($0)
+        }
+    }
+}
+
+private extension SceneDynamicTarget {
+    nonisolated var cameraUserPropertyScalarRange: ClosedRange<Double>? {
+        guard case let .camera(field) = self else { return nil }
+        return field.userPropertyScalarRange
     }
 }
 

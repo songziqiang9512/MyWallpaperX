@@ -22,6 +22,8 @@ extension SceneMetalView {
     ) -> SceneFrameContext {
         let screenSize = metalLayer.drawableSize
         let camera = renderer.renderDescriptor.camera
+        let property = dynamicValues.cameraPropertyProjection()
+        let parallaxEnabled = property.parallaxEnabled ?? camera.parallaxEnabled
         return SceneFrameContext(
             timing: timing,
             dynamicValues: dynamicValues,
@@ -31,7 +33,7 @@ extension SceneMetalView {
             ),
             screenSize: screenSize,
             pointer: pointerState,
-            cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero,
+            cameraParallaxPosition: parallaxEnabled ? parallax : .zero,
             materialFunctionMutations: materialFunctionMutations,
             audioSpectrum: audioSpectrum
         )

@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-camera-live-properties"></a>
+### 2026-09-13 Camera Parallax / 2D Camera Shake live User Property 闭环
+
+**结论：Camera Parallax 与 2D orthographic Camera Shake 的 direct User Property 达到 L3 bounded；同一真实构图的两次独立 live 正例达到 S4。** parser 保留 camera target，binding compiler 只接纳 `cameraparallax / camerashake` 及各自 amount/delay/mouse influence、amplitude/roughness/speed 八个 exact 字段；作者 catalog 数值范围和 camera consumer 范围必须同时满足。它们进入现役 `SceneDynamicSnapshot`，Parallax 投影到既有 configuration 和带提交回滚的 pointer smoother，Shake 与静态 descriptor 合并后进入既有 absolute-time evaluator。每帧仍只构造一个 camera frame，image/particle/pointer/parallax 共用它；没有第二套 property、camera、clock、resource、graph 或 compositor owner。真正 perspective Scene 不登记 Shake live consumer，继续 rebuild/fail-closed。
+
+**代码、门禁与身份：**dynamic snapshot/projection、binding mapping、live routing、parallax smoother、camera shake/frame context、particle camera 与 orthographic depth 共 9 个 focused 模块通过；包含八字段 exact mapping、未知字段拒绝、作者与 consumer 双范围、动态 delay、rollback、正交 guard 和同一 camera owner。规定的签名 Debug build `BUILD SUCCEEDED`。实际 App 为 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `5ac3c15c7aae52b565324dd5dede384497c1744d`，executable SHA-256 `0aff190319855f236560b05c970f3cf0ffc262d4eeef2f8f5206c1faf9c51a57`；benchmark 前后签名验证均为 true。
+
+**两条真实 live 正例：**只读真实 `3766387484` 的 project/package SHA-256 为 `c258aee6aaa856f748c08ba2ffd67629203c120f63a5d374d36840ce863a2a64 / a0765a5aff41a8a907aa87d75d1f8f75f2e6c5c54df10a8c4e44b1b9f3806a0a`。Shake 运行先以 `parallax=false / camerashake=false` 启动，再 live 写入 `camerashake=true`；更新被接受，surface 保持 1、window 保持 `20761`，1233/1232/0 frame submitted/completed/failed，motion `changed_ratio=0.4784173994 / mean_delta=0.0331177902`，CPU/GPU p50 为 `8.462 / 5.302 ms`。Parallax 独立运行从同样的静态 false 状态 live 写入 `parallax=true`；surface 保持 1、window 保持 `20816`，1222/1221/0 frame，motion `0.6690479895 / 0.0583221493`，CPU/GPU p50 为 `8.379 / 5.646 ms`。两次均 `failures=[] / strict PASS`、graph contract/execution 为 true、exact required layers 完成、0 executor failure/local fallback，并由 terminal compositor 和 next-frame 证据闭合。原分辨率 ready/after 检查确认人物、背景、时钟与深度层保持完整，live 后发生预期画面运动，没有黑屏、缺层、异常缩放或替代输出。
+
+Shake matrix/report/log/runtime-evidence SHA-256 为 `11a6cdf988e2a6050eddd3e9301dfb9ae0b6e745ae18877c17a3c1233a14ff6f / d0608ee1151f879e3abbe31f48e3071aebc1a65ab04a2500411e56a094ed1941 / ed751ba0b6c95e31efb03c9de28841ef94544b8512152844e1606e90fb9facd4 / d74f125abbd25f7c47dc7d442730c9b455324d43b77cfa01555af9000863e0ac`，ready/after PNG 为 `ac62cff69a22fcd457905d06e7823a9d1dbf40fdb536eeb6423bf6dfbc5c850c / ae2332972f835417d2da5935c78dabbf9639109575bdcdc3b50b29a059f59ed3`。Parallax 对应 SHA-256 为 `f13983712fee4070e2bf96350519c176d3f727ac135f4428a9ba1b469bc0aec4 / 1ad103c6f3119d8b575eb2762a6459676bb910243dc45a64b931046365a22a38 / c0ad674b39c97051b24c7559a602aa69745a8989b1be577a7b0ee6b5b12c6fe6 / 1500122f3d5dfee56ffb44458cdfbe02bc2b8d39dd5be8956f363892a7a8b7d4`，ready/after PNG 为 `33df82b364e80f5ea4ab3690bc0db59f9130dd4092e96928621c21f0a90bf4d5 / 3355e5132816c44238740a24df183d93b915c2944bb52a7f390ad7ab4f239ab8`。现场位于 `/private/tmp/mwx-camera-live-orthographic-targeted-20260913-out` 与 `/private/tmp/mwx-camera-parallax-live-targeted-20260913-out`，仅作可复现 provenance。
+
+**反例与证据上限：**`3477054430` 是无 `orthogonalprojection`、FOV 42.400002 的原生 perspective Scene，其 Shake live update 被拒绝是当前 guard 的正反门，不是产品回归。`3786185473` 虽接受 Parallax live update，但 benchmark 的 pointer 顺序没有形成可用的 live 画面差异，因此不计 S4。`3768229922` 同样机械 strict PASS且接受 Parallax 更新，但维护者确认它停在启动过渡、没有进入主场景；它不计 camera 可见证据，已作为 SceneScript/transition 状态推进首断点进入当前队列。本批没有运行 full corpus，也不证明 perspective XYZ、SceneScript camera setter、官方同相位数值/像素、Windows、多屏长稳或整样本人工 acceptance。
+
 <a id="e-2026-09-13-compiled-mip-chain"></a>
 ### 2026-09-13 编译 TEX mip 链权威与单级归一化闭环
 

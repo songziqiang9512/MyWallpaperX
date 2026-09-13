@@ -215,7 +215,7 @@ enum Harness {
         ).snapshot
         let layer12ControlPoints = controlPointSnapshot.particleControlPoints(layerID: 12)
         let layer12ParticleValues = controlPointSnapshot.particleInstanceValues(layerID: 12)
-        let cameraSnapshot = resolver.resolve(
+        let cameraValueSnapshot = resolver.resolve(
             frameIndex: 9,
             generation: 3,
             definitions: [
@@ -227,12 +227,56 @@ enum Harness {
                     target: .camera(.zoom), valueType: .scalar,
                     authoredValue: .scalar(1)
                 ),
+                .init(
+                    target: .camera(.parallaxEnabled), valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .camera(.parallaxAmount), valueType: .scalar,
+                    authoredValue: .scalar(0.1)
+                ),
+                .init(
+                    target: .camera(.parallaxDelay), valueType: .scalar,
+                    authoredValue: .scalar(0.2)
+                ),
+                .init(
+                    target: .camera(.parallaxMouseInfluence), valueType: .scalar,
+                    authoredValue: .scalar(0.3)
+                ),
+                .init(
+                    target: .camera(.shakeEnabled), valueType: .bool,
+                    authoredValue: .bool(false)
+                ),
+                .init(
+                    target: .camera(.shakeAmplitude), valueType: .scalar,
+                    authoredValue: .scalar(0.5)
+                ),
+                .init(
+                    target: .camera(.shakeRoughness), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+                .init(
+                    target: .camera(.shakeSpeed), valueType: .scalar,
+                    authoredValue: .scalar(1)
+                ),
+            ],
+            userValues: [
+                .camera(.parallaxEnabled): .bool(true),
+                .camera(.parallaxAmount): .scalar(0.75),
+                .camera(.parallaxDelay): .scalar(1.25),
+                .camera(.parallaxMouseInfluence): .scalar(-0.4),
+                .camera(.shakeEnabled): .bool(true),
+                .camera(.shakeAmplitude): .scalar(0.25),
+                .camera(.shakeRoughness): .scalar(1.5),
+                .camera(.shakeSpeed): .scalar(2.5),
             ],
             timelineValues: [
                 .camera(.origin): .vector3(-100, 682, 500),
                 .camera(.zoom): .scalar(2.4),
             ]
-        ).snapshot.cameraTransform()
+        ).snapshot
+        let cameraSnapshot = cameraValueSnapshot.cameraTransform()
+        let cameraProperty = cameraValueSnapshot.cameraPropertyProjection()
         let boundedZero = resolver.resolve(
             frameIndex: 10,
             generation: 4,
@@ -362,6 +406,16 @@ enum Harness {
                 cameraSnapshot.origin.x, cameraSnapshot.origin.y, cameraSnapshot.origin.z,
             ],
             "cameraZoom": cameraSnapshot.zoom,
+            "cameraProperty": [
+                cameraProperty.parallaxEnabled ?? false,
+                cameraProperty.parallaxAmount ?? -999,
+                cameraProperty.parallaxDelay ?? -999,
+                cameraProperty.parallaxMouseInfluence ?? -999,
+                cameraProperty.shakeEnabled ?? false,
+                cameraProperty.shakeAmplitude ?? -999,
+                cameraProperty.shakeRoughness ?? -999,
+                cameraProperty.shakeSpeed ?? -999,
+            ],
             "boundedZero": resolved(boundedZero.snapshot[boundedDefinition.target]),
             "boundedRange": boundedZero.snapshot.userPropertyNumericRange(
                 for: boundedDefinition.target
@@ -507,6 +561,14 @@ class SceneDynamicSnapshotTests(unittest.TestCase):
     def test_camera_transform_reads_typed_origin_and_zoom_atomically(self) -> None:
         self.assertEqual(self.result["cameraOrigin"], [-100, 682, 500])
         self.assertAlmostEqual(self.result["cameraZoom"], 2.4, places=5)
+
+    def test_camera_property_projection_reads_the_same_typed_snapshot(self) -> None:
+        expected = [True, 0.75, 1.25, -0.4, True, 0.25, 1.5, 2.5]
+        for actual, wanted in zip(self.result["cameraProperty"], expected, strict=True):
+            if isinstance(wanted, float):
+                self.assertAlmostEqual(actual, wanted, places=5)
+            else:
+                self.assertEqual(actual, wanted)
 
     def test_user_property_numeric_domain_is_published_and_enforced(self) -> None:
         self.assertEqual(self.result["boundedRange"], [0, 0.3])

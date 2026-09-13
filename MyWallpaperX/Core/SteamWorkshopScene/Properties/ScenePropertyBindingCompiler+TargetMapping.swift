@@ -118,6 +118,19 @@ extension ScenePropertyBindingCompiler {
                 (.particle(layerID: layerID, field: .normalizedColor), .vector3, .color)
             case .color: nil
             }
+        case let .camera(field):
+            switch field.localizedLowercase {
+            case "cameraparallax": cameraBoolean(.parallaxEnabled)
+            case "cameraparallaxamount": cameraScalar(.parallaxAmount)
+            case "cameraparallaxdelay": cameraScalar(.parallaxDelay)
+            case "cameraparallaxmouseinfluence":
+                cameraScalar(.parallaxMouseInfluence)
+            case "camerashake": cameraBoolean(.shakeEnabled)
+            case "camerashakeamplitude": cameraScalar(.shakeAmplitude)
+            case "camerashakeroughness": cameraScalar(.shakeRoughness)
+            case "camerashakespeed": cameraScalar(.shakeSpeed)
+            default: nil
+            }
         case let .soundVolume(layerID):
             (.layer(layerID: layerID, field: .volume), .scalar, .slider)
         case let .effectVisibility(layerID, effectIndex, _)
@@ -198,5 +211,17 @@ extension ScenePropertyBindingCompiler {
         _ field: SceneDynamicParticleField
     ) -> (SceneDynamicTarget, SceneDynamicValueType, SceneUserPropertyKind) {
         (.particle(layerID: layerID, field: field), .scalar, .slider)
+    }
+
+    private nonisolated static func cameraBoolean(
+        _ field: SceneDynamicCameraField
+    ) -> (SceneDynamicTarget, SceneDynamicValueType, SceneUserPropertyKind) {
+        (.camera(field), .bool, .bool)
+    }
+
+    private nonisolated static func cameraScalar(
+        _ field: SceneDynamicCameraField
+    ) -> (SceneDynamicTarget, SceneDynamicValueType, SceneUserPropertyKind) {
+        (.camera(field), .scalar, .slider)
     }
 }

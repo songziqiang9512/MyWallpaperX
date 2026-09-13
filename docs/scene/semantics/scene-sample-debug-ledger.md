@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 Camera live 属性闭环与 `3768229922` 启动过渡首断点
+
+当前签名 Debug App 对真实 `3766387484` 做两次独立 live 运行：从静态 `parallax=false / camerashake=false` 分别写入 `camerashake=true` 与 `parallax=true`。两次更新均被现役 binding program 接受，surface/window identity 不变，0 failed frame，graph/GPU/terminal compositor/next-frame闭合；原分辨率复核确认人物、背景、时钟和深度层保持完整并发生相机运动。这只证明同一真实 2D 正交构图的 Camera Parallax 与 Camera Shake direct User Property，不外推 perspective XYZ、SceneScript setter、Windows 像素或整样本人工 acceptance。完整身份、SHA 和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-camera-live-properties)。
+
+同批 `3768229922` 的自动门虽然报告 `failures=[] / strict PASS`，Parallax live 更新也保持同一 surface/window，但维护者实际观察确认画面一直停在作者启动过渡，没有正式进入主场景。因此该运行不能作为“ready”、camera 正例或整景通过；当前首断点是启动 transition 的状态推进。后继必须先按作者定义核对 init、timer/job、User Property、media/timeline callback 与 frame transaction 的触发和提交顺序，找到作者状态没有前进的最早缺口；样本 ID 只用于复现，产品仍沿唯一 SceneClock、QuickJS owner、typed snapshot 和 compositor 修复。现役执行位置见[当前队列](../scene-open-breakpoint-queue-2026-09-09.md)。
+
 ## 2026-09-13 `3238423642` SceneScript world matrix 与作者布局初始化
 
 基线签名 App 的作者 layer `918 / 920` 在 `init` 调用 `thisLayer.getTransformMatrix()` 时首先 TypeError；因此共享布局与开关没有发布，`944 / 947 / 950` 的 TextureAnimation `setFrame` 随后收到缺值。接通 renderer canonical world-frame projection 后，layer `921` 成为真正下一断点：它按作者脚本取得 Artist Name、Song Title、Settings Container 与 Rounded Corners，并读取官方只读 `size` 以及 `scale/origin` 计算背景宽度，旧 layer handle 没有 `size`。这不是共享状态顺序问题，修复也没有填默认 shared 值或放宽 `setFrame`。

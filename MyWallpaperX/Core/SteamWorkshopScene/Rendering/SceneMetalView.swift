@@ -130,9 +130,7 @@ class SceneMetalView: NSView {
         layer.drawableSize = CGSize(width: frame.width * initialScale, height: frame.height * initialScale)
         metalLayer = layer
         offscreenTexturePool = SceneOffscreenTexturePool(device: metalDevice)
-        parallaxPointerSmoother = SceneParallaxPointerSmoother(
-            delay: renderDescriptor.camera.parallaxDelay
-        )
+        parallaxPointerSmoother = SceneParallaxPointerSmoother()
         super.init(frame: frame)
         self.layer = layer
         wantsLayer = true
@@ -498,7 +496,13 @@ class SceneMetalView: NSView {
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxPointerState = parallaxPointerSmoother.snapshot()
         let pointerPrevious = pointerState.previous
-        let parallaxMouseNormalized = parallaxPointerSmoother.advance(delta: timing.simulationFrameTime)
+        let cameraProperty = dynamicValues.cameraPropertyProjection()
+        let parallaxDelay = cameraProperty.parallaxDelay
+            ?? renderer.renderDescriptor.camera.parallaxDelay
+        let parallaxMouseNormalized = parallaxPointerSmoother.advance(
+            delta: timing.simulationFrameTime,
+            delay: parallaxDelay
+        )
         let frameContext = makeFrameContext(
             timing: timing, dynamicValues: dynamicValues,
             materialFunctionMutations: materialFunctionMutations,

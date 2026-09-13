@@ -199,6 +199,29 @@ extension SceneDesktopWallpaperHost {
         )
         let visibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let effectTargets = resolvedMaterialExecutionCapabilities.liveConsumerTargets
+        let hasOrthographicCamera = descriptor.camera.orthoWidth.map {
+            $0.isFinite && $0 > 0
+        } == true && descriptor.camera.orthoHeight.map {
+            $0.isFinite && $0 > 0
+        } == true
+        let cameraTargets = Set(
+            propertyBindingProgram.instructions.compactMap {
+                instruction -> SceneDynamicTarget? in
+                guard case let .camera(field) = instruction.target else {
+                    return nil
+                }
+                switch field {
+                case .parallaxEnabled, .parallaxAmount, .parallaxDelay,
+                     .parallaxMouseInfluence:
+                    return instruction.target
+                case .shakeEnabled, .shakeAmplitude, .shakeRoughness,
+                     .shakeSpeed:
+                    return hasOrthographicCamera ? instruction.target : nil
+                case .origin, .zoom:
+                    return nil
+                }
+            }
+        )
         let layerVisibilityTargets =
             SceneDynamicLayerVisibilityRouteAdmission.targets(
                 in: descriptor,
@@ -216,6 +239,7 @@ extension SceneDesktopWallpaperHost {
         )
         return descriptor.layers.reduce(
             into: effectTargets
+                .union(cameraTargets)
                 .union(layerVisibilityTargets)
                 .union(modelMaterialTargets)
                 .union(soundPlaybackProgram.liveConsumerTargets)

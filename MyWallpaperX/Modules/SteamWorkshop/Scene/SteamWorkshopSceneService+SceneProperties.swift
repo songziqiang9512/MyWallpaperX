@@ -247,6 +247,7 @@ extension SteamWorkshopService {
             if [
                 "cameraparallax",
                 "cameraparallaxamount",
+                "cameraparallaxdelay",
                 "cameraparallaxmouseinfluence"
             ].contains(normalizedField) {
                 return true

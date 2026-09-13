@@ -60,16 +60,18 @@ enum Harness {
         let xOnly = SceneLayerParallax.Resolution(sourceLayerID: 99, depth: SIMD2(2, 0))
         let zero = SceneLayerParallax.Resolution(sourceLayerID: 99, depth: .zero)
 
-        var smoother = SceneParallaxPointerSmoother(delay: 1)
+        var smoother = SceneParallaxPointerSmoother()
         smoother.setTarget(SIMD2(1, -1), timestamp: 0)
-        let smoothFirst = smoother.advance(delta: 0.25)
-        let smoothSecond = smoother.advance(delta: 0.25)
+        let smoothFirst = smoother.advance(delta: 0.25, delay: 1)
+        let smoothSecond = smoother.advance(delta: 0.25, delay: 1)
         smoother.setTarget(SIMD2(-1, 1), timestamp: 0.5)
         let rollbackState = smoother.snapshot()
-        let smoothAfterInput = smoother.advance(delta: 0.25)
-        let smoothAdvanced = smoother.advance(delta: 0.25)
+        let smoothAfterInput = smoother.advance(delta: 0.25, delay: 1)
+        let smoothAdvanced = smoother.advance(delta: 0.25, delay: 1)
         smoother.restore(rollbackState)
-        let smoothRestored = smoother.advance(delta: 0.25)
+        let smoothRestored = smoother.advance(delta: 0.25, delay: 1)
+        smoother.restore(rollbackState)
+        let zeroDelay = smoother.advance(delta: 0.01, delay: 0)
 
         let result: [String: Any] = [
             "root": vector(SceneLayerParallax.resolve(layerID: 1, nodesByID: nodes)?.depth),
@@ -112,7 +114,8 @@ enum Harness {
             "smoothSecond": vector(smoothSecond),
             "smoothAfterInput": vector(smoothAfterInput),
             "smoothAdvanced": vector(smoothAdvanced),
-            "smoothRestored": vector(smoothRestored)
+            "smoothRestored": vector(smoothRestored),
+            "zeroDelay": vector(zeroDelay)
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -178,6 +181,7 @@ class SceneLayerParallaxTests(unittest.TestCase):
         self.assertEqual(self.result["smoothSecond"], [0.625, -0.625])
         self.assertEqual(self.result["smoothAfterInput"], [0.21875, -0.21875])
         self.assertEqual(self.result["smoothRestored"], [0.21875, -0.21875])
+        self.assertEqual(self.result["zeroDelay"], [-1, 1])
 
 
 if __name__ == "__main__":

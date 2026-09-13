@@ -733,6 +733,123 @@ enum Harness {
             definitions: particle.program.definitions,
             userValues: particleEvaluation.userValues
         ).snapshot
+        let cameraTargets: Set<SceneDynamicTarget> = [
+            .camera(.parallaxEnabled),
+            .camera(.parallaxAmount),
+            .camera(.parallaxDelay),
+            .camera(.parallaxMouseInfluence),
+            .camera(.shakeEnabled),
+            .camera(.shakeAmplitude),
+            .camera(.shakeRoughness),
+            .camera(.shakeSpeed),
+        ]
+        let camera = compiler.compile(
+            report: .init(bindings: [
+                binding(
+                    "parallax", .bool(true), 0,
+                    .camera(field: "cameraparallax"),
+                    pathSuffix: "cameraparallax"
+                ),
+                binding(
+                    "parallaxAmount", .number(0.5), 0,
+                    .camera(field: "cameraparallaxamount"),
+                    pathSuffix: "cameraparallaxamount"
+                ),
+                binding(
+                    "parallaxDelay", .number(0.1), 0,
+                    .camera(field: "cameraparallaxdelay"),
+                    pathSuffix: "cameraparallaxdelay"
+                ),
+                binding(
+                    "mouseInfluence", .number(0.5), 0,
+                    .camera(field: "cameraparallaxmouseinfluence"),
+                    pathSuffix: "cameraparallaxmouseinfluence"
+                ),
+                binding(
+                    "shake", .bool(false), 0,
+                    .camera(field: "camerashake"),
+                    pathSuffix: "camerashake"
+                ),
+                binding(
+                    "shakeAmplitude", .number(0.5), 0,
+                    .camera(field: "camerashakeamplitude"),
+                    pathSuffix: "camerashakeamplitude"
+                ),
+                binding(
+                    "shakeRoughness", .number(1), 0,
+                    .camera(field: "camerashakeroughness"),
+                    pathSuffix: "camerashakeroughness"
+                ),
+                binding(
+                    "shakeSpeed", .number(1), 0,
+                    .camera(field: "camerashakespeed"),
+                    pathSuffix: "camerashakespeed"
+                ),
+            ], diagnostics: []),
+            catalog: .init(definitions: [
+                property("parallax", .bool, .bool(true)),
+                property(
+                    "parallaxAmount", .slider, .number(0.5),
+                    minimumValue: 0, maximumValue: 1
+                ),
+                property(
+                    "parallaxDelay", .slider, .number(0.1),
+                    minimumValue: 0, maximumValue: 2
+                ),
+                property(
+                    "mouseInfluence", .slider, .number(0.5),
+                    minimumValue: -1, maximumValue: 1
+                ),
+                property("shake", .bool, .bool(false)),
+                property(
+                    "shakeAmplitude", .slider, .number(0.5),
+                    minimumValue: 0, maximumValue: 2
+                ),
+                property(
+                    "shakeRoughness", .slider, .number(1),
+                    minimumValue: 0, maximumValue: 4
+                ),
+                property(
+                    "shakeSpeed", .slider, .number(1),
+                    minimumValue: 0, maximumValue: 10
+                ),
+            ])
+        )
+        let cameraEvaluation = camera.program.evaluate(effectiveValues: [
+            "parallax": .bool(false),
+            "parallaxAmount": .number(0.75),
+            "parallaxDelay": .number(1.5),
+            "mouseInfluence": .number(-0.25),
+            "shake": .bool(true),
+            "shakeAmplitude": .number(0.25),
+            "shakeRoughness": .number(1.5),
+            "shakeSpeed": .number(2.5),
+        ])
+        let cameraUser = SceneDynamicSnapshotResolver().resolve(
+            frameIndex: 11,
+            generation: 11,
+            definitions: camera.program.definitions,
+            userValues: cameraEvaluation.userValues
+        ).snapshot
+        let invalidCameraSpeed = camera.program.evaluate(effectiveValues: [
+            "parallax": .bool(false),
+            "parallaxAmount": .number(0.75),
+            "parallaxDelay": .number(1.5),
+            "mouseInfluence": .number(-0.25),
+            "shake": .bool(true),
+            "shakeAmplitude": .number(0.25),
+            "shakeRoughness": .number(1.5),
+            "shakeSpeed": .number(6),
+        ])
+        let unknownCamera = compiler.compile(
+            report: .init(bindings: [binding(
+                "camera", .number(1), 0, .camera(field: "camerafade"),
+                pathSuffix: "camerafade"
+            )], diagnostics: []),
+            catalog: .init(definitions: [
+                property("camera", .slider, .number(1)),
+            ])
+        )
         let directParticleColor = compiler.compile(
             report: .init(bindings: [binding(
                 "particleColor", .string("255 255 255"), 121,
@@ -1076,6 +1193,20 @@ enum Harness {
             "particleCodes": codes(particle.diagnostics),
             "particleUser": particleTargets.map { resolved(particleUser[$0]) },
             "particleRuntimeCodes": codes(particleEvaluation.diagnostics),
+            "cameraCount": camera.program.instructions.count,
+            "cameraTargets": Set(camera.program.instructions.map(\.target))
+                == cameraTargets,
+            "cameraCodes": codes(camera.diagnostics),
+            "cameraUser": cameraTargets.sorted {
+                String(describing: $0) < String(describing: $1)
+            }.map { resolved(cameraUser[$0]) },
+            "cameraRuntimeCodes": codes(cameraEvaluation.diagnostics),
+            "invalidCameraSpeedMissing": invalidCameraSpeed.userValues[
+                .camera(.shakeSpeed)
+            ] == nil,
+            "invalidCameraSpeedCodes": codes(invalidCameraSpeed.diagnostics),
+            "unknownCameraCount": unknownCamera.program.instructions.count,
+            "unknownCameraCodes": codes(unknownCamera.diagnostics),
             "directParticleColorCount": directParticleColor.program.instructions.count,
             "directParticleColorCodes": codes(directParticleColor.diagnostics),
             "soundVolumeCount": soundVolume.program.instructions.count,
@@ -1418,6 +1549,18 @@ class ScenePropertyBindingProgramTests(unittest.TestCase):
         self.assertEqual(self.result["particleRuntimeCodes"], [])
         self.assertEqual(self.result["directParticleColorCount"], 0)
         self.assertEqual(self.result["directParticleColorCodes"], ["unsupportedTarget"])
+
+    def test_scene_camera_properties_are_live_typed_targets(self) -> None:
+        self.assertEqual(self.result["cameraCount"], 8)
+        self.assertTrue(self.result["cameraTargets"])
+        self.assertEqual(self.result["cameraCodes"], [])
+        self.assertEqual(len(self.result["cameraUser"]), 8)
+        self.assertTrue(all(value[-1] == "userProperty" for value in self.result["cameraUser"]))
+        self.assertEqual(self.result["cameraRuntimeCodes"], [])
+        self.assertTrue(self.result["invalidCameraSpeedMissing"])
+        self.assertEqual(self.result["invalidCameraSpeedCodes"], ["invalidRuntimeValue"])
+        self.assertEqual(self.result["unknownCameraCount"], 0)
+        self.assertEqual(self.result["unknownCameraCodes"], ["unsupportedTarget"])
 
     def test_sound_volume_reuses_the_shared_live_scalar_state(self) -> None:
         self.assertEqual(self.result["soundVolumeCount"], 1)

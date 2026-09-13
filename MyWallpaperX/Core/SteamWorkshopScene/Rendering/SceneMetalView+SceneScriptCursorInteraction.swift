@@ -194,7 +194,8 @@ extension SceneMetalView {
         )
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: cameraFrame,
-            viewportSize: frameContext.screenSize
+            viewportSize: frameContext.screenSize,
+            dynamicValues: dynamicValues
         )
         var hits: [Int: SceneScriptCursorHit] = [:]
         for ownerLayerID in ownerLayerIDs {

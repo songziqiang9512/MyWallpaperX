@@ -7,7 +7,14 @@ extension SceneMetalRenderer {
     ) -> SceneParticleCameraFrame {
         let camera = renderDescriptor.camera
         let dynamic = frameContext.dynamicValues.cameraTransform()
-        let admission = SceneCameraShake.admission(camera)
+        let property = frameContext.dynamicValues.cameraPropertyProjection()
+        let shake = SceneRenderDescriptor.CameraDescriptor.ShakeDescriptor(
+            enabled: property.shakeEnabled ?? camera.shake.enabled,
+            amplitude: property.shakeAmplitude ?? camera.shake.amplitude,
+            roughness: property.shakeRoughness ?? camera.shake.roughness,
+            speed: property.shakeSpeed ?? camera.shake.speed
+        )
+        let admission = SceneCameraShake.admission(camera, shake: shake)
         let orthographicShake = SceneCameraShake.orthographicOffset(
             admission: admission,
             sceneTime: frameContext.sceneTime
@@ -59,17 +66,21 @@ extension SceneMetalRenderer {
 
     func parallaxConfiguration(
         cameraFrame: SceneParticleCameraFrame,
-        viewportSize: CGSize
+        viewportSize: CGSize,
+        dynamicValues: SceneDynamicSnapshot
     ) -> SceneLayerParallax.Configuration {
         let camera = renderDescriptor.camera
+        let property = dynamicValues.cameraPropertyProjection()
         let orthoSize = SIMD2<Float>(
             camera.orthoWidth ?? Float(viewportSize.width),
             camera.orthoHeight ?? Float(viewportSize.height)
         )
         return SceneLayerParallax.Configuration(
-            enabled: camera.parallaxEnabled,
-            amount: camera.parallaxAmount,
-            mouseInfluence: camera.parallaxMouseInfluence,
+            enabled: property.parallaxEnabled ?? camera.parallaxEnabled,
+            amount: property.parallaxAmount ?? camera.parallaxAmount,
+            mouseInfluence:
+                property.parallaxMouseInfluence
+                    ?? camera.parallaxMouseInfluence,
             orthoSize: orthoSize,
             cameraPosition: orthoSize * 0.5 + SIMD2(
                 cameraFrame.cameraOrigin.x,

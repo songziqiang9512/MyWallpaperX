@@ -480,14 +480,13 @@ class SceneFrameContextTests(unittest.TestCase):
             [{"layerID": 17, "effectIndex": 2, "functionName": "clearHistory"}],
         )
 
-    def test_view_publishes_camera_parallax_only_when_the_camera_enables_it(self) -> None:
+    def test_view_publishes_camera_parallax_from_the_typed_snapshot(self) -> None:
         source = VIEW_FRAME_CONTEXT_SOURCE.read_text(encoding="utf-8")
         make_context = swift_body(source, "func makeFrameContext(")
         self.assertIn("pointer: pointerState", make_context)
-        self.assertIn(
-            "cameraParallaxPosition: camera.parallaxEnabled ? parallax : .zero",
-            make_context,
-        )
+        self.assertIn("dynamicValues.cameraPropertyProjection()", make_context)
+        self.assertIn("property.parallaxEnabled ?? camera.parallaxEnabled", make_context)
+        self.assertIn("cameraParallaxPosition: parallaxEnabled ? parallax : .zero", make_context)
 
     def test_scenescript_material_mutation_stays_on_existing_frame_and_graph_chain(self) -> None:
         frame_driver = HOST_FRAME_DRIVER_SOURCE.read_text(encoding="utf-8")

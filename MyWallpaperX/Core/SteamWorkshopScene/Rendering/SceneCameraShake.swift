@@ -32,7 +32,13 @@ nonisolated enum SceneCameraShake {
     nonisolated static func admission(
         _ camera: SceneRenderDescriptor.CameraDescriptor
     ) -> Admission {
-        let descriptor = camera.shake
+        admission(camera, shake: camera.shake)
+    }
+
+    nonisolated static func admission(
+        _ camera: SceneRenderDescriptor.CameraDescriptor,
+        shake descriptor: SceneRenderDescriptor.CameraDescriptor.ShakeDescriptor
+    ) -> Admission {
         guard let enabled = descriptor.enabled else { return .invalid }
         guard enabled else { return .disabled }
         guard let amplitude = descriptor.amplitude,
