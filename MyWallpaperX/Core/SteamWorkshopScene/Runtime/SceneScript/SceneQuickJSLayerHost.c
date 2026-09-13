@@ -78,6 +78,7 @@ bool mwx_scene_quickjs_install_layer_handle_class(MWXSceneQuickJSDomain *domain)
 
 enum LayerProperty {
     LAYER_ORIGIN,
+    LAYER_SIZE,
     LAYER_SCALE,
     LAYER_ANGLES,
     LAYER_VISIBLE,
@@ -805,6 +806,20 @@ static JSValue make_vec3(JSContext *context, MWXSceneQuickJSDomain *domain, cons
     return result;
 }
 
+static JSValue make_vec2(
+    JSContext *context, MWXSceneQuickJSDomain *domain, const double v[2]
+) {
+    JSValue arguments[2] = {
+        JS_NewFloat64(context, v[0]), JS_NewFloat64(context, v[1]),
+    };
+    JSValue result = JS_CallConstructor(
+        context, domain->vec2_constructor, 2, arguments
+    );
+    for (size_t index = 0; index < 2; ++index)
+        JS_FreeValue(context, arguments[index]);
+    return result;
+}
+
 static bool read_vec3(JSContext *context, JSValueConst value, double output[3]) {
     static const char *names[3] = {"x", "y", "z"};
     for (size_t index = 0; index < 3; ++index) {
@@ -1072,6 +1087,10 @@ static JSValue layer_get(
                 record->current_origin
             ) : record->current_origin
         );
+    case LAYER_SIZE:
+        return record->dynamic
+            ? JS_UNDEFINED
+            : make_vec2(context, handle->domain, record->size);
     case LAYER_SCALE:
         return make_vec3(
             context, handle->domain,
@@ -1500,6 +1519,28 @@ static JSValue get_parent(
         }
     }
     return JS_ThrowTypeError(context, "layer parent identity is invalid");
+}
+
+static JSValue get_transform_matrix(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSLayerHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = record_for_handle(handle);
+    if (record == NULL)
+        return JS_ThrowTypeError(
+            context, "getTransformMatrix layer handle is stale"
+        );
+    if (argc != 0)
+        return JS_ThrowTypeError(
+            context, "getTransformMatrix expects no arguments"
+        );
+    if (!record->world_transform_available)
+        return JS_ThrowTypeError(
+            context, "layer world transform is unavailable"
+        );
+    return make_mat4(context, handle->domain, record->world_transform);
 }
 
 static MWXSceneQuickJSLayerRecord *video_record_for_handle(
@@ -2158,6 +2199,27 @@ static bool define_get_parent(
     ) >= 0;
 }
 
+static bool define_get_transform_matrix(
+    JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
+    uint32_t index, bool owner_target, bool persistent
+) {
+    MWXSceneQuickJSLayerHandle *handle = calloc(1, sizeof(*handle));
+    if (handle == NULL) return false;
+    *handle = (MWXSceneQuickJSLayerHandle){
+        .domain = owner->domain, .owner_identity = owner->identity,
+        .layer_index = index,
+        .callback_epoch = owner->domain->callback_epoch,
+        .owner_target = owner_target, .persistent = persistent,
+    };
+    JSValue function = JS_NewCClosure(
+        context, get_transform_matrix, "getTransformMatrix",
+        free_layer_handle, 0, 0, handle
+    );
+    return !JS_IsException(function) && JS_DefinePropertyValueStr(
+        context, layer, "getTransformMatrix", function, JS_PROP_ENUMERABLE
+    ) >= 0;
+}
+
 static bool define_puppet_bone_functions(
     JSContext *context, JSValue layer, MWXSceneQuickJSOwner *owner,
     uint32_t index, bool owner_target, bool persistent
@@ -2219,6 +2281,7 @@ static JSValue make_layer_handle(
     }
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
+        {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false},
@@ -2254,6 +2317,12 @@ static JSValue make_layer_handle(
         return JS_EXCEPTION;
     }
     if (!define_get_parent(
+            context, layer, owner, index, owner_target, persistent
+        )) {
+        JS_FreeValue(context, layer);
+        return JS_EXCEPTION;
+    }
+    if (!define_get_transform_matrix(
             context, layer, owner, index, owner_target, persistent
         )) {
         JS_FreeValue(context, layer);
@@ -2772,6 +2841,7 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     JSContext *context = owner->domain->context;
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
+        {"size", LAYER_SIZE, false},
         {"angles", LAYER_ANGLES, true}, {"visible", LAYER_VISIBLE, true},
         {"text", LAYER_TEXT, true}, {"pointsize", LAYER_POINT_SIZE, false},
         {"font", LAYER_FONT, true}, {"id", LAYER_ID, false}, {"name", LAYER_NAME, false},
@@ -2787,6 +2857,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
     if (!define_get_parent(
+            context, owner->material_function_layer, owner, 0, true, true
+        )) return false;
+    if (!define_get_transform_matrix(
             context, owner->material_function_layer, owner, 0, true, true
         )) return false;
     if (!define_puppet_bone_functions(
@@ -3181,6 +3254,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, int64_t layer_id,
     uint32_t has_parent, int64_t parent_id,
     const char *name, size_t name_length, const double origin[3],
+    const double size[2],
     const double scale[3], const double angles[3], uint32_t visible, double alpha,
     const char *text, size_t text_length, const char *font, size_t font_length,
     double point_size, const double color[3], char *diagnostic, size_t diagnostic_capacity
@@ -3189,13 +3263,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     if (domain == NULL || layer_index >= domain->authored_layer_count || name == NULL ||
         text == NULL || font == NULL || name_length > MWX_SCENE_QUICKJS_MAX_LAYER_NAME ||
         text_length > MWX_SCENE_QUICKJS_MAX_LAYER_TEXT || font_length > MWX_SCENE_QUICKJS_MAX_LAYER_FONT ||
-        origin == NULL || scale == NULL || angles == NULL || color == NULL ||
+        origin == NULL || size == NULL || scale == NULL || angles == NULL ||
+        color == NULL ||
         has_parent > 1 || !valid_layer_identity(layer_id) ||
         (has_parent && (!valid_layer_identity(parent_id) || parent_id == layer_id)) ||
         !isfinite(alpha) || !isfinite(point_size) || domain->layers[layer_index].configured)
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     for (size_t i = 0; i < 3; ++i)
         if (!isfinite(origin[i]) || !isfinite(scale[i]) || !isfinite(angles[i]) || !isfinite(color[i]))
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (size_t i = 0; i < 2; ++i)
+        if (!isfinite(size[i]) || size[i] < 0)
             return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     MWXSceneQuickJSLayerRecord *record = &domain->layers[layer_index];
     record->name = copy_string(name, name_length); record->text = copy_string(text, text_length);
@@ -3205,6 +3283,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     record->has_parent = has_parent != 0;
     memcpy(record->authored_origin, origin, sizeof(record->authored_origin));
     memcpy(record->current_origin, origin, sizeof(record->current_origin));
+    memcpy(record->size, size, sizeof(record->size));
     memcpy(record->scale, scale, sizeof(record->scale)); memcpy(record->angles, angles, sizeof(record->angles));
     memcpy(record->color, color, sizeof(record->color)); record->visible = visible != 0;
     record->alpha = alpha; record->point_size = point_size; record->order_index = (int32_t)layer_index;
@@ -3239,6 +3318,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     MWXSceneQuickJSDomain *domain, uint32_t layer_index, int64_t layer_id,
     uint32_t has_parent, int64_t parent_id,
     const char *name, size_t name_length, const double origin[3],
+    const double size[2],
     char *diagnostic, size_t diagnostic_capacity
 ) {
     static const double scale[3] = {1, 1, 1};
@@ -3246,7 +3326,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     static const double color[3] = {1, 1, 1};
     return mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
         domain, layer_index, layer_id, has_parent, parent_id,
-        name, name_length, origin,
+        name, name_length, origin, size,
         scale, angles, 1, 1, "", 0, "", 0, 32, color,
         diagnostic, diagnostic_capacity
     );

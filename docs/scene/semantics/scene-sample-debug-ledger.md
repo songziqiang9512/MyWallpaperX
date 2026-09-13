@@ -2,13 +2,21 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
-## 2026-09-13 SceneScript TextureAnimation 公共 API 与后继 matrix 首断点
+## 2026-09-13 `3238423642` SceneScript world matrix 与作者布局初始化
+
+基线签名 App 的作者 layer `918 / 920` 在 `init` 调用 `thisLayer.getTransformMatrix()` 时首先 TypeError；因此共享布局与开关没有发布，`944 / 947 / 950` 的 TextureAnimation `setFrame` 随后收到缺值。接通 renderer canonical world-frame projection 后，layer `921` 成为真正下一断点：它按作者脚本取得 Artist Name、Song Title、Settings Container 与 Rounded Corners，并读取官方只读 `size` 以及 `scale/origin` 计算背景宽度，旧 layer handle 没有 `size`。这不是共享状态顺序问题，修复也没有填默认 shared 值或放宽 `setFrame`。
+
+现役实现把 descriptor 的 identity/order/parent/authored TRS/size 与 world-frame projection 放进同一个 launch-prepared catalog；每帧矩阵由 renderer 既有 resolver 从同一 dynamic snapshot 得出，再随 layer snapshot transaction 原子提交。C/QuickJS bridge 只复制 column-major Mat4，没有第二坐标系统、snapshot、clock、provider 或 renderer。focused matrix/QuickJS/snapshot/routing/transaction/相邻 String/Text/Vec3 门和签名 build 通过。
+
+最终签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `bdff68775d1137eadcda47ab21bd9b96feacd4ad`，executable SHA-256 `a274df1710456a84892a5d8e57252a453b25bb5db281ffeb77b7a01b07ca87b6`。只读真实样本 fresh 25 秒运行使用相同 matrix SHA-256 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a`，report/app-log SHA-256 为 `d8fafccf1947257bb99c498f164b5bcd4c8614659e1e083bf26a8fb434ad3f8f / 7b5a6916f985d8f55457d93b85cb5ae74b93513ee7770503fb7c3995f42b0613`；结果 `failures=[] / strict PASS`、loaded ratio 1.0、184/183/0 frame。`918 / 920 / 921 / 944 / 947 / 950` 全部 `generic-only` 完成，921 的作者宽度结果为 `scale.x=0.2031509121`，0 SceneScript VM failure。原分辨率 ready/after 检查确认主角色、红绿偏移层、日期与时钟保持正确位置和比例，after PNG SHA-256 `b2d3e779c886b20be2caa842e8e57a857d46323e9f241300db3be2df7d4a6715`。本次约 8.9 submitted FPS 仍是 Q3 性能证据，不随布局断点关闭。完整合同和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-ilayer-world-matrix)。
+
+## 2026-09-13 SceneScript TextureAnimation 公共 API
 
 当前签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `d5958b821d8d15f710f4dd0e738967471f2a2f09`，executable SHA-256 `09e7f4136f7c0512b180bf9c4270292ae11c8f799e76fc114d371e949ad24039`。`3299228616 / 3768903841` 定向矩阵/report SHA-256 为 `7a98db7b1abd862dcfc8eb5508bc91a74151cf9e11a6589a04ebe73e3b45f1f3 / 914cb096bd085794c4a37bbb51942cd048a98974cd5af12262a09a8bb7a37a1d`；2/2 strict PASS、loaded ratio 1.0，分别为 170/169/0 与 260/259/0 frame submitted/completed/failed。作者 API 不再出现 TypeError；前者每次 owner commit 含 30 条 TextureAnimation command，后者初始化 8 条后按 timer 单条推进。
 
 公共实现只在 launch 登记 animated TEX 定义，并从唯一 SceneClock 批量生成 playback time；layer-local `rate/play/pause/stop/setFrame` anchor 与 `join` 复用同一 QuickJS owner transaction，提交后下一帧同时进入 atlas、resolved-material 和 multi-image consumer。没有 fixed profile、第二 provider/clock/renderer。20 帧可见复核确认猫/水面/时钟/树叶与人物/天空/云层/烟花构图完整持续，烟花按作者控制变化；没有黑屏、几何缺失或替代输出。完整 identity、API 正反门和证据上限见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-texture-animation-api)。
 
-`3238423642` 的独立定向运行仍 strict benchmark PASS，但其首个作者 VM 失败已前移到 layer `918 / 920` 的 `thisLayer.getTransformMatrix()` 未实现；两个初始化 owner 未写入 shared 布局值，layer `944 / 947 / 950` 的无效 `setFrame` 及 layer `921` 的缺失向量随后发生。matrix/report/log SHA-256 为 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a / c8bb4ba789efecabc2d5c9b1024f2569a7509b93c1da9fe122b665b6a2f22f43 / 6d76d4b752ee1417179e89b2e410bcac8974dc29448b6864902818d3a85523a7`。这是新的公共 matrix/parent/transform snapshot 断点；不得用默认 shared 值或放宽 `setFrame` 掩盖。
+该次运行发现的 `3238423642` matrix/size 后继断点已经由上方 2026-09-13 fresh 证据关闭；原失败 SHA 只保留为修复前基线，不再是现役队列事实。
 
 ## 2026-09-13 `3787382101` Water Waves mask 同构 A/B
 

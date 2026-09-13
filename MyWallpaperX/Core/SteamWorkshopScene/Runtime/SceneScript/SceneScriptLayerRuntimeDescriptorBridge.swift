@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 nonisolated extension SceneScriptQuickJSDomain {
     func configureLayerRuntimeFields(_ descriptor: SceneRenderDescriptor) throws {
@@ -146,6 +147,39 @@ nonisolated extension SceneScriptQuickJSDomain {
                         diagnostic: diagnostic
                     )
                 }
+            }
+        }
+    }
+
+    func publishLayerWorldTransforms(
+        _ worldFrames: [Int: simd_float4x4],
+        descriptor: SceneRenderDescriptor,
+        diagnostic: inout [CChar]
+    ) throws {
+        for (index, layer) in descriptor.layers.enumerated() {
+            guard let worldFrame = worldFrames[layer.id] else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer world transform is missing"
+                )
+            }
+            let values = SceneScriptLayerWorldTransformProjection
+                .columnMajorValues(worldFrame)
+            guard values.count == 16, values.allSatisfy(\.isFinite) else {
+                throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                    "SceneScript layer world transform is non-finite"
+                )
+            }
+            let result = values.withUnsafeBufferPointer { pointer in
+                mwx_scene_quickjs_domain_update_layer_world_transform(
+                    handle,
+                    UInt32(index),
+                    pointer.baseAddress,
+                    &diagnostic,
+                    diagnostic.count
+                )
+            }
+            guard result == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(result, diagnostic: diagnostic)
             }
         }
     }

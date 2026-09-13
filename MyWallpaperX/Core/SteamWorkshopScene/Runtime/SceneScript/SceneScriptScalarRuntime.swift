@@ -66,6 +66,10 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     var storageSession: SceneScriptLocalStorageSession? = nil
     var layerCatalogSignature: String?
     var layerSnapshotGeneration: UInt64 = 0
+    var layerWorldTransformProjection:
+        SceneScriptLayerWorldTransformProjection?
+    var committedDynamicWorldTransformLayerIDs: Set<Int> = []
+    var rollbackDynamicWorldTransformLayerIDs: Set<Int>?
     private var constructionBoundaryCheck: (@Sendable () throws -> Void)?
     private var constructionCancellationOpaque: UnsafeMutableRawPointer?
     init(budget: SceneScriptScalarBudget = .default) throws {
@@ -96,8 +100,16 @@ nonisolated final class SceneScriptQuickJSDomain: @unchecked Sendable {
     func discardCommittedLayerSnapshot() {
         guard mwx_scene_quickjs_domain_rollback_layer_snapshot(handle) else { return }
         if layerSnapshotGeneration > 0 { layerSnapshotGeneration -= 1 }
+        if let rollbackDynamicWorldTransformLayerIDs {
+            committedDynamicWorldTransformLayerIDs =
+                rollbackDynamicWorldTransformLayerIDs
+        }
+        rollbackDynamicWorldTransformLayerIDs = nil
     }
-    func finalizeCommittedLayerSnapshot() { mwx_scene_quickjs_domain_finalize_layer_snapshot(handle) }
+    func finalizeCommittedLayerSnapshot() {
+        mwx_scene_quickjs_domain_finalize_layer_snapshot(handle)
+        rollbackDynamicWorldTransformLayerIDs = nil
+    }
     func installConstructionBoundaryCheck(
         _ check: @escaping @Sendable () throws -> Void
     ) {

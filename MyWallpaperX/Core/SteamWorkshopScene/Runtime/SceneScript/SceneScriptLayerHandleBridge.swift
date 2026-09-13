@@ -542,22 +542,31 @@ private nonisolated extension String {
 }
 
 /// Publishes the existing frame snapshot into the callback-scoped SceneScript
-/// handle projection. This is not a second property store: every frame starts
-/// from descriptor-authored origins and overlays only resolved current values.
+/// handle projection. This is not a second property store: launch-stable
+/// identity, parent, authored size and authored origins come from the prepared
+/// descriptor; every frame overlays only resolved current values.
 nonisolated extension SceneScriptQuickJSDomain {
     /// Launch-stable catalog identity: index, id, parent, name, authored
-    /// origin and text mutability of every descriptor layer. This signature
-    /// is only built at load/configuration time; the per-frame snapshot path
-    /// compares the launch-frozen token instead of rescanning the catalog.
+    /// transforms, size and text mutability of every descriptor layer. This
+    /// signature is only built at load/configuration time; the per-frame
+    /// snapshot path compares the launch-frozen token instead of rescanning
+    /// the catalog.
     nonisolated static func catalogSignature(
         for descriptor: SceneRenderDescriptor
     ) -> String {
-        descriptor.layers.enumerated().map { index, layer in
+        let camera = descriptor.camera.orthoHeight.map { String($0) }
+            ?? "perspective"
+        let layers = descriptor.layers.enumerated().map { index, layer in
             let origin = layer.originXYZ ?? [0, 0, 0]
+            let scale = layer.scaleXYZ ?? [1, 1, 1]
+            let angles = layer.anglesXYZ ?? [0, 0, 0]
+            let size = layer.sizeWH ?? [0, 0]
+            let attachment = layer.parentAttachmentBindFrame ?? []
             let textMutable = layer.contentKind == "text"
                 && layer.text != nil && layer.textStyle != nil
-            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):text=\(textMutable)"
+            return "\(index):\(layer.id):\(layer.parentID.map(String.init) ?? "root"):\(layer.name ?? ""):\(origin):\(scale):\(angles):size=\(size):attachment=\(attachment):text=\(textMutable)"
         }.joined(separator: "|")
+        return "camera=\(camera)|\(layers)"
     }
 
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {
@@ -570,6 +579,10 @@ nonisolated extension SceneScriptQuickJSDomain {
                   let validOrigin = layer.originXYZ.map {
                       $0.count == 3 && $0.allSatisfy(\.isFinite)
                   } ?? true
+                  let validSize = layer.sizeWH.map {
+                      $0.count == 2
+                        && $0.allSatisfy { $0.isFinite && $0 >= 0 }
+                  } ?? true
                   return layerID >= -9_007_199_254_740_991
                     && layerID <= 9_007_199_254_740_991
                     && parentID.map {
@@ -581,6 +594,7 @@ nonisolated extension SceneScriptQuickJSDomain {
                     && (layer.name?.utf8.count ?? 0) <= 256
                     && !(layer.name?.contains("\0") ?? false)
                     && validOrigin
+                    && validSize
               }) else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument(
                 "SceneScript layer catalog exceeds its identity contract"
@@ -588,12 +602,24 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
         let signature = Self.catalogSignature(for: descriptor)
         if let configured = layerCatalogSignature {
-            guard configured == signature else {
+            guard configured == signature,
+                  layerWorldTransformProjection?.catalogSignature
+                    == signature else {
                 throw SceneScriptScalarRuntimeFailure.invalidArgument(
                     "SceneScript layer catalog identity changed"
                 )
             }
             return
+        }
+
+        guard let worldTransformProjection =
+                SceneScriptLayerWorldTransformProjection(
+                    descriptor: descriptor,
+                    catalogSignature: signature
+                ) else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "SceneScript layer world transform preparation failed"
+            )
         }
 
         var diagnostic = [CChar](repeating: 0, count: 512)
@@ -611,16 +637,21 @@ nonisolated extension SceneScriptQuickJSDomain {
             let name = layer.name ?? ""
             let authored = layer.originXYZ ?? [0, 0, 0]
             let origin = authored.map(Double.init)
+            let authoredSize = layer.sizeWH ?? [0, 0]
+            let size = authoredSize.map(Double.init)
             let result = name.withCString { namePointer in
                 origin.withUnsafeBufferPointer { originPointer in
-                    mwx_scene_quickjs_domain_set_layer_descriptor(
-                        handle, UInt32(index), Int64(layer.id),
-                        layer.parentID == nil ? 0 : 1,
-                        Int64(layer.parentID ?? 0),
-                        namePointer, name.utf8.count,
-                        originPointer.baseAddress,
-                        &diagnostic, diagnostic.count
-                    )
+                    size.withUnsafeBufferPointer { sizePointer in
+                        mwx_scene_quickjs_domain_set_layer_descriptor(
+                            handle, UInt32(index), Int64(layer.id),
+                            layer.parentID == nil ? 0 : 1,
+                            Int64(layer.parentID ?? 0),
+                            namePointer, name.utf8.count,
+                            originPointer.baseAddress,
+                            sizePointer.baseAddress,
+                            &diagnostic, diagnostic.count
+                        )
+                    }
                 }
             }
             guard result == MWX_SCENE_QUICKJS_OK else {
@@ -644,6 +675,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             }
         }
         layerCatalogSignature = signature
+        layerWorldTransformProjection = worldTransformProjection
     }
 
     func publishLayerSnapshot(
@@ -699,6 +731,22 @@ nonisolated extension SceneScriptQuickJSDomain {
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic
         )
+        guard let worldTransformProjection = layerWorldTransformProjection,
+              worldTransformProjection.catalogSignature
+                == layerCatalogSignature else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument(
+                "SceneScript layer world transform projection is stale"
+            )
+        }
+        let dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
+        if layerSnapshotGeneration == 0 || !dynamicTransformIDs.isEmpty
+            || !committedDynamicWorldTransformLayerIDs.isEmpty {
+            try publishLayerWorldTransforms(
+                worldTransformProjection.worldFrames(for: snapshot),
+                descriptor: descriptor,
+                diagnostic: &diagnostic
+            )
+        }
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
                   case let .vector3(x, y, z) = resolved.value,
@@ -725,6 +773,9 @@ nonisolated extension SceneScriptQuickJSDomain {
         guard commitResult == MWX_SCENE_QUICKJS_OK else {
             throw layerSnapshotFailure(commitResult, diagnostic: diagnostic)
         }
+        rollbackDynamicWorldTransformLayerIDs =
+            committedDynamicWorldTransformLayerIDs
+        committedDynamicWorldTransformLayerIDs = dynamicTransformIDs
         layerSnapshotGeneration = pendingGeneration
         committed = true
         if !awaitingHostFrameOutcome {

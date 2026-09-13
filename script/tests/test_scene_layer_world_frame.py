@@ -17,6 +17,8 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/SceneLayerWorldFrameResolver.swift",
     SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
+    SCENE_ROOT
+    / "Runtime/SceneScript/SceneScriptLayerWorldTransformProjection.swift",
 ]
 
 HARNESS = r'''
@@ -103,15 +105,51 @@ func dynamicResult() -> [String: [Double]] {
         )],
         timelineValues: [target: .vector3(0, 0, Double.pi / 2)]
     ).snapshot
-    let frames = SceneLayerDynamicWorldFrameResolver.resolve(
-        descriptor: descriptor, byID: byID, snapshot: snapshot, staticFrames: staticFrames
-    )
+    guard let projection = SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "dynamic"
+    ) else { fatalError("projection preparation failed") }
+    let frames = projection.worldFrames(for: snapshot)
     return Dictionary(uniqueKeysWithValues: frames.map { id, frame in
         (String(id), [
             Double(frame.columns.0.x), Double(frame.columns.0.y),
             Double(frame.columns.3.x), Double(frame.columns.3.y),
         ])
     })
+}
+
+func projectionColumnMajorResult() -> [Double] {
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2, parentID: 1, originXYZ: [10, 20, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [parent, child], camera: .init(orthoHeight: 1_000)
+    )
+    guard let projection = SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "column-major"
+    ), let childFrame = projection.worldFrames(
+        for: .empty(frameIndex: 0)
+    )[2] else { fatalError("static projection failed") }
+    return SceneScriptLayerWorldTransformProjection
+        .columnMajorValues(childFrame)
+}
+
+func rejectsNonFiniteProjection() -> Bool {
+    let invalid = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [0, 0, 0],
+        scaleXYZ: [.infinity, 1, 1], anglesXYZ: nil,
+        parentAttachmentBindFrame: nil
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [invalid], camera: .init(orthoHeight: 1_000)
+    )
+    return SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "invalid"
+    ) == nil
 }
 
 func nativePerspectiveResult() -> [String: [Double]] {
@@ -157,6 +195,8 @@ enum Harness {
             ),
             "invalidFrame": result(attachment: [1, 2, 3]),
             "dynamic": dynamicResult(),
+            "projectionColumnMajor": projectionColumnMajorResult(),
+            "projectionRejectsNonFinite": rejectsNonFiniteProjection(),
             "nativePerspective": nativePerspectiveResult(),
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -236,6 +276,15 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("snapshot.dynamicTransformLayerIDsForFrame", resolver)
         self.assertIn("guard let layer = byID[layerID]", resolver)
+
+    def test_scenescript_projection_preserves_column_major_mat4_abi(self) -> None:
+        matrix = self.result["projectionColumnMajor"]
+        self.assertEqual(len(matrix), 16)
+        self.assertEqual(matrix[0:2], [1, 0])
+        self.assertEqual(matrix[12:14], [110, 930])
+
+    def test_scenescript_projection_rejects_nonfinite_world_frames(self) -> None:
+        self.assertTrue(self.result["projectionRejectsNonFinite"])
 
 
 if __name__ == "__main__":

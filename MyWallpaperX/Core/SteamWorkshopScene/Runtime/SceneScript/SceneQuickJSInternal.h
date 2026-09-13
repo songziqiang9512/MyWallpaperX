@@ -62,6 +62,8 @@ typedef struct MWXSceneQuickJSLayerRecord {
     char *asset_path;
     double authored_origin[3];
     double current_origin[3];
+    double size[2];
+    double world_transform[16];
     double scale[3];
     double angles[3];
     double color[3];
@@ -77,6 +79,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool dirty;
     bool configured;
     bool text_mutable;
+    bool world_transform_available;
     bool video_available;
     bool video_loop;
     bool video_is_playing;
@@ -101,12 +104,14 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     bool text_replaced;
     bool font_replaced;
     double current_origin[3];
+    double world_transform[16];
     double scale[3];
     double angles[3];
     double color[3];
     double alpha;
     double point_size;
     bool visible;
+    bool world_transform_available;
     bool runtime_fields_staged;
     bool video_available;
     bool video_loop;

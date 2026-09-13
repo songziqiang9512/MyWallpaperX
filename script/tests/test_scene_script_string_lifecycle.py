@@ -23,6 +23,9 @@ SOURCES = [
     SCENE / "Properties/SceneUserProperty.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Runtime/SceneTextureAnimationControl.swift",
+    SCENE / "Rendering/SceneMatrix.swift",
+    SCENE / "Rendering/SceneLayerWorldFrameResolver.swift",
+    SCENE / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
     VM / "SceneScriptPropertyInput.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptLocalStorage.swift",
@@ -32,6 +35,7 @@ SOURCES = [
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
+    VM / "SceneScriptLayerWorldTransformProjection.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptStringProgram.swift",
     VM / "SceneScriptStringRuntime.swift",
@@ -133,6 +137,8 @@ struct SceneTimelinePlaybackMutation: Equatable, Sendable {
 
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
+    struct Camera { var orthoHeight: Float? = nil }
+    var camera = Camera()
 
     struct TextStyle {
         let fontPath: String?
@@ -165,6 +171,7 @@ struct SceneRenderDescriptor {
         let parentID: Int? = nil
         let visible: Bool?
         let originXYZ: [Float]?
+        let sizeWH: [Float]? = nil
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
         let colorRGB: [Float]?
@@ -174,6 +181,7 @@ struct SceneRenderDescriptor {
         let textScript: SceneTextScriptDefinition?
         let text: String?
         let textStyle: TextStyle?
+        var parentAttachmentBindFrame: [Float]? = nil
     }
 
     let layers: [Layer]

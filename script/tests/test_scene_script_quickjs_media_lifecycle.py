@@ -85,6 +85,7 @@ static int configure_effects(
 static int configure_layers(MWXSceneQuickJSDomain *domain) {
     char diagnostic[512] = {0};
     const double origin[3] = {0, 0, 0};
+    const double size[2] = {0, 0};
     MWXSceneQuickJSResult result =
         mwx_scene_quickjs_domain_configure_layer_catalog(
             domain, 1, diagnostic, sizeof(diagnostic)
@@ -92,6 +93,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
             domain, 0, 42, 0, 0, "media", strlen("media"), origin,
+            size,
             diagnostic, sizeof(diagnostic)
         );
     }

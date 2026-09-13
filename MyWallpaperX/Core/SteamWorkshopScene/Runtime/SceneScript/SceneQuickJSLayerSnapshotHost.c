@@ -1,5 +1,6 @@
 #include "SceneQuickJSInternal.h"
 
+#include <float.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,6 +85,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         memcpy(pending[index].current_origin, record->authored_origin,
                sizeof(pending[index].current_origin));
+        memcpy(pending[index].world_transform, record->world_transform,
+               sizeof(pending[index].world_transform));
+        pending[index].world_transform_available =
+            record->world_transform_available;
         memcpy(pending[index].scale, record->scale,
                sizeof(pending[index].scale));
         memcpy(pending[index].angles, record->angles,
@@ -141,6 +146,45 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
     }
     domain->pending_layer_snapshot[layer_index].runtime_fields_staged = true;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_world_transform(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    const double world_transform[16],
+    char *diagnostic,
+    size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active ||
+        domain->pending_layer_snapshot == NULL || world_transform == NULL ||
+        layer_index >= domain->authored_layer_count ||
+        !domain->layers[layer_index].configured) {
+        mwx_scene_quickjs_write_diagnostic(
+            diagnostic, diagnostic_capacity,
+            "invalid staged layer world transform"
+        );
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    for (size_t index = 0; index < 16; ++index) {
+        if (!isfinite(world_transform[index]) ||
+            fabs(world_transform[index]) > FLT_MAX) {
+            mwx_scene_quickjs_write_diagnostic(
+                diagnostic, diagnostic_capacity,
+                "non-finite staged layer world transform"
+            );
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        }
+    }
+    MWXSceneQuickJSStagedLayerSnapshot *staged =
+        &domain->pending_layer_snapshot[layer_index];
+    memcpy(
+        staged->world_transform,
+        world_transform,
+        sizeof(staged->world_transform)
+    );
+    staged->world_transform_available = true;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -384,11 +428,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         MWXSceneQuickJSStagedLayerSnapshot *staged =
             &domain->pending_layer_snapshot[index];
         double previous_current_origin[3];
+        double previous_world_transform[16];
         double previous_scale[3];
         double previous_angles[3];
         double previous_color[3];
         memcpy(previous_current_origin, record->current_origin,
                sizeof(previous_current_origin));
+        memcpy(previous_world_transform, record->world_transform,
+               sizeof(previous_world_transform));
+        const bool previous_world_transform_available =
+            record->world_transform_available;
         memcpy(previous_scale, record->scale, sizeof(previous_scale));
         memcpy(previous_angles, record->angles, sizeof(previous_angles));
         memcpy(previous_color, record->color, sizeof(previous_color));
@@ -435,6 +484,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         }
         memcpy(record->current_origin, staged->current_origin,
                sizeof(record->current_origin));
+        memcpy(record->world_transform, staged->world_transform,
+               sizeof(record->world_transform));
+        record->world_transform_available =
+            staged->world_transform_available;
         memcpy(record->scale, staged->scale, sizeof(record->scale));
         memcpy(record->angles, staged->angles, sizeof(record->angles));
         memcpy(record->color, staged->color, sizeof(record->color));
@@ -467,6 +520,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
             staged->texture_animation_shared_is_playing;
         memcpy(staged->current_origin, previous_current_origin,
                sizeof(staged->current_origin));
+        memcpy(staged->world_transform, previous_world_transform,
+               sizeof(staged->world_transform));
+        staged->world_transform_available =
+            previous_world_transform_available;
         memcpy(staged->scale, previous_scale, sizeof(staged->scale));
         memcpy(staged->angles, previous_angles, sizeof(staged->angles));
         memcpy(staged->color, previous_color, sizeof(staged->color));
@@ -534,6 +591,10 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         }
         memcpy(record->current_origin, saved->current_origin,
                sizeof(record->current_origin));
+        memcpy(record->world_transform, saved->world_transform,
+               sizeof(record->world_transform));
+        record->world_transform_available =
+            saved->world_transform_available;
         memcpy(record->scale, saved->scale, sizeof(record->scale));
         memcpy(record->angles, saved->angles, sizeof(record->angles));
         memcpy(record->color, saved->color, sizeof(record->color));

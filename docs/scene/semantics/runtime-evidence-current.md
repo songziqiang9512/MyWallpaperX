@@ -22,6 +22,17 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-ilayer-world-matrix"></a>
+### 2026-09-13 SceneScript `ILayer.getTransformMatrix()` 与只读 `size` 闭环
+
+**结论：公开 v2.8 的 `getTransformMatrix(): Mat4` 与 `IEffectLayer.size: Vec2` 已沿现役 descriptor → immutable layer snapshot → QuickJS owner → typed mutation → Metal/compositor 主链达到 L3 bounded / S4 one real composition。** layer catalog 在 launch/generation 边界准备 identity、author order、parent、authored TRS、attachment、camera 与 size；world matrix 直接复用 renderer 的 `SceneLayerWorldFrameResolver` / `SceneLayerDynamicWorldFrameResolver`，再由现有 layer snapshot transaction 以 column-major 16 分量发布。C bridge 不计算坐标、不建立第二份 transform owner；同 callback staged local transform 不改写当前 world matrix，只有全 surface barrier 提交后的下一帧 snapshot 才可见。retained handle 每次读取当前 committed snapshot，stale、缺失矩阵、非有限/超 Float matrix、错误参数与未进入 canonical resolver 的动态 layer 均局部拒绝。
+
+**代码门与产品身份：**`test_scene_layer_world_frame` 覆盖 parent/attachment、动态 authored TRS、column-major slots 与非有限准备拒绝；真实 C QuickJS harness 覆盖 `Mat4` 类型、parent/persistent handle、copy isolation、abort/commit、错误参数、非有限矩阵和 dynamic-layer unavailable，`IEffectLayer.size` 同样由 descriptor catalog 返回只读 Vec2 copy。相邻 snapshot atomicity、frame routing、surface transaction、dependency visibility、String/Text/Vec3 模块通过；规定的签名 Debug build `BUILD SUCCEEDED`。实际 App 为 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `bdff68775d1137eadcda47ab21bd9b96feacd4ad`，executable SHA-256 `a274df1710456a84892a5d8e57252a453b25bb5db281ffeb77b7a01b07ca87b6`。
+
+**真实作者断点与结果：**修复前，`3238423642` 的 layer `918 / 920` 在 `init` 调用 `thisLayer.getTransformMatrix()` 时 TypeError，导致下游 `944 / 947 / 950` 的 `setFrame` 缺值；matrix/report/app-log SHA-256 为 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a / c8bb4ba789efecabc2d5c9b1024f2569a7509b93c1da9fe122b665b6a2f22f43 / 6d76d4b752ee1417179e89b2e410bcac8974dc29448b6864902818d3a85523a7`。矩阵接通后暴露真实下一断点：layer `921` 依作者脚本按名称取得 Artist Name、Song Title、Settings Container 与 Rounded Corners，再读取 `size.x / scale.x / origin.x` 计算背景宽度；旧 handle 没有公开官方只读 `size`。现役 catalog 补齐该 descriptor 字段后，同一 matrix 的 fresh 25 秒运行 `failures=[] / strict PASS`、loaded ratio 1.0、184/183/0 frame submitted/completed/failed；123/123 effect descriptor 已解析，其中 62 个 admitted-generic/complete、61 个 inactive。`918 / 920 / 921 / 944 / 947 / 950` 全部 `generic-only` 完成，921 输出 `scale=(0.2031509121,1,1)`，0 SceneScript VM failure。report/app-log/runtime-evidence SHA-256 为 `d8fafccf1947257bb99c498f164b5bcd4c8614659e1e083bf26a8fb434ad3f8f / 7b5a6916f985d8f55457d93b85cb5ae74b93513ee7770503fb7c3995f42b0613 / f76ae52e75af00b81f5f515c2c19b42dda32b20bcde6390dcaea9ed1d80188a5`。
+
+**可见检查与边界：**原分辨率 ready/after 检查确认主角色、红绿偏移层、背景、日期和时钟保持正确合成，未见新增错位、异常缩放、黑屏或替代输出；after PNG SHA-256 为 `b2d3e779c886b20be2caa842e8e57a857d46323e9f241300db3be2df7d4a6715`，ready/after motion 为 `mean_delta=0.0336322 / changed_ratio=0.560946`。这只证明当前 2D authored/parent matrix 与 size consumer、单 surface 和一个真实构图；不证明 dynamic script-created layer matrix、完整 3D/perspective、orientation setters、attachment API、Windows 数值/像素 parity 或整样本人工 acceptance。该重样本本次只有约 8.9 submitted FPS、CPU p50 128.991 ms，因此也不构成性能完成证据。未运行 full corpus。
+
 <a id="e-2026-09-13-texture-animation-api"></a>
 ### 2026-09-13 SceneScript `ITextureAnimation` 公共 API 闭环
 
@@ -33,7 +44,7 @@
 
 **定向真实运行与可见裁决：**只读真实样本根，矩阵 SHA-256 `7a98db7b1abd862dcfc8eb5508bc91a74151cf9e11a6589a04ebe73e3b45f1f3`，report SHA-256 `914cb096bd085794c4a37bbb51942cd048a98974cd5af12262a09a8bb7a37a1d`；`3299228616 / 3768903841` 为 2/2 `failures=[] / strict PASS`、loaded ratio 1.0。前者 170/169/0 frame submitted/completed/failed，307 次 owner commit 均含 30 条 texture-animation command；后者 260/259/0，初始化 8 条后由 timer 单条推进，共 15 次 commit；两者均无 TextureAnimation API error。app log SHA-256 为 `d604ed2a71e64dd011c18fabdb778fb952e9f34f1b066eb1008281e41f7c0fcf / 7b988e50a7d4efbaf728a763ad44cad665ce12820f85333173785fd8627754f2`，runtime-evidence SHA-256 为 `490404f696bbadd50af7c3bce9fe7c8fe31efed89559208e046ac03e8c627406 / 5bc477f087d1bf84c75de44afd850b5746a3475b2caaf05b76b2926e712ec851`。20 帧 contact review 确认前者猫、水面、时钟和树叶完整持续，后者人物、天空、云层与烟花完整持续且烟花按作者脚本变化/重启；没有黑屏、缺失几何、替代输出或错位。两组 motion `mean_delta / changed_ratio` 分别为 `0.0420983 / 0.65356` 与 `0.191771 / 0.731805`。
 
-**边界与后继首断点：**证据只覆盖当前已准入 single-image atlas 与 axis-aligned/integer/same-extent BC1/2/3 multi-image 形状，不证明 dynamic replacement、rotated/trimmed/fractional/异尺寸 frame、Windows timing/pixel parity 或声明中注释未使用的 `loop`。同一 App 对 `3238423642` 的独立运行首先在 layer `918 / 920` 遇到未实现 `getTransformMatrix()`，使作者共享布局初始化未完成；后续三个 `setFrame` RangeError 和一个共享向量错误属于连锁结果，不能放宽 TextureAnimation 输入。该次 matrix/report/app-log SHA-256 为 `83454e36bca237bfc4be400f95100cc65fc2282607e3f24a88b885cc9c196d8a / c8bb4ba789efecabc2d5c9b1024f2569a7509b93c1da9fe122b665b6a2f22f43 / 6d76d4b752ee1417179e89b2e410bcac8974dc29448b6864902818d3a85523a7`；它建立新的 matrix/transform API 首断点，不降低本条 TextureAnimation 能力结论。未运行 full corpus。
+**边界：**证据只覆盖当前已准入 single-image atlas 与 axis-aligned/integer/same-extent BC1/2/3 multi-image 形状，不证明 dynamic replacement、rotated/trimmed/fractional/异尺寸 frame、Windows timing/pixel parity 或声明中注释未使用的 `loop`。后继 `3238423642` 的 matrix/size 初始化首断点已由[独立证据](#e-2026-09-13-ilayer-world-matrix)关闭，不降低也不扩张本条 TextureAnimation 能力结论。未运行 full corpus。
 
 <a id="e-2026-09-13-water-waves-mask-ab"></a>
 ### 2026-09-13 `3787382101` Water Waves 作者 mask 同构 A/B

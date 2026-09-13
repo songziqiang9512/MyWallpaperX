@@ -541,6 +541,16 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
     const double authored_zero[3] = {1, 2, 3};
     const double authored_day[3] = {10, 20, 30};
     const double current_day[3] = {4, 5, 6};
+    const double anchor_size[2] = {100, 200};
+    const double day_size[2] = {300, 400};
+    const double anchor_world[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 11, 22, 0, 1,
+    };
+    const double child_world[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 33, 44, 0, 1,
+    };
     MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_configure_layer_catalog(
         domain, 2, diagnostic, sizeof(diagnostic)
     );
@@ -548,6 +558,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
             domain, 0, 17, 0, 0,
             "anchor", strlen("anchor"), authored_zero,
+            anchor_size,
             diagnostic, sizeof(diagnostic)
         );
     }
@@ -555,6 +566,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         result = mwx_scene_quickjs_domain_set_layer_descriptor(
             domain, 1, 42, 1, 17,
             "C1", strlen("C1"), authored_day,
+            day_size,
             diagnostic, sizeof(diagnostic)
         );
     }
@@ -593,11 +605,114 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         );
     }
     if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 0, anchor_world, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 1, child_world, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
         result = mwx_scene_quickjs_domain_commit_layer_snapshot(
             domain, diagnostic, sizeof(diagnostic)
         );
     }
     return check(result == MWX_SCENE_QUICKJS_OK, "layer catalog", diagnostic);
+}
+
+static int reject_nonfinite_layer_world_snapshot(
+    MWXSceneQuickJSDomain *domain
+) {
+    char diagnostic[512] = {0};
+    const double valid[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 77, 88, 0, 1,
+    };
+    double invalid[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 55, 66, 0, 1,
+    };
+    invalid[12] = NAN;
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+        domain, 3, diagnostic, sizeof(diagnostic)
+    );
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, 0, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, 1, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 0, valid, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 1, invalid, diagnostic, sizeof(diagnostic)
+        );
+    }
+    int failure = check(
+        result == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "non-finite layer world transform rejected",
+        diagnostic
+    );
+    mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
+    return failure;
+}
+
+static int commit_layer_world_snapshot(MWXSceneQuickJSDomain *domain) {
+    char diagnostic[512] = {0};
+    const double anchor_world[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 77, 88, 0, 1,
+    };
+    const double child_world[16] = {
+        1, 0, 0, 0, 0, 1, 0, 0,
+        0, 0, 1, 0, 55, 66, 0, 1,
+    };
+    const double current_day[3] = {4, 5, 6};
+    MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_begin_layer_snapshot(
+        domain, 3, diagnostic, sizeof(diagnostic)
+    );
+    for (uint32_t index = 0;
+         index < 2 && result == MWX_SCENE_QUICKJS_OK; ++index) {
+        result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
+            domain, index, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 0, anchor_world, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_update_layer_world_transform(
+            domain, 1, child_world, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_set_layer_origin(
+            domain, 1, current_day, diagnostic, sizeof(diagnostic)
+        );
+    }
+    if (result == MWX_SCENE_QUICKJS_OK) {
+        result = mwx_scene_quickjs_domain_commit_layer_snapshot(
+            domain, diagnostic, sizeof(diagnostic)
+        );
+    }
+    return check(
+        result == MWX_SCENE_QUICKJS_OK,
+        "updated layer world snapshot",
+        diagnostic
+    );
 }
 
 static int configure_texture_animation(MWXSceneQuickJSDomain *domain) {
@@ -795,6 +910,7 @@ int main(void) {
     );
     if (invalid_parent_domain != NULL) {
         const double origin[3] = {0, 0, 0};
+        const double size[2] = {0, 0};
         MWXSceneQuickJSResult invalid_parent_result =
             mwx_scene_quickjs_domain_configure_layer_catalog(
                 invalid_parent_domain, 1, diagnostic, sizeof(diagnostic)
@@ -803,6 +919,7 @@ int main(void) {
             invalid_parent_result = mwx_scene_quickjs_domain_set_layer_descriptor(
                 invalid_parent_domain, 0, 7, 1, 999,
                 "orphan", strlen("orphan"), origin,
+                size,
                 diagnostic, sizeof(diagnostic)
             );
         }
@@ -812,6 +929,34 @@ int main(void) {
             diagnostic
         );
         mwx_scene_quickjs_domain_destroy(invalid_parent_domain);
+    }
+    MWXSceneQuickJSDomain *invalid_size_domain =
+        mwx_scene_quickjs_domain_create(
+            2 * 1024 * 1024, 512 * 1024, 100000,
+            diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        invalid_size_domain != NULL, "invalid size domain", diagnostic
+    );
+    if (invalid_size_domain != NULL) {
+        const double origin[3] = {0, 0, 0};
+        const double invalid_size[2] = {NAN, 1};
+        MWXSceneQuickJSResult invalid_size_result =
+            mwx_scene_quickjs_domain_configure_layer_catalog(
+                invalid_size_domain, 1, diagnostic, sizeof(diagnostic)
+            );
+        if (invalid_size_result == MWX_SCENE_QUICKJS_OK) {
+            invalid_size_result = mwx_scene_quickjs_domain_set_layer_descriptor(
+                invalid_size_domain, 0, 8, 0, 0,
+                "invalid-size", strlen("invalid-size"), origin,
+                invalid_size, diagnostic, sizeof(diagnostic)
+            );
+        }
+        failures += check(
+            invalid_size_result == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+            "non-finite authored size rejected", diagnostic
+        );
+        mwx_scene_quickjs_domain_destroy(invalid_size_domain);
     }
     MWXSceneQuickJSDomain *authored_budget_domain = mwx_scene_quickjs_domain_create(
         2 * 1024 * 1024, 512 * 1024, 100000,
@@ -831,9 +976,11 @@ int main(void) {
             char name[32] = {0};
             snprintf(name, sizeof(name), "authored-%u", index);
             const double origin[3] = {(double)index, 0, 0};
+            const double size[2] = {0, 0};
             budget_catalog_result = mwx_scene_quickjs_domain_set_layer_descriptor(
                 authored_budget_domain, index, 1000 + index, 0, 0,
-                name, strlen(name), origin, diagnostic, sizeof(diagnostic)
+                name, strlen(name), origin, size,
+                diagnostic, sizeof(diagnostic)
             );
         }
         failures += check(
@@ -875,6 +1022,8 @@ int main(void) {
         "  if (thisLayer.id !== 42 || thisLayer.name !== 'C1') throw new Error('layer identity');\n"
         "  const origin = thisLayer.origin;\n"
         "  if (origin.x !== 4 || origin.y !== 5 || origin.z !== 6) throw new Error('layer origin');\n"
+        "  const size = thisLayer.size; size.x = -1;\n"
+        "  if (!(size instanceof Vec2) || thisLayer.size.x !== 300 || thisLayer.size.y !== 400) throw new Error('layer size');\n"
         "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
         "  const effect = thisLayer.getEffect('history');\n"
         "  if (effect.name !== 'history') throw new Error('effect name');\n"
@@ -889,6 +1038,8 @@ int main(void) {
             "  if (thisLayer.id !== 42 || thisLayer.name !== 'C1') throw new Error('layer identity');\n"
             "  const origin = thisLayer.origin;\n"
             "  if (origin.x !== 4 || origin.y !== 5 || origin.z !== 6) throw new Error('layer origin');\n"
+            "  const size = thisLayer.size; size.x = -1;\n"
+            "  if (!(size instanceof Vec2) || thisLayer.size.x !== 300 || thisLayer.size.y !== 400) throw new Error('layer size');\n"
             "  if (thisLayer.getEffectCount() !== 3) throw new Error('effect count');\n"
             "  const effect = thisLayer.getEffect('history');\n"
             "  if (effect.name !== 'history') throw new Error('effect name');\n"
@@ -1661,6 +1812,72 @@ int main(void) {
     failures += update_vec3(
         persistent_layer, 14, layer_input, "", "{}", MWX_SCENE_QUICKJS_OK,
         current_layer, "layer handle survives later callbacks"
+    );
+
+    const char *matrix_source =
+        "let parent,oldCopy;"
+        "export function init(){"
+        "parent=thisLayer.getParent();oldCopy=thisLayer.getTransformMatrix();}"
+        "export function update(value){"
+        "const current=thisLayer.getTransformMatrix();"
+        "const parentMatrix=parent.getTransformMatrix();"
+        "if(!(current instanceof Mat4)||!(parentMatrix instanceof Mat4))"
+        "throw new Error('matrix type');"
+        "if(value===1){"
+        "if(current.m[12]!==33||current.m[13]!==44||"
+        "parentMatrix.m[12]!==11||parentMatrix.m[13]!==22)"
+        "throw new Error('initial matrix');"
+        "const isolated=thisLayer.getTransformMatrix();isolated.m[12]=999;"
+        "thisLayer.origin=new Vec3(9,9,9);"
+        "if(thisLayer.getTransformMatrix().m[12]!==33)"
+        "throw new Error('same callback matrix changed');"
+        "}else if(value===2){"
+        "if(current.m[12]!==33||parentMatrix.m[12]!==11||oldCopy.m[12]!==33)"
+        "throw new Error('aborted matrix leaked');"
+        "}else if(value===3){"
+        "if(current.m[12]!==55||current.m[13]!==66||"
+        "parentMatrix.m[12]!==77||parentMatrix.m[13]!==88||"
+        "oldCopy.m[12]!==33||oldCopy.m[13]!==44)"
+        "throw new Error('committed matrix visibility');"
+        "}return value;}";
+    MWXSceneQuickJSOwner *matrix_owner = mwx_scene_quickjs_owner_create(
+        domain, matrix_source, strlen(matrix_source),
+        67, diagnostic, sizeof(diagnostic)
+    );
+    failures += check(matrix_owner != NULL, "world matrix compile", diagnostic);
+    failures += configure_owner_layer(
+        matrix_owner, 42, "world matrix owner identity"
+    );
+    failures += update(
+        matrix_owner, 67, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "world matrix initial immutable snapshot"
+    );
+    failures += reject_nonfinite_layer_world_snapshot(domain);
+    failures += update(
+        matrix_owner, 67, 2, MWX_SCENE_QUICKJS_OK, 2,
+        "aborted world matrix snapshot remains invisible"
+    );
+    failures += commit_layer_world_snapshot(domain);
+    failures += update(
+        matrix_owner, 67, 3, MWX_SCENE_QUICKJS_OK, 3,
+        "persistent handles see next committed world matrix"
+    );
+
+    const char *invalid_matrix_argument_source =
+        "export function update(value){"
+        "thisLayer.getTransformMatrix(1);return value;}";
+    MWXSceneQuickJSOwner *invalid_matrix_argument =
+        mwx_scene_quickjs_owner_create(
+            domain, invalid_matrix_argument_source,
+            strlen(invalid_matrix_argument_source),
+            68, diagnostic, sizeof(diagnostic)
+        );
+    failures += configure_owner_layer(
+        invalid_matrix_argument, 42, "matrix argument owner identity"
+    );
+    failures += update(
+        invalid_matrix_argument, 68, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "getTransformMatrix rejects arguments"
     );
 
     const char *value_only_layers_source =
@@ -2623,6 +2840,22 @@ int main(void) {
     // the direct C harness at that same boundary before the next owner may
     // perform topology work.
     mwx_scene_quickjs_owner_commit_layer_mutations(dynamic_layer);
+
+    const char *dynamic_matrix_source =
+        "export function update(value){"
+        "const layer=thisScene.createLayer({text:'matrix'});"
+        "layer.getTransformMatrix();return value;}";
+    MWXSceneQuickJSOwner *dynamic_matrix = mwx_scene_quickjs_owner_create(
+        domain, dynamic_matrix_source, strlen(dynamic_matrix_source),
+        69, diagnostic, sizeof(diagnostic)
+    );
+    failures += configure_owner_layer(
+        dynamic_matrix, 42, "dynamic matrix owner identity"
+    );
+    failures += update(
+        dynamic_matrix, 69, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "uncommitted dynamic layer has no guessed world matrix"
+    );
     failures += update(
         dynamic_layer, 40, 1, MWX_SCENE_QUICKJS_OK, 103,
         "dynamic layer handle persists"
@@ -3457,6 +3690,7 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(timer_budget);
     mwx_scene_quickjs_owner_destroy(timer_exception);
     mwx_scene_quickjs_owner_destroy(dynamic_layer);
+    mwx_scene_quickjs_owner_destroy(dynamic_matrix);
     mwx_scene_quickjs_owner_destroy(dynamic_image_configuration);
     mwx_scene_quickjs_owner_destroy(multi_owner_a);
     mwx_scene_quickjs_owner_destroy(multi_owner_b);
@@ -3490,6 +3724,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(stale_animation);
     mwx_scene_quickjs_owner_destroy(animation_owner);
     mwx_scene_quickjs_owner_destroy(persistent_layer);
+    mwx_scene_quickjs_owner_destroy(invalid_matrix_argument);
+    mwx_scene_quickjs_owner_destroy(matrix_owner);
     mwx_scene_quickjs_owner_destroy(value_only_layers);
     mwx_scene_quickjs_owner_destroy(layer_owner);
     mwx_scene_quickjs_owner_destroy(cross_owner);

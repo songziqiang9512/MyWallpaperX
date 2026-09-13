@@ -313,6 +313,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_descriptor(
     const char *name,
     size_t name_length,
     const double origin[3],
+    const double size[2],
     char *diagnostic,
     size_t diagnostic_capacity
 );
@@ -326,6 +327,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     const char *name,
     size_t name_length,
     const double origin[3],
+    const double size[2],
     const double scale[3],
     const double angles[3],
     uint32_t visible,
@@ -372,6 +374,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+/// Publishes one renderer-resolved, column-major world matrix into the current
+/// immutable layer snapshot. Coordinate math remains owned by the Swift
+/// world-frame resolvers; the VM bridge only validates and copies the ABI.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_world_transform(
+    MWXSceneQuickJSDomain *domain,
+    uint32_t layer_index,
+    const double world_transform[16],
     char *diagnostic,
     size_t diagnostic_capacity
 );

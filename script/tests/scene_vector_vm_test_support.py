@@ -25,6 +25,9 @@ SWIFT_SOURCES = [
     VM / "SceneScriptPropertyInput.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Runtime/SceneTextureAnimationControl.swift",
+    SCENE / "Rendering/SceneMatrix.swift",
+    SCENE / "Rendering/SceneLayerWorldFrameResolver.swift",
+    SCENE / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
     SCENE
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
@@ -38,6 +41,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptFallbackCatalog.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
+    VM / "SceneScriptLayerWorldTransformProjection.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptCursorProgram.swift",
     VM / "SceneScriptDynamicLayerRuntime.swift",
@@ -179,7 +183,10 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 }
 
 struct SceneRenderDescriptor {
-    struct Camera { var parallaxEnabled = false }
+    struct Camera {
+        var parallaxEnabled = false
+        var orthoHeight: Float? = nil
+    }
     var camera = Camera()
     struct ModelMaterialLink {
         let modelPath: String
@@ -325,6 +332,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var effectFiles: [String] = []
         var parallaxDepthXY: [Float]? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
     }
 
     var layers: [Layer]

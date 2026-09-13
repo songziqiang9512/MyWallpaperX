@@ -36,6 +36,9 @@ SOURCES = [
     / "RenderGraph/LayerDependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Runtime/SceneTextureAnimationControl.swift",
+    SCENE / "Rendering/SceneMatrix.swift",
+    SCENE / "Rendering/SceneLayerWorldFrameResolver.swift",
+    SCENE / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
     VM / "SceneScriptScalarRuntime.swift",
     VM / "SceneScriptQuickJSDomain+FrameTransaction.swift",
     VM / "SceneScriptLocalStorage.swift",
@@ -45,6 +48,7 @@ SOURCES = [
     VM / "SceneScriptEffectHandleBridge.swift",
     VM / "SceneScriptLayerHandleBridge.swift",
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
+    VM / "SceneScriptLayerWorldTransformProjection.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptMediaFrameCoordinator.swift",
     VM / "SceneScriptScalarProgram.swift",
@@ -177,6 +181,8 @@ struct SceneParticleInstanceOverride: Equatable, Sendable {
 
 struct SceneRenderDescriptor {
     enum SceneShaderUserValueKind { case null, string }
+    struct Camera { var orthoHeight: Float? = nil }
+    var camera = Camera()
     struct TextStyle {
         let fontPath: String?
         let colorRGB: [Float]?
@@ -269,6 +275,7 @@ struct SceneRenderDescriptor {
         let name: String?
         var visible: Bool?
         let originXYZ: [Float]?
+        let sizeWH: [Float]? = nil
         let scaleXYZ: [Float]?
         var anglesXYZ: [Float]? = nil
         var colorRGB: [Float]? = nil
@@ -289,6 +296,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var utilityLayer: Int? = nil
         var staticModelPath: String? = nil
+        var parentAttachmentBindFrame: [Float]? = nil
     }
     var layers: [Layer]
     var modelMaterialLinks: [ModelMaterialLink] = []
