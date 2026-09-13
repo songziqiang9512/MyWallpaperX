@@ -41,6 +41,11 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
     let readinessMask: UInt8
     let textureFormats: [SceneShaderTextureFormat?]
     let preparedShader: SceneShaderPreparedProgram
+    /// Exact active combo values after authored defaults, explicit values,
+    /// texture readiness, and format macros have converged for this variant.
+    /// Downstream prepared contracts consume these facts instead of guessing
+    /// missing annotation defaults during a frame.
+    let resolvedIntegerCombos: [String: Int]
     let frontendProgram: SceneAuthoredShaderProgram
     let routeDecision: SceneGenericShaderRouteDecision
     let runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds
@@ -79,6 +84,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         readinessMask: UInt8,
         textureFormats: [SceneShaderTextureFormat?],
         preparedShader: SceneShaderPreparedProgram,
+        resolvedIntegerCombos: [String: Int],
         frontendProgram: SceneAuthoredShaderProgram,
         routeDecision: SceneGenericShaderRouteDecision,
         runtimeLoopBounds: SceneAuthoredShaderRuntimeLoopBounds,
@@ -109,6 +115,7 @@ nonisolated struct SceneResolvedMaterialCompiledVariant {
         self.readinessMask = readinessMask
         self.textureFormats = textureFormats
         self.preparedShader = preparedShader
+        self.resolvedIntegerCombos = resolvedIntegerCombos
         self.frontendProgram = frontendProgram
         self.routeDecision = routeDecision
         self.runtimeLoopBounds = runtimeLoopBounds

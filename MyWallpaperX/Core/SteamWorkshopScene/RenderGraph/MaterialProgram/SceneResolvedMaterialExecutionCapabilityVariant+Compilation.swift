@@ -650,6 +650,7 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             readinessMask: readinessMask,
             textureFormats: variantKey.textureFormats,
             preparedShader: prepared,
+            resolvedIntegerCombos: resolvedIntegerCombos,
             frontendProgram: frontend,
             routeDecision: routeDecision,
             runtimeLoopBounds: runtimeLoopBounds,

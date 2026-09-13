@@ -114,8 +114,9 @@ extension SceneMetalRenderer {
             * SceneMatrix.translation(localPivot)
     }
 
-    func lightShaftsModelMatrix(
+    func directDrawOutputModelMatrix(
         for layer: SceneRenderDescriptor.Layer,
+        contract: SceneDirectDrawOutputGeometry.Contract,
         worldFramesByLayerID: [Int: simd_float4x4],
         parallaxMouseNormalized: SIMD2<Float>,
         configuration: SceneLayerParallax.Configuration
@@ -127,10 +128,11 @@ extension SceneMetalRenderer {
             mouseNormalized: parallaxMouseNormalized,
             configuration: configuration
         )
-        return SceneLightShaftsQuadGeometry.modelMatrix(
+        return SceneDirectDrawOutputGeometry.modelMatrix(
             worldFrame: world,
             parallaxOffset: parallax,
-            canvasSize: configuration.orthoSize
+            canvasSize: configuration.orthoSize,
+            contract: contract
         )
     }
 

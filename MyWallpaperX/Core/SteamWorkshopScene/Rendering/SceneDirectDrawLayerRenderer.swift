@@ -1,14 +1,9 @@
-import simd
-
 extension SceneMetalRenderer {
     func drawQuadLayer(
         layer: SceneRenderDescriptor.Layer,
         resolvedFramePlan: SceneResolvedMaterialFrameTargetPlan?,
         imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
-        worldFramesByLayerID: [Int: simd_float4x4],
-        cameraFrame: SceneParticleCameraFrame,
-        parallaxConfiguration: SceneLayerParallax.Configuration,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace
     ) -> Bool {
@@ -18,9 +13,6 @@ extension SceneMetalRenderer {
                 framePlan: resolvedFramePlan,
                 imagePipeline: imagePipeline,
                 frameContext: frameContext,
-                worldFramesByLayerID: worldFramesByLayerID,
-                cameraFrame: cameraFrame,
-                parallaxConfiguration: parallaxConfiguration,
                 mainPass: mainPass,
                 executionTrace: executionTrace
             )
@@ -34,24 +26,14 @@ extension SceneMetalRenderer {
         framePlan: SceneResolvedMaterialFrameTargetPlan,
         imagePipeline: SceneImageLayerPipeline?,
         frameContext: SceneFrameContext,
-        worldFramesByLayerID: [Int: simd_float4x4],
-        cameraFrame: SceneParticleCameraFrame,
-        parallaxConfiguration: SceneLayerParallax.Configuration,
         mainPass: SceneMainPassEncoder,
         executionTrace: SceneEffectExecutionFrameTrace
     ) -> Bool {
-        guard let imagePipeline,
-              let model = lightShaftsModelMatrix(
-                  for: layer,
-                  worldFramesByLayerID: worldFramesByLayerID,
-                  parallaxMouseNormalized: frameContext.cameraParallaxPosition,
-                  configuration: parallaxConfiguration
-              ) else {
+        guard let imagePipeline else {
             return false
         }
         return imageCompositor.drawResolvedDirectDrawQuad(
             layer: layer,
-            modelViewProjection: cameraFrame.viewProjection(for: layer) * model,
             alpha: SceneDynamicLayerValues.alpha(
                 layerID: layer.id,
                 authoredValue: layer.alpha,

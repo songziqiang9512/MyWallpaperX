@@ -5,16 +5,22 @@ struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
     let allocation: ScenePersistentGraphTargetFramePlan
     let consumesExternalPrimaryDependency: Bool
+    /// Resolved once during frame preflight from the prepared geometry source.
+    /// Only transparent direct-draw products carry this compositor placement.
+    let directDrawOutputModelViewProjection: simd_float4x4?
 
     init(
         token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
         allocation: ScenePersistentGraphTargetFramePlan,
-        consumesExternalPrimaryDependency: Bool = false
+        consumesExternalPrimaryDependency: Bool = false,
+        directDrawOutputModelViewProjection: simd_float4x4? = nil
     ) {
         self.token = token
         self.allocation = allocation
         self.consumesExternalPrimaryDependency =
             consumesExternalPrimaryDependency
+        self.directDrawOutputModelViewProjection =
+            directDrawOutputModelViewProjection
     }
 }
 
@@ -26,6 +32,7 @@ enum SceneResolvedMaterialGraphComposition {
         let effectSourceExtentContract: SceneEffectSourceExtentContract
         let requestedWidth: Int
         let requestedHeight: Int
+        let directDrawOutputModelViewProjection: simd_float4x4?
         let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
 
         init(
@@ -33,6 +40,7 @@ enum SceneResolvedMaterialGraphComposition {
             effectSourceExtentContract: SceneEffectSourceExtentContract,
             requestedWidth: Int,
             requestedHeight: Int,
+            directDrawOutputModelViewProjection: simd_float4x4? = nil,
             materialFunctionInvocations:
                 [SceneGraphMaterialFunctionInvocationRequest] = []
         ) {
@@ -40,6 +48,8 @@ enum SceneResolvedMaterialGraphComposition {
             self.effectSourceExtentContract = effectSourceExtentContract
             self.requestedWidth = requestedWidth
             self.requestedHeight = requestedHeight
+            self.directDrawOutputModelViewProjection =
+                directDrawOutputModelViewProjection
             self.materialFunctionInvocations = materialFunctionInvocations
         }
     }
@@ -190,6 +200,22 @@ enum SceneResolvedMaterialGraphComposition {
             SceneGraphCommandQueueOrderingContext(commandBuffer: $0)
         }
         for request in requests {
+            switch request.claim.sourceRoute {
+            case .transparentDirectDraw:
+                guard case .authoredCanvasDirectDraw = request.claim
+                        .frameInputContract.emittedOutputGeometrySource,
+                      request.directDrawOutputModelViewProjection != nil else {
+                    localFallbacks[request.claim.layerID] =
+                        "direct-draw-output-geometry-contract-invalid"
+                    continue
+                }
+            case .capturedLayerTexture, .capturedMainTargetTexture:
+                guard request.directDrawOutputModelViewProjection == nil else {
+                    localFallbacks[request.claim.layerID] =
+                        "direct-draw-output-geometry-contract-invalid"
+                    continue
+                }
+            }
             var invocationFailure: String?
             var materialFunctionTargetsByEffect: [
                 SceneAuthoredEffectRenderPlan.EffectKey:
@@ -248,7 +274,9 @@ enum SceneResolvedMaterialGraphComposition {
                       token: request.claim.token,
                       allocation: allocation,
                       consumesExternalPrimaryDependency:
-                        consumesExternalPrimaryDependency
+                        consumesExternalPrimaryDependency,
+                      directDrawOutputModelViewProjection:
+                        request.directDrawOutputModelViewProjection
                   ), forKey: request.claim.layerID) == nil else {
                 localFallbacks[request.claim.layerID] =
                     "frame-target-plan-rejected"
@@ -308,7 +336,6 @@ enum SceneResolvedMaterialClaimRoute {
 extension SceneImageLayerCompositor {
     func drawResolvedDirectDrawQuad(
         layer: SceneRenderDescriptor.Layer,
-        modelViewProjection: simd_float4x4,
         alpha: Float,
         framePlan: SceneResolvedMaterialFrameTargetPlan,
         pipeline: SceneImageLayerPipeline,
@@ -331,7 +358,11 @@ extension SceneImageLayerCompositor {
             claim = value
         }
         guard claim.sourceRoute == .transparentDirectDraw,
-              framePlan.token == claim.token else {
+              case .authoredCanvasDirectDraw = claim.frameInputContract
+                .emittedOutputGeometrySource,
+              framePlan.token == claim.token,
+              let modelViewProjection =
+                framePlan.directDrawOutputModelViewProjection else {
             resolvedMaterialRuntime.recordClaimedFailure(
                 reasonCode: "direct-draw-claim-route-invalid"
             )

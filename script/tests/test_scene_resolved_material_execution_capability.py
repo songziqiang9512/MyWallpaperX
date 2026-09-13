@@ -119,11 +119,49 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
         preflight = (
             RENDERING / "SceneResolvedMaterialFramePreflight.swift"
         ).read_text(encoding="utf-8")
+        composition = (
+            RENDERING / "SceneResolvedMaterialGraphComposition.swift"
+        ).read_text(encoding="utf-8")
+        direct_draw = (
+            RENDERING / "SceneDirectDrawLayerRenderer.swift"
+        ).read_text(encoding="utf-8")
+        geometry_compiler = (
+            EXECUTION / "SceneResolvedMaterialDirectDrawGeometryCompiler.swift"
+        ).read_text(encoding="utf-8")
 
         self.assertIn("struct FrameInputContract: Equatable", capability)
         self.assertIn("case emittedOutputGeometry", capability)
+        for geometry_source in (
+            "case layerCard",
+            "case captureGeometry",
+            "case authoredCanvasDirectDraw",
+        ):
+            self.assertIn(geometry_source, capability)
         self.assertIn("let frameInputContract: FrameInputContract", capability)
         self.assertIn("stages.contains(", capability)
+        self.assertIn(
+            "SceneResolvedMaterialDirectDrawGeometryCompiler.compile(",
+            capability,
+        )
+        self.assertIn("schema=prepared-direct-draw-geometry-v1", capability)
+        self.assertIn('resolvedIntegerCombos["RAYMODE"] == 0', geometry_compiler)
+        self.assertIn("declarations.count == 1", geometry_compiler)
+        self.assertIn("case let .staticExact(value)", geometry_compiler)
+        self.assertIn(
+            "let resolvedIntegerCombos: [String: Int]",
+            compiled,
+        )
+        self.assertIn(
+            "resolvedIntegerCombos: resolvedIntegerCombos",
+            compilation,
+        )
+        for forbidden_dispatch in (
+            "layerID ==",
+            "sampleID",
+            "shaderPath ==",
+            "canonicalSHA256 ==",
+        ):
+            self.assertNotIn(forbidden_dispatch, geometry_compiler)
         self.assertNotIn(
             "extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability",
             stages,
@@ -155,6 +193,18 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "claim.frameInputContract.effectTextureProjectionSource",
             preflight,
         )
+        self.assertEqual(preflight.count("directDrawOutputModelMatrix("), 1)
+        self.assertIn(
+            "plan.directDrawOutputModelViewProjection",
+            preflight,
+        )
+        self.assertIn(
+            "framePlan.directDrawOutputModelViewProjection",
+            composition,
+        )
+        self.assertNotIn("directDrawOutputModelMatrix(", direct_draw)
+        self.assertNotIn("lightShafts", preflight)
+        self.assertNotIn("lightShafts", composition)
 
 
 if __name__ == "__main__":

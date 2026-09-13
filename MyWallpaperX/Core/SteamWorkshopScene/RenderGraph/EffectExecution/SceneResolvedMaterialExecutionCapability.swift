@@ -220,6 +220,14 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     /// stage. Each Program variant separately owns its exact per-uniform route;
     /// this contract fixes how renderer geometry becomes those host values.
     struct FrameInputContract: Equatable {
+        enum EmittedOutputGeometrySource: Equatable {
+            case layerCard
+            case captureGeometry
+            case authoredCanvasDirectDraw(
+                ScenePreparedDirectDrawOutputGeometry
+            )
+        }
+
         enum EffectTextureProjectionSource: Equatable {
             /// The geometry used to emit the layer's effect card into its
             /// working target. This is canonical fullscreen geometry for a
@@ -229,6 +237,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         }
 
         let effectTextureProjectionSource: EffectTextureProjectionSource
+        let emittedOutputGeometrySource: EmittedOutputGeometrySource
         let requiresInvertibleEffectTextureProjection: Bool
     }
 
@@ -266,8 +275,22 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.dependencyOwnership = dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
+            let emittedOutputGeometrySource: FrameInputContract
+                .EmittedOutputGeometrySource = switch admitted.sourceRoute {
+            case .capturedLayerTexture:
+                .layerCard
+            case .capturedMainTargetTexture:
+                .captureGeometry
+            case .transparentDirectDraw:
+                .authoredCanvasDirectDraw(
+                    SceneResolvedMaterialDirectDrawGeometryCompiler.compile(
+                        materials: materials
+                    )
+                )
+            }
             frameInputContract = .init(
                 effectTextureProjectionSource: .emittedOutputGeometry,
+                emittedOutputGeometrySource: emittedOutputGeometrySource,
                 requiresInvertibleEffectTextureProjection:
                     stages.contains(
                         where: \.requiresInvertibleEffectTextureProjection
@@ -759,6 +782,23 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 + " layer=\(layerID) status=accepted"
                 + " dependency=\(dependency.reportKind)"
                 + " dependencyReferences=\(dependency.referenceCount)"
+        }
+        result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
+            guard let capability = capabilitiesByLayerID[layerID],
+                  case let .authoredCanvasDirectDraw(geometry) = capability
+                    .frameInputContract.emittedOutputGeometrySource else {
+                return nil
+            }
+            return "resolved material output geometry:"
+                + " schema=prepared-direct-draw-geometry-v1"
+                + " layer=\(layerID)"
+                + " canvasExtentScale="
+                + String(format: "%.6f", geometry.canvasExtentScale)
+                + " normalizedTopInset="
+                + String(
+                    format: "%.6f",
+                    geometry.normalizedContentTopInset
+                )
         }
         result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
             guard let requirement = capabilitiesByLayerID[layerID]?

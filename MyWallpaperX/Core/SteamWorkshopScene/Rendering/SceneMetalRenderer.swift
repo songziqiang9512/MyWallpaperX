@@ -698,8 +698,7 @@ struct SceneMetalRenderer {
                     layer: layer,
                     resolvedFramePlan: resolvedMaterialFrameTargetPlans[layer.id],
                     imagePipeline: imagePipeline,
-                    frameContext: frameContext, worldFramesByLayerID: frameWorldFrames,
-                    cameraFrame: cameraFrame, parallaxConfiguration: parallaxConfiguration,
+                    frameContext: frameContext,
                     mainPass: mainPass,
                     executionTrace: effectExecutionTrace
                 ) {

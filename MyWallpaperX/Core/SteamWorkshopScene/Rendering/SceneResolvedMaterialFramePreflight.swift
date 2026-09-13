@@ -189,6 +189,7 @@ extension SceneMetalRenderer {
                 }
         }
         for layer in orderedLayers {
+            var directDrawOutputModelViewProjection: simd_float4x4?
             // A utility composition owns a graph transaction only when its
             // typed utility plan can actually capture and consume that
             // transaction.  Keeping an unsupported utility claim in the
@@ -387,22 +388,31 @@ extension SceneMetalRenderer {
                 desiredSize = geometry.pixelSize
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      let model = lightShaftsModelMatrix(
+                      case let .authoredCanvasDirectDraw(geometryContract) =
+                        claim.frameInputContract.emittedOutputGeometrySource,
+                      let model = directDrawOutputModelMatrix(
                           for: layer,
+                          contract: geometryContract,
                           worldFramesByLayerID: worldFramesByLayerID,
                           parallaxMouseNormalized:
                               frameContext.cameraParallaxPosition,
                           configuration: parallaxConfiguration
-                      ), let projectedSize =
+                      ) else {
+                    return .rejected(
+                        reasonCode: "direct-draw-output-geometry-invalid"
+                    )
+                }
+                let outputMVP = cameraFrame.viewProjection(for: layer) * model
+                guard let projectedSize =
                         SceneCaptureGeometryResolver.projectedPixelSize(
-                            layerMVP: cameraFrame.viewProjection(for: layer)
-                                * model,
+                            layerMVP: outputMVP,
                             viewportSize: frameContext.screenSize
                         ) else {
                     return .rejected(
                         reasonCode: "direct-draw-offscreen-size-unavailable"
                     )
                 }
+                directDrawOutputModelViewProjection = outputMVP
                 desiredSize = projectedSize
             }
             requests.append(.init(
@@ -410,6 +420,8 @@ extension SceneMetalRenderer {
                 effectSourceExtentContract: effectSourceExtentContract,
                 requestedWidth: max(1, Int(desiredSize.width.rounded(.up))),
                 requestedHeight: max(1, Int(desiredSize.height.rounded(.up))),
+                directDrawOutputModelViewProjection:
+                    directDrawOutputModelViewProjection,
                 materialFunctionInvocations: materialFunctionInvocations(for: layer)
             ))
         }
@@ -722,17 +734,15 @@ extension SceneMetalRenderer {
                 )
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      let directDrawModel = lightShaftsModelMatrix(
-                          for: layer,
-                          worldFramesByLayerID: worldFramesByLayerID,
-                          parallaxMouseNormalized:
-                              frameContext.cameraParallaxPosition,
-                          configuration: parallaxConfiguration
-                      ) else {
-                    return invalid("layer-\(layerID)-direct-draw-model-invalid")
+                      case .authoredCanvasDirectDraw = claim.frameInputContract
+                        .emittedOutputGeometrySource,
+                      let directDrawOutputMVP =
+                        plan.directDrawOutputModelViewProjection else {
+                    return invalid(
+                        "layer-\(layerID)-direct-draw-output-geometry-invalid"
+                    )
                 }
-                sourceMVP = cameraFrame.viewProjection(for: layer)
-                    * directDrawModel
+                sourceMVP = directDrawOutputMVP
                 outputMVP = sourceMVP
                 sourceTexture = nil
                 sourceCandidate = nil

@@ -64,6 +64,10 @@ SWIFT_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DependencyOwnership.swift",
     SCENE_ROOT
+    / "RenderGraph/EffectExecution/ScenePreparedDirectDrawOutputGeometry.swift",
+    SCENE_ROOT
+    / "RenderGraph/EffectExecution/SceneResolvedMaterialDirectDrawGeometryCompiler.swift",
+    SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability.swift",
     SCENE_ROOT
     / "RenderGraph/EffectExecution/SceneResolvedMaterialExecutionCapability+DynamicUniformRejection.swift",
