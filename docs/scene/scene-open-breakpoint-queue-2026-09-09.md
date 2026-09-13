@@ -10,6 +10,7 @@
 
 - 2026-09-13 的 Puppet 世界空间直绘删除了 coverage 中间纹理、尺寸预算补丁和普通 layer-source publication，但当时只闭合世界空间组合；effect input仍会被standard full-frame policy压到2048宽，不能作为贴图清晰度证据。2026-09-14后继把source extent变成prepared product合同：支持的Puppet geometry要求atlas首mip精确进入graph，无法满足既有pool边界时局部拒绝，禁止静默缩放或atlas quad回退。`3748311238 / 3780119725 / 3264246690 / 3238423642`当前定向运行均为strict PASS，graph input分别保持`5000×2200 / 3874×2000 / 3658×2000 / 3504×2160`；现役事实见[精确atlas运行证据](semantics/runtime-evidence-current.md#e-2026-09-14-puppet-exact-atlas-effect-extent)和[样本调试台账](semantics/scene-sample-debug-ledger.md#2026-09-14-puppet-原始-atlas-与精确-effect-extent)。
 - `2797913147` 的后继资产首断点也已关闭。其作者文件严格满足52-byte `MDLV0014` mesh与`MDLS0002` rig，且不存在MDLA/MDAT；现役reader只开放这份已验证的bind/script形状，不猜测其他0014动画语义。fresh签名运行strict PASS，layer 24的5项effect均保持`1406×2500` atlas，人物经world mesh持续进入GPU completion、publication与terminal compositor。现役事实见[`MDLV0014`运行证据](semantics/runtime-evidence-current.md#e-2026-09-14-puppet-mdlv0014)。
+- `2932631210 / 2813231542 / 3788467391` 的历史“主体人物消失”已在当前签名App定向刷新：三者都使用普通image/solid Program graph而非Puppet，3/3 strict PASS、loaded=1.000、0 failed frame/fallback，原分辨率ready/after逐张确认人物与主要构图完整并持续变化。本批不改产品代码，也不反推是哪一历史提交首次修复；现役事实见[三样本刷新证据](semantics/runtime-evidence-current.md#e-2026-09-14-missing-subject-refresh)。
 - [样本验收台账](semantics/scene-sample-acceptance-ledger.md)当前保存的 `19 fail / 140 unreviewed` 和各首断点集群来自 2026-09-12 的归档，早于信号载体 lowering 与 Puppet 世界空间直绘。它仍是人工裁决的唯一写入面，但其计数和部分备注不是当前 HEAD 的技术缺口统计；必须在维护者重新观看后才更新 verdict，不能用 benchmark 结果代替。
 - 2026-09-12 的 full-corpus `135/159 strict PASS` 只是一份历史结构快照。后继修复没有重新执行全 corpus，本队列也不以重复全量回放刷新数字。每个条目先用受影响样本和 focused 模块建立当前首断点。
 - 五类产品——纹理、世界空间几何、模拟状态、异步 provider、多 pass graph——都必须产出或消费同一 prepared product、typed frame state、Metal execution 和唯一 compositor 合同。它们可以拥有不同的数据形状与生命周期，但不得形成第二套 property、clock、resource registry、graph 或 output owner。
@@ -32,20 +33,20 @@
 
 - tracked full-corpus identity-only matrix 尚未覆盖真实样本根全部成员；扩展矩阵不等于每个开发批次都运行全 corpus。
 - script instance scalar/String/Vec2/Vec3、root particle override 八字段与本批 camera 八字段已有 typed live consumer；它们不再是整族缺失。现役明确开放的 Scene 级 target 首断点是 Bloom enable/threshold：已有 identity，但没有 binding producer 或全场 HDR post consumer。其余 unsupported target 继续逐个按作者类型、作用域和真实 consumer 建立纵向闭环，不能按字段相似性扩权。
-- 以下是维护者基于 `be9858e` 播放观察登记的跟踪清单。除表内明确闭合的 `3749463715` 外，其余仍待当前 HEAD 最小复现和归因；不能从症状直接推断 owner，也不能因其他样本通过而批量改写状态：
+- 以下是维护者基于 `be9858e` 播放观察登记的跟踪清单。表内明确闭合项保留观察provenance，开放项仍须当前HEAD最小复现和归因；不能从症状直接推断owner，也不能因其他样本通过而批量改写状态：
 
   | 样本 | 观察到的异常 | 当前状态 |
   |---|---|---|
   | `3748311238` | 主体人物消失 | 当前签名App加载`5000×2200`五级atlas、MDLV0023 layered mesh并以相同精确尺寸执行9项effect，完整人物持续可见；strict PASS，本断点关闭 |
   | `2797913147` | 主体人物消失 | 当前签名App严格读取52-byte `MDLV0014 + MDLS0002` bind/script geometry，layer 24的5项effect保持`1406×2500` atlas，完整人物持续可见；strict PASS，本断点关闭 |
-  | `2932631210 / 2813231542 / 3788467391` | 主体人物消失 | 当前HEAD尚未定向刷新，待复现、待归因 |
+  | `2932631210 / 2813231542 / 3788467391` | 主体人物消失 | 当前签名App定向刷新3/3 strict PASS；全部required Program graph、GPU、compositor与next-frame完成，原分辨率截图确认主体完整持续，本断点关闭 |
   | `3747492842` | 历史无法播放；另有文字错位、额外闪烁和光束位置异常 | 当前签名 App 已恢复持续播放：7/7 graph layer、208/208 claim/encode/GPU、0 executor failure，fullscreen layer 173 的三项效果及三个 utility capture 完成。启动前两次 layer 186 视频 source pending 仍产生局部 fallback，tracked matrix 的旧计数也使本次报告非 strict PASS；文字裁切、闪烁、光束和人工视觉验收继续开放 |
   | `3775355045 / 3775373546` | 两层视频经遮罩合成后，下层播放数秒开始卡顿并落后于上层动画 | 待复现、待归因 |
   | `1315486372` | 水波纹特效位置不正确 | 待复现、待归因 |
   | `2684431262` | 合成画面出现异常紫色块 | 待复现、待归因 |
   | `3749463715` | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 动态 attachment current-pose和同帧shared-pair驻留均已闭合；fresh strict PASS，保留本行作为用户观察provenance |
 
-  下一批定向刷新`2932631210 / 2813231542 / 3788467391`；每次先确定最早失效的prepared product、typed frame state、provider/graph/geometry encode或compositor环节，再按公共owner修复，不得把样本ID写入产品路由。
+  下一批定向复现`3775355045 / 3775373546`的双视频遮罩数秒后不同步；随后处理`3747492842`剩余文字/闪烁/光束、`1315486372`水波纹位置与`2684431262`紫色块。每次先确定最早失效的prepared product、typed frame state、provider/graph/geometry encode或compositor环节，再按公共owner修复，不得把样本ID写入产品路由。
 - 全部样本最终必须由人工裁决为 `pass` 或显式 `platform-unsupported`。当前开发仍按公共首断点和受影响样本推进，不用大批量回放代替逐项可见验收。
 - 验收覆盖层中的 `fail` 与 `unreviewed` 必须逐个由维护者重新观看。`3264246690 / 3780119725 / 3238423642` 的旧 Puppet 技术原因及 `3787382101` 的旧 Water Waves mask 债务都已被 2026-09-13 后继证据取代，但没有维护者的新 verdict 时不得直接改成整样本 `pass`。
 - 新发现的公共首断点回到 P1/P2；结构 PASS、非黑截图、route 数或完成事件不能单独改变人工 verdict。

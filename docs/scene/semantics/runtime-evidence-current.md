@@ -22,6 +22,17 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-missing-subject-refresh"></a>
+### 2026-09-14 三个历史“主体人物消失”观察的当前刷新
+
+**结论：`2932631210 / 2813231542 / 3788467391` 在当前签名产品中均未再复现主体人物消失，达到S4 bounded visible；本批不改产品代码。** 三个项目当前均为普通image/solid与Program graph组合，没有Puppet animation layer。原分辨率ready/after逐张检查可见：`2932631210`的银发人物、紫色光环和星空完整；`2813231542`的人物、双臂、头发、白色光环、粒子和右侧文字完整；`3788467391`的人物、双臂、饮料罐、衣物、头发、Monster标志和粉色光环完整。Steam preview只作方向性构图参考，不能替代逐像素官方golden；维护者人工acceptance仍未更新。
+
+**产品身份与执行：**复用本页`MDLV0014`批次的签名Debug App：2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `4b9d57bf0f1f6cfdad6f1483208fef773f5a0861`，executable SHA-256 `58d29c8d620724c3a49a5e3f04dda00280a22798a7e91697ea70699350885d95`。只运行这三个样本各25秒，结果3/3 strict PASS、loaded=1.000、0 failed frame、0 drawable miss。active descriptor分别为6/7/18，required graph layer分别为`32,106 / 38,61,85 / 20,28,257`且全部Program完成；GraphExecutor为`106/106 / 153/153 / 1545/1545` claim/encode，全部GPU encoded、0 failure、0 local fallback，并具有terminal compositor与next-frame观察。submitted/completed/failed分别为`1161/1160/0 / 1173/1172/0 / 1165/1164/0`，motion changed ratio为`0.05342 / 0.07047 / 0.22761`。
+
+**可复查身份：**matrix/report SHA-256为`ec7c643f64c6174f885148fb109a2aec7c447bea5c0a33dcfb4dc744f48d8cbd / 1db51cbd677345f750497fe7e8fe8b592eebfcd65419b893bbfd4f78853d83e9`。三份app-log SHA-256依次为`6f295197bdfff2dc9052cb2a84ea02696018cf3cd55ed82245c2b033b1abf1d1 / cf623d31984dfd80234fce4897c68e7bfe21dfec2025237c774c2c1f32cd2c28 / ea1122e2a39e74bf4062994d0410754c847726c046079a83762b3daf19600dc2`；after截图依次为`f3974d354018202a5d3cba8de949353d13d893dc94e818f959d1dfa5503dca5b / 1b353e5921d3ac3c1f32914d3cda66c95b2f054ebed1d4554a4346a46a701513 / 7200760dc73dc885723155ab9e88a4dd8c56dadf3ba5331648814fc2b7690659`。
+
+**边界：**这只关闭`be9858e`之后登记的“主体人物消失”技术观察，不能定位是哪一个历史提交首次修复，也不证明遮挡顺序、敏感内容遮罩、全部作者交互、逐像素效果或完整场景人工验收。未运行full corpus。
+
 <a id="e-2026-09-14-puppet-mdlv0014"></a>
 ### 2026-09-14 `MDLV0014 + MDLS0002` Puppet GeometryProduct 闭环
 

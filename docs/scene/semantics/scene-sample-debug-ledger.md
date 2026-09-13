@@ -2,6 +2,12 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 三个历史“主体人物消失”观察的当前刷新
+
+当前签名Debug App对`2932631210 / 2813231542 / 3788467391`各运行25秒，3/3 strict PASS、loaded=1.000、0 failed frame、0 drawable miss。三个项目都由普通image/solid与Program graph组合，没有Puppet animation layer；active descriptor分别为6/7/18，required graph layer分别为`32,106 / 38,61,85 / 20,28,257`且全部完成GPU、terminal compositor和next-frame，GraphExecutor 0 failure/0 local fallback。原分辨率ready/after逐张确认三个人物及各自主构图完整持续，motion changed ratio为`0.05342 / 0.07047 / 0.22761`。
+
+App CDHash为`4b9d57bf0f1f6cfdad6f1483208fef773f5a0861`，executable SHA-256为`58d29c8d620724c3a49a5e3f04dda00280a22798a7e91697ea70699350885d95`；matrix/report SHA-256为`ec7c643f64c6174f885148fb109a2aec7c447bea5c0a33dcfb4dc744f48d8cbd / 1db51cbd677345f750497fe7e8fe8b592eebfcd65419b893bbfd4f78853d83e9`。完整日志/截图hash和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-missing-subject-refresh)。本批不改产品代码，也不把结构PASS升级成逐像素parity或维护者人工acceptance。
+
 ## 2026-09-14 `MDLV0014 + MDLS0002` bind/script geometry
 
 `2797913147` 的layer 24引用158460字节`models/人物_puppet.mdl`（SHA-256 `47808c6ab5df6bbbe9d3c012b3dc256fc6f760794e97e837706832278bdcc769`）。只读结构验证得到唯一52-byte `MDLV0014` mesh：2479 vertices、4807 triangles、完整UInt16索引覆盖、四权重有限且只引用2个有效bone；`MDLS0002`位于offset 157805，文件没有MDLA或MDAT。现役reader只把这一已验证mesh/rig形状接入已有bind/script playback，不推测`MDLV0014`动画、attachment或未知记录。骨骼1的未实现gravity保持bone-local authored pose并诊断，合法geometry不因局部physics缺口被丢弃。
@@ -173,7 +179,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
 | 3748311238 | 主体人物消失 | 当前HEAD加载`5000×2200`五级atlas和MDLV0023 mesh，9项effect均保持精确atlas尺寸，完整人物持续可见 | strict PASS；本断点关闭，人工整体验收未更新 |
 | 2797913147 | 主体人物消失 | 当前HEAD严格读取52-byte `MDLV0014 + MDLS0002` bind/script geometry，5项effect保持`1406×2500` atlas，完整人物持续进入唯一compositor | strict PASS；本断点关闭，人工整体验收未更新 |
-| 2932631210 / 2813231542 / 3788467391 | 主体人物消失 | `be9858e`维护者观察；当前HEAD尚未定向刷新 | 待复现、待归因 |
+| 2932631210 / 2813231542 / 3788467391 | 主体人物消失 | 当前签名App定向刷新3/3 strict PASS；普通image/solid Program graph、GPU、compositor、next-frame全部闭合，原分辨率截图确认人物完整持续 | 本断点关闭；人工整体验收未更新 |
 | 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
 | 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 静态bind attachment未消费current bone pose与同帧shared-pair非原子驻留均已修正；当前MDAT动态follow、真实drag/return、16层graph、四个utility capture和唯一compositor闭合 | fresh strict PASS；人工acceptance与性能仍开放 |
