@@ -14,6 +14,12 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private var isMenuOpen = false
     private let wallpaperManager: WallpaperManager = .shared
 
+    /// 跨引擎播放态：video/scene 任一在播即视为"播放中"。
+    private var anyEnginePlaying: Bool {
+        PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
+            || WallpaperEngine.shared.isPlaying()
+    }
+
     // 状态栏动态刷新定时器（每 2 秒更新一次图标上的 GPU%）
     private var iconRefreshTimer: DispatchSourceTimer?
 
@@ -33,6 +39,10 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     private func setupStatusBar() {
         guard !didSetupStatusBar else { return }
         didSetupStatusBar = true
+        // 命令层装配点：状态栏三键经命令层控制所有引擎
+        // （engine-refactor-program.md M0.1/M0.4）。
+        PlaybackCommandMultiplexer.shared.register(VideoPlaybackCommandHandler())
+        PlaybackCommandMultiplexer.shared.register(SceneDesktopWallpaperHost.shared)
         // 状态栏图标只初始化一次，避免重复创建导致菜单 / target 丢失。
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let button = statusItem?.button else { return }
@@ -132,8 +142,8 @@ final class StatusBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(makeItem(title: "切换壁纸", systemImageName: "arrow.right.circle", action: #selector(switchWallpaper), keyEquivalent: ""))
 
-        let playbackTitle = WallpaperEngine.shared.isPlaying() ? "暂停播放" : "继续播放"
-        let playbackIcon = WallpaperEngine.shared.isPlaying() ? "pause.circle" : "play.circle"
+        let playbackTitle = anyEnginePlaying ? "暂停播放" : "继续播放"
+        let playbackIcon = anyEnginePlaying ? "pause.circle" : "play.circle"
         menu.addItem(makeItem(title: playbackTitle, systemImageName: playbackIcon, action: #selector(togglePlayback), keyEquivalent: ""))
         
         let muteTitle = wallpaperManager.isMuted ? "关闭静音" : "开启静音"
@@ -187,17 +197,22 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     
     @objc private func switchWallpaper() {
         guard !wallpaperManager.wallpapers.isEmpty else { return }
-        wallpaperManager.navigateWallpaperManually(.next, userInitiated: true)
+        PlaybackCommandMultiplexer.shared.dispatch(.switchNext)
     }
-    
+
     @objc private func togglePlayback() {
-        // 状态栏播放按钮只做一键切换，状态最终还是以 engine 为准。
-        WallpaperEngine.shared.togglePlayback()
+        // 状态栏播放按钮：跨引擎暂停/继续，状态以各引擎处理端为准。
+        let command: WallpaperEngineCommand =
+            PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
+            ? .pause : .resume
+        PlaybackCommandMultiplexer.shared.dispatch(command)
         wallpaperManager.isPlaying = WallpaperEngine.shared.isPlaying()
     }
-    
+
     @objc private func toggleMute() {
-        wallpaperManager.setMuted(!wallpaperManager.isMuted)
+        PlaybackCommandMultiplexer.shared.dispatch(
+            .setMuted(!wallpaperManager.isMuted)
+        )
     }
     
     @objc private func openSettings() {
