@@ -778,6 +778,24 @@ extension SceneDesktopWallpaperHost {
             state.phase.rawValue,
             state.message
         )
+        let hubLaunchPhase: SceneLaunchPhase?
+        switch state.phase {
+        case .accepted: hubLaunchPhase = .accepted
+        case .preparingModel: hubLaunchPhase = .preparingModel
+        case .preparingPrograms: hubLaunchPhase = .preparingPrograms
+        case .preparingResources: hubLaunchPhase = .preparingResources
+        case .preparingSurfaces: hubLaunchPhase = .preparingSurfaces
+        case .launched: hubLaunchPhase = .launched
+        case .cancelled, .failed: hubLaunchPhase = nil
+        }
+        if let hubLaunchPhase {
+            // Always-on first-occurrence launch timing; bypass-only.
+            ScenePerformanceCounterHub.shared.recordLaunchPhase(
+                hubLaunchPhase,
+                uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
+            )
+        }
+        SceneSignpost.emitEvent("launch-state", state.phase.rawValue)
         NotificationCenter.default.post(
             name: .sceneWallpaperLaunchStateDidChange,
             object: state

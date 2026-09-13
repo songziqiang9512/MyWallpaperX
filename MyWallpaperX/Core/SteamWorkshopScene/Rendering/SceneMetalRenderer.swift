@@ -57,6 +57,16 @@ struct SceneMetalRenderer {
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
     ) -> FrameOutcome {
+        // Always-on renderer CPU time. Start is unconditional (the existing
+        // cpuStart below is telemetry-gated); the defer covers every return
+        // path including the resolved-material busy-guard below.
+        let hubRenderStart = ProcessInfo.processInfo.systemUptime
+        defer {
+            ScenePerformanceCounterHub.shared.add(
+                .rendererMicros,
+                ScenePerformanceCounterHub.micros(since: hubRenderStart)
+            )
+        }
         var particleSubmissionCommandBuffer: MTLCommandBuffer? = nil
         var didCommitParticleSubmission = false
         guard !imageCompositor.shouldDeferResolvedMaterialFrame else {

@@ -73,20 +73,28 @@ extension SceneDesktopWallpaperHost {
         let nextDeadline: CFTimeInterval
         switch attempt {
         case .rendered:
+            ScenePerformanceCounterHub.shared.bump(.framesRendered)
+            ScenePerformanceCounterHub.shared.recordLaunchPhase(
+                .firstVisibleFrame,
+                uptimeMicros: ScenePerformanceCounterHub.nowUptimeMicros()
+            )
             let cadenceDeadline = scheduledDeadline + sceneFrameInterval
             // Realign narrowly late frames at current host time; fast frames
             // still honor cadence while busy gate keeps history graphs serial.
             nextDeadline = max(cadenceDeadline, now)
         case .busy:
+            ScenePerformanceCounterHub.shared.bump(.framesBusy)
             // History-bearing graphs remain single-frame-in-flight. A short
             // retry prevents a slight overrun from losing a full 60 Hz slot.
             nextDeadline = now + sceneBusyFrameRetryInterval
         case .dropped:
+            ScenePerformanceCounterHub.shared.bump(.framesDropped)
             // A hard frame rejection did not produce a drawable, but it is
             // not an in-flight resource wait. Keep normal cadence without
             // reporting the attempt as rendered.
             nextDeadline = max(scheduledDeadline + sceneFrameInterval, now)
         case .inactive:
+            ScenePerformanceCounterHub.shared.bump(.framesInactive)
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
@@ -111,6 +119,15 @@ extension SceneDesktopWallpaperHost {
         frameTimer = timer
     }
     private func renderFrame() -> SceneFrameDriverAttempt {
+        // Always-on counters: bypass-only recording, no control flow change.
+        ScenePerformanceCounterHub.shared.bump(.frameAttempts)
+        let hubCPUFrameStart = ProcessInfo.processInfo.systemUptime
+        defer {
+            ScenePerformanceCounterHub.shared.add(
+                .cpuFrameMicros,
+                ScenePerformanceCounterHub.micros(since: hubCPUFrameStart)
+            )
+        }
         guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
         promotePendingDeferredLayerVisibilityIfReady()
         guard let launchContext else { return .inactive }

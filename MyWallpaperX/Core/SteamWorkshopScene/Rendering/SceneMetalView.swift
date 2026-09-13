@@ -490,10 +490,21 @@ class SceneMetalView: NSView {
             playback.apply(scriptBoneMutations: puppetBoneMutations)
         }
         let frameStart = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
+        // Unconditional always-on drawable wait measurement; independent of
+        // the telemetry-gated frameStart/drawableAcquired constants above.
+        let hubDrawableWaitStart = ProcessInfo.processInfo.systemUptime
         guard let drawable = metalLayer.nextDrawable() else {
+            ScenePerformanceCounterHub.shared.add(
+                .drawableWaitMicros,
+                ScenePerformanceCounterHub.micros(since: hubDrawableWaitStart)
+            )
             performanceTelemetry?.recordDrawableMiss()
             return .deferred(reasonCode: "drawable-unavailable")
         }
+        ScenePerformanceCounterHub.shared.add(
+            .drawableWaitMicros,
+            ScenePerformanceCounterHub.micros(since: hubDrawableWaitStart)
+        )
         let drawableAcquired = performanceTelemetry.map { _ in ProcessInfo.processInfo.systemUptime }
         let parallaxPointerState = parallaxPointerSmoother.snapshot()
         let pointerPrevious = pointerState.previous
