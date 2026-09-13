@@ -691,6 +691,9 @@ enum Harness {
         let solidCarrier = plan.bindingsByConsumerLayerID[31]
         let materialProgramSolidCarrier = materialProgramSolidCarrierBinding()
         let imageBlend = imageBlendBinding()
+        let puppetImageBlend = imageBlendBinding(
+            providerPuppetMeshPath: "models/character.mdl"
+        )
         let forwardImageBlend = imageBlendBinding(providerFirst: false)
         let forwardEffectfulImageBlend = imageBlendBinding(
             providerEffectful: true,
@@ -1321,6 +1324,7 @@ enum Harness {
                 "imageBlend": imageBlend?.kind == .imageLayerBlend,
                 "forwardCapture": imageBlend?.requiresForwardCapture ?? false,
             ],
+            "puppetImageBlendRejected": puppetImageBlend == nil,
             "forwardImageBlendBinding": [
                 "consumer": forwardImageBlend?.consumerLayerID ?? -1,
                 "provider": forwardImageBlend?.providerLayerID ?? -1,
@@ -1999,7 +2003,8 @@ enum Harness {
         sameLayerPreviousReference: Bool = false,
         resolvedMaterialConsumerLayerIDs: Set<Int>? = nil,
         multiply: Double = 1,
-        providerFirst: Bool = true
+        providerFirst: Bool = true,
+        providerPuppetMeshPath: String? = nil
     ) -> SceneDependencyRenderPlan.Binding? {
         let providerID = 300
         let consumerID = 301
@@ -2017,7 +2022,7 @@ enum Harness {
                     constantShaderValues: [:]
                 )]
             )] : []
-        let provider = SceneRenderDescriptor.Layer(
+        var provider = SceneRenderDescriptor.Layer(
             id: providerID,
             contentKind: providerContentKind,
             utilityLayer: nil,
@@ -2026,6 +2031,7 @@ enum Harness {
             visible: providerVisible,
             effects: providerEffects
         )
+        provider.puppetMeshPath = providerPuppetMeshPath
         let primary = "_rt_imageLayerComposite_\(providerID)_\(variantSuffix)"
         let extra = "_rt_imageLayerComposite_299_a"
         var slots: [String?] = [nil, primary]
@@ -3133,6 +3139,9 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
             "$0.requiresForwardCapture",
             static_model_dependency_runtime,
         )
+
+    def test_puppet_atlas_cannot_publish_as_flat_image_provider(self) -> None:
+        self.assertTrue(self.result["puppetImageBlendRejected"])
 
     def test_structural_slot3_hidden_solid_dependency_is_generic_and_fail_closed(
         self,

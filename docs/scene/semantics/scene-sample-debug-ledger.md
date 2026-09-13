@@ -2,6 +2,14 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 Puppet 世界空间直绘最终定向复核
+
+当前工作树的签名 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`）对 `3665307769 / 3780119725 / 3264246690 / 3238423642` 做 15 秒 fresh 隔离回放。输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`；四个样本均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`，required effect admission/execution/graph execution 均通过。
+
+产品不再把 Puppet mesh 归一化进 coverage 大纹理或发布为普通 layer source。atlas 先在自己的 mapped extent 中执行 graph，graph-final atlas 由原始/变形 mesh 采样，mesh 只经一次 world MVP 进入唯一 compositor。app log 的 `puppet-world-draw` 覆盖 `3665307769:71/153`、`3780119725:21/794`、`3264246690:389`、`3238423642:20/820/2190`。四张 after-window 原分辨率人工复核确认：366 的粉发人物与机甲完整同轴；378 的人物、摩托、猫、路牌位置/比例正常且人物细节未再被 coverage 降采样；326 的头部、双臂和手部完整；323 的主角色、红/绿偏移层与光环正确合成。截图 SHA-256 依次为 `5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。
+
+该段取代下方 2026-09-08 coverage/budget/fallback 修复作为这四个样本的当前 Puppet 首断点事实；旧段保留为历史根因链。它不改变其他效果、性能与 159 样本人工裁决，也不证明未登记 Puppet/MDL、跨层 geometry provider 或逐像素官方 parity。能力合同与完整运行身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)。
+
 ## 2026-09-09 current handoff rerun
 
 为把工作树代码、运行身份和现役队列对齐，使用当前工作树构建的 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `7ce6a2fff1b12f8771c4fc768f9a2f204107e1c1`，executable SHA-256 `6edd66b54bbf6486560efe92e270a8bba616faf0b5619c6b9c504bf01c3570e5`）串行复跑 12 个断点样本。matrix SHA-256 为 `fd5f7fd4b52729115cd6f5e6120e80fc3a5dc8992237804f08ec1ed311b7d745`，总 report SHA-256 为 `0104f3fec84c489bc8645e0163d1c9294d959cf8a89f3a62b61c3e2efa6109e6`，现场目录为 `/private/tmp/mwx-handoff-current-runtime-20260909-1945`。
@@ -26,16 +34,16 @@
 
 | 样本 | 待修复的用户可见问题 | 首轮区分证据 | 状态 |
 |---|---|---|---|
-| 3264246690 | 人物偏上、头部出画；左肘缺块 | 当前截图头部在画内、左肘缺块仍在；不能据此判定构图正确 | 未通过 |
+| 3264246690 | 人物偏上、头部出画；左肘缺块 | 2026-09-13 世界空间直绘稳定帧确认头部、双臂和手部完整，见本页最新定向复核 | 本断点通过；整样本未做逐像素 parity |
 | 3765760121 | 上下颠倒 | utility model/投影策略不一致已修；默认鱼眼开启的当前截图恢复正向，见 E-V4-UTILITY-CAMERA-CONSISTENCY | 倒置修复，整样本未全面验收 |
-| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | fallback extent 与 fractional additive selector 已修；当前运行已选中 7 个动画片段且人物不再压缩，脸部黑线/缺块仍在 | 部分修复，未通过 |
+| 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 2026-09-13 删除 coverage 压平后，稳定帧确认人物、摩托、猫和路牌位置/比例正常，人物细节不再被中间纹理降采样 | 本断点通过；整样本未做逐像素 parity |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；当前 identity-only 复跑仍未取得 required graph execution，顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
 | 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
-| 3238423642 | 人物头部错位 | Puppet atlas重组预算被前序图层耗尽，最后一层退回原图集；按候选层均衡预算后头部回到身体，见E-V4-PUPPET-BUDGET-FAIRNESS | 构图修复，整体验收未通过 |
+| 3238423642 | 人物头部错位 | 2026-09-13 旧重组预算与 atlas fallback 已删除；三个 mesh layer 世界空间直绘，稳定帧确认主角色与红/绿偏移层正确合成 | 本断点通过；整样本未做逐像素 parity |
 | 3448845950 | 无法运行 | PNG被TEX metadata误判为MP4与solid准备尺寸不一致已修复，恢复蓝色卡片/时钟；09-10 已清除四层 B3 attachment，仍见 dependency-stage 与 layer 1475 terminal data/color 合同拒绝，脚本效果及整体布局仍未通过，见E-V4-TEX-MEDIA-IDENTITY | 黑屏解除，结构部分恢复，整体验收未通过 |
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |

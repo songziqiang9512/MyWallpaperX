@@ -83,14 +83,33 @@ final class SceneLayerColorBlendPipeline {
         encoder: MTLRenderCommandEncoder
     ) {
         var vertices = Self.unitQuadVertices
-        var mvpCopy = mvp
-        var mode = Int32(blendMode)
-        encoder.setRenderPipelineState(state)
         encoder.setVertexBytes(
             &vertices,
             length: vertices.count * MemoryLayout<SceneQuadVertex>.stride,
             index: 0
         )
+        bindGeometry(
+            layerTexture: layerTexture,
+            backgroundTexture: backgroundTexture,
+            blendMode: blendMode,
+            mvp: mvp,
+            encoder: encoder
+        )
+        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    }
+
+    /// Binds the same blend fragment contract for caller-owned geometry. The
+    /// caller keeps vertex/index ownership and issues the indexed mesh draw.
+    func bindGeometry(
+        layerTexture: MTLTexture,
+        backgroundTexture: MTLTexture,
+        blendMode: Int,
+        mvp: simd_float4x4,
+        encoder: MTLRenderCommandEncoder
+    ) {
+        var mvpCopy = mvp
+        var mode = Int32(blendMode)
+        encoder.setRenderPipelineState(state)
         encoder.setVertexBytes(
             &mvpCopy,
             length: MemoryLayout<simd_float4x4>.size,
@@ -99,7 +118,6 @@ final class SceneLayerColorBlendPipeline {
         encoder.setFragmentBytes(&mode, length: MemoryLayout<Int32>.size, index: 0)
         encoder.setFragmentTexture(layerTexture, index: 0)
         encoder.setFragmentTexture(backgroundTexture, index: 1)
-        encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
 
     private static let unitQuadVertices: [SceneQuadVertex] = [
@@ -123,12 +141,23 @@ enum SceneLayerColorBlendRenderer {
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
+        geometryProduct: SceneGeometryProduct? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         let blendMode = layer.colorBlendMode ?? 0
         guard supports(blendMode) else { return false }
         if blendMode == 0 {
             guard let encoder = mainPass.encoder() else { return false }
+            if let geometryProduct {
+                return geometryProduct.encode(
+                    encoder,
+                    texture,
+                    dependencyTexture,
+                    mvp,
+                    uniforms,
+                    nil
+                )
+            }
             pipeline.bind(encoder: encoder)
             pipeline.drawLayer(
                 texture: texture,
@@ -147,6 +176,26 @@ enum SceneLayerColorBlendRenderer {
         guard let background = captured ?? nil,
               let encoder = mainPass.encoder() else {
             return false
+        }
+        if let geometryProduct {
+            let bindColorBlend: SceneGeometryProduct.ColorBlendBinder = {
+                encoder, layerTexture, geometryMVP in
+                colorBlendPipeline.bindGeometry(
+                    layerTexture: layerTexture,
+                    backgroundTexture: background,
+                    blendMode: blendMode,
+                    mvp: geometryMVP,
+                    encoder: encoder
+                )
+            }
+            return geometryProduct.encode(
+                encoder,
+                texture,
+                dependencyTexture,
+                mvp,
+                uniforms,
+                bindColorBlend
+            )
         }
         colorBlendPipeline.draw(
             layerTexture: texture,

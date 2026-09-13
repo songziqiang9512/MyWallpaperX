@@ -342,52 +342,10 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
             self.assertAlmostEqual(frame[13], y, places=3)
 
 
-def coverage_extent(
-    max_abs: tuple[float, float],
-    layer: tuple[float, float],
-    additional_abs: tuple[float, float] = (0.0, 0.0),
-) -> tuple[float, float]:
-    """Mirrors ScenePuppetMeshRecomposer.coverageExtent."""
-    half = (
-        max(layer[0] / 2.0, max_abs[0], additional_abs[0]),
-        max(layer[1] / 2.0, max_abs[1], additional_abs[1]),
-    )
-    return (half[0] * 2.0, half[1] * 2.0)
-
-
-class PuppetMeshCoverageContractTests(unittest.TestCase):
-    def test_overflow_grows_origin_centered_extent_without_moving_world(self) -> None:
-        # 3264246690 layer 389: authored 3658×2000, bind-pose max |y| = 1609.5.
-        width, height = coverage_extent(
-            max_abs=(1780.0, 1609.5),
-            layer=(3658.0, 2000.0),
-        )
-        self.assertEqual(width, 3658.0)
-        self.assertAlmostEqual(height, 3219.0, places=4)
-        scale = 0.54881
-        vertex_y = 1609.5
-        world = (vertex_y / height) * height * scale
-        self.assertAlmostEqual(world, vertex_y * scale, places=5)
-
-    def test_in_frame_mesh_keeps_authored_extent(self) -> None:
-        # 3787382101 layer 28 fits 5600×2400; compositor stays authored.
-        width, height = coverage_extent(
-            max_abs=(1848.4, 1121.7),
-            layer=(5600.0, 2400.0),
-        )
-        self.assertEqual((width, height), (5600.0, 2400.0))
-
-    def test_animated_pose_overflow_grows_extent(self) -> None:
-        width, height = coverage_extent(
-            max_abs=(1780.0, 1609.5),
-            layer=(3658.0, 2000.0),
-            additional_abs=(1900.0, 1710.0),
-        )
-        self.assertEqual((width, height), (3800.0, 3420.0))
-
-    def test_recomposer_and_playback_share_coverage_mapping(self) -> None:
+class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
+    def test_static_and_animated_puppets_share_world_geometry_mapping(self) -> None:
         recomposer = (
-            SCENE_ROOT / "Rendering/ScenePuppetMeshRecomposer.swift"
+            SCENE_ROOT / "Rendering/ScenePuppetMeshGeometry.swift"
         ).read_text(encoding="utf-8")
         playback = (
             SCENE_ROOT / "Rendering/ScenePuppetPlaybackState.swift"
@@ -401,23 +359,76 @@ class PuppetMeshCoverageContractTests(unittest.TestCase):
         view = (SCENE_ROOT / "Rendering/SceneMetalView.swift").read_text(
             encoding="utf-8"
         )
+        preflight = (
+            SCENE_ROOT / "Rendering/SceneResolvedMaterialFramePreflight.swift"
+        ).read_text(encoding="utf-8")
+        compositor = (
+            SCENE_ROOT / "Rendering/SceneImageLayerCompositor.swift"
+        ).read_text(encoding="utf-8")
+        renderer = (SCENE_ROOT / "Rendering/SceneMetalRenderer.swift").read_text(
+            encoding="utf-8"
+        )
+        blend_pipeline = (
+            SCENE_ROOT / "Rendering/SceneLayerColorBlendPipeline.swift"
+        ).read_text(encoding="utf-8")
+        graph_composition = (
+            SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
+        ).read_text(encoding="utf-8")
         self.assertNotIn("contentFit", recomposer)
         self.assertNotIn("ContentFit", recomposer)
-        self.assertIn("static func coverageExtent(", recomposer)
-        self.assertIn("vertex.x / coverage.width", recomposer)
-        self.assertIn("vertex.y / coverage.height", recomposer)
+        self.assertNotIn("coverageExtent", recomposer)
+        self.assertIn("position: SIMD2(vertex.x, vertex.y)", recomposer)
         self.assertNotIn("contentFit", playback)
-        self.assertIn("ScenePuppetMeshRecomposer.coverageExtent(", playback)
-        self.assertIn("position.x / coverageWidth", playback)
-        self.assertIn("position.y / coverageHeight", playback)
+        self.assertNotIn("coverageWidth", playback)
+        self.assertNotIn("coverageHeight", playback)
+        self.assertIn("position: position", playback)
         self.assertNotIn("var renderSize:", load)
-        self.assertIn("func setPuppetSource(", base)
-        self.assertIn("setPuppetSource(", view)
-        # Rejected animation still publishes a successfully recomposed bind
-        # pose. Cache eligibility must not gate its logical source geometry.
-        self.assertIn("if let puppetCoverage {", view)
-        self.assertNotIn("hasStaticPuppetRecomposition", view)
-        self.assertNotIn("puppetRenderSize", view)
+        self.assertIn("let geometryProducts: [Int: SceneGeometryProduct]", base)
+        self.assertIn("func setPuppetGeometry(", base)
+        self.assertIn("samplingAtlas: MTLTexture", base)
+        self.assertIn("samplingCandidate: SceneTextureCandidate?", base)
+        self.assertIn("ScenePuppetLayerLoad.preparedGeometry(", view)
+        self.assertIn("loaded.setPuppetGeometry(", view)
+        self.assertNotIn("setPuppetSource(", base)
+        self.assertNotIn("setPuppetSource(", view)
+        self.assertNotIn("recomposeByteBudget", recomposer)
+        self.assertNotIn("targetDimensions", recomposer)
+        self.assertNotIn("makeTexture", recomposer)
+        self.assertIn("allowsMissingMeshTextureProduct: true", load)
+        self.assertIn("puppetOutcome.allowsMissingMeshTextureProduct", view)
+        self.assertEqual(load.count("allowsMissingMeshTextureProduct: true"), 1)
+        self.assertIn("case absent", load)
+        self.assertIn("case rejected", load)
+        self.assertIn("puppet mesh path rejected", load)
+        self.assertIn("desiredSize = selectedSource.candidate?.mappedSize", preflight)
+        self.assertIn("sourceTexture = source.texture", preflight)
+        self.assertNotIn("SceneGeometryCapture", preflight)
+        self.assertNotIn("viewportToAuthoredUV", preflight)
+        self.assertIn(
+            "sourceMVP = geometryMVP(layer, geometry)", preflight
+        )
+        self.assertNotIn("capturesGeometry", graph_composition)
+        self.assertNotIn("compositesFullViewport", graph_composition)
+        self.assertIn("finalTexture,", compositor)
+        self.assertIn("request.geometryProduct", compositor)
+        self.assertIn(
+            "geometryProduct: request.geometryProduct", compositor
+        )
+        self.assertNotIn("mainPass.encoder()", compositor)
+        self.assertIn("bindColorBlend(encoder, sourceTexture, mvp)", recomposer)
+        self.assertIn("bindColorBlend(encoder, sourceTexture, mvp)", playback)
+        self.assertIn("func bindGeometry(", blend_pipeline)
+        self.assertIn("if let geometryProduct", blend_pipeline)
+        self.assertGreaterEqual(renderer.count("if geometryProduct == nil,"), 2)
+        self.assertIn("publications[layerID] = nil", base)
+        self.assertNotIn("provider(.puppet", base)
+        self.assertIn("sourceTexture,", recomposer)
+        self.assertNotIn("atlasTexture: MTLTexture", recomposer)
+        self.assertIn("geometryModelMatrix(", preflight)
+        self.assertIn(
+            "SceneLayerCursorGeometry.effectProjectionInverse(\n                        sourceMVP,",
+            preflight,
+        )
 
 
 if __name__ == "__main__":

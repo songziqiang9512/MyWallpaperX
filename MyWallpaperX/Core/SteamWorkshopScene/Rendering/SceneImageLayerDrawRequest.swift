@@ -258,6 +258,7 @@ struct SceneImageLayerDrawRequest {
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
     var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
+    var geometryProduct: SceneGeometryProduct? = nil
 
     nonisolated func effectiveSourceSampling(
         for sampling: SceneTextureSampling

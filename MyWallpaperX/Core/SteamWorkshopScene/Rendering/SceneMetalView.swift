@@ -160,10 +160,6 @@ class SceneMetalView: NSView {
         var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
         var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
-        var staticPuppetRecompositions: [
-            ScenePuppetLayerLoad.StaticRecomposeIdentity: ScenePuppetLayerLoad.CachedSource
-        ] = [:]
-        var puppetRecomposeBytes = 0
         var preparedBaseImageHitCount = 0
         renderer.installResolvedMaterialExecutionEvidence()
         self.preparedBaseImages = preparedBaseImages
@@ -176,11 +172,6 @@ class SceneMetalView: NSView {
         report.append(contentsOf: userPropertyTextureLoad.reportLines)
         report.append(preparedBaseImages.reportLine)
         let imageLayers = renderer.renderDescriptor.layers.filter(\.isImageRenderable)
-        // Reserve an equal upper bound for each potential Puppet source at
-        // load time. Earlier duplicates must not exhaust later layers and
-        // force their packed atlas to appear as a composed image.
-        let puppetPerLayerBudget = ScenePuppetMeshRecomposer.recomposeByteBudget
-            / max(1, imageLayers.filter { $0.puppetMeshPath != nil }.count)
         report.append("imageLayerCount: \(imageLayers.count)")
         report.append("solidLayerCount: \(imageLayers.filter { $0.contentKind == "solid" }.count)")
         report.append(contentsOf: mediaThumbnailCoordinator.program.reportLines())
@@ -260,50 +251,25 @@ class SceneMetalView: NSView {
             switch baseImage {
             case let .loaded(baseLoad):
                 let texture = baseLoad.texture
-                var effectiveTexture = texture
-                var puppetCoverage: ScenePuppetMeshRecomposer.CoverageExtent?
                 var puppetMessage: String?
-                let staticPuppetIdentity = ScenePuppetLayerLoad.staticRecomposeIdentity(
-                    for: layer,
-                    atlasTexture: texture,
-                    atlasIsAnimated: baseLoad.animation != nil,
-                    cacheDirectory: cacheDirectory,
-                    loader: loader
-                )
-                if let staticPuppetIdentity,
-                   let cached = staticPuppetRecompositions[staticPuppetIdentity]
-                {
-                    effectiveTexture = cached.texture
-                    puppetCoverage = cached.coverage
-                    if report.isEnabled {
-                        puppetMessage = "; puppet bind-pose source reused"
-                    }
-                } else if let imagePipeline,
-                          let puppetOutcome = ScenePuppetLayerLoad.recomposedTexture(
-                              for: layer,
-                              atlasTexture: texture,
-                              cacheDirectory: cacheDirectory,
-                              remainingByteBudget: min(puppetPerLayerBudget,
-                                  ScenePuppetMeshRecomposer.recomposeByteBudget - puppetRecomposeBytes),
-                              device: metalDevice,
-                              commandQueue: renderer.commandQueue,
-                              pipeline: imagePipeline
-                          )
-                {
-                    if let recomposedTexture = puppetOutcome.texture {
-                        effectiveTexture = recomposedTexture
-                        puppetCoverage = puppetOutcome.coverage
-                        puppetRecomposeBytes += puppetOutcome.byteCost
-                        if let staticPuppetIdentity,
-                           puppetOutcome.playback == nil,
-                           let coverage = puppetOutcome.coverage
-                        {
-                            staticPuppetRecompositions[staticPuppetIdentity] =
-                                ScenePuppetLayerLoad.CachedSource(
-                                    texture: recomposedTexture,
-                                    coverage: coverage
-                                )
-                        }
+                if layer.puppetMeshPath != nil,
+                   let imagePipeline,
+                   let puppetOutcome = ScenePuppetLayerLoad.preparedGeometry(
+                       for: layer,
+                       atlasTexture: texture,
+                       cacheDirectory: cacheDirectory,
+                       device: metalDevice,
+                       pipeline: imagePipeline
+                   ) {
+                    if let product = puppetOutcome.geometryProduct {
+                        loaded.setPuppetGeometry(
+                            product,
+                            samplingAtlas: texture,
+                            samplingCandidate: baseLoad.candidate,
+                            layerID: layer.id
+                        )
+                    } else if puppetOutcome.allowsMissingMeshTextureProduct {
+                        loaded.set(texture, candidate: nil, layerID: layer.id)
                     }
                     if let playback = puppetOutcome.playback {
                         loadedPuppetPlaybackStates[layer.id] = playback
@@ -311,27 +277,14 @@ class SceneMetalView: NSView {
                     if report.isEnabled {
                         puppetMessage = "; \(puppetOutcome.message)"
                     }
-                }
-                // Successful bind-pose fallback has the same source geometry
-                // contract as playback. Cache eligibility is not publication
-                // eligibility: unsupported animation can still recompose.
-                if let puppetCoverage {
-                    loaded.setPuppetSource(
-                        effectiveTexture,
-                        layerID: layer.id,
-                        logicalWidth: puppetCoverage.width,
-                        logicalHeight: puppetCoverage.height,
-                        effectLogicalWidth: layer.renderSizeWH?[0] ?? puppetCoverage.width,
-                        effectLogicalHeight: layer.renderSizeWH?[1] ?? puppetCoverage.height
-                    )
-                } else {
+                } else if layer.puppetMeshPath == nil {
                     loaded.set(
-                        effectiveTexture,
+                        texture,
                         candidate: baseLoad.candidate,
                         layerID: layer.id
                     )
                 }
-                if let animation = baseLoad.animation {
+                if layer.puppetMeshPath == nil, let animation = baseLoad.animation {
                     loadedSpriteAnimations[layer.id] = animation
                 }
                 if let sampling = baseLoad.baseTextureSampling {

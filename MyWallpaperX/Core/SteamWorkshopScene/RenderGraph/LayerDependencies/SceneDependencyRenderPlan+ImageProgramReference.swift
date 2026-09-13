@@ -225,6 +225,7 @@ extension SceneDependencyRenderPlan {
         visibleLayerIDs: Set<Int>
     ) -> Bool {
         layer.contentKind == "image"
+            && layer.puppetMeshPath == nil
             && hasNoUtilityLayer(layer)
             && layer.visible != false
             && visibleLayerIDs.contains(layer.id)
@@ -368,7 +369,8 @@ extension SceneDependencyRenderPlan {
         _ provider: SceneRenderDescriptor.Layer
     ) -> Bool {
         if provider.contentKind == "image" {
-            return hasNoUtilityLayer(provider)
+            return provider.puppetMeshPath == nil
+                && hasNoUtilityLayer(provider)
                 && provider.visible == false
                 && provider.childLayerIDs.isEmpty
                 && (provider.dependencyLayerIDs.isEmpty

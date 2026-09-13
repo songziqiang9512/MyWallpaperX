@@ -10,6 +10,7 @@ enum SceneImageLayerMainPassRenderer {
         layer: SceneRenderDescriptor.Layer,
         pipeline: SceneImageLayerPipeline,
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
+        geometryProduct: SceneGeometryProduct? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         SceneLayerColorBlendRenderer.draw(
@@ -20,6 +21,7 @@ enum SceneImageLayerMainPassRenderer {
             layer: layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
+            geometryProduct: geometryProduct,
             mainPass: mainPass
         )
     }

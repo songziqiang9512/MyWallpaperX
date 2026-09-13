@@ -202,8 +202,6 @@ nonisolated struct SceneLayerSourcePublication {
         switch publication.candidate.identity {
         case .file, .builtIn:
             return true
-        case let .provider(.puppet(candidateLayerID)):
-            return candidateLayerID == layerID
         case let .provider(.video(candidateLayerID, _)):
             return candidateLayerID == layerID
         case .provider:
@@ -219,7 +217,6 @@ nonisolated struct SceneLayerSourcePublication {
         case .file, .builtIn:
             return true
         case let .provider(.dynamicText(candidateLayerID)),
-             let .provider(.puppet(candidateLayerID)),
              let .provider(.video(candidateLayerID, _)):
             return candidateLayerID == layerID
         case .provider:

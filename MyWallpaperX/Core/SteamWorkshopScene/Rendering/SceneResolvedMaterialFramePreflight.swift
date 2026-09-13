@@ -254,6 +254,17 @@ extension SceneMetalRenderer {
                 case let .rejected(reasonCode):
                     return .rejected(reasonCode: reasonCode)
                 }
+                if imageTextures.geometryProducts[layer.id] != nil {
+                    // A Puppet graph processes the atlas before skinning. Its
+                    // target therefore follows the atlas sampling extent and
+                    // never the pose coverage or viewport projection.
+                    desiredSize = selectedSource.candidate?.mappedSize
+                        ?? CGSize(
+                            width: selectedSource.texture.width,
+                            height: selectedSource.texture.height
+                        )
+                    break
+                }
                 if layer.contentKind != "solid" {
                     guard let extent = SceneLayerEffectSourceExtent.resolve(
                         publishedRenderSizeWH:
@@ -381,7 +392,7 @@ extension SceneMetalRenderer {
                         SceneCaptureGeometryResolver.projectedPixelSize(
                             layerMVP: cameraFrame.viewProjection(for: layer)
                                 * model,
-                            viewportSize: viewportSize
+                            viewportSize: frameContext.screenSize
                         ) else {
                     return .rejected(
                         reasonCode: "direct-draw-offscreen-size-unavailable"
@@ -454,6 +465,19 @@ extension SceneMetalRenderer {
                 for: layer,
                 worldFramesByLayerID: worldFramesByLayerID,
                 renderSizeOverride: renderSizeOverride,
+                parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                configuration: parallaxConfiguration,
+                visibleHalfExtents: cameraFrame.coverHalfExtents,
+                usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+            )
+        }
+        let geometryMVP: (
+            SceneRenderDescriptor.Layer, SceneGeometryProduct
+        ) -> simd_float4x4 = { layer, product in
+            cameraFrame.viewProjection(for: layer) * self.geometryModelMatrix(
+                for: layer,
+                worldFramesByLayerID: worldFramesByLayerID,
+                authoredSize: product.authoredSize,
                 parallaxMouseNormalized: frameContext.cameraParallaxPosition,
                 configuration: parallaxConfiguration,
                 visibleHalfExtents: cameraFrame.coverHalfExtents,
@@ -616,10 +640,23 @@ extension SceneMetalRenderer {
                             + (sourceSelection.rejectedProviderReason ?? "missing")
                     )
                 }
-                sourceMVP = imageMVP(
-                    layer,
-                    imageTextures.layerSourceRenderSize(for: layerID)
-                )
+                if let geometry = imageTextures.geometryProducts[layerID] {
+                    // Effects operate on normalized atlas UV. Scale the unit
+                    // effect card to authored pixels for pointer/projection
+                    // uniforms; the final mesh draw still consumes raw vertex
+                    // positions with the unscaled geometry MVP exactly once.
+                    sourceMVP = geometryMVP(layer, geometry)
+                        * SceneMatrix.scale(SIMD3(
+                            geometry.authoredSize.x,
+                            geometry.authoredSize.y,
+                            1
+                        ))
+                } else {
+                    sourceMVP = imageMVP(
+                        layer,
+                        imageTextures.layerSourceRenderSize(for: layerID)
+                    )
+                }
                 outputMVP = sourceMVP
                 sourceTexture = source.texture
                 sourceCandidate = source.candidate
@@ -696,7 +733,7 @@ extension SceneMetalRenderer {
             }
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectProjectionInverse(
-                        outputMVP,
+                        sourceMVP,
                         required: claim.requiresInvertibleEffectTextureProjection
                     ) else {
                 return invalid("layer-\(layerID)-effect-projection-inverse-invalid")

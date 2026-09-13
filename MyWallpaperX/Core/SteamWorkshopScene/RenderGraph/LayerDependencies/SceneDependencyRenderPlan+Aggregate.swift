@@ -432,6 +432,7 @@ extension SceneDependencyRenderPlan {
             references: references
         )
         let isHiddenImage = layer.contentKind == "image"
+            && layer.puppetMeshPath == nil
             && layer.utilityLayer == nil
             && layer.visible == false
             && layer.childLayerIDs.isEmpty

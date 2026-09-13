@@ -4,7 +4,7 @@
 
 > 状态：现役长期架构合同
 >
-> 最近复核：2026-08-17
+> 最近复核：2026-09-13
 >
 > 当前实现程度与缺口只查[能力台账](semantics/coverage-ledger.md)；本文件描述目标处理方式，不把目标冒充现役能力。
 
@@ -28,9 +28,9 @@ project / scene / package / texture
   -> drawable
 ```
 
-主链的输入产品不限定为纹理。准备阶段必须把 authored 输入降低为受约束的 `PreparedProduct`，由唯一 compositor 按作者顺序消费。产品类型只有以下五类：`TextureProduct`（图片、视频、文字及栅格 effect）、`GeometryProduct`（Puppet/3D 世界空间几何）、`SimulationProduct`（粒子与物理状态）、`ProviderProduct`（异步媒体与动态资源）和 `GraphProduct`（多 pass、依赖 target、history）。这些是共享输入协议，不是平行 renderer；它们共用 identity、frame clock、resource/provider generation、target/publication/completion、rollback 和唯一最终输出。
+主链的输入产品不限定为纹理。准备阶段必须把 authored 输入降低为受约束的产品，由唯一 compositor 按作者顺序消费。产品只分为五个有限类别：`TextureProduct`（图片、视频、文字及栅格 effect）、`GeometryProduct`（Puppet/3D 世界空间几何）、`SimulationProduct`（粒子与物理状态）、`ProviderProduct`（异步媒体与动态资源）和 `GraphProduct`（多 pass、依赖 target、history）。这五类是架构分类和职责合同，不要求建立一个空的公共 enum、protocol、wrapper 或 registry；每个具体 owner 只携带本领域所需的 identity、logical extent、资源、encode/publication 和生命周期。它们共用 frame clock、resource/provider generation、target/publication/completion、rollback 与唯一最终输出，不能形成平行 renderer。Puppet atlas 是 mesh 的采样资源；该层有 effect 时，atlas 先以自身 mapped extent 进入普通 GraphProduct，graph-final 纹理再由同一个 GeometryProduct 采样。atlas 与 graph-final 纹理都不是已组合的 Puppet layer source，不能由普通 quad 或命名 provider 路径发布。
 
-兼容 profile 只能由 authored 语义、拓扑、类型化资源/状态、静态预算和失败合同定义，禁止包含 sample/layer/path/hash/screenshot 身份。每个 profile 必须能由现有通用 primitive 表达，并声明局部失败半径、fallback 原因和退役条件；若需要第二套 registry、clock、property tree、graph 或 compositor，必须停止并重新设计。Puppet 的目标产品是 `GeometryProduct`：mesh、atlas、pose 和 world MVP 直接进入 compositor，只有在 effect 合同要求时才建立局部 capture。当前实现仍以 `TextureProduct` 作为稳定回退；在 coverage/origin/pose 与 capture 坐标合同完成并通过两个代表样本的可见验收前，不得宣称 GeometryProduct 已启用。
+兼容 profile 只能由 authored 语义、拓扑、类型化资源/状态、静态预算和失败合同定义，禁止包含 sample/layer/path/hash/screenshot 身份。每个 profile 必须能由现有通用 primitive 表达，并声明局部失败半径、fallback 原因和退役条件；若需要第二套 registry、clock、property tree、graph 或 compositor，必须停止并重新设计。Puppet 的现役产品是 `GeometryProduct`：静态 bind pose 与动态 pose 都保留原始 mesh 像素坐标和作者 UV，调用方把层级 transform、作者 origin/scale、pivot、parallax 和 camera VP 合成唯一 world MVP，mesh 最终只向主 target 编码一次。旧 coverage 归一化、coverage 大纹理、逐帧重组纹理、尺寸 ceiling、重组预算/cache 和 `.puppet` layer-source identity 已退役。只有作者 package 确实缺少所引用 mesh 时，才允许该局部层以明确原因降级为普通 `TextureProduct`；非法路径、mesh 读取/解析/验证、资源分配或 encode 失败不能把 atlas 冒充组合输出。命名图层 provider 当前只表达完整栅格层源，不能携带 mesh/world transform，因此 Puppet 作为跨层 provider 在依赖计划编译阶段明确拒绝，直到建立能原子携带几何与放置坐标的 typed publication。当前能力只覆盖台账登记的 Puppet mesh/version/动画形状，不外推为通用 3D、全部 Puppet 语义或官方逐像素 parity。
 
 实施时按能够闭合真实画面的纵向切片扩展这条链。不得先分别建设完整 compiler、RenderGraph、VM、particle platform，再等待它们全部完成后才允许真实内容执行。
 

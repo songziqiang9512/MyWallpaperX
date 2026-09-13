@@ -13,7 +13,9 @@ authored data → loss-preserving IR → prepared Program/graph/resources
               → typed frame update → Metal encode → unique compositor/output
 ```
 
-准备结果不限定为纹理。统一主链消费有限的 `PreparedProduct`：`TextureProduct`、`GeometryProduct`、`SimulationProduct`、`ProviderProduct` 或 `GraphProduct`。它们共享 identity、时钟、资源 generation、target/publication/completion、rollback 和唯一 compositor；不得各自建立 renderer 或 registry。新 profile 必须由 authored 语义和静态预算定义，明确失败半径、fallback 退役条件及实现无关正反证据，禁止按 sample/layer/path/hash 选择算法。
+准备结果不限定为纹理。统一主链消费五个有限产品类别：`TextureProduct`、`GeometryProduct`、`SimulationProduct`、`ProviderProduct` 或 `GraphProduct`。类别用于划定 owner、输入和失败边界，不要求一个公共 Swift enum/protocol；不要为了命名类别增加空 wrapper、重复 registry 或跨领域大接口。具体产品共享 identity、时钟、资源 generation、target/publication/completion、rollback 和唯一 compositor。新 profile 必须由 authored 语义和静态预算定义，明确失败半径、fallback 退役条件及实现无关正反证据，禁止按 sample/layer/path/hash 选择算法。
+
+几何产品的采样资源与最终层输出必须分开：纹理/effect graph 在资源自身坐标中完成，graph-final 纹理随后由 GeometryProduct 以 live world MVP 采样并直接写入唯一 compositor target。没有携带 geometry、placement、generation 和 completion 的普通纹理不能发布为已组合几何层源；遇到跨产品依赖缺少这种 typed publication 时，在计划编译阶段局部拒绝，不能恢复 coverage 压平纹理或新增第二套 capture/compositor。
 
 身份、作者顺序、frame state、property/provider、resource/target/publication、Program/graph 生命周期和最终 output 各只有一个产品 owner。新代码必须接入这些 owner，或直接消除重复 owner；不得建立第二套 registry、clock、property tree、graph、compositor 或按样本选择视觉算法。
 

@@ -4,6 +4,7 @@ import Metal
 
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
+    let geometryProducts: [Int: SceneGeometryProduct]
     let explicitLayerSources: [Int: SceneTextureProviderPublication]
     private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
@@ -11,6 +12,7 @@ struct SceneBaseImageTextureSnapshot {
 
     init(
         textures: [Int: MTLTexture],
+        geometryProducts: [Int: SceneGeometryProduct] = [:],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
         candidates: [Int: SceneTextureCandidate],
@@ -51,6 +53,7 @@ struct SceneBaseImageTextureSnapshot {
             validatedExplicitLayerSources[layerID] = layerSource.publication
         }
         self.textures = validatedTextures
+        self.geometryProducts = geometryProducts
         self.explicitLayerSources = validatedExplicitLayerSources
         self.layerSourcePublications = validatedLayerSources
         var validatedCandidates = candidates.filter { layerID, candidate in
@@ -121,12 +124,9 @@ struct SceneBaseImageTextureSnapshot {
 
 struct SceneBaseImageTextureStore {
     private(set) var textures: [Int: MTLTexture] = [:]
+    private(set) var geometryProducts: [Int: SceneGeometryProduct] = [:]
     private(set) var candidates: [Int: SceneTextureCandidate] = [:]
     private(set) var publications: [Int: SceneTextureProviderPublication] = [:]
-    /// Puppet sources whose bind-pose leaves the imported image box publish
-    /// the origin-centered coverage as the logical compositor/effect extent.
-    /// World vertices stay `origin + mesh * authored scale`.
-    private var puppetLayerSources: [Int: SceneLayerSourcePublication] = [:]
     private var contentGeneration: UInt64 = 0
 
     subscript(layerID: Int) -> MTLTexture? {
@@ -135,7 +135,7 @@ struct SceneBaseImageTextureStore {
             textures[layerID] = newValue
             candidates[layerID] = nil
             publications[layerID] = nil
-            puppetLayerSources[layerID] = nil
+            geometryProducts[layerID] = nil
         }
     }
 
@@ -157,58 +157,24 @@ struct SceneBaseImageTextureStore {
                 contentGeneration: contentGeneration
             )
         }
-        puppetLayerSources[layerID] = nil
+        geometryProducts[layerID] = nil
     }
 
-    mutating func setPuppetSource(
-        _ texture: MTLTexture,
-        layerID: Int,
-        logicalWidth: Float,
-        logicalHeight: Float,
-        effectLogicalWidth: Float,
-        effectLogicalHeight: Float
+    /// Installs the atlas and geometry atomically. The candidate retains only
+    /// the atlas sampling contract used by source capture. The atlas is not a
+    /// completed layer-source publication because only a mesh draw composes it.
+    mutating func setPuppetGeometry(
+        _ product: SceneGeometryProduct,
+        samplingAtlas: MTLTexture,
+        samplingCandidate: SceneTextureCandidate?,
+        layerID: Int
     ) {
-        contentGeneration &+= 1
-        let size = CGSize(width: texture.width, height: texture.height)
-        let candidate = SceneTextureCandidate(
-            texture: texture,
-            identity: .provider(.puppet(layerID: layerID)),
-            generation: .provider(contentGeneration: contentGeneration),
-            purpose: .premultipliedColor,
-            content: .color(.resolved(.premultipliedAlpha)),
-            physicalSize: size,
-            mappedSize: size,
-            uvTransform: .identity,
-            sampling: .linearClamp
-        )
-        textures[layerID] = texture
-        candidates[layerID] = candidate
-        let publication = Self.publication(
-            for: candidate,
-            layerID: layerID,
-            contentGeneration: contentGeneration
-        )
-        publications[layerID] = publication
-        puppetLayerSources[layerID] = publication.flatMap {
-            SceneLayerSourcePublication(
-                layerID: layerID,
-                publication: $0,
-                renderSizeWH: [logicalWidth, logicalHeight],
-                effectRenderSizeWH: [effectLogicalWidth, effectLogicalHeight]
-            )
+        textures[layerID] = samplingAtlas
+        geometryProducts[layerID] = product
+        candidates[layerID] = samplingCandidate.flatMap {
+            $0.texture === samplingAtlas ? $0 : nil
         }
-        if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {
-            NSLog(
-                "MWX DEBUG SCENE: phase=puppet-source-published layer=%d texture=%dx%d logical=%.3fx%.3f generation=%llu publication=%@",
-                layerID,
-                texture.width,
-                texture.height,
-                logicalWidth,
-                logicalHeight,
-                contentGeneration,
-                publication.map { String(describing: $0.requestIdentity) } ?? "none"
-            )
-        }
+        publications[layerID] = nil
     }
 
     mutating func merge(_ incoming: [Int: MTLTexture]) {
@@ -216,7 +182,7 @@ struct SceneBaseImageTextureStore {
         for layerID in incoming.keys {
             candidates[layerID] = nil
             publications[layerID] = nil
-            puppetLayerSources[layerID] = nil
+            geometryProducts[layerID] = nil
         }
     }
 
@@ -232,14 +198,13 @@ struct SceneBaseImageTextureStore {
         combinedPublications.merge(explicitLayerSources) { _, replacement in
             replacement
         }
-        var combinedLayerSources = puppetLayerSources.filter { layerID, layerSource in
-            textures[layerID] === layerSource.texture
-        }
+        var combinedLayerSources: [Int: SceneLayerSourcePublication] = [:]
         combinedLayerSources.merge(layerSourcePublications) { _, replacement in
             replacement
         }
         return SceneBaseImageTextureSnapshot(
             textures: textures,
+            geometryProducts: geometryProducts.filter { textures[$0.key] != nil },
             explicitLayerSources: combinedPublications,
             layerSourcePublications: combinedLayerSources,
             candidates: candidates,

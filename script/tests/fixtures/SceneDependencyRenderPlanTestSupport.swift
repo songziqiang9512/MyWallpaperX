@@ -86,6 +86,7 @@ struct SceneRenderDescriptor {
     struct Layer {
         let id: Int
         var staticModelPath: String? = nil
+        var puppetMeshPath: String? = nil
         let contentKind: String
         let utilityLayer: SceneUtilityLayer?
         let dependencyLayerIDs: [Int]

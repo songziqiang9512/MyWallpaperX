@@ -8,7 +8,7 @@
 
 > 状态：现役证据入口
 >
-> 最近核对：2026-09-10
+> 最近核对：2026-09-13
 >
 > 当前核对分支：`codex/scene-capability-baseline`。本页只回答“哪条能力在什么代码/产品身份下取得过哪一级证据”，不决定开发顺序；唯一执行路线见[Scene兼容执行路线](../scene-compatibility-roadmap.md)。
 >
@@ -21,6 +21,19 @@
 自本次核对起，`docs/scene/evidence/`只作为仓库忽略的本机证据缓存，不再由Git跟踪。最终运行载荷可先通过`script/promote_scene_evidence.py`提纯并用逐文件manifest固定，再在本文记录输入、App、report/manifest identity、SHA-256和有界结论；权威文档不得链接或依赖该本机目录，缓存缺失时也不能用摘要冒充当前HEAD的fresh复现。`/private/tmp`只承载运行现场、重试和含第三方作者资源的不可提交fixture；本文此前保留的临时路径只作为当时provenance，文件可能已按产物治理清理。
 
 ## 1. 当前证据快照
+
+<a id="e-2026-09-13-puppet-world-geometry"></a>
+### 2026-09-13 Puppet GeometryProduct 世界空间绘制闭环
+
+**结论：已登记的 Puppet mesh/version/pose/effect 形状达到 S4 bounded visible。** 静态 bind pose 与动画 pose 共享 `SceneGeometryProduct`；atlas 只作 mesh UV 采样。无 effect 时原始/变形 mesh 以唯一 world MVP/camera VP 直接进入 compositor；有 effect 时 GraphExecutor 先在 atlas mapped extent 内生成 graph-final atlas，再由同一 mesh 采样并在世界空间绘制。几何不会先捕获成平面纹理。旧 coverage 重组纹理、逐帧中间纹理、重组预算/cache 和 Puppet source publication 已退役。作者 package 确实缺少所引用 mesh 时允许局部普通纹理降级；解析、验证、资源分配或 encode 失败不能发布 atlas。
+
+**实际执行身份：**签名 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`。构建命令为 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath /private/tmp/mwx-b7-memo-build CODE_SIGNING_ALLOWED=YES build`，结果 `BUILD SUCCEEDED`；benchmark 在复制前后都验证签名，报告中的 `source_signature_verified / verified_before / verified_after` 均为 true。
+
+**定向真实运行：**同一签名 App、真实只读样本根、fresh 输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，只运行 `3665307769`、`3780119725`、`3264246690`、`3238423642` 各 15 秒，并同时要求 effect-stage admission、effect execution 与 graph execution。四者均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`；总 report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`。四份 app log SHA-256 依次为 `43a9f2037699a595a429eb625ce7a57d69834f80956a1c2c46c8bd6fba65153f`、`b6a3792513d6300af50da6638baafec6f5eccb2a4d5854750e368920d2377e3b`、`1cea9b8f079ce925c7c1d8d4ccf13a4347c017197a7e503e6f22132b14799019`、`b19cb6507e5a05739a3ebc5f416acebee516f715b521dbfd217e35dafc135f56`。四次运行的 required graph contract 均成功、effect CPU invocation 有完成帧、after snapshot 非黑；`puppet-world-draw` 直接记录 `3665307769:71/153`、`3780119725:21/794`、`3264246690:389`、`3238423642:20/820/2190` 的原始 mesh 顶点进入 NDC，没有 geometry capture target。
+
+**可见检查：**四张 after-window 截图 SHA-256 依次为 `5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。原分辨率逐张检查确认：`3665307769` 的粉发人物与大型机甲完整同轴；`3780119725` 的人物、摩托、猫和路牌比例/位置正常，人物轮廓与服装细节不再经过 coverage 降采样；`3264246690` 的头部、双臂和手部完整；`3238423642` 的主角色、红/绿偏移层与光环正确合成。`3780119725:279` 的 package 实际缺少所引用 `models/мотик зад_puppet.mdl`，该层命中明确的 missing-mesh TextureProduct 降级；其他 Puppet mesh 均走 GeometryProduct。
+
+**边界：**重写基线的 10 个 focused 模块与最终 main-pass owner 收敛后的 5 个 focused 模块（含 semantics main-pass writer 门）、签名 build 和四样本运行，只证明本批 Geometry/atlas-graph/compositor 合同及代表构图，不证明逐像素官方 parity、未登记 MDL/动画/constraint、Puppet 跨层 provider、通用 3D、全部五类产品子形状、159 样本视觉收口或 B7 的 16.67ms CPU 预算。
 
 <a id="e-2026-09-10-b3-event-only-closure"></a>
 ### 2026-09-10 B3 event-only SceneScript producer 闭环
@@ -242,9 +255,9 @@ Debug checkpoint build `7b9b4e20` 在隔离普通 App 路径运行太阳系样�
 
 `3780119725` 的 Audio Bars 从 bool→numeric stage-link 拒绝恢复实际 Program/GPU 执行；静音/PCM 对照证明64-bin频谱被consumer消费并显示音频条，另有真实异步requestLaunch的completion/publication/next-frame/teardown证据。76+2+11 tests与签名Debug build通过，全仓code-health有两项本批外阻断。人物黑线、整样本及3287715210独立color-transfer拒绝均未闭合。见 [E-V4-AUDIO-BOOLEAN-OPERAND](scene-sample-debug-ledger.md#e-v4-audio-boolean-operand布尔数值操作恢复音频图形2026-09-08)。
 
-### 2026-09-08 Bind-pose fallback 发布重组逻辑尺寸
+### 2026-09-08 Bind-pose fallback 发布重组逻辑尺寸（历史，已退役）
 
-成功重组但动画 unsupported 的 Puppet fallback 不再因为缺少静态 cache identity 而误用 atlas 尺寸。`3780119725` 人物压扁消除，layer21 graph source 比例、terminal publication/GPU/next-frame 均随 coverage 修正；26 Puppet tests PASS/1 skip、13 source publication tests PASS、Debug build 成功。黑线、缺块和动画 unsupported 保持开放。见 [E-V4-PUPPET-FALLBACK-PUBLICATION](scene-sample-debug-ledger.md#e-v4-puppet-fallback-publication重组成功与可缓存资格分离2026-09-08)。
+该批曾让成功重组但动画 unsupported 的 Puppet fallback 发布 coverage 逻辑尺寸，避免误用 atlas 尺寸；对应测试与当时 Debug build 通过。该 publication、静态 cache identity、coverage texture 与 bind-pose fallback 均已被 2026-09-13 GeometryProduct 世界空间绘制取代，本段只保留历史根因链。见 [E-V4-PUPPET-FALLBACK-PUBLICATION](scene-sample-debug-ledger.md#e-v4-puppet-fallback-publication重组成功与可缓存资格分离2026-09-08)。
 
 ### 2026-09-08 Utility model 与 projection 共用有效 camera 决策
 
@@ -272,15 +285,15 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 
 隔离真实 `3396722575` 使用签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `610ab437185c4104392b30227afbea3744129ea0`、executable SHA-256 `10951960b67fd3a635f96846886d0829fb3aa6de68c5c771913cc0109d22e247`）：严格 `1/1 PASS`，4 个 text layer loaded，`phase=ready` 为 61 layers / 30 image / 62 effects / 1 surface，startup dynamic-text publication 记录 layers `1794/843/120`，live `text1,text2,text3` accepted 且 surface/window `1→1`、`46219→46219`，ready/after 非黑；teardown 为 owners31/quiescent31/failures0/timers0/jobs0/mutations0/dynamicLayers0。该次运行证明 authored text/font provider 与 live property transaction 的安全执行，但未单独形成 callback-produced font 的 ROI；性能仅为一轮 7 秒观察，不是 A/B 或长稳结论。详见 [E-V4-SCENESCRIPT-CALLBACK-ONLY-STRING-QUIESCENCE](../../history/scene/runtime-evidence-index.md#e-v4-scenescript-callback-only-string-quiescence)。
 
-### 2026-09-06 Puppet mesh coverage + Water Waves mask UV owner
+### 2026-09-06 Puppet mesh coverage + Water Waves mask UV owner（历史，coverage 已退役）
 
-用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同不变：`world = origin + mesh * authored scale`。官方 Introduction 把 image effect 限制在作者 mesh/padding，不是导入图 `size` 硬裁；第三方 Mirage 只交叉支持“mesh 在 layer transform 下提交、不按导入框 contain”的职责顺序，不是可复制实现。现役 bake+compositor 因此发布 origin 居中 coverage（作者 size∪bind-pose）给唯一 compositor/effect capture，映射为 `vertex / coverage`。`3264246690` layer 389 的逻辑高度从作者 `2000` 扩到覆盖 bind-pose `|y|=1609.5`；框内样本（`3787382101` layer 28）保持作者 `5600×2400`。
+用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同保持 `world = origin + mesh * authored scale`。该批随后采用 origin 居中 coverage（作者 size∪bind-pose）和 `vertex / coverage`；它修复缺头但引入后续压平与欠采样问题。2026-09-13 已删除 coverage publication/归一化，现役 mesh 保留原始像素位置并由唯一 world MVP 直接绘制；本段不再定义当前实现。
 
 `3787382101` 的两张 Water Waves mask 是 `1400×600` R8，与作者画幅同宽高比。stock vert 无条件 include 的 helper `if` 不再让 same-slot mapped UV owner 失效。presence-combo 仍缓存 on/off 两套 Program。同日前一版签名 2/2 PASS 与“头/手齐全、不再整图细波纹”已被用户眼睛证伪，不能再当当前视觉事实。
 
 这属于 `S2 mapping/UV-owner contract correction`，在新的隔离运行之前不升级为 `S4`。不证明官方像素 parity、头发运动数值、149 corpus 或完整 Water Waves family。
 
-### 2026-09-06 用户截图复核（当前裁决）
+### 2026-09-06 用户截图复核（历史裁决，已被 2026-09-13 证据取代）
 
 最新隔离运行的报告为 `/private/tmp/mwx-visible-final.FDfcLr/report.json`：`3787382101` 的 loaded texture ratio 为 `1.0`，`3264246690` 为 `0.9412`；两者的运行报告均为 benchmark `PASS`，但这只证明资源加载、帧提交、GPU completion 与 compositor 安全门通过。对应截图为 `results/3787382101/scene-after-window.png`、`results/3787382101/scene-ready-window.png`、`results/3264246690/scene-after-window.png` 和 `results/3264246690/scene-ready-window.png`。
 
@@ -290,7 +303,7 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 
 两个真实用户报告的 Puppet 几何首断点闭合，均不新增 renderer/registry/compositor owner：
 
-- **`3264246690` 缺头/肘**：该样本 layer 389 的 bind-pose mesh（1968×2589.5）超出作者导入图（3658×2000）。后继已废止按 AABB 中心收缩和 origin-pivot `contentFit`；当前合同见上行 origin 居中 coverage。最新隔离截图仍显示人物左侧手肘三角缺角，故几何视觉问题未解决。
+- **`3264246690` 缺头/肘**：该样本 layer 389 的 bind-pose mesh（1968×2589.5）超出作者导入图（3658×2000）。当时先废止按 AABB 中心收缩和 origin-pivot `contentFit`，再采用 origin 居中 coverage；后继截图仍有左肘缺角。该历史结果已被本页顶部 2026-09-13 原始 mesh 世界空间绘制证据取代。
 - **`3238423642` 纹理错位**：katanabody 是 MDLV0019 + MDLS0002 + MDLA0005，此前 reader 失败关闭回退 raw atlas 散件。逐字节验证真实资产后新增该 version pair：mesh stride 80（position/UV 偏移同 0017/0023）、MDLS0002 骨架、MDLA0005 trailer 为 34 字节全零（无 auxiliary），其他形状失败关闭。
 
 当前签名 Developer ID Debug App（CDHash `42c74c2c70ca6bdd3e1dcf23ea759de63e5b11c8`、executable SHA-256 `927d1eeb24e22fdb...`）隔离运行，report SHA-256 `40a4ca45ff3ff1d67cd3414daec24bcaf0f8a86cc0a34c48852b7361407e7a8f`：`3238423642` 严格 1/1 PASS、84/83/0 帧、4 个 katanabody 层与 butterfly 全部从 atlas 散件恢复为组装人物。`3264246690` 该次运行的尺寸结论已被后继合同取代。回归门（report SHA-256 `3c97a2589677f2aef63360636f8a73eefc387622ecbd59c6e2d9263e5005cb44`）：`3769688830` 7 层/17 clip 不变（仅既有陈旧 effect 计数 NON-PASS）、`2998757800` PASS、`3747492842` 的 6 个单 clip 不变（其 Simple Audio Bars visual-failure-passthrough 为既有 effect 债务，与本批无关）。
@@ -305,7 +318,7 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 - `3748311238`：loaded texture ratio `1.0`，layer `728` 为 `layered ids=124,770 clips=2`，79/78/0 submitted/completed/failed，0 drawable miss，driver `43.311 FPS`；ready/after 构图完整。
 - `3264246690`：loaded texture ratio `0.9412`，layer `389` 为 `layered ids=494,319,483 clips=3`，53/52/0 submitted/completed/failed，0 drawable miss，driver `29.057 FPS`；ready/after 的执行链安全，但截图仍显示人物左侧手肘缺角。该样本的 `0.9412` 来自六个 authored effect capability rejection，不是 Puppet atlas publication failure。
 
-三例的纹理候选均完成资源加载与 publication；此前的第一个错误在公共 Puppet target/animation admission：`3787382101` 的 5600×2400、`3748311238` 的 5000×2200 因物理 target 4096 上限拒绝重组，`3264246690` 的 additive 494/319/483 因旧 bind-pose/不重叠合同回退静态姿态。当前 `ScenePuppetMeshRecomposer.targetDimensions` 在 4096 与 128 MiB load-time budget 内保持 authored aspect ratio，`ScenePuppetAnimationEvaluator` 在同一 playback/publication/compositor 链中按作者顺序执行 layered base/delta 与 interval sampling；资源 identity、generation/publication、GPU completion、唯一 compositor 与 next-frame 均闭合。该证据只证明三样本公共 Puppet 执行与输出安全；后继截图复核已否决 `3787382101` 的 Water Waves 局部视觉与 `3264246690` 的肘部构图，不得升级为 `S4` 视觉修复完成，也不证明完整 effect family、149 corpus、官方逐帧 parity 或性能完成。
+该证据记录的是当时的 TextureProduct 重组实现：三例的纹理候选已完成资源加载，旧首断点分别是 4096 target 上限和 additive 组合拒绝。当时的 `ScenePuppetMeshRecomposer.targetDimensions`、128 MiB budget、Puppet publication 和中间 target 已在 2026-09-13 世界空间绘制批次删除；不能再把本段写成现役实现。动画 selector/evaluator 的 layered base/delta 与 interval sampling 仍由现役 playback 使用。当前产品事实和四样本可见结果见本页顶部 [Puppet GeometryProduct 世界空间绘制闭环](#e-2026-09-13-puppet-world-geometry)。
 
 ### 2026-09-06 Puppet layered 组合与 loop/mirror/single interval 采样
 
@@ -322,9 +335,9 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 
 `SceneParticleChildRuntime` 在 launch 期间缓存按 template index 和 `(trigger, depth, parentAssetPath)` 的稳定索引；普通帧的 child spawn/follow、pointer control-point 与 nested-parent lookup 复用该索引，派发调用内的 active-system/depth budget 也改为局部计数快照，未新增 particle/provider/clock/graph/compositor owner。修改后的 Developer ID Debug App 对隔离真实 `3396722575` representative matrix 严格 `1/1 PASS`，22/21/0 submitted/completed/failed、0 drawable miss、driver `8.009 FPS`、pre-encode p95 `63.211 ms`、CPU p95 `59.569 ms`、GPU p95 `14.612 ms`，ready/after 非黑，motion mean delta `0.04187`。这属于 S3 executable shared hot-path wiring + bounded whole-composition safety observation；该次真实运行先于后继计数快照改动，未证明后继改动的匹配 FPS 收益、稳定性能、流畅度、全部粒子、149 corpus、SceneClock/particle frame atomicity 或官方 parity。候选/后继 synthetic eventfollow、nested 与 pointer fixtures 均与前一实现连续 3 次输出完全一致。
 
-### 2026-09-05 V4 Puppet physical target scaling
+### 2026-09-05 V4 Puppet physical target scaling（历史，已退役）
 
-三个真实纹理异常样本把问题区分为两个共享断点：`3787382101` 的 `巨剑`/`人物`（5600×2400）和 `3748311238` 的 `203`（5000×2200）都已完成 atlas texture publication，但 Puppet recomposition/animation target 原先因 4096 物理维度上限被拒绝，随后 raw atlas quad 造成身体散片；`3264246690` 的 `1拆分` 已完成 MDLV0023 mesh bind-pose recompose，仍因 additive animation 494 bone 9 不满足现役 bind-pose contract 而回退静态姿态。`ScenePuppetMeshRecomposer.targetDimensions` 现在在同一 4096 维度和 128 MiB load-time budget 内保持 authored aspect ratio 缩放，`ScenePuppetPlaybackState` 复用同一 helper；logical layer extent、mesh UV/position、atlas identity、generation/publication 与唯一 compositor 不变。
+三个真实纹理异常样本当时把问题区分为两个共享断点：`3787382101` 的 `巨剑`/`人物`（5600×2400）和 `3748311238` 的 `203`（5000×2200）已加载 atlas，但旧 Puppet recomposition/animation target 因 4096 物理维度上限被拒绝，随后 raw atlas quad 造成身体散片；`3264246690` 的 `1拆分` 已完成 MDLV0023 bind-pose recompose，仍因 additive animation 494 bone 9 不满足当时合同而回退静态姿态。本批用 4096 与 128 MiB target/budget 等比缩放缓解问题；这条实现已经删除，只保留历史 provenance。现役路径见本页顶部世界空间绘制证据。
 
 当前签名 Developer ID Debug App（`com.songziqiang.MyWallpaperX`、Team `H9QWU9XN8R`、CDHash `442c64363d405d6fdd14a81ae22f05af2e21cebd`、executable SHA-256 `7b61086c72f1c82a91e34f1023863f7451e09a50c3da76df73af1b80682c8248`）对同一隔离三样本矩阵运行：`3787382101` 与 `3748311238` 的 Puppet bind-pose texture 分别为 4096×1755、4096×1802，画面从 atlas 散片恢复为完整人物/武器构图；三者均 ready/after 非黑、0 failed frame、0 drawable miss，分别 133/132、129/128、103/102 submitted/completed，driver 45.486/44.544/35.864 FPS。报告 SHA-256 为 `6a46a20a80e699c19fe9d0b3486b0ae4de587319564816b24ad83466516248cd`。
 

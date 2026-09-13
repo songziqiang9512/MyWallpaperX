@@ -25,15 +25,14 @@ extension SceneMetalView {
                   let bones = playback.boneConfiguration(
                     sceneTime: timing.sceneTime, dynamicValues: dynamicValues)
             else { continue }
-            let coverage = playback.meshCoverageSize
-            let model = renderer.imageModelMatrix(
+            let authoredSize = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
+            let model = renderer.geometryModelMatrix(
                 for: layer, worldFramesByLayerID: worlds,
-                renderSizeOverride: [coverage.x, coverage.y],
+                authoredSize: authoredSize,
                 parallaxMouseNormalized: .zero, configuration: parallax,
                 visibleHalfExtents: camera.coverHalfExtents,
                 usesPerspective: camera.resolvesPerspective(for: layer))
-            let meshToWorld = model * SceneMatrix.scale(
-                SIMD3(1 / coverage.x, 1 / coverage.y, 1))
+            let meshToWorld = model
             let transform = [meshToWorld.columns.0, meshToWorld.columns.1,
                              meshToWorld.columns.2, meshToWorld.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }

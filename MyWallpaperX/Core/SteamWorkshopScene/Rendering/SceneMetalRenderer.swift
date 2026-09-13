@@ -397,19 +397,29 @@ struct SceneMetalRenderer {
                 let dependencyEffect = dependencyResolution.dependencyEffect
                 let dependencyEffects = dependencyResolution.dependencyEffects
                 let resolvedDependencyFailure = dependencyResolution.failure
+                let geometryProduct = imageTextures.geometryProducts[layer.id]
                 let layerAlpha = SceneDynamicLayerValues.alpha(
                     layerID: layer.id, authoredValue: layer.alpha,
                     snapshot: frameContext.dynamicValues
                 )
-                let model = imageModelMatrix(
+                let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
+                let model = geometryProduct.map {
+                    geometryModelMatrix(
+                        for: layer,
+                        worldFramesByLayerID: frameWorldFrames,
+                        authoredSize: $0.authoredSize,
+                        parallaxMouseNormalized: parallaxMouseNormalized,
+                        configuration: parallaxConfiguration,
+                        visibleHalfExtents: cameraFrame.coverHalfExtents,
+                        usesPerspective: usesPerspective
+                    )
+                } ?? imageModelMatrix(
                     for: layer, worldFramesByLayerID: frameWorldFrames,
-                    renderSizeOverride: imageTextures.layerSourceRenderSize(
-                        for: layer.id
-                    ),
+                    renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
                     parallaxMouseNormalized: parallaxMouseNormalized,
                     configuration: parallaxConfiguration,
                     visibleHalfExtents: cameraFrame.coverHalfExtents,
-                    usesPerspective: cameraFrame.resolvesPerspective(for: layer)
+                    usesPerspective: usesPerspective
                 )
                 let mvp = cameraFrame.viewProjection(for: layer) * model
                 let cursorUV = SceneLayerCursorGeometry.layerUV(
@@ -477,7 +487,8 @@ struct SceneMetalRenderer {
                         ),
                     dynamicValues: frameContext.dynamicValues,
                     audioSpectrum: frameContext.audioSpectrum,
-                    authoredShaderFrameInputs: .init(frameContext: frameContext)
+                    authoredShaderFrameInputs: .init(frameContext: frameContext),
+                    geometryProduct: geometryProduct
                 )
                 let explicitLayerSourcePublication = imageTextures
                     .explicitLayerSourcePublication(
@@ -485,7 +496,8 @@ struct SceneMetalRenderer {
                         matching: texture
                     )
                 let layerSourceGraphFallbackPublisher: ((MTLTexture) -> Bool)?
-                if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
+                if geometryProduct == nil,
+                   dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
                     layerSourceGraphFallbackPublisher = { fallbackTexture in
                         guard fallbackTexture === texture else { return false }
                         return dependencyRuntime
@@ -506,7 +518,8 @@ struct SceneMetalRenderer {
                     layerSourceGraphFallbackPublisher = nil
                 }
                 let resolvedMaterialGraphOutputPublisher: ((MTLTexture, SceneTextureContent) -> Bool)?
-                if dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
+                if geometryProduct == nil,
+                   dependencyRuntime.requiresDemandedGraphOutputCapture(for: layer.id) {
                     resolvedMaterialGraphOutputPublisher = { graphOutput, content in
                         dependencyRuntime.publishGraphOutputIfRequired(
                             layerID: layer.id,

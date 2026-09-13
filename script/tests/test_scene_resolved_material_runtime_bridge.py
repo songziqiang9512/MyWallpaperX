@@ -4609,9 +4609,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertNotIn("layerStyleNonneutral", passthrough_plan)
         self.assertNotIn("layerBlendNonneutral", passthrough_plan)
-        self.assertIn(
-            "resolvedSourceKind == .staticPuppet", passthrough_plan
-        )
+        self.assertNotIn("staticPuppet", passthrough_plan)
+        self.assertNotIn("provider(.puppet", passthrough_plan)
         self.assertIn("request.dependencyEffect == nil", passthrough_plan)
         self.assertIn("!request.requiresDependencyEffect", passthrough_plan)
         self.assertIn(
@@ -4787,10 +4786,11 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
             compact_compositor,
         )
         self.assertIn(
-            "dependencyTexture:dependencyConsumed?nil:"
+            "letfinalDependencyTexture=dependencyConsumed?nil:"
             "dependencyEffect?.texture",
             compact_compositor,
         )
+        self.assertIn("dependencyTexture:finalDependencyTexture", compact_compositor)
         self.assertNotIn("requiresDependencyEffect", bridge)
         self.assertIn("func recordClaimedFailure(reasonCode: String)", bridge)
         self.assertNotIn("recordClaimedFailure()", bridge)

@@ -3,12 +3,15 @@ import Metal
 import simd
 
 /// Load-time bridge: resolves a layer's puppet `.mdl`, parses the bind-pose
-/// mesh, and creates either a bounded playback state or a static
-/// bind-pose image. Failure
-/// keeps the existing atlas texture (current behavior) and reports why, so
-/// unsupported puppets stay visible in diagnostics instead of silently
-/// pretending to be supported.
+/// mesh, and creates either an animated or bind-pose GeometryProduct. The
+/// atlas is retained only by that product as a sampling resource.
 enum ScenePuppetLayerLoad {
+    private enum MeshFileResolution {
+        case ready(URL)
+        case absent
+        case rejected
+    }
+
     /// Launch-time payload installed into any existing SceneScript owner for
     /// the same authored layer.  The rig reader remains the sole source of
     /// names, parent order, and bind-local matrices; no sample-specific
@@ -25,7 +28,7 @@ enum ScenePuppetLayerLoad {
         cacheDirectory: URL
     ) -> BoneConfiguration? {
         guard let puppetMeshPath = layer.puppetMeshPath,
-              let meshURL = containedFileURL(
+              case let .ready(meshURL) = meshFileResolution(
                   relativePath: puppetMeshPath,
                   cacheDirectory: cacheDirectory
               ),
@@ -63,75 +66,43 @@ enum ScenePuppetLayerLoad {
         )
     }
 
-    struct StaticRecomposeIdentity: Hashable {
-        fileprivate let puppetMeshSource: SceneTextureLoader.SourceKey
-        fileprivate let atlasTexture: ObjectIdentifier
-        fileprivate let layerWidthBits: UInt32
-        fileprivate let layerHeightBits: UInt32
-    }
-
     struct Outcome {
-        let texture: MTLTexture?
+        let geometryProduct: SceneGeometryProduct?
         let playback: ScenePuppetPlaybackState?
-        let byteCost: Int
+        /// True only when the authored package omits the referenced mesh. In
+        /// that case the image payload is the sole available authored product.
+        let allowsMissingMeshTextureProduct: Bool
         let message: String
-        let coverage: ScenePuppetMeshRecomposer.CoverageExtent?
     }
 
-    struct CachedSource {
-        let texture: MTLTexture
-        let coverage: ScenePuppetMeshRecomposer.CoverageExtent
-    }
-
-    static func staticRecomposeIdentity(
-        for layer: SceneRenderDescriptor.Layer,
-        atlasTexture: MTLTexture,
-        atlasIsAnimated: Bool,
-        cacheDirectory: URL,
-        loader: SceneTextureLoader
-    ) -> StaticRecomposeIdentity? {
-        guard atlasIsAnimated == false,
-              layer.puppetAnimationLayers.isEmpty,
-              !layer.hasInlineScript,
-              let puppetMeshPath = layer.puppetMeshPath,
-              let renderSize = layer.renderSizeWH,
-              renderSize.count >= 2,
-              let puppetMeshURL = containedFileURL(
-                  relativePath: puppetMeshPath,
-                  cacheDirectory: cacheDirectory
-              ),
-              let puppetMeshSource = loader.sourceKey(for: puppetMeshURL)
-        else {
-            return nil
-        }
-        return StaticRecomposeIdentity(
-            puppetMeshSource: puppetMeshSource,
-            atlasTexture: ObjectIdentifier(atlasTexture),
-            layerWidthBits: renderSize[0].bitPattern,
-            layerHeightBits: renderSize[1].bitPattern
-        )
-    }
-
-    static func recomposedTexture(
+    static func preparedGeometry(
         for layer: SceneRenderDescriptor.Layer,
         atlasTexture: MTLTexture,
         cacheDirectory: URL,
-        remainingByteBudget: Int,
         device: MTLDevice,
-        commandQueue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline
     ) -> Outcome? {
         guard let puppetMeshPath = layer.puppetMeshPath else { return nil }
-        guard let meshURL = containedFileURL(
+        let meshURL: URL
+        switch meshFileResolution(
             relativePath: puppetMeshPath,
             cacheDirectory: cacheDirectory
-        ) else {
+        ) {
+        case let .ready(url):
+            meshURL = url
+        case .absent:
             return Outcome(
-                texture: nil,
+                geometryProduct: nil,
                 playback: nil,
-                byteCost: 0,
-                message: "puppet mesh unavailable (\(puppetMeshPath))",
-                coverage: nil
+                allowsMissingMeshTextureProduct: true,
+                message: "puppet mesh unavailable (\(puppetMeshPath))"
+            )
+        case .rejected:
+            return Outcome(
+                geometryProduct: nil,
+                playback: nil,
+                allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh path rejected (\(puppetMeshPath))"
             )
         }
         let data: Data
@@ -139,11 +110,10 @@ enum ScenePuppetLayerLoad {
             data = try Data(contentsOf: meshURL)
         } catch {
             return Outcome(
-                texture: nil,
+                geometryProduct: nil,
                 playback: nil,
-                byteCost: 0,
-                message: "puppet mesh read failed (\(puppetMeshPath))",
-                coverage: nil
+                allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh read failed (\(puppetMeshPath))"
             )
         }
         let mesh: SceneMdlPuppetMesh
@@ -151,19 +121,17 @@ enum ScenePuppetLayerLoad {
             mesh = try SceneMdlPuppetMeshReader.read(data: data)
         } catch let error as SceneMdlPuppetMeshReadError {
             return Outcome(
-                texture: nil,
+                geometryProduct: nil,
                 playback: nil,
-                byteCost: 0,
-                message: "puppet mesh rejected: \(error.description) (\(puppetMeshPath))",
-                coverage: nil
+                allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh rejected: \(error.description) (\(puppetMeshPath))"
             )
         } catch {
             return Outcome(
-                texture: nil,
+                geometryProduct: nil,
                 playback: nil,
-                byteCost: 0,
-                message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))",
-                coverage: nil
+                allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh rejected: unknown parse failure (\(puppetMeshPath))"
             )
         }
         let renderSize = layer.renderSizeWH ?? []
@@ -178,12 +146,9 @@ enum ScenePuppetLayerLoad {
                     return staticOutcome(
                         layer: layer,
                         mesh: mesh,
-                        atlasTexture: atlasTexture,
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
-                        remainingByteBudget: remainingByteBudget,
                         device: device,
-                        commandQueue: commandQueue,
                         pipeline: pipeline,
                         animationFallbackMessage: animationFallbackMessage
                     )
@@ -201,35 +166,26 @@ enum ScenePuppetLayerLoad {
                         atlasTexture: atlasTexture,
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
-                        remainingByteBudget: remainingByteBudget,
-                        authoredScale: authoredScale(for: layer),
                         device: device,
                         pipeline: pipeline
                     ) {
                     case let .success(output):
                         return Outcome(
-                            texture: output.texture,
+                            geometryProduct: output.product,
                             playback: output.state,
-                            byteCost: output.byteCost,
+                            allowsMissingMeshTextureProduct: false,
                             message: String(
-                                format: "puppet animation OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d → %d×%d",
+                                format: "puppet world geometry OK %@ mode=%@ ids=%@ clips=%d verts=%d tris=%d",
                                 mesh.version,
                                 selection.composition.rawValue,
                                 selection.clips.map { String($0.animation.id) }.joined(separator: ","),
                                 selection.clips.count,
                                 mesh.vertices.count,
-                                mesh.triangleCount,
-                                output.texture.width,
-                                output.texture.height
-                            ) + coverageNote(
-                                coverage: output.coverage,
-                                layerWidth: layerWidth,
-                                layerHeight: layerHeight
-                            ),
-                            coverage: output.coverage
+                                mesh.triangleCount
+                            )
                         )
                     case let .failure(failure):
-                        animationFallbackMessage = "animation target rejected: \(failure.description)"
+                        animationFallbackMessage = "animation geometry rejected: \(failure.description)"
                     }
                 case .success(nil):
                     animationFallbackMessage = "animation inactive: no visible layer"
@@ -252,14 +208,13 @@ enum ScenePuppetLayerLoad {
                 layerID: layer.id, mesh: mesh, rig: rig,
                 selection: .init(clips: [], composition: .layered),
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
-                layerHeight: layerHeight, remainingByteBudget: remainingByteBudget,
-                authoredScale: authoredScale(for: layer),
+                layerHeight: layerHeight,
                 device: device, pipeline: pipeline
             ) {
             case let .success(output):
-                return Outcome(texture: output.texture, playback: output.state,
-                    byteCost: output.byteCost, message: "puppet script pose prepared",
-                    coverage: output.coverage)
+                return Outcome(geometryProduct: output.product, playback: output.state,
+                    allowsMissingMeshTextureProduct: false,
+                    message: "puppet script world geometry prepared")
             case let .failure(failure):
                 animationFallbackMessage = "script pose rejected: \(failure.description)"
             }
@@ -267,122 +222,75 @@ enum ScenePuppetLayerLoad {
         return staticOutcome(
             layer: layer,
             mesh: mesh,
-            atlasTexture: atlasTexture,
             layerWidth: layerWidth,
             layerHeight: layerHeight,
-            remainingByteBudget: remainingByteBudget,
             device: device,
-            commandQueue: commandQueue,
             pipeline: pipeline,
             animationFallbackMessage: animationFallbackMessage
         )
     }
 
-    /// The puppet source is composited over its coverage logical canvas,
-    /// so the capture density it needs on screen is that canvas scaled by
-    /// the authored layer scale. Returns nil when the scale is unusable.
-    private static func authoredScale(
-        for layer: SceneRenderDescriptor.Layer
-    ) -> (x: Float, y: Float)? {
-        let scale = layer.scaleXYZ ?? []
-        let uniformFallback = scale.first.map(abs) ?? 1
-        let scaleX = scale.count >= 2 ? abs(scale[0]) : uniformFallback
-        let scaleY = scale.count >= 2 ? abs(scale[1]) : uniformFallback
-        guard scaleX.isFinite, scaleX > 0, scaleY.isFinite, scaleY > 0
-        else { return nil }
-        return (scaleX, scaleY)
-    }
-
     private static func staticOutcome(
         layer: SceneRenderDescriptor.Layer,
         mesh: SceneMdlPuppetMesh,
-        atlasTexture: MTLTexture,
         layerWidth: Float,
         layerHeight: Float,
-        remainingByteBudget: Int,
         device: MTLDevice,
-        commandQueue: MTLCommandQueue,
         pipeline: SceneImageLayerPipeline,
         animationFallbackMessage: String?
     ) -> Outcome {
-        switch ScenePuppetMeshRecomposer.recompose(
+        switch ScenePuppetMeshGeometry.prepare(
             mesh: mesh,
-            atlasTexture: atlasTexture,
             layerWidth: layerWidth,
             layerHeight: layerHeight,
-            remainingByteBudget: remainingByteBudget,
-            authoredScale: authoredScale(for: layer),
             device: device,
-            commandQueue: commandQueue,
             pipeline: pipeline
         ) {
         case let .success(output):
             return Outcome(
-                texture: output.texture,
+                geometryProduct: output.product,
                 playback: nil,
-                byteCost: output.byteCost,
+                allowsMissingMeshTextureProduct: false,
                 message: String(
-                    format: "puppet bind-pose mesh OK %@ stride=%d verts=%d tris=%d → %d×%d",
+                    format: "puppet bind-pose world geometry OK %@ stride=%d verts=%d tris=%d",
                     mesh.version,
                     mesh.vertexStride,
                     output.vertexCount,
-                    output.triangleCount,
-                    output.texture.width,
-                    output.texture.height
-                ) + coverageNote(
-                    coverage: output.coverage,
-                    layerWidth: layerWidth,
-                    layerHeight: layerHeight
-                ) + (animationFallbackMessage.map { "; \($0)" } ?? ""),
-                coverage: output.coverage
+                    output.triangleCount
+                ) + (animationFallbackMessage.map { "; \($0)" } ?? "")
             )
         case let .failure(failure):
             return Outcome(
-                texture: nil,
+                geometryProduct: nil,
                 playback: nil,
-                byteCost: 0,
-                message: "puppet mesh recompose failed: \(failure.description) (\(layer.puppetMeshPath ?? "unknown"))"
-                    + (animationFallbackMessage.map { "; \($0)" } ?? ""),
-                coverage: nil
+                allowsMissingMeshTextureProduct: false,
+                message: "puppet geometry preparation failed: \(failure.description) (\(layer.puppetMeshPath ?? "unknown"))"
+                    + (animationFallbackMessage.map { "; \($0)" } ?? "")
             )
         }
-    }
-
-    private static func coverageNote(
-        coverage: ScenePuppetMeshRecomposer.CoverageExtent,
-        layerWidth: Float,
-        layerHeight: Float
-    ) -> String {
-        guard abs(coverage.width - layerWidth) >= 0.5
-            || abs(coverage.height - layerHeight) >= 0.5
-        else {
-            return ""
-        }
-        return String(
-            format: " coverage=%.0f×%.0f authored=%.0f×%.0f",
-            coverage.width,
-            coverage.height,
-            layerWidth,
-            layerHeight
-        )
     }
 
     /// The mesh path comes from extracted pkg JSON; only accept it when the
     /// resolved file (symlinks included) stays inside the extraction cache.
-    private static func containedFileURL(relativePath: String, cacheDirectory: URL) -> URL? {
+    private static func meshFileResolution(
+        relativePath: String,
+        cacheDirectory: URL
+    ) -> MeshFileResolution {
         guard relativePath.hasPrefix("/") == false,
               relativePath.contains("..") == false
         else {
-            return nil
+            return .rejected
         }
         let candidate = cacheDirectory.appendingPathComponent(relativePath)
-        guard FileManager.default.fileExists(atPath: candidate.path) else { return nil }
+        guard FileManager.default.fileExists(atPath: candidate.path) else {
+            return .absent
+        }
         let resolvedFile = candidate.resolvingSymlinksInPath().standardizedFileURL
         let resolvedRoot = cacheDirectory.resolvingSymlinksInPath().standardizedFileURL
         let rootPath = resolvedRoot.path.hasSuffix("/")
             ? resolvedRoot.path
             : resolvedRoot.path + "/"
-        guard resolvedFile.path.hasPrefix(rootPath) else { return nil }
-        return candidate
+        guard resolvedFile.path.hasPrefix(rootPath) else { return .rejected }
+        return .ready(candidate)
     }
 }

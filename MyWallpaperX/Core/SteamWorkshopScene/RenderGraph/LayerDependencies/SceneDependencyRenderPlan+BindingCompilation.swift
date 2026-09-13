@@ -377,6 +377,7 @@ extension SceneDependencyRenderPlan {
             in: visibleEffects
         ), let declaredProvider = layersByID[declaration.providerLayerID],
            declaredProvider.contentKind == "image",
+           declaredProvider.puppetMeshPath == nil,
            hasNoUtilityLayer(declaredProvider) {
             let matchingReferences = references.filter { reference in
                 reference.slot.effectID == declaration.effectID
@@ -542,6 +543,7 @@ extension SceneDependencyRenderPlan {
                 )
         case .imageLayerBlend:
             provider.contentKind == "image"
+                && provider.puppetMeshPath == nil
                 && hasNoUtilityLayer(provider)
                 && provider.visible == false
                 || provider.contentKind == "text"
@@ -552,6 +554,7 @@ extension SceneDependencyRenderPlan {
                     && provider.authoredDependencies.isEmpty
         case .visibleImageGraphOutput:
             provider.contentKind == "image"
+                && provider.puppetMeshPath == nil
                 && hasNoUtilityLayer(provider)
                 && provider.visible != false
                 && providerHasVisibleEffects
@@ -731,6 +734,7 @@ extension SceneDependencyRenderPlan {
         let bindings = authoredActiveReferences.compactMap { reference -> Binding? in
             guard let provider = layersByID[reference.providerLayerID],
                   provider.contentKind == "image",
+                  provider.puppetMeshPath == nil,
                   provider.utilityLayer == nil,
                   provider.childLayerIDs.isEmpty,
                   !cyclicLayerIDs.contains(provider.id),

@@ -5,11 +5,12 @@ struct SceneImageLayerCompositor {
     enum DrawOutcome: Equatable {
         case normal(consumedDependency: Bool)
         case layerSourcePassthrough
+        case geometryEncoded(consumedDependency: Bool)
         case failed
 
         var encoded: Bool {
             switch self {
-            case .normal, .layerSourcePassthrough:
+            case .normal, .layerSourcePassthrough, .geometryEncoded:
                 return true
             case .failed:
                 return false
@@ -17,10 +18,13 @@ struct SceneImageLayerCompositor {
         }
 
         var consumedDependency: Bool {
-            guard case let .normal(consumedDependency) = self else {
+            switch self {
+            case let .normal(consumedDependency),
+                 let .geometryEncoded(consumedDependency):
+                return consumedDependency
+            case .layerSourcePassthrough, .failed:
                 return false
             }
-            return consumedDependency
         }
     }
 
@@ -338,16 +342,17 @@ struct SceneImageLayerCompositor {
                     ? nil
                     : dependencyEffect?.blendMode
             )
+            let finalDependencyTexture = dependencyConsumed
+                ? nil : dependencyEffect?.texture
             let composited = SceneImageLayerMainPassRenderer.draw(
                 texture: finalTexture,
                 mvp: request.mvp,
                 uniforms: finalUniforms,
-                dependencyTexture: dependencyConsumed
-                    ? nil
-                    : dependencyEffect?.texture,
+                dependencyTexture: finalDependencyTexture,
                 layer: request.layer,
                 pipeline: pipeline,
                 colorBlendPipeline: colorBlendPipeline,
+                geometryProduct: request.geometryProduct,
                 mainPass: mainPass
             )
             if let graphExecutionTicket {
@@ -360,9 +365,10 @@ struct SceneImageLayerCompositor {
                     executionOrigin: executionOrigin
                 ) else { return .failed }
             }
-            return composited
+            guard composited else { return .failed }
+            return request.geometryProduct == nil
                 ? .normal(consumedDependency: hasDependencyInput)
-                : .failed
+                : .geometryEncoded(consumedDependency: hasDependencyInput)
         }
         if request.requiresSourceCopy
             || resolvedMaterialClaim != nil
@@ -379,11 +385,13 @@ struct SceneImageLayerCompositor {
             layer: request.layer,
             pipeline: pipeline,
             colorBlendPipeline: colorBlendPipeline,
+            geometryProduct: request.geometryProduct,
             mainPass: mainPass
         )
-        return rendered
+        guard rendered else { return .failed }
+        return request.geometryProduct == nil
             ? .normal(consumedDependency: hasDependencyInput)
-            : .failed
+            : .geometryEncoded(consumedDependency: hasDependencyInput)
     }
 
     private func drawLayerSourcePassthrough(

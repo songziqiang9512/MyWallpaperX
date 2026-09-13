@@ -554,14 +554,10 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         self.assertTrue(self.result["dynamicAnimationTimeVarying"])
         self.assertTrue(self.result["staticAnimationTimeInvariant"])
 
-    def test_load_time_coverage_does_not_materialize_vertex_positions(self) -> None:
-        coverage = PLAYBACK_STATE_SOURCE.split(
-            "var animatedMaxAbs = SIMD2<Float>(repeating: 0)", 1
-        )[1].split(
-            "guard let coverage = ScenePuppetMeshRecomposer.coverageExtent(", 1
-        )[0]
-        self.assertEqual(coverage.count("conservativeMaxAbsDeformedPosition("), 1)
-        self.assertNotIn("deformedPositions(", coverage)
+    def test_world_geometry_has_no_load_time_pose_coverage_scan(self) -> None:
+        self.assertNotIn("coverageSamples", PLAYBACK_STATE_SOURCE)
+        self.assertNotIn("conservativeMaxAbsDeformedPosition(", PLAYBACK_STATE_SOURCE)
+        self.assertNotIn("coverageExtent(", PLAYBACK_STATE_SOURCE)
 
     def test_layered_additive_bones_compose_and_visibility_is_per_clip(self) -> None:
         self.assertEqual(self.result["additiveBoth"], [8, 1])
