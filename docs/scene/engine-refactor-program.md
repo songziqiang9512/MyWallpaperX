@@ -76,7 +76,7 @@
 
 ### M3 消融减法 + hot path cleanup
 
-- **M3.1 Frame storage** 🔶 07b2d871：registry liveSelectionDigest 增量维护已落地——entries 写入点仅 2 处（set(status:)/publish(resource:)）+2 处 removeAll，O(changed) 折叠；snapshot() 零全量 fold；digest 不变量 harness 5 组全过（确定性/可逆/generation 值稳定/相异 fact/entryCount，harness 存 docs/scene/evidence/m31-digest-test/），graph 样本实测无回归（cpu 34.4-34.7ms 噪声带内、busy=0）。**遗留**：①python 驱动被 Mimosa 钩子误报拦截（参数列表+shell=False 仍拦，与已提交 telemetry 测试同模式），harness 可人工运行；②overlay CoW 与 beginFrame 直通未做（下批）。
+- **M3.1 Frame storage** ✅ 核心 07b2d871：registry liveSelectionDigest 增量维护已落地——entries 写入点仅 2 处（set(status:)/publish(resource:)）+2 处 removeAll，O(changed) 折叠；snapshot() 零全量 fold；digest 不变量 harness 5 组全过（确定性/可逆/generation 值稳定/相异 fact/entryCount，harness 存 docs/scene/evidence/m31-digest-test/，python 驱动被 Mimosa 钩子误报拦截、可人工运行），graph 样本实测无回归（cpu 34.4-34.7ms 噪声带内、busy=0）。**余项显式 defer 至 M4.3**（2026-09-14 裁决）：beginFrame 无变化帧直通与 overlay CoW 消除——判定信号需逐字段比对 8 类输入（含 publication/generation 生命周期语义），误判=陈旧 registry（as-built map 雷区类缺陷），实测收益 µs 级（无变化帧成本=O(N) 便宜槽位写，非 fold/非 25.5ms 量级）；且 M4.3 frame storage 重设计将整体吸收（overlay CoW 与重发布同属一个存储模型）。
 - **M3.2 启动链去串行**：activate/rebuildSurfaces 同步解码出主线程；双 join 并行化；pkg 解包与材质资产内联解码移出关键路径；候选首帧最小纠偏（对齐启动响应合同）。验收 = TTFVF before/after。
 - **M3.3 持续消融**：见 §5，贯穿 M2–M5。
 
