@@ -590,7 +590,7 @@ enum Harness {
                 device: device
             )
         )
-        let lowerMipMismatchTexb3Rejected = rejectedDimensions(
+        let lowerMipMismatchTexb3Rejected = rejectedUnpreservedMipChain(
             loader.loadCandidate(
                 from: lowerMipMismatchTexb3URL,
                 purpose: .premultipliedColor,
@@ -761,7 +761,7 @@ enum Harness {
         let firstFrameCommandBuffer = commandQueue.makeCommandBuffer()!
         let firstFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
-            sceneTime: 0,
+            playbackTime: 0,
             commandBuffer: firstFrameCommandBuffer,
             transaction: firstFrameTransaction
         )
@@ -775,7 +775,7 @@ enum Harness {
         let secondFrameCommandBuffer = commandQueue.makeCommandBuffer()!
         let secondFrameTransaction = SceneSourceUpdateTransaction()
         crossImageAnimation.encode(
-            sceneTime: 0.04,
+            playbackTime: 0.04,
             commandBuffer: secondFrameCommandBuffer,
             transaction: secondFrameTransaction
         )
@@ -1319,6 +1319,8 @@ enum Harness {
                 normalizedColorScale?.x ?? -1,
                 normalizedColorScale?.y ?? -1,
             ],
+            "normalizedColorPreservesCompiledBaseLevel":
+                normalizedColor.texture.mipmapLevelCount == 1,
             "wrongOutputRejected": wrongOutputRejected,
             "mappedEmbeddedColorIdentity":
                 mappedEmbeddedColor.axisAlignedMappedUVScale(
@@ -1329,6 +1331,8 @@ enum Harness {
                 mappedTexb3EmbeddedColor.axisAlignedMappedUVScale(
                     expectedPurpose: .premultipliedColor
                 ) == SIMD2(repeating: 1),
+            "mappedTexb3EmbeddedColorPreservesMipChain":
+                mappedTexb3EmbeddedColor.texture.mipmapLevelCount == 2,
             "mappedTexb3EmbeddedNormalIdentity":
                 mappedTexb3EmbeddedNormal.axisAlignedMappedUVScale(
                     expectedPurpose: .normal
@@ -1378,6 +1382,8 @@ enum Harness {
                 mislabeledTexb4StraightAlbedoPNGRejected,
             "mappedTexb2MipRejected": mappedTexb2MipRejected,
             "baseDirectCandidate": baseDirect.candidate != nil,
+            "baseDirectGeneratesMipChain":
+                baseDirect.texture.mipmapLevelCount > 1,
             "baseCroppedCandidate": baseCropped.candidate != nil,
             "baseNearestRepeatCandidate":
                 baseNearestRepeat.candidate?.sampling.filter == .nearest
@@ -1551,6 +1557,17 @@ enum Harness {
             return false
         }
         return message.contains("inconsistent physical/mapped dimensions")
+    }
+
+    static func rejectedUnpreservedMipChain(
+        _ outcome: SceneTextureCandidateLoadOutcome
+    ) -> Bool {
+        guard case .failed(.decodeFailed(let message)) = outcome else {
+            return false
+        }
+        return message.contains(
+            "compiled TEX embedded mip chain could not be preserved"
+        )
     }
 
     static func baseRejectedDimensions(
@@ -2104,6 +2121,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "baseCrossImageSpritePlayback": True,
                 "baseCroppedCandidate": True,
                 "baseDirectCandidate": True,
+                "baseDirectGeneratesMipChain": True,
                 "baseNearestRepeatCandidate": True,
                 "basePaddedR8Specialized": True,
                 "basePuppetSpecialized": True,
@@ -2151,6 +2169,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "malformedTexb3EmbeddedRejected": True,
                 "mappedTexb2MipRejected": True,
                 "mappedTexb3EmbeddedColorIdentity": True,
+                "mappedTexb3EmbeddedColorPreservesMipChain": True,
                 "mappedTexb3EmbeddedNormalIdentity": True,
                 "mappedTexb3JPEGIdentity": True,
                 "mappedTexb3JPEGOpaque": True,
@@ -2163,6 +2182,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "mipNormalizedStraightAlbedoPixel": [127, 127, 127, 127],
                 "normalizedColorMapped": [4096, 1],
                 "normalizedColorPhysical": [4096, 1],
+                "normalizedColorPreservesCompiledBaseLevel": True,
                 "normalizedColorScale": [1, 1],
                 "oversizedMappedRejected": True,
                 "purposeCacheSeparated": True,

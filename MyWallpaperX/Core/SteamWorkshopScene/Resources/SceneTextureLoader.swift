@@ -161,7 +161,6 @@ final class SceneTextureLoader {
             if container.format == 0 {
                 return loadFormatZeroContainer(
                     container,
-                    fallbackData: data,
                     purpose: purpose,
                     device: device
                 )
@@ -240,7 +239,6 @@ final class SceneTextureLoader {
 
     private func loadFormatZeroContainer(
         _ container: SceneTexContainer,
-        fallbackData: Data,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
@@ -272,9 +270,18 @@ final class SceneTextureLoader {
                     container.mips,
                     device: device
                 )
-            return uploaded ?? decodeEmbeddedImagePayload(
+            if let uploaded {
+                return uploaded
+            }
+            guard container.mips.count == 1 else {
+                return .decodeFailed(
+                    "compiled TEX embedded mip chain could not be preserved"
+                )
+            }
+            return decodeEmbeddedImagePayload(
                 firstMip.data,
                 purpose: purpose,
+                mipmapGeneration: .baseLevelOnly,
                 device: device
             )
         }
@@ -291,14 +298,6 @@ final class SceneTextureLoader {
             }
             return SceneTextureMipUploader.uploadRawRGBA(
                 container: container,
-                device: device
-            )
-        }
-
-        if let embedded = Self.extractEmbeddedImageData(from: fallbackData) {
-            return decodeEmbeddedImagePayload(
-                embedded,
-                purpose: purpose,
                 device: device
             )
         }
@@ -346,6 +345,7 @@ final class SceneTextureLoader {
     private func decodeEmbeddedImagePayload(
         _ data: Data,
         purpose: SceneTextureLoadPurpose,
+        mipmapGeneration: SceneImageTextureUploader.MipmapGeneration,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
@@ -356,6 +356,7 @@ final class SceneTextureLoader {
             image: cgImage,
             purpose: purpose,
             maxDimension: Self.maxTextureDimension,
+            mipmapGeneration: mipmapGeneration,
             device: device
         )
     }

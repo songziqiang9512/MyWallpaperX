@@ -18,16 +18,11 @@
 - `3787382101` 的旧 Water Waves “整个人物扭曲”债务已由当前架构下的同构 A/B 关闭。真实样本 fresh 运行 strict PASS；隔离副本只保留人物 layer 28，并以相同 Program/graph/资源分别比较作者 `strength=0.04` 与 `strength=0`。左波、右波、双波及三份零强度对照全部 strict PASS；零强度 ready/after 逐字节相同，作者强度的像素差分别落在两张 `1400×600` R8 作者 mask 选中的左右部件，双波为两者并集。没有新增 Water Waves owner、预算、fallback 或身份分派。现役证据见[Water Waves 作者 mask 同构 A/B](semantics/runtime-evidence-current.md#e-2026-09-13-water-waves-mask-ab)。人工 acceptance verdict 仍须维护者观看完整样本后单独更新。
 - SceneScript `ITextureAnimation` 公共 API 已沿唯一 QuickJS/frame/resource/compositor 主链关闭。`3299228616 / 3768903841` 在当前签名 App 上 2/2 strict PASS，作者 `frameCount/duration/rate/play/pause/stop/isPlaying/getFrame/setFrame/join` 通过同一 SceneClock、owner transaction 和现有 atlas/multi-image provider 消费；两个完整构图持续可见且动画发生变化。没有恢复 fixed profile，也没有新增 provider、clock 或 renderer。现役证据见[TextureAnimation 公共 API 闭环](semantics/runtime-evidence-current.md#e-2026-09-13-texture-animation-api)。
 - SceneScript `ILayer.getTransformMatrix()` 与只读 `size` 首断点已关闭。world matrix 由 renderer 现役 world-frame resolver 投影到同一 immutable layer snapshot，C/QuickJS bridge 不做坐标计算；作者 layer `918 / 920 / 921 / 944 / 947 / 950` 在 `3238423642` 中全部 `generic-only` 完成，0 SceneScript VM failure，真实画面中的主体、日期与时钟保持正确合成。现役证据见[ILayer world matrix 闭环](semantics/runtime-evidence-current.md#e-2026-09-13-ilayer-world-matrix)。
+- 旧 Q1 的 `nomip / halfmip sampler policy` 已按作者数据纠正并关闭。`nomip` 是离线编译输入，编译后的实际 mip level 序列才是运行时权威；`halfmip` 当前只有 importer declaration，不能映射成猜测的 TEX V5 bit。现役 loader 原样保留有效单级/多级链，超限单级 embedded TEX 的 bounded decode 仍保持单级，多级链不能完整保留时局部失败，直接图片才生成完整链。真实 `2470144420` 的单级 `halo_6` 与 7 级 `rosepetals` 同时加载并保持完整动态构图。现役证据见[编译 mip 链闭环](semantics/runtime-evidence-current.md#e-2026-09-13-compiled-mip-chain)。
 
 ## 2. 现役执行顺序
 
-### Q1 — authored `nomip` / `halfmip` sampler policy
-
-**状态：次级纹理合同缺口。**
-
-当前 texture upload 可以生成 mip，但作者 TEX V5 的 `nomip` / `halfmip` 状态尚未进入 sampler/LOD policy。实现需要从格式解析、prepared texture description、upload/storage 到 material sampler 保留同一 typed 意图；不得通过 effect 名称、路径或样本身份选择策略。完成门包含状态组合正反例、普通图片无回归和一个真实 authored consumer 的可见证据。
-
-### Q2 — 作者参数、视觉验收与 tracked matrix
+### Q1 — 作者参数、视觉验收与 tracked matrix
 
 **状态：P0/P3/P4 长期开放。**
 
@@ -37,7 +32,7 @@
 - 验收覆盖层中的 `fail` 与 `unreviewed` 必须逐个由维护者重新观看。`3264246690 / 3780119725 / 3238423642` 的旧 Puppet 技术原因及 `3787382101` 的旧 Water Waves mask 债务都已被 2026-09-13 后继证据取代，但没有维护者的新 verdict 时不得直接改成整样本 `pass`。
 - 新发现的公共首断点回到 P1/P2；结构 PASS、非黑截图、route 数或完成事件不能单独改变人工 verdict。
 
-### Q3 — 稳定帧性能、长稳与发布
+### Q2 — 稳定帧性能、长稳与发布
 
 **状态：P5；只有已妨碍当前样本正确播放时提前。**
 
@@ -56,15 +51,15 @@
 
 | 旧批次 | 当前结论 | 后继归属 |
 | --- | --- | --- |
-| B1 shader backend vector2 | 公共编译首断点已结构闭合 | 新 visual/parameter 缺口进入 Q2 |
+| B1 shader backend vector2 | 公共编译首断点已结构闭合 | 新 visual/parameter 缺口进入 Q1 |
 | B2 dependency binding/publication | provider、隐藏 text dependency 与下游消费观察已闭合 | 新 graph first failure 进入路线 P1 |
-| B3 SceneScript event/property | 已登记的 event-only、visibility、property color/vector、TextureAnimation 与 `getTransformMatrix` 初始化链已闭合 | 其余 API 进入 Q2 |
+| B3 SceneScript event/property | 已登记的 event-only、visibility、property color/vector、TextureAnimation 与 `getTransformMatrix` 初始化链已闭合 | 其余 API 进入 Q1 |
 | B4 material envelope | 已登记 shape/format/compose owner 闭合 | 新 effect family 依路线 P1 归类 |
 | B5 graph owner/publication | 2026-09-13 已分离 feedback persistence 与 content semantic；`3749463715` color terminal consumption、`3448845950` typed data publication和`3754630802` shared-pair/history terminal 均闭合 | 新 graph 缺口按路线 P1 归类 |
-| B6 QuickJS typed semantics | angle/Vec3/string/error、TextureAnimation 命令事务与 bounded world-matrix snapshot 闭合 | 其余 API 进入 Q2 |
-| B7 performance | 启动/teardown 与旧 micro-optimization 批次结束；稳定帧工作未完成 | Q3，用当前架构重建 profile |
+| B6 QuickJS typed semantics | angle/Vec3/string/error、TextureAnimation 命令事务与 bounded world-matrix snapshot 闭合 | 其余 API 进入 Q1 |
+| B7 performance | 启动/teardown 与旧 micro-optimization 批次结束；稳定帧工作未完成 | Q2，用当前架构重建 profile |
 | B8 async readiness | 合同闭合，首帧局部失败保持可观察并自然恢复 | §3 观察项 |
-| B9 Puppet interaction/geometry | cursor→bone 与 2026-09-13 世界空间直绘闭合 | Q2 人工验收；高级能力见 §3 |
+| B9 Puppet interaction/geometry | cursor→bone 与 2026-09-13 世界空间直绘闭合 | Q1 人工验收；高级能力见 §3 |
 
 旧 B1–B9 的逐次命令、临时路径、历史 HEAD 和中间失败保留在 Git 历史及语义证据文档中，不再作为现役执行说明。
 
@@ -76,4 +71,4 @@
 4. 设计错误直接删除或重写；不得通过增加纹理预算、扩大缓存、堆叠 fallback 或按样本分支掩盖根因。
 5. 每次只在本文保留尚能驱动下一步的事实。已完成条目压缩进退役索引，详细证据写入对应能力/运行/样本台账。
 
-当 Q1 的当前公共断点关闭，后续工作只剩路线 P0/P3/P4/P5 的系统性验收时，删除这个日期化派生入口或将其移入历史目录。
+当 Q1 的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收时，删除这个日期化派生入口或将其移入历史目录。

@@ -117,6 +117,8 @@ sidecar / authoring input
 
 对 compiler 策略入口的有界反编译进一步确认，同一入口按类型读取 `format`、`nointerpolation`、`clampuvs`、`nomip` / `halfmip`、`imagesequence`、`spritesheetsequences`、crop/resize 与 `slice3d`。字段名不能直接按位照搬：例如 `nomip` 会被转换成内部“是否生成 mip”的反向状态，错误类型也会进入不同分支。
 
+2026-09-13 对同一 2.8.42 安装中 `projects/defaultprojects` 做只读配对复核：87 份 `.tex-json` 中 86 份存在可解析的同名 TEX。47 份 `nomip:true` 全部只有 1 个 mip，另外 39 份没有 `nomip:true` 的配对全部有 4–11 个 mip；前者 flags 分布为 `0/1/2/3/5/7/18`，后者为 `0/2/18`，因此不存在可由这批资料支持的 `nomip` header bit。10 份 `srgb:true` 全部为 flags 18，其他 76 份均不含 bit 16，这只支持 bit `0x10` 与该批 `srgb` metadata 相关，不能把它命名为 `halfmip`。`halfmip` 在 `assets/shaders/declarations.json` 出现 7 次，但上述持久 sidecar 为 0 命中；它仍是 compiler/importer 能力线索，不是已识别的 V5 consumer 状态。这组配对只证明存储相关性，不公开 half-resolution mip 的生成算法、其他工程组合或跨版本格式。
+
 writer 的 V5 输出固定按 `TEXV0005 -> TEXI0001 -> TEXB0004` 组织，只有存在序列元数据时才追加 `TEXS0003`。64 位主程序 consumer 对 V5 走分块循环并按 `TEXI/TEXB/TEXS` marker 分派，对 V4 则走旧式直接 handler 组合。这个分支形状可以指导自有 reader 做 versioned dispatch，但不提供各 payload 的私有解码算法。
 
 运行中另有一条与 sidecar parser 分离的 image-layer 属性注册路径：`nointerpolation` 与 `clampuvs` 各自接受布尔值或 `{value: ...}` 包装，分别写入 layer 状态位 `0x4000` 与 `0x8000`。image-layer 的构造默认状态含 `0x8000`，但 authored loader 仍可覆盖。两项 descriptor 的直接 property callback 都是 null，因此这里能确认“setter 会更新状态”，不能把“setter 自身立即触发 sampler 重建”写成事实。

@@ -22,6 +22,17 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-compiled-mip-chain"></a>
+### 2026-09-13 编译 TEX mip 链权威与单级归一化闭环
+
+**结论：TextureProduct 的 mip 存储合同达到 L3 / S4 bounded visible。** 旧队列把作者 `nomip / halfmip` 当作待接入 sampler 的 TEX V5 状态；当前官方默认工程配对与现役 loader 共同表明，运行时应消费编译结果实际携带的 mip 序列。86 个可配对默认工程中，47 个 `nomip:true` TEX 全为单级，另外 39 个全为多级；`halfmip` 没有持久 sidecar 实例或已识别 runtime bit。项目没有新增 flag、sampler owner、registry 或 fallback。有效 TEX 直接保留已有 level；只有单级 embedded TEX 超过 4096、必须进入 bounded decode 时，显式保持 `mipmapLevelCount == 1`。不能完整保留的多级链局部失败；没有 TEX 权威的直接图片仍生成完整链。
+
+**代码与正反门：**`SceneImageTextureUploader` 只在现有上传职责内区分 `fullChain / baseLevelOnly` storage，`SceneTextureLoader` 只把已解析且恰好单级的 TEX decode fallback 设为 base-only。candidate texture 的 `mipmapLevelCount` 继续进入现有 Program/resource identity，`SceneTextureSamplerStateSet` 不变。GPU harness 证明 4097→4096 的单级 embedded TEX 仍为 1 级、有效 TEXB0003 双级链仍为 2 级、直接 PNG 为多级、损坏低级 payload 不会退成首级重建；粒子 GPU 门继续证明多级 minification 选择低级 mip、单级纹理固定 LOD0。texture candidate、particle rendering、raw/BC uploader、frame registry、shared effect binding 与 governance 共 7 个 focused 模块通过；两份旧 sprite harness 的 `sceneTime` 标签同步到现役 `playbackTime`，没有改 Sprite 产品代码。规定的签名 Debug build `BUILD SUCCEEDED`。
+
+**实际身份与真实运行：**App 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `f24a978012739e72ac869ec51f1f4c0b36c42c44`，executable SHA-256 `2102925d77a51bfcd76666f7f6bed08fd9b8e9117fed0a7ec9d4164925522eb9`。只读真实样本 `2470144420` 的 package SHA-256 为 `b022ad4cac2d2a01706fef98d30e0ddcefc8aa696921194318f4ac9552eb5160`；stock `halo_6.tex` SHA-256 `2959d59e983754e09a14ef25115ca4259857eef21bb70cf001ae0013a01376f6`，sidecar 为 `nomip:true`，实际 128×128/单级；`rosepetals.tex` SHA-256 `8a626333c3479fc49aca97004603289ad385e7da5a10d01b5f0eea4ba8a96794`，实际 512×128/7 级。25 秒 fresh 输出 `/private/tmp/mwx-mip-policy-247-20260913-v3` strict PASS，两个粒子 layer `106 / 128` 均 loaded/visible，6/6 active effect 全部由 generic Program 执行，1236/1235/0 frame submitted/completed/failed；Program graph 的 layer 13 已取得 GPU completion、compositor consumption 与 next-frame observation。matrix/report/app-log/runtime-evidence SHA-256 为 `036e4936a593b4ef91e92532771baba45d5042c784ed5230f53b7fcdfb2bb96e / cd976fd4b879d14a5cdb906eecd606b84818e7248ab26fb19757f4c6fdb4a12d / 2a5ad13f494dfd3df3177817ec785615e9e5c97a433ba7f1c7ee7b2d7c7abf22 / edfdd78ef0a55c5828c590ed89ee84750dd3b9337d24a0f2c237d5d2fda080ff`；签名前后验证均为 true。
+
+**可见边界：**ready/after 原分辨率检查确认女孩、自行车、猫、海面、花瓣和星点完整，花瓣/星点随帧变化，没有黑屏、硬矩形或明显采样退化；PNG SHA-256 为 `6948cfad33fbfdbacf44e821467aff25f4c72b930337ee815c36bce8a458400e / 3f52e9a354de5be6bb60b28d6d96f874b5fde835eb05884b8c69b59a89385a4b`。该真实样本证明现有单级/多级 authored consumer 和唯一输出无回归；4097→4096 单级修复由项目 GPU fixture 证明，不冒充真实 corpus 命中。当前证据不定义 `halfmip` 私有生成算法、动态 sampling property reprepare、Windows LOD/像素 parity、所有 TEX 版本或全 corpus；未运行全量样本。
+
 <a id="e-2026-09-13-ilayer-world-matrix"></a>
 ### 2026-09-13 SceneScript `ILayer.getTransformMatrix()` 与只读 `size` 闭环
 

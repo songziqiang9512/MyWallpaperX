@@ -173,7 +173,7 @@ enum Harness {
                 let abandonedBuffer = queue.makeCommandBuffer()!
                 let abandonedTransaction = SceneSourceUpdateTransaction()
                 playback.encode(
-                    sceneTime: 0,
+                    playbackTime: 0,
                     commandBuffer: abandonedBuffer,
                     transaction: abandonedTransaction
                 )
@@ -182,7 +182,7 @@ enum Harness {
             let firstBuffer = queue.makeCommandBuffer()!
             let firstTransaction = SceneSourceUpdateTransaction()
             playback.encode(
-                sceneTime: 0,
+                playbackTime: 0,
                 commandBuffer: firstBuffer,
                 transaction: firstTransaction
             )
@@ -196,7 +196,7 @@ enum Harness {
             let secondBuffer = queue.makeCommandBuffer()!
             let secondTransaction = SceneSourceUpdateTransaction()
             playback.encode(
-                sceneTime: 0.04,
+                playbackTime: 0.04,
                 commandBuffer: secondBuffer,
                 transaction: secondTransaction
             )

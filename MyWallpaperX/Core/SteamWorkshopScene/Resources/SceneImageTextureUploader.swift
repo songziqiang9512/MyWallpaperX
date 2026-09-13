@@ -31,6 +31,11 @@ nonisolated enum SceneTextureLoadPurpose: Hashable, Sendable {
 }
 
 enum SceneImageTextureUploader {
+    enum MipmapGeneration {
+        case fullChain
+        case baseLevelOnly
+    }
+
     enum EncodedPreservedChannelsError: Error, Equatable {
         case emptySource
         case imageSourceUnavailable
@@ -138,6 +143,7 @@ enum SceneImageTextureUploader {
             rgba: outputRGBA,
             width: outputWidth,
             height: outputHeight,
+            mipmapGeneration: .fullChain,
             device: device
         ) else {
             return .failure(.textureAllocationFailed(
@@ -214,6 +220,7 @@ enum SceneImageTextureUploader {
         image: CGImage,
         purpose: SceneTextureLoadPurpose,
         maxDimension: Int,
+        mipmapGeneration: MipmapGeneration = .fullChain,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
         guard image.width > 0, image.height > 0 else {
@@ -239,6 +246,7 @@ enum SceneImageTextureUploader {
             rgba: rgba,
             width: width,
             height: height,
+            mipmapGeneration: mipmapGeneration,
             device: device
         ) else {
             return .textureAllocationFailed(width: width, height: height)
@@ -260,6 +268,7 @@ enum SceneImageTextureUploader {
         rgba: Data,
         width: Int,
         height: Int,
+        mipmapGeneration: MipmapGeneration,
         device: MTLDevice
     ) -> MTLTexture? {
         let (pixelCount, pixelCountOverflow) = width.multipliedReportingOverflow(
@@ -279,7 +288,7 @@ enum SceneImageTextureUploader {
             pixelFormat: .rgba8Unorm,
             width: width,
             height: height,
-            mipmapped: true
+            mipmapped: mipmapGeneration == .fullChain
         )
         descriptor.usage = [.shaderRead, .renderTarget]
         descriptor.storageMode = .shared
@@ -294,10 +303,11 @@ enum SceneImageTextureUploader {
                 bytesPerRow: width * 4
             )
         }
-        // The official engine generates mipmaps for direct images by
-        // default (`nomip` is the opt-out flag) and samples
-        // min/mag/mip linear; the premultiplied rgba8Unorm texels average
-        // correctly under the standard mip filter.
+        guard mipmapGeneration == .fullChain else { return texture }
+        // Direct images have no compiled TEX mip-chain authority, so build a
+        // complete chain for the shared min/mag/mip sampler. A decoded TEX
+        // fallback passes `.baseLevelOnly` when the compiled container has one
+        // level and must remain one level after bounded normalization.
         guard let queue = device.makeCommandQueue(),
               let commandBuffer = queue.makeCommandBuffer(),
               let encoder = commandBuffer.makeBlitCommandEncoder()
