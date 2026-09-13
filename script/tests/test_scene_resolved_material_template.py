@@ -19,6 +19,7 @@ PROGRAM_SOURCE = SCENE_ROOT / "RenderGraph/MaterialProgram/SceneResolvedMaterial
 TEXTURE_CANDIDATE_SOURCE = SCENE_ROOT / "Resources/SceneTextureCandidate.swift"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
+    SCENE_ROOT / "Properties/SceneScriptValueOwnership.swift",
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "RenderGraph/ShaderContract/SceneShaderSourceGraph.swift",
     SCENE_ROOT

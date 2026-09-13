@@ -244,8 +244,8 @@ extension SceneDependencyRenderPlan {
         return declarations.count == 1 ? declarations[0] : nil
     }
 
-    /// Generic external-primary carrier for one hidden image graph consumed
-    /// by a single admitted Program sampler. Effect identity and authored
+    /// Generic external-primary carrier for one hidden image/text composite
+    /// consumed by one or more admitted Program samplers. Effect identity and authored
     /// scalar values deliberately do not select this resource route. A static
     /// provider must be dependency-free; an effectful provider may carry the
     /// single dependency closed later by the shared dependency-plan compiler.
@@ -255,25 +255,31 @@ extension SceneDependencyRenderPlan {
     /// composition-utility consumer may ride the same carrier for one such
     /// provider; `supportsEffectConsumer` still requires the structural
     /// utility admission set.
-    nonisolated static func materialProgramImageLayerReference(
+    nonisolated static func materialProgramImageLayerReferences(
         layer: SceneRenderDescriptor.Layer,
         visibleEffects: [SceneRenderDescriptor.EffectDescriptor],
         references: [Reference],
         layersByID: [Int: SceneRenderDescriptor.Layer]
-    ) -> Reference? {
+    ) -> [Reference]? {
         let consumerIsCompositionUtility = layer.contentKind == "composition"
             && layer.utilityLayer?.kind == .composition
         guard layer.contentKind == "image"
                   || layer.contentKind == "text"
+                  || layer.contentKind == "solid"
                   || consumerIsCompositionUtility,
               consumerIsCompositionUtility || hasNoUtilityLayer(layer),
               layer.childLayerIDs.isEmpty,
               layer.authoredDependencies.isEmpty,
-              references.count == 1,
+              !references.isEmpty,
+              Set(references).count == references.count,
               let reference = references.first,
-              reference.variant == .primary,
-              reference.slot.passIndex == 0,
-              reference.slot.slotIndex == 1,
+              references.allSatisfy({ candidate in
+                  candidate.consumerLayerID == layer.id
+                      && candidate.providerLayerID == reference.providerLayerID
+                      && candidate.variant == .primary
+                      && candidate.slot.passIndex == 0
+                      && candidate.slot.slotIndex == 1
+              }),
               activeDependencyProviderLayerIDs(
                   layer: layer,
                   references: references
@@ -282,23 +288,32 @@ extension SceneDependencyRenderPlan {
               isImageOrTextCompositeProvider(provider) else {
             return nil
         }
-        let effects = visibleEffects.filter { $0.id == reference.slot.effectID }
-        guard effects.count == 1, let effect = effects.first,
-              effect.passes.count == 1,
-              let pass = effect.passes.first,
-              pass.passIndex == reference.slot.passIndex,
-              pass.textureSlots.indices.contains(reference.slot.slotIndex),
-              let path = pass.textureSlots[reference.slot.slotIndex],
-              SceneNamedTextureReference.parse(path) == .init(
-                  providerLayerID: reference.providerLayerID,
-                  variant: .primary
-              ), SceneNamedTextureDependencyReferenceAnalysis
-                .userTextureAllowsNamedFallback(
-                    slotIndex: reference.slot.slotIndex,
-                    pass: pass
-                )
-        else { return nil }
-        return reference
+        for candidate in references {
+            let effects = visibleEffects.filter {
+                $0.id == candidate.slot.effectID
+            }
+            guard effects.count == 1, let effect = effects.first,
+                  effect.passes.count == 1 else { return nil }
+            let passes = effect.passes.filter {
+                $0.passIndex == candidate.slot.passIndex
+            }
+            guard passes.count == 1, let pass = passes.first,
+                  pass.textureSlots.indices.contains(candidate.slot.slotIndex),
+                  let path = pass.textureSlots[candidate.slot.slotIndex],
+                  SceneNamedTextureReference.parse(path) == .init(
+                      providerLayerID: candidate.providerLayerID,
+                      variant: .primary
+                  ), SceneNamedTextureDependencyReferenceAnalysis
+                    .userTextureAllowsNamedFallback(
+                        slotIndex: candidate.slot.slotIndex,
+                        pass: pass
+                    ) else { return nil }
+        }
+        guard let ordered = authoredReferenceOrder(
+                  for: layer,
+                  references: references
+              ), ordered.count == references.count else { return nil }
+        return ordered
     }
 
     /// A childless composition utility may consume one authored primary

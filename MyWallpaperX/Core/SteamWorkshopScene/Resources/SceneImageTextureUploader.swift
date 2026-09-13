@@ -50,6 +50,7 @@ enum SceneImageTextureUploader {
     }
 
     static let encodedPreservedChannelsMaximumDimension = 256
+    private static let encodedPreservedChannelsMaximumSourceDimension = 4_096
 
     /// Decodes a bounded encoded source directly into a channel-preserving
     /// texture. This path never consumes an existing color texture because a
@@ -74,12 +75,12 @@ enum SceneImageTextureUploader {
         let height = exactPositiveInteger(properties[kCGImagePropertyPixelHeight]) else {
             return .failure(.metadataUnavailable)
         }
-        let maximum = encodedPreservedChannelsMaximumDimension
-        guard width <= maximum, height <= maximum else {
+        let maximumSource = encodedPreservedChannelsMaximumSourceDimension
+        guard width <= maximumSource, height <= maximumSource else {
             return .failure(.dimensionsOutOfRange(
                 width: width,
                 height: height,
-                maximum: maximum
+                maximum: maximumSource
             ))
         }
         let orientation: Int
@@ -117,15 +118,96 @@ enum SceneImageTextureUploader {
         guard !source.premultiplied else {
             return .failure(.premultipliedPixelLayout)
         }
+        let maximum = encodedPreservedChannelsMaximumDimension
+        let scale = min(1, Double(maximum) / Double(max(width, height)))
+        let outputWidth = max(1, Int(Double(width) * scale))
+        let outputHeight = max(1, Int(Double(height) * scale))
+        let outputRGBA: Data
+        if outputWidth == width, outputHeight == height {
+            outputRGBA = source.data
+        } else {
+            outputRGBA = resampledStraightRGBA(
+                source.data,
+                sourceWidth: width,
+                sourceHeight: height,
+                destinationWidth: outputWidth,
+                destinationHeight: outputHeight
+            )
+        }
         guard let texture = makeTexture(
-            rgba: source.data,
-            width: width,
-            height: height,
+            rgba: outputRGBA,
+            width: outputWidth,
+            height: outputHeight,
             device: device
         ) else {
-            return .failure(.textureAllocationFailed(width: width, height: height))
+            return .failure(.textureAllocationFailed(
+                width: outputWidth,
+                height: outputHeight
+            ))
         }
         return .success(texture)
+    }
+
+    /// Resamples straight RGBA lanes independently. Core Graphics image
+    /// rasterization premultiplies translucent pixels, so it cannot preserve
+    /// authored RGB where alpha is zero or fractional.
+    private static func resampledStraightRGBA(
+        _ source: Data,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        destinationWidth: Int,
+        destinationHeight: Int
+    ) -> Data {
+        var destination = Data(count: destinationWidth * destinationHeight * 4)
+        destination.withUnsafeMutableBytes { destinationRaw in
+            source.withUnsafeBytes { sourceRaw in
+                guard let output = destinationRaw.bindMemory(to: UInt8.self).baseAddress,
+                      let input = sourceRaw.bindMemory(to: UInt8.self).baseAddress else {
+                    return
+                }
+                let xRatio = Double(sourceWidth) / Double(destinationWidth)
+                let yRatio = Double(sourceHeight) / Double(destinationHeight)
+                for destinationY in 0 ..< destinationHeight {
+                    let sourceY = max(
+                        0,
+                        min(
+                            Double(sourceHeight - 1),
+                            (Double(destinationY) + 0.5) * yRatio - 0.5
+                        )
+                    )
+                    let y0 = Int(sourceY.rounded(.down))
+                    let y1 = min(y0 + 1, sourceHeight - 1)
+                    let yWeight = sourceY - Double(y0)
+                    for destinationX in 0 ..< destinationWidth {
+                        let sourceX = max(
+                            0,
+                            min(
+                                Double(sourceWidth - 1),
+                                (Double(destinationX) + 0.5) * xRatio - 0.5
+                            )
+                        )
+                        let x0 = Int(sourceX.rounded(.down))
+                        let x1 = min(x0 + 1, sourceWidth - 1)
+                        let xWeight = sourceX - Double(x0)
+                        let destinationOffset = (
+                            destinationY * destinationWidth + destinationX
+                        ) * 4
+                        for component in 0 ..< 4 {
+                            let topLeft = Double(input[(y0 * sourceWidth + x0) * 4 + component])
+                            let topRight = Double(input[(y0 * sourceWidth + x1) * 4 + component])
+                            let bottomLeft = Double(input[(y1 * sourceWidth + x0) * 4 + component])
+                            let bottomRight = Double(input[(y1 * sourceWidth + x1) * 4 + component])
+                            let top = topLeft + (topRight - topLeft) * xWeight
+                            let bottom = bottomLeft + (bottomRight - bottomLeft) * xWeight
+                            output[destinationOffset + component] = UInt8(
+                                max(0, min(255, (top + (bottom - top) * yWeight).rounded()))
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return destination
     }
 
     static func upload(

@@ -1,10 +1,11 @@
 import Foundation
 
-/// Exact authored shape whose high-precedence optional input can be explicitly
-/// absent, exposing a lower same-frame compositor color publication. The two
-/// candidates share one sampler slot but require different Program input ABI.
-/// Keeping this structural and name-independent prevents a sample/effect
-/// dispatch while leaving all unproved mixed chains fail-closed.
+/// Exact authored shape whose high-precedence optional input takes ownership
+/// only after it has a complete publication. Until then the lower same-frame
+/// compositor color publication remains selected. The two candidates share one
+/// sampler slot but require different Program input ABI. Keeping this
+/// structural and name-independent prevents a sample/effect dispatch while
+/// leaving all unproved mixed chains fail-closed.
 nonisolated struct SceneResolvedMaterialMixedProviderSlotFact: Hashable {
     typealias Template = SceneResolvedMaterialTemplate
     typealias Sampler = SceneResolvedMaterialShaderSchema.Sampler

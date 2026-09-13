@@ -3373,17 +3373,16 @@ private func mixedSystemNamedProviderTokens(
         resourceGeneration: 7
     ))
     func finalized(
-        systemStatus: SceneFrameTextureLookupStatus
+        systemStatus: SceneFrameTextureLookupStatus?
     ) -> Result<Program, SceneResolvedMaterialFailure> {
-        finalize(
+        var entries = [namedIdentity: namedEntry]
+        if let systemStatus { entries[systemIdentity] = systemStatus }
+        return finalize(
             shader: shader,
             device: device,
             includePrimaryCandidate: false,
             secondCandidates: candidates,
-            additionalEntries: [
-                namedIdentity: namedEntry,
-                systemIdentity: systemStatus,
-            ],
+            additionalEntries: entries,
             implicitFramebufferIdentity: graphTexture(),
             variantCache: cache
         )
@@ -3408,6 +3407,12 @@ private func mixedSystemNamedProviderTokens(
     let absent = finalized(systemStatus: .absent)
     let readyAgain = finalized(systemStatus: systemReady)
     let pending = finalized(systemStatus: .pending)
+    let unavailable = finalized(systemStatus: .unavailable)
+    let missing = finalized(systemStatus: nil)
+    let incomplete = finalized(systemStatus: .incomplete(.bare(
+        texture: namedResource.publication.texture,
+        resourceGeneration: 7
+    )))
     let countersAfter = cache.counters
     let snapshot = cache.launchEnvelopeCapabilitySnapshot()
     return [
@@ -3422,8 +3427,11 @@ private func mixedSystemNamedProviderTokens(
         "ready": selectionToken(ready),
         "absent": selectionToken(absent),
         "readyAgain": selectionToken(readyAgain),
-        "pending": failureToken(pending),
+        "pending": selectionToken(pending),
         "pendingVisualFallback": visualFallbackToken(pending),
+        "unavailable": selectionToken(unavailable),
+        "missing": failureToken(missing),
+        "incomplete": failureToken(incomplete),
         "cacheStable": countersBefore.cachedVariantCount
             == countersAfter.cachedVariantCount
             && countersBefore.shaderPreparationCount
@@ -6262,10 +6270,11 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "ready": "system:preserved-channels",
                 "absent": "named:premultiplied-color",
                 "readyAgain": "system:preserved-channels",
-                "pending": "texture/resourceSnapshotUnresolved",
-                "pendingVisualFallback": (
-                    "material-finalizer-system-provider-pending"
-                ),
+                "pending": "named:premultiplied-color",
+                "pendingVisualFallback": "success",
+                "unavailable": "named:premultiplied-color",
+                "missing": "texture/resourceSnapshotUnresolved",
+                "incomplete": "texture/textureMetadataIncomplete",
                 "cacheStable": True,
             },
             self.result,

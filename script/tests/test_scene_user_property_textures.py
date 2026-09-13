@@ -199,11 +199,20 @@ enum Harness {
         case let .success(texture): encodedPreserved = texture
         case .failure: throw HarnessError.textureRead
         }
-        let encodedOversizeRejected: Bool
-        if case .failure(.dimensionsOutOfRange(257, 1, 256)) =
+        let encodedOversize: MTLTexture
+        switch SceneImageTextureUploader.uploadEncodedPreservedChannels(
+            try encodedImage(width: 257), device: device
+        ) {
+        case let .success(texture): encodedOversize = texture
+        case .failure: throw HarnessError.textureRead
+        }
+        let encodedSourceLimitRejected: Bool
+        if case .failure(.dimensionsOutOfRange(4097, 1, 4096)) =
             SceneImageTextureUploader.uploadEncodedPreservedChannels(
-                try encodedImage(width: 257), device: device
-            ) { encodedOversizeRejected = true } else { encodedOversizeRejected = false }
+                try encodedImage(width: 4097), device: device
+            ) { encodedSourceLimitRejected = true } else {
+                encodedSourceLimitRejected = false
+            }
         let encodedOrientationRejected: Bool
         if case .failure(.nonIdentityOrientation(6)) =
             SceneImageTextureUploader.uploadEncodedPreservedChannels(
@@ -369,7 +378,11 @@ enum Harness {
             "explicitBigPixels": [UInt8](explicitBigData),
             "explicitLittlePixels": [UInt8](explicitLittleData),
             "encodedPreservedPixels": try pixels(encodedPreserved),
-            "encodedOversizeRejected": encodedOversizeRejected,
+            "encodedOversizeDimensions": [
+                encodedOversize.width, encodedOversize.height,
+            ],
+            "encodedOversizePixels": try pixels(encodedOversize),
+            "encodedSourceLimitRejected": encodedSourceLimitRejected,
             "encodedOrientationRejected": encodedOrientationRejected,
             "encodedPremultipliedRejected": encodedPremultipliedRejected,
             "encodedOpaquePixels": try pixels(encodedOpaque),
@@ -440,7 +453,11 @@ enum Harness {
         alphaInfo: CGImageAlphaInfo = .last,
         type: String = "public.png"
     ) throws -> Data {
-        let pixels = Data(repeating: 32, count: width * 4)
+        var pixels = Data()
+        pixels.reserveCapacity(width * 4)
+        for _ in 0 ..< width {
+            pixels.append(contentsOf: [231, 17, 149, 0])
+        }
         guard let provider = CGDataProvider(data: pixels as CFData),
               let image = CGImage(
                   width: width, height: 1, bitsPerComponent: 8,
@@ -724,7 +741,11 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
             self.result["encodedPreservedPixels"],
             self.result["preservedPixels"],
         )
-        self.assertTrue(self.result["encodedOversizeRejected"])
+        self.assertEqual(self.result["encodedOversizeDimensions"], [256, 1])
+        self.assertEqual(
+            self.result["encodedOversizePixels"][:4], [231, 17, 149, 0]
+        )
+        self.assertTrue(self.result["encodedSourceLimitRejected"])
         self.assertTrue(self.result["encodedOrientationRejected"])
         self.assertTrue(self.result["encodedPremultipliedRejected"])
         self.assertEqual(set(self.result["encodedOpaquePixels"][3::4]), {255})

@@ -263,22 +263,65 @@ struct SceneDependencyRenderPlan {
                     || executableUtilityConsumerLayerIDs.contains(layer.id) else {
                 continue
             }
+            let admittedReferences = Set(products).union(potentials)
             let matches = (
                 layer.namedBindings + layer.potentialNamedBindings
-            ).filter {
-                $0.consumerLayerID == layer.id
+            ).filter { candidate in
+                candidate.consumerLayerID == layer.id
+                    && (!candidate.requiresResolvedMaterialProgram
+                        || candidate.referenceSlots.allSatisfy({ slot in
+                            admittedReferences.contains(.init(
+                                consumerLayerID: candidate.consumerLayerID,
+                                providerLayerID: candidate.providerLayerID,
+                                slot: slot,
+                                variant: .primary
+                            ))
+                        }))
             }
-            if matches.count == 1,
-               !matches[0].requiresResolvedMaterialProgram
-                || matches[0].referenceSlots.allSatisfy({ slot in
-                    admittedResolvedMaterialReferences.contains(.init(
-                        consumerLayerID: matches[0].consumerLayerID,
-                        providerLayerID: matches[0].providerLayerID,
-                        slot: slot,
-                        variant: .primary
-                    ))
-                }) {
+            if matches.count == 1 {
                 bindings[layer.id] = matches[0]
+            } else if let first = matches.first,
+                      matches.allSatisfy({ candidate in
+                          candidate.consumerLayerID == first.consumerLayerID
+                              && candidate.providerLayerID == first.providerLayerID
+                              && candidate.blendMode == first.blendMode
+                              && candidate.kind == first.kind
+                              && candidate.requiresForwardCapture
+                                  == first.requiresForwardCapture
+                              && candidate.requiresResolvedMaterialProgram
+                                  == first.requiresResolvedMaterialProgram
+                      }) {
+                let slots = admittedReferences.compactMap { reference in
+                    reference.consumerLayerID == first.consumerLayerID
+                        && reference.providerLayerID == first.providerLayerID
+                        ? reference.slot : nil
+                }.sorted { lhs, rhs in
+                    let lhsIndex = layer.effects.firstIndex {
+                        $0.id == lhs.effectID
+                    } ?? Int.max
+                    let rhsIndex = layer.effects.firstIndex {
+                        $0.id == rhs.effectID
+                    } ?? Int.max
+                    if lhsIndex != rhsIndex { return lhsIndex < rhsIndex }
+                    if lhs.passIndex != rhs.passIndex {
+                        return lhs.passIndex < rhs.passIndex
+                    }
+                    return lhs.slotIndex < rhs.slotIndex
+                }
+                if slots.count == matches.count,
+                   Set(slots).count == slots.count {
+                    bindings[layer.id] = .init(
+                        consumerLayerID: first.consumerLayerID,
+                        providerLayerID: first.providerLayerID,
+                        slot: slots[0],
+                        referenceSlots: slots,
+                        blendMode: first.blendMode,
+                        kind: first.kind,
+                        requiresForwardCapture: first.requiresForwardCapture,
+                        requiresResolvedMaterialProgram:
+                            first.requiresResolvedMaterialProgram
+                    )
+                }
             }
         }
         bindingsByConsumerLayerID = bindings
@@ -3160,6 +3203,12 @@ private func capabilities(
     namedProvider: SceneNamedTextureReference? = nil,
     dependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
     potentialOptionalNamedFallback: Bool = false,
+    additionalPotentialNamedReferences: [
+        SceneDependencyRenderPlan.Reference
+    ] = [],
+    additionalPotentialDependencyBindings: [
+        SceneDependencyRenderPlan.Binding
+    ] = [],
     additionalNamedProvider: SceneNamedTextureReference? = nil,
     additionalDependencyBinding: SceneDependencyRenderPlan.Binding? = nil,
     forwardUnavailableReference: SceneDependencyRenderPlan.Reference? = nil,
@@ -3219,7 +3268,17 @@ private func capabilities(
             consumer.namedReferences = [reference]
             consumer.namedBindings = [dependencyBinding]
         }
+        consumer.potentialNamedReferences.append(
+            contentsOf: additionalPotentialNamedReferences
+        )
+        consumer.potentialNamedBindings.append(
+            contentsOf: additionalPotentialDependencyBindings
+        )
         var providerLayerIDs: Set<Int> = [dependencyBinding.providerLayerID]
+        providerLayerIDs.formUnion(
+            additionalPotentialDependencyBindings.map(\.providerLayerID)
+        )
+        consumer.dependencyLayerIDs = Array(providerLayerIDs).sorted()
         if let additionalNamedProvider,
            let additionalDependencyBinding {
             consumer.dependencyLayerIDs.append(
@@ -3711,6 +3770,92 @@ private enum Harness {
                     for: crossLayerChain
                 )
             }
+        let sameProviderVectorGraph = chainedGraph()
+        let sameProviderVectorChain = orderedLayerGraph(sameProviderVectorGraph)
+        let sameProviderVectorSlots = [
+            SceneEffectPassSlot(
+                effectID: chainedFirstEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            SceneEffectPassSlot(
+                effectID: chainedSecondEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+            SceneEffectPassSlot(
+                effectID: chainedThirdEffect.descriptorID,
+                passIndex: 0,
+                slotIndex: 1
+            ),
+        ]
+        let sameProviderVectorDirectBinding = SceneDependencyRenderPlan.Binding(
+            consumerLayerID: layerID,
+            providerLayerID: namedReference.providerLayerID,
+            slot: sameProviderVectorSlots[0],
+            blendMode: 0,
+            kind: .imageLayerBlend,
+            requiresResolvedMaterialProgram: true
+        )
+        let sameProviderVectorPotentialBindings =
+            sameProviderVectorSlots.dropFirst().map { slot in
+                SceneDependencyRenderPlan.Binding(
+                    consumerLayerID: layerID,
+                    providerLayerID: namedReference.providerLayerID,
+                    slot: slot,
+                    blendMode: 0,
+                    kind: .imageLayerBlend,
+                    requiresResolvedMaterialProgram: true
+                )
+            }
+        let sameProviderVectorPotentialReferences =
+            sameProviderVectorPotentialBindings.map { binding in
+                SceneDependencyRenderPlan.Reference(
+                    consumerLayerID: binding.consumerLayerID,
+                    providerLayerID: binding.providerLayerID,
+                    slot: binding.slot,
+                    variant: .primary
+                )
+            }
+        let sameProviderVectorCatalog = catalog(
+            for: sameProviderVectorGraph,
+            namedProvidersByNode: [0: namedReference],
+            systemProvidersByNode: [
+                1: "$mediaThumbnail",
+                2: "$mediaPreviousThumbnail",
+            ],
+            systemProviderLowerReferencesByNode: [
+                1: .provider(.namedLayerTarget(namedReference)),
+                2: .provider(.namedLayerTarget(namedReference)),
+            ]
+        )
+        let sameProviderVectorCapabilities = capabilities(
+            sameProviderVectorChain,
+            catalog: sameProviderVectorCatalog,
+            namedProvider: namedReference,
+            dependencyBinding: sameProviderVectorDirectBinding,
+            additionalPotentialNamedReferences:
+                sameProviderVectorPotentialReferences,
+            additionalPotentialDependencyBindings:
+                sameProviderVectorPotentialBindings
+        )
+        let sameProviderVectorCapability = sameProviderVectorCapabilities
+            .claim(sameProviderVectorChain).flatMap {
+                sameProviderVectorCapabilities.resolve(
+                    $0.token,
+                    for: sameProviderVectorChain
+                )
+            }
+        let sameProviderVectorMissingCarrierRejected = capabilities(
+            sameProviderVectorChain,
+            catalog: sameProviderVectorCatalog,
+            namedProvider: namedReference,
+            dependencyBinding: sameProviderVectorDirectBinding,
+            additionalPotentialNamedReferences:
+                sameProviderVectorPotentialReferences,
+            additionalPotentialDependencyBindings:
+                Array(sameProviderVectorPotentialBindings.dropLast())
+        ).claim(sameProviderVectorChain) == nil
         let conflictingNamedReference = SceneNamedTextureReference(
             providerLayerID: 880,
             variant: .primary
@@ -7647,6 +7792,19 @@ private enum Harness {
                 }
                 return true
             }(),
+            "sameProviderMixedVectorConservesAuthoredSlots": {
+                guard let capability = sameProviderVectorCapability,
+                      case let .externalPrimary(binding) =
+                        capability.dependencyOwnership else { return false }
+                return binding.consumerLayerID == layerID
+                    && binding.providerLayerID == namedReference.providerLayerID
+                    && binding.slot == sameProviderVectorSlots[0]
+                    && binding.referenceSlots == sameProviderVectorSlots
+                    && binding.kind == .imageLayerBlend
+                    && binding.requiresResolvedMaterialProgram
+            }(),
+            "sameProviderMixedVectorRejectsMissingSiblingCarrier":
+                sameProviderVectorMissingCarrierRejected,
             "potentialCannotMaskOrdinaryDependency":
                 potentialCannotMaskOrdinaryDependency,
             "invalidProgramDependencyRejected":

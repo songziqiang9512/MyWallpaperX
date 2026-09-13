@@ -37,6 +37,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         where !restrictToSamplerSlots || samplers[slot.index] != nil {
             let sampler = samplers[slot.index]
             let reachable = reachableSamplers[slot.index] ?? []
+            let mixedProviderFact = sampler.flatMap {
+                SceneResolvedMaterialMixedProviderSlotFact.resolve(
+                    in: slot,
+                    sampler: $0
+                )
+            }
             // An authored binding that no launch-envelope variant can read is
             // loss-preserving provenance, not a frame selection candidate.
             // Current or potentially reachable samplers still participate in
@@ -63,7 +69,11 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
                     purpose: purpose,
                     provenance: .authored(candidate.provenance),
                     input: input,
-                    preserveAbsentOverride: terminalGraphOverride
+                    preserveAbsentOverride: terminalGraphOverride,
+                    deferUnreadyOptionalPromotion:
+                        mixedProviderFact?.optionalInput.matches(
+                            candidate.reference
+                        ) == true
                 ) else {
                     continue
                 }
@@ -171,9 +181,12 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         }
     }
 
-    /// Only a producer's explicit absent fact means that this authored source
-    /// was not selected. Missing, pending, unavailable and unproven sources are
-    /// failures; they never authorize a lower-precedence candidate.
+    /// General authored candidates expose their lower-precedence source only
+    /// after an explicit absent fact. The exact mixed named/optional envelope
+    /// additionally defers ownership while its optional input is pending or
+    /// unavailable, because that input has not published a usable replacement.
+    /// Missing identities and incomplete publications remain failures, as do
+    /// all unready candidates outside that proved envelope.
     private static func referenceSelection(
         _ reference: Template.TextureReference,
         purpose: SceneTextureLoadPurpose?,
@@ -181,7 +194,8 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
         input: SceneResolvedMaterialFinalizationInput,
         graphInputSourceFact:
             SceneResolvedMaterialGraphInputSourceSlotFact? = nil,
-        preserveAbsentOverride: Bool = false
+        preserveAbsentOverride: Bool = false,
+        deferUnreadyOptionalPromotion: Bool = false
     ) throws -> Entry? {
         guard let purpose else {
             if case let .graph(identity) = reference {
@@ -209,7 +223,14 @@ nonisolated enum SceneResolvedMaterialTextureSelection {
             )
         }
         let identity = try Resolver.runtimeIdentity(reference, purpose: purpose)
-        guard case .absent? = input.textureSnapshot.lookup(identity) else {
+        let status = input.textureSnapshot.lookup(identity)
+        if deferUnreadyOptionalPromotion {
+            switch status {
+            case .absent?, .pending?, .unavailable?: return nil
+            case .ready?, .incomplete?, nil: break
+            }
+        }
+        guard case .absent? = status else {
             return .reference(
                 reference,
                 purpose: purpose,

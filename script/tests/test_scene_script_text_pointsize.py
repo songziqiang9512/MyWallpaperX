@@ -20,6 +20,7 @@ SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
+    SCENE / "Properties/SceneScriptValueOwnership.swift",
     SCENE / "Properties/SceneUserProperty.swift",
     SCENE / "Properties/SceneScriptDynamicProviderHostContract.swift",
     SCENE / "Properties/SceneUserPropertyBindings.swift",

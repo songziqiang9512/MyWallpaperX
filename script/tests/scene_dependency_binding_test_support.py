@@ -23,6 +23,7 @@ extension SceneDependencyRenderPlan {
         let referenceSlots: [SceneEffectPassSlot]
         let blendMode: Int
         let kind: Kind
+        let requiresForwardCapture: Bool
         let requiresResolvedMaterialProgram: Bool
 
         init(
@@ -32,6 +33,7 @@ extension SceneDependencyRenderPlan {
             referenceSlots: [SceneEffectPassSlot]? = nil,
             blendMode: Int,
             kind: Kind,
+            requiresForwardCapture: Bool = false,
             requiresResolvedMaterialProgram: Bool = false
         ) {
             self.consumerLayerID = consumerLayerID
@@ -40,6 +42,7 @@ extension SceneDependencyRenderPlan {
             self.referenceSlots = referenceSlots ?? [slot]
             self.blendMode = blendMode
             self.kind = kind
+            self.requiresForwardCapture = requiresForwardCapture
             self.requiresResolvedMaterialProgram =
                 requiresResolvedMaterialProgram
         }

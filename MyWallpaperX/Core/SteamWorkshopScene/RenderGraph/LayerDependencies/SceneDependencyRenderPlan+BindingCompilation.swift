@@ -408,12 +408,12 @@ extension SceneDependencyRenderPlan {
                 declaration.requiresResolvedMaterialProgram
                     || !graphInternalReferences.isEmpty
             )
-        } else if let reference = materialProgramImageLayerReference(
+        } else if let materialProgramReferences = materialProgramImageLayerReferences(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,
             layersByID: layersByID
-        ) {
+        ), let reference = materialProgramReferences.first {
             // Resource ownership only: the admitted MaterialProgram still
             // proves shader semantics, scalar inputs and output authority.
             contract = (reference, 0, .imageLayerBlend, true)
@@ -590,12 +590,45 @@ extension SceneDependencyRenderPlan {
             ))
             return nil
         }
+        let programImageReferenceSlots = materialProgramImageLayerReferences(
+            layer: layer,
+            visibleEffects: visibleEffects,
+            references: references,
+            layersByID: layersByID
+        )?.map(\.slot)
+        let referenceSlots: [SceneEffectPassSlot]
+        if contract.kind == .resolvedMaterial {
+            referenceSlots = references.map(\.slot)
+        } else if contract.kind == .imageLayerBlend,
+                  contract.requiresResolvedMaterialProgram,
+                  let programImageReferenceSlots {
+            referenceSlots = programImageReferenceSlots
+        } else {
+            referenceSlots = [reference.slot]
+        }
+        if contract.requiresResolvedMaterialProgram {
+            let admitted = Set(admittedResolvedMaterialReferences)
+            guard referenceSlots.allSatisfy({ slot in
+                admitted.contains(.init(
+                    consumerLayerID: layer.id,
+                    providerLayerID: provider.id,
+                    slot: slot,
+                    variant: .primary
+                ))
+            }) else {
+                issues.append(Issue(
+                    kind: .unsupportedConsumer,
+                    layerID: layer.id,
+                    providerLayerID: provider.id
+                ))
+                return nil
+            }
+        }
         return Binding(
             consumerLayerID: layer.id,
             providerLayerID: provider.id,
             slot: reference.slot,
-            referenceSlots: contract.kind == .resolvedMaterial
-                ? references.map(\.slot) : [reference.slot],
+            referenceSlots: referenceSlots,
             blendMode: contract.blendMode,
             kind: contract.kind,
             requiresForwardCapture: requiresForwardCapture,
@@ -646,7 +679,7 @@ extension SceneDependencyRenderPlan {
         ) != nil {
             return true
         }
-        if materialProgramImageLayerReference(
+        if materialProgramImageLayerReferences(
             layer: layer,
             visibleEffects: visibleEffects,
             references: references,

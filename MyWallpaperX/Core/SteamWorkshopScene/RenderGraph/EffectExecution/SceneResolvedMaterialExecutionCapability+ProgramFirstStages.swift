@@ -306,7 +306,6 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                 return nil
             }
         }
-        let resolvedBindings = resolvedDependencyStages.map(\.bindingDependency)
         switch ownership {
         case .none:
             guard !potentialBindings.isEmpty else {
@@ -318,14 +317,11 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             guard resolvedDependencyStages.allSatisfy({
                       $0.origin == .exactMixedOptionalFallback
                   }) else { return nil }
-            let matchingBindings = potentialBindings.filter {
-                $0.consumerLayerID == layerID
-                    && matches(resolvedBindings, binding: $0)
-            }
-            guard matchingBindings.count == 1,
-                  let binding = matchingBindings.first else {
-                return nil
-            }
+            guard let binding = expandedPotentialBinding(
+                      dependencies: resolvedDependencyStages,
+                      potentialBindings: potentialBindings,
+                      layerID: layerID
+                  ) else { return nil }
             return .externalPrimary(binding)
 
         case .graphInternal:
@@ -333,26 +329,40 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
             // layer's own base source publishes the named target during
             // graph execution. Any non-self resolved dependency still has no
             // internal owner and must keep failing closed.
-            guard potentialBindings.isEmpty,
-                  resolvedDependencyStages.allSatisfy({
+            guard resolvedDependencyStages.allSatisfy({
                       $0.consumerLayerID == layerID
                           && $0.providerLayerID == layerID
                   }) else { return nil }
             return ownership
 
         case let .externalPrimary(binding):
-            guard potentialBindings.isEmpty,
-                  binding.consumerLayerID == layerID else { return nil }
+            guard binding.consumerLayerID == layerID else { return nil }
             let passthroughDependencyStages = stages.flatMap {
                 visualFailureExternalDependencies(in: $0, binding: binding)
             }
-            let ordinaryDependencyStages = resolvedBindings
-                + passthroughDependencyStages
-            return matches(ordinaryDependencyStages, binding: binding)
-                ? ownership : nil
+            let directDependencyStages = resolvedDependencyStages.filter {
+                $0.origin == .terminalNamed
+            }.map(\.bindingDependency) + passthroughDependencyStages
+            guard matches(directDependencyStages, binding: binding) else {
+                return nil
+            }
+            let optionalDependencies = resolvedDependencyStages.filter {
+                $0.origin == .exactMixedOptionalFallback
+            }
+            guard !optionalDependencies.isEmpty else { return ownership }
+            guard let orderedDependencies = orderedStageDependencies(
+                      stages,
+                      binding: binding
+                  ), let expanded = expandedPotentialBinding(
+                      base: binding,
+                      dependencies: optionalDependencies,
+                      orderedDependencies: orderedDependencies,
+                      potentialBindings: potentialBindings,
+                      layerID: layerID
+                  ) else { return nil }
+            return .externalPrimary(expanded)
         case let .externalAggregate(aggregate):
-            guard potentialBindings.isEmpty,
-                  aggregate.referenceSlots.count >= 2,
+            guard aggregate.referenceSlots.count >= 2,
                   let aggregateDependencies = aggregateStageDependencies(
                       stages,
                       aggregate: aggregate
@@ -363,6 +373,121 @@ extension SceneResolvedMaterialExecutionCapabilityCatalog {
                   ) else { return nil }
             return ownership
         }
+    }
+
+    /// Promotes an all-optional same-provider vector from descriptor-only
+    /// carriers after every selected Program stage proves its exact lower
+    /// named candidate. No carrier can stand in for a sibling slot.
+    private static func expandedPotentialBinding(
+        dependencies: [ResolvedExternalDependency],
+        potentialBindings: [SceneDependencyRenderPlan.Binding],
+        layerID: Int
+    ) -> SceneDependencyRenderPlan.Binding? {
+        guard let firstDependency = dependencies.first,
+              let first = exactPotentialBinding(
+                  for: firstDependency,
+                  in: potentialBindings,
+                  layerID: layerID
+              ) else { return nil }
+        return expandedPotentialBinding(
+            base: first,
+            dependencies: dependencies,
+            orderedDependencies: dependencies.map(\.bindingDependency),
+            potentialBindings: potentialBindings,
+            layerID: layerID
+        )
+    }
+
+    /// Extends one direct external owner with the exact optional siblings that
+    /// selected the same provider. The returned referenceSlots preserve the
+    /// authored stage/pass/slot order used by frame reservation and Program
+    /// input binding.
+    private static func expandedPotentialBinding(
+        base: SceneDependencyRenderPlan.Binding,
+        dependencies: [ResolvedExternalDependency],
+        orderedDependencies: [BindingDependency],
+        potentialBindings: [SceneDependencyRenderPlan.Binding],
+        layerID: Int
+    ) -> SceneDependencyRenderPlan.Binding? {
+        guard !dependencies.isEmpty,
+              Set(dependencies).count == dependencies.count,
+              Set(orderedDependencies).count == orderedDependencies.count,
+              dependencies.allSatisfy({
+                  $0.origin == .exactMixedOptionalFallback
+              }) else { return nil }
+        for dependency in dependencies {
+            guard let candidate = exactPotentialBinding(
+                      for: dependency,
+                      in: potentialBindings,
+                      layerID: layerID
+                  ), compatible(candidate, with: base) else { return nil }
+        }
+        let referenceSlots = orderedDependencies.map(\.slot)
+        guard referenceSlots.contains(base.slot),
+              Set(referenceSlots).count == referenceSlots.count else {
+            return nil
+        }
+        return .init(
+            consumerLayerID: base.consumerLayerID,
+            providerLayerID: base.providerLayerID,
+            slot: base.slot,
+            referenceSlots: referenceSlots,
+            blendMode: base.blendMode,
+            kind: base.kind,
+            requiresForwardCapture: base.requiresForwardCapture,
+            requiresResolvedMaterialProgram:
+                base.requiresResolvedMaterialProgram
+        )
+    }
+
+    private static func exactPotentialBinding(
+        for dependency: ResolvedExternalDependency,
+        in potentialBindings: [SceneDependencyRenderPlan.Binding],
+        layerID: Int
+    ) -> SceneDependencyRenderPlan.Binding? {
+        let matches = potentialBindings.filter { candidate in
+            candidate.consumerLayerID == layerID
+                && candidate.providerLayerID == dependency.providerLayerID
+                && candidate.slot == dependency.slot
+                && candidate.referenceSlots == [dependency.slot]
+                && candidate.requiresResolvedMaterialProgram
+        }
+        guard matches.count == 1 else { return nil }
+        return matches[0]
+    }
+
+    private static func compatible(
+        _ candidate: SceneDependencyRenderPlan.Binding,
+        with base: SceneDependencyRenderPlan.Binding
+    ) -> Bool {
+        candidate.consumerLayerID == base.consumerLayerID
+            && candidate.providerLayerID == base.providerLayerID
+            && candidate.blendMode == base.blendMode
+            && candidate.kind == base.kind
+            && candidate.requiresForwardCapture == base.requiresForwardCapture
+            && candidate.requiresResolvedMaterialProgram
+                == base.requiresResolvedMaterialProgram
+    }
+
+    private static func orderedStageDependencies(
+        _ stages: [StageCapability],
+        binding: SceneDependencyRenderPlan.Binding
+    ) -> [BindingDependency]? {
+        var result: [BindingDependency] = []
+        for stage in stages {
+            switch resolvedExternalDependencies(in: stage) {
+            case let .exact(dependencies):
+                result.append(contentsOf: dependencies.map(\.bindingDependency))
+            case .none:
+                result.append(contentsOf: visualFailureExternalDependencies(
+                    in: stage,
+                    binding: binding
+                ))
+            case .invalid:
+                return nil
+            }
+        }
+        return result
     }
 
     /// Conserves one dependency atom for each aggregate slot while retaining

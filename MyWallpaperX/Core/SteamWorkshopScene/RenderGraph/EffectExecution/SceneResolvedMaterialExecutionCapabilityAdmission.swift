@@ -320,9 +320,12 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 && Set(layer.dependencyLayerIDs) == Set(
                     layerPotentialReferences.map(\.providerLayerID)
                 )
-            let potentialExternalPrimaryBindings = binding == nil
-                && layerReferences.isEmpty
-                ? potentialBindingsByConsumerLayerID[layerID] ?? [] : []
+            // Potential carriers remain descriptor-only until Program
+            // finalization selects their exact optional fallback. Preserve
+            // them beside an already-owned direct slot so one provider can be
+            // conserved across a mixed direct/optional authored stage vector.
+            let potentialExternalPrimaryBindings =
+                potentialBindingsByConsumerLayerID[layerID] ?? []
             let compiledDependencyOwnership =
                 SceneResolvedMaterialDependencyOwnershipCompiler
                 .compile(

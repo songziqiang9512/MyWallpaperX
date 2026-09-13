@@ -20,6 +20,7 @@ SOURCES = [
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/SceneScriptBindingDefinition.swift",
     SCENE / "Properties/SceneDynamicSnapshot.swift",
+    SCENE / "Properties/SceneScriptValueOwnership.swift",
     SCENE / "Properties/ScenePropertyBindingProgram.swift",
     SCENE / "Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
     SCENE / "Properties/ScenePropertyBindingProgramValidator.swift",
@@ -1903,9 +1904,8 @@ enum Harness {
             "mediaGenerationDeduplicated":
                 duplicateMediaOriginResult.animationMutations.isEmpty,
             "passTimelineBindings": passTimeline.bindings.count,
-            "passTimelineValue": scalar(
-                passTimelineResult.values[passTimelineTarget]
-            ),
+            "passTimelineKeepsTimelineValueOwner":
+                passTimelineResult.values[passTimelineTarget] == nil,
             "passTimelineCommands": passTimelineResult.animationMutations.map {
                 $0.command.rawValue
             },
@@ -2737,7 +2737,7 @@ class ScenePropertyVectorScriptTests(unittest.TestCase):
         self.assertEqual(value["mediaAnimationCommands"], ["stop", "play"])
         self.assertTrue(value["mediaGenerationDeduplicated"])
         self.assertEqual(value["passTimelineBindings"], 1)
-        self.assertEqual(value["passTimelineValue"], 0.4)
+        self.assertTrue(value["passTimelineKeepsTimelineValueOwner"])
         self.assertEqual(value["passTimelineCommands"], ["stop", "play"])
         self.assertTrue(value["passTimelineGenerationDeduplicated"])
         self.assertTrue(value["passTimelineWithoutTargetRejected"])

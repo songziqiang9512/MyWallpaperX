@@ -32,7 +32,11 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
             authoredUserProperty = nil
         }
         let projection: Projection? = authored.flatMap {
-            if isInertEventOnlyScript($0.scriptSource) {
+            if SceneScriptValueOwnership.isEventOnlyTimelineControl(
+                source: $0.scriptSource,
+                bindingKeys: $0.bindingKeys,
+                hasTimeline: $0.timeline != nil
+            ) {
                 return nil
             }
             return classify(
@@ -74,21 +78,6 @@ nonisolated enum SceneResolvedMaterialScriptBindingClassifier {
             }
         }
         return Binding(valueContributors: sources, scriptAttachments: attachments)
-    }
-
-    /// Media event callbacks such as `mediaThumbnailChanged` may start an
-    /// authored object animation without producing a value for this material
-    /// constant. Treat that exact event-only shape as inert for uniform
-    /// ownership; any script containing update/init remains unproven.
-    private static func isInertEventOnlyScript(_ source: String?) -> Bool {
-        guard let source else { return false }
-        let normalized = source.replacingOccurrences(
-            of: "\\s+", with: "", options: .regularExpression)
-        guard normalized.contains("exportfunctionmediaThumbnailChanged(") else {
-            return false
-        }
-        return !normalized.contains("exportfunctionupdate(")
-            && !normalized.contains("exportfunctioninit(")
     }
 
     static func classify(

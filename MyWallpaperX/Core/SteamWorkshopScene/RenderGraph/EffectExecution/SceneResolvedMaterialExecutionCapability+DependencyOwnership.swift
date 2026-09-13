@@ -142,6 +142,8 @@ nonisolated enum SceneResolvedMaterialDependencyOwnershipCompiler {
                   // descriptor's all-variant dependency superset.
                   layer.dependencyLayerIDs.contains(binding.providerLayerID),
                   (binding.kind == .resolvedMaterial
+                    || (binding.kind == .imageLayerBlend
+                        && binding.requiresResolvedMaterialProgram)
                     || effectiveReferences.count == 1),
                   effectiveReferences.first != nil,
                   binding.referenceSlots == effectiveReferences.map(\.slot),

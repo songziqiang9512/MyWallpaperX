@@ -344,6 +344,7 @@
       "description": "Authored material ingress, script binding classification, and immutable Template compilation.",
       "includes": [],
       "sources": [
+        "Properties/SceneScriptValueOwnership.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialScriptBindingClassifier.swift",
         "RenderGraph/MaterialProgram/SceneResolvedMaterialTemplateCompiler.swift"
       ]

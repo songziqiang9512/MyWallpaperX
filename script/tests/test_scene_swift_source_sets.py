@@ -267,7 +267,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             ),
         )
         self.assertEqual(len(frame_finalization), 44)
-        self.assertEqual(len(template_compilation), 2)
+        self.assertEqual(len(template_compilation), 3)
         self.assertEqual(
             complete,
             (
@@ -275,7 +275,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 *frame_finalization,
             ),
         )
-        self.assertEqual(len(complete), 46)
+        self.assertEqual(len(complete), 47)
 
         material_program_directory = (
             REPOSITORY_ROOT
@@ -289,7 +289,13 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             {
                 path.resolve()
                 for path in material_program_directory.glob("*.swift")
-            },
+            }.union({
+                (
+                    REPOSITORY_ROOT
+                    / "MyWallpaperX/Core/SteamWorkshopScene/Properties/"
+                    "SceneScriptValueOwnership.swift"
+                ).resolve()
+            }),
         )
 
     def test_frontend_consumers_use_the_canonical_source_set(self) -> None:

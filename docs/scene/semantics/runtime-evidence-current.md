@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-authored-media-panel"></a>
+### 2026-09-13 作者 media event 面板与同 provider 候选闭环
+
+**结论：`3395777145` layer 125 的作者 media 面板已沿现役单主链达到 S4 bounded visible；三项旧 active unsupported effect 已关闭。** 作者数据没有定义鼠标点击回调。layer 203 的位置脚本监听 `mediaPlaybackChanged(state)`，layer 125 的 Timeline 脚本监听 `mediaThumbnailChanged` 后执行 `stop()/play()`，layer 505 的 tint 脚本消费同一事件的主色；因此播放状态决定面板是否留在画面内，缩略图事件驱动作者动画与颜色。产品没有新增点击、媒体状态、provider、clock、renderer 或 compositor owner。
+
+**代码与合同：**dependency preparation 保留同一 provider 的完整 authored reference vector，而不是把 layer 125 对 provider 1297 的三次 Program 消费压成一个 slot；launch preparation 为 named premultiplied color 与可选 system/user-property preserved-channel 输入预编译两个 ABI。只有 source/type/slot/purpose 全部证明为 exact mixed optional candidate 时，pending、unavailable 或 absent 才继续使用已 ready 的低优先级 named 输入；optional ready 后由同一 selection owner 原子提升，identity、generation、incomplete metadata 和未证明结构仍失败关闭。只有 `mediaThumbnailChanged` 且没有 `init/update` 的 Timeline wrapper 保留事件 mutation owner，但不再与 Timeline 同时发布 scalar value。encoded source 可以在既有 4096 decode 安全边界内读取 straight RGBA，再按通道降采样到既有最大 256 输出；透明像素下的 RGB 不再因预乘或预先拒绝而丢失。没有扩大输出预算或增加 fallback。
+
+**门与执行身份：**dependency、media provider、property/vector SceneScript、resolved-material capability/GraphExecutor/finalizer/template、text point-size、source-set 与 user-property texture 共 10 个 focused 模块通过；签名 checkpoint `BUILD SUCCEEDED`。实际 App 为 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `86aa5754d46a42b50b96dbd54b99052717434742`，executable SHA-256 `c8d975a83acd4ac1eaacf690ac64d951980c64e3b8f780bc4873e351ca9a2ac1`；source/before/after signature verification 均为 true。
+
+**作者 media 正例：**只读真实样本经隔离副本注入 512×512 straight-RGBA artwork、playback state 1、title/artist/album 与五色事件，25 秒 fresh 输出 `/private/tmp/mwx-current-q1-339-author-media-contract-20260913-v5`。matrix SHA-256 `61200d3dfa5f2d2e2bbd927d0352b2d7b291a1a8191e468f0a2bc41c208f916b`，report SHA-256 `cc285156cfde29fd2ce47901e1b830fcdd3e13ffae707633ab25b52f04f82f87`，app log SHA-256 `b9c75ead65acaa82024ba2334304c0cf164121caca56948bc02db851a06cec55`。结果 `failures=[] / strict PASS`，25/25 active effect 均为 Program，0 dedicated/fallback/passthrough/unsupported；GraphExecutor claimed/encoded/GPU 为 `154/154/154`，0 failure/deferred/local fallback，271/270/0 frame submitted/completed/failed。ready 与 series `0000/0001/0006/0011` 原分辨率检查均显示右侧作者尺寸封面、标题、艺术家和分隔线，播放期间没有自动左移消失；ready/after PNG SHA-256 为 `63094d9a1a69e721eb94c0abfe4ec5ae701dc8a7a82c21d0419638adf6f6e162 / 8b833c06ca232f0def4e0a3dc5a6571ac254523b9e21b214692ce5bf777f10dc`。
+
+**无 media 反例与边界：**相同 App、相同样本但不注入 media 字段的 25 秒运行输出 `/private/tmp/mwx-current-q1-339-no-media-negative-20260913-v1`，matrix/report/log SHA-256 为 `4905deb0f2de664dff8e88b9132011ef4545a60b95c8793470f983ede1f50f26 / c5e88ad92f8f4c61bc7c91f84a65d1aa02a24f3edeb5c6128ae7094709a6f858 / 9b68e51433bc378179b1701096ae372614bef69dee3852fd88871067ab7c7800`。结果同为 strict PASS，25/25 Program、GraphExecutor `220/220` 且 0 failure/fallback、388/387/0 frame；没有 media ready state 或 callback，稳定 after 中面板按作者 state 0 逻辑移出画面。ready/after PNG SHA-256 为 `18428fa234feea2ce8123e2f7045bb56a5b4d92c8cff7a5128f2cff3316ecbcb / 7b71873f6c4ee3a4a379fca23723ec075bc153e2b5aa88405712cfbc7725a094`。正例证明 producer-agnostic inbox 到唯一 compositor 的消费链，不证明产品已经连接 macOS live now-playing producer、整样本逐像素 parity、媒体服务发现、全部媒体状态或 release；未运行 full corpus，也未改写人工 acceptance verdict。
+
 <a id="e-2026-09-13-effect-local-four"></a>
 ### 2026-09-13 四个 effect-local 首断点闭环与后继 unsupported 边界
 
@@ -33,7 +46,7 @@
 
 **逐样本执行：**`3323988600:65#effect#68` Pixelate 以 `genericCompilerArtifact` 编码，utility capture 65 成功；`3395777145:338#effect#339 / 392#effect#496` 的 Oscilloscope 进入 Program，日志不再出现 guard redefinition，utility capture 338/392 成功；`3472940912:50#effect#58` 的 tinted Standard Blur terminal 命中 `source-proven-previous-blurred-composite / generic-only`，全样本 6/6 active effect 为 Program；`3754630802:857#effect#1036` Fire 命中带静态 auxiliary 的 preserved-alpha Program。四次 graph contract 均成功，executor claimed/encoded/failure/local-fallback 依次为 `26/26/0/0`、`40/40/0/0`、`30/30/0/0`、`76/76/0/0`，目标均有 effect CPU invocation、GPU completion、publication、terminal 或下游消费及 next-frame。
 
-**可见边界与当前首断点：**原分辨率 ready/after 检查确认 332 的人物、烟雾与爱心动态，347 的人物/高光/雾，375 的人物、舞狮、灯笼、火焰和大范围动态均存在。339 的房间、时钟与声波已显示并变化，但作者 preview 的墙面海报/文字仍缺失；其 layer 125 两项 Workshop Blend 与一项 BlendGradient 仍为 `unified-capability-unavailable / r5-no-runtime-owner`。375 也仍有 layer 607 Workshop Bokeh Blur 与 layer 743 Motion Blur 处于相同 active unsupported 状态，尚未做隔离 ROI。因而本证据只关闭旧四样本 effect-local passthrough 队列，不声明 339/375 整样本视觉完成、逐像素 parity、全部 authored dialect、性能或 release；未运行 full corpus。
+**可见边界与当前首断点：**原分辨率 ready/after 检查确认 332 的人物、烟雾与爱心动态，347 的人物/高光/雾，375 的人物、舞狮、灯笼、火焰和大范围动态均存在。本批冻结时 339 的 layer 125 三项 effect 与 375 的 layer 607/743 两项 effect 仍 unsupported；339 已由后继[作者 media event 面板证据](#e-2026-09-13-authored-media-panel)关闭，375 两项仍开放且尚无隔离 ROI。因而本证据只关闭旧四样本 effect-local passthrough 队列，不声明 375 整样本视觉完成、逐像素 parity、全部 authored dialect、性能或 release；未运行 full corpus。
 
 <a id="e-2026-09-13-feedback-content-contract"></a>
 ### 2026-09-13 feedback 生命周期与内容语义分离

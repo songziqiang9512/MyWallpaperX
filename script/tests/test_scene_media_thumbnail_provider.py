@@ -1104,22 +1104,29 @@ let result: [String: Any] = [
             === beforeOversizedSource.current?.texture
         && pendingOversizedSource.preservedCurrent?.texture
             === beforeOversizedSource.preservedCurrent?.texture,
-    "oversizedSourcePreservedUnavailable":
+    "oversizedSourcePreservedReady":
         oversizedSource.generation == 2
         && oversizedSource.pendingGeneration == nil
         && oversizedSource.pendingIdentities.isEmpty
-        && oversizedSource.preservedCurrent == nil
+        && oversizedSource.preservedCurrent != nil
+        && oversizedSource.preservedCurrent?.texture.width == 256
+        && oversizedSource.preservedCurrent?.texture.height == 1
+        && pixel(oversizedSource.preservedCurrent?.texture)
+            == [12, 34, 56, 255]
         && oversizedSource.systemTextures[colorSystemIdentity] != nil
-        && oversizedSource.systemTextures[preservedSystemIdentity] == nil
-        && oversizedSource.publications[preservedSystemIdentity] == nil,
+        && oversizedSource.systemTextures[preservedSystemIdentity]
+            === oversizedSource.preservedCurrent?.texture
+        && oversizedSource.publications[preservedSystemIdentity]?.isComplete == true,
     "partialPurposeStatesExact":
         providerStateIsReady(
             oversizedSource,
             colorSystemIdentity,
             matching: oversizedSource.current?.texture
         )
-        && providerStateIsUnavailable(
-            oversizedSource, preservedSystemIdentity
+        && providerStateIsReady(
+            oversizedSource,
+            preservedSystemIdentity,
+            matching: oversizedSource.preservedCurrent?.texture
         )
         && providerStateIsReady(
             oversizedSource,
@@ -1349,8 +1356,20 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
             "candidateMappedSize: selectedSource.candidate?.mappedSize",
             preflight,
         )
-        self.assertNotIn("width: selectedSource.texture.width", preflight)
-        self.assertNotIn("height: selectedSource.texture.height", preflight)
+        puppet_geometry = preflight.index(
+            "if imageTextures.geometryProducts[layer.id] != nil {"
+        )
+        ordinary_image = preflight.index(
+            'if layer.contentKind != "solid" {', puppet_geometry
+        )
+        self.assertLess(
+            puppet_geometry,
+            preflight.index("width: selectedSource.texture.width", puppet_geometry),
+        )
+        self.assertLess(
+            preflight.index("height: selectedSource.texture.height", puppet_geometry),
+            ordinary_image,
+        )
         deferred = preflight.index("case .deferred:", target_preflight)
         defer_frame = preflight.index(
             "imageCompositor.deferResolvedMaterialFrame()", deferred
@@ -1500,7 +1519,7 @@ class SceneMediaThumbnailProviderTests(unittest.TestCase):
         self.assertTrue(result["clearStatesAbsent"])
         self.assertTrue(result["oversizedSourceColorReady"])
         self.assertTrue(result["oversizedSourceRetainsBothWhilePending"])
-        self.assertTrue(result["oversizedSourcePreservedUnavailable"])
+        self.assertTrue(result["oversizedSourcePreservedReady"])
         self.assertTrue(result["partialPurposeStatesExact"])
         self.assertTrue(result["firstMalformedHasNoInventedPrevious"])
         self.assertTrue(result["firstRecoveryPendingKeepsPreviousAbsent"])

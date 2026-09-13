@@ -2,6 +2,16 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 `3395777145` 作者 media 面板正反复核
+
+作者定义不包含鼠标点击回调。layer 203 的位置脚本监听 `mediaPlaybackChanged(state)`，layer 125 的 Timeline 脚本监听 `mediaThumbnailChanged` 并重启动画，layer 505 的 tint 脚本读取同一事件颜色。当前能力因此按作者事件、typed media snapshot 和 Timeline owner 实现；没有增加点击手势或样本分支。
+
+最终签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `86aa5754d46a42b50b96dbd54b99052717434742`，executable SHA-256 `c8d975a83acd4ac1eaacf690ac64d951980c64e3b8f780bc4873e351ca9a2ac1`。作者 media 正例从只读真实样本建立隔离副本，注入 512×512 straight-RGBA artwork、playback state 1、标题/艺术家/专辑和五色事件；输出 `/private/tmp/mwx-current-q1-339-author-media-contract-20260913-v5`，matrix/report/log SHA-256 为 `61200d3dfa5f2d2e2bbd927d0352b2d7b291a1a8191e468f0a2bc41c208f916b / cc285156cfde29fd2ce47901e1b830fcdd3e13ffae707633ab25b52f04f82f87 / b9c75ead65acaa82024ba2334304c0cf164121caca56948bc02db851a06cec55`。结果 `failures=[] / strict PASS`，25/25 active effect 均为 Program，GraphExecutor `154/154/154`、0 failure/fallback，271/270/0 frame；ready 与连续 series 中右侧作者尺寸封面、标题、艺术家和分隔线持续显示。ready/after PNG SHA-256 为 `63094d9a1a69e721eb94c0abfe4ec5ae701dc8a7a82c21d0419638adf6f6e162 / 8b833c06ca232f0def4e0a3dc5a6571ac254523b9e21b214692ce5bf777f10dc`。
+
+无 media 反例不注入任何 media 字段；输出 `/private/tmp/mwx-current-q1-339-no-media-negative-20260913-v1`，matrix/report/log SHA-256 为 `4905deb0f2de664dff8e88b9132011ef4545a60b95c8793470f983ede1f50f26 / c5e88ad92f8f4c61bc7c91f84a65d1aa02a24f3edeb5c6128ae7094709a6f858 / 9b68e51433bc378179b1701096ae372614bef69dee3852fd88871067ab7c7800`。结果仍为 strict PASS，25/25 Program、GraphExecutor `220/220` 且 0 failure/fallback、388/387/0 frame；没有 ready media state/callback，稳定 after 中面板按作者 state 0 逻辑移出画面。ready/after PNG SHA-256 为 `18428fa234feea2ce8123e2f7045bb56a5b4d92c8cff7a5128f2cff3316ecbcb / 7b71873f6c4ee3a4a379fca23723ec075bc153e2b5aa88405712cfbc7725a094`。
+
+本次关闭 layer 125 的 2×Workshop Blend 与 1×BlendGradient active unsupported；完整 same-provider vector、optional takeover、event-only value ownership 与 preserved-channel decode 合同见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-authored-media-panel)。这不改写人工 acceptance verdict，也不证明 macOS live now-playing producer、完整媒体状态、整样本逐像素 parity 或 release。
+
 ## 2026-09-13 四个 effect-local 首断点复核
 
 最终签名 Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `eec3f69c4d02fb3fe610167cce7f95bab3e6c809`，executable SHA-256 `af0570c1aae76d05f8131b8d198bd625c18002c2d3660797a9d26d2236206c53`）对只读真实样本 `3323988600 / 3395777145 / 3472940912 / 3754630802` 做 25 秒 fresh 定向回放。输出 `/private/tmp/mwx-current-q1-effect-local-four-20260913-v4`，report SHA-256 `b2a7478e33995b0521e6f254671720f139f4d0cd21b5ce2d5668a070d430cf36`；结果 4/4 `failures=[] / strict PASS`、loaded ratio 1.0、0 failed frame，四份 app log SHA-256 依次为 `2e6118c07e4badd9f125fce9535fa0ea5f9e818356773edaa1b11190f6961f5e / 6e9d91fb81acef56e930e7f08ba8d0775487e4d34a51ae0e93b6cdec7373188d / 8bfac5c1cd42de2570b9771c420b4c60e2d1317dfe68f3e2fffddc881cef6c41 / 8dea209b6b87b13f1a6b9a55157a34607d560cfcf42806d3138d33605ca03ba8`。
@@ -9,11 +19,11 @@
 | 样本 | 本次关闭的首断点 | 当前执行事实 | 尚未关闭 |
 | --- | --- | --- | --- |
 | `3323988600` | Pixelate 的 component-wise vector conversion | 5/5 active effect 为 Program；utility 65 成功；人物、烟雾与爱心动态可见 | 整样本逐像素 parity 未裁决 |
-| `3395777145` | vertex/fragment loop guard 生成符号碰撞 | 22 个 active Program，Oscilloscope 与 utility 338/392 完成，声波/时钟可见 | layer 125 的 2×Blend + 1×BlendGradient 无 owner；墙面海报/文字缺失 |
+| `3395777145` | vertex/fragment loop guard 生成符号碰撞 | 本批冻结时 22 个 active Program，Oscilloscope 与 utility 338/392 完成，声波/时钟可见 | layer 125 三项在后继作者 media 面板批次关闭；本行只保留旧首断点 provenance |
 | `3472940912` | Standard Blur 静态非单位 tint 被 unit-only gate 拒绝 | 6/6 active effect 为 Program；tinted terminal composite 为 generic-only；人物、高光与雾可见 | 独立 Blur ROI 与逐像素 parity 未裁决 |
 | `3754630802` | Fire 标量 LOD data sample 未进入 preserved-alpha fact | 29 个 active Program；Fire、utility 91/677/922、人物/舞狮/灯笼/火焰动态完成 | layer 607 Bokeh Blur 与 layer 743 Motion Blur 无 owner；尚无隔离 ROI |
 
-四个样本的 graph contract 均成功，executor 无 failure/local fallback，目标均有 CPU invocation、GPU completion、publication 和 terminal/下游消费与 next-frame。该段取代 2026-09-12 归档中的 effect-local passthrough 首断点，不改写人工 acceptance verdict，也不把仍 active unsupported 的 339/375 写成视觉完成。完整代码边界、focused 门和证据身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-effect-local-four)。
+四个样本的 graph contract 均成功，executor 无 failure/local fallback，目标均有 CPU invocation、GPU completion、publication 和 terminal/下游消费与 next-frame。该段取代 2026-09-12 归档中的 effect-local passthrough 首断点；339 的后继状态由上方作者 media 面板证据拥有，375 的两项 unsupported 仍开放。完整代码边界、focused 门和证据身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-effect-local-four)。
 
 ## 2026-09-13 feedback 内容合同与 `3749463715` utility 输出闭环
 

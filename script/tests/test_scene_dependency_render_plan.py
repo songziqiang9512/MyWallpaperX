@@ -296,6 +296,75 @@ enum Harness {
             visibleLayerIDs: [mixedConsumer.id],
             admittedResolvedMaterialReferences: mixedPotentialReferences
         )
+        let vectorProvider = layer(1325, visible: false)
+        let vectorConsumer = SceneRenderDescriptor.Layer(
+            id: 1515,
+            contentKind: "solid",
+            utilityLayer: nil,
+            dependencyLayerIDs: [vectorProvider.id],
+            childLayerIDs: [],
+            visible: true,
+            effects: [
+                effect(
+                    id: 964,
+                    provider: vectorProvider.id,
+                    path: "effects/workshop/direct/effect.json"
+                ),
+                shadowedEffect(
+                    id: 965,
+                    provider: vectorProvider.id,
+                    userTextureKind: .system
+                ),
+                shadowedEffect(
+                    id: 966,
+                    provider: vectorProvider.id,
+                    userTextureKind: .property
+                ),
+            ]
+        )
+        let vectorDescriptor = SceneRenderDescriptor(
+            layers: [vectorConsumer, vectorProvider],
+            renderOrderLayerIDs: [vectorConsumer.id, vectorProvider.id]
+        )
+        let vectorDirectReferences = Set(
+            SceneDependencyGraphAnalysis.references(
+                in: vectorDescriptor.layers
+            )
+        )
+        let vectorPotentialReferences = Set(
+            SceneDependencyGraphAnalysis
+                .potentialOptionalNamedFallbackReferences(
+                    in: vectorDescriptor.layers
+                )
+        )
+        let vectorDirectPlan = SceneDependencyRenderPlan(
+            descriptor: vectorDescriptor,
+            visibleLayerIDs: [vectorConsumer.id],
+            admittedResolvedMaterialReferences: vectorDirectReferences
+        )
+        let vectorPlan = SceneDependencyRenderPlan(
+            descriptor: vectorDescriptor,
+            visibleLayerIDs: [vectorConsumer.id],
+            admittedResolvedMaterialReferences:
+                vectorDirectReferences.union(vectorPotentialReferences)
+        )
+        let vectorPotentialBindings = SceneDependencyRenderPlan
+            .potentialOptionalNamedFallbackBindings(
+                descriptor: vectorDescriptor,
+                visibleLayerIDs: [vectorConsumer.id]
+            )[vectorConsumer.id] ?? []
+        let vectorDirectSlots = vectorDirectPlan.bindingsByConsumerLayerID[
+            vectorConsumer.id
+        ]?.referenceSlots.map { slot in
+            slot.effectID + ":" + String(slot.passIndex)
+                + ":" + String(slot.slotIndex)
+        } ?? []
+        let vectorExpandedSlots = vectorPlan.bindingsByConsumerLayerID[
+            vectorConsumer.id
+        ]?.referenceSlots.map { slot in
+            slot.effectID + ":" + String(slot.passIndex)
+                + ":" + String(slot.slotIndex)
+        } ?? []
         let propertyProvider = layer(1331, visible: false)
         let propertyConsumer = SceneRenderDescriptor.Layer(
             id: 1511,
@@ -929,6 +998,31 @@ enum Harness {
                     mixedConsumer.id
                 ]?.providerLayerID ?? -1,
                 "issues": mixedProviderPlan.issues.map {
+                    "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
+                },
+            ],
+            "singleProviderProgramVector": [
+                "directReferences": vectorDirectPlan.references.count,
+                "directSlots": vectorDirectSlots,
+                "potentialBindings": vectorPotentialBindings.count,
+                "potentialSingletons": vectorPotentialBindings.allSatisfy {
+                    $0.referenceSlots == [$0.slot]
+                },
+                "expandedReferences": vectorPlan.references.count,
+                "expandedSlots": vectorExpandedSlots,
+                "provider": vectorPlan.bindingsByConsumerLayerID[
+                    vectorConsumer.id
+                ]?.providerLayerID ?? -1,
+                "kind": vectorPlan.bindingsByConsumerLayerID[
+                    vectorConsumer.id
+                ].map { String(describing: $0.kind) } ?? "none",
+                "forward": vectorPlan.bindingsByConsumerLayerID[
+                    vectorConsumer.id
+                ]?.requiresForwardCapture == true,
+                "requiresProgram": vectorPlan.bindingsByConsumerLayerID[
+                    vectorConsumer.id
+                ]?.requiresResolvedMaterialProgram == true,
+                "issues": vectorPlan.issues.map {
                     "\($0.layerID):\($0.kind.rawValue):\($0.providerLayerID ?? -1)"
                 },
             ],
@@ -2826,6 +2920,29 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
                 "admittedBinding": True,
                 "admittedProvider": 1331,
             },
+        )
+
+    def test_one_provider_program_vector_preserves_authored_slot_order(self) -> None:
+        self.assertEqual(
+            self.result["singleProviderProgramVector"],
+            {
+                "directReferences": 1,
+                "directSlots": ["effect-964:0:1"],
+                "potentialBindings": 2,
+                "potentialSingletons": True,
+                "expandedReferences": 3,
+                "expandedSlots": [
+                    "effect-964:0:1",
+                    "effect-965:0:1",
+                    "effect-966:0:1",
+                ],
+                "provider": 1325,
+                "kind": "imageLayerBlend",
+                "forward": True,
+                "requiresProgram": True,
+                "issues": [],
+            },
+            self.result,
         )
 
     def test_multi_provider_composition_candidate_is_fail_closed(
