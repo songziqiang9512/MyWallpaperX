@@ -51,10 +51,10 @@
 
 ### M0 控制面命令化 + 公共层第一批（同进程）
 
-- **M0.1 命令层入公共层** ⬜：新建 `Core/PlaybackControl/`：`WallpaperEngineCommand`（loadScene/playVideo/setProperty/setPerformanceProfile/setMuted/pause/resume/switchNext/shutdown）+ `PlaybackEngineControlling` 协议 + 命令 multiplexer；video/scene/web 引擎各实现处理端；UI 只发命令。验收：UI 无直触引擎内部；依赖方向检查通过。
+- **M0.1 命令层入公共层** ✅ f33b2386：`Core/PlaybackControl/` 三件（WallpaperEngineCommand / PlaybackEngineControlling / PlaybackCommandMultiplexer，未消费命令显式返回 false）；Scene 处理端接真实入口（loadScene→requestLaunch、pause/resume→setPlaybackPaused、stop→stop()）；video 处理端（pause/resume/stop→WallpaperEngine，setMuted/switchNext→WallpaperManager）。验收：UI 无直触引擎内部 ✅（状态栏已改）；web 处理端待 web 模块需要时补。
 - **M0.2 静音态升公共层** ⬜：静音从 video 音量派生态（`WallpaperManager+PlaybackSettings`）拆为公共回放态；video 保 volume 恢复语义，Scene 接 `SceneSoundPlaybackRegistry`。验收：任一引擎激活时菜单/设置静音一致生效。
 - **M0.3 设置容器拆公共层 + FPS 档** ⬜：`AppKitSettingsContainerView`/`AppSettingsSection` 从 `Modules/VideoLibrary/UI` 整块搬 `Shared/Settings/`；`efficiency` 分区加"最高 FPS：30/60"（默认 60）；audio 区双引擎生效。验收：30 档下一帧起 30Hz；重启保持。
-- **M0.4 状态栏菜单打通** ⬜：`App/StatusBarController` 三键（切换壁纸/静音/播放暂停）改发命令，跨引擎生效；文案图标随引擎状态刷新。验收：Scene 激活时三键全部作用于 Scene。
+- **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
 - **M0.5 播放按钮交互** ⬜：点击 ≤1 runloop turn 切 pending 图标；订阅 launch 五阶段状态映射 loading/就绪/失败；video 路径同型。
 - **M0.6 属性热更新** ⬜（§4.2）。
 - **M0.7 性能档两档** ⬜（§4.1）。
@@ -62,8 +62,8 @@
 
 ### M1 度量地基
 
-- **M1.1 常开定长 counter**：新 hub（定长累加槽，禁止无界数组/percentile；现有 `SceneFramePerformanceTelemetry` 禁改常开）。指标：frameTime/cpuUpdate/encode/gpuTime/drawCalls/passes/pipelineSwitches/targetSwitch/visibleObjects/textureMemory/rtMemory/busy 空转/geometry 与 fallback 分支计数。
-- **M1.2 signpost**：帧内阶段 + 启动五阶段 + FirstVisibleFrame 时间戳。
+- **M1.1 常开定长 counter** 🔶 e04d6a26+300f6a1a：hub 已落地（16 定长槽：帧四分类、cpuFrame/renderer/drawableWait、drawCalls、7 个帧内阶段 micros）+ launch 五阶段/firstVisibleFrame 首次时间戳；现有 `SceneFramePerformanceTelemetry` 保持仅 debug 证据窗口。剩余：textureMemory/rtMemory/pipelineSwitches/geometry 与 fallback 分支计数（随 M2/M4 批次补）。
+- **M1.2 signpost** ✅ e04d6a26：OSSignposter 薄封装 + launch-state 事件 + firstVisibleFrame 首次记录。帧内阶段 interval 待按需补（counter 已覆盖归因）。
 - **M1.3 Debug HUD**：debug 构建读 counter 展示全指标；常开成本 <0.1ms/帧。
 - 验收：实测基线报告（各风险项占比 + TTFVF），作为 M2-M6 的 before。
 
