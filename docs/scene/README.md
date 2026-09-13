@@ -17,6 +17,8 @@ Scene 当前路线是“保留 Swift/Metal 底座，优先执行声明式作者�
 
 - [Scene 兼容运行时架构](runtime-architecture.md)：官方公开合同、固定客户端静态观察、Mirage clean-room 结构和项目独立方案；规定 identity、失败粒度、compiler/VM/particle/executor 的职责。
 - [Scene 兼容执行路线](scene-compatibility-roadmap.md)：唯一现役计划；以全样本验收台账的人工裁决为完成门，按共享首断点集群排序 P0–P5；V0–V5 只保留为能力轨名称。
+- [Scene 引擎重构工程计划](engine-refactor-program.md)：派生工程队列，只拥有性能、进程隔离（daemon）、控制面统一、性能预算与公共层的阶段与完成门；与兼容路线冲突时兼容语义合同优先。
+- [Scene Runtime 事实架构地图](runtime-as-built-map.md)：代码实际接线的 as-built 参考——加载链、所有权、线程地图、不变量与"改A坏B"雷区表；改 runtime 代码前必读。
 - [Scene 当前断点修复队列](scene-open-breakpoint-queue-2026-09-09.md)：按当前证据维护的短执行入口；分开记录现役首断点、人工裁决债务、观察项与 B1–B9 退役状态，不拥有阶段顺序或完成门。
 - [Scene 开发工作流](development-workflow.md)：首断点、最小正反门、验证梯度和消融准则；不保存批次状态。
 - [Scene 启动响应与按需诊断合同](../architecture/scene-launch-responsiveness-contract.md)：详情默认不诊断、异步 preparation、候选首帧提交、回滚、进度和缓存边界；进入时机仍由唯一现役路线决定。

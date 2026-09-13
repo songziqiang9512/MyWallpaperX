@@ -1,13 +1,15 @@
 {
   "schemaVersion": 1,
-  "discovery": {
+    "discovery": {
     "historyRoot": "docs/history",
     "additionalPaths": [
       "docs/architecture/appkit-migration.md",
       "docs/architecture/scene-launch-responsiveness-contract.md",
       "docs/architecture/technology-stack-boundaries.md",
       "docs/scene/development-workflow.md",
+      "docs/scene/engine-refactor-program.md",
       "docs/scene/runtime-architecture.md",
+      "docs/scene/runtime-as-built-map.md",
       "docs/scene/scene-compatibility-roadmap.md",
       "docs/scene/scene-open-breakpoint-queue-2026-09-09.md",
       "docs/scene/semantics/official-client-behavior-research-workflow.md",
@@ -282,9 +284,21 @@
       "currentStateAuthority": "docs/scene/semantics/runtime-evidence-current.md"
     },
     {
+      "path": "docs/scene/engine-refactor-program.md",
+      "role": "active-plan",
+      "entrypoint": "docs/scene/README.md",
+      "retirementCondition": "M0–M6 全部完成、daemon 化与两档性能预算成为产品默认形态、正常帧消费 prepared 表示、控制面统一经命令层，且稳定架构合同（runtime-architecture/technology-stack-boundaries）、能力台账与运行证据接管全部终态描述后，本文转 historical-evidence。本计划是 Scene 专题的派生工程队列，不接管兼容能力段位与样本验收；与 scene-compatibility-roadmap.md 冲突时兼容语义合同优先。"
+    },
+    {
       "path": "docs/scene/runtime-architecture.md",
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
+      "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
+    },
+    {
+      "path": "docs/scene/runtime-as-built-map.md",
+      "role": "stable-contract",
+      "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/semantics/coverage-ledger.md"
     },
     {
