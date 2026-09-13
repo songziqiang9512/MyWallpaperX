@@ -143,6 +143,34 @@ static int update_bool(
     );
 }
 
+static int update_effectful_bool(
+    MWXSceneQuickJSOwner *owner,
+    uint64_t generation,
+    uint32_t input,
+    MWXSceneQuickJSResult expected,
+    uint32_t expected_output,
+    const char *label
+) {
+    char diagnostic[512] = {0};
+    uint32_t output = 0;
+    MWXSceneQuickJSFrameInput frame = {
+        .time_of_day = 0.25,
+        .frame_time = 1.0 / 60.0,
+        .runtime = 2.0,
+    };
+    MWXSceneQuickJSResult actual =
+        mwx_scene_quickjs_owner_update_effectful_bool_with_properties(
+            owner, generation, input, &frame, NULL, 0, "{}", 2,
+            &output, diagnostic, sizeof(diagnostic)
+        );
+    return check(
+        actual == expected &&
+            (expected != MWX_SCENE_QUICKJS_OK || output == expected_output),
+        label,
+        diagnostic
+    );
+}
+
 static int media_thumbnail(
     MWXSceneQuickJSOwner *owner,
     uint64_t generation,
@@ -585,7 +613,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 0, scale, angles, 1, 1,
+            domain, 0, scale, angles, 0, 1, 1,
             "", 0, "", 0, 32, color, diagnostic, sizeof(diagnostic)
         );
     }
@@ -594,7 +622,7 @@ static int configure_layers(MWXSceneQuickJSDomain *domain) {
         const double angles[3] = {0, 0, 0};
         const double color[3] = {1, 1, 1};
         result = mwx_scene_quickjs_domain_update_layer_runtime_fields(
-            domain, 1, scale, angles, 1, 0.75,
+            domain, 1, scale, angles, 0, 1, 0.75,
             "clock", strlen("clock"), "clock.ttf", strlen("clock.ttf"),
             48, color, diagnostic, sizeof(diagnostic)
         );
@@ -2997,6 +3025,65 @@ int main(void) {
         42, 2, "clock", "static layer transform snapshot"
     );
 
+    const char *authored_self_destroy_source =
+        "export function update(value){"
+        "thisScene.destroyLayer('C1');return value;}";
+    MWXSceneQuickJSResult authored_self_destroy_creation =
+        MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    MWXSceneQuickJSOwner *authored_self_destroy =
+        mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+            domain, authored_self_destroy_source,
+            strlen(authored_self_destroy_source), 145, 100000,
+            &authored_self_destroy_creation, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        authored_self_destroy != NULL &&
+            authored_self_destroy_creation == MWX_SCENE_QUICKJS_OK,
+        "authored self destroy compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        authored_self_destroy, 42, "authored self destroy owner identity"
+    );
+    failures += update_effectful_bool(
+        authored_self_destroy, 145, 1, MWX_SCENE_QUICKJS_OK, 1,
+        "authored self destroy by name"
+    );
+    failures += layer_mutation(
+        authored_self_destroy, 0, MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY,
+        0, 0, 42, 2, "clock", "authored self destroy snapshot"
+    );
+    mwx_scene_quickjs_owner_commit_layer_mutations(authored_self_destroy);
+
+    const char *authored_peer_destroy_source =
+        "export function update(value){"
+        "thisScene.destroyLayer('anchor');return value;}";
+    MWXSceneQuickJSResult authored_peer_destroy_creation =
+        MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    MWXSceneQuickJSOwner *authored_peer_destroy =
+        mwx_scene_quickjs_owner_create_effectful_bool_with_budget(
+            domain, authored_peer_destroy_source,
+            strlen(authored_peer_destroy_source), 146, 100000,
+            &authored_peer_destroy_creation, diagnostic, sizeof(diagnostic)
+        );
+    failures += check(
+        authored_peer_destroy != NULL &&
+            authored_peer_destroy_creation == MWX_SCENE_QUICKJS_OK,
+        "authored peer destroy compile", diagnostic
+    );
+    failures += configure_owner_layer(
+        authored_peer_destroy, 42, "authored peer destroy owner identity"
+    );
+    failures += update_effectful_bool(
+        authored_peer_destroy, 146, 1, MWX_SCENE_QUICKJS_EXCEPTION, 0,
+        "authored peer destroy rejected"
+    );
+    failures += check(
+        mwx_scene_quickjs_owner_layer_mutation_count(
+            authored_peer_destroy
+        ) == 0,
+        "rejected authored peer destroy rolls back", ""
+    );
+
     const char *authored_peer_source =
         "const replacement=engine.registerAsset('fonts/replacement.ttf');"
         "export function update(value){"
@@ -3701,6 +3788,8 @@ int main(void) {
     mwx_scene_quickjs_owner_destroy(dynamic_intruder);
     mwx_scene_quickjs_owner_destroy(static_sort);
     mwx_scene_quickjs_owner_destroy(static_setter);
+    mwx_scene_quickjs_owner_destroy(authored_self_destroy);
+    mwx_scene_quickjs_owner_destroy(authored_peer_destroy);
     mwx_scene_quickjs_owner_destroy(authored_peer);
     mwx_scene_quickjs_owner_destroy(authored_observer);
     mwx_scene_quickjs_owner_destroy(missing_target_rollback);

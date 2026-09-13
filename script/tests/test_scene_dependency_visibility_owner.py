@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Dependency-bearing visibility executes in the real value-only VM owner."""
+"""Dependency-bearing visibility executes in the typed effectful VM owner."""
 
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ enum Harness {
             frame: frame
         )
         let disabled = mutatingCandidate.vectorProgram.evaluate(
-            inputs: [target: .bool(true)],
+            inputs: [target: rejected.values[target] ?? .bool(true)],
             effectivePropertyValues: [:],
             frame: frame
         )
@@ -130,10 +130,12 @@ enum Harness {
             "callbackFailure": String(describing: rejected.failures[target]),
             "callbackFailureMessage": failureMessage(rejected.failures[target]),
             "callbackValuePublished": rejected.values[target] != nil,
+            "callbackValue": bool(rejected.values[target]),
             "callbackMutationsPublished": rejected.materialFunctionMutations.count
                 + rejected.animationMutations.count
                 + rejected.layerMutations.count,
             "disabledValuePublished": disabled.values[target] != nil,
+            "disabledValue": bool(disabled.values[target]),
             "disabledFailures": disabled.failures.count,
             "mutableHandleProjected": mutableHandleProjection.targets.contains(target),
             "catalogSignatureMatchesToken":
@@ -353,16 +355,17 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
         self.assertGreaterEqual(self.value["positiveVideoCommands"], 8)
         self.assertEqual(self.value["positiveVideoLayers"], [21, 22])
 
-    def test_callback_mutation_is_rejected_before_value_publication(self) -> None:
-        self.assertEqual(self.value["callbackFailureCode"], "invalid-argument")
-        self.assertIn("conflicting target visibility", self.value["callbackFailure"])
-        self.assertFalse(self.value["callbackValuePublished"])
+    def test_callback_mutation_becomes_the_typed_visibility_value(self) -> None:
+        self.assertEqual(self.value["callbackFailureCode"], "")
+        self.assertTrue(self.value["callbackValuePublished"])
+        self.assertFalse(self.value["callbackValue"])
         self.assertEqual(self.value["callbackMutationsPublished"], 0)
-        self.assertFalse(self.value["disabledValuePublished"])
+        self.assertTrue(self.value["disabledValuePublished"])
+        self.assertFalse(self.value["disabledValue"])
         self.assertEqual(self.value["disabledFailures"], 0)
 
-    def test_direct_mutable_owner_handles_remain_outside_profile(self) -> None:
-        self.assertFalse(self.value["mutableHandleProjected"])
+    def test_direct_mutable_owner_uses_the_same_typed_profile(self) -> None:
+        self.assertTrue(self.value["mutableHandleProjected"])
 
     def test_launch_frozen_catalog_token_gates_snapshot_publication(self) -> None:
         self.assertTrue(self.value["catalogSignatureMatchesToken"])

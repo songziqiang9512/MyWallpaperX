@@ -283,6 +283,8 @@ extension SceneDesktopWallpaperHost {
                     videoSnapshots: sceneScriptVideoSnapshots,
                     textureAnimationSnapshots:
                         sceneScriptTextureAnimationSnapshots,
+                    destroyedAuthoredLayerIDs:
+                        layerMutationSnapshot.destroyedAuthoredLayerIDs,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
                     runtimeFieldLayerIDs: launchContext.frameSchema.sceneScriptRuntimeFieldLayerIDs,
                     awaitingHostFrameOutcome: true

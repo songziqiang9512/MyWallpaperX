@@ -2,13 +2,17 @@ import Foundation
 
 nonisolated extension SceneRenderDescriptor {
     func applying(_ topology: SceneScriptLayerTopologySnapshot) -> Self {
-        var merged = layers
+        var merged = layers.filter {
+            !topology.destroyedAuthoredLayerIDs.contains($0.id)
+        }
         merged.append(contentsOf: topology.dynamicLayers)
         return .init(
             entryPath: entryPath, camera: camera, lighting: lighting,
             hdrEnabled: hdrEnabled,
             layers: merged,
-            rootLayerIDs: rootLayerIDs + topology.dynamicLayers.map { $0.id },
+            rootLayerIDs: rootLayerIDs.filter {
+                !topology.destroyedAuthoredLayerIDs.contains($0)
+            } + topology.dynamicLayers.map { $0.id },
             renderOrderLayerIDs: topology.renderOrderLayerIDs,
             renderOrderPolicy: renderOrderPolicy,
             modelMaterialLinks: modelMaterialLinks, materialPasses: materialPasses,

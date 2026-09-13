@@ -2809,13 +2809,47 @@ static JSValue destroy_layer(
     MWXSceneQuickJSOwner *owner = opaque;
     if (owner->value_only)
         return JS_ThrowTypeError(context, "Boolean value owner scene handle is read-only");
-    MWXSceneQuickJSLayerRecord *record = argc == 1
-        ? resolve_layer_argument(context, owner, argv[0]) : NULL;
-    if (record == NULL || !record->dynamic ||
-        record->owner_identity != owner->identity)
+    MWXSceneQuickJSLayerRecord *record = NULL;
+    if (argc == 1 && JS_IsString(argv[0])) {
+        size_t length = 0;
+        const char *name = JS_ToCStringLen(context, &length, argv[0]);
+        if (name == NULL) return JS_EXCEPTION;
+        for (uint32_t index = 0; index < owner->domain->layer_count; ++index) {
+            MWXSceneQuickJSLayerRecord *candidate =
+                &owner->domain->layers[index];
+            if (candidate->configured && !candidate->destroyed &&
+                candidate->name != NULL && strlen(candidate->name) == length &&
+                memcmp(candidate->name, name, length) == 0) {
+                record = candidate;
+                break;
+            }
+        }
+        JS_FreeCString(context, name);
+    } else if (argc == 1) {
+        record = resolve_layer_argument(context, owner, argv[0]);
+    }
+    if (record == NULL)
         return JS_ThrowTypeError(context, "destroyLayer target is stale");
     const uint32_t record_index =
         (uint32_t)(record - owner->domain->layers);
+    if (!record->dynamic) {
+        if (!owner->effectful_boolean || !owner->target_layer_configured ||
+            record_index != owner->target_layer_index)
+            return JS_ThrowTypeError(
+                context, "destroyLayer may only remove the authored owner layer"
+            );
+        MWXSceneQuickJSAuthoredLayerMutationRecord *mutation =
+            stage_authored_mutation(owner, record_index);
+        if (mutation == NULL)
+            return JS_ThrowInternalError(
+                context, "layer mutation buffer exceeded"
+            );
+        mutation->destroyed = true;
+        mutation->fields = 0;
+        return JS_UNDEFINED;
+    }
+    if (record->owner_identity != owner->identity)
+        return JS_ThrowTypeError(context, "destroyLayer target is stale");
     if (!append_dynamic_layer_topology_operation(
             owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_DESTROY,
             record_index, -1))
@@ -3136,9 +3170,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         MWXSceneQuickJSLayerRecord *record =
             &owner->domain->layers[staged->layer_index];
         *mutation = (MWXSceneQuickJSLayerMutation){
-            .kind = MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
+            .kind = staged->destroyed
+                ? MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY
+                : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
             .dynamic = 0,
-            .fields = staged->fields,
+            .fields = staged->destroyed ? 0 : staged->fields,
             .layer_id = record->layer_id,
             .order_index = record->order_index,
             .visible = staged->visible,

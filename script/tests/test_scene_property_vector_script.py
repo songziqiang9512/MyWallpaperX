@@ -61,6 +61,7 @@ SOURCES = [
     VM / "SceneScriptVectorProgramModels.swift",
     VM / "SceneScriptVectorProgram.swift",
     VM / "SceneScriptVectorProgram+Registrations.swift",
+    VM / "SceneScriptBooleanVisibilityValidation.swift",
     VM / "SceneScriptVectorRuntime.swift",
     VM / "SceneScriptVectorOwner+PuppetBones.swift",
 ]

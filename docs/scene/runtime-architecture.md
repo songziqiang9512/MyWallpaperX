@@ -34,6 +34,8 @@ project / scene / package / texture
 
 SceneScript 对 layer 的查询只能是上述主链状态的 typed projection。layer identity、作者顺序、parent、只读 authored size 和静态 transform 在 load/generation 边界由同一个 descriptor 准备；逐帧 local transform 与 world matrix 必须从现役 immutable dynamic snapshot 和 renderer 的 canonical world-frame resolver 取得，并随既有 surface transaction 原子提交、回滚。VM bridge 只验证并复制 column-major ABI，不能另做坐标换算或保存第二份 transform 权威。同一 callback 的 local transform setter 可读取自己的 staged local 值，但 world matrix 只在整帧提交后的下一 snapshot 更新；缺少 canonical matrix 时只拒绝该 getter。不得为 matrix、parent、attachment 或 dynamic layer 增设另一套坐标系统、snapshot、调度器或 renderer。
 
+SceneScript cursor hit 同样只能消费 renderer 的 canonical world frame、camera projection 和 layer size。作者省略的 local transform 字段按 renderer 已有默认值及 parent 继承解析，cursor owner 不得要求这些字段重复显式声明，也不得另建平行的 hit-test 坐标或 parallax 规则。事件准入由 descriptor identity、typed owner、公开 callback 和静态预算决定，禁止扫描 JavaScript 源码写法来区分同一种 object visibility owner。
+
 兼容 profile 只能由 authored 语义、拓扑、类型化资源/状态、静态预算和失败合同定义，禁止包含 sample/layer/path/hash/screenshot 身份。每个 profile 必须能由现有通用 primitive 表达，并声明局部失败半径、fallback 原因和退役条件；若需要第二套 registry、clock、property tree、graph 或 compositor，必须停止并重新设计。Puppet 的现役产品是 `GeometryProduct`：静态 bind pose 与动态 pose 都保留原始 mesh 像素坐标和作者 UV，调用方把层级 transform、作者 origin/scale、pivot、parallax 和 camera VP 合成唯一 world MVP，mesh 最终只向主 target 编码一次。旧 coverage 归一化、coverage 大纹理、逐帧重组纹理、尺寸 ceiling、重组预算/cache 和 `.puppet` layer-source identity 已退役。只有作者 package 确实缺少所引用 mesh 时，才允许该局部层以明确原因降级为普通 `TextureProduct`；非法路径、mesh 读取/解析/验证、资源分配或 encode 失败不能把 atlas 冒充组合输出。命名图层 provider 当前只表达完整栅格层源，不能携带 mesh/world transform，因此 Puppet 作为跨层 provider 在依赖计划编译阶段明确拒绝，直到建立能原子携带几何与放置坐标的 typed publication。当前能力只覆盖台账登记的 Puppet mesh/version/动画形状，不外推为通用 3D、全部 Puppet 语义或官方逐像素 parity。
 
 实施时按能够闭合真实画面的纵向切片扩展这条链。不得先分别建设完整 compiler、RenderGraph、VM、particle platform，再等待它们全部完成后才允许真实内容执行。
@@ -286,6 +288,8 @@ Timeline、user property、SceneScript、pointer、audio、media 和 system stat
 3. `topology/VM mutation transaction`：对象/层/effect 增删、visibility/condition 引起的图变化，以及脚本产生的受控 mutation。
 
 producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit 统一决定；consumer 只读取与自身职责匹配的 channel，不得各自建立状态系统，也不得把 resource generation 或 topology change 伪装成普通 value-only 更新。
+
+作者层的 SceneScript topology mutation 必须保持 owner、identity 和失败域可证明。当前只允许 effectful object-visibility owner 销毁自身且无子层的 authored layer；该操作与当帧 Boolean value 原子求值，只有全部 surface submission 成功后才从 render order、descriptor projection 和下一帧 VM snapshot 同时消失。跨 owner 销毁、带子层销毁、静态 sort/create、stale handle 和回生继续局部拒绝，不能用普通 `visible=false` 冒充 topology 已改变。
 
 TextureAnimation 的脚本控制遵守同一边界：launch preparation 只登记 animated TEX 的 immutable frame/source 定义；每帧在 QuickJS callback 前由唯一 SceneClock 与现有播放控制状态形成 immutable handle snapshot。`rate/play/pause/stop/setFrame/join` 只产生 owner-scoped typed command，全部 surface submission 成功后才提交，并从下一帧同时影响普通 atlas UV、resolved-material preflight 和既有 multi-image upload。播放控制不拥有 texture、provider、timer、clock、resource registry 或 renderer；`join` 只移除 layer-local override。prepared 动画必须由 frame batch 提供 playback time，consumer 不得自行回读 `sceneTime` 形成第二条时钟路径。
 

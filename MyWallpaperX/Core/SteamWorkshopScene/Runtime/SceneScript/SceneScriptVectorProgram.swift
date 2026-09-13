@@ -591,29 +591,32 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 interruptBudget: interruptBudget
             ) {
             case let .success(evaluation):
-                let value = evaluation.value
-                if binding.definition.valueType == .bool {
-                    guard case let .layer(layerID, .visibility) = target,
-                          case let .bool(visible) = value,
-                          callbackLayerMutations.allSatisfy({ mutation in
-                              mutation.kind == .upsert && !mutation.isDynamic
-                                  && mutation.layerID == layerID
-                                  && mutation.fields == .visibility
-                                  && mutation.visible == visible
-                          }) else {
-                        failures[target] = .invalidArgument(
-                            "Boolean value owner produced conflicting target visibility"
-                        )
-                        disabledTargets.insert(target)
-                        binding.owner.discardLayerMutations()
-                        continue
-                    }
-                    callbackLayerMutations.removeAll(keepingCapacity: true)
-                }
                 callbackLayerMutations.insert(
                     contentsOf: initializationLayerMutations,
                     at: callbackLayerMutations.startIndex
                 )
+                callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
+                callbackLayerMutations = SceneScriptLayerMutation.coalescing(
+                    callbackLayerMutations
+                )
+                let value: SceneDynamicValue
+                if binding.definition.valueType == .bool {
+                    switch binding.owner.validateBooleanFrame(
+                        value: evaluation.value,
+                        mutations: callbackLayerMutations
+                    ) {
+                    case let .success(resolved):
+                        value = resolved.value
+                        callbackLayerMutations = resolved.mutations
+                    case let .failure(failure):
+                        failures[target] = failure
+                        disabledTargets.insert(target)
+                        binding.owner.discardLayerMutations()
+                        continue
+                    }
+                } else {
+                    value = evaluation.value
+                }
                 if case let .failure(failure) = binding.owner.commitStorage() {
                     failures[target] = failure
                     disabledTargets.insert(target)
@@ -646,11 +649,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 callbackAnimationMutations.append(
                     contentsOf: evaluation.animationMutations
                 )
-                callbackLayerMutations.append(contentsOf: evaluation.layerMutations)
                 callbackPuppetBoneMutations.append(contentsOf: evaluation.puppetBoneMutations)
-                callbackLayerMutations = SceneScriptLayerMutation.coalescing(
-                    callbackLayerMutations
-                )
                 callbackVideoCommands.append(contentsOf: evaluation.videoCommands)
                 callbackTextureAnimationCommands.append(
                     contentsOf: evaluation.textureAnimationCommands

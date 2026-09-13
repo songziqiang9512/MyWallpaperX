@@ -354,9 +354,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     }
 
     private func merging(with newer: Self) -> Self {
-        guard kind == .upsert, newer.kind == .upsert,
+        guard kind != .destroy, kind == .upsert, newer.kind == .upsert,
               !isDynamic, !newer.isDynamic else {
-            return newer
+            return kind == .destroy ? self : newer
         }
         let mergedFields = fields.union(newer.fields)
         return .init(
@@ -496,7 +496,7 @@ nonisolated enum SceneScriptLayerMutationBridge {
                 }
             }
             switch (kind, raw.dynamic, raw.fields) {
-            case (.destroy, 1, 0), (.upsert, 1, 0):
+            case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):
                 break
             case (.upsert, 0, _)
                 where !fields.isEmpty && fields.isSubset(of: .authoredFields):
@@ -685,7 +685,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
-        catalogToken: String? = nil,
+        destroyedAuthoredLayerIDs: Set<Int> = [], catalogToken: String? = nil,
         runtimeFieldLayerIDs: Set<Int>? = nil,
         awaitingHostFrameOutcome: Bool = false
     ) throws {
@@ -727,7 +727,7 @@ nonisolated extension SceneScriptQuickJSDomain {
             snapshot,
             descriptor: descriptor,
             videoSnapshots: videoSnapshots,
-            textureAnimationSnapshots: textureAnimationSnapshots,
+            textureAnimationSnapshots: textureAnimationSnapshots, destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic
         )

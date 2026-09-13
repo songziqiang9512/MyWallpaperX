@@ -391,6 +391,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
         layerID: Int
     ) -> Result<SceneScriptVectorEvaluation, SceneScriptScalarRuntimeFailure> {
         let publishedLayerMutations: [SceneScriptLayerMutation]
+        let resolvedValue: SceneDynamicValue
         if valueType == .bool {
             guard mutations.materialFunctions.isEmpty,
                   mutations.animations.isEmpty else {
@@ -399,65 +400,19 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
                     "Boolean value owner produced out-of-cohort mutations"
                 ))
             }
-            if allowsDynamicLayerSideEffects {
-                var resolved: [SceneScriptLayerMutation] = []
-                resolved.reserveCapacity(mutations.layers.count)
-                for mutation in mutations.layers {
-                    if !mutation.isDynamic {
-                        guard mutation.kind == .upsert,
-                              !mutation.fields.isEmpty,
-                              mutation.fields.isSubset(of: .authoredFields) else {
-                            SceneScriptLayerMutationBridge.discard(owner: handle)
-                            return .failure(.invalidArgument(
-                                "Boolean dynamic-layer owner produced an invalid authored mutation"
-                            ))
-                        }
-                        if mutation.layerID != layerID {
-                            resolved.append(mutation)
-                            continue
-                        }
-                        guard !mutation.fields.contains(.visibility)
-                                || mutation.visible == publishedValue.boolValue else {
-                            SceneScriptLayerMutationBridge.discard(owner: handle)
-                            return .failure(.invalidArgument(
-                                "Boolean dynamic-layer owner visibility disagrees with its value"
-                            ))
-                        }
-                        let transformFields = mutation.fields.subtracting(.visibility)
-                        if !transformFields.isEmpty {
-                            resolved.append(
-                                mutation.selectingAuthoredFields(transformFields)
-                            )
-                        }
-                        continue
-                    }
-                    guard let assetPath = mutation.assetPath,
-                          let modelPath = dynamicImagePathsByAuthoredIdentity[
-                            assetPath.lowercased()
-                          ] else {
-                        SceneScriptLayerMutationBridge.discard(owner: handle)
-                        return .failure(.invalidArgument(
-                            "Boolean dynamic-layer owner requested an unprepared asset"
-                        ))
-                    }
-                    resolved.append(mutation.resolvingAssetPath(to: modelPath))
-                }
-                publishedLayerMutations = resolved
-            } else {
-                guard mutations.layers.allSatisfy({ mutation in
-                    mutation.kind == .upsert && !mutation.isDynamic
-                        && mutation.layerID == layerID
-                        && mutation.fields == .visibility
-                        && mutation.visible == publishedValue.boolValue
-                }) else {
-                    SceneScriptLayerMutationBridge.discard(owner: handle)
-                    return .failure(.invalidArgument(
-                        "Boolean value owner produced out-of-cohort mutations"
-                    ))
-                }
-                publishedLayerMutations = []
+            switch validateBooleanFrame(
+                value: publishedValue,
+                mutations: mutations.layers
+            ) {
+            case let .success(resolved):
+                resolvedValue = resolved.value
+                publishedLayerMutations = resolved.mutations
+            case let .failure(failure):
+                SceneScriptLayerMutationBridge.discard(owner: handle)
+                return .failure(failure)
             }
         } else {
+            resolvedValue = publishedValue
             publishedLayerMutations = mutations.layers
         }
         let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
@@ -468,7 +423,7 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             return .failure(failure)
         }
         return .success(.init(
-            value: publishedValue,
+            value: resolvedValue,
             materialFunctionMutations: mutations.materialFunctions,
             animationMutations: mutations.animations,
             layerMutations: publishedLayerMutations,
@@ -476,6 +431,24 @@ nonisolated final class SceneScriptVectorOwner: @unchecked Sendable {
             videoCommands: mutations.videoCommands,
             textureAnimationCommands: mutations.textureAnimationCommands
         ))
+    }
+
+    func validateBooleanFrame(
+        value publishedValue: SceneDynamicValue,
+        mutations: [SceneScriptLayerMutation]
+    ) -> Result<
+        (value: SceneDynamicValue, mutations: [SceneScriptLayerMutation]),
+        SceneScriptScalarRuntimeFailure
+    > {
+        SceneScriptBooleanVisibilityValidation.validate(
+            valueType: valueType,
+            target: target,
+            allowsLayerSideEffects: allowsDynamicLayerSideEffects,
+            dynamicImagePathsByAuthoredIdentity:
+                dynamicImagePathsByAuthoredIdentity,
+            value: publishedValue,
+            mutations: mutations
+        )
     }
 
     private func sceneScriptInput(

@@ -412,21 +412,15 @@ nonisolated extension SceneScriptVectorProgram {
                 in: binding.source,
                 descriptor: descriptor
             ) ?? []
-        let isIndependent = independentBooleanValueSource(binding.source)
-        let isStateful = statefulBooleanOwnerSource(binding.source)
-        let supportedContentKinds = isIndependent
-            ? ["image", "solid", "text"]
-            : ["image", "solid", "text", "container"]
-        guard isIndependent || isStateful || !dynamicImageReferences.isEmpty,
-              !directThisLayerVisibilityMutation(binding.source),
-              layer.id == layerID,
+        guard layer.id == layerID,
               layer.layerIndex == objectIndex,
               layer.visible == authored,
               binding.targetPath == [
                   .key("objects"), .index(objectIndex), .key("visible"),
               ],
-              supportedContentKinds.contains(layer.contentKind),
-              isStateful || (layer.parentID == nil && layer.childLayerIDs.isEmpty),
+              ["image", "solid", "text", "container"].contains(
+                  layer.contentKind
+              ),
               case nil = layer.utilityLayer else { return nil }
         let validWrapper =
             (binding.wrapperKeys == ["script", "value"]
@@ -458,74 +452,10 @@ nonisolated extension SceneScriptVectorProgram {
                 ),
             hasCurrentAnimation: false,
             dynamicImageReferences: dynamicImageReferences,
-            requiresStatefulOwner: isStateful,
+            requiresStatefulOwner: true,
             evaluatesAfterSharedProviders: false,
             dynamicMaterialModelPath: nil
         )
-    }
-
-    /// A visibility wrapper may also be the authored scene-state producer for
-    /// later bindings. Layer, shared, and scene mutations all use the
-    /// existing effectful QuickJS owner and frame journals.
-    private static func statefulBooleanOwnerSource(_ source: String) -> Bool {
-        guard source.utf8.count <= 256 * 1024,
-              source.range(
-                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
-                  options: .regularExpression
-              ) != nil,
-              containsIdentifier("shared", in: source)
-                || containsIdentifier("thisScene", in: source)
-                || containsIdentifier("thisLayer", in: source),
-              !source.contains("\\u"), !source.contains("\\x") else {
-            return false
-        }
-        let disallowedCallbacks = [
-            "destroy",
-            "mediaThumbnailChanged", "mediaPlaybackChanged",
-            "mediaPropertiesChanged", "mediaTimelineChanged",
-        ]
-        guard disallowedCallbacks.allSatisfy({ callback in
-            source.range(
-                of: "(?m)(?<![A-Za-z0-9_$])export\\s+function\\s+"
-                    + NSRegularExpression.escapedPattern(for: callback)
-                    + "\\s*\\(",
-                options: .regularExpression
-            ) == nil
-        }) else { return false }
-        return ["globalThis", "eval", "Function", "constructor"].allSatisfy {
-            !containsIdentifier($0, in: source)
-        }
-    }
-
-    /// Boolean value-return owners remain isolated from shared/global state
-    /// until authored cross-owner rollback is transactional. Read-only scene
-    /// lookup is allowed because layer/effect/animation writes are collected by
-    /// the host and rejected before a Boolean value is published. Graph and
-    /// named-texture dependencies remain independently admitted by the graph;
-    /// they do not change ownership of the visibility value itself.
-    private static func independentBooleanValueSource(_ source: String) -> Bool {
-        guard source.utf8.count <= 65_536,
-              source.range(
-                  of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
-                  options: .regularExpression
-              ) != nil,
-              !source.contains("\\u"), !source.contains("\\x") else {
-            return false
-        }
-        let mutableDependencies = [
-            "shared", "globalThis", "eval", "Function", "constructor",
-            "thisLayer", "thisObject",
-        ]
-        return mutableDependencies.allSatisfy {
-            !containsIdentifier($0, in: source)
-        }
-    }
-
-    private static func directThisLayerVisibilityMutation(_ source: String) -> Bool {
-        source.range(
-            of: #"(?m)\bthisLayer\s*\.\s*visible\s*="#,
-            options: .regularExpression
-        ) != nil
     }
 
     /// This is deliberately narrower than general Vec3 execution. It does not

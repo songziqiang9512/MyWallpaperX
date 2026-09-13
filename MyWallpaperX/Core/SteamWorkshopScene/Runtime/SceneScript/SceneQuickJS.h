@@ -355,6 +355,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     uint32_t layer_index,
     const double scale[3],
     const double angles[3],
+    uint32_t destroyed,
     uint32_t visible,
     double alpha,
     const char *text,

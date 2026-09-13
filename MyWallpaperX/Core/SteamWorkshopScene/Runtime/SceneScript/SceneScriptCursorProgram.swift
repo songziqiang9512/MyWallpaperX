@@ -721,7 +721,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         borrowedOwners.compactMap { registration in
             guard let layer = descriptor.layers.first(where: {
                 $0.id == registration.layerID
-            }), validHitLayer(layer, parallaxEnabled: descriptor.camera.parallaxEnabled) else { return nil }
+            }), SceneScriptCursorHitAdmission.accepts(layer) else { return nil }
             let events = exportedEvents(registration.owner)
             guard !events.isEmpty else { return nil }
             return .init(
@@ -777,7 +777,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                   of: #"(?m)(?<![A-Za-z0-9_$])export\s+function\s+(?:init|update)\s*\("#,
                   options: .regularExpression
               ) == nil,
-              validHitLayer(layer, parallaxEnabled: descriptor.camera.parallaxEnabled) else { return nil }
+              SceneScriptCursorHitAdmission.accepts(layer) else { return nil }
         return .init(layerID: layerID, authoredOrder: index)
     }
 
@@ -787,22 +787,4 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         owner.exportedCursorEvents
     }
 
-    private static func validHitLayer(
-        _ layer: SceneRenderDescriptor.Layer,
-        parallaxEnabled: Bool
-    ) -> Bool {
-        guard let origin = layer.originXYZ, origin.count == 3,
-              let size = layer.sizeWH, size.count == 2,
-              (layer.scaleXYZ?.count ?? 3) == 3,
-              (layer.anglesXYZ?.count ?? 3) == 3,
-              (layer.parallaxDepthXY?.count ?? 2) == 2 else { return false }
-        let scale = layer.scaleXYZ ?? [1, 1, 1]
-        let angles = layer.anglesXYZ ?? [0, 0, 0]
-        let parallax = layer.parallaxDepthXY ?? [0, 0]
-        return origin.allSatisfy(\.isFinite)
-            && size.allSatisfy { $0.isFinite && $0 > 0 }
-            && scale.allSatisfy { $0.isFinite && $0 != 0 }
-            && angles.allSatisfy(\.isFinite)
-            && parallax.allSatisfy { $0.isFinite && (!parallaxEnabled || $0 == 0) }
-    }
 }

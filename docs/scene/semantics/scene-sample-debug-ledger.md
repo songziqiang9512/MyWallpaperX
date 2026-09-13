@@ -2,11 +2,19 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
-## 2026-09-13 Camera live 属性闭环与 `3768229922` 启动过渡首断点
+## 2026-09-13 `3768229922` 作者启动、自销毁与点击闭环
+
+作者 camera path 是 relative、30 FPS、180 帧：前 60 帧保持 `origin=(-99.999,681.99994)` 与 `zoom=2.4`，随后回到第 180 帧的 `(0,0)` 与 `zoom=1`。镜头由下向上展开属于作者过渡，不是 compositor 中心点错误。真正首断点是 object `visible` 的旧准入按 JavaScript 源码写法分 cohort，使 layer `354` 的 `update`/自销毁和 layer `202` 的 `cursorClick` 没有成为 typed owner；同时 cursor 候选要求 child layer 显式写出 local transform，拒绝了作者依赖 parent/default transform 的 layer 202。
+
+现役实现按 descriptor identity、Boolean target、wrapper、content kind 与预算准入同一个 effectful QuickJS owner；`destroyLayer` 只允许该 owner 销毁自身且无子层的 authored layer，并作为 topology transaction 在全 surface 提交后持久进入 descriptor/render order/下一帧 VM snapshot。cursor hit 直接使用 renderer canonical world frame、camera projection、parent 继承与 transform 默认值。没有增加启动 profile、样本分支、第二套脚本 VM、坐标系统或 compositor。
+
+最终签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `075cedf0d7c3debdd0e027f78025915841a43064`，executable SHA-256 `7f04ecfcb2026df1825b4f403b3978204e61780dcee94eaba8103e4f475f5d25`。只读真实样本 fresh 24 秒运行 `failures=[] / strict PASS`、369/368/0 frame submitted/completed/failed；三个 object-visible owner `397 / 202 / 354` 均为 `generic-only`，layer 354 在 frame 125 发布 false，22 张截图序列显示开场退出并保持主场景。对人物头部 `(-0.05,0.56)` 的延迟 primary click 精确记录 layer 202 `cursorClick captureActive=1 currentHit=1`，点击后作者红色信息面板展开并保持；before→hover 的 `mean_delta / changed_ratio` 为 `0.0560728 / 0.521064`。完整 identity、SHA、事务门与边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-authored-startup-destroy-cursor)。这证明一个真实 parent/default-transform 点击与作者启动链，不外推所有样本、全部按钮/坐标或整样本逐像素 parity；约 33.4 submitted FPS 也不构成性能完成。
+
+## 2026-09-13 Camera live 属性闭环
 
 当前签名 Debug App 对真实 `3766387484` 做两次独立 live 运行：从静态 `parallax=false / camerashake=false` 分别写入 `camerashake=true` 与 `parallax=true`。两次更新均被现役 binding program 接受，surface/window identity 不变，0 failed frame，graph/GPU/terminal compositor/next-frame闭合；原分辨率复核确认人物、背景、时钟和深度层保持完整并发生相机运动。这只证明同一真实 2D 正交构图的 Camera Parallax 与 Camera Shake direct User Property，不外推 perspective XYZ、SceneScript setter、Windows 像素或整样本人工 acceptance。完整身份、SHA 和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-camera-live-properties)。
 
-同批 `3768229922` 的自动门虽然报告 `failures=[] / strict PASS`，Parallax live 更新也保持同一 surface/window，但维护者实际观察确认画面一直停在作者启动过渡，没有正式进入主场景。因此该运行不能作为“ready”、camera 正例或整景通过；当前首断点是启动 transition 的状态推进。后继必须先按作者定义核对 init、timer/job、User Property、media/timeline callback 与 frame transaction 的触发和提交顺序，找到作者状态没有前进的最早缺口；样本 ID 只用于复现，产品仍沿唯一 SceneClock、QuickJS owner、typed snapshot 和 compositor 修复。现役执行位置见[当前队列](../scene-open-breakpoint-queue-2026-09-09.md)。
+旧 Camera live 批中的 `3768229922` 只取得机械 strict PASS，不能作为 camera 可见正例；它的启动首断点已由上方后继证据关闭。
 
 ## 2026-09-13 `3238423642` SceneScript world matrix 与作者布局初始化
 
@@ -110,7 +118,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3780119725 | 人物压缩/缺块、脸部疑似遮罩线外露 | 2026-09-13 删除 coverage 压平后，稳定帧确认人物、摩托、猫和路牌位置/比例正常，人物细节不再被中间纹理降采样 | 本断点通过；整样本未做逐像素 parity |
 | 1315486372 | 水波位置不正确、光线贴图效果生硬 | 已留当前播放截图，effect-local 坐标与辅助纹理仍待定位 | 未通过 |
 | 2775915974 | 鼠标纵向响应反向；顶部边缘失去识别并回中 | 两个公共输入错误已修并有实际鼠标事件/截图；当前 identity-only 复跑仍未取得 required graph execution，顶部极限露灰边仍未解决，见下方 anchor | 输入修复，整样本未通过 |
-| 3747492842 | 文字错位、额外闪烁、光束应在顶部却在中间 | 静态文字已部分修复；音频静音/真实输入及 quad 几何分开检查 | 未通过 |
+| 3747492842 | 当前无法播放；历史还观察到文字错位、额外闪烁和光束位置异常 | `be9858e` 维护者观察待在当前 HEAD 最小复现；先区分启动失败与历史视觉问题 | 待复现、待归因 |
 | 3470948192 | 开场/文字错位、后续 NaN 与异常背景 | 日期和初始字形已部分修复；共享坐标 producer→consumer | 未通过 |
 | 3509243656 | 开场/模拟画面不正常、坐标文字异常 | 延长播放及 MAIN producer→共享状态→文字 | 未通过 |
 | 3788734811 | 画面上下反转 | 正交画布的perspective image保留Y-down卡片方向；新截图恢复正向，见E-V4-CANVAS-PERSPECTIVE-CARD | 倒置修复，整体视觉等价未验收 |
@@ -119,6 +127,10 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
+| 3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147 | 主体人物消失 | `be9858e` 维护者观察；当前 HEAD 尚未复现，不预判 Geometry/Product/visibility/graph owner | 待复现、待归因 |
+| 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
+| 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
+| 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | graph/utility 旧断点已关闭；这是独立 Puppet pose/bone 视觉观察，当前 HEAD 尚未复现 | 待复现、待归因 |
 
 ## 2026-09-08 current corpus probe（archive snapshot）
 

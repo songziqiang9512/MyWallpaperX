@@ -25,6 +25,7 @@ enum Harness {
             layer(id: 20, index: 1, name: "borrowed-borrowed"),
             layer(id: 30, index: 2, name: "standalone-only"),
             layer(id: 40, index: 3, name: "borrowed-only"),
+            layer(id: 50, index: 4, name: "defaulted-borrowed"),
         ])
         let bindings = [
             standaloneBinding(layerID: 10, index: 0),
@@ -33,6 +34,7 @@ enum Harness {
             vectorBinding(layerID: 20, index: 1, field: "scale"),
             standaloneBinding(layerID: 30, index: 2),
             vectorBinding(layerID: 40, index: 3, field: "origin"),
+            visibilityBinding(layerID: 50, index: 4),
         ]
         let projection = SceneScriptVectorProgram.project(
             descriptor: descriptor,
@@ -122,21 +124,19 @@ enum Harness {
             layerIndex: index,
             name: name,
             visible: true,
-            originXYZ: [0, 0, 0],
-            scaleXYZ: [1, 1, 1],
-            anglesXYZ: id == 40 ? [0, -0.0, 25] : [0, -0.0, 0],
+            originXYZ: id == 50 ? nil : [0, 0, 0],
+            scaleXYZ: id == 50 ? nil : [1, 1, 1],
+            anglesXYZ: id == 50 ? nil : [0, -0.0, 0],
             scaleHasScript: false,
             alpha: 1,
             effects: id == 30 ? [.init(name: "authored-effect")] : [],
-            contentKind: id == 30 ? "image" : "composition",
+            contentKind: id == 30 || id == 50 ? "image" : "composition",
             sizeWH: [100, 100],
-            utilityLayer: .init(
-                kind: .composition,
-                copyBackground: false,
-                passthrough: false
+            utilityLayer: id == 50 ? nil : .init(
+                kind: .composition, copyBackground: false, passthrough: false
             ),
             parentID: id == 30 ? 10 : nil,
-            parallaxDepthXY: [1, 1]
+            parallaxDepthXY: id == 50 ? nil : [1, 1]
         )
     }
 
@@ -193,6 +193,31 @@ enum Harness {
         )
     }
 
+    static func visibilityBinding(
+        layerID: Int,
+        index: Int
+    ) -> SceneScriptBindingIR {
+        .init(
+            source: borrowedSource,
+            owner: .init(
+                kind: .object,
+                objectIndex: index,
+                objectID: layerID,
+                effectIndex: nil,
+                effectID: nil,
+                passIndex: nil,
+                passID: nil
+            ),
+            targetPath: [
+                .key("objects"), .index(index), .key("visible"),
+            ],
+            properties: [:],
+            authoredValue: .bool(true),
+            valueType: .boolean,
+            wrapperKeys: ["script", "value"]
+        )
+    }
+
     static func hit(layerID: Int) -> SceneScriptCursorHit {
         .init(
             layerID: layerID,
@@ -238,11 +263,16 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temp_dir.cleanup()
 
-    def test_disabled_camera_accepts_authored_depth_but_enabled_camera_rejects_it(self):
+    def test_enabled_parallax_uses_runtime_camera_projection_for_hit_testing(self):
         result = json.loads(subprocess.run([str(self.binary)], check=True,
             capture_output=True, text=True).stdout)
-        self.assertEqual(result["enabledParallaxOwners"], 0)
-        self.assertEqual(result["cursorOwners"], [30, 40])
+        self.assertEqual(result["enabledParallaxOwners"], 1)
+        self.assertEqual(result["cursorOwners"], [30, 40, 50])
+
+    def test_borrowed_child_owner_accepts_authored_transform_defaults(self):
+        result = json.loads(subprocess.run([str(self.binary)], check=True,
+            capture_output=True, text=True).stdout)
+        self.assertIn(50, result["cursorOwners"])
 
     def test_collisions_stay_local_parented_image_and_borrowed_visibility_survive(
         self,
@@ -256,7 +286,7 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
         self.assertTrue(result["domainCommitted"])
         self.assertFalse(result["preflightRequiresReconstruction"])
         self.assertTrue(result["complete"])
-        self.assertEqual(result["vectorInstantiated"], 4)
+        self.assertEqual(result["vectorInstantiated"], 5)
         self.assertEqual(result["cursorExpected"], [10, 20, 30])
         self.assertEqual(result["cursorInstantiated"], [30])
         self.assertEqual(result["cursorFailures"], [10, 20])
@@ -270,8 +300,8 @@ class SceneCursorCandidateCollisionTests(unittest.TestCase):
             result["borrowedBorrowedMessage"],
             "SceneScript cursor owner collision",
         )
-        self.assertEqual(result["cursorOwners"], [30, 40])
-        self.assertEqual(result["cursorOwnerCount"], 2)
+        self.assertEqual(result["cursorOwners"], [30, 40, 50])
+        self.assertEqual(result["cursorOwnerCount"], 3)
         self.assertEqual(result["dispatchFailures"], [])
 
 

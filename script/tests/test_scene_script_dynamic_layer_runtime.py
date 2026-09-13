@@ -11,10 +11,14 @@ from pathlib import Path
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-SOURCE = (
+SCENE_SCRIPT = (
     REPOSITORY_ROOT
-    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript/SceneScriptDynamicLayerRuntime.swift"
+    / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/SceneScript"
 )
+SOURCES = [
+    SCENE_SCRIPT / "SceneScriptLayerTopologyModels.swift",
+    SCENE_SCRIPT / "SceneScriptDynamicLayerRuntime.swift",
+]
 
 HARNESS = r'''
 import Foundation
@@ -109,6 +113,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         let textStyle: TextStyle?
         let imagePath: String?
         var colorRGB: [Float]?
+        var childLayerIDs: [Int] = []
 
         static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
             guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
@@ -388,6 +393,22 @@ enum Harness {
         let afterFixedPoint = budgetRuntime.snapshot()
         let destroy = runtime.apply([mutation(-1, kind: .destroy, order: 2)])
         let afterDestroy = runtime.snapshot()
+        let authoredDestroyRuntime = SceneScriptDynamicLayerRuntime(
+            descriptor: descriptor,
+            authoredMutationLayerIDs: [10]
+        )
+        let authoredDestroyPlan = authoredDestroyRuntime.preflightIsolatingOwners([
+            mutation(10, dynamic: false, kind: .destroy)
+        ])
+        let authoredDestroyPreflightWasReadOnly = authoredDestroyRuntime
+            .snapshot().destroyedAuthoredLayerIDs.isEmpty
+        authoredDestroyRuntime.commit(authoredDestroyPlan)
+        let afterAuthoredDestroy = authoredDestroyRuntime.snapshot()
+        let authoredResurrection = authoredDestroyRuntime.apply([
+            mutation(
+                10, dynamic: false, fields: [.visibility], visible: true
+            )
+        ])
         let colorTarget = SceneDynamicTarget.layer(layerID: 20, field: .color)
         let imageRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor,
@@ -528,6 +549,16 @@ enum Harness {
             "destroySucceeded": succeeded(destroy),
             "destroyedIDs": afterDestroy.dynamicLayers.map(\.id),
             "destroyedOrder": afterDestroy.renderOrderLayerIDs,
+            "authoredDestroyPreflightWasReadOnly":
+                authoredDestroyPreflightWasReadOnly,
+            "authoredDestroySucceeded":
+                authoredDestroyPlan.outcome.failures.isEmpty,
+            "authoredDestroyedIDs":
+                afterAuthoredDestroy.destroyedAuthoredLayerIDs.sorted(),
+            "authoredDestroyedOrder": afterAuthoredDestroy.renderOrderLayerIDs,
+            "authoredDestroyBumpsTopology":
+                afterAuthoredDestroy.topologyRevision > 0,
+            "authoredResurrectionRejected": !succeeded(authoredResurrection),
             "dynamicImageSucceeded": succeeded(imageCreate),
             "dynamicImageColorTarget":
                 imageSnapshot.dynamicMaterialColorTargetsByLayerID[-2]
@@ -563,7 +594,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         binary = directory / "dynamic-layer-runtime"
         compilation = subprocess.run(
-            ["swiftc", str(SOURCE), str(harness), "-o", str(binary)],
+            ["swiftc", *map(str, SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -606,6 +637,14 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertEqual(self.result["destroyedIDs"], [])
         self.assertEqual(self.result["destroyedOrder"], [10, 20])
 
+    def test_authored_self_destroy_is_atomic_persistent_topology(self) -> None:
+        self.assertTrue(self.result["authoredDestroyPreflightWasReadOnly"])
+        self.assertTrue(self.result["authoredDestroySucceeded"])
+        self.assertEqual(self.result["authoredDestroyedIDs"], [10])
+        self.assertEqual(self.result["authoredDestroyedOrder"], [20])
+        self.assertTrue(self.result["authoredDestroyBumpsTopology"])
+        self.assertTrue(self.result["authoredResurrectionRejected"])
+
     def test_bad_owner_does_not_reject_disjoint_owner_mutations(self) -> None:
         self.assertEqual(self.result["isolatedCommittedMutationCount"], 2)
         self.assertEqual(self.result["isolatedFailureCount"], 1)
@@ -636,7 +675,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertEqual(self.result["dynamicImageWithoutTypedColor"], [1.0, 1.0, 1.0])
 
     def test_material_color_projection_has_quiescent_and_lazy_copy_gates(self) -> None:
-        source = SOURCE.read_text(encoding="utf-8")
+        source = "\n".join(path.read_text(encoding="utf-8") for path in SOURCES)
         projection = source.split(
             "func resolvingDynamicMaterialColors(", 1
         )[1].split(

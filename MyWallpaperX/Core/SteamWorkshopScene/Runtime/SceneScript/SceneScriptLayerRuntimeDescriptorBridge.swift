@@ -16,12 +16,14 @@ nonisolated extension SceneScriptQuickJSDomain {
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
+        destroyedAuthoredLayerIDs: Set<Int> = [],
         runtimeFieldLayerIDs: Set<Int>? = nil,
         diagnostic: inout [CChar]
     ) throws {
         for (index, layer) in descriptor.layers.enumerated() {
             if let runtimeFieldLayerIDs,
                !runtimeFieldLayerIDs.contains(layer.id),
+               !destroyedAuthoredLayerIDs.contains(layer.id),
                videoSnapshots[layer.id] == nil,
                textureAnimationSnapshots[layer.id] == nil {
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
@@ -77,6 +79,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                                 mwx_scene_quickjs_domain_update_layer_runtime_fields(
                                     handle, UInt32(index), scalePointer.baseAddress,
                                     anglesPointer.baseAddress,
+                                    destroyedAuthoredLayerIDs.contains(layer.id)
+                                        ? 1 : 0,
                                     layerBool(
                                         layerID: layer.id, field: .visibility,
                                         authored: layer.visible ?? true,

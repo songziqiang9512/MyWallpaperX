@@ -20,6 +20,7 @@
 - SceneScript `ILayer.getTransformMatrix()` 与只读 `size` 首断点已关闭。world matrix 由 renderer 现役 world-frame resolver 投影到同一 immutable layer snapshot，C/QuickJS bridge 不做坐标计算；作者 layer `918 / 920 / 921 / 944 / 947 / 950` 在 `3238423642` 中全部 `generic-only` 完成，0 SceneScript VM failure，真实画面中的主体、日期与时钟保持正确合成。现役证据见[ILayer world matrix 闭环](semantics/runtime-evidence-current.md#e-2026-09-13-ilayer-world-matrix)。
 - 旧 Q1 的 `nomip / halfmip sampler policy` 已按作者数据纠正并关闭。`nomip` 是离线编译输入，编译后的实际 mip level 序列才是运行时权威；`halfmip` 当前只有 importer declaration，不能映射成猜测的 TEX V5 bit。现役 loader 原样保留有效单级/多级链，超限单级 embedded TEX 的 bounded decode 仍保持单级，多级链不能完整保留时局部失败，直接图片才生成完整链。真实 `2470144420` 的单级 `halo_6` 与 7 级 `rosepetals` 同时加载并保持完整动态构图。现役证据见[编译 mip 链闭环](semantics/runtime-evidence-current.md#e-2026-09-13-compiled-mip-chain)。
 - Camera Parallax 与 2D Camera Shake 的 direct User Property 纵向链已关闭。八个 exact 字段由现役 binding program 进入同一 typed snapshot；Parallax 复用既有 configuration/smoother，Shake 只在有效 authored 正交投影内合并进唯一 camera frame。当前签名 App 对真实 `3766387484` 分别完成 parallax false→true 与 shake false→true，两次都保持 surface/window identity、GPU/graph/compositor/next-frame和完整构图。真正 perspective Shake 仍拒绝 live update。现役证据见[Camera live 属性闭环](semantics/runtime-evidence-current.md#e-2026-09-13-camera-live-properties)。
+- `3768229922` 的启动过渡与 head-click 首断点已关闭。作者 camera path 在 30 FPS 下前 60 帧保持 `origin=(-99.999,681.99994)`、`zoom=2.4`，再到第 180 帧回到 `(0,0)`、`zoom=1`；镜头从下向上展开是作者定义。旧准入用 JavaScript 源码写法筛 object visibility owner，导致 layer `354` 的提示自销毁和 layer `202` 的点击控制都未进入现役 VM；cursor 又要求 child layer 重复声明本应从 parent/default 得到的 transform。现按 descriptor/type/wrapper 准入同一 effectful Boolean owner，自身 authored destroy 进入 topology transaction，cursor hit 复用 canonical world/camera projection。当前签名 App 中 layer 354 退出、主场景保持，延迟点击 layer 202 精确触发 `cursorClick` 并展开作者信息面板。现役证据见[作者启动与点击闭环](semantics/runtime-evidence-current.md#e-2026-09-13-authored-startup-destroy-cursor)。
 
 ## 2. 现役执行顺序
 
@@ -29,7 +30,18 @@
 
 - tracked full-corpus identity-only matrix 尚未覆盖真实样本根全部成员；扩展矩阵不等于每个开发批次都运行全 corpus。
 - script instance scalar/String/Vec2/Vec3、root particle override 八字段与本批 camera 八字段已有 typed live consumer；它们不再是整族缺失。现役明确开放的 Scene 级 target 首断点是 Bloom enable/threshold：已有 identity，但没有 binding producer 或全场 HDR post consumer。其余 unsupported target 继续逐个按作者类型、作用域和真实 consumer 建立纵向闭环，不能按字段相似性扩权。
-- `3768229922` 的最新人工观察是启动过渡一直停留，未正式进入主场景。该次 benchmark 虽接受 Camera Parallax live update并机械 strict PASS，也不构成视觉 ready 或 camera 正例；首断点归入作者启动 transition / SceneScript 状态推进链，下一步从作者定义的 init/timer/property/media/timeline 事件与提交状态查明何处停止，保持同一 SceneClock、typed transaction和唯一 compositor，禁止样本分支。
+- 以下是维护者基于 `be9858e` 播放观察登记的**待复现、待归因**清单。它们尚未在当前 HEAD 建立首断点，不能从症状直接推断 owner，也不能因本批 `3768229922` 通过而批量改写状态：
+
+  | 样本 | 观察到的异常 |
+  |---|---|
+  | `3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147` | 主体人物消失 |
+  | `3747492842` | 无法播放 |
+  | `3775355045 / 3775373546` | 两层视频经遮罩合成后，下层播放数秒开始卡顿并落后于上层动画 |
+  | `1315486372` | 水波纹特效位置不正确 |
+  | `2684431262` | 合成画面出现异常紫色块 |
+  | `3749463715` | 启动时胸部跳动；胸部与身体、手部与手臂的绑定运动不同步 |
+
+  下一批从当前签名 App 逐组做最小复现，先确定最早失效的 prepared product、typed frame state、provider/graph/geometry encode 或 compositor 环节，再按公共 owner 修复；不得把样本 ID 写入产品路由。
 - 全部样本最终必须由人工裁决为 `pass` 或显式 `platform-unsupported`。当前开发仍按公共首断点和受影响样本推进，不用大批量回放代替逐项可见验收。
 - 验收覆盖层中的 `fail` 与 `unreviewed` 必须逐个由维护者重新观看。`3264246690 / 3780119725 / 3238423642` 的旧 Puppet 技术原因及 `3787382101` 的旧 Water Waves mask 债务都已被 2026-09-13 后继证据取代，但没有维护者的新 verdict 时不得直接改成整样本 `pass`。
 - 新发现的公共首断点回到 P1/P2；结构 PASS、非黑截图、route 数或完成事件不能单独改变人工 verdict。

@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-authored-startup-destroy-cursor"></a>
+### 2026-09-13 作者启动自销毁与 parent/default-transform 点击闭环
+
+**结论：object Boolean visibility 的结构准入、exact authored self-destroy 与 cursor parent/default-transform hit 达到 L3 bounded；真实 `3768229922` 的启动退出和一次 head-click 达到 S4。** 旧 candidate catalog 通过 JavaScript 源码是否出现 `shared/thisLayer/thisScene`、转义或特定 callback 来区分 value-only/effectful owner，使语义相同的脚本因写法不同而不准入。现役 catalog 只按 descriptor identity、object Boolean `visible` target、wrapper、content kind、utility exclusion 与预算建立同一个 effectful QuickJS owner；未知或越界 host mutation 仍在 typed transaction 局部拒绝。`destroyLayer(name|handle)` 对静态 authored layer 只开放到“effectful Boolean owner 销毁自身且无子层”，destroy 覆盖当帧 return visibility，并在全 surface submission 成功后从 dynamic topology、render order、descriptor projection及下一帧 VM snapshot同时消失；跨 owner、带子层、stale 与回生拒绝。cursor candidate 只验证可命中的 authored size及显式字段的数值合法性，实际 world/local 位置继续由 renderer canonical world-frame/camera projection计算，因此作者省略的 origin/scale/angles/parallax 使用既有默认值和 parent 继承。
+
+**作者定义与代码门：**只读 project 的 camera path 为 relative、30 FPS、180 帧；frame 0/60 是 `origin=(-99.999,681.99994)`、`zoom=2.4`，frame 180 是 `(0,0)`、`zoom=1`，所以由下向上展开是作者定义。layer `354` 的脚本按时间淡出并 `destroyLayer('提示')`，`logo=false` 的 property callback 也销毁同层；layer `202` 是 parented `214×214` head control，省略 local transform并导出 `cursorClick`。Boolean visibility、QuickJS C bridge、snapshot atomicity、dynamic topology、dependency owner及cursor collision/capture focused 门通过；规定的签名 Debug build `BUILD SUCCEEDED`。
+
+**产品身份与真实运行：**App 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `075cedf0d7c3debdd0e027f78025915841a43064`，executable SHA-256 `7f04ecfcb2026df1825b4f403b3978204e61780dcee94eaba8103e4f475f5d25`；签名前后验证均为 true。只读样本的 project/package SHA-256 为 `db0664d3c2903929779388084736cdd18e1d9c1ce4076ea8e38c92ce061e674b / 4b0268467d2812c6ad75c5ae6e9878ae7e5fad066f194e2d0d6bd4225548f0f3`。24 秒 fresh 定向运行使用 `--after-snapshot-delay 13 --periodic-snapshot-interval 1` 及 effect/graph 三项 required gate，结果 `failures=[] / strict PASS`、loaded ratio 1.0、369/368/0 frame submitted/completed/failed。object-visible layer `397 / 202 / 354` 三个 owner 均以 `generic-only` 执行；354 从 true 推进到 frame 125 的 false，22 张序列显示开场退出并保持主场景。约 ready 后 7 秒在人物头部 `(-0.05,0.56)` 注入 hold/press/release，日志精确记录 `layerID=202 event=cursorClick captureActive=1 currentHit=1 local=-0.045112,-0.220295,0 route=generic-only`；点击后作者红色信息面板展开并在 pointer 离开后保持。before→hover 的 `mean_delta / changed_ratio` 为 `0.0560727803 / 0.5210640066`，hover→after 为 `0.0064771284 / 0.1209989130`。
+
+matrix/report/app-log/runtime-evidence SHA-256 为 `e8140e593980cae4a0f1053b472a46567e217f29bb93e5372195a2e1e117a7a7 / 030c8e1161f31b70cf57bb3ff6c0ba4c32cd0308c76548c9ee2d40028cc56fb0 / 10c19da3b2cd2b00403734ec68a3e183309987dc1ac0034d0d6bfa66e63d0085 / 9af37be94f4c2949229d05e845eed48e87ce310c76522b5dfc0689abb959cf5e`；before/hover/after PNG 为 `08a5f177bdd12ebfce6bc97984850fc355b8b07595628e5900c7ad7eb780596c / 6e44a94d7912aa7dfc1a7a2bf0bf3b94cb5aaf8ebd69fef822ba2b25f58bcfbf / 316676435963220b6da889c604d769d6e2f678df282cbe0c70e12d6269f3b74d`。现场位于 `/private/tmp/mwx-3768229922-authored-startup-click-final-20260913-out`，仅作可复现 provenance。
+
+**边界：**这证明一个真实 object-visible 启动 owner、无子层 authored self-destroy、一个 parent/default-transform primary click和唯一 VM/frame/compositor链；不证明所有样本都有作者点击回调，也不证明多按钮、失焦、跨层传播、rotated/perspective/puppet hitBox、多surface、官方事件顺序或逐像素 parity。证据截图会造成 drawable wait，约 33.4 submitted FPS 不能作为稳定帧性能结论。未运行 full corpus。
+
 <a id="e-2026-09-13-camera-live-properties"></a>
 ### 2026-09-13 Camera Parallax / 2D Camera Shake live User Property 闭环
 
@@ -33,7 +46,7 @@
 
 Shake matrix/report/log/runtime-evidence SHA-256 为 `11a6cdf988e2a6050eddd3e9301dfb9ae0b6e745ae18877c17a3c1233a14ff6f / d0608ee1151f879e3abbe31f48e3071aebc1a65ab04a2500411e56a094ed1941 / ed751ba0b6c95e31efb03c9de28841ef94544b8512152844e1606e90fb9facd4 / d74f125abbd25f7c47dc7d442730c9b455324d43b77cfa01555af9000863e0ac`，ready/after PNG 为 `ac62cff69a22fcd457905d06e7823a9d1dbf40fdb536eeb6423bf6dfbc5c850c / ae2332972f835417d2da5935c78dabbf9639109575bdcdc3b50b29a059f59ed3`。Parallax 对应 SHA-256 为 `f13983712fee4070e2bf96350519c176d3f727ac135f4428a9ba1b469bc0aec4 / 1ad103c6f3119d8b575eb2762a6459676bb910243dc45a64b931046365a22a38 / c0ad674b39c97051b24c7559a602aa69745a8989b1be577a7b0ee6b5b12c6fe6 / 1500122f3d5dfee56ffb44458cdfbe02bc2b8d39dd5be8956f363892a7a8b7d4`，ready/after PNG 为 `33df82b364e80f5ea4ab3690bc0db59f9130dd4092e96928621c21f0a90bf4d5 / 3355e5132816c44238740a24df183d93b915c2944bb52a7f390ad7ab4f239ab8`。现场位于 `/private/tmp/mwx-camera-live-orthographic-targeted-20260913-out` 与 `/private/tmp/mwx-camera-parallax-live-targeted-20260913-out`，仅作可复现 provenance。
 
-**反例与证据上限：**`3477054430` 是无 `orthogonalprojection`、FOV 42.400002 的原生 perspective Scene，其 Shake live update 被拒绝是当前 guard 的正反门，不是产品回归。`3786185473` 虽接受 Parallax live update，但 benchmark 的 pointer 顺序没有形成可用的 live 画面差异，因此不计 S4。`3768229922` 同样机械 strict PASS且接受 Parallax 更新，但维护者确认它停在启动过渡、没有进入主场景；它不计 camera 可见证据，已作为 SceneScript/transition 状态推进首断点进入当前队列。本批没有运行 full corpus，也不证明 perspective XYZ、SceneScript camera setter、官方同相位数值/像素、Windows、多屏长稳或整样本人工 acceptance。
+**反例与证据上限：**`3477054430` 是无 `orthogonalprojection`、FOV 42.400002 的原生 perspective Scene，其 Shake live update 被拒绝是当前 guard 的正反门，不是产品回归。`3786185473` 虽接受 Parallax live update，但 benchmark 的 pointer 顺序没有形成可用的 live 画面差异，因此不计 S4。`3768229922` 在本批只取得机械 strict PASS且当时停在启动过渡，所以仍不计 Camera live 的可见正例；其独立 SceneScript/transition 首断点已由上方[作者启动与点击闭环](#e-2026-09-13-authored-startup-destroy-cursor)关闭。本批没有运行 full corpus，也不证明 perspective XYZ、SceneScript camera setter、官方同相位数值/像素、Windows、多屏长稳或整样本人工 acceptance。
 
 <a id="e-2026-09-13-compiled-mip-chain"></a>
 ### 2026-09-13 编译 TEX mip 链权威与单级归一化闭环

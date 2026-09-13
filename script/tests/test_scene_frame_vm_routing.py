@@ -30,6 +30,7 @@ CURSOR_INTERACTION_SOURCE = (
 )
 SCALAR_RUNTIME_SOURCE = SCRIPT / "SceneScriptScalarRuntime.swift"
 CURSOR_PROGRAM_SOURCE = SCRIPT / "SceneScriptCursorProgram.swift"
+CURSOR_HIT_ADMISSION_SOURCE = SCRIPT / "SceneScriptCursorHitAdmission.swift"
 MEDIA_EVENT_BRIDGE_SOURCE = SCRIPT / "SceneScriptMediaEventBridge.swift"
 MEDIA_FRAME_COORDINATOR_SOURCE = SCRIPT / "SceneScriptMediaFrameCoordinator.swift"
 PROPERTY_INPUT_SOURCE = SCRIPT / "SceneScriptPropertyInput.swift"
@@ -304,7 +305,10 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("raw.layer_id >= -maximumLayerIdentity", mutations)
         self.assertIn("raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0", mutations)
         self.assertIn("switch (kind, raw.dynamic, raw.fields)", mutations)
-        self.assertIn("case (.destroy, 1, 0), (.upsert, 1, 0):", mutations)
+        self.assertIn(
+            "case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):",
+            mutations,
+        )
         self.assertIn(
             "case (.upsert, 0, _)\n                where !fields.isEmpty && fields.isSubset(of: .authoredFields):",
             mutations,
@@ -463,6 +467,9 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         interaction = CURSOR_INTERACTION_SOURCE.read_text(encoding="utf-8")
         scalar_runtime = SCALAR_RUNTIME_SOURCE.read_text(encoding="utf-8")
         cursor_program = CURSOR_PROGRAM_SOURCE.read_text(encoding="utf-8")
+        cursor_hit_admission = CURSOR_HIT_ADMISSION_SOURCE.read_text(
+            encoding="utf-8"
+        )
         event_bridge = MEDIA_EVENT_BRIDGE_SOURCE.read_text(encoding="utf-8")
 
         self.assertIn("installPointerEventMonitorsIfNeeded()", host)
@@ -514,7 +521,11 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         self.assertIn("discardCandidates(ownerLayerID:", cursor_program)
         self.assertIn("owner.exportedCursorEvents", cursor_program)
         self.assertIn('case .move: "cursorMove"', event_bridge)
-        self.assertIn("let scale = layer.scaleXYZ ?? [1, 1, 1]", cursor_program)
+        self.assertIn(
+            "SceneScriptCursorHitAdmission.accepts(layer)", cursor_program
+        )
+        self.assertIn("if let scale = layer.scaleXYZ", cursor_hit_admission)
+        self.assertNotIn("?? [1, 1, 1]", cursor_hit_admission)
 
 
 if __name__ == "__main__":

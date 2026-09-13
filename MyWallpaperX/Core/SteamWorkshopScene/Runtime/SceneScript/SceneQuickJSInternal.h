@@ -111,6 +111,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     double alpha;
     double point_size;
     bool visible;
+    bool destroyed;
     bool world_transform_available;
     bool runtime_fields_staged;
     bool video_available;
@@ -134,6 +135,7 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
 typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
     uint32_t layer_index;
     uint32_t fields;
+    bool destroyed;
     double origin[3];
     double scale[3];
     double angles[3];

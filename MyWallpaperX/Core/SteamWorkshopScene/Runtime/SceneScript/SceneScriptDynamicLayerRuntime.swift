@@ -1,90 +1,5 @@
 import Foundation
 
-nonisolated struct SceneScriptLayerTopologySnapshot: Sendable {
-    /// Changes only when a dynamic layer is admitted or removed. Authored
-    /// value publication stays frame-varying and does not invalidate the
-    /// renderer's prepared topology projection.
-    let topologyRevision: UInt64
-    let dynamicLayers: [SceneRenderDescriptor.Layer]
-    let renderOrderLayerIDs: [Int]
-    let authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue]
-    let dynamicMaterialColorTargetsByLayerID: [Int: SceneDynamicTarget]
-
-    func resolvingDynamicMaterialColors(
-        from values: SceneDynamicSnapshot
-    ) -> Self {
-        guard !dynamicLayers.isEmpty,
-              !dynamicMaterialColorTargetsByLayerID.isEmpty else {
-            return self
-        }
-        var resolvedLayers: [SceneRenderDescriptor.Layer]?
-        for index in dynamicLayers.indices {
-            let layerID = dynamicLayers[index].id
-            guard let target = dynamicMaterialColorTargetsByLayerID[layerID],
-                  case let .vector3(red, green, blue)? = values[target]?.value,
-                  red.isFinite, green.isFinite, blue.isFinite else { continue }
-            if resolvedLayers == nil {
-                resolvedLayers = dynamicLayers
-            }
-            resolvedLayers![index].colorRGB = [red, green, blue].map {
-                Float(max(0, min($0, 1)))
-            }
-        }
-        guard let resolvedLayers else { return self }
-        return .init(
-            topologyRevision: topologyRevision,
-            dynamicLayers: resolvedLayers,
-            renderOrderLayerIDs: renderOrderLayerIDs,
-            authoredLayerValues: authoredLayerValues,
-            dynamicMaterialColorTargetsByLayerID:
-                dynamicMaterialColorTargetsByLayerID
-        )
-    }
-}
-
-nonisolated struct SceneScriptDynamicImageLayerTemplate: Sendable {
-    let modelPath: String
-    let renderSizeWH: [Float]
-    let materialColorTarget: SceneDynamicTarget?
-}
-
-nonisolated struct SceneScriptLayerMutationOwnerFailure: Sendable {
-    let ownerTarget: SceneDynamicTarget?
-    let failure: SceneScriptScalarRuntimeFailure
-}
-
-nonisolated struct SceneScriptLayerMutationApplyOutcome: Sendable {
-    let committedMutationCount: Int
-    let committedDynamicMutationCount: Int
-    let failures: [SceneScriptLayerMutationOwnerFailure]
-}
-
-/// Opaque, side-effect-free candidate state. Rendering keeps using the snapshot
-/// captured before this plan; committing it only publishes accepted owner
-/// mutations to the next frame.
-nonisolated struct SceneScriptLayerMutationPlan: Sendable {
-    let outcome: SceneScriptLayerMutationApplyOutcome
-    fileprivate let order: [Int]
-    fileprivate let dynamicLayersByID: [Int: SceneRenderDescriptor.Layer]
-    fileprivate let authoredLayerValues:
-        [SceneDynamicTarget: SceneDynamicValue]
-    fileprivate let authoredDefinitionOrder: [SceneDynamicTarget]
-    fileprivate let authoredDefinitionsByTarget:
-        [SceneDynamicTarget: SceneDynamicTargetDefinition]
-    fileprivate let dynamicTopologyChanged: Bool
-}
-
-nonisolated struct SceneScriptOwnerEffectsAdmission: Sendable {
-    let admittedEffects: [SceneScriptOwnerEffects]
-    let rejectedOwners: [SceneScriptLayerMutationOwnerFailure]
-    let layerPlan: SceneScriptLayerMutationPlan
-}
-
-nonisolated struct SceneScriptOwnerEffectsFixedPointAdmission: Sendable {
-    let admission: SceneScriptOwnerEffectsAdmission
-    let externallyRejectedOwners: Set<SceneDynamicTarget>
-}
-
 /// Launch-scoped layer mutation transaction. VM callbacks publish bounded
 /// mutations; rendering reads one immutable snapshot and commits successful
 /// dynamic topology or authored fields only after the current frame.
@@ -106,6 +21,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         [SceneDynamicTarget: SceneDynamicTargetDefinition] = [:]
     private var order: [Int]
     private var dynamicLayersByID: [Int: SceneRenderDescriptor.Layer] = [:]
+    private var destroyedAuthoredLayerIDs: Set<Int> = []
     private var authoredLayerValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
     private var cachedSnapshotTopologyRevision: UInt64?
     private var cachedDynamicLayers: [SceneRenderDescriptor.Layer] = []
@@ -158,6 +74,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             topologyRevision: topologyRevision,
             dynamicLayers: cachedDynamicLayers,
             renderOrderLayerIDs: order,
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             authoredLayerValues: authoredLayerValues,
             dynamicMaterialColorTargetsByLayerID:
                 cachedDynamicMaterialColorTargetsByLayerID
@@ -179,6 +96,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
         var candidateOrder = order
         var candidateLayers = dynamicLayersByID
+        var candidateDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         var candidateAuthoredValues = authoredLayerValues
         var candidateDefinitionOrder = authoredDefinitionOrder
         var candidateDefinitions = authoredDefinitionsByTarget
@@ -192,12 +110,33 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 return .failure(.invalidArgument("invalid layer transform mutation"))
             }
             if !mutation.isDynamic {
-                guard mutation.kind == .upsert,
-                      let authoredLayer = authoredLayersByID[mutation.layerID],
+                guard let authoredLayer = authoredLayersByID[mutation.layerID],
                       authoredLayerIDs.contains(mutation.layerID),
-                      !mutation.fields.isEmpty,
                       mutation.fields.isSubset(of: .authoredFields) else {
                     return .failure(.invalidArgument("invalid authored layer mutation"))
+                }
+                if mutation.kind == .destroy {
+                    guard mutation.fields.isEmpty,
+                          authoredLayer.childLayerIDs.isEmpty else {
+                        return .failure(.invalidArgument(
+                            "invalid authored layer destroy"
+                        ))
+                    }
+                    candidateDestroyedAuthoredLayerIDs.insert(mutation.layerID)
+                    candidateOrder.removeAll { $0 == mutation.layerID }
+                    candidateAuthoredValues = candidateAuthoredValues.filter {
+                        Self.layerID(for: $0.key) != mutation.layerID
+                    }
+                    continue
+                }
+                guard mutation.kind == .upsert,
+                      !candidateDestroyedAuthoredLayerIDs.contains(
+                          mutation.layerID
+                      ),
+                      !mutation.fields.isEmpty else {
+                    return .failure(.invalidArgument(
+                        "invalid authored layer mutation"
+                    ))
                 }
                 let values: [(
                     SceneScriptLayerMutation.Fields,
@@ -373,6 +312,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         )
         order = candidateOrder
         dynamicLayersByID = candidateLayers
+        destroyedAuthoredLayerIDs = candidateDestroyedAuthoredLayerIDs
         authoredLayerValues = candidateAuthoredValues
         authoredDefinitionOrder = candidateDefinitionOrder
         authoredDefinitionsByTarget = candidateDefinitions
@@ -399,6 +339,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     ) -> SceneScriptLayerMutationPlan {
         let originalOrder = order
         let originalLayers = dynamicLayersByID
+        let originalDestroyedAuthoredLayerIDs = destroyedAuthoredLayerIDs
         let originalValues = authoredLayerValues
         let originalDefinitionOrder = authoredDefinitionOrder
         let originalDefinitions = authoredDefinitionsByTarget
@@ -413,6 +354,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             outcome: outcome,
             order: order,
             dynamicLayersByID: dynamicLayersByID,
+            destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs,
             authoredLayerValues: authoredLayerValues,
             authoredDefinitionOrder: authoredDefinitionOrder,
             authoredDefinitionsByTarget: authoredDefinitionsByTarget,
@@ -420,6 +362,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         )
         order = originalOrder
         dynamicLayersByID = originalLayers
+        destroyedAuthoredLayerIDs = originalDestroyedAuthoredLayerIDs
         authoredLayerValues = originalValues
         authoredDefinitionOrder = originalDefinitionOrder
         authoredDefinitionsByTarget = originalDefinitions
@@ -509,6 +452,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             != plan.authoredDefinitionOrder
         order = plan.order
         dynamicLayersByID = plan.dynamicLayersByID
+        destroyedAuthoredLayerIDs = plan.destroyedAuthoredLayerIDs
         authoredLayerValues = plan.authoredLayerValues
         authoredDefinitionOrder = plan.authoredDefinitionOrder
         authoredDefinitionsByTarget = plan.authoredDefinitionsByTarget
@@ -586,6 +530,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         _ mutation: SceneScriptLayerMutation
     ) -> [SceneDynamicTarget] {
         authoredValues(mutation).map(\.0)
+    }
+
+    private static func layerID(for target: SceneDynamicTarget) -> Int? {
+        switch target {
+        case let .layer(layerID, _), let .text(layerID, _):
+            layerID
+        default:
+            nil
+        }
     }
 
     /// Multiple authored owners may intentionally publish the same field and

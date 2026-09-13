@@ -370,6 +370,69 @@ enum Harness {
                 export function update(value) { return value; }
                 """)]
         )
+        let escapedStatefulProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: #"""
+                const identity = Function("value", "return value");
+                const escaped = "\x6f\x6b";
+                export function update(value) {
+                    shared[escaped] = true;
+                    return identity(value);
+                }
+                """#)],
+            userPropertyDefinitions: [],
+            generation: 22
+        )
+        let escapedStateful = escapedStatefulProgram.evaluate(
+            inputs: [target: .bool(false)],
+            effectivePropertyValues: [:],
+            frame: frame(runtime: 2)
+        )
+        let selfDestroyProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                export function update(value) {
+                    thisScene.destroyLayer('leaf');
+                    return true;
+                }
+                """)],
+            userPropertyDefinitions: [],
+            generation: 23
+        )
+        let selfDestroy = selfDestroyProgram.evaluate(
+            inputs: [target: .bool(false)],
+            effectivePropertyValues: [:],
+            frame: frame(runtime: 2)
+        )
+        let logoDefinition = SceneUserPropertyDefinition(
+            key: "logo", title: "Opening logo", kind: .bool,
+            runtimeType: "bool", order: 0, index: nil,
+            minimumValue: nil, maximumValue: nil, stepValue: nil,
+            allowsFractionalValues: false, fractionalPrecision: nil,
+            displayCondition: nil, defaultValue: .bool(true), options: []
+        )
+        let propertyDestroyProgram = SceneScriptVectorProgram.compile(
+            domain: try SceneScriptQuickJSDomain(),
+            descriptor: descriptor(),
+            scriptBindings: [binding(source: """
+                export function update(value) { return value; }
+                export function applyUserProperties(properties) {
+                    if (properties.hasOwnProperty('logo') && !properties.logo) {
+                        thisScene.destroyLayer('leaf');
+                    }
+                }
+                """)],
+            userPropertyDefinitions: [logoDefinition],
+            generation: 24
+        )
+        let propertyDestroy = propertyDestroyProgram.evaluate(
+            inputs: [target: .bool(true)],
+            effectivePropertyValues: ["logo": .bool(false)],
+            frame: frame(runtime: 2),
+            propertyRevision: 1
+        )
         let eventfulProgram = SceneScriptVectorProgram.compile(
             domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor(),
@@ -557,6 +620,22 @@ enum Harness {
             "statefulParentedProjected": statefulParented.targets.count,
             "handleUpdateProjected": handleUpdate.targets.count,
             "dynamicGlobalWriteProjected": dynamicGlobalWrite.targets.count,
+            "escapedStatefulDefinitions": escapedStatefulProgram.definitions.count,
+            "escapedStatefulValue": boolValue(
+                escapedStateful, target: target
+            ) as Any,
+            "selfDestroyValue": boolValue(selfDestroy, target: target) as Any,
+            "selfDestroyMutation": selfDestroy.layerMutations.contains {
+                $0.kind == .destroy && !$0.isDynamic && $0.layerID == 7
+                    && $0.fields.isEmpty
+            },
+            "propertyDestroyValue": boolValue(
+                propertyDestroy, target: target
+            ) as Any,
+            "propertyDestroyMutation": propertyDestroy.layerMutations.contains {
+                $0.kind == .destroy && !$0.isDynamic && $0.layerID == 7
+                    && $0.fields.isEmpty
+            },
             "eventfulDefinitions": eventfulProgram.definitions.count,
             "statefulCursorDefinitions":
                 statefulCursorProgram.definitions.count,
@@ -647,8 +726,8 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
     def test_undefined_preserves_the_boolean_input(self) -> None:
         self.assertTrue(self.value["undefinedValue"])
 
-    def test_outer_user_can_feed_visibility_but_unowned_topology_stays_rejected(self) -> None:
-        self.assertEqual(self.value["parentedProjected"], 0)
+    def test_outer_user_and_parented_layer_use_the_same_typed_owner(self) -> None:
+        self.assertEqual(self.value["parentedProjected"], 1)
         self.assertEqual(self.value["userWrappedProjected"], 1)
 
     def test_ordinary_text_leaf_uses_the_value_only_boolean_owner(self) -> None:
@@ -664,12 +743,12 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["shadowedNamedConsumerProjected"], 1)
 
     def test_shared_state_owner_is_admitted_without_dynamic_code(self) -> None:
-        self.assertEqual(self.value["cursorOnlyProjected"], 0)
+        self.assertEqual(self.value["cursorOnlyProjected"], 1)
         self.assertEqual(self.value["sharedUpdateProjected"], 1)
         self.assertEqual(self.value["statefulParentedProjected"], 1)
         self.assertEqual(self.value["handleUpdateProjected"], 1)
-        self.assertEqual(self.value["dynamicGlobalWriteProjected"], 0)
-        self.assertEqual(self.value["eventfulDefinitions"], 0)
+        self.assertEqual(self.value["dynamicGlobalWriteProjected"], 1)
+        self.assertEqual(self.value["eventfulDefinitions"], 1)
         self.assertEqual(self.value["statefulCursorDefinitions"], 1)
         self.assertFalse(self.value["statefulCursorValue"])
         self.assertEqual(self.value["statefulCursorRegistrationCount"], 1)
@@ -677,6 +756,16 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
             self.value["statefulCursorEvents"],
             ["cursorDown", "cursorUp"],
         )
+
+    def test_source_spelling_does_not_select_visibility_owner_admission(self) -> None:
+        self.assertEqual(self.value["escapedStatefulDefinitions"], 1)
+        self.assertFalse(self.value["escapedStatefulValue"])
+
+    def test_authored_self_destroy_overrides_return_and_property_event(self) -> None:
+        self.assertFalse(self.value["selfDestroyValue"])
+        self.assertTrue(self.value["selfDestroyMutation"])
+        self.assertFalse(self.value["propertyDestroyValue"])
+        self.assertTrue(self.value["propertyDestroyMutation"])
 
     def test_layer_bone_visibility_uses_effectful_owner_and_publishes_matrix(self) -> None:
         self.assertEqual(self.value["boneDefinitions"], 1)
@@ -718,7 +807,7 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         self.assertEqual(self.value["hiddenSharedCode"], "exception")
         self.assertIsNone(self.value["hiddenHandleCode"])
         self.assertEqual(self.value["timerCode"], "exception")
-        self.assertEqual(self.value["audioDefinitions"], 0)
+        self.assertEqual(self.value["audioDefinitions"], 1)
         self.assertEqual(self.value["destroyDefinitions"], 0)
         self.assertFalse(self.value["teardownDestroyInvoked"])
         self.assertTrue(self.value["teardownQuiescent"])
