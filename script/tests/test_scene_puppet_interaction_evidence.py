@@ -16,7 +16,7 @@ def fixture(*, changed=True, returned=True, terminal=True):
         ('08.100',81,'baseline' if returned else 'drag',0),
         ('08.200',82,'baseline' if returned else 'drag',0)]:
         line(time, f'phase=puppet-bone-output layer=42 frame={frame} revision=1 '
-             f'sourceSHA256={digest} maxBindDisplacement={displacement} scriptWritten={"true" if frame == 22 and changed else "false"} gpu=completed')
+             f'geometrySHA256={digest} maxBindDisplacement={displacement} scriptWritten={"true" if frame == 22 and changed else "false"} gpu=completed')
         if terminal:
             line(time, f'axis=graph-execution layer=42 frame={frame} gpuCompletion=completed '
                  'compositorConsumed=true outcome=succeeded')
@@ -24,7 +24,7 @@ def fixture(*, changed=True, returned=True, terminal=True):
 
 
 class PuppetInteractionEvidenceTests(unittest.TestCase):
-    def test_requires_changed_gpu_pixels_then_exact_return_on_later_terminal_frames(self):
+    def test_requires_changed_geometry_then_exact_return_on_later_terminal_frames(self):
         self.assertTrue(collect_puppet_interaction_evidence(fixture(), [42], response='spring-return')['passed'])
 
     def test_cpu_change_or_unconsumed_gpu_output_is_not_visible_evidence(self):
@@ -35,7 +35,7 @@ class PuppetInteractionEvidenceTests(unittest.TestCase):
         for log, layers, response in [(fixture(),[43],'spring-return'),('',[42],'spring-return'),(fixture(),[42],'unknown')]:
             self.assertFalse(collect_puppet_interaction_evidence(log,layers,response=response)['passed'])
 
-    def test_outside_capture_requires_unchanged_source(self):
+    def test_outside_capture_requires_unchanged_geometry(self):
         self.assertTrue(collect_puppet_interaction_evidence(fixture(changed=False), [42],response='no-capture')['passed'])
         self.assertFalse(collect_puppet_interaction_evidence(fixture(),[42],response='no-capture')['passed'])
 

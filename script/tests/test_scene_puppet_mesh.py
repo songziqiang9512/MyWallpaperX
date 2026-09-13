@@ -30,6 +30,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetAttachmentReader.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetAttachmentPoseProjection.swift",
 ]
 REAL_ATTACHMENT_ASSETS = list(
     sample_cache_root("3769688830").glob(
@@ -39,6 +40,7 @@ REAL_ATTACHMENT_ASSETS = list(
 
 HARNESS = r'''
 import Foundation
+import simd
 
 @main
 enum Harness {
@@ -63,15 +65,30 @@ enum Harness {
                     ]
                 }
                 do {
-                    entry["attachments"] = try SceneMdlPuppetAttachmentReader.read(
-                        data: data
-                    ).map { attachment in
+                    let attachments = try SceneMdlPuppetAttachmentReader.read(data: data)
+                    entry["attachments"] = attachments.map { attachment in
                         [
                             "boneIndex": attachment.boneIndex,
                             "name": attachment.name,
+                            "modelLocalFrame": attachment.modelLocalFrameColumnMajor.map(Double.init),
                             "modelFrame": attachment.modelBindFrameColumnMajor.map(Double.init),
                             "sceneFrame": attachment.sceneBindFrameColumnMajor.map(Double.init),
                         ] as [String: Any]
+                    }
+                    if (path as NSString).lastPathComponent == "attachments.mdl" {
+                        var boneWorlds = Array(
+                            repeating: matrix_identity_float4x4,
+                            count: 2
+                        )
+                        boneWorlds[1].columns.3 = SIMD4(50, 80, 0, 1)
+                        if let frames = ScenePuppetAttachmentPoseProjection.frames(
+                            attachments: attachments,
+                            boneWorldMatrices: boneWorlds
+                        ) {
+                            entry["dynamicAttachments"] = frames.mapValues { frame in
+                                [Double(frame.columns.3.x), Double(frame.columns.3.y)]
+                            }
+                        }
                     }
                 } catch let error as SceneMdlPuppetAttachmentReadError {
                     entry["attachmentError"] = error.description
@@ -311,10 +328,16 @@ class SceneMdlPuppetMeshReaderTests(unittest.TestCase):
         attachments = self.results["attachments.mdl"]["attachments"]
         self.assertEqual([item["name"] for item in attachments], ["hand", "orb"])
         self.assertEqual(attachments[0]["boneIndex"], 1)
+        self.assertEqual(attachments[0]["modelLocalFrame"][12:15], [5.0, 7.0, 0.0])
         self.assertEqual(attachments[0]["modelFrame"][12:15], [-75.0, -13.0, 0.0])
         self.assertEqual(attachments[0]["sceneFrame"][12:15], [-75.0, 13.0, 0.0])
         self.assertEqual(attachments[1]["modelFrame"][12:15], [-100.0, -50.0, 0.0])
         self.assertEqual(attachments[1]["sceneFrame"][12:15], [-100.0, 50.0, 0.0])
+
+    def test_current_bone_world_projects_the_preserved_attachment_local_frame(self):
+        dynamic = self.results["attachments.mdl"]["dynamicAttachments"]
+        self.assertEqual(dynamic["hand"], [55.0, -87.0])
+        self.assertEqual(dynamic["orb"], [0.0, 0.0])
 
     def test_attachment_with_missing_bone_fails_closed(self):
         entry = self.results["bad-attachment-bone.mdl"]

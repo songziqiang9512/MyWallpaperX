@@ -1,4 +1,4 @@
-"""Correlate explicit Puppet readback with input edges and terminal GPU frames."""
+"""Correlate Puppet geometry submission with input edges and terminal frames."""
 from __future__ import annotations
 import datetime
 import re
@@ -33,15 +33,14 @@ def collect_puppet_interaction_evidence(log: str, layer_ids: list[int], *, respo
             terminal[layer].add(frame)
         if fields.get('phase') == 'puppet-bone-output':
             if fields.get('gpu') != 'completed':
-                failures.append(f'{layer}: source GPU completion failed')
                 continue
             try:
                 sources[layer].append({'frame': frame, 'time': timestamp,
-                    'revision': int(fields['revision']), 'hash': fields['sourceSHA256'],
+                    'revision': int(fields['revision']), 'hash': fields['geometrySHA256'],
                     'script_written': fields.get('scriptWritten') == 'true',
                     'displacement': float(fields['maxBindDisplacement'])})
             except (KeyError, ValueError):
-                failures.append(f'{layer}: malformed source evidence')
+                failures.append(f'{layer}: malformed geometry evidence')
     if any(edges.get(key) is None for key in ['press','drag','release']):
         return {'passed': False, 'failures': ['missing input edges'], 'layers': []}
     if not edges['press'] < edges['drag'] < edges['release']:
@@ -54,7 +53,7 @@ def collect_puppet_interaction_evidence(log: str, layer_ids: list[int], *, respo
             held = [r for r in records if edges['drag'] < r['time'] < edges['release']]
         settled = [r for r in records if r['time'] > edges['release'] + 4]
         if len(before) < 2 or not held or len(settled) < 3:
-            failures.append(f'{layer}: missing baseline, held or settled GPU samples')
+            failures.append(f'{layer}: missing baseline, held or settled geometry samples')
             continue
         baseline = before[-1]['hash']
         changed = [r for r in held if r['hash'] != baseline and r['displacement'] > 1]
@@ -63,12 +62,12 @@ def collect_puppet_interaction_evidence(log: str, layer_ids: list[int], *, respo
         terminal_return = [r['frame'] for r in matching if r['frame'] in terminal[layer]]
         if response == 'spring-return':
             if not terminal_changed:
-                failures.append(f'{layer}: no deformed readback with same-frame terminal compositor')
+                failures.append(f'{layer}: no deformed geometry with same-frame terminal compositor')
             if len(terminal_return) < 3:
-                failures.append(f'{layer}: no exact pixel return through terminal compositor on later frames')
+                failures.append(f'{layer}: no exact geometry return through terminal compositor on later frames')
         else:
             if any(r['hash'] != baseline or r['script_written'] for r in records):
-                failures.append(f'{layer}: outside capture changed source or wrote pose')
+                failures.append(f'{layer}: outside capture changed geometry or wrote pose')
             if not any(r['frame'] in terminal[layer] for r in held) or len(terminal_return) < 3:
                 failures.append(f'{layer}: no-capture lacks held and later terminal compositor evidence')
         rows.append({'layer': layer, 'baseline_sha256': baseline,

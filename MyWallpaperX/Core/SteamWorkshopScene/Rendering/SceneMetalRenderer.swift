@@ -52,7 +52,7 @@ struct SceneMetalRenderer {
         cameraFrame: SceneParticleCameraFrame,
         encodeSourceUpdates: ((
             MTLCommandBuffer, SceneSourceUpdateTransaction
-        ) -> Void)? = nil,
+        ) -> ScenePuppetAttachmentFrameSnapshot)? = nil,
         encodeFrameReadback: ((MTLTexture, MTLCommandBuffer) -> Void)? = nil,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil,
         to drawable: CAMetalDrawable
@@ -84,62 +84,21 @@ struct SceneMetalRenderer {
             frameIndex: frameContext.frameIndex
         )
         performanceTelemetry?.beginStage("source-update")
-        encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)
+        let puppetAttachmentFrames = encodeSourceUpdates?(
+            commandBuffer, sourceUpdateTransaction
+        ) ?? .empty
         performanceTelemetry?.endStage("source-update")
-        let frameDescriptor: SceneRenderDescriptor
-        let frameLayersByID: [Int: SceneRenderDescriptor.Layer]
-        let frameStaticWorldFrames: [Int: simd_float4x4]
-        let frameOrderedLayers: [SceneRenderDescriptor.Layer]
-        let frameDynamicLayerIDs: Set<Int>; let frameLightLayerIDs: [Int]
-        if let layerTopology,
-           !layerTopology.dynamicLayers.isEmpty
-                || layerTopology.renderOrderLayerIDs
-                    != renderDescriptor.renderOrderLayerIDs {
-            let projection = dynamicLayerTopologyCache.resolve(
-                baseDescriptor: renderDescriptor, topology: layerTopology
-            )
-            frameDescriptor = projection.descriptor
-            frameLayersByID = projection.layersByID
-            frameStaticWorldFrames = projection.staticWorldFrames
-            frameOrderedLayers = projection.orderedLayers
-            frameDynamicLayerIDs = projection.dynamicLayerIDs; frameLightLayerIDs = projection.lightLayerIDs
-        } else {
-            frameDescriptor = renderDescriptor
-            frameLayersByID = layersByID
-            frameStaticWorldFrames = worldFramesByLayerID
-            frameOrderedLayers = authoredLayers
-            frameDynamicLayerIDs = []; frameLightLayerIDs = lightLayerIDs
-        }
         performanceTelemetry?.beginStage("world-resolve")
-        let frameWorldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
-            descriptor: frameDescriptor, byID: frameLayersByID,
-            snapshot: frameContext.dynamicValues,
-            staticFrames: frameStaticWorldFrames,
-            dynamicLayerIDs: frameDynamicLayerIDs
+        let frameProjection = resolveFrameWorldProjection(
+            layerTopology: layerTopology,
+            dynamicValues: frameContext.dynamicValues,
+            puppetAttachmentFrames: puppetAttachmentFrames
         )
+        let frameDescriptor = frameProjection.descriptor
+        let frameLayersByID = frameProjection.layersByID
+        let frameWorldFrames = frameProjection.worldFrames
+        let frameDynamicLayerIDs = frameProjection.dynamicLayerIDs
 #if DEBUG
-        // These counters only feed the first-frame evidence log line; a
-        // second full-visibility pass and per-layer publication probing on
-        // every frame is pure diagnostic cost, so compute them lazily at
-        // the logging gate instead.
-        var dynamicVisibleLayerCount = 0
-        var dynamicSourcePublicationCount = 0
-        func computeDynamicLayerRenderStatistics() {
-            dynamicVisibleLayerCount = frameDynamicLayerIDs.intersection(
-                SceneLayerVisibility.visibleLayerIDs(
-                    in: frameDescriptor,
-                    layersByID: frameLayersByID,
-                    snapshot: frameContext.dynamicValues)
-            ).count
-            dynamicSourcePublicationCount = frameDynamicLayerIDs.reduce(into: 0) {
-                count, layerID in
-                guard let texture = imageTextures[layerID],
-                      imageTextures.explicitLayerSourcePublication(
-                          for: layerID, matching: texture
-                      ) != nil else { return }
-                count += 1
-            }
-        }
         var dynamicEncodedLayerCount = 0
         var dynamicPassthroughLayerCount = 0
 #endif
@@ -153,13 +112,13 @@ struct SceneMetalRenderer {
             viewportSize: viewportSize,
             dynamicValues: frameContext.dynamicValues
         )
-        let orderedLayers = frameOrderedLayers
+        let orderedLayers = frameProjection.orderedLayers
         let frameVisibleLayerIDs = SceneLayerVisibility.visibleLayerIDs(
             in: frameDescriptor, layersByID: frameLayersByID,
             snapshot: frameContext.dynamicValues)
         let activeStaticModelNamedAlbedoLayerIDs = frameVisibleLayerIDs
             .intersection(staticModelResources.namedAlbedoLayerIDs)
-        let dynamicLightColors = Dictionary(uniqueKeysWithValues: frameLightLayerIDs.compactMap { layerID -> (Int, SIMD3<Float>)? in
+        let dynamicLightColors = Dictionary(uniqueKeysWithValues: frameProjection.lightLayerIDs.compactMap { layerID -> (Int, SIMD3<Float>)? in
                 guard let layer = frameLayersByID[layerID] else { return nil }
                 return (
                     layer.id,
@@ -174,7 +133,8 @@ struct SceneMetalRenderer {
         let frameLightSnapshot = SceneLightSnapshot.make(
             descriptor: frameDescriptor,
             worldFramesByLayerID: frameWorldFrames, dynamicLayerColors: dynamicLightColors,
-            candidateLayerIDs: frameLightLayerIDs, layersByID: frameLayersByID
+            candidateLayerIDs: frameProjection.lightLayerIDs,
+            layersByID: frameLayersByID
         )
         performanceTelemetry?.beginStage("frame-admission")
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
@@ -789,30 +749,16 @@ struct SceneMetalRenderer {
             return .dropped(reasonCode: "resolved-material-frame-seal-rejected")
         }
 #if DEBUG
-        if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-           frameContext.frameIndex <= 2,
-           !frameDynamicLayerIDs.isEmpty {
-            computeDynamicLayerRenderStatistics()
-            NSLog(
-                "MWX DEBUG SCENE: phase=dynamic-layer-render frame=%llu topologyRevision=%llu cacheHit=%@ descriptor=%d visible=%d sourcePublications=%d encoded=%d passthrough=%d",
-                frameContext.frameIndex,
-                layerTopology?.topologyRevision ?? 0,
-                String(dynamicLayerTopologyCache.lastResolveWasCacheHit),
-                frameDynamicLayerIDs.count,
-                dynamicVisibleLayerCount,
-                dynamicSourcePublicationCount,
-                dynamicEncodedLayerCount,
-                dynamicPassthroughLayerCount
-            )
-            commandBuffer.addCompletedHandler { buffer in
-                NSLog(
-                    "MWX DEBUG SCENE: phase=dynamic-layer-render-completion frame=%llu status=%@ error=%@",
-                    frameContext.frameIndex,
-                    String(describing: buffer.status),
-                    buffer.error.map(String.init(describing:)) ?? "none"
-                )
-            }
-        }
+        reportDynamicLayerRenderEvidence(
+            projection: frameProjection,
+            imageTextures: imageTextures,
+            dynamicValues: frameContext.dynamicValues,
+            encodedLayerCount: dynamicEncodedLayerCount,
+            passthroughLayerCount: dynamicPassthroughLayerCount,
+            frameIndex: frameContext.frameIndex,
+            topologyRevision: layerTopology?.topologyRevision ?? 0,
+            commandBuffer: commandBuffer
+        )
 #endif
         commandBuffer.present(drawable)
         effectExecutionTelemetry.observeSharedCommandBuffer(

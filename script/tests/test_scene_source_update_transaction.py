@@ -304,7 +304,7 @@ enum Harness {
             "defer {\n            sourceUpdateTransaction.cancel()", transaction
         )
         source_updates = source.index(
-            "encodeSourceUpdates?(commandBuffer, sourceUpdateTransaction)",
+            "let puppetAttachmentFrames = encodeSourceUpdates?(",
             deferred_cancel,
         )
         seal = source.index(
@@ -594,7 +594,9 @@ enum Harness {
         self.assertIn("submissions.update(transaction: transaction)", puppet)
         self.assertIn(
             "guard signature != submission.frameSignature\n"
-            "                    || submission.boneRevision != boneRevision else { return }",
+            "                    || submission.boneRevision != boneRevision else {\n"
+            "                return submission.attachmentFrames\n"
+            "            }",
             puppet,
         )
         self.assertIn("submission.frameSignature = signature", puppet)

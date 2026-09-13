@@ -1,31 +1,77 @@
 import Foundation
 import simd
 
+struct ScenePuppetScriptPoseFrame {
+    static let empty = ScenePuppetScriptPoseFrame(
+        posesByLayerID: [:],
+        attachmentFrames: .empty
+    )
+
+    let posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration]
+    let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
+}
+
 extension SceneMetalView {
-    /// Refresh the existing VM owners from the same current pose and image
-    /// transform used by skinning and cursor geometry. No assets are parsed.
-    func refreshSceneScriptPuppetBones(
+    /// Prepares the current animated hierarchy once before SceneScript. The
+    /// resulting typed frame is also the attachment authority for layer world
+    /// matrices and cursor collision in this callback snapshot.
+    func prepareSceneScriptPuppetPoseFrame(
+        timing: SceneFrameTiming,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> ScenePuppetScriptPoseFrame {
+        guard !puppetPlaybackStates.isEmpty else { return .empty }
+        var posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration] = [:]
+        var framesByParentLayerID: [Int: [String: simd_float4x4]] = [:]
+        posesByLayerID.reserveCapacity(puppetPlaybackStates.count)
+        framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
+        for (layerID, playback) in puppetPlaybackStates {
+            playback.advanceBonePhysics(
+                sceneTime: timing.sceneTime,
+                deltaTime: timing.simulationFrameTime,
+                dynamicValues: dynamicValues
+            )
+            guard let pose = playback.poseConfiguration(
+                sceneTime: timing.sceneTime,
+                dynamicValues: dynamicValues
+            ) else { continue }
+            posesByLayerID[layerID] = pose
+            if !pose.attachmentFrames.isEmpty {
+                framesByParentLayerID[layerID] = pose.attachmentFrames
+            }
+        }
+        return ScenePuppetScriptPoseFrame(
+            posesByLayerID: posesByLayerID,
+            attachmentFrames: .init(
+                framesByParentLayerID: framesByParentLayerID
+            )
+        )
+    }
+
+    /// Publishes bones through the same current layer/attachment world frames
+    /// already installed in the SceneScript layer snapshot. No asset parsing
+    /// or second hierarchy evaluation occurs here.
+    func publishSceneScriptPuppetPoseFrame(
+        _ poseFrame: ScenePuppetScriptPoseFrame,
         context: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot
     ) throws {
-        guard !puppetPlaybackStates.isEmpty else { return }
+        guard !poseFrame.posesByLayerID.isEmpty else { return }
         let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
         let camera = renderer.makeCameraFrame(frameContext: frame)
         let worlds = SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: renderer.renderDescriptor, byID: renderer.layersByID,
-            snapshot: dynamicValues, staticFrames: renderer.worldFramesByLayerID)
+            snapshot: dynamicValues,
+            staticFrames: renderer.worldFramesByLayerID,
+            puppetAttachmentFrames: poseFrame.attachmentFrames
+        )
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: camera, viewportSize: frame.screenSize,
             dynamicValues: dynamicValues)
-        for (layerID, playback) in puppetPlaybackStates {
-            playback.advanceBonePhysics(sceneTime: timing.sceneTime,
-                deltaTime: timing.simulationFrameTime, dynamicValues: dynamicValues)
-            guard let layer = renderer.layersByID[layerID],
-                  let bones = playback.boneConfiguration(
-                    sceneTime: timing.sceneTime, dynamicValues: dynamicValues)
-            else { continue }
+        for (layerID, pose) in poseFrame.posesByLayerID {
+            guard let layer = renderer.layersByID[layerID] else { continue }
+            let bones = pose.bones
             let authoredSize = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
             let model = renderer.geometryModelMatrix(
                 for: layer, worldFramesByLayerID: worlds,

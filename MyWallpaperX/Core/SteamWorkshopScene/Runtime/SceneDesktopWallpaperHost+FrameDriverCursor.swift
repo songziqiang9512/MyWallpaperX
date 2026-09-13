@@ -17,6 +17,7 @@ extension SceneDesktopWallpaperHost {
         launchContext: SceneDesktopWallpaperLaunchContext,
         timing: SceneFrameTiming,
         preliminaryForSceneScript: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot,
         layerSnapshotFailure: SceneScriptScalarRuntimeFailure?
     ) -> SceneScriptCursorBatchPreparation {
         let cursorBatch: SceneScriptCursorFrameBatch
@@ -33,6 +34,7 @@ extension SceneDesktopWallpaperHost {
                     launchContext.sceneScriptCursorProgram.capturedOwnerLayerIDs,
                 timing: timing,
                 dynamicValues: preliminaryForSceneScript,
+                puppetAttachmentFrames: puppetAttachmentFrames,
                 drainedEvents: drained
             )
         } else {

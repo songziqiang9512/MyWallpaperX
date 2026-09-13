@@ -685,6 +685,7 @@ nonisolated extension SceneScriptQuickJSDomain {
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
         ] = [:],
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
         destroyedAuthoredLayerIDs: Set<Int> = [], catalogToken: String? = nil,
         runtimeFieldLayerIDs: Set<Int>? = nil,
         awaitingHostFrameOutcome: Bool = false
@@ -731,22 +732,14 @@ nonisolated extension SceneScriptQuickJSDomain {
             runtimeFieldLayerIDs: runtimeFieldLayerIDs,
             diagnostic: &diagnostic
         )
-        guard let worldTransformProjection = layerWorldTransformProjection,
-              worldTransformProjection.catalogSignature
-                == layerCatalogSignature else {
-            throw SceneScriptScalarRuntimeFailure.invalidArgument(
-                "SceneScript layer world transform projection is stale"
-            )
-        }
         let dynamicTransformIDs = snapshot.dynamicTransformLayerIDsForFrame
-        if layerSnapshotGeneration == 0 || !dynamicTransformIDs.isEmpty
-            || !committedDynamicWorldTransformLayerIDs.isEmpty {
-            try publishLayerWorldTransforms(
-                worldTransformProjection.worldFrames(for: snapshot),
-                descriptor: descriptor,
-                diagnostic: &diagnostic
-            )
-        }
+        try publishLayerWorldTransformsIfNeeded(
+            snapshot: snapshot,
+            descriptor: descriptor,
+            puppetAttachmentFrames: puppetAttachmentFrames,
+            dynamicTransformIDs: dynamicTransformIDs,
+            diagnostic: &diagnostic
+        )
         for (index, layer) in descriptor.layers.enumerated() {
             guard let resolved = snapshot[.layer(layerID: layer.id, field: .origin)],
                   case let .vector3(x, y, z) = resolved.value,

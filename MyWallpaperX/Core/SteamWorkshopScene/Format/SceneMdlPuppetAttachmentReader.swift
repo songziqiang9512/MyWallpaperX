@@ -3,6 +3,7 @@ import Foundation
 struct SceneMdlPuppetAttachment {
     let boneIndex: Int
     let name: String
+    let modelLocalFrameColumnMajor: [Float]
     let modelBindFrameColumnMajor: [Float]
 
     nonisolated var sceneBindFrameColumnMajor: [Float] {
@@ -224,6 +225,7 @@ enum SceneMdlPuppetAttachmentReader {
             attachments.append(SceneMdlPuppetAttachment(
                 boneIndex: boneIndex,
                 name: name,
+                modelLocalFrameColumnMajor: localFrame,
                 modelBindFrameColumnMajor: multiply(boneFrames[boneIndex], localFrame)
             ))
         }

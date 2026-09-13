@@ -81,6 +81,16 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 
 完整合同、正反 focused 门和证据边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-feedback-content-contract)。
 
+## 2026-09-13 `3749463715` Puppet 动态 attachment current-pose 闭环
+
+作者结构由两个parent Puppet `464 / 1106`和attachment child组成：胸部layers `562 / 598`绑定`Attachment`，剑`632`绑定`2`，手部`648 / 1232`绑定`4`；同一parent MDL中四个MDAT名称分别指向bone 2/10/4/11。旧world resolver只消费静态bind frame，因此parent执行MDLA或SceneScript bone override时，child仍停在bind位置，直接对应维护者观察到的启动胸部跳动及胸/身体、手/手臂不同步。
+
+当前reader保留attachment-local matrix；每帧由current bone world生成Scene attachment frame，并按`parentWorld * currentAttachment * childLocal`进入canonical resolver。animation/physics的pre-script pose供layer/bone snapshot与cursor，脚本提交后的final pose同时供LBS、attachment child和Metal encode。11个focused模块与规定的签名Debug build通过；实际App 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `07379332aded18499e818e343ee7806c31721a85`，executable SHA-256 `7864cc1391f5f92dfac12e0aa608675893a7484086aa975db97f4f0f9f2eb9d6`。
+
+只读真实样本的project/package SHA-256为`35392a2d2b9fd901079f7c248a9e5a58850608b0e01cb7dd90dfcfec64603bbf / 777305ee38bdcdace9a7a6e0f942d01952e9318558de38c024336e662e985ae7`。定向drag命中layer 562，日志记录local `0.112624,0.016626`；submitted geometry从基线SHA-256 `9f52a7218d18e8e6d13e99424faf2c8f3725f2d7a8c9a3efce59a2b7a5cb76aa`变化，最大bind位移`45.451706 px`，frame 26/28同时具备deformed geometry与terminal compositor，松手后54个terminal frame回到基线，`puppet_interaction.passed=true`。原分辨率画面检查确认胸部组合与手部随parent pose保持组装。
+
+该运行整体仍为**0/1 NON-PASS**：GraphExecutor有29次观察，15批共240 claim/encode/GPU成功，另14次`frame-target-plan-allocation-failed`；2266个terminal success、16个diagnostic，130/131 frame completed/submitted、0 failed frame、0 drawable miss、0 GPU failed，但allocation identity transition门失败。此公共allocator断点保留为下一任务，不能把dynamic attachment子证据通过改写为整样本通过。运行目录`/private/tmp/mwx-3749463715-dynamic-attachment-final-20260913-2330`，matrix/report/app-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / f47f46a08432d690157b8f9a88b0e1974105667171f89a981651d9663006c179 / 6f591c67e377b2b5dffb0778459ac14beb15653894f5a57f0f2f832dfd63393c`。完整边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-puppet-dynamic-attachment)。
+
 ## 2026-09-13 Puppet 世界空间直绘最终定向复核
 
 当前工作树的签名 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`）对 `3665307769 / 3780119725 / 3264246690 / 3238423642` 做 15 秒 fresh 隔离回放。输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`；四个样本均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`，required effect admission/execution/graph execution 均通过。
@@ -130,7 +140,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147 | 主体人物消失 | `be9858e` 维护者观察；当前 HEAD 尚未复现，不预判 Geometry/Product/visibility/graph owner | 待复现、待归因 |
 | 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
-| 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | graph/utility 旧断点已关闭；这是独立 Puppet pose/bone 视觉观察，当前 HEAD 尚未复现 | 待复现、待归因 |
+| 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 已归因为静态bind attachment未消费current bone pose；当前MDAT动态follow、真实drag/return与画面组装已闭合。独立`frame-target-plan-allocation-failed`稳定复现并阻断整样本strict PASS | attachment子项通过；allocator待修 |
 
 ## 2026-09-08 current corpus probe（archive snapshot）
 

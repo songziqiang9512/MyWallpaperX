@@ -35,7 +35,8 @@ nonisolated enum SceneLayerWorldFrameResolver {
         layers: [SceneRenderDescriptor.Layer],
         byID: [Int: SceneRenderDescriptor.Layer],
         sceneOrthoHeight: Float?,
-        transformOverrides: [Int: TransformOverride]
+        transformOverrides: [Int: TransformOverride],
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: simd_float4x4] {
         var cache: [Int: simd_float4x4] = [:]
 
@@ -58,6 +59,14 @@ nonisolated enum SceneLayerWorldFrameResolver {
         }
 
         func attachmentFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4? {
+            if let parentID = layer.parentID,
+               let name = layer.attachmentName,
+               let current = puppetAttachmentFrames.frame(
+                   parentLayerID: parentID,
+                   attachmentName: name
+               ), isFinite(current) {
+                return current
+            }
             guard let values = layer.parentAttachmentBindFrame,
                   values.count == 16,
                   values.allSatisfy(\.isFinite) else {
@@ -69,6 +78,14 @@ nonisolated enum SceneLayerWorldFrameResolver {
                 SIMD4(values[8], values[9], values[10], values[11]),
                 SIMD4(values[12], values[13], values[14], values[15])
             ))
+        }
+
+        func isFinite(_ matrix: simd_float4x4) -> Bool {
+            [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
+                .allSatisfy { column in
+                    column.x.isFinite && column.y.isFinite
+                        && column.z.isFinite && column.w.isFinite
+                }
         }
 
         func resolve(_ layer: SceneRenderDescriptor.Layer, visiting: Set<Int>) -> simd_float4x4 {

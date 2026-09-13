@@ -272,6 +272,12 @@ extension SceneDesktopWallpaperHost {
             launchContext.textureAnimationPlaybackRuntime.snapshots(
                 sceneTime: timing.sceneTime
             )
+        let sceneScriptPuppetPoseFrame = surfaces.count == 1
+            ? surfaces.values.first?.metalView.prepareSceneScriptPuppetPoseFrame(
+                timing: timing,
+                dynamicValues: preliminaryForSceneScript
+            ) ?? .empty
+            : .empty
         let sceneScriptLayerSnapshotFailure: SceneScriptScalarRuntimeFailure?
         do {
             if let sharedFrameTransactionFailure {
@@ -283,6 +289,8 @@ extension SceneDesktopWallpaperHost {
                     videoSnapshots: sceneScriptVideoSnapshots,
                     textureAnimationSnapshots:
                         sceneScriptTextureAnimationSnapshots,
+                    puppetAttachmentFrames:
+                        sceneScriptPuppetPoseFrame.attachmentFrames,
                     destroyedAuthoredLayerIDs:
                         layerMutationSnapshot.destroyedAuthoredLayerIDs,
                     catalogToken: launchContext.frameSchema.sceneScriptLayerCatalogToken,
@@ -290,9 +298,13 @@ extension SceneDesktopWallpaperHost {
                     awaitingHostFrameOutcome: true
                 )
             if surfaces.count == 1 {
-                try surfaces.values.first?.metalView.refreshSceneScriptPuppetBones(
-                    context: launchContext, timing: timing,
-                    dynamicValues: preliminaryForSceneScript)
+                try surfaces.values.first?.metalView
+                    .publishSceneScriptPuppetPoseFrame(
+                        sceneScriptPuppetPoseFrame,
+                        context: launchContext,
+                        timing: timing,
+                        dynamicValues: preliminaryForSceneScript
+                    )
             }
             sceneScriptLayerSnapshotFailure = nil
         } catch let failure as SceneScriptScalarRuntimeFailure {
@@ -312,6 +324,8 @@ extension SceneDesktopWallpaperHost {
             launchContext: launchContext,
             timing: timing,
             preliminaryForSceneScript: preliminaryForSceneScript,
+            puppetAttachmentFrames:
+                sceneScriptPuppetPoseFrame.attachmentFrames,
             layerSnapshotFailure: sceneScriptLayerSnapshotFailure
         )
         let cursorBatch = cursorPreparation.batch

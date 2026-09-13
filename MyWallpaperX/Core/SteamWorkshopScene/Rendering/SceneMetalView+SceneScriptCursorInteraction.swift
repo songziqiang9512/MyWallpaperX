@@ -88,6 +88,7 @@ extension SceneMetalView {
         capturedOwnerLayerIDs: Set<Int>,
         timing: SceneFrameTiming,
         dynamicValues: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
         drainedEvents: SceneSurfacePointerEventBatch
     ) -> SceneScriptCursorFrameBatch {
         let current = SceneSurfacePointerEvent(
@@ -108,7 +109,8 @@ extension SceneMetalView {
                 projectedOwnerLayerIDs,
                 pointer: pointer,
                 timing: timing,
-                dynamicValues: dynamicValues
+                dynamicValues: dynamicValues,
+                puppetAttachmentFrames: puppetAttachmentFrames
             )
             let hits = originInteractionHits(
                 projections,
@@ -145,7 +147,8 @@ extension SceneMetalView {
         _ ownerLayerIDs: Set<Int>,
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: SceneScriptCursorHit] {
         guard pointer.isInside else { return [:] }
         return originInteractionHits(
@@ -153,7 +156,8 @@ extension SceneMetalView {
                 ownerLayerIDs,
                 pointer: pointer,
                 timing: timing,
-                dynamicValues: dynamicValues
+                dynamicValues: dynamicValues,
+                puppetAttachmentFrames: puppetAttachmentFrames
             ),
             pointerIsInside: pointer.isInside
         )
@@ -174,7 +178,8 @@ extension SceneMetalView {
         _ ownerLayerIDs: Set<Int>,
         pointer: SceneSurfacePointerEvent,
         timing: SceneFrameTiming,
-        dynamicValues: SceneDynamicSnapshot
+        dynamicValues: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: SceneScriptCursorHit] {
         guard metalLayer.drawableSize.width > 0,
               metalLayer.drawableSize.height > 0,
@@ -190,7 +195,8 @@ extension SceneMetalView {
             descriptor: renderer.renderDescriptor,
             byID: renderer.layersByID,
             snapshot: dynamicValues,
-            staticFrames: renderer.worldFramesByLayerID
+            staticFrames: renderer.worldFramesByLayerID,
+            puppetAttachmentFrames: puppetAttachmentFrames
         )
         let parallax = renderer.parallaxConfiguration(
             cameraFrame: cameraFrame,

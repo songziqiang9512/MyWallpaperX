@@ -22,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationSelection.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetSkinMatrixProjection.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+Transforms.swift",
     SCENE_ROOT / "Rendering/ScenePuppetAnimationEvaluator+FrameSampling.swift",

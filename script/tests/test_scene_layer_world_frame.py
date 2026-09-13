@@ -15,6 +15,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
     SCENE_ROOT / "Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Rendering/SceneMatrix.swift",
+    SCENE_ROOT / "Rendering/ScenePuppetAttachmentFrameSnapshot.swift",
     SCENE_ROOT / "Rendering/SceneLayerWorldFrameResolver.swift",
     SCENE_ROOT / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
     SCENE_ROOT
@@ -23,12 +24,14 @@ SWIFT_SOURCES = [
 
 HARNESS = r'''
 import Foundation
+import simd
 
 struct SceneRenderDescriptor {
     struct Camera { let orthoHeight: Float? }
     struct Layer {
         let id: Int
         let parentID: Int?
+        var attachmentName: String? = nil
         let originXYZ: [Float]?
         let scaleXYZ: [Float]?
         let anglesXYZ: [Float]?
@@ -117,6 +120,36 @@ func dynamicResult() -> [String: [Double]] {
     })
 }
 
+func dynamicAttachmentResult() -> [String: [Double]] {
+    let parent = SceneRenderDescriptor.Layer(
+        id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: nil
+    )
+    let child = SceneRenderDescriptor.Layer(
+        id: 2, parentID: 1, attachmentName: "Attachment",
+        originXYZ: [10, 20, 0], scaleXYZ: nil,
+        anglesXYZ: nil, parentAttachmentBindFrame: attachmentFrame(x: 30, y: 40)
+    )
+    let descriptor = SceneRenderDescriptor(
+        layers: [parent, child], camera: .init(orthoHeight: 1_000)
+    )
+    guard let projection = SceneScriptLayerWorldTransformProjection(
+        descriptor: descriptor, catalogSignature: "dynamic-attachment"
+    ) else { fatalError("dynamic attachment projection failed") }
+    let frames = projection.worldFrames(
+        for: .empty(frameIndex: 0),
+        puppetAttachmentFrames: .init(framesByParentLayerID: [
+            1: ["Attachment": simd_float4x4(columns: (
+                SIMD4(1, 0, 0, 0), SIMD4(0, 1, 0, 0),
+                SIMD4(0, 0, 1, 0), SIMD4(50, 60, 0, 1)
+            ))]
+        ])
+    )
+    return Dictionary(uniqueKeysWithValues: frames.map { id, frame in
+        (String(id), [Double(frame.columns.3.x), Double(frame.columns.3.y)])
+    })
+}
+
 func projectionColumnMajorResult() -> [Double] {
     let parent = SceneRenderDescriptor.Layer(
         id: 1, parentID: nil, originXYZ: [100, 50, 0], scaleXYZ: nil,
@@ -195,6 +228,7 @@ enum Harness {
             ),
             "invalidFrame": result(attachment: [1, 2, 3]),
             "dynamic": dynamicResult(),
+            "dynamicAttachment": dynamicAttachmentResult(),
             "projectionColumnMajor": projectionColumnMajorResult(),
             "projectionRejectsNonFinite": rejectsNonFiniteProjection(),
             "nativePerspective": nativePerspectiveResult(),
@@ -251,6 +285,9 @@ class SceneLayerWorldFrameTests(unittest.TestCase):
 
     def test_invalid_attachment_frame_falls_back_to_normal_parenting(self) -> None:
         self.assertEqual(self.result["invalidFrame"]["2"], [110, 930])
+
+    def test_current_puppet_attachment_replaces_bind_frame_in_canonical_hierarchy(self) -> None:
+        self.assertEqual(self.result["dynamicAttachment"]["2"], [160, 990])
 
     def test_dynamic_parent_rotation_updates_its_basis_and_child_world_frame(self) -> None:
         parent = self.result["dynamic"]["1"]

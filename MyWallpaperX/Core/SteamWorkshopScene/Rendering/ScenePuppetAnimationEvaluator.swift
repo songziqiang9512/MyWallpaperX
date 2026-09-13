@@ -266,15 +266,15 @@ struct ScenePuppetAnimationEvaluator {
             frameSamples: frameSamples,
             into: &localMatricesScratch
         )
-        if !boneOverrides.isEmpty {
-            try applyOverrides(
-                boneOverrides,
-                to: &localMatricesScratch,
-                worlds: &worldMatricesScratch
-            )
-        }
-        try writeSkinMatrices(
-            localMatrices: localMatricesScratch,
+        try applyOverrides(
+            boneOverrides,
+            to: &localMatricesScratch,
+            worlds: &worldMatricesScratch
+        )
+        try ScenePuppetSkinMatrixProjection.write(
+            worldMatrices: worldMatricesScratch,
+            bones: rig.bones,
+            inverseBindWorldMatrices: inverseBindWorldMatrices,
             into: &skinMatricesScratch
         )
         for vertexIndex in preparedVertices.indices {
@@ -774,29 +774,13 @@ struct ScenePuppetAnimationEvaluator {
             repeating: matrix_identity_float4x4,
             count: rig.bones.count
         )
-        try writeSkinMatrices(localMatrices: localMatrices, into: &result)
+        try ScenePuppetSkinMatrixProjection.write(
+            localMatrices: localMatrices,
+            bones: rig.bones,
+            inverseBindWorldMatrices: inverseBindWorldMatrices,
+            into: &result
+        )
         return result
-    }
-
-    /// Build parent-first world transforms before converting the same storage
-    /// to skin matrices, so children never consume an inverse-bind transform.
-    private func writeSkinMatrices(
-        localMatrices: [simd_float4x4],
-        into output: inout [simd_float4x4]
-    ) throws {
-        guard localMatrices.count >= rig.bones.count,
-              output.count >= rig.bones.count else {
-            throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
-        }
-        for (boneIndex, bone) in rig.bones.enumerated() {
-            let local = localMatrices[boneIndex]
-            output[boneIndex] = bone.parentIndex >= 0
-                ? output[bone.parentIndex] * local
-                : local
-        }
-        for boneIndex in rig.bones.indices {
-            output[boneIndex] *= inverseBindWorldMatrices[boneIndex]
-        }
     }
 
 }

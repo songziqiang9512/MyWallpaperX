@@ -8,7 +8,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
         byID: [Int: SceneRenderDescriptor.Layer],
         snapshot: SceneDynamicSnapshot,
         staticFrames: [Int: simd_float4x4],
-        dynamicLayerIDs: Set<Int> = []
+        dynamicLayerIDs: Set<Int> = [],
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: simd_float4x4] {
         var overrides: [Int: SceneLayerWorldFrameResolver.TransformOverride] = [:]
         for layerID in snapshot.dynamicTransformLayerIDsForFrame {
@@ -19,7 +20,9 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             guard origin != nil || scale != nil || angles != nil else { continue }
             overrides[layer.id] = .init(origin: origin, scale: scale, angles: angles)
         }
-        if overrides.isEmpty, !dynamicLayerIDs.isEmpty {
+        if overrides.isEmpty,
+           puppetAttachmentFrames.framesByParentLayerID.isEmpty,
+           !dynamicLayerIDs.isEmpty {
             // Dynamic script layers are currently root layers. Their complete
             // frame record is applied to the cached descriptor projection,
             // so refresh only their local world matrices instead of walking
@@ -34,7 +37,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
                         layers: descriptor.layers,
                         byID: byID,
                         sceneOrthoHeight: descriptor.camera.orthoHeight,
-                        transformOverrides: overrides
+                        transformOverrides: overrides,
+                        puppetAttachmentFrames: puppetAttachmentFrames
                     )
                 }
                 result[layer.id] = SceneLayerWorldFrameResolver.compute(
@@ -44,12 +48,16 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             }
             return result
         }
-        guard !overrides.isEmpty else { return staticFrames }
+        guard !overrides.isEmpty
+                || !puppetAttachmentFrames.framesByParentLayerID.isEmpty else {
+            return staticFrames
+        }
         return SceneLayerWorldFrameResolver.compute(
             layers: descriptor.layers,
             byID: byID,
             sceneOrthoHeight: descriptor.camera.orthoHeight,
-            transformOverrides: overrides
+            transformOverrides: overrides,
+            puppetAttachmentFrames: puppetAttachmentFrames
         )
     }
 

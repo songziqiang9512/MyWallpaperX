@@ -22,6 +22,21 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-puppet-dynamic-attachment"></a>
+### 2026-09-13 Puppet 动态 attachment current-pose 与真实拖拽闭环
+
+**结论：受限 `MDLV0023 + MDLS0004 + MDAT0001` named attachment逐帧跟随达到L3 executed，真实`3749463715`的胸部/手部组合与layer 562拖拽回弹达到S4 bounded visible；整样本仍因独立target allocation断点为NON-PASS。** 官方公开合同要求作为Puppet attachment child的layer立即移动到挂点并跟随全部animation。旧reader只发布bind-pose Scene frame；parent mesh虽已动画和世界空间直绘，胸部/手部child仍停留在bind位置。现役reader保留bone identity与attachment-local matrix；每帧current model frame=`boneWorld × attachmentLocal`，Scene基换算为`F * M * F`，child world=`parentWorld × currentAttachment × childLocal`。
+
+**单一pose与owner边界：**animation/physics先生成pre-script pose，同一typed snapshot供SceneScript layer/bone handle和cursor hit；script mutation提交后，final pose由同一evaluator生成LBS vertex与attachment frame，renderer在world resolution前消费该frame并由同一surface command buffer encode。缺失、重复、越界或非有限current frame只局部回到同一attachment已验证bind frame；parent或name无效时保留普通parent transform。没有sample/layer/path/hash分派，也没有第二套renderer、clock、property、provider、registry或compositor。世界空间`GeometryProduct`与atlas/graph-final采样合同不变。
+
+**代码、正反门与产品身份：**MDAT reader门验证local frame保留；数值fixture验证current bone×local及Y基共轭；world-frame门验证dynamic frame替换bind frame并保持`parent × attachment × child`顺序；source-update与interaction evidence门验证transaction、失败局部化及geometry/compositor相关。最终focused集合11个模块全部通过，规定的签名Debug build `BUILD SUCCEEDED`。实际App为2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `07379332aded18499e818e343ee7806c31721a85`，executable SHA-256 `7864cc1391f5f92dfac12e0aa608675893a7484086aa975db97f4f0f9f2eb9d6`；签名前后验证均为true。
+
+**真实作者结构与运行：**只读`3749463715`的project/package SHA-256为`35392a2d2b9fd901079f7c248a9e5a58850608b0e01cb7dd90dfcfec64603bbf / 777305ee38bdcdace9a7a6e0f942d01952e9318558de38c024336e662e985ae7`。parent layers `464 / 1106`共享`models/9996`；胸部`562 / 598`绑定`Attachment`，剑`632`绑定`2`，手部`648 / 1232`绑定`4`；parent MDAT的`Attachment / 2 / 3 / 4`精确对应bone `2 / 10 / 4 / 11`。fresh drag在layer 562 local `0.112624,0.016626`命中现役cursor/SceneScript owner，submitted geometry基线SHA-256为`9f52a7218d18e8e6d13e99424faf2c8f3725f2d7a8c9a3efce59a2b7a5cb76aa`，最大bind位移`45.451706 px`；frames 26/28同时有变形geometry、GPU completion与terminal compositor，release后frames 89...189中54个terminal frame恢复精确基线，`puppet_interaction.passed=true`。原分辨率ready/hover/after检查确认胸部child与身体保持组合、手部随parent current pose放置，未见旧的静态挂点错位。
+
+matrix/report/app-log/preview-log SHA-256为`77e02ee233a40ec1ab2520fc72f14482807b9f5b54fd47efd5c60336be5d56e2 / f47f46a08432d690157b8f9a88b0e1974105667171f89a981651d9663006c179 / 6f591c67e377b2b5dffb0778459ac14beb15653894f5a57f0f2f832dfd63393c / 7de9123360cea872c25ce4e52107fb2f7a2d35742bf3e9bb27a6b3e74ff513ce`；ready/hover/after PNG SHA-256为`deed99e18b77ec82847a909540429d872e3a84afe13808a415f827fd11ada71c / 9372f499b46104f45fa0aaa8c8c892384aa2ab435d1b345011966ba96748c13d / 6a4e73c8b895e5d378266ba0964d9fc9ef0658954288704c95ff2673b417b15b`。现场位于`/private/tmp/mwx-3749463715-dynamic-attachment-final-20260913-2330`，仅作可复现provenance。
+
+**仍开放的断点：**整份benchmark为**0/1 NON-PASS**。GraphExecutor共有29次观察：15批合计240 claim/encode/GPU成功，另14次为`frame-target-plan-allocation-failed`；graph observations有2266个terminal success、16个diagnostic，131/130/0 frame submitted/completed/failed、0 drawable miss、0 GPU failed。成功与失败观察交替使allocation identity transition及required graph contract失败。这是已稳定复现的target pool/plan identity问题，不是attachment、feedback content或GPU command failure；下一批必须修公共allocator owner，不能放宽门禁或用相邻成功帧掩盖。本证据不证明point-property attachment、其他MDAT/version、rotation/gravity/IK、完整mixing、稳定帧性能、逐像素官方parity或整样本人工acceptance；未运行full corpus。
+
 <a id="e-2026-09-13-authored-startup-destroy-cursor"></a>
 ### 2026-09-13 作者启动自销毁与 parent/default-transform 点击闭环
 

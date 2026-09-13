@@ -181,7 +181,7 @@ Particle breadth 的 bounded Position Offset Random 子集由 `968d86eb` 在同�
 <a id="d11"></a>
 ### D11 Fidelity and advanced runtimes
 
-Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip 与 bind-referenced/disjoint-bone additive clips 的 fixed-step CPU LBS 子集，typed animation visibility 复用 D2/D4 snapshot；它仍必须复用统一 frame context、geometry、texture lifetime 和 fail-closed 路由，不代表冲突 animation mixing/权重、动态 attachment 或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
+Puppet、lighting/HDR、3D、RGB 和 offline 复用 D0-D10。Puppet 已有严格单 clip、受限 layered CPU LBS 与 `MDLV0023 + MDLS0004 + MDAT0001` current-pose attachment 子集，typed animation visibility复用D2/D4 snapshot；attachment child、SceneScript layer/bone、cursor和最终skinning复用同一frame context/world resolver，atlas仍只服从既有texture lifetime。该子集不代表完整冲突animation mixing/权重、point-property/其他版本attachment或完整高级对象支持。其他系统在 light/shader/fixed-time consumer 不存在时必须保持 `L0-L2`，不能用普通 image transform、layer Bloom 或 Debug PNG readback 冒充执行。
 
 ## 4. 与现役 V0-V5 路线的关系
 

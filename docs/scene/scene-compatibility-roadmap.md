@@ -6,7 +6,7 @@
 >
 > 唯一目标：`authored input → prepare once → typed frame commit → GPU execute → unique compositor`，并在稳定帧时间内持续得到正确画面。每个改动必须让验收台账中至少一个样本的首断点消失或视觉裁决前进，或闭合一个被多个样本共享的公共首断点。
 
-路线采用五个有限产品类别：纹理、世界空间几何、模拟状态、异步 provider 和多 pass graph 都进入统一 compositor，不形成平行主链，也不要求一个形式化的公共 wrapper。Puppet 的静态 bind pose 与动画 pose 已进入 `GeometryProduct` 世界空间绘制：原始 atlas 或该 atlas 的 graph-final 纹理由 mesh 采样，原始/变形顶点经唯一 world MVP 直接进入主 target，不再生成 coverage/viewport 几何纹理。作者 package 确实缺少所引用 mesh 时，允许该局部层以明确原因降级为普通纹理；非法路径及其他 mesh/资源/encode 失败不能发布 atlas。现役命名 provider 只接收完整栅格层源，Puppet 跨层 provider 明确拒绝，不以压平纹理补齐。该切片以四个代表样本做定向可见验收，仍不代表全部 Puppet/3D/corpus 或官方 parity。任何新增兼容 profile 必须有静态预算、局部失败半径和退役条件，不能按样本或层身份扩展专用路径。
+路线采用五个有限产品类别：纹理、世界空间几何、模拟状态、异步 provider 和多 pass graph 都进入统一 compositor，不形成平行主链，也不要求一个形式化的公共 wrapper。Puppet 的静态 bind pose 与动画 pose 已进入 `GeometryProduct` 世界空间绘制：原始 atlas 或该 atlas 的 graph-final 纹理由 mesh 采样，原始/变形顶点经唯一 world MVP 直接进入主 target，不再生成 coverage/viewport 几何纹理。受限MDAT attachment已由同一current bone pose逐帧生成Scene frame，child、SceneScript layer/bone snapshot、cursor和最终skinning共用canonical world-frame链。作者 package 确实缺少所引用 mesh 时，允许该局部层以明确原因降级为普通纹理；非法路径及其他 mesh/资源/encode 失败不能发布 atlas。现役命名 provider 只接收完整栅格层源，Puppet 跨层 provider 明确拒绝，不以压平纹理补齐。该切片以定向代表样本做可见验收，仍不代表全部 Puppet/3D/corpus 或官方 parity。任何新增兼容 profile 必须有静态预算、局部失败半径和退役条件，不能按样本或层身份扩展专用路径。
 >
 > 本文只拥有阶段顺序和完成门。能力、owner、route、样本和运行结果分别由[能力台账](semantics/coverage-ledger.md)、专项表、[运行证据索引](semantics/runtime-evidence-current.md)、[样本调试台账](semantics/scene-sample-debug-ledger.md)和[样本验收台账](semantics/scene-sample-acceptance-ledger.md)拥有。日常操作见[开发工作流](development-workflow.md)。
 

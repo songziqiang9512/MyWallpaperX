@@ -1,6 +1,7 @@
 import AppKit
 import Metal
 import QuartzCore
+import simd
 
 private struct SceneStartupReportBuffer {
     private var lines: [String]?
@@ -571,9 +572,22 @@ class SceneMetalView: NSView {
                         commandBuffer: commandBuffer, transaction: transaction
                     )
                 }
+                var framesByParentLayerID: [Int: [String: simd_float4x4]] = [:]
+                framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
                 for playback in puppetPlaybackStates.values {
-                    playback.encode(sceneTime: frameContext.sceneTime, dynamicValues: frameContext.dynamicValues, commandBuffer: commandBuffer, transaction: transaction)
+                    let frames = playback.encode(
+                        sceneTime: frameContext.sceneTime,
+                        dynamicValues: frameContext.dynamicValues,
+                        commandBuffer: commandBuffer,
+                        transaction: transaction
+                    )
+                    if !frames.isEmpty {
+                        framesByParentLayerID[playback.layerID] = frames
+                    }
                 }
+                return ScenePuppetAttachmentFrameSnapshot(
+                    framesByParentLayerID: framesByParentLayerID
+                )
             },
             encodeFrameReadback: frameReadback,
             performanceTelemetry: performanceTelemetry,

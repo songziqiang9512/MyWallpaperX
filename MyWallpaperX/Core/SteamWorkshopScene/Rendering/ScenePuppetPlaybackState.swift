@@ -27,11 +27,17 @@ final class ScenePuppetPlaybackState {
         var frameSignature: [FrameSignature]?
         var boneRevision: UInt64?
         var nextVertexBufferIndex = 0
+        var attachmentFrames: [String: simd_float4x4] = [:]
     }
 
     struct Output {
         let state: ScenePuppetPlaybackState
         let product: SceneGeometryProduct
+    }
+
+    struct PoseConfiguration {
+        let bones: ScenePuppetLayerLoad.BoneConfiguration
+        let attachmentFrames: [String: simd_float4x4]
     }
 
     enum Failure: Error, CustomStringConvertible {
@@ -56,6 +62,7 @@ final class ScenePuppetPlaybackState {
     private let mesh: SceneMdlPuppetMesh
     private let selection: ScenePuppetAnimationSelection
     private let evaluator: ScenePuppetAnimationEvaluator
+    private let attachments: [SceneMdlPuppetAttachment]
     private let atlasTexture: MTLTexture
     private let vertexBuffers: [MTLBuffer]
     private let indexBuffer: MTLBuffer
@@ -97,6 +104,7 @@ final class ScenePuppetPlaybackState {
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
         selection: ScenePuppetAnimationSelection,
+        attachments: [SceneMdlPuppetAttachment],
         atlasTexture: MTLTexture,
         layerWidth: Float,
         layerHeight: Float,
@@ -143,6 +151,7 @@ final class ScenePuppetPlaybackState {
             mesh: mesh,
             selection: selection,
             evaluator: evaluator,
+            attachments: attachments,
             atlasTexture: atlasTexture,
             vertexBuffers: vertexBuffers,
             indexBuffer: indexBuffer,
@@ -160,7 +169,7 @@ final class ScenePuppetPlaybackState {
         dynamicValues: SceneDynamicSnapshot,
         commandBuffer: MTLCommandBuffer,
         transaction: SceneSourceUpdateTransaction
-    ) {
+    ) -> [String: simd_float4x4] {
         for index in selection.clips.indices {
             let clip = selection.clips[index]
             frameSamplesScratch[index] = isVisible(
@@ -181,9 +190,11 @@ final class ScenePuppetPlaybackState {
         }
         let frameSamples = frameSamplesScratch
         let signature = signatureScratch
-        submissions.update(transaction: transaction) { submission in
+        let attachmentFrames = submissions.update(transaction: transaction) { submission in
             guard signature != submission.frameSignature
-                    || submission.boneRevision != boneRevision else { return }
+                    || submission.boneRevision != boneRevision else {
+                return submission.attachmentFrames
+            }
             // Keep the expensive CPU skinning behind the frame signature
             // guard. At display rates a source frame commonly repeats; the
             // old order rebuilt every vertex array before discovering that
@@ -200,7 +211,13 @@ final class ScenePuppetPlaybackState {
                     boneOverrides: scriptBoneOverrides
                 )) != nil
             }
-            guard evaluated else { return }
+            guard evaluated else { return submission.attachmentFrames }
+            if let frames = ScenePuppetAttachmentPoseProjection.frames(
+                attachments: attachments,
+                boneWorldMatrices: worldMatrixScratch
+            ) {
+                submission.attachmentFrames = frames
+            }
 #if DEBUG
             if boneRevision > 0, !recordedBoneSkin,
                SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
@@ -233,6 +250,7 @@ final class ScenePuppetPlaybackState {
 
             submission.frameSignature = signature
             submission.boneRevision = boneRevision
+            return submission.attachmentFrames
         }
 #if DEBUG
         if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
@@ -241,9 +259,10 @@ final class ScenePuppetPlaybackState {
             scriptWritten: boneWrittenInFrame,
             displacement: zip(positionScratch, mesh.vertices).reduce(Float(0)) {
                 max($0, simd_length($1.0 - SIMD2($1.1.x, $1.1.y)))
-            }, texture: atlasTexture, commandBuffer: commandBuffer)
+            }, positions: positionScratch, commandBuffer: commandBuffer)
         }
 #endif
+        return attachmentFrames
     }
 
     func geometryProduct() -> SceneGeometryProduct {
@@ -305,6 +324,19 @@ final class ScenePuppetPlaybackState {
         sceneTime: Double,
         dynamicValues: SceneDynamicSnapshot
     ) -> ScenePuppetLayerLoad.BoneConfiguration? {
+        poseConfiguration(
+            sceneTime: sceneTime,
+            dynamicValues: dynamicValues
+        )?.bones
+    }
+
+    /// Evaluates one typed current pose for the pre-script frame snapshot.
+    /// Bone handles, animated attachments and cursor/world projections all
+    /// consume this result instead of evaluating independent hierarchies.
+    func poseConfiguration(
+        sceneTime: Double,
+        dynamicValues: SceneDynamicSnapshot
+    ) -> PoseConfiguration? {
         let frameSamples: [ScenePuppetAnimationEvaluator.FrameSample?] =
             selection.clips.map { clip in
                 guard isVisible(clip.layer, dynamicValues: dynamicValues) else {
@@ -325,11 +357,18 @@ final class ScenePuppetPlaybackState {
             [matrix.columns.0, matrix.columns.1, matrix.columns.2, matrix.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
         }
-        return ScenePuppetLayerLoad.BoneConfiguration(
+        let bones = ScenePuppetLayerLoad.BoneConfiguration(
             names: evaluator.boneNames,
             parentIndices: evaluator.boneParentIndices,
             worldMatrices: transforms.world.flatMap(flatten),
             localMatrices: transforms.local.flatMap(flatten)
+        )
+        return PoseConfiguration(
+            bones: bones,
+            attachmentFrames: ScenePuppetAttachmentPoseProjection.frames(
+                attachments: attachments,
+                boneWorldMatrices: transforms.world
+            ) ?? [:]
         )
     }
 
@@ -432,6 +471,7 @@ final class ScenePuppetPlaybackState {
         mesh: SceneMdlPuppetMesh,
         selection: ScenePuppetAnimationSelection,
         evaluator: ScenePuppetAnimationEvaluator,
+        attachments: [SceneMdlPuppetAttachment],
         atlasTexture: MTLTexture,
         vertexBuffers: [MTLBuffer],
         indexBuffer: MTLBuffer,
@@ -443,6 +483,7 @@ final class ScenePuppetPlaybackState {
         self.mesh = mesh
         self.selection = selection
         self.evaluator = evaluator
+        self.attachments = attachments
         self.atlasTexture = atlasTexture
         self.vertexBuffers = vertexBuffers
         self.indexBuffer = indexBuffer

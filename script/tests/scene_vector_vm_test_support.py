@@ -26,6 +26,7 @@ SWIFT_SOURCES = [
     SCENE / "Runtime/SceneAudioSpectrum.swift",
     SCENE / "Runtime/SceneTextureAnimationControl.swift",
     SCENE / "Rendering/SceneMatrix.swift",
+    SCENE / "Rendering/ScenePuppetAttachmentFrameSnapshot.swift",
     SCENE / "Rendering/SceneLayerWorldFrameResolver.swift",
     SCENE / "Rendering/SceneLayerDynamicWorldFrameResolver.swift",
     SCENE / "Resources/SceneNamedTextureReference.swift",
@@ -43,6 +44,7 @@ SWIFT_SOURCES = [
     VM / "SceneScriptLayerRuntimeDescriptorBridge.swift",
     VM / "SceneScriptLayerTopologyModels.swift",
     VM / "SceneScriptLayerWorldTransformProjection.swift",
+    VM / "SceneScriptLayerWorldTransformPublication.swift",
     VM / "SceneScriptMediaEventBridge.swift",
     VM / "SceneScriptCursorProgram.swift",
     VM / "SceneScriptCursorHitAdmission.swift",
@@ -335,6 +337,7 @@ struct SceneRenderDescriptor {
         var authoredDependencies: [Int] = []
         var effectFiles: [String] = []
         var parallaxDepthXY: [Float]? = nil
+        var attachmentName: String? = nil
         var parentAttachmentBindFrame: [Float]? = nil
     }
 

@@ -42,13 +42,15 @@ nonisolated struct SceneScriptLayerWorldTransformProjection: Sendable {
     }
 
     func worldFrames(
-        for snapshot: SceneDynamicSnapshot
+        for snapshot: SceneDynamicSnapshot,
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
     ) -> [Int: simd_float4x4] {
         SceneLayerDynamicWorldFrameResolver.resolve(
             descriptor: descriptor,
             byID: layersByID,
             snapshot: snapshot,
-            staticFrames: staticWorldFrames
+            staticFrames: staticWorldFrames,
+            puppetAttachmentFrames: puppetAttachmentFrames
         )
     }
 

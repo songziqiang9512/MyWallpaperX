@@ -327,7 +327,7 @@ Wallpaper Engine 2.8.42 / Steam build `23967692` 是一个固定版本证据快�
 
 ## 3. 开源播放器对照
 
-本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../history/scene/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../history/scene/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT 静态 attachment、三来源 MDLA/full-TRS/skin weights、严格单 clip 与 disjoint-bone additive LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
+本地参考项目的两份只读审查记录（研究记录，不是现役能力状态）：[全量参考项目审查](../../history/scene/scene-reference-project-audit-2026-07-24.md)（HEAD `31ae557` 时）与 [effect/runtime 专题审查](../../history/scene/scene-reference-audit-effects-runtime-2026-07-24.md)（有序 effect 链、X-Ray、water、时间/文字、视频纹理主题）。Puppet MDLV mesh、受限 MDLS/MDAT bind/current attachment、四组MDLA/full-TRS/skin weights、严格单 clip 与受限layered LBS，以及 BC 解码的可执行合同已收敛到 [场景格式与 Render Graph](scene-format-and-render-graph.md) 第 11 节；第三方审查记录不再是这些现役能力的事实来源。
 
 ### 3.1 `Almamu/linux-wallpaperengine`
 

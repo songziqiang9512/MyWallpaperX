@@ -137,6 +137,7 @@ enum ScenePuppetLayerLoad {
         let renderSize = layer.renderSizeWH ?? []
         let layerWidth = renderSize.count > 0 ? renderSize[0] : 0
         let layerHeight = renderSize.count > 1 ? renderSize[1] : 0
+        let attachments = (try? SceneMdlPuppetAttachmentReader.read(data: data)) ?? []
         var animationFallbackMessage: String?
         if layer.puppetAnimationLayers.isEmpty == false {
             do {
@@ -163,6 +164,7 @@ enum ScenePuppetLayerLoad {
                         mesh: mesh,
                         rig: rig,
                         selection: selection,
+                        attachments: attachments,
                         atlasTexture: atlasTexture,
                         layerWidth: layerWidth,
                         layerHeight: layerHeight,
@@ -207,6 +209,7 @@ enum ScenePuppetLayerLoad {
             switch ScenePuppetPlaybackState.make(
                 layerID: layer.id, mesh: mesh, rig: rig,
                 selection: .init(clips: [], composition: .layered),
+                attachments: attachments,
                 atlasTexture: atlasTexture, layerWidth: layerWidth,
                 layerHeight: layerHeight,
                 device: device, pipeline: pipeline
