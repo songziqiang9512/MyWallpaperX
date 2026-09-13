@@ -80,6 +80,7 @@
 13. **puppet 双 lane**：`puppetAtlas` 仅 mesh UV 采样、`puppetComposed` 才能作 layer source；geometry 失败回退 TextureProduct 须保持 coverage 合同。
 14. **launch 世代**：newer-wins 世代号 + 取消令牌 + per-generation worker 队列；新后台准备必须持世代令牌，否则旧场景任务污染新场景。
 15. **catalog 不可变、整体替换**：capability catalog 无增量失效；token 含 ownerID 不跨 catalog 碰撞。"改一处能力"= 重建 catalog，不是 patch。
+16. **控制面单一通道**（M0 起）：UI→引擎只经 `Core/PlaybackControl/` 命令层（`WallpaperEngineCommand` + multiplexer，未消费显式 false）；静音权威 = `PlaybackMuteState`（video 音量滑杆归零的派生静音是例外，同步属设置打通）；预算档权威 = Scene 宿主 `performanceProfile`（UI 只写 UserDefaults + 发命令）。新 UI 入口不得直触引擎内部。
 
 ## 4. 改A坏B 雷区对照表
 
@@ -96,7 +97,7 @@
 | 加 invalidation 触发（档位切换/重连/显示变化） | executor.reset() 清 PSO 缓存 → warmup 跟进；catalog 整体重建 | 重置后首帧主线程秒级卡顿 |
 | 加 per-frame 遥测/诊断 | evidence 门三合一语义（不变量 12）+ sticky 行为 + Release 恒 false | Release 行为漂移；窗口样式意外变化 |
 | 新 offscreen target 类型 | allocation cache key + pin 故事 + history-only 降级路径 | 在飞资源被逐出 → GPU target hazard |
-| 静音改公共态（M0.2） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry + daemon `setMuted` | video 音量恢复错档；Scene 音效不受控 |
+| 静音/预算档/命令层（M0.2/M0.7 已落地） | video previousAudibleVolume 恢复语义 + SceneSoundPlaybackRegistry 静音门 + `PlaybackMuteState`/`PlaybackPerformanceProfile` 权威 + daemon `setMuted`/`setPerformanceProfile` | video 音量恢复错档；Scene 音效/帧率不受控；第二静音权威 |
 | 动 puppet atlas/composed | coverage ledger + UV 合同 | puppet 采样错位（近期迁移高发区） |
 | launch 加后台准备 | 世代令牌 + per-generation 队列 | 旧场景任务写进新场景表面 |
 | 退役一条 effect 执行旁路 | route state（observe→prefer→generic-only）+ fixture/golden 转行为合同 | 静默双执行或能力回退 |

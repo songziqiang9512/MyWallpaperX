@@ -53,11 +53,11 @@
 
 - **M0.1 命令层入公共层** ✅ f33b2386：`Core/PlaybackControl/` 三件（WallpaperEngineCommand / PlaybackEngineControlling / PlaybackCommandMultiplexer，未消费命令显式返回 false）；Scene 处理端接真实入口（loadScene→requestLaunch、pause/resume→setPlaybackPaused、stop→stop()）；video 处理端（pause/resume/stop→WallpaperEngine，setMuted/switchNext→WallpaperManager）。验收：UI 无直触引擎内部 ✅（状态栏已改）；web 处理端待 web 模块需要时补。
 - **M0.2 静音态升公共层** ⬜：静音从 video 音量派生态（`WallpaperManager+PlaybackSettings`）拆为公共回放态；video 保 volume 恢复语义，Scene 接 `SceneSoundPlaybackRegistry`。验收：任一引擎激活时菜单/设置静音一致生效。
-- **M0.3 设置容器拆公共层 + FPS 档** ⬜：`AppKitSettingsContainerView`/`AppSettingsSection` 从 `Modules/VideoLibrary/UI` 整块搬 `Shared/Settings/`；`efficiency` 分区加"最高 FPS：30/60"（默认 60）；audio 区双引擎生效。验收：30 档下一帧起 30Hz；重启保持。
+- **M0.3 设置容器拆公共层 + FPS 档** ✅ cbd96207：设置容器整块 git mv `Shared/Settings/`（同 target 零改动）；efficiency 分区新增最高帧率 30/60 分段（UserDefaults 持久化 + 命令层下发）；audio 区静音开关改命令层广播双引擎。验收：30 档下一帧起 30Hz、重启保持 ✅（档位持久化于 UserDefaults）。
 - **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
 - **M0.5 播放按钮交互** ⬜：点击 ≤1 runloop turn 切 pending 图标；订阅 launch 五阶段状态映射 loading/就绪/失败；video 路径同型。
 - **M0.6 属性热更新** ⬜（§4.2）。
-- **M0.7 性能档两档** ⬜（§4.1）。
+- **M0.7 性能档两档** ✅ cbd96207：`PlaybackPerformanceProfile`（60/30，UserDefaults）；宿主持有档位，FrameDriver 帧间隔与 busy 重试间隔由档位派生（硬编码 60Hz 常量删除），`.setPerformanceProfile` 热切换下次排帧生效。预算束其余维度（池帽/缓存帽/resident 系数）随 M4.2 接入同枚举。
 - 与 M1 文件不重叠，可并行。
 
 ### M1 度量地基
