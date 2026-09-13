@@ -1,5 +1,44 @@
 import Foundation
 
+/// Admits player callbacks only for the playback anchor that is still current.
+/// AVPlayerItem end notifications do not carry the command generation that
+/// produced them, so the source also supplies the observed item time. A seek,
+/// rate change, pause, resume or rollback invalidates the old anchor before an
+/// asynchronous callback is allowed to mutate the typed provider lifecycle.
+nonisolated struct SceneVideoPlayerEventState: Equatable {
+    private(set) var commandGeneration: UInt64 = 0
+    private(set) var anchoredGeneration: UInt64?
+
+    nonisolated mutating func invalidateAnchor() {
+        commandGeneration &+= 1
+        anchoredGeneration = nil
+    }
+
+    nonisolated mutating func didAnchorPlayback() {
+        anchoredGeneration = commandGeneration
+    }
+
+    nonisolated func acceptsEndEvent(
+        observedItemTime: TimeInterval,
+        duration: TimeInterval,
+        tolerance: TimeInterval
+    ) -> Bool {
+        guard let anchoredGeneration,
+              anchoredGeneration == commandGeneration,
+              observedItemTime.isFinite,
+              duration.isFinite,
+              tolerance.isFinite,
+              duration > 0,
+              tolerance >= 0 else {
+            return false
+        }
+        // AVPlayer may report a valid terminal timestamp a few container
+        // ticks past the nominal duration. Only the lower boundary separates
+        // a current EOF from a stale callback delivered after a restart.
+        return observedItemTime >= max(0, duration - tolerance)
+    }
+}
+
 nonisolated struct SceneVideoProviderLifecycleState {
     nonisolated struct FramePlan {
         let frameIndex: UInt64

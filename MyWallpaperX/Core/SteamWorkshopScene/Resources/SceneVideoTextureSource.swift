@@ -40,6 +40,7 @@ final class SceneVideoTextureSource {
     private let textureCache: CVMetalTextureCache
     private let temporaryFileURL: URL
     private let layerID: Int
+    private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var currentCVMetalTexture: CVMetalTexture?
@@ -50,22 +51,24 @@ final class SceneVideoTextureSource {
         let lifecycle: SceneVideoProviderLifecycleState
         let hasStarted: Bool
         let needsPlayerAnchor: Bool
-        let playbackBarrier: UInt64
+        let playerEventState: SceneVideoPlayerEventState
         let currentCVMetalTexture: CVMetalTexture?
     }
     private var pendingPreparationSnapshot: FramePreparationSnapshot?
     private var hasStarted = false
     private var needsPlayerAnchor = true
-    private var playbackBarrier: UInt64 = 0
+    private var playerEventState = SceneVideoPlayerEventState()
     private var endedGeneration: UInt64 = 0
 
     init?(
         layerID: Int,
         mp4PayloadData: Data,
         cacheDirectory: URL,
-        device: MTLDevice
+        device: MTLDevice,
+        capturesLifecycleObservations: Bool = false
     ) {
         self.layerID = layerID
+        self.capturesLifecycleObservations = capturesLifecycleObservations
         let outputDirectory = cacheDirectory
             .appendingPathComponent(".mywallpaperx-scene-video-payloads", isDirectory: true)
         do {
@@ -126,8 +129,28 @@ final class SceneVideoTextureSource {
             queue: .main
         ) { [weak self] _ in
             guard let self else { return }
+            let observedItemTime = CMTimeGetSeconds(player.currentTime())
+            let itemDuration = duration
+            guard lifecycle.isPlaying,
+                  playerEventState.acceptsEndEvent(
+                      observedItemTime: observedItemTime,
+                      duration: itemDuration,
+                      tolerance: endEventTolerance
+                  ) else {
+                logEndEvent(
+                    disposition: "ignored-stale",
+                    observedItemTime: observedItemTime,
+                    duration: itemDuration
+                )
+                return
+            }
+            logEndEvent(
+                disposition: "accepted",
+                observedItemTime: observedItemTime,
+                duration: itemDuration
+            )
             endedGeneration &+= 1
-            lifecycle.didReachEnd(duration: duration)
+            lifecycle.didReachEnd(duration: itemDuration)
             markPlayerAnchorRequired()
         }
     }
@@ -162,7 +185,7 @@ final class SceneVideoTextureSource {
             lifecycle: lifecycle,
             hasStarted: hasStarted,
             needsPlayerAnchor: needsPlayerAnchor,
-            playbackBarrier: playbackBarrier,
+            playerEventState: playerEventState,
             currentCVMetalTexture: currentCVMetalTexture
         )
         if !hasStarted {
@@ -197,6 +220,9 @@ final class SceneVideoTextureSource {
                 atHostTime: hostTime(plan.hostTime)
             )
             needsPlayerAnchor = player.rate == 0
+            if !needsPlayerAnchor {
+                playerEventState.didAnchorPlayback()
+            }
         } else if !lifecycle.isPlaying && needsPlayerAnchor {
             player.pause()
             player.seek(
@@ -209,7 +235,7 @@ final class SceneVideoTextureSource {
             needsPlayerAnchor = true
             return lastFrame
         }
-        let expectedBarrier = playbackBarrier
+        let expectedCommandGeneration = playerEventState.commandGeneration
         guard videoOutput.hasNewPixelBuffer(forItemTime: itemTime) else {
             if player.rate == 0 {
                 needsPlayerAnchor = true
@@ -221,7 +247,7 @@ final class SceneVideoTextureSource {
             forItemTime: itemTime,
             itemTimeForDisplay: &itemTimeForDisplay
         ),
-        expectedBarrier == playbackBarrier,
+        expectedCommandGeneration == playerEventState.commandGeneration,
         let texture = makeTexture(from: pixelBuffer) else {
             return lastFrame
         }
@@ -273,7 +299,7 @@ final class SceneVideoTextureSource {
             lifecycle = preparation.lifecycle
             hasStarted = preparation.hasStarted
             needsPlayerAnchor = preparation.needsPlayerAnchor
-            playbackBarrier = preparation.playbackBarrier
+            playerEventState = preparation.playerEventState
             currentCVMetalTexture = preparation.currentCVMetalTexture
         }
         // AVPlayer may have advanced while the candidate was being encoded.
@@ -429,6 +455,7 @@ final class SceneVideoTextureSource {
         pendingFrame = nil
         pendingFrameIndex = nil
         pendingPreparationSnapshot = nil
+        playerEventState.invalidateAnchor()
         CVMetalTextureCacheFlush(textureCache, 0)
         try? FileManager.default.removeItem(at: temporaryFileURL)
     }
@@ -436,7 +463,29 @@ final class SceneVideoTextureSource {
     private func markPlayerAnchorRequired() {
         player.pause()
         needsPlayerAnchor = true
-        playbackBarrier &+= 1
+        playerEventState.invalidateAnchor()
+    }
+
+    private var endEventTolerance: TimeInterval {
+        let timescale = item.duration.timescale
+        return timescale > 0 ? 1 / Double(timescale) : 1 / 600
+    }
+
+    private func logEndEvent(
+        disposition: String,
+        observedItemTime: TimeInterval,
+        duration: TimeInterval
+    ) {
+        guard capturesLifecycleObservations else { return }
+        NSLog(
+            "MWX video provider event: schema=video-provider-event-v1 layer=%d event=end disposition=%@ commandGeneration=%llu anchoredGeneration=%@ itemTime=%.6f duration=%.6f",
+            layerID,
+            disposition,
+            playerEventState.commandGeneration,
+            playerEventState.anchoredGeneration.map(String.init) ?? "-",
+            observedItemTime,
+            duration
+        )
     }
 
     private func boundedItemTime(_ itemTime: TimeInterval) -> CMTime {

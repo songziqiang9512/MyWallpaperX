@@ -13,7 +13,8 @@ extension SceneTextureLoader {
         source: SourceKey,
         layerID: Int,
         cacheDirectory: URL,
-        device: MTLDevice
+        device: MTLDevice,
+        capturesLifecycleObservations: Bool = false
     ) -> SceneVideoTextureSource? {
         guard url.pathExtension.lowercased() == "tex",
               sourceKey(for: url) == source,
@@ -28,7 +29,8 @@ extension SceneTextureLoader {
             layerID: layerID,
             mp4PayloadData: payload,
             cacheDirectory: cacheDirectory,
-            device: device
+            device: device,
+            capturesLifecycleObservations: capturesLifecycleObservations
         )
     }
 }
@@ -41,6 +43,7 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     private let epoch: UInt64
+    private let capturesLifecycleObservations: Bool
     private var sources: [SourceIdentity: SceneVideoTextureSource] = [:]
     /// Source order is a topology fact, not a frame-varying provider value.
     /// Keep the existing deterministic layer/device ordering, but only sort
@@ -49,8 +52,12 @@ final class SceneVideoTextureSourceRegistry {
     private var orderedSourceIdentities: [SourceIdentity]?
     private var rebuildingSourceIdentities: Set<SourceIdentity>?
 
-    init(epoch: UInt64) {
+    init(
+        epoch: UInt64,
+        capturesLifecycleObservations: Bool = false
+    ) {
         self.epoch = epoch
+        self.capturesLifecycleObservations = capturesLifecycleObservations
     }
 
     func source(
@@ -78,7 +85,8 @@ final class SceneVideoTextureSourceRegistry {
             source: sourceKey,
             layerID: layerID,
             cacheDirectory: cacheDirectory,
-            device: device
+            device: device,
+            capturesLifecycleObservations: capturesLifecycleObservations
         ),
               loader.sourceKey(for: url) == sourceKey else {
             return nil

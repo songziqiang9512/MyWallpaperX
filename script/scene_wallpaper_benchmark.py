@@ -626,6 +626,7 @@ RESOLVED_MATERIAL_GRAPH_LOCAL_FALLBACK_RE = re.compile(
     r"layer-local-fallback count=(?P<count>\d+) "
     r"entries=(?P<entries>\d+:[A-Za-z0-9._-]+"
     r"(?:,\d+:[A-Za-z0-9._-]+)*)"
+    r"(?: frame=(?P<frame>\d+))?(?=\s|$)"
 )
 NAMED_TARGET_CAPTURE_EXECUTION_RE = re.compile(
     r"phase=named-target-capture layer=(?P<id>\d+) status=(?P<status>succeeded|failed)"
@@ -2958,7 +2959,14 @@ def resolved_material_graph_execution_metrics(
         entries: list[dict[str, Any]] = []
         for token in match.group("entries").split(","):
             layer, reason = token.split(":", 1)
-            entries.append({"layer_id": int(layer), "reason": reason})
+            entries.append({
+                "layer_id": int(layer),
+                "reason": reason,
+                "frame": (
+                    int(match.group("frame"))
+                    if match.group("frame") is not None else None
+                ),
+            })
         if (
             int(match.group("count")) != len(entries)
             or len({entry["layer_id"] for entry in entries}) != len(entries)
@@ -3026,13 +3034,29 @@ def resolved_material_graph_execution_metrics(
             fallback_route_frames[layer_id] = min(
                 frame_id, fallback_route_frames.get(layer_id, frame_id)
             )
+    for observation in local_fallback_observations:
+        layer_id = observation["layer_id"]
+        frame_id = observation["frame"]
+        if frame_id is not None:
+            fallback_route_frames[layer_id] = min(
+                frame_id, fallback_route_frames.get(layer_id, frame_id)
+            )
     transient_recovered_fallback_layer_ids = sorted(
         layer_id for layer_id, frame_id in fallback_route_frames.items()
-        if any(
-            value["layer_id"] == layer_id and value["frame"] < frame_id
-            for value in graph_observations["terminal_success_observations"]
+        if (
+            frame_id == 0 or any(
+                value["layer_id"] == layer_id and value["frame"] < frame_id
+                for value in graph_observations[
+                    "terminal_success_observations"
+                ]
+            )
         ) and any(
             value["layer_id"] == layer_id and value["frame"] > frame_id
+            for value in graph_observations["terminal_success_observations"]
+        ) and any(
+            value["layer_id"] == layer_id
+            and value["frame"] > frame_id
+            and "next-frame" in value["trigger"]
             for value in graph_observations["terminal_success_observations"]
         )
     )

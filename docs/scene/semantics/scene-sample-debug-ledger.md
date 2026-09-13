@@ -2,6 +2,14 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 `3775355045 / 3775373546` 双视频 command generation 闭环
+
+两份作者项目都包含前景layer 22和隐藏dependency layer 21的等时长embedded MP4。启动脚本把两者seek到0并play；只有前景层接收ended callback，回调同时重启两层，并在两帧后再次同步seek。作者另每30帧比较两层currentTime，差值超过`0.08 s`才纠偏。修复前35秒运行在第一个循环边界后持续出现每30帧5条command，证明下层已经落后；首断点是AVPlayerItem迟到EOF在新seek/play之后仍调用`didReachEnd`，覆盖较新的typed命令，而非两张视频贴图、遮罩或graph参数不同。
+
+现役provider为控制命令建立command generation和player anchor。EOF必须属于当前anchor且当前item time确实到达duration；新命令后的旧EOF只记录`ignored-stale`。最终签名Debug App为2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `b39cd09776cc07c63e9d3790951aca184c264d11`，executable/debug dylib SHA-256为`5a843330a6de177c40d59fbd5088560acbfd9549060185b8234115166f4ff6c6 / 8476daa090eb023254361a08ad50133ab0f0d01e70e15cce71cdb73aff9f2bbe`。两样本各35秒结果2/2 strict PASS、loaded=1.000、0 failed frame；`3775355045`为1685/1685/0 submitted/completed/failed、43/43/43 graph，`3775373546`为1684/1683/0、45/45/45 graph，均0 graph failure。frame 0唯一`layer-source-not-ready`只在同layer后续terminal及next-frame success成立后记为恢复。
+
+`3775355045`的command批次只出现在frames `0/30/31/905/906/1795/1796`；`3775373546`只出现在`0/31/32/451/452/882/883/1313/1314/1743/1744`，不存在修复前每30帧纠偏。每个样本17张2秒周期截图均持续变化：相邻截图changed ratio最小/最大分别为`0.460999…0.902073 / 0.593773…0.898940`。matrix/report SHA-256为`4dd5dc4789e6d5489a30db778decc5de6a19b12ee48d8ccb34f57450d9614b0a / e39243c82c6eb7160ddd88806d9e9a1dd8ebe1c76559f3969f6b5163e5019ae0`。完整日志/截图hash和边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-video-provider-command-generation)。本项关闭“下层播放数秒后卡顿落后”的技术首断点，不替代逐像素官方golden或维护者整样本人工acceptance。
+
 ## 2026-09-14 三个历史“主体人物消失”观察的当前刷新
 
 当前签名Debug App对`2932631210 / 2813231542 / 3788467391`各运行25秒，3/3 strict PASS、loaded=1.000、0 failed frame、0 drawable miss。三个项目都由普通image/solid与Program graph组合，没有Puppet animation layer；active descriptor分别为6/7/18，required graph layer分别为`32,106 / 38,61,85 / 20,28,257`且全部完成GPU、terminal compositor和next-frame，GraphExecutor 0 failure/0 local fallback。原分辨率ready/after逐张确认三个人物及各自主构图完整持续，motion changed ratio为`0.05342 / 0.07047 / 0.22761`。

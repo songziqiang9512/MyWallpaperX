@@ -293,6 +293,8 @@ Timeline、user property、SceneScript、pointer、audio、media 和 system stat
 
 producer 的优先级、同帧/下一帧可见性和冲突处理由 frame commit 统一决定；consumer 只读取与自身职责匹配的 channel，不得各自建立状态系统，也不得把 resource generation 或 topology change 伪装成普通 value-only 更新。
 
+异步 provider 的控制命令也必须先成为 owner-scoped typed transaction effect，再由 provider 在同一 command generation 内执行。每次 seek、play、pause、rate、host suspend/resume、rebuild 或 rollback 都使旧 player anchor 失效；AVFoundation notification、decode completion 等不携带 generation 的异步回调，只有同时证明当前 command generation、当前 anchor 与回调对应的可观察终态后，才可修改 typed lifecycle 或发布新资源。迟到回调只能被忽略，不能覆盖更新的作者命令。初始资源尚未 ready 时仍按最小 layer 保留 previous-current；诊断/benchmark 只有在同 layer 后续取得 terminal compositor 和 next-frame success 时，才能把该启动 pending 记为已恢复，不能用等待或静默吞掉失败伪造首帧成功。
+
 作者层的 SceneScript topology mutation 必须保持 owner、identity 和失败域可证明。当前只允许 effectful object-visibility owner 销毁自身且无子层的 authored layer；该操作与当帧 Boolean value 原子求值，只有全部 surface submission 成功后才从 render order、descriptor projection 和下一帧 VM snapshot 同时消失。跨 owner 销毁、带子层销毁、静态 sort/create、stale handle 和回生继续局部拒绝，不能用普通 `visible=false` 冒充 topology 已改变。
 
 TextureAnimation 的脚本控制遵守同一边界：launch preparation 只登记 animated TEX 的 immutable frame/source 定义；每帧在 QuickJS callback 前由唯一 SceneClock 与现有播放控制状态形成 immutable handle snapshot。`rate/play/pause/stop/setFrame/join` 只产生 owner-scoped typed command，全部 surface submission 成功后才提交，并从下一帧同时影响普通 atlas UV、resolved-material preflight 和既有 multi-image upload。播放控制不拥有 texture、provider、timer、clock、resource registry 或 renderer；`join` 只移除 layer-local override。prepared 动画必须由 frame batch 提供 playback time，consumer 不得自行回读 `sceneTime` 形成第二条时钟路径。

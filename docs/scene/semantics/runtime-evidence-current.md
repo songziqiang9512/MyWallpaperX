@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-video-provider-command-generation"></a>
+### 2026-09-14 video provider command generation 与双视频循环同步
+
+**结论：`3775355045 / 3775373546` 的双视频遮罩组合已关闭迟到EOF覆盖新命令的公共生命周期缺口，达到S4 bounded visible。** 两个作者项目都以layer 22作为可见前景、layer 21作为隐藏dependency，使用等时长embedded MP4。启动脚本同时`setCurrentTime(0)+play`；只有前景层注册ended callback，回调同时重启两层，并在两帧后再次同步seek。作者每30帧比较currentTime，只有漂移大于`0.08 s`才发命令。修复前第一个循环边界后每30帧都会出现5条纠偏命令；根因是AVPlayerItem旧EOF notification可在作者的新seek/play之后抵达，旧provider直接执行`didReachEnd`，使隐藏层的新播放状态回到终点。
+
+**实现与正反门：**`SceneVideoPlayerEventState`为每次seek/play/pause/rate、host suspend/resume、rebuild、rollback建立递增command generation，并且只有成功建立player rate anchor后才记录当前anchored generation。EOF回调必须同时满足provider仍在playing、anchor generation仍当前、observed item time不早于`duration - one timescale tick`；AVPlayer允许略晚于nominal duration的合法终态，因此不设错误的上界。迟到EOF只被忽略，不改变typed lifecycle。frame copy继续复核同一command generation；candidate rollback连同lifecycle、anchor和CVMetalTexture原子恢复。focused executable正反门覆盖未anchor、当前EOF、略过duration、命令失效、重启到0后的旧EOF和rollback；benchmark只有在frame 0 typed pending之后同layer取得terminal与next-frame success时才把启动fallback记为recovered。
+
+**产品身份与真实运行：**规定的签名Debug build `BUILD SUCCEEDED`，deep codesign verification通过。App为2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `b39cd09776cc07c63e9d3790951aca184c264d11`，executable/debug dylib SHA-256为`5a843330a6de177c40d59fbd5088560acbfd9549060185b8234115166f4ff6c6 / 8476daa090eb023254361a08ad50133ab0f0d01e70e15cce71cdb73aff9f2bbe`。只运行两个样本各35秒并每2秒捕获一次周期帧，结果2/2 `failures=[] / strict PASS`、loaded=1.000、0 failed frame。`3775355045`为1685/1685/0 submitted/completed/failed、约56.647 FPS、CPU p50/p95 `2.829/4.331 ms`、GPU p95 `3.564 ms`、43/43/43 graph；`3775373546`为1684/1683/0、约56.592 FPS、CPU p50/p95 `2.734/4.154 ms`、GPU p95 `3.596 ms`、45/45/45 graph。两者graph failure均为0。各自frame 0的一次`layer-source-not-ready`保持可观察，并由同layer后续terminal compositor和next-frame success严格证明恢复。
+
+**作者命令与可见连续性：**`3775355045`的command `(frame,count)`只为`(0,12),(30,5),(31,1),(905,5),(906,2),(1795,5),(1796,2)`；`3775373546`只为`(0,12),(31,5),(32,1),(451,5),(452,2),(882,5),(883,2),(1313,5),(1314,2),(1743,5),(1744,2)`。前景当前EOF正常accepted；作者已重启后的隐藏层旧EOF均为`ignored-stale`，不再有每30帧漂移纠偏。两个样本各17张截图的相邻mean delta最小/最大为`0.022830…0.036162 / 0.036862…0.062067`，changed ratio最小/最大为`0.460999…0.902073 / 0.593773…0.898940`；原分辨率contact sheet确认完整组合跨多个循环持续变化。
+
+**可复查身份与边界：**matrix/report SHA-256为`4dd5dc4789e6d5489a30db778decc5de6a19b12ee48d8ccb34f57450d9614b0a / e39243c82c6eb7160ddd88806d9e9a1dd8ebe1c76559f3969f6b5163e5019ae0`。两样本app-log SHA-256依次为`7f0d2e9fa1ff968443dece1acd3125885295f0882fd358f6b557a46f5260669e / 529c8f72998f4b589d20dd7e6a5bdabc9459753715e905e1e390f1cd2d51c911`；ready/after截图依次为`dc89908519d858a0bebcba8f794005077dbdecc8e4e433d6a218c046318680d9 / 5fe3522bd1fb66abfed70c7fc87fedf7de293578e390fbe7a16a27f88c7a03f2`与`4c9d2bc578766aafbed86479331233bcb8d53377fe04441420f161c1448540af / 0d43eab4c1d09a48864d96527438043b6934835b68a9b26942dfdddebed4ffb0`。该证据不宣称两层逐像素相位完全相同，不外推不同duration/rate、全部视频样本、系统休眠长稳或官方像素parity；未运行full corpus，维护者人工acceptance仍单独开放。
+
 <a id="e-2026-09-14-missing-subject-refresh"></a>
 ### 2026-09-14 三个历史“主体人物消失”观察的当前刷新
 

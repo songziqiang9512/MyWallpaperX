@@ -1,5 +1,11 @@
 # Scene 官方语义与实现覆盖台账
 
+## 2026-09-14 video provider command generation 与 EOF 归属（S4 bounded visible）
+
+作者视频控制现在与 prepared 参数合同遵循相同的单一归属原则：SceneScript 的 seek/play/pause/rate 先进入现役 typed command transaction；每次命令、host suspend/resume、rebuild 或 rollback 都推进 `SceneVideoPlayerEventState.commandGeneration` 并使旧 player anchor 失效。AVPlayerItem EOF notification 只有在 provider 仍播放、anchor 属于当前 command generation，且当前 item time 已到达 duration 的一个 timescale tick 范围内时才可改变 lifecycle；作者已发出重启命令后迟到的旧 EOF 被忽略，不能把新一轮播放重置到旧终点。资源 publication、GraphProduct、GPU completion 与唯一 compositor owner不变，没有增加样本分支、第二时钟、阻塞等待、预算或 fallback。
+
+真实`3775355045 / 3775373546`各35秒定向运行均strict PASS。两个作者项目都启动前/后两条等时长video，只有前层接收ended callback并同时重启两层；旧实现会被隐藏后层迟到EOF覆盖，作者每30帧的`>0.08 s`漂移检查因此反复发出纠偏命令。修复后日志只剩启动和作者循环边界的重启命令，隐藏层的迟到EOF均记录为`ignored-stale`，17张/样本的2秒周期截图持续变化，graph/GPU/compositor/next-frame闭合。精确身份、命令序列、正反门和证据上限见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-video-provider-command-generation)。本项不外推全部AVPlayer通知顺序、不同duration/rate、系统休眠长稳或逐像素官方parity。
+
 ## 2026-09-14 Puppet 原始 atlas 与精确 effect extent（S4 bounded visible）
 
 Puppet 世界空间几何现在同时关闭了最后一条纹理压缩路径。`SceneGeometryProduct` 在 preparation 时固定 `exactSamplingTexture` 输入尺寸合同；GraphProduct 只能按 atlas candidate 的 mapped extent 建立工作 target，在现有 pool hard limit 或驻留预算内无法精确保留时局部拒绝，不能退回通用 2048 上限。旧 `LayerCapability.fullFrameExtentPolicy = .standard` 已删除，普通 image/composition/direct-draw 继续使用 `scalableStandard`。因此五类产品仍进入同一 Program/GraphTargets/GraphExecutor/唯一 compositor，尺寸语义由 prepared source product 选择，effect 或样本不能在普通帧覆盖。

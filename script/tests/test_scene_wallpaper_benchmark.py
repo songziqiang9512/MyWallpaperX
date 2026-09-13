@@ -5419,6 +5419,125 @@ utility layer 763: skippedHidden kind=composition
             ),
         )
 
+    def test_resolved_material_graph_typed_startup_fallback_requires_next_frame_recovery(
+        self,
+    ) -> None:
+        preview_text = (
+            "resolved material execution capabilities: "
+            "schema=layer-graph-capability-v1 candidates=1 accepted=1 "
+            "rejected=0 variantLimit=8\n"
+            "resolved material execution capability: "
+            "schema=layer-graph-route-v1 layer=22 status=accepted\n"
+        )
+        disposition = static_effect_disposition(
+            records=[{
+                "layer_id": 22,
+                "effect_index": 0,
+                "descriptor_id": "22#effect#23",
+                "definition_path": "effects/xray/effect.json",
+                "family": "resolved-material",
+                "kind": "program",
+            }],
+            groups=[{"layer_id": 22, "kind": "authored"}],
+        )
+        cpu = effect_cpu_event(
+            frame=8,
+            origin="image",
+            subject="effect",
+            layer=22,
+            effect=0,
+            descriptor="22%23effect%2323",
+            family="resolved-material",
+            backend=benchmark.RESOLVED_MATERIAL_GRAPH_BACKEND,
+        )
+        effect_execution = benchmark.effect_execution_metrics(
+            effect_execution_log(8, [cpu], []),
+            disposition,
+        )
+        first = graph_execution_observation(
+            frame=8,
+            layer=22,
+            transaction="first-provider-frame",
+            trigger="first-frame+reset+first-success+compositor-consume+gpu-completed",
+            consumed=True,
+        )
+        next_frame = graph_execution_observation(
+            frame=9,
+            layer=22,
+            transaction="next-provider-frame",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+        )
+        later_without_next_frame = graph_execution_observation(
+            frame=9,
+            layer=22,
+            transaction="later-provider-frame",
+            trigger="compositor-consume+gpu-completed",
+            consumed=True,
+        )
+        expected_fallbacks = [{
+            "layer_id": 22,
+            "reason": "layer-source-not-ready",
+        }]
+        sample = {
+            "expected_resolved_material_graph_succeeded_layer_ids": [22],
+            "expected_resolved_material_graph_local_fallbacks":
+                expected_fallbacks,
+        }
+        common_log = [
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=0 encoded=0 failures=0 deferred=0 pending=0 "
+            "gpuEncoded=0 localFallbacks=1",
+            "schema=1 axis=graph-execution diagnostic="
+            "layer-local-fallback count=1 entries="
+            "22:layer-source-not-ready frame=0",
+            "resolved material runtime audit: schema=scene-graph-executor-v1 "
+            "claimed=1 encoded=1 failures=0 deferred=0 pending=1 "
+            "gpuEncoded=1 localFallbacks=0",
+            first,
+        ]
+        recovered = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([*common_log, next_frame]),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertEqual(
+            recovered["executor"][
+                "transient_recovered_fallback_layer_ids"
+            ],
+            [22],
+        )
+        self.assertEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                recovered,
+                require_evidence=True,
+                sample=sample,
+            ),
+            [],
+        )
+
+        missing_next_frame = benchmark.resolved_material_graph_execution_metrics(
+            preview_text,
+            "\n".join([*common_log, later_without_next_frame]),
+            effect_execution=effect_execution,
+            static_disposition=disposition,
+        )
+        self.assertEqual(
+            missing_next_frame["executor"][
+                "transient_recovered_fallback_layer_ids"
+            ],
+            [],
+        )
+        self.assertNotEqual(
+            benchmark.resolved_material_graph_execution_failures(
+                missing_next_frame,
+                require_evidence=True,
+                sample=sample,
+            ),
+            [],
+        )
+
     def test_resolved_material_graph_execution_gate_accepts_dependency_routes(
         self,
     ) -> None:

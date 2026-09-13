@@ -112,7 +112,8 @@ final class SceneDesktopWallpaperHost {
         soundPlaybackRegistry = nil
         nextVideoProviderEpoch &+= 1
         videoTextureSourceRegistry = SceneVideoTextureSourceRegistry(
-            epoch: nextVideoProviderEpoch
+            epoch: nextVideoProviderEpoch,
+            capturesLifecycleObservations: context.capturesExecutionObservations
         )
         if let launchContext {
             teardownSceneScriptOwners(launchContext, reason: teardownReason)

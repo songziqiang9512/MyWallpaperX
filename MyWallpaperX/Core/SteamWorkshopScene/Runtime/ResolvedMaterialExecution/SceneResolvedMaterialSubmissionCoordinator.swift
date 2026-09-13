@@ -161,7 +161,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         ]
         var diagnostic: String?
         lock.lock()
-        guard frameIsActive, !framePreparationComplete,
+        guard frameIsActive, let frame, !framePreparationComplete,
               !frameRequiresDrop, frameFailure == nil,
               frameLocalFallbacks.isEmpty,
               fallbacks.allSatisfy({ layerID, reasonCode in
@@ -180,6 +180,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             if !fallbacks.isEmpty, signature != lastLocalFallbackSignature {
                 lastLocalFallbackSignature = signature
                 diagnostic = "layer-local-fallback \(signature)"
+                    + " frame=\(frame.frameIndex)"
             }
         }
         lock.unlock()
@@ -473,6 +474,7 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                                 lastLocalFallbackSignature = signature
                                 emission.diagnostics.append(
                                     "layer-local-fallback \(signature)"
+                                        + " frame=\(frame.frameIndex)"
                                         + " preflight=\(failure.rawValue)"
                                 )
                             }

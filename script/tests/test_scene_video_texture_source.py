@@ -166,6 +166,37 @@ enum Harness {
             hostTime: 205.25
         )
 
+        var playerEvents = SceneVideoPlayerEventState()
+        let unanchoredEndRejected = !playerEvents.acceptsEndEvent(
+            observedItemTime: 5,
+            duration: 5,
+            tolerance: 0.01
+        )
+        playerEvents.invalidateAnchor()
+        playerEvents.didAnchorPlayback()
+        let currentEndAccepted = playerEvents.acceptsEndEvent(
+            observedItemTime: 4.995,
+            duration: 5,
+            tolerance: 0.01
+        )
+        let overDurationEndAccepted = playerEvents.acceptsEndEvent(
+            observedItemTime: 5.02,
+            duration: 5,
+            tolerance: 0.01
+        )
+        playerEvents.invalidateAnchor()
+        let staleEndRejectedAfterCommand = !playerEvents.acceptsEndEvent(
+            observedItemTime: 5,
+            duration: 5,
+            tolerance: 0.01
+        )
+        playerEvents.didAnchorPlayback()
+        let staleEndRejectedAfterRestart = !playerEvents.acceptsEndEvent(
+            observedItemTime: 0.02,
+            duration: 5,
+            tolerance: 0.01
+        )
+
         let firstStopRequestsCleanup = state.stop()
         let secondStopRequestsCleanup = state.stop()
 
@@ -201,6 +232,11 @@ enum Harness {
                 && close(rebuiltWhileSuspended.itemTime, 1),
             "loopRestartsAtLatestSceneTime": loopRestart.shouldDecode
                 && close(loopRestart.itemTime, 0.25),
+            "endEventBelongsToCurrentAnchor": unanchoredEndRejected
+                && currentEndAccepted
+                && overDurationEndAccepted
+                && staleEndRejectedAfterCommand
+                && staleEndRejectedAfterRestart,
             "epochIsInherited": initialEpoch == 73
                 && pausedEpoch == initialEpoch
                 && resumedEpoch == initialEpoch
@@ -298,6 +334,7 @@ class SceneVideoProviderLifecycleStateTests(unittest.TestCase):
             "suspendedPauseDoesNotAdvance",
             "suspendedRebuildDoesNotAdvance",
             "loopRestartsAtLatestSceneTime",
+            "endEventBelongsToCurrentAnchor",
             "epochIsInherited",
             "stopIsIdempotent",
             "discardedPlanCanRetry",
@@ -387,7 +424,7 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "lifecycle: lifecycle",
             "hasStarted: hasStarted",
             "needsPlayerAnchor: needsPlayerAnchor",
-            "playbackBarrier: playbackBarrier",
+            "playerEventState: playerEventState",
             "currentCVMetalTexture: currentCVMetalTexture",
         ):
             with self.subTest(snapshot=token):
@@ -413,12 +450,41 @@ class SceneVideoTextureSourceContractTests(unittest.TestCase):
             "lifecycle = preparation.lifecycle",
             "hasStarted = preparation.hasStarted",
             "needsPlayerAnchor = preparation.needsPlayerAnchor",
-            "playbackBarrier = preparation.playbackBarrier",
+            "playerEventState = preparation.playerEventState",
             "currentCVMetalTexture = preparation.currentCVMetalTexture",
             "if preparation?.hasStarted ?? true",
         ):
             with self.subTest(restore=token):
                 self.assertIn(token, discard)
+
+    def test_eof_requires_the_current_anchor_and_observed_end_position(self) -> None:
+        initializer = swift_block(self.source, "init?(")
+        self.assertIsNotNone(initializer)
+        assert initializer is not None
+        for token in (
+            "lifecycle.isPlaying",
+            "playerEventState.acceptsEndEvent(",
+            "observedItemTime: observedItemTime",
+            "duration: itemDuration",
+            "tolerance: endEventTolerance",
+            'disposition: "ignored-stale"',
+            'disposition: "accepted"',
+        ):
+            with self.subTest(admission=token):
+                self.assertIn(token, initializer)
+
+        current_frame = swift_block(self.source, "func prepareFrame(")
+        self.assertIsNotNone(current_frame)
+        assert current_frame is not None
+        self.assertIn("playerEventState.didAnchorPlayback()", current_frame)
+        self.assertIn(
+            "expectedCommandGeneration == playerEventState.commandGeneration",
+            current_frame,
+        )
+        anchor = swift_block(self.source, "private func markPlayerAnchorRequired()")
+        self.assertIsNotNone(anchor)
+        assert anchor is not None
+        self.assertIn("playerEventState.invalidateAnchor()", anchor)
 
     def test_stop_is_idempotent_and_releases_all_owned_resources(self) -> None:
         stop = swift_block(self.source, "func stop(")
@@ -530,6 +596,10 @@ class SceneVideoProviderOwnershipContractTests(unittest.TestCase):
         self.assertIn(
             "markPlayerAnchorRequired()",
             VIDEO_SOURCE.read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "capturesLifecycleObservations: context.capturesExecutionObservations",
+            host,
         )
         self.assertIn("pendingLayerSourceIDs.insert(layerID)", assembly)
         self.assertIn("pendingLayerSourceIDs: pendingLayerSourceIDs", assembly)
