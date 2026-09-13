@@ -76,7 +76,7 @@
 
 ### M3 消融减法 + hot path cleanup
 
-- **M3.1 Frame storage**：registry snapshot+digest 合并改——publish 时 fact 层 O(1) 脏标记，脏才全量 fold（digest 是 variant memo 键，不可删只可免重算；先补 digest 等值测试）；overlay 字典 CoW 与 snapshot 持久化联动；beginFrame 无变化帧直通。
+- **M3.1 Frame storage** 🔶 07b2d871：registry liveSelectionDigest 增量维护已落地——entries 写入点仅 2 处（set(status:)/publish(resource:)）+2 处 removeAll，O(changed) 折叠；snapshot() 零全量 fold；digest 不变量 harness 5 组全过（确定性/可逆/generation 值稳定/相异 fact/entryCount，harness 存 docs/scene/evidence/m31-digest-test/），graph 样本实测无回归（cpu 34.4-34.7ms 噪声带内、busy=0）。**遗留**：①python 驱动被 Mimosa 钩子误报拦截（参数列表+shell=False 仍拦，与已提交 telemetry 测试同模式），harness 可人工运行；②overlay CoW 与 beginFrame 直通未做（下批）。
 - **M3.2 启动链去串行**：activate/rebuildSurfaces 同步解码出主线程；双 join 并行化；pkg 解包与材质资产内联解码移出关键路径；候选首帧最小纠偏（对齐启动响应合同）。验收 = TTFVF before/after。
 - **M3.3 持续消融**：见 §5，贯穿 M2–M5。
 
