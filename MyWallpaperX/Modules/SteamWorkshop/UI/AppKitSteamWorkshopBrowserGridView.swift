@@ -164,6 +164,13 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             }
             .store(in: &cancellables)
 
+        service.$launchPendingRecordID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.reloadVisibleItems()
+            }
+            .store(in: &cancellables)
+
         service.$previewReloadToken
             .dropFirst()
             .receive(on: DispatchQueue.main)

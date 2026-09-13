@@ -158,6 +158,13 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
             }
             .store(in: &cancellables)
 
+        service.$launchPendingRecordID
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.refreshVisibleDownloadItems()
+            }
+            .store(in: &cancellables)
+
         service.$downloadsDisplayMode
             .receive(on: DispatchQueue.main)
             .sink { [weak self] mode in

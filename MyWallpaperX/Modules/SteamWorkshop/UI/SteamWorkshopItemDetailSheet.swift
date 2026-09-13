@@ -692,6 +692,15 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
 
         if let record {
+            if service.isLaunchPending(record.id) {
+                return footerButton(
+                    title: "正在切换…",
+                    symbolName: "hourglass.circle.fill",
+                    kind: .primary,
+                    target: self,
+                    action: #selector(setAsWallpaper)
+                )
+            }
             return footerButton(
                 title: "设为壁纸",
                 symbolName: record.contentType == .scene ? "play.circle.fill" : "photo.fill",

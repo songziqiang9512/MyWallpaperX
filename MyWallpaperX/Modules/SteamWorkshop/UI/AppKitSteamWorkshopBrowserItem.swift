@@ -39,6 +39,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
     private var onCancelDownload: (() -> Void)?
     private var currentActionKind: ActionKind = .download
     private var prefersCircularPlayBadge = false
+    /// M0.5：本卡片"设为壁纸"是否处于 pending（渲染加载态图标）。
+    private var isLaunchPendingBadge = false
     private var trackingAreaRef: NSTrackingArea?
     private var isHovering = false
     private var isPressingCard = false
@@ -381,9 +383,13 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
             isDownloading: isDownloading,
             isDownloaded: isDownloaded
         )
+        isLaunchPendingBadge = downloadRecord.map {
+            SteamWorkshopService.shared.isLaunchPending($0.id)
+        } ?? false
         applyStatusBadgeAppearance(
             actionKind: currentActionKind,
-            itemTitle: item.title
+            itemTitle: item.title,
+            isLaunchPending: isLaunchPendingBadge
         )
 
         refreshThemeAwareAppearance()
@@ -472,7 +478,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
 
     private func applyStatusBadgeAppearance(
         actionKind: ActionKind,
-        itemTitle: String
+        itemTitle: String,
+        isLaunchPending: Bool = false
     ) {
         let symbolName: String
         let tintColor: NSColor
@@ -490,9 +497,14 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
                 ? "下载中：\(itemTitle)"
                 : "取消下载：\(itemTitle)"
         case .setAsWallpaper:
-            symbolName = "play.fill"
+            if isLaunchPending {
+                symbolName = "hourglass"
+                accessibilityLabel = "正在切换壁纸：\(itemTitle)"
+            } else {
+                symbolName = "play.fill"
+                accessibilityLabel = "设为壁纸：\(itemTitle)"
+            }
             tintColor = .white
-            accessibilityLabel = "设为壁纸：\(itemTitle)"
         case .retry:
             symbolName = "square.and.arrow.down"
             tintColor = .white
@@ -1172,7 +1184,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
         self.prefersCircularPlayBadge = prefersCircularPlayBadge
         applyStatusBadgeAppearance(
             actionKind: currentActionKind,
-            itemTitle: currentTitleText
+            itemTitle: currentTitleText,
+            isLaunchPending: isLaunchPendingBadge
         )
         if view.window != nil {
             refreshThemeAwareAppearance()

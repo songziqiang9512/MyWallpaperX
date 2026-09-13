@@ -27,7 +27,12 @@ extension SteamWorkshopService {
     }
 
     func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) {
+        // M0.5：点击即进入 pending（≤1 runloop turn 渲染加载态）。
+        // 早退路径立即清除；scene 由 launch 终态清除；video/web 由
+        // runtime 切换通知清除，1.5s 兜底防挂死。
+        markLaunchPending(recordID: record.id)
         if case let .missing(itemID) = record.dependencyStatus {
+            clearLaunchPending(matching: record.id)
             let alert = makeAppAlert(
                 title: "缺少依赖项",
                 message: "`\(record.title)` 缺少依赖项 `\(itemID)`，当前无法直接播放。\n\n你可以现在下载这个依赖项，下载完成后再重新播放。",
@@ -42,6 +47,7 @@ extension SteamWorkshopService {
         }
 
         guard canLaunchDownloadRecord(record) else {
+            clearLaunchPending(matching: record.id)
             downloadError = record.contentType == .web
                 ? "当前 WEB 样本仍存在运行阻断问题，暂时不能直接播放。"
                 : "当前项目暂时不可播放。"
@@ -55,6 +61,7 @@ extension SteamWorkshopService {
 
         if record.contentType == .web {
             guard let playbackContext = resolvedWebPlaybackContext(for: record) else {
+                clearLaunchPending(matching: record.id)
                 downloadError = "没有找到可播放的 HTML 入口文件。"
                 return
             }
@@ -72,10 +79,12 @@ extension SteamWorkshopService {
                 ]
             )
             statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
+            scheduleLaunchPendingFallbackClear(recordID: record.id)
             return
         }
 
         guard let videoURL = record.videoURL else {
+            clearLaunchPending(matching: record.id)
             downloadError = "没有找到可播放的视频文件。"
             return
         }
@@ -83,6 +92,38 @@ extension SteamWorkshopService {
         ImportedVideoPlaybackRequest(localURL: videoURL, autoplayToken: autoplayToken)
             .post(name: .steamWorkshopVideoReadyToPlay)
         statusMessage = "已将 \(record.title) 发送到视频库并准备播放"
+        scheduleLaunchPendingFallbackClear(recordID: record.id)
+    }
+
+    // MARK: - Launch pending（M0.5）
+
+    /// video/web 切换正常由 `.wallpaperRuntimeWillSwitch` 清除 pending；
+    /// 若宿主应用失败没有通知，用一次性兜底避免按钮永久停留在加载态。
+    private func scheduleLaunchPendingFallbackClear(recordID: String) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.clearLaunchPending(matching: recordID)
+        }
+    }
+
+    func installLaunchPendingObservers() {
+        NotificationCenter.default.addObserver(
+            forName: .sceneWallpaperLaunchStateDidChange, object: nil, queue: .main
+        ) { [weak self] notification in
+            guard let self,
+                  let state = notification.object as? SceneWallpaperLaunchState else { return }
+            switch state.phase {
+            case .launched, .failed, .cancelled:
+                self.clearLaunchPending()
+            case .accepted, .preparingModel, .preparingPrograms,
+                 .preparingResources, .preparingSurfaces:
+                break
+            }
+        }
+        NotificationCenter.default.addObserver(
+            forName: .wallpaperRuntimeWillSwitch, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.clearLaunchPending()
+        }
     }
 
     func recommendedWebRuntimeProfile(for record: SteamWorkshopDownloadRecord) -> WallpaperEngine.WebRuntimeProfile {

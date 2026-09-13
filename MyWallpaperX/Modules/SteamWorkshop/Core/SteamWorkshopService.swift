@@ -27,6 +27,23 @@ final class SteamWorkshopService: ObservableObject {
         didSet { refreshDisplayedDownloads() }
     }
     @Published private(set) var displayedDownloads: [SteamWorkshopDownloadRecord] = []
+    /// M0.5：最近一次"设为壁纸/播放"pending 的记录 ID。点击立即置位
+    /// （≤1 runloop turn 渲染加载态）；Scene launch 终态或 runtime 切换
+    /// 通知清除；video/web 发送后另有 1.5s 兜底清除。
+    @Published private(set) var launchPendingRecordID: String?
+
+    func isLaunchPending(_ recordID: String) -> Bool {
+        launchPendingRecordID == recordID
+    }
+
+    func markLaunchPending(recordID: String) {
+        launchPendingRecordID = recordID
+    }
+
+    func clearLaunchPending(matching recordID: String? = nil) {
+        if let recordID, launchPendingRecordID != recordID { return }
+        launchPendingRecordID = nil
+    }
     @Published var browserContentMode: SteamWorkshopBrowserContentMode = .video {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
@@ -252,6 +269,7 @@ final class SteamWorkshopService: ObservableObject {
             fetchBrowserItems()
         }
         observeWebPlaybackFailures()
+        installLaunchPendingObservers()
     }
 
     private func refreshDisplayedDownloads() {
