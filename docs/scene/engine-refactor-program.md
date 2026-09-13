@@ -77,7 +77,7 @@
 ### M3 消融减法 + hot path cleanup
 
 - **M3.1 Frame storage** ✅ 核心 07b2d871：registry liveSelectionDigest 增量维护已落地——entries 写入点仅 2 处（set(status:)/publish(resource:)）+2 处 removeAll，O(changed) 折叠；snapshot() 零全量 fold；digest 不变量 harness 5 组全过（确定性/可逆/generation 值稳定/相异 fact/entryCount，harness 存 docs/scene/evidence/m31-digest-test/，python 驱动被 Mimosa 钩子误报拦截、可人工运行），graph 样本实测无回归（cpu 34.4-34.7ms 噪声带内、busy=0）。**余项显式 defer 至 M4.3**（2026-09-14 裁决）：beginFrame 无变化帧直通与 overlay CoW 消除——判定信号需逐字段比对 8 类输入（含 publication/generation 生命周期语义），误判=陈旧 registry（as-built map 雷区类缺陷），实测收益 µs 级（无变化帧成本=O(N) 便宜槽位写，非 fold/非 25.5ms 量级）；且 M4.3 frame storage 重设计将整体吸收（overlay CoW 与重发布同属一个存储模型）。
-- **M3.2 启动链去串行** 🔶 归因补录完成（1a7e4020）：同步 launch 路径接入 M1 hub 阶段记录，graph 样本（85L/44img/62fx）实测 TTFVF 归因：包解析+IR 0.68s → admission+材质资产解码 2.95s → **catalog 尾+caps+QuickJS+FS join+activate 7.88s（主桶）**；firstVisibleFrame 与 launched 同拍；startupElapsedMS=11934.7ms。**关键归因**：材质资产解码→caps→QuickJS 为真数据依赖串行链，原“解码与 QuickJS 重叠”切片前提不成立——7.88s 主桶需 activate/preparingSurfaces 细分后再定切割点（下一切片）。其余子项（pkg 异步化、双 join、主线程解码出主线程）待细分数据后逐项裁决。
+- **M3.2 启动链去串行** 🔶 归因补录完成（1a7e4020）：同步 launch 路径接入 M1 hub 阶段记录，graph 样本（85L/44img/62fx）实测 TTFVF 归因：包解析+IR 0.68s → admission+材质资产解码 2.95s → **catalog 尾+caps+QuickJS+FS join+activate 7.88s（主桶）**；firstVisibleFrame 与 launched 同拍；startupElapsedMS=11934.7ms。**关键归因**：材质资产解码→caps→QuickJS 为真数据依赖串行链，原“解码与 QuickJS 重叠”切片前提不成立。**细分实测（d800ce12 锚点，同样本）**：材质资产解码 728ms；**capability catalog 构建 6685ms（主桶 85%，M4.1 Phase 3v2 域的并行化/缓存主目标）**；QuickJS 定点编译 266ms；device/FS join 各 0-5ms（后台 worker 并行已吸收——双 join 并行化无收益，裁决不实施）；activate 表面构建 203ms（独立段）。其余子项（pkg 异步化）待 caps 处理后再评估。
 - **M3.3 持续消融**：见 §5，贯穿 M2–M5。
 
 ### M4 表示优化
