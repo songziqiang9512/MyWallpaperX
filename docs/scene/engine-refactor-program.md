@@ -55,8 +55,8 @@
 - **M0.2 静音态升公共层** ⬜：静音从 video 音量派生态（`WallpaperManager+PlaybackSettings`）拆为公共回放态；video 保 volume 恢复语义，Scene 接 `SceneSoundPlaybackRegistry`。验收：任一引擎激活时菜单/设置静音一致生效。
 - **M0.3 设置容器拆公共层 + FPS 档** ✅ cbd96207：设置容器整块 git mv `Shared/Settings/`（同 target 零改动）；efficiency 分区新增最高帧率 30/60 分段（UserDefaults 持久化 + 命令层下发）；audio 区静音开关改命令层广播双引擎。验收：30 档下一帧起 30Hz、重启保持 ✅（档位持久化于 UserDefaults）。
 - **M0.4 状态栏菜单打通** ✅ f33b2386：三键改发命令；播放标题/图标按 video+scene 任一在播判定；注册点=setupStatusBar。Scene 静音消费随 M0.2 补齐。
-- **M0.5 播放按钮交互** ⬜：点击 ≤1 runloop turn 切 pending 图标；订阅 launch 五阶段状态映射 loading/就绪/失败；video 路径同型。
-- **M0.6 属性热更新** ⬜（§4.2）。
+- **M0.5 播放按钮交互** ✅ ce13c3c0：pending 状态入 SteamWorkshopService（@Published launchPendingRecordID，单一 pending 模型）；点击立即置位、早退路径即清；scene launch 终态（launched/failed/cancelled）与 runtime 切换通知清除，video/web 1.5s 兜底；三处渲染接入（详情 footer 按钮、共享 BrowserItem 卡片 bar 徽标 hourglass、两个网格容器订阅刷新）。按钮保持可点击（newer-wins 安全）。
+- **M0.6 属性热更新** ✅ 既有实现核实（静态链路）：编辑器（ScenePropertyEditorView:254 / 纹理属性 :21,:37）→ `updateScenePropertyValue` 持久化覆盖 → **优先热应用** `applyUserPropertyValue(s)`（liveState.apply + 音效 canApply + deferred 可见性，revision 递增驱动 per-frame JSON 缓存）→ 仅 binding 校验失败/非活动记录时退回 180ms 去抖重启（保留兜底）。`rebuildRequiredPropertyKeys` 无填充方（恒空），全部可绑定属性类型均已热应用。运行时抽查归入 Fast Suite/人工验收。
 - **M0.7 性能档两档** ✅ cbd96207：`PlaybackPerformanceProfile`（60/30，UserDefaults）；宿主持有档位，FrameDriver 帧间隔与 busy 重试间隔由档位派生（硬编码 60Hz 常量删除），`.setPerformanceProfile` 热切换下次排帧生效。预算束其余维度（池帽/缓存帽/resident 系数）随 M4.2 接入同枚举。
 - 与 M1 文件不重叠，可并行。
 
@@ -91,7 +91,7 @@
 - **M5.1 设计门**：SceneRuntimeService 契约文档（IPC 全集/生命周期/崩溃语义）+ MainActor 与线程约束审计报告。准入门，未过不动进程边界。
 - **M5.2 最小 daemon**：新 target `MyWallpaperXSceneDaemon`（tool → Contents/Helpers，仿 WallpaperDaemon 工程结构），起桌面窗口出首帧 + 管道 JSON 命令框架。
 - **M5.3 DaemonKit 公共层第二批**：daemon 孵化/指数退避重启/管道帧协议抽为共享 kit；注意 daemon target 只同步 `WallpaperDaemonSources/`，共享代码需新增挂双 target 的同步组。
-- **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。
+- **M5.4 命令迁移**：WallpaperEngineCommand 逐条改走管道；事件回传（launchState/firstFrame/frameStats 1Hz/error/exited）；断连 = 指数退避重启。注意：IPC `setProperty` 载荷需 SceneUserPropertyValue 的 JSON 编解码（其 Codable 已有，持久化在用）；属性编辑器的类型化直调（service.updateScenePropertyValue）保留在 App 侧，daemon 化后该 service 一并迁入 daemon。
 - **M5.5 Host 瘦身**：主程序 Scene 宿主变 client stub（状态机+通知投影保留，渲染全删）；菜单/设置/热更新无感切换。
 - **M5.6 收尾**：切壁纸/退出/多屏拓扑/暂停恢复全链 daemon 化；旧同进程路径删除（消融）。
 - 验收：M6 全套 + Scene 满载时主程序 UI 无掉帧（对比 M1 基线）+ daemon 强杀自动恢复。
