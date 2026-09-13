@@ -18,3 +18,28 @@ enum WallpaperEngineCommand: Equatable, Sendable {
     /// 停止当前引擎播放（不退出 App）。
     case stop
 }
+
+/// 跨引擎静音意图（M0.2）。这是静音的公共权威：引擎各自决定
+/// 如何实现静音（video=音量归零/恢复；scene=Sound 层 0 增益），
+/// UI 图标与设置面板只读本状态。video 音量滑杆直接归零产生的
+/// 派生静音不经此处，其与命令态的同步属 M0.3 设置打通。
+final class PlaybackMuteState {
+    static let shared = PlaybackMuteState()
+
+    private(set) var isMuted = false
+
+    /// 写入静音意图；状态变化时广播，供各引擎与 UI 即时消费。
+    func setMuted(_ muted: Bool) {
+        guard isMuted != muted else { return }
+        isMuted = muted
+        NotificationCenter.default.post(
+            name: .playbackMuteStateDidChange, object: nil
+        )
+    }
+}
+
+extension Notification.Name {
+    static let playbackMuteStateDidChange = Notification.Name(
+        "playbackMuteStateDidChange"
+    )
+}

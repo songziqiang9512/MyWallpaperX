@@ -149,6 +149,10 @@ final class SceneDesktopWallpaperHost {
             epoch: nextSoundPlaybackEpoch
         )
         self.soundPlaybackRegistry = soundPlaybackRegistry
+        // 新注册表继承公共静音意图（M0.2）。
+        if PlaybackMuteState.shared.isMuted {
+            soundPlaybackRegistry.setMuted(true)
+        }
         soundPlaybackRegistry.start(
             paused: sceneClock.isPaused,
             userValues: context.liveState.userValues

@@ -19,6 +19,7 @@ final class VideoPlaybackCommandHandler: PlaybackEngineControlling {
             WallpaperEngine.shared.stopPlayback()
             return true
         case let .setMuted(muted):
+            PlaybackMuteState.shared.setMuted(muted)
             WallpaperManager.shared.setMuted(muted)
             return true
         case .switchNext:

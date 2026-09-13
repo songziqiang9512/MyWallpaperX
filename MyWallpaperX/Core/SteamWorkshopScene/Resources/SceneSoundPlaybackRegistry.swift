@@ -14,9 +14,12 @@ final class SceneSoundPlaybackRegistry {
         private var timeControlObservation: NSKeyValueObservation?
         private var stopped = false
         private var wantsPlayback = false
+        private var baseVolume: Double
+        private var isMuted = false
 
         init(binding: SceneSoundPlaybackProgram.Binding, epoch: UInt64) {
             self.binding = binding
+            baseVolume = binding.authoredVolume
             let item = AVPlayerItem(url: binding.resourceURL)
             looper = AVPlayerLooper(player: player, templateItem: item)
             player.automaticallyWaitsToMinimizeStalling = false
@@ -61,12 +64,27 @@ final class SceneSoundPlaybackRegistry {
 
         func apply(volume: Double) {
             guard !stopped, volume.isFinite, (0 ... 1).contains(volume) else { return }
+            baseVolume = volume
+            applyEffectiveVolume()
+        }
+
+        func setMuted(_ muted: Bool) {
+            guard !stopped, isMuted != muted else { return }
+            isMuted = muted
+            applyEffectiveVolume()
+        }
+
+        /// 静音门作用于最终增益：muted → 0，否则回到基础音量
+        /// （作者音量或用户属性覆盖值）。
+        private func applyEffectiveVolume() {
+            let effective = isMuted ? 0 : baseVolume
             let previous = player.volume
-            player.volume = Float(volume)
+            player.volume = Float(effective)
             guard previous.bitPattern != player.volume.bitPattern else { return }
             NSLog(
-                "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f",
-                binding.layerID, binding.displayPath, previous, player.volume
+                "MWX Scene sound: layer=%d phase=volume source=%@ previous=%.6f current=%.6f muted=%@",
+                binding.layerID, binding.displayPath, previous, effective,
+                isMuted ? "true" : "false"
             )
         }
 
@@ -140,6 +158,7 @@ final class SceneSoundPlaybackRegistry {
     private let epoch: UInt64
     private let program: SceneSoundPlaybackProgram
     private var sources: [Int: Source] = [:]
+    private var isMuted = false
 
     init(program: SceneSoundPlaybackProgram, epoch: UInt64) {
         self.program = program
@@ -152,6 +171,9 @@ final class SceneSoundPlaybackRegistry {
             let source = Source(binding: binding, epoch: epoch)
             if let volume = volume(for: binding, userValues: userValues) {
                 source.apply(volume: volume)
+            }
+            if isMuted {
+                source.setMuted(true)
             }
             sources[binding.layerID] = source
             source.start(paused: paused)
@@ -187,6 +209,14 @@ final class SceneSoundPlaybackRegistry {
 
     func resume() {
         sources.values.forEach { $0.resume() }
+    }
+
+    /// 静音门（M0.2）：作用于全部已存在的 Sound 层；随后新建的
+    /// 层经 start() 继承当前静音态。
+    func setMuted(_ muted: Bool) {
+        guard isMuted != muted else { return }
+        isMuted = muted
+        sources.values.forEach { $0.setMuted(muted) }
     }
 
     func stop() {

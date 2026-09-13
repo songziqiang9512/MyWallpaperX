@@ -30,8 +30,13 @@ extension SceneDesktopWallpaperHost: PlaybackEngineControlling {
             guard launchContext != nil else { return false }
             stop()
             return true
-        case .setMuted, .setPerformanceProfile, .setProperty, .switchNext:
-            // M0.2 / M0.3 / M0.6 接入；switchNext 属选中层，不走引擎。
+        case let .setMuted(muted):
+            // M0.2：静音公共权威 + Scene Sound 层 0 增益实现。
+            PlaybackMuteState.shared.setMuted(muted)
+            soundPlaybackRegistry?.setMuted(muted)
+            return true
+        case .setPerformanceProfile, .setProperty, .switchNext:
+            // M0.3 / M0.6 接入；switchNext 属选中层，不走引擎。
             return false
         }
     }
