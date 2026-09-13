@@ -159,9 +159,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
         fragmentSource: String,
         alphaAttenuationSourceSlot: Int? = nil,
         colorBlendSourceSlot: Int? = nil,
-        unitCompositeBlurredSlot: Int? = nil,
-        unitCompositePreviousSlot: Int? = nil,
-        unitCompositeMaskSlot: Int? = nil,
+        previousBlurredCompositeBlurredSlot: Int? = nil,
+        previousBlurredCompositePreviousSlot: Int? = nil,
+        previousBlurredCompositeMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool = false,
         producesScalarRedOutput: Bool = false,
         producesRedGreenUnormOutput: Bool = false,
@@ -192,9 +192,9 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             fragmentSource: fragmentSource,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
-            unitCompositeBlurredSlot: unitCompositeBlurredSlot,
-            unitCompositePreviousSlot: unitCompositePreviousSlot,
-            unitCompositeMaskSlot: unitCompositeMaskSlot,
+            previousBlurredCompositeBlurredSlot: previousBlurredCompositeBlurredSlot,
+            previousBlurredCompositePreviousSlot: previousBlurredCompositePreviousSlot,
+            previousBlurredCompositeMaskSlot: previousBlurredCompositeMaskSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             producesRedGreenUnormOutput: producesRedGreenUnormOutput,
@@ -278,8 +278,8 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
             .straightRGBScalarAlphaFact(fragmentSource: fragmentSource)
         let preservedAlphaRGBFilterTextureSlots =
             preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
-        let unitCompositeSourceFact =
-            SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+        let previousBlurredCompositeSourceFact =
+            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )
         let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
@@ -356,14 +356,14 @@ nonisolated enum SceneResolvedMaterialGenericShaderArtifactCache {
                 spatialWeightedColorBlendTypedAuxiliarySlots,
             spatialWeightedColorBlendExternalColorSlot:
                 spatialWeightedColorBlendExternalColorSlot,
-            unitCompositeBlurredSlot: unitCompositeBlurredSlot,
-            unitCompositePreviousSlot: unitCompositePreviousSlot,
-            unitCompositeMaskSlot: unitCompositeMaskSlot,
-            unitCompositeSourceBlurredSlot:
-                unitCompositeSourceFact?.blurredSlot,
-            unitCompositeSourcePreviousSlot:
-                unitCompositeSourceFact?.previousSlot,
-            unitCompositeSourceMaskSlot: unitCompositeSourceFact?.maskSlot,
+            previousBlurredCompositeBlurredSlot: previousBlurredCompositeBlurredSlot,
+            previousBlurredCompositePreviousSlot: previousBlurredCompositePreviousSlot,
+            previousBlurredCompositeMaskSlot: previousBlurredCompositeMaskSlot,
+            previousBlurredCompositeSourceBlurredSlot:
+                previousBlurredCompositeSourceFact?.blurredSlot,
+            previousBlurredCompositeSourcePreviousSlot:
+                previousBlurredCompositeSourceFact?.previousSlot,
+            previousBlurredCompositeSourceMaskSlot: previousBlurredCompositeSourceFact?.maskSlot,
             hasExternalProviderTexture: hasExternalProviderTexture,
             producesScalarRedOutput: producesScalarRedOutput,
             producesRedGreenUnormOutput: producesRedGreenUnormOutput,

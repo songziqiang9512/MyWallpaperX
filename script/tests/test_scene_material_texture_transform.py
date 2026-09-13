@@ -122,7 +122,7 @@ EXTRA_SOURCES = [
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderSameAlphaReconstructedRGBFilterLowering.swift",
     SCENE_ROOT
-    / "RenderGraph/ShaderPreparation/SceneGenericShaderUnitPreviousBlurredCompositeLowering.swift",
+    / "RenderGraph/ShaderPreparation/SceneGenericShaderPreviousBlurredCompositeLowering.swift",
     SCENE_ROOT
     / "RenderGraph/ShaderPreparation/SceneGenericShaderAlphaWeightedSampleAverageCanonicalShape.swift",
     SCENE_ROOT / "RenderGraph/ShaderPreparation/SceneGenericShaderBoundedLoopWork.swift",

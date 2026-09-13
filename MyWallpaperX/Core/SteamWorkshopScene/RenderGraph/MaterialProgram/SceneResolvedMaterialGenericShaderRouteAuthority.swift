@@ -32,7 +32,7 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
              .sourceProvenGraphInputTypedDataRGBFilter,
              .sourceProvenGraphInputSameAlphaReconstructedRGBDataFilter,
              .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter,
-             .sourceProvenUnitPreviousBlurredComposite,
+             .sourceProvenPreviousBlurredComposite,
              .sourceProvenGraphInputAlphaAttenuation,
              .sourceProvenGraphInputColorBlend,
              .sourceProvenGraphInputSpatialWeightedColorBlend,
@@ -54,7 +54,7 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
             .genericOnly
         case .sourceProvenGraphInputAssociatedOverBlend:
             .preferGeneric
-        case .sourceProvenUnitPreviousBlurredCompositeUnowned:
+        case .sourceProvenPreviousBlurredCompositeUnowned:
             .observeOnly
         }
     }
@@ -80,7 +80,7 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
     }
 
     /// Shared profiles normally roll back through the bounded frontend. The
-    /// preserved-alpha RGB filters and the unit previous/blurred composite
+    /// preserved-alpha RGB filters and the previous/blurred composite
     /// have no complete, visually safe secondary owner: disabling their
     /// generic owner must reject that effect back to the safe previous-current
     /// boundary. A source-proven composite that lacks the surrounding graph
@@ -92,9 +92,9 @@ nonisolated extension SceneGenericShaderCapabilityProfile {
              .sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter,
              .sourceProvenGraphInputStraightRGBScalarAlpha,
              .sourceProvenGraphInputRGBBlendScalarAlpha,
-             .sourceProvenUnitPreviousBlurredComposite:
+             .sourceProvenPreviousBlurredComposite:
             .none
-        case .sourceProvenUnitPreviousBlurredCompositeUnowned:
+        case .sourceProvenPreviousBlurredCompositeUnowned:
             .programFirstIncumbent
         default:
             .boundedFrontend

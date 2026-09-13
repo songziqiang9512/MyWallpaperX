@@ -275,9 +275,8 @@ nonisolated enum SceneGenericShaderArtifactBuilder {
                 // product iteration cap; no static work count is claimed.
                 guard loopGuardCap == SceneGenericShaderLoopGuardLowering.iterationCap,
                       stages.contains(where: {
-                          $0.source.contains(
-                              SceneGenericShaderLoopGuardLowering.guardFunctionName
-                          )
+                          SceneGenericShaderLoopGuardLowering
+                              .containsGuardFunction(in: $0.source)
                       }) else { throw Failure.loopUnbounded }
                 loopWork = 0
             } else {

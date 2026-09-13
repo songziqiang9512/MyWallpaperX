@@ -151,7 +151,8 @@ nonisolated enum SceneAuthoredShaderRGBDifferenceEnhancementAnalyzer {
             sourceSlot: source.slot,
             fullColorSampleCallCounts: [source.slot: 1, reference.slot: 1],
             rgbColorSampleCallCounts: [:],
-            dataSampleCallCounts: [:]
+            dataSampleCallCounts: [:],
+            scalarDataSampleCallCounts: [:]
         )
     }
 

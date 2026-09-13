@@ -103,6 +103,17 @@ private struct Output: Codable {
     let helperAtomicRejected: Bool
     let helperUnconditionalReplacementRejected: Bool
     let helperUnprovenResourceCallRejected: Bool
+    let scalarLODSourceSlot: Int?
+    let scalarLODDataSampleCounts: [Int: Int]?
+    let scalarLODScalarDataSampleCounts: [Int: Int]?
+    let scalarLODArtifactAccepted: Bool
+    let scalarLODSourceUnpremultiplied: Bool
+    let scalarLODDataUntouched: Bool
+    let scalarLODOutputPremultiplied: Bool
+    let scalarLODAlphaWriteRejected: Bool
+    let scalarLODHiddenFullSampleRejected: Bool
+    let scalarLODHelperMutationRejected: Bool
+    let scalarLODCompilerProjectionDriftRejected: Bool
 }
 
 @main
@@ -208,6 +219,43 @@ private struct PreservedAlphaRGBFilterHarness {
             "}",
         ].joined(separator: "\n")
 
+        let scalarLODAuthored = [
+            "uniform sampler2D g_Texture0;",
+            "uniform sampler2D g_Texture1;",
+            "uniform sampler2D g_Texture2;",
+            "uniform float g_CloudLOD;",
+            "varying vec2 v_TexCoord;",
+            "vec3 ApplyBlending(const int mode, in vec3 base, in vec3 filtered, in float opacity) {",
+            "    return mix(base, filtered, opacity);",
+            "}",
+            "void main() {",
+            "    vec2 flowColors = texSample2D(g_Texture1, v_TexCoord.xy).rg;",
+            "    float cloudBackground = texSample2DLod(g_Texture2, v_TexCoord.xy, g_CloudLOD).r;",
+            "    float cloud0 = texSample2DLod(g_Texture2, v_TexCoord.xy + flowColors, g_CloudLOD).r;",
+            "    float cloud1 = texSample2DLod(g_Texture2, v_TexCoord.xy - flowColors, g_CloudLOD).r;",
+            "    vec4 albedo = texSample2D(g_Texture0, v_TexCoord.xy);",
+            "    vec3 generated = vec3(cloudBackground + cloud0 + cloud1);",
+            "    albedo.rgb = ApplyBlending(0, albedo.rgb, generated, cloud0);",
+            "    gl_FragColor = albedo;",
+            "}",
+        ].joined(separator: "\n")
+        let scalarLODMSL = [
+            "#include <metal_stdlib>",
+            "using namespace metal;",
+            "struct MWXUniforms {};",
+            "fragment void f() {",
+            "    float2 flowColors = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord.zw).xy;",
+            "    float cloudBackground = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord.xy, level(0.0)).x;",
+            "    float cloud0 = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord.xy + flowColors, level(0.0)).x;",
+            "    float cloud1 = g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord.xy - flowColors, level(0.0)).x;",
+            "    float4 albedo = g_Texture0.sample(g_Texture0Smplr, in.v_TexCoord.xy);",
+            "    float3 generated = float3(cloudBackground + cloud0 + cloud1);",
+            "    albedo.xyz = ApplyBlending(0, albedo.xyz, generated, cloud0);",
+            "    out.mwxFragColor = albedo;",
+            "    return out;",
+            "}",
+        ].joined(separator: "\n")
+
         func artifact(
             authored source: String,
             compilerSource: String? = nil,
@@ -283,6 +331,13 @@ private struct PreservedAlphaRGBFilterHarness {
         )
         let helperBoundedMetal = helperBounded?.metalSource ?? ""
         let helperGenericMetal = helperArtifact?.program.metalSource ?? ""
+        let scalarLODFact = SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer
+            .analyze(fragmentSource: scalarLODAuthored)
+        let scalarLODArtifact = artifact(
+            authored: scalarLODAuthored,
+            msl: scalarLODMSL
+        )
+        let scalarLODMetal = scalarLODArtifact?.program.metalSource ?? ""
 
         func routeProfile(
             sourceSlot: Int,
@@ -300,8 +355,8 @@ private struct PreservedAlphaRGBFilterHarness {
                 alphaWeightedSampleAverageSourceSlot: nil,
                 preservedAlphaRGBFilterSourceSlot: sourceSlot,
                 preservedAlphaRGBFilterTextureSlots: textureSlots,
-                unitCompositeBlurredSlot: nil,
-                unitCompositePreviousSlot: nil,
+                previousBlurredCompositeBlurredSlot: nil,
+                previousBlurredCompositePreviousSlot: nil,
                 hasExternalProviderTexture: false,
                 producesScalarRedOutput: false,
                 isSourceIndependentPremultipliedOutput: false,
@@ -588,7 +643,51 @@ private struct PreservedAlphaRGBFilterHarness {
                     of: "    return color / float(kernelSampleCount);",
                     with: "    color += texture(g_Texture3, coord).rgb;\n    return color / float(kernelSampleCount);"
                 )
-            )
+            ),
+            scalarLODSourceSlot: scalarLODFact?.sourceSlot,
+            scalarLODDataSampleCounts: scalarLODFact?.dataSampleCallCounts,
+            scalarLODScalarDataSampleCounts:
+                scalarLODFact?.scalarDataSampleCallCounts,
+            scalarLODArtifactAccepted: scalarLODArtifact != nil,
+            scalarLODSourceUnpremultiplied: scalarLODMetal.contains(
+                "mwxGenericUnpremultiply(g_Texture0.sample("
+            ),
+            scalarLODDataUntouched:
+                !scalarLODMetal.contains(
+                    "mwxGenericUnpremultiply(g_Texture1.sample("
+                ) && !scalarLODMetal.contains(
+                    "mwxGenericUnpremultiply(g_Texture2.sample("
+                ),
+            scalarLODOutputPremultiplied: scalarLODMetal.contains(
+                "out.mwxFragColor = mwxGenericPremultiply(albedo);"
+            ),
+            scalarLODAlphaWriteRejected: !sourceAccepted(
+                scalarLODAuthored.replacingOccurrences(
+                    of: "    gl_FragColor = albedo;",
+                    with: "    albedo.a = cloud1;\n    gl_FragColor = albedo;"
+                )
+            ),
+            scalarLODHiddenFullSampleRejected: !sourceAccepted(
+                scalarLODAuthored.replacingOccurrences(
+                    of: "    vec4 albedo =",
+                    with: "    vec4 hidden = texSample2D(g_Texture2, v_TexCoord.xy);\n    vec4 albedo ="
+                )
+            ),
+            scalarLODHelperMutationRejected: !sourceAccepted(
+                scalarLODAuthored.replacingOccurrences(
+                    of: "in vec3 base, in vec3 filtered",
+                    with: "inout vec3 base, in vec3 filtered"
+                )
+            ),
+            scalarLODCompilerProjectionDriftRejected: artifact(
+                authored: scalarLODAuthored,
+                msl: scalarLODMSL.replacingOccurrences(
+                    of: "level(0.0)).x;",
+                    with: "level(0.0)).xy;",
+                    options: [],
+                    range: scalarLODMSL.range(of: "level(0.0)).x;")
+                )
+            ) == nil
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -706,6 +805,17 @@ class ScenePreservedAlphaRGBFilterTests(unittest.TestCase):
             "helperAtomicRejected": True,
             "helperUnconditionalReplacementRejected": True,
             "helperUnprovenResourceCallRejected": True,
+            "scalarLODSourceSlot": 0,
+            "scalarLODDataSampleCounts": {"1": 1, "2": 3},
+            "scalarLODScalarDataSampleCounts": {"2": 3},
+            "scalarLODArtifactAccepted": True,
+            "scalarLODSourceUnpremultiplied": True,
+            "scalarLODDataUntouched": True,
+            "scalarLODOutputPremultiplied": True,
+            "scalarLODAlphaWriteRejected": True,
+            "scalarLODHiddenFullSampleRejected": True,
+            "scalarLODHelperMutationRejected": True,
+            "scalarLODCompilerProjectionDriftRejected": True,
         })
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Real stock Standard Blur unit-composite default eligibility."""
+"""Real stock Standard Blur previous/blurred composite eligibility."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     *scene_swift_sources("shader_contract_resource_resolution"),
     *scene_swift_sources("authored_shader_frontend_core"),
     *scene_swift_sources("authored_shader_preparation_implementation"),
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneStandardBlurUnitCompositePurposeSupport.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift",
     SCENE_ROOT / "Resources/SceneTextureSampling.swift",
     SCENE_ROOT / "Resources/SceneNamedTextureReference.swift",
     SCENE_ROOT / "RenderGraph/AuthoredGraph/SceneAuthoredEffectRenderPlan.swift",
@@ -37,7 +37,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialRuntimeLoopBoundResolver.swift",
     SCENE_ROOT
-    / "RenderGraph/MaterialProgram/SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
+    / "RenderGraph/MaterialProgram/SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
     SCENE_ROOT
     / "RenderGraph/MaterialProgram/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
@@ -137,7 +137,7 @@ nonisolated struct SceneResolvedMaterialTemplate {
     let comboValues: [String: Int]
     let inheritedInactiveCombos: [String]
     let uniformDeclarations: [UniformDeclaration]
-    let unitPreviousBlurredCompositeGenericOwnerEligible: Bool
+    let previousBlurredCompositeGenericOwnerEligible: Bool
     let effectContext: EffectContext?
     let shaderContract: SceneShaderContract
     let compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
@@ -155,8 +155,8 @@ private struct Output: Codable {
     let stockFact: Bool
     let stockTypedDefault: Bool
     let defaultEligible: Bool
-    let explicitUnitEligible: Bool
-    let explicitNonunitRejected: Bool
+    let explicitDefaultTintEligible: Bool
+    let explicitStaticTintEligible: Bool
     let explicitDynamicRejected: Bool
     let ownerCohortRejected: Bool
     let duplicateAliasesRejected: Bool
@@ -167,7 +167,7 @@ private struct Output: Codable {
     let nonAssetMaskCandidateRejected: Bool
     let maskSourceMismatchRejected: Bool
     let missingDefaultRejected: Bool
-    let nonunitDefaultRejected: Bool
+    let tintedDefaultEligible: Bool
     let malformedDefaultRejected: Bool
     let duplicateDeclarationRejected: Bool
     let stockGaussianScaleConsumer: Bool
@@ -314,7 +314,7 @@ private func template(
         comboValues: [:],
         inheritedInactiveCombos: [],
         uniformDeclarations: declarations,
-        unitPreviousBlurredCompositeGenericOwnerEligible: ownerEligible,
+        previousBlurredCompositeGenericOwnerEligible: ownerEligible,
         effectContext: .init(key: effectKey, input: previous),
         shaderContract: contract
     )
@@ -331,7 +331,7 @@ private func eligible(
     guard let (contract, prepared) = value,
           let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
     else { return false }
-    return SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+    return SceneResolvedMaterialPreviousBlurredCompositeEligibility.slots(
         fragmentSource: prepared.fragment.source,
         prepared: prepared,
         samplers: samplers,
@@ -412,7 +412,7 @@ private struct Harness {
                 throw NSError(domain: "artifact", code: 2)
             }
             guard let lowered =
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         raw,
                         expectedBlurredSlot: 0,
                         expectedPreviousSlot: 2,
@@ -468,38 +468,38 @@ private struct Harness {
                     separatedBy: "static inline float4 mwxGenericPremultiply("
                 ).count - 1,
                 wrongSlotRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         raw, expectedBlurredSlot: 1, expectedPreviousSlot: 2,
                         expectedMaskSlot: maskSlot
                     ) == nil,
                 extraSampleRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         extraSample, expectedBlurredSlot: 0,
                         expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 spacedExtraSampleRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         spacedExtraSample,
                         expectedBlurredSlot: 0, expectedPreviousSlot: 2,
                         expectedMaskSlot: maskSlot
                     ) == nil,
                 discardRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         discard, expectedBlurredSlot: 0,
                         expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 extraCarrierUseRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         extraUse, expectedBlurredSlot: 0,
                         expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 doubleBoundaryRejected:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         lowered, expectedBlurredSlot: 0,
                         expectedPreviousSlot: 2, expectedMaskSlot: maskSlot
                     ) == nil,
                 renamedSlotsAccepted:
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         renamed, expectedBlurredSlot: 3, expectedPreviousSlot: 5,
                         expectedMaskSlot: maskSlot
                     ) != nil,
@@ -523,7 +523,7 @@ private struct Harness {
         let wrongPurposeMask = prepare(roots[5], maskReady: true)
         let wrongSourceMask = prepare(roots[6], maskReady: true)
         let fact = stock.flatMap {
-            SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: $0.1.fragment.source
             )
         }
@@ -538,16 +538,16 @@ private struct Harness {
             stockFact: fact == .init(
                 blurredSlot: 0, previousSlot: 2,
                 maskSlot: nil,
-                unitColorUniform: "g_CompositeColor"
+                colorUniform: "g_CompositeColor"
             ),
             stockTypedDefault: schema?.materialKeys == [
                 "g_CompositeColor", "compositecolor",
             ] && defaultBits.map { Double(bitPattern: $0) } == [1, 1, 1],
             defaultEligible: eligible(stock),
-            explicitUnitEligible: eligible(
+            explicitDefaultTintEligible: eligible(
                 stock, declarations: [declaration("compositecolor", [1, 1, 1])]
             ),
-            explicitNonunitRejected: !eligible(
+            explicitStaticTintEligible: eligible(
                 stock, declarations: [declaration("compositecolor", [0.5, 1, 1])]
             ),
             explicitDynamicRejected: !eligible(
@@ -577,7 +577,7 @@ private struct Harness {
                 wrongSourceMask, includeMask: true
             ),
             missingDefaultRejected: !eligible(prepare(roots[1])),
-            nonunitDefaultRejected: !eligible(prepare(roots[2])),
+            tintedDefaultEligible: eligible(prepare(roots[2])),
             malformedDefaultRejected: !eligible(prepare(roots[3])),
             duplicateDeclarationRejected: !eligible(prepare(roots[4])),
             stockGaussianScaleConsumer:
@@ -598,18 +598,18 @@ private struct Harness {
 
 
 @unittest.skipUnless(shutil.which("xcrun"), "Xcode toolchain is required")
-class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
+class StandardBlurPreviousCompositeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.directory = tempfile.TemporaryDirectory(
-            prefix="mwx-standard-blur-unit-default-"
+            prefix="mwx-standard-blur-previous-composite-"
         )
         cls.root = Path(cls.directory.name)
         support = cls.root / "Support.swift"
         harness = cls.root / "Harness.swift"
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
-        cls.binary = cls.root / "standard-blur-unit-default"
+        cls.binary = cls.root / "standard-blur-previous-composite"
         subprocess.run([
             "xcrun", "swiftc", "-o", str(cls.binary),
             *[str(path) for path in SWIFT_SOURCES],
@@ -691,7 +691,7 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
             self.assertIn(marker, source)
             if mutation == "missing":
                 replacement = ""
-            elif mutation == "nonunit":
+            elif mutation == "tinted":
                 replacement = '"default":"0.5 1 1"'
             elif mutation == "malformed":
                 replacement = '"default":"1 nope 1"'
@@ -713,7 +713,7 @@ class StandardBlurUnitCompositeDefaultTests(unittest.TestCase):
         roots = [
             self.stock_root("stock"),
             self.stock_root("missing", "missing"),
-            self.stock_root("nonunit", "nonunit"),
+            self.stock_root("tinted", "tinted"),
             self.stock_root("malformed", "malformed"),
             self.stock_root("duplicate", "duplicate"),
             self.stock_root("wrong-mask-purpose", "wrong-mask-purpose"),

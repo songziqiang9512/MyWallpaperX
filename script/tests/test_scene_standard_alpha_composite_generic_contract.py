@@ -123,8 +123,8 @@ private func profile(
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
-        unitCompositeBlurredSlot: compositeSlots?.0,
-        unitCompositePreviousSlot: compositeSlots?.1,
+        previousBlurredCompositeBlurredSlot: compositeSlots?.0,
+        previousBlurredCompositePreviousSlot: compositeSlots?.1,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,
@@ -509,7 +509,7 @@ private struct Harness {
         }
 
         let authored = compositeSource()
-        let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+        let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: authored)
         let reflection = Data(#"{"types":{"_1":{"members":[{"name":"mwxTexture0Transform0","type":"vec4","offset":0},{"name":"mwxTexture0Transform1","type":"vec4","offset":16},{"name":"mwxTexture2Transform0","type":"vec4","offset":32},{"name":"mwxTexture2Transform1","type":"vec4","offset":48},{"name":"g_CompositeColor","type":"vec3","offset":64}]}},"ubos":[{"type":"_1","block_size":80,"set":0,"binding":8}],"textures":[{"name":"g_Texture0","binding":0},{"name":"g_Texture2","binding":2}]}"#.utf8)
         let msl = [
@@ -570,15 +570,15 @@ private struct Harness {
                 fragmentSource: authored
             ).program != nil,
             coordinateAliasAccepted:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateAlias: true)
                 ) != nil,
             coordinateIdentityHelperAccepted:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateHelper: true)
                 ) != nil,
             renamedSlotHelperAccepted:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         coordinateHelper: true,
                         blurredSlot: 3,
@@ -593,7 +593,7 @@ private struct Harness {
                     unitColorUniform: "g_CompositeColor"
                 ),
             coordinateHelperMutationRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateHelper: true)
                         .replacingOccurrences(
                             of: "    return source;",
@@ -601,7 +601,7 @@ private struct Harness {
                         )
                 ) == nil,
             coordinateHelperEscapeRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateHelper: true)
                         .replacingOccurrences(
                             of: "    vec4 blurred =",
@@ -609,7 +609,7 @@ private struct Harness {
                         )
                 ) == nil,
             coordinateHelperWrongSampleRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateHelper: true)
                         .replacingOccurrences(
                             of: "texSample2D(g_Texture2, v_TexCoord.xy)",
@@ -617,13 +617,13 @@ private struct Harness {
                         )
                 ) == nil,
             duplicateCompositeReturnAccepted:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         directCompositeReturnCount: 2
                     )
                 ) != nil,
             duplicateReturnWrongCarrierRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         directCompositeReturnCount: 2
                     ).replacingOccurrences(
@@ -632,7 +632,7 @@ private struct Harness {
                     )
                 ) == nil,
             duplicateReturnIntermediateMutationRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         directCompositeReturnCount: 2
                     ).replacingOccurrences(
@@ -641,13 +641,13 @@ private struct Harness {
                     )
                 ) == nil,
             thirdCompositeReturnRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         directCompositeReturnCount: 3
                     )
                 ) == nil,
             coordinateMutationRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         auxiliary: "    blurredCoords += vec2(0.1);",
                         coordinateAlias: true
@@ -655,10 +655,10 @@ private struct Harness {
                 ) == nil,
             coordinatePreviousReuseRejected:
                 coordinatePreviousReuse != coordinateAliasSource
-                    && SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+                    && SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
                         .analyze(fragmentSource: coordinatePreviousReuse) == nil,
             coordinateUniformProvenanceRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateAlias: true)
                         .replacingOccurrences(
                             of: "varying vec2 v_TexCoord;",
@@ -666,7 +666,7 @@ private struct Harness {
                         )
                 ) == nil,
             coordinateInlineMutationRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(coordinateAlias: true)
                         .replacingOccurrences(
                             of: "texSample2D(g_Texture0, blurredCoords)",
@@ -674,17 +674,17 @@ private struct Harness {
                         )
                 ) == nil,
             nonunitMaskRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(mask: "0.5")
                 ) == nil,
             postTailRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         tail: "    gl_FragColor.a *= 0.5;"
                     )
                 ) == nil,
             auxiliarySampleRejected:
-                SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+                SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                     fragmentSource: compositeSource(
                         auxiliary: "    vec4 hidden = texSample2D(g_Texture0, vec2(0.5));"
                     )
@@ -786,7 +786,7 @@ class StandardAlphaCompositeGenericContractTests(unittest.TestCase):
         )), output)
         self.assertEqual(
             output["routeProfile"],
-            "source-proven-unit-previous-blurred-composite",
+            "source-proven-previous-blurred-composite",
         )
         self.assertEqual(output["routeState"], "generic-only")
         self.assertEqual(output["disableState"], "disable-generic")

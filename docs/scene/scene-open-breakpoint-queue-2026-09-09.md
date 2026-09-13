@@ -13,14 +13,17 @@
 - 2026-09-12 的 full-corpus `135/159 strict PASS` 只是一份历史结构快照。后继修复没有重新执行全 corpus，本队列也不以重复全量回放刷新数字。每个条目先用受影响样本和 focused 模块建立当前首断点。
 - 五类产品——纹理、世界空间几何、模拟状态、异步 provider、多 pass graph——都必须产出或消费同一 prepared product、typed frame state、Metal execution 和唯一 compositor 合同。它们可以拥有不同的数据形状与生命周期，但不得形成第二套 property、clock、resource registry、graph 或 output owner。
 - `3749463715` 的 graph / utility-capture 断点已经在当前签名 App 上关闭。旧实现把 feedback 的持久 RGBA target 直接判成 typed data，Motion Blur 颜色输出因此不能进入 compositor，并留下未消费 transaction；现由完整 Program variant envelope 在 launch preparation 解析内容语义，颜色反馈进入 compositor，只有被所有 variant 证明为整值状态变换的反馈才发布为 data。`3749463715` 与 data 反例 `3448845950` 均取得 strict PASS，详细证据见[当前运行证据](semantics/runtime-evidence-current.md#e-2026-09-13-feedback-content-contract)。这不改变两者尚未更新的人工视觉 verdict。
+- 旧 Q1 的四个 effect-local passthrough 观察断点已关闭。当前签名 App 对 `3323988600 / 3395777145 / 3472940912 / 3754630802` 均为 strict PASS；Pixelate 的 component-wise vector conversion、跨 stage loop guard 符号冲突、Standard Blur 静态 tint 准入和 Fire 标量 LOD data sampling 已分别修正，目标 Program 均有 CPU invocation、GPU completion、publication 与 terminal/next-frame 证据。该结论只关闭四个已登记 effect-local 首断点；`3395777145` 与 `3754630802` 仍有下述 active unsupported effect，不能写成整样本视觉完成。
 
 ## 2. 现役执行顺序
 
-### Q1 — 四个 effect-local passthrough 严格观察样本
+### Q1 — `3395777145 / 3754630802` 的 active unsupported authored effect
 
-**状态：当前最高优先级，先刷新再归因。**
+**状态：当前最高优先级，已有 fresh 首断点。**
 
-`3323988600 / 3395777145 / 3472940912 / 3754630802` 在 2026-09-12 归档中已有 `execution_succeeded=true` 与 `contract_succeeded=true`，但仍触发 effect CPU invocation 或 effect-local passthrough 严格观察。先判断它们是观察合同漏记 terminal success，还是实际存在 previous-current/fallback 的可见缺口；只有后者才修改产品。完成门必须包含 effect output 的 GPU completion、publication、下游/terminal consumption 和相称的视觉复核。
+`3395777145` 现有 25 个 active effect，其中 22 个已由 Program 执行；layer 125 的两项 Workshop Blend 与一项 BlendGradient 仍为 `unified-capability-unavailable / r5-no-runtime-owner`。ready/after 截图中的房间、时钟和动态声波存在，但作者 preview 的墙面海报/文字缺失，优先从这三项的 authored source、resource、graph role 和 output contract 建立公共 owner，不按样本或路径分派。
+
+`3754630802` 现有 31 个 active effect，其中 29 个已由 Program 执行；layer 607 的 Workshop Bokeh Blur 与 layer 743 的 Motion Blur 仍为相同的无 owner 状态。当前人物、舞狮、灯笼、火焰与大范围动态均可见，尚无隔离 ROI 证明这两个 effect 的视觉贡献；先在 `3395777145` 闭合共享能力，再用该样本作为同一 owner 的正反回归。完成门必须包含 typed admission、CPU encode、GPU completion、publication、terminal/next-frame 和相称视觉对照。
 
 ### Q2 — 已确认的用户可见债务与人工重新裁决
 

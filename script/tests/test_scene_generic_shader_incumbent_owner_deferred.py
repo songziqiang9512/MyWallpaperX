@@ -59,7 +59,7 @@ CAPABILITY_SOURCE = EFFECT_EXECUTION_ROOT / (
     "SceneResolvedMaterialExecutionCapability.swift"
 )
 OWNER_ADMISSION_SOURCE = SCENE_ROOT / "RenderGraph" / (
-    "SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift"
+    "SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
 )
 LAUNCH_SOURCE = SCENE_ROOT / "Runtime/SceneDesktopWallpaperHost+Launch.swift"
 FINALIZER_SOURCE = MATERIAL_PROGRAM_ROOT / "SceneResolvedMaterialProgramFinalizer.swift"
@@ -204,8 +204,8 @@ private func profile(
         alphaWeightedSampleAverageSourceSlot: alphaSlot,
         preservedAlphaRGBFilterSourceSlot: nil,
         preservedAlphaRGBFilterTextureSlots: [],
-        unitCompositeBlurredSlot: composite?.0,
-        unitCompositePreviousSlot: composite?.1,
+        previousBlurredCompositeBlurredSlot: composite?.0,
+        previousBlurredCompositePreviousSlot: composite?.1,
         hasExternalProviderTexture: false,
         producesScalarRedOutput: false,
         isSourceIndependentPremultipliedOutput: false,
@@ -236,8 +236,8 @@ private struct Harness {
         let resolution = SceneResolvedMaterialGenericShaderArtifactCache.resolve(
             vertexSource: vertex,
             fragmentSource: fragment,
-            unitCompositeBlurredSlot: isCompositeOwned ? 3 : nil,
-            unitCompositePreviousSlot: isCompositeOwned ? 5 : nil,
+            previousBlurredCompositeBlurredSlot: isCompositeOwned ? 3 : nil,
+            previousBlurredCompositePreviousSlot: isCompositeOwned ? 5 : nil,
             graphTextureSlots: isComposite ? [3] : isPreserved ? [2] : [],
             graphInputTextureSlots:
                 isAlpha ? [0] : isPreserved ? [0, 2]
@@ -536,7 +536,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
     def test_unit_composite_generic_only_rejects_to_previous_current_without_secondary_owner(
         self,
     ) -> None:
-        profile = "source-proven-unit-previous-blurred-composite"
+        profile = "source-proven-previous-blurred-composite"
         with tempfile.TemporaryDirectory(prefix="mwx-unit-composite-owner-") as directory:
             root = Path(directory)
             missing, missing_log, requests, cache = self.run_route(root, "composite")
@@ -585,7 +585,7 @@ class SceneGenericShaderIncumbentOwnerDeferredTests(unittest.TestCase):
     def test_source_proven_composite_without_whole_stage_owner_is_quarantined(
         self,
     ) -> None:
-        profile = "source-proven-unit-previous-blurred-composite-unowned"
+        profile = "source-proven-previous-blurred-composite-unowned"
         with tempfile.TemporaryDirectory(prefix="mwx-unit-composite-unowned-") as directory:
             result, log, requests, cache = self.run_route(
                 Path(directory), "composite-unowned"

@@ -84,10 +84,10 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         "source-proven-graph-input-same-alpha-reconstructed-rgb-data-filter"
     case sourceProvenGraphInputSampledAlphaReconstructedRGBADataFilter =
         "source-proven-graph-input-sampled-alpha-reconstructed-rgba-data-filter"
-    case sourceProvenUnitPreviousBlurredComposite =
-        "source-proven-unit-previous-blurred-composite"
-    case sourceProvenUnitPreviousBlurredCompositeUnowned =
-        "source-proven-unit-previous-blurred-composite-unowned"
+    case sourceProvenPreviousBlurredComposite =
+        "source-proven-previous-blurred-composite"
+    case sourceProvenPreviousBlurredCompositeUnowned =
+        "source-proven-previous-blurred-composite-unowned"
     case sourceProvenGraphInputAlphaAttenuation =
         "source-proven-graph-input-alpha-attenuation"
     case sourceProvenGraphInputColorBlend =
@@ -169,12 +169,12 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
         spatialWeightedColorBlendActiveSlots: Set<Int> = [],
         spatialWeightedColorBlendTypedAuxiliarySlots: Set<Int> = [],
         spatialWeightedColorBlendExternalColorSlot: Int? = nil,
-        unitCompositeBlurredSlot: Int?,
-        unitCompositePreviousSlot: Int?,
-        unitCompositeMaskSlot: Int? = nil,
-        unitCompositeSourceBlurredSlot: Int? = nil,
-        unitCompositeSourcePreviousSlot: Int? = nil,
-        unitCompositeSourceMaskSlot: Int? = nil,
+        previousBlurredCompositeBlurredSlot: Int?,
+        previousBlurredCompositePreviousSlot: Int?,
+        previousBlurredCompositeMaskSlot: Int? = nil,
+        previousBlurredCompositeSourceBlurredSlot: Int? = nil,
+        previousBlurredCompositeSourcePreviousSlot: Int? = nil,
+        previousBlurredCompositeSourceMaskSlot: Int? = nil,
         hasExternalProviderTexture: Bool,
         producesScalarRedOutput: Bool,
         producesRedGreenUnormOutput: Bool = false,
@@ -477,22 +477,22 @@ nonisolated enum SceneGenericShaderCapabilityProfile: String {
                   graphInputTextureSlots == Set([sourceSlot]) {
             self = .sourceProvenGraphInputTypedDataRGBFilter
         } else if case let .straightAlphaPreserving(transferBlurred) = colorTransfer,
-                  let sourceBlurred = unitCompositeSourceBlurredSlot
-                    ?? unitCompositeBlurredSlot,
-                  let sourcePrevious = unitCompositeSourcePreviousSlot
-                    ?? unitCompositePreviousSlot,
+                  let sourceBlurred = previousBlurredCompositeSourceBlurredSlot
+                    ?? previousBlurredCompositeBlurredSlot,
+                  let sourcePrevious = previousBlurredCompositeSourcePreviousSlot
+                    ?? previousBlurredCompositePreviousSlot,
                   transferBlurred == sourceBlurred,
                   sourceBlurred != sourcePrevious {
-            let ownerEligible = unitCompositeBlurredSlot == sourceBlurred
-                && unitCompositePreviousSlot == sourcePrevious
-                && unitCompositeMaskSlot == unitCompositeSourceMaskSlot
+            let ownerEligible = previousBlurredCompositeBlurredSlot == sourceBlurred
+                && previousBlurredCompositePreviousSlot == sourcePrevious
+                && previousBlurredCompositeMaskSlot == previousBlurredCompositeSourceMaskSlot
                 && !hasExternalProviderTexture
                 && !producesScalarRedOutput
                 && graphTextureSlots == Set([sourceBlurred])
                 && graphInputTextureSlots == Set([sourceBlurred, sourcePrevious])
             self = ownerEligible
-                ? .sourceProvenUnitPreviousBlurredComposite
-                : .sourceProvenUnitPreviousBlurredCompositeUnowned
+                ? .sourceProvenPreviousBlurredComposite
+                : .sourceProvenPreviousBlurredCompositeUnowned
         } else if case let .passthrough(sourceSlot) = colorTransfer,
                   !hasExternalProviderTexture,
                   !producesScalarRedOutput,

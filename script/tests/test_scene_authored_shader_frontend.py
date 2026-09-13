@@ -999,6 +999,53 @@ class SceneAuthoredShaderFrontendTests(unittest.TestCase):
         )
         self.assertIsNotNone(function_call.get("metalError"))
 
+    def test_component_wise_builtin_operand_narrows_only_the_wide_peer(self):
+        pixel_vertex = """
+            attribute vec3 a_Position;
+            varying vec2 v_PixelCoord;
+            varying vec4 v_PixelSize;
+            void main() {
+                gl_Position = vec4(a_Position, 1.0);
+                v_PixelCoord = vec2(0.5);
+                v_PixelSize = vec4(0.25);
+            }
+        """
+        output = self.compile(
+            pixel_vertex,
+            """
+            varying vec2 v_PixelCoord;
+            varying vec4 v_PixelSize;
+            uniform vec4 g_Texture0Resolution;
+            void main() {
+                vec2 texCoord00 = round(v_PixelCoord) * v_PixelSize;
+                texCoord00 = round(texCoord00 * g_Texture0Resolution.xy)
+                    * v_PixelSize.zw + v_PixelSize.zw * 0.5;
+                gl_FragColor = vec4(texCoord00, 0.0, 1.0);
+            }
+            """,
+        )
+        compact_source = output["metalSource"].replace(" ", "")
+        self.assertEqual(output["diagnosticCodes"], [])
+        self.assertIn(
+            "round(mwxInput.v_PixelCoord)*(mwxInput.v_PixelSize).xy",
+            compact_source,
+        )
+        self.assertIsNone(output.get("metalError"))
+
+        shadowed = self.compile(
+            pixel_vertex,
+            """
+            varying vec2 v_PixelCoord;
+            varying vec4 v_PixelSize;
+            vec4 round(vec2 value) { return vec4(value, value); }
+            void main() {
+                vec2 texCoord00 = round(v_PixelCoord) * v_PixelSize;
+                gl_FragColor = vec4(texCoord00, 0.0, 1.0);
+            }
+            """,
+        )
+        self.assertIsNotNone(shadowed.get("metalError"))
+
     def test_scalar_assignment_narrows_only_proven_float_vector_chains(self):
         output = self.compile(
             VERTEX_SOURCE,

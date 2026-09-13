@@ -52,11 +52,11 @@ extension SceneGenericShaderArtifactBuilder {
                         overlaySlot: overlay.overlay
                     ) else { throw Failure.colorTransfer }
             preserving = preservingTransfer(lowered, slot: expectedSlot)
-        } else if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+        } else if let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: authoredSource) {
             guard fact.blurredSlot == expectedSlot,
                   let lowered =
-                    SceneGenericShaderUnitPreviousBlurredCompositeLowering.lower(
+                    SceneGenericShaderPreviousBlurredCompositeLowering.lower(
                         source,
                         expectedBlurredSlot: expectedSlot,
                         expectedPreviousSlot: fact.previousSlot,
@@ -74,7 +74,9 @@ extension SceneGenericShaderArtifactBuilder {
                             fact.fullColorSampleCallCounts,
                         rgbColorSampleCallCounts:
                             fact.rgbColorSampleCallCounts,
-                        dataSampleCallCounts: fact.dataSampleCallCounts
+                        dataSampleCallCounts: fact.dataSampleCallCounts,
+                        scalarDataSampleCallCounts:
+                            fact.scalarDataSampleCallCounts
                     ) else { throw Failure.colorTransfer }
             preserving = preservingTransfer(lowered, slot: expectedSlot)
         } else if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer

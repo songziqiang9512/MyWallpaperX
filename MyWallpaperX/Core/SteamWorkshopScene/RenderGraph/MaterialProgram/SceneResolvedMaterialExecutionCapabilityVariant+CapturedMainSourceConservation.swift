@@ -161,14 +161,14 @@ extension SceneResolvedMaterialVariantCache {
         if let activeSourceBinding {
             guard activeSourceBinding.slot == sourceSlot,
                   activeSourceBinding.texture == effect.input,
-                  SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+                  SceneResolvedMaterialPreviousBlurredCompositeEligibility
                     .exactGraphOverride(
                         slot: sourceSlot,
                         identity: effect.input,
                         template: template,
                         allowsNamedInputProvenance: true
                     ),
-                  SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+                  SceneResolvedMaterialPreviousBlurredCompositeEligibility
                     .exactPreviousInputBinding(
                         bindings: activeBindings,
                         slot: sourceSlot,

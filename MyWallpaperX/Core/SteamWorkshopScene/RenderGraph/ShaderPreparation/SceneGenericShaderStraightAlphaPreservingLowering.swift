@@ -677,7 +677,8 @@ inline float4 \(premultiply)(float4 color) {
         sourceSlot: Int,
         fullColorSampleCallCounts: [Int: Int],
         rgbColorSampleCallCounts: [Int: Int],
-        dataSampleCallCounts: [Int: Int]
+        dataSampleCallCounts: [Int: Int],
+        scalarDataSampleCallCounts: [Int: Int] = [:]
     ) -> String? {
         let colorSampleCallCounts = fullColorSampleCallCounts.merging(
             rgbColorSampleCallCounts,
@@ -688,7 +689,8 @@ inline float4 \(premultiply)(float4 color) {
             sourceSlot: sourceSlot,
             fullColorSampleCallCounts: fullColorSampleCallCounts,
             rgbColorSampleCallCounts: rgbColorSampleCallCounts,
-            dataSampleCallCounts: dataSampleCallCounts
+            dataSampleCallCounts: dataSampleCallCounts,
+            scalarDataSampleCallCounts: scalarDataSampleCallCounts
         ) else { return nil }
 
         let outputs = matches(

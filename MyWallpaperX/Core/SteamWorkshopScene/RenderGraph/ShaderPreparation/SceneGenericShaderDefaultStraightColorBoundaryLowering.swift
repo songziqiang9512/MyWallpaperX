@@ -169,7 +169,9 @@ extension SceneGenericShaderArtifactBuilder {
                     sourceSlot: fact.sourceSlot,
                     fullColorSampleCallCounts: fact.fullColorSampleCallCounts,
                     rgbColorSampleCallCounts: fact.rgbColorSampleCallCounts,
-                    dataSampleCallCounts: fact.dataSampleCallCounts
+                    dataSampleCallCounts: fact.dataSampleCallCounts,
+                    scalarDataSampleCallCounts:
+                        fact.scalarDataSampleCallCounts
                 )
         }
         if let fact = SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(

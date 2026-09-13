@@ -61,7 +61,7 @@ class SceneStandardBlurDedicatedFamilyRetirementTests(unittest.TestCase):
             SCENE / "Rendering/SceneImageLayerDrawRequest.swift"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("source-proven-unit-previous-blurred-composite", route)
+        self.assertIn("source-proven-previous-blurred-composite", route)
         self.assertIn("SceneResolvedMaterialPassEncoder", executor)
         self.assertIn("struct FrameInputs", bridge)
         self.assertNotIn("DedicatedFrameInputs", bridge)

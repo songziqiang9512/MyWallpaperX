@@ -280,8 +280,8 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
                 inheritedInactiveCombos:
                     authoredEffectComboNames[key.effect, default: []]
                         .subtracting(material.combos.keys),
-                unitPreviousBlurredCompositeGenericOwnerEligible:
-                    SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.accepts(
+                previousBlurredCompositeGenericOwnerEligible:
+                    SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.accepts(
                         key: key,
                         graph: record.graph,
                         descriptor: descriptor,

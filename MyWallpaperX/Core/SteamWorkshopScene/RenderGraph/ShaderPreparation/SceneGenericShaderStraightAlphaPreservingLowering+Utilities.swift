@@ -17,14 +17,16 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
         sourceSlot: Int,
         fullColorSampleCallCounts: [Int: Int],
         rgbColorSampleCallCounts: [Int: Int],
-        dataSampleCallCounts: [Int: Int]
+        dataSampleCallCounts: [Int: Int],
+        scalarDataSampleCallCounts: [Int: Int] = [:]
     ) -> Bool {
         validatedPreservedAlphaRGBFilterSampleCalls(
             in: source,
             sourceSlot: sourceSlot,
             fullColorSampleCallCounts: fullColorSampleCallCounts,
             rgbColorSampleCallCounts: rgbColorSampleCallCounts,
-            dataSampleCallCounts: dataSampleCallCounts
+            dataSampleCallCounts: dataSampleCallCounts,
+            scalarDataSampleCallCounts: scalarDataSampleCallCounts
         ) != nil
     }
 
@@ -33,7 +35,8 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
         sourceSlot: Int,
         fullColorSampleCallCounts: [Int: Int],
         rgbColorSampleCallCounts: [Int: Int],
-        dataSampleCallCounts: [Int: Int]
+        dataSampleCallCounts: [Int: Int],
+        scalarDataSampleCallCounts: [Int: Int] = [:]
     ) -> [CompilerTextureSampleCall]? {
         let colorSampleCallCounts = fullColorSampleCallCounts.merging(
             rgbColorSampleCallCounts,
@@ -50,6 +53,9 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
               Set(colorSampleCallCounts.keys).isDisjoint(
                   with: dataSampleCallCounts.keys
               ),
+              scalarDataSampleCallCounts.allSatisfy({ slot, count in
+                  count > 0 && count <= dataSampleCallCounts[slot, default: 0]
+              }),
               !containsWord(unpremultiply, in: source),
               !containsWord(premultiply, in: source),
               matches(#"\busing\s+namespace\s+metal\s*;"#, in: source).count == 1,
@@ -62,14 +68,22 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
         var observedFullColorCounts: [Int: Int] = [:]
         var observedRGBColorCounts: [Int: Int] = [:]
         var observedDataCounts: [Int: Int] = [:]
+        var observedScalarDataCounts: [Int: Int] = [:]
         for call in calls {
             guard let range = Range(call.range, in: source) else { return nil }
             let suffix = source[range.upperBound...]
             if dataSampleCallCounts[call.slot] != nil {
-                guard suffix.range(
-                    of: #"^\.(?:xy|rg)\b"#,
+                if suffix.range(
+                    of: #"^\.(?:x|r)\b"#,
                     options: .regularExpression
-                ) != nil else { return nil }
+                ) != nil {
+                    observedScalarDataCounts[call.slot, default: 0] += 1
+                } else {
+                    guard suffix.range(
+                        of: #"^\.(?:xy|rg)\b"#,
+                        options: .regularExpression
+                    ) != nil else { return nil }
+                }
                 observedDataCounts[call.slot, default: 0] += 1
             } else if rgbColorSampleCallCounts[call.slot] != nil,
                       suffix.range(
@@ -89,7 +103,10 @@ nonisolated extension SceneGenericShaderStraightAlphaPreservingLowering {
         }
         guard observedFullColorCounts == fullColorSampleCallCounts,
               observedRGBColorCounts == rgbColorSampleCallCounts,
-              observedDataCounts == dataSampleCallCounts else { return nil }
+              observedDataCounts == dataSampleCallCounts,
+              observedScalarDataCounts == scalarDataSampleCallCounts else {
+            return nil
+        }
         return calls
     }
 

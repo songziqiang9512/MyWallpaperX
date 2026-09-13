@@ -4,7 +4,7 @@ import Foundation
 /// The shared graph contract is independent of the incumbent planner; source,
 /// typed-input, and lifecycle checks remain narrower so unproven shapes keep
 /// the existing product fallback.
-nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
+nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
 
@@ -42,7 +42,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                   for: graph.effects[0].input,
                   layerID: graph.layerID
               ), requiredInputRole == nil || requiredInputRole == inputRole,
-              SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
+              SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission
                   .accepts(
                       graph: graph,
                       descriptor: descriptor,
@@ -262,7 +262,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     graph: graph,
                     shaderContract: contract,
                     inheritedInactiveCombos: inheritedInactiveCombos,
-                    unitPreviousBlurredCompositeGenericOwnerEligible: true
+                    previousBlurredCompositeGenericOwnerEligible: true
                 ) else { return false }
 
         let readiness = textureReadiness(template)
@@ -307,7 +307,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
             }
         }
         guard let slots =
-                SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+                SceneResolvedMaterialPreviousBlurredCompositeEligibility.slots(
                     fragmentSource: compilerSources.fragment,
                     prepared: prepared,
                     samplers: samplers,
@@ -315,7 +315,7 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission
                     implicitFramebufferIdentity: effect.input,
                     activeGraphTextureIdentities: graphIdentities
                 ) else { return false }
-        guard SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility
+        guard SceneResolvedMaterialPreviousBlurredCompositeEligibility
                 .exactPreviousInputBinding(
                     bindings: terminalNode.bindings,
                     slot: slots.previous,

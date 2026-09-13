@@ -1,4 +1,9 @@
 nonisolated enum SceneAuthoredShaderVectorConversion {
+    private static let componentWiseBuiltIns: Set<String> = [
+        "abs", "ceil", "clamp", "floor", "fract", "max", "min", "pow",
+        "round", "saturate", "sign", "smoothstep", "step", "trunc",
+    ]
+
     private struct Conversion: Hashable {
         let range: Range<Int>
         let suffix: String
@@ -125,10 +130,6 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         tokens: [SceneAuthoredShaderToken],
         unit: SceneAuthoredShaderSyntaxUnit
     ) -> Conversion? {
-        let builtIns: Set<String> = [
-            "abs", "clamp", "max", "min", "pow", "saturate",
-            "smoothstep", "step",
-        ]
         let punctuation: Set<String> = [
             "+", "-", "*", "/", "(", ")", ",",
         ]
@@ -153,7 +154,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                     else { return nil }
                     vectorWidths.insert(width)
                 } else {
-                    guard builtIns.contains(token.text),
+                    guard componentWiseBuiltIns.contains(token.text),
                           !unit.functions.contains(where: {
                               $0.name == token.text
                           }) else { return nil }
@@ -215,11 +216,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   opening: expression.lowerBound + 1
               ) == expression.upperBound - 1 else { return nil }
         let function = tokens[expression.lowerBound].text
-        let builtIns = Set([
-            "abs", "clamp", "max", "min", "pow", "saturate",
-            "smoothstep", "step",
-        ])
-        guard builtIns.contains(function),
+        guard componentWiseBuiltIns.contains(function),
               !unit.functions.contains(where: { $0.name == function }) else { return nil }
         var widths = Set<Int>()
         var index = expression.lowerBound + 2
@@ -231,7 +228,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             }
             if index + 1 < expression.upperBound,
                tokens[index + 1].text == "(" {
-                guard builtIns.contains(token.text)
+                guard componentWiseBuiltIns.contains(token.text)
                         || SceneAuthoredShaderValueType(authoredName: token.text) != nil
                 else { return nil }
                 index += 1
@@ -435,8 +432,23 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 operands.append(.init(range: index..<(index + 1), type: .float))
                 expectsOperand = false
             } else if token.kind == .identifier {
-                guard expectsOperand,
-                      let declared = declaredType(
+                guard expectsOperand else { return nil }
+                if index + 1 < expression.endIndex,
+                   expression[index + 1].text == "(" {
+                    guard let operand = componentWiseUnaryOperand(
+                        at: index,
+                        expression: expression,
+                        before: limit,
+                        allTokens: allTokens,
+                        unit: unit
+                    ) else { return nil }
+                    operands.append(operand)
+                    index = operand.range.upperBound - 1
+                    expectsOperand = false
+                    index += 1
+                    continue
+                }
+                guard let declared = declaredType(
                           of: token.text,
                           before: limit,
                           tokens: allTokens,
@@ -470,6 +482,63 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
             floatVectorWidth($0.type) != nil
         }) else { return nil }
         return operands
+    }
+
+    /// Treats a proven unary component-wise built-in as one multiplicative
+    /// operand. Wallpaper Engine's authored dialect applies the same implicit
+    /// vector-width conversion to `round(value) * widerVector` as it does to
+    /// bare vector operands. User-defined overloads and compound arguments
+    /// remain outside this rule.
+    private static func componentWiseUnaryOperand(
+        at index: Int,
+        expression: ArraySlice<SceneAuthoredShaderToken>,
+        before limit: Int,
+        allTokens: [SceneAuthoredShaderToken],
+        unit: SceneAuthoredShaderSyntaxUnit
+    ) -> Operand? {
+        guard componentWiseBuiltIns.contains(expression[index].text),
+              !unit.functions.contains(where: {
+                  $0.name == expression[index].text
+              }), index + 1 < expression.endIndex,
+              expression[index + 1].text == "(",
+              let close = matchingParenthesis(
+                  tokens: allTokens,
+                  opening: index + 1
+              ), close < expression.endIndex else { return nil }
+        var argument = (index + 2)..<close
+        while argument.count >= 2,
+              allTokens[argument.lowerBound].text == "(",
+              matchingParenthesis(
+                  tokens: allTokens,
+                  opening: argument.lowerBound
+              ) == argument.upperBound - 1 {
+            argument = (argument.lowerBound + 1)..<(argument.upperBound - 1)
+        }
+        guard !argument.isEmpty,
+              allTokens[argument.lowerBound].kind == .identifier,
+              let declared = declaredType(
+                  of: allTokens[argument.lowerBound].text,
+                  before: limit,
+                  tokens: allTokens,
+                  unit: unit
+              ) else { return nil }
+        let type: SceneAuthoredShaderValueType
+        if argument.count == 1 {
+            type = declared
+        } else if argument.count == 3,
+                  allTokens[argument.lowerBound + 1].text == ".",
+                  allTokens[argument.lowerBound + 2].kind == .identifier,
+                  let swizzled = swizzleType(
+                      allTokens[argument.lowerBound + 2].text
+                  ) {
+            type = swizzled
+        } else {
+            return nil
+        }
+        guard type == .float || floatVectorWidth(type) != nil else {
+            return nil
+        }
+        return .init(range: index..<(close + 1), type: type)
     }
 
     private static func contextualComponentConversions(
@@ -514,11 +583,19 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                 continue
             }
             if index + 1 < expression.upperBound, tokens[index + 1].text == "(" {
-                guard let constructor = SceneAuthoredShaderValueType(
-                          authoredName: token.text
-                      ), constructor == .float
-                        || floatVectorWidth(constructor).map({ $0 <= targetWidth }) == true
-                else { return nil }
+                if let constructor = SceneAuthoredShaderValueType(
+                    authoredName: token.text
+                ) {
+                    guard constructor == .float
+                            || floatVectorWidth(constructor).map({
+                                $0 <= targetWidth
+                            }) == true else { return nil }
+                } else {
+                    guard componentWiseBuiltIns.contains(token.text),
+                          !unit.functions.contains(where: {
+                              $0.name == token.text
+                          }) else { return nil }
+                }
                 index += 1
                 continue
             }

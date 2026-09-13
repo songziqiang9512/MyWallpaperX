@@ -1,13 +1,15 @@
 import Foundation
 
 /// Source proof for a straight-RGB filter that keeps one sampled alpha intact.
-/// Color samples may feed RGB math while `.rg` samples remain typed data. The
-/// proof is structural and never inspects effect, material, path, or sample IDs.
+/// Color samples may feed RGB math while `.rg` samples and explicit-LOD scalar
+/// `.r` samples remain typed data. The proof is structural and never inspects
+/// effect, material, path, or sample IDs.
 nonisolated struct SceneAuthoredShaderPreservedAlphaRGBFilterFact: Equatable, Sendable {
     let sourceSlot: Int
     let fullColorSampleCallCounts: [Int: Int]
     let rgbColorSampleCallCounts: [Int: Int]
     let dataSampleCallCounts: [Int: Int]
+    let scalarDataSampleCallCounts: [Int: Int]
 
     var colorSampleCallCounts: [Int: Int] {
         fullColorSampleCallCounts.merging(
@@ -29,8 +31,14 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
     private struct SampleCall {
         let index: Int
         let close: Int
+        let function: String
         let slot: Int
         let swizzle: String?
+    }
+
+    private enum DataProjection {
+        case scalar
+        case vector2
     }
 
     static func analyze(fragmentSource source: String) -> Fact? {
@@ -122,7 +130,8 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
                   initializer.indices.contains($0.index)
               }),
               sourceCall.slot == sourceSlot,
-              sourceCall.swizzle == nil
+              sourceCall.swizzle == nil,
+              mainHelperCallsAreReadOnly(fragment: fragment, main: main)
         else { return nil }
 
         let fullDeclarations = calls.compactMap { call -> (String, SampleCall)? in
@@ -145,17 +154,21 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
         var fullColorCounts: [Int: Int] = [sourceSlot: 1]
         var rgbColorCounts: [Int: Int] = [:]
         var dataCounts: [Int: Int] = [:]
+        var scalarDataCounts: [Int: Int] = [:]
         for call in calls where call.index != sourceCall.index {
             if let base = bases.first, call.index == base.1.index {
                 fullColorCounts[call.slot, default: 0] += 1
                 continue
             }
-            if dataDeclaration(call, tokens: tokens) {
+            if let projection = dataDeclaration(call, tokens: tokens) {
                 guard call.slot != sourceSlot,
                       !bases.contains(where: { $0.1.slot == call.slot }) else {
                     return nil
                 }
                 dataCounts[call.slot, default: 0] += 1
+                if projection == .scalar {
+                    scalarDataCounts[call.slot, default: 0] += 1
+                }
                 continue
             }
             if rgbAccumulation(
@@ -218,14 +231,16 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
             sourceSlot: sourceSlot,
             fullColorSampleCallCounts: fullColorCounts,
             rgbColorSampleCallCounts: rgbColorCounts,
-            dataSampleCallCounts: dataCounts
+            dataSampleCallCounts: dataCounts,
+            scalarDataSampleCallCounts: scalarDataCounts
         )
     }
 
     private static func sampleCalls(tokens: [Token]) -> [SampleCall]? {
         var result: [SampleCall] = []
         for index in tokens.indices where
-            ["texSample2D", "texture2D"].contains(tokens[index].text) {
+            ["texSample2D", "texture2D", "texSample2DLod", "textureLod"]
+                .contains(tokens[index].text) {
             guard index + 3 < tokens.count,
                   tokens[index + 1].text == "(",
                   let slot = textureSlot(tokens[index + 2].text),
@@ -243,6 +258,7 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
             result.append(.init(
                 index: index,
                 close: close,
+                function: tokens[index].text,
                 slot: slot,
                 swizzle: swizzle
             ))
@@ -253,14 +269,49 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer {
     private static func dataDeclaration(
         _ call: SampleCall,
         tokens: [Token]
+    ) -> DataProjection? {
+        guard call.index >= 3,
+              tokens[call.index - 2].kind == .identifier,
+              tokens[call.index - 1].text == "=",
+              call.close + 3 < tokens.count,
+              tokens[call.close + 3].text == ";" else { return nil }
+        let type = tokens[call.index - 3].text
+        if ["vec2", "float2"].contains(type),
+           ["rg", "xy"].contains(call.swizzle ?? "") {
+            return .vector2
+        }
+        if type == "float",
+           ["texSample2DLod", "textureLod"].contains(call.function),
+           ["r", "x"].contains(call.swizzle ?? "") {
+            return .scalar
+        }
+        return nil
+    }
+
+    /// Any authored helper reached from `main` must remain a read-only value
+    /// transform. This keeps the broad data-sample grammar from authorizing a
+    /// hidden texture read, output write, mutable parameter, global mutation,
+    /// or recursive call graph.
+    private static func mainHelperCallsAreReadOnly(
+        fragment: Unit,
+        main: Unit.Function
     ) -> Bool {
-        call.index >= 3
-            && ["vec2", "float2"].contains(tokens[call.index - 3].text)
-            && tokens[call.index - 2].kind == .identifier
-            && tokens[call.index - 1].text == "="
-            && ["rg", "xy"].contains(call.swizzle ?? "")
-            && call.close + 3 < tokens.count
-            && tokens[call.close + 3].text == ";"
+        let tokens = fragment.tokens
+        let helperNames = Set(fragment.functions.map(\.name)).subtracting(["main"])
+        let called = Set(main.bodyRange.compactMap { index -> String? in
+            guard index + 1 < main.bodyRange.upperBound,
+                  tokens[index].kind == .identifier,
+                  tokens[index + 1].text == "(",
+                  helperNames.contains(tokens[index].text) else { return nil }
+            return tokens[index].text
+        })
+        return called.allSatisfy {
+            SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer
+                .safeReadOnlyHelperClosure(
+                    rootName: $0,
+                    fragment: fragment
+                ) != nil
+        }
     }
 
     private static func rgbAccumulation(

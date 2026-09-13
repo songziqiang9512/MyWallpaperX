@@ -254,9 +254,9 @@
     {
       "id": "authored-fallback-owner-revocation",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission+DynamicScale.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/RenderGraph/SceneResolvedMaterialRuntimeCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingCompiler+TargetMapping.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Properties/ScenePropertyBindingProgram.swift",

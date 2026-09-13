@@ -88,7 +88,7 @@
           "SceneResolvedMaterialAlphaAttenuationEligibility.swift",
           "SceneResolvedMaterialColorBlendEligibility.swift",
           "SceneResolvedMaterialCompiledVariant.swift",
-          "SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.swift",
+          "SceneResolvedMaterialPreviousBlurredCompositeEligibility.swift",
           "SceneResolvedMaterialGenericShaderProgramArtifact.swift",
           "SceneResolvedMaterialEffectIngress.swift",
           "SceneResolvedMaterialExecutionCapability+Diagnostics.swift",

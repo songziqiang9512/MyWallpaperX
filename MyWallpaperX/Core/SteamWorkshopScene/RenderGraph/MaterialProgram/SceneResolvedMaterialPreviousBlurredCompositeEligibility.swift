@@ -30,8 +30,8 @@ nonisolated enum SceneResolvedMaterialExactPreviousInputShadow {
 }
 
 /// Cross-checks the bounded two-source composite proof against exact graph
-/// identities and immutable unit host data before granting product authority.
-nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
+/// identities and immutable typed host data before granting product authority.
+nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeEligibility {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias Template = SceneResolvedMaterialTemplate
 
@@ -49,8 +49,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
         implicitFramebufferIdentity: Graph.TextureIdentity?,
         activeGraphTextureIdentities: [Int: Graph.TextureIdentity]
     ) -> Slots? {
-        guard template.unitPreviousBlurredCompositeGenericOwnerEligible,
-              let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer
+        guard template.previousBlurredCompositeGenericOwnerEligible,
+              let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer
             .analyze(fragmentSource: fragmentSource),
               let previousIdentity = implicitFramebufferIdentity,
               previousIdentity.name == nil,
@@ -84,8 +84,8 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
                   slot: fact.maskSlot,
                   samplers: samplers,
                   template: template
-              ), exactUnitColor(
-                  named: fact.unitColorUniform,
+              ), exactStaticColor(
+                  named: fact.colorUniform,
                   template: template,
                   prepared: prepared
               ) else { return nil }
@@ -159,7 +159,11 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
             && matches[0].texture == identity
     }
 
-    private static func exactUnitColor(
+    /// A static authored tint changes RGB but does not change the proven
+    /// straight-alpha-preserving representation. Keep the value in the typed
+    /// uniform program and reject only missing, dynamic, malformed, or
+    /// ambiguous declarations.
+    private static func exactStaticColor(
         named name: String,
         template: Template,
         prepared: SceneShaderPreparedProgram
@@ -185,9 +189,9 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility {
             }
             value = authored
         }
-        guard value.componentBitPatterns.count == 3 else { return false }
-        return value.componentBitPatterns.allSatisfy {
-            Double(bitPattern: $0) == 1
-        }
+        return value.componentBitPatterns.count == 3
+            && value.componentBitPatterns.allSatisfy {
+                Double(bitPattern: $0).isFinite
+            }
     }
 }

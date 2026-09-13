@@ -321,8 +321,8 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphInputSourceSlotFacts: sourceGraphInputFacts
             )
-        let unitCompositeSlots =
-            SceneResolvedMaterialUnitPreviousBlurredCompositeEligibility.slots(
+        let previousBlurredCompositeSlots =
+            SceneResolvedMaterialPreviousBlurredCompositeEligibility.slots(
                 fragmentSource: compilerSources.fragment,
                 prepared: prepared,
                 samplers: sourceActiveSamplers,
@@ -335,9 +335,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             fragmentSource: compilerSources.fragment,
             alphaAttenuationSourceSlot: alphaAttenuationSourceSlot,
             colorBlendSourceSlot: colorBlendSourceSlot,
-            unitCompositeBlurredSlot: unitCompositeSlots?.blurred,
-            unitCompositePreviousSlot: unitCompositeSlots?.previous,
-            unitCompositeMaskSlot: unitCompositeSlots?.mask,
+            previousBlurredCompositeBlurredSlot: previousBlurredCompositeSlots?.blurred,
+            previousBlurredCompositePreviousSlot: previousBlurredCompositeSlots?.previous,
+            previousBlurredCompositeMaskSlot: previousBlurredCompositeSlots?.mask,
             hasExternalProviderTexture:
                 !activeExternalProviderTextureSlots.isEmpty,
             producesScalarRedOutput: outputStorage == .scalarRedUnorm

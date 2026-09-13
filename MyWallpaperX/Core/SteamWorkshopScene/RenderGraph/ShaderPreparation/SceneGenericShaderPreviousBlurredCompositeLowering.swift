@@ -1,11 +1,11 @@
 import Foundation
 
 /// Restores the compositor's premultiplied boundary for the exact authored
-/// unit composite proved by
-/// `SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer`. The compiler
+/// previous/blurred composite proved by
+/// `SceneAuthoredShaderPreviousBlurredCompositeAnalyzer`. The compiler
 /// shape is checked independently so a source fact cannot authorize a rewrite
 /// after SPIRV-Cross output drifts.
-nonisolated enum SceneGenericShaderUnitPreviousBlurredCompositeLowering {
+nonisolated enum SceneGenericShaderPreviousBlurredCompositeLowering {
     private struct Match {
         let range: NSRange
         let captures: [String]

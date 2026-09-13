@@ -16,14 +16,14 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 GRAPH_ADMISSION_SOURCE = (
     SCENE_ROOT
-    / "RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission.swift"
+    / "RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift"
 )
 DEDICATED_PLANNER_SOURCE = (
     SCENE_ROOT / "RenderGraph/SceneAuthoredStandardBlurPlanner.swift"
 )
 OWNER_ADMISSION_SOURCE = (
     SCENE_ROOT
-    / "RenderGraph/SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission.swift"
+    / "RenderGraph/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift"
 )
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
@@ -112,7 +112,8 @@ enum Harness {
         case wrongTargetExtent
         case wrongBinding
         case kernel
-        case nonUnitComposite
+        case tintedStaticComposite
+        case dynamicComposite
         case maskWithoutAsset
         case maskFromMaterial
     }
@@ -313,11 +314,23 @@ enum Harness {
                 textureSlots: [nil, instanceMask],
                 userTextureInputs: [],
                 combos: maskIsEnabled ? ["MASK": 1] : [:],
-                constantShaderValues: fixture == .nonUnitComposite
-                    ? [
-                        "compositecolor": .init(components: [0.5, 1, 1]),
-                    ]
-                    : [:]
+                constantShaderValues: {
+                    if fixture == .tintedStaticComposite {
+                        return [
+                            "compositecolor": .init(components: [0.5, 1, 1]),
+                        ]
+                    }
+                    if fixture == .dynamicComposite {
+                        return [
+                            "compositecolor": .init(
+                                valueKind: "binding",
+                                userBinding: "colorproperty",
+                                components: [0.5, 1, 1]
+                            ),
+                        ]
+                    }
+                    return [:]
+                }()
             ),
         ]
     }
@@ -405,7 +418,7 @@ enum Harness {
         var result: [String: Bool] = [:]
         for fixture in Fixture.allCases {
             result[fixture.rawValue] =
-                SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
+                SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission
                     .accepts(
                         graph: graph(fixture),
                         descriptor: descriptor(fixture),
@@ -422,7 +435,7 @@ enum Harness {
 '''
 
 
-class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
+class SceneResolvedMaterialPreviousBlurredCompositeGraphAdmissionTests(
     unittest.TestCase
 ):
     @classmethod
@@ -430,7 +443,7 @@ class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
         if shutil.which("swiftc") is None:
             raise unittest.SkipTest("swiftc is unavailable")
         cls.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="mwx-scene-unit-previous-blurred-graph-admission-"
+            prefix="mwx-scene-previous-blurred-graph-admission-"
         )
         root = Path(cls.temporary_directory.name)
         harness = root / "Harness.swift"
@@ -473,14 +486,15 @@ class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
         self.assertFalse(self.result["workshopWrongNamespace"])
         self.assertFalse(self.result["stockDefinitionNamespacedShader"])
 
-    def test_target_and_binding_contracts_reject_exact_graph_unit(self) -> None:
+    def test_target_and_binding_contracts_reject_mismatched_graphs(self) -> None:
         self.assertFalse(self.result["wrongTarget"])
         self.assertFalse(self.result["wrongTargetExtent"])
         self.assertFalse(self.result["wrongBinding"])
 
-    def test_material_and_mask_contracts_reject_exact_graph_unit(self) -> None:
+    def test_static_tint_is_admitted_but_dynamic_or_malformed_shape_is_not(self) -> None:
         self.assertFalse(self.result["kernel"])
-        self.assertFalse(self.result["nonUnitComposite"])
+        self.assertTrue(self.result["tintedStaticComposite"])
+        self.assertFalse(self.result["dynamicComposite"])
         self.assertFalse(self.result["maskWithoutAsset"])
         self.assertFalse(self.result["maskFromMaterial"])
 
@@ -490,12 +504,12 @@ class SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmissionTests(
         source = GRAPH_ADMISSION_SOURCE.read_text(encoding="utf-8")
         owner_source = OWNER_ADMISSION_SOURCE.read_text(encoding="utf-8")
         self.assertIn(
-            "SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission",
+            "SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission",
             source,
         )
         self.assertNotIn("SceneAuthoredStandardBlurPlanner", source)
         self.assertIn(
-            "SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission",
+            "SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission",
             owner_source,
         )
         self.assertNotIn("SceneAuthoredStandardBlurPlanner.plan(", owner_source)

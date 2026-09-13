@@ -3,7 +3,7 @@ import Foundation
 /// Exact whole-stage graph contract for the shared blurred/current composite
 /// MaterialProgram profile. This is an admission predicate only: it does not
 /// plan, render, or own product output.
-nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission {
+nonisolated enum SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
     static func accepts(
@@ -195,7 +195,10 @@ nonisolated enum SceneResolvedMaterialUnitPreviousBlurredCompositeGraphAdmission
               }),
               defaultScalar(constants["compositealpha"], fallback: 1) == 1,
               defaultVector(constants["compositeoffset"], fallback: [0, 0]) == [0, 0],
-              defaultVector(constants["compositecolor"], fallback: [1, 1, 1]) == [1, 1, 1],
+              defaultVector(
+                  constants["compositecolor"],
+                  fallback: [1, 1, 1]
+              ) != nil,
               textureSlots(
                   material.textureSlots,
                   equal: [0: blurred, 2: previous],

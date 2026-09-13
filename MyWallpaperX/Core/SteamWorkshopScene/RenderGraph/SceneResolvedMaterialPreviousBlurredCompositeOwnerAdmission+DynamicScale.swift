@@ -1,6 +1,6 @@
 import Foundation
 
-extension SceneResolvedMaterialUnitPreviousBlurredCompositeOwnerAdmission {
+extension SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission {
     nonisolated enum UserPropertyScalarOwnerSource: Equatable {
         case liveProducer
         case authoredFallback

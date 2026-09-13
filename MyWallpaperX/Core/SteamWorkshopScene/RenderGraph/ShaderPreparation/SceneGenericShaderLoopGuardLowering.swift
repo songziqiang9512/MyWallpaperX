@@ -12,6 +12,10 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
     static let iterationCap = 4096
     static let guardFunctionName = "mwxGuardLoop"
     static let guardCounterName = "mwxLoopGuardCount"
+    static let vertexGuardFunctionName = "mwxVertexGuardLoop"
+    static let vertexGuardCounterName = "mwxVertexLoopGuardCount"
+    static let fragmentGuardFunctionName = "mwxFragmentGuardLoop"
+    static let fragmentGuardCounterName = "mwxFragmentLoopGuardCount"
 
     struct Lowered: Equatable {
         let source: String
@@ -29,8 +33,15 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
     /// Guards both normalized glslang stage sources. Returns nil unless at
     /// least one loop was guarded and every loop header could be delimited.
     static func lowerPair(vertex: String, fragment: String) -> LoweredPair? {
-        guard let loweredVertex = lower(vertex),
-              let loweredFragment = lower(fragment),
+        guard let loweredVertex = lower(
+                  vertex,
+                  functionName: vertexGuardFunctionName,
+                  counterName: vertexGuardCounterName
+              ), let loweredFragment = lower(
+                  fragment,
+                  functionName: fragmentGuardFunctionName,
+                  counterName: fragmentGuardCounterName
+              ),
               loweredVertex.guardedLoopCount + loweredFragment.guardedLoopCount > 0
         else { return nil }
         return LoweredPair(
@@ -45,8 +56,28 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
     /// `mwxGuardLoop(condition)` and declares the shared counter and guard
     /// right after the `#version` line. Comments never count as loops.
     static func lower(_ source: String) -> Lowered? {
-        guard !source.contains(guardFunctionName),
-              !source.contains(guardCounterName),
+        lower(
+            source,
+            functionName: guardFunctionName,
+            counterName: guardCounterName
+        )
+    }
+
+    static func containsGuardFunction(in source: String) -> Bool {
+        [
+            guardFunctionName,
+            vertexGuardFunctionName,
+            fragmentGuardFunctionName,
+        ].contains(where: source.contains)
+    }
+
+    private static func lower(
+        _ source: String,
+        functionName: String,
+        counterName: String
+    ) -> Lowered? {
+        guard !source.contains(functionName),
+              !source.contains(counterName),
               matches(#"\bdo\b"#, in: commentMaskedString(source)).isEmpty
         else { return nil }
         let units = Array(source.utf16)
@@ -97,7 +128,7 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
                 count: conditionRange.length
             ).trimmingCharacters(in: .whitespacesAndNewlines)
             guard keyword == "for" || !condition.isEmpty else { return nil }
-            let guarded = "\(guardFunctionName)(\(condition.isEmpty ? "true" : condition))"
+            let guarded = "\(functionName)(\(condition.isEmpty ? "true" : condition))"
             edits.append((conditionRange, keyword == "for" ? " \(guarded)" : guarded))
         }
 
@@ -105,7 +136,10 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
         for edit in edits.sorted(by: { $0.range.location > $1.range.location }) {
             result.replaceCharacters(in: edit.range, with: edit.replacement)
         }
-        result.insert(preamble, at: versionLineEnd + 1)
+        result.insert(
+            preamble(functionName: functionName, counterName: counterName),
+            at: versionLineEnd + 1
+        )
         return Lowered(source: result as String, guardedLoopCount: headers.count)
     }
 
@@ -114,12 +148,15 @@ nonisolated enum SceneGenericShaderLoopGuardLowering {
         return String(decoding: units, as: UTF16.self)
     }
 
-    private static var preamble: String {
+    private static func preamble(
+        functionName: String,
+        counterName: String
+    ) -> String {
         """
-        int \(guardCounterName) = 0;
-        bool \(guardFunctionName)(bool keepGoing) {
-            \(guardCounterName) += 1;
-            return keepGoing && \(guardCounterName) <= \(iterationCap);
+        int \(counterName) = 0;
+        bool \(functionName)(bool keepGoing) {
+            \(counterName) += 1;
+            return keepGoing && \(counterName) <= \(iterationCap);
         }
 
         """

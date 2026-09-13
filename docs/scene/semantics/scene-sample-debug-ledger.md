@@ -2,6 +2,19 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 四个 effect-local 首断点复核
+
+最终签名 Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `eec3f69c4d02fb3fe610167cce7f95bab3e6c809`，executable SHA-256 `af0570c1aae76d05f8131b8d198bd625c18002c2d3660797a9d26d2236206c53`）对只读真实样本 `3323988600 / 3395777145 / 3472940912 / 3754630802` 做 25 秒 fresh 定向回放。输出 `/private/tmp/mwx-current-q1-effect-local-four-20260913-v4`，report SHA-256 `b2a7478e33995b0521e6f254671720f139f4d0cd21b5ce2d5668a070d430cf36`；结果 4/4 `failures=[] / strict PASS`、loaded ratio 1.0、0 failed frame，四份 app log SHA-256 依次为 `2e6118c07e4badd9f125fce9535fa0ea5f9e818356773edaa1b11190f6961f5e / 6e9d91fb81acef56e930e7f08ba8d0775487e4d34a51ae0e93b6cdec7373188d / 8bfac5c1cd42de2570b9771c420b4c60e2d1317dfe68f3e2fffddc881cef6c41 / 8dea209b6b87b13f1a6b9a55157a34607d560cfcf42806d3138d33605ca03ba8`。
+
+| 样本 | 本次关闭的首断点 | 当前执行事实 | 尚未关闭 |
+| --- | --- | --- | --- |
+| `3323988600` | Pixelate 的 component-wise vector conversion | 5/5 active effect 为 Program；utility 65 成功；人物、烟雾与爱心动态可见 | 整样本逐像素 parity 未裁决 |
+| `3395777145` | vertex/fragment loop guard 生成符号碰撞 | 22 个 active Program，Oscilloscope 与 utility 338/392 完成，声波/时钟可见 | layer 125 的 2×Blend + 1×BlendGradient 无 owner；墙面海报/文字缺失 |
+| `3472940912` | Standard Blur 静态非单位 tint 被 unit-only gate 拒绝 | 6/6 active effect 为 Program；tinted terminal composite 为 generic-only；人物、高光与雾可见 | 独立 Blur ROI 与逐像素 parity 未裁决 |
+| `3754630802` | Fire 标量 LOD data sample 未进入 preserved-alpha fact | 29 个 active Program；Fire、utility 91/677/922、人物/舞狮/灯笼/火焰动态完成 | layer 607 Bokeh Blur 与 layer 743 Motion Blur 无 owner；尚无隔离 ROI |
+
+四个样本的 graph contract 均成功，executor 无 failure/local fallback，目标均有 CPU invocation、GPU completion、publication 和 terminal/下游消费与 next-frame。该段取代 2026-09-12 归档中的 effect-local passthrough 首断点，不改写人工 acceptance verdict，也不把仍 active unsupported 的 339/375 写成视觉完成。完整代码边界、focused 门和证据身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-effect-local-four)。
+
 ## 2026-09-13 feedback 内容合同与 `3749463715` utility 输出闭环
 
 当前签名 Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `546baabb4e050732561a9dc2b53a01e3c1fbeb93`，executable SHA-256 `a01d587e1615020a15a779378e145f9815408a41e9ba8233b79f3cded8ab2f33`）对只读真实样本 `3749463715` 做 25 秒 fresh 隔离回放。输出 `/private/tmp/mwx-q1-374946-feedback-content-20260913`，report SHA-256 `5f59e7b28130242c938c14425711c0f8c163ab22d93c715dd840f0aefa10e2a3`，app log SHA-256 `7712552a80daa296538c4764536b1da14027ab215e9e15610d7efd03fcd06653`；结果 `failures=[] / strict PASS`，37/37 effect admission 与 execution 完成，298/297/0 frame submitted/completed/failed，utility capture `467 / 488 / 536 / 560` 全部成功。

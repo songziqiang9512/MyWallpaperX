@@ -5,7 +5,7 @@ import Foundation
 /// contribute only a direct red-channel mix mask. Identity and product effect
 /// names are intentionally absent; host material facts separately prove the
 /// tint, graph inputs, and typed mask candidate.
-nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
+nonisolated enum SceneAuthoredShaderPreviousBlurredCompositeAnalyzer {
     typealias Token = SceneAuthoredShaderToken
     typealias Unit = SceneAuthoredShaderSyntaxUnit
 
@@ -13,7 +13,7 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
         let blurredSlot: Int
         let previousSlot: Int
         let maskSlot: Int?
-        let unitColorUniform: String
+        let colorUniform: String
     }
 
     static func analyze(fragmentSource source: String) -> Fact? {
@@ -81,7 +81,7 @@ nonisolated enum SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer {
             blurredSlot: blurred.slot,
             previousSlot: previous.slot,
             maskSlot: mask.slot,
-            unitColorUniform: colorUniform
+            colorUniform: colorUniform
         )
     }
 

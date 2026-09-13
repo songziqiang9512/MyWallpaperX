@@ -15,7 +15,7 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
         material: SceneResolvedMaterialNode, graph: Graph,
         shaderContract: SceneShaderContract,
         inheritedInactiveCombos: Set<String> = [],
-        unitPreviousBlurredCompositeGenericOwnerEligible: Bool = false,
+        previousBlurredCompositeGenericOwnerEligible: Bool = false,
         provenSceneScriptValueTargets: Set<SceneDynamicTarget> = [],
         compatibilityTarget: SceneShaderCompatibilityTarget = .unprofiledMetal
     ) -> Result<Template, Failure> {
@@ -46,8 +46,8 @@ nonisolated enum SceneResolvedMaterialTemplateCompiler {
                     uniformDeclarations: uniforms.values,
                     renderState: state,
                     graphRole: role,
-                    unitPreviousBlurredCompositeGenericOwnerEligible:
-                        unitPreviousBlurredCompositeGenericOwnerEligible,
+                    previousBlurredCompositeGenericOwnerEligible:
+                        previousBlurredCompositeGenericOwnerEligible,
                     effectContext: .init(
                         key: context.effect.key,
                         input: context.effect.input

@@ -11,9 +11,9 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
         let fragmentSource: String
         let alphaAttenuationSourceSlot: Int?
         let colorBlendSourceSlot: Int?
-        let unitCompositeBlurredSlot: Int?
-        let unitCompositePreviousSlot: Int?
-        let unitCompositeMaskSlot: Int?
+        let previousBlurredCompositeBlurredSlot: Int?
+        let previousBlurredCompositePreviousSlot: Int?
+        let previousBlurredCompositeMaskSlot: Int?
         let hasExternalProviderTexture: Bool
         let producesScalarRedOutput: Bool
         let producesRedGreenUnormOutput: Bool

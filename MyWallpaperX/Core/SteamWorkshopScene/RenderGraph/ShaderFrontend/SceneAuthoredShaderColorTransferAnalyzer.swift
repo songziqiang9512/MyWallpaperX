@@ -280,7 +280,7 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
                 ? .straightAlphaUNorm(textureSlot: fact.sourceSlot)
                 : .straightAlpha(textureSlot: fact.sourceSlot)
         }
-        if let fact = SceneAuthoredShaderUnitPreviousBlurredCompositeAnalyzer.analyze(
+        if let fact = SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
             fragment
         ) {
             return .straightAlphaPreserving(textureSlot: fact.blurredSlot)

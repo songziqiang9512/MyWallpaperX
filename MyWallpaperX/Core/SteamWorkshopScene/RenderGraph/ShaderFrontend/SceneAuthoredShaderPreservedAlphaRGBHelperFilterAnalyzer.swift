@@ -158,7 +158,8 @@ nonisolated enum SceneAuthoredShaderPreservedAlphaRGBHelperFilterAnalyzer {
             sourceSlot: sourceSlot,
             fullColorSampleCallCounts: [sourceSlot: 1],
             rgbColorSampleCallCounts: [sourceSlot: helperCalls.count],
-            dataSampleCallCounts: [dataCall.slot: 1]
+            dataSampleCallCounts: [dataCall.slot: 1],
+            scalarDataSampleCallCounts: [:]
         )
     }
 
