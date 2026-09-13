@@ -2,6 +2,22 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-14 Puppet 原始 atlas 与精确 effect extent
+
+世界空间网格重写已经消除coverage压平，但旧effect target仍按普通layer的standard policy把大atlas缩到2048宽；`3748311238`的`5000×2200`五级embedded TEX还先被4096门直接拒绝。这说明“组合正确”和“贴图未经压缩”是两个独立合同。现役GeometryProduct在generation preparation固化source extent：普通图像保持`scalableStandard`，Puppet mesh为`exactSamplingTexture`；preflight和target plan只能消费该合同。有效多级embedded color TEX按编译后的首mip及全部mip上传。exact尺寸超出现役pool边界时局部拒绝，不降采样、不扩大预算、不恢复atlas quad。
+
+签名Debug App为2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `49459aa043a5562d3dafa6f9beca569f55a61c82`，executable SHA-256 `bb08ad84ef1f39a276804c4e770fd74007b618b1fe56fdb7c200063f0c7289fd`。五个25秒定向运行的当前结果如下：
+
+| 样本 | 当前首断点事实 | 状态 |
+| --- | --- | --- |
+| `3748311238` | layer 728加载`5000×2200`五级atlas和MDLV0023 layered mesh；9项effect input均为`5000×2200`，959/958/0 frame | strict PASS，完整人物持续可见；旧“主体人物消失”断点关闭 |
+| `3780119725` | layer 21的7项effect保持`3874×2000`，layer 794保持`391×310` | strict PASS，人物、摩托、猫和前后景完整组合 |
+| `3264246690` | layer 389的9项effect保持`3658×2000` | strict PASS，头部、双臂和手部完整；loaded ratio `0.9412`仍是其他已知拒绝 |
+| `3238423642` | layers 20/820保持`3504×2160`，layer 2190保持`600×600` | strict PASS，主角色与红/绿偏移层完整 |
+| `2797913147` | layer 24的`1406×2500` atlas已加载；作者mesh为当前reader未支持的`MDLV0014`，未形成GeometryProduct并停在`layer-source-not-ready` | NON-PASS；下一项公共MDL reader断点，不能用atlas quad或缩放替代 |
+
+四个PASS运行的report SHA-256依次为`92869265fc2126514fc1ab26936438cd14ced550a5b5cafdea53400698f1175d / 901e1d1368b0eaa307db12b46b11824b13e4f06be4650050d45dbb85eaba8cd6 / c74f44f8c957062fcd90bb25d8a6d4e29c0106b0bf1c53f5373a8ffd96eed44f / 88262f9519afcad20c00b0d2a61bb9f5bef11f9824155ea3794cdeba88a34410`；279的NON-PASS report为`f3e7243e38a874bffd6aab3d0d477edaccee5c4b668b253926c6361ee835b819`。完整App/log/截图identity、focused正反门和性能边界见[当前运行证据](runtime-evidence-current.md#e-2026-09-14-puppet-exact-atlas-effect-extent)。未运行full corpus，结果不自动改写人工acceptance verdict。
+
 ## 2026-09-14 prepared effect 参数与 projection source 闭环
 
 旧Material Program finalizer每帧重新扫描uniform declaration并推断host/static/dynamic/texture metadata来源，effect inverse要求也在claim时重扫variant；Puppet改为世界空间直绘后，共享preflight还把source MVP同时当作effect card projection。`3747492842`的fullscreen layer 173因此在奇异source transform下被`effect-projection-inverse-invalid`拒绝并形成黑屏。现役generation preparation为每个active field保存exact binding，并给每个layer capability保存`FrameInputContract`；frame只物化typed动态值与live resource，fullscreen使用canonical output geometry，世界空间层使用实际emitted output MVP。
@@ -107,9 +123,9 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 
 当前工作树的签名 Developer ID Debug App（2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`）对 `3665307769 / 3780119725 / 3264246690 / 3238423642` 做 15 秒 fresh 隔离回放。输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`；四个样本均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`，required effect admission/execution/graph execution 均通过。
 
-产品不再把 Puppet mesh 归一化进 coverage 大纹理或发布为普通 layer source。atlas 先在自己的 mapped extent 中执行 graph，graph-final atlas 由原始/变形 mesh 采样，mesh 只经一次 world MVP 进入唯一 compositor。app log 的 `puppet-world-draw` 覆盖 `3665307769:71/153`、`3780119725:21/794`、`3264246690:389`、`3238423642:20/820/2190`。四张 after-window 原分辨率人工复核确认：366 的粉发人物与机甲完整同轴；378 的人物、摩托、猫、路牌位置/比例正常且人物细节未再被 coverage 降采样；326 的头部、双臂和手部完整；323 的主角色、红/绿偏移层与光环正确合成。截图 SHA-256 依次为 `5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。
+产品不再把Puppet mesh归一化进coverage大纹理或发布为普通layer source；graph-final atlas由原始/变形mesh采样，mesh只经一次world MVP进入唯一compositor。app log的`puppet-world-draw`覆盖`3665307769:71/153`、`3780119725:21/794`、`3264246690:389`、`3238423642:20/820/2190`。四张after-window原分辨率复核确认世界空间组合、位置、大小、头部和肢体完整；截图SHA-256依次为`5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。后继检查证明该构建的大atlas effect input仍可被standard policy压到2048宽，因此本段不再声称贴图清晰度或原始atlas extent已经完成。
 
-该段取代下方 2026-09-08 coverage/budget/fallback 修复作为这四个样本的当前 Puppet 首断点事实；旧段保留为历史根因链。它不改变其他效果、性能与 159 样本人工裁决，也不证明未登记 Puppet/MDL、跨层 geometry provider 或逐像素官方 parity。能力合同与完整运行身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)。
+该段仍拥有coverage退役与世界空间布局的历史证据；纹理尺寸和清晰度现由上方2026-09-14精确atlas后继拥有。它不改变其他效果、性能与159样本人工裁决，也不证明未登记Puppet/MDL、跨层geometry provider或逐像素官方parity。历史运行身份见[世界空间几何证据](runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)。
 
 ## 2026-09-09 current handoff rerun
 
@@ -149,7 +165,9 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3477054430 | 画面显示不全 | 当前播放有CPU invocation failure及effect-local passthrough，待精确定位缺失区域 | 已运行，未通过 |
 | 3662790108 | 启动卡在不正确的画面 | 当前复跑 35/35 active effect、81/81 GraphExecutor 严格结构 PASS；8 个 geodraw2_1 仍走 boundedSwift，启动约48.09秒、7.49 FPS，球体/曲率/交互与视觉仍未验收 | 结构通过，视觉/性能未通过 |
 | 3287715210 | 音频条不显示 | 颜色合同中的已验证加法混合与replacement coverage已接通，PCM截图恢复底部变化的音频条，见E-V4-AUDIO-REPLACEMENT-COVERAGE | 有界修复，真实系统音频/整体验收未完成 |
-| 3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147 | 主体人物消失 | `be9858e` 维护者观察；当前 HEAD 尚未复现，不预判 Geometry/Product/visibility/graph owner | 待复现、待归因 |
+| 3748311238 | 主体人物消失 | 当前HEAD加载`5000×2200`五级atlas和MDLV0023 mesh，9项effect均保持精确atlas尺寸，完整人物持续可见 | strict PASS；本断点关闭，人工整体验收未更新 |
+| 2797913147 | 主体人物消失 | 当前HEAD已复现：atlas加载成功，作者mesh为未支持`MDLV0014`，GeometryProduct缺失并停在`layer-source-not-ready` | 下一公共reader断点 |
+| 2932631210 / 2813231542 / 3788467391 | 主体人物消失 | `be9858e`维护者观察；当前HEAD尚未定向刷新 | 待复现、待归因 |
 | 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
 | 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 静态bind attachment未消费current bone pose与同帧shared-pair非原子驻留均已修正；当前MDAT动态follow、真实drag/return、16层graph、四个utility capture和唯一compositor闭合 | fresh strict PASS；人工acceptance与性能仍开放 |

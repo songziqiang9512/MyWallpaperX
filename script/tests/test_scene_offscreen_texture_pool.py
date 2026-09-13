@@ -1520,6 +1520,22 @@ enum Harness {
             maximumDimensionClass: .standard,
             requiresExactInputExtent: true
         )
+        let exactSamplingTextureExtent = SceneOffscreenResolutionPolicy
+            .resolvedDimensions(
+                width: 5_000,
+                height: 2_200,
+                hardLimit: 8_192,
+                policy: SceneEffectSourceExtentContract.exactSamplingTexture
+                    .targetPolicy
+            )
+        let oversizedExactSamplingTextureRejected =
+            SceneOffscreenResolutionPolicy.resolvedDimensions(
+                width: 8_193,
+                height: 2_200,
+                hardLimit: 8_192,
+                policy: SceneEffectSourceExtentContract.exactSamplingTexture
+                    .targetPolicy
+            ) == nil
         guard let standardExtent = directBudgetPool.persistentTargetPlans(
             admittedGraphs: directGraphs,
             pairPlan: directPairPlan,
@@ -3624,6 +3640,11 @@ enum Harness {
             "typedStandardExtent": [standardExtent.width, standardExtent.height],
             "typedPoolLimitExtent": [poolLimitExtent.width, poolLimitExtent.height],
             "typedExactStandardClampRejected": true,
+            "exactSamplingTextureExtent": exactSamplingTextureExtent.map {
+                [$0.0, $0.1]
+            },
+            "oversizedExactSamplingTextureRejected":
+                oversizedExactSamplingTextureRejected,
             "defaultBudgetFailure": defaultBudgetFailure,
             "overBudgetZeroPhysicalAllocation": overBudgetZeroPhysicalAllocation,
             "uniqueNeverCrossEffectReused": uniqueNeverCrossEffectReused,
@@ -3856,6 +3877,12 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertEqual(self.result["typedStandardExtent"], [2_048, 1_536])
         self.assertEqual(self.result["typedPoolLimitExtent"], [4_000, 3_000])
         self.assertTrue(self.result["typedExactStandardClampRejected"])
+
+    def test_geometry_sampling_extent_is_exact_inside_existing_pool_limit(self) -> None:
+        self.assertEqual(
+            self.result["exactSamplingTextureExtent"], [5_000, 2_200]
+        )
+        self.assertTrue(self.result["oversizedExactSamplingTextureRejected"])
 
     def test_two_inflight_generations_are_bounded_and_reusable(self) -> None:
         self.assertTrue(self.result["inFlightAllocationsAreDistinct"])

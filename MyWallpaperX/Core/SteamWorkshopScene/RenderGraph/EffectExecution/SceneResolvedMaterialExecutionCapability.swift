@@ -238,7 +238,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let stages: [StageCapability]
         let pairPlan: SceneLayerFullFramePairPlan
         let materials: [MaterialKey: MaterialCapability]
-        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement?
@@ -264,7 +263,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             self.stages = stages
             pairPlan = admitted.pairPlan
             self.materials = materials
-            fullFrameExtentPolicy = .standard
             self.dependencyOwnership = dependencyOwnership
             sourceRoute = admitted.sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement

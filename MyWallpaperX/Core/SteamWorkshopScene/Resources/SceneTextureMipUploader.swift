@@ -81,11 +81,16 @@ enum SceneTextureMipUploader {
         }
         guard images.count == mips.count,
               let first = images.first,
-              first.width <= 4096,
-              first.height <= 4096,
+              (images.count > 1
+                || (first.width <= 4096 && first.height <= 4096)),
               validDimensions(images.map { ($0.width, $0.height) }) else {
             return nil
         }
+        // A parsed multi-level TEX is already the author's bounded sampling
+        // product. Keep every compiled level, including a base level wider
+        // than the normalization limit used for loose/single-level images.
+        // Dropping or resizing that level changes both source detail and the
+        // graph's atlas extent; Metal allocation remains the device boundary.
         let descriptor = descriptor(
             pixelFormat: .rgba8Unorm,
             width: first.width,

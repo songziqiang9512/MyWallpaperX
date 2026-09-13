@@ -23,21 +23,21 @@ struct SceneResolvedMaterialFrameTargetPlan {
 enum SceneResolvedMaterialGraphComposition {
     struct FrameTargetRequest {
         let claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution
-        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
+        let effectSourceExtentContract: SceneEffectSourceExtentContract
         let requestedWidth: Int
         let requestedHeight: Int
         let materialFunctionInvocations: [SceneGraphMaterialFunctionInvocationRequest]
 
         init(
             claim: SceneResolvedMaterialRuntimeBridge.ClaimedExecution,
-            fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
+            effectSourceExtentContract: SceneEffectSourceExtentContract,
             requestedWidth: Int,
             requestedHeight: Int,
             materialFunctionInvocations:
                 [SceneGraphMaterialFunctionInvocationRequest] = []
         ) {
             self.claim = claim
-            self.fullFrameExtentPolicy = fullFrameExtentPolicy
+            self.effectSourceExtentContract = effectSourceExtentContract
             self.requestedWidth = requestedWidth
             self.requestedHeight = requestedHeight
             self.materialFunctionInvocations = materialFunctionInvocations
@@ -214,9 +214,7 @@ enum SceneResolvedMaterialGraphComposition {
                 localFallbacks[request.claim.layerID] = invocationFailure
                 continue
             }
-            guard request.requestedWidth > 0, request.requestedHeight > 0,
-                  request.fullFrameExtentPolicy
-                    == request.claim.fullFrameExtentPolicy else {
+            guard request.requestedWidth > 0, request.requestedHeight > 0 else {
                 localFallbacks[request.claim.layerID] =
                     "frame-target-plan-rejected"
                 continue
@@ -226,7 +224,7 @@ enum SceneResolvedMaterialGraphComposition {
                 admittedGraphs: request.claim.admittedGraphs,
                 materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
                 pairPlan: request.claim.pairPlan,
-                extentPolicy: request.fullFrameExtentPolicy,
+                extentPolicy: request.effectSourceExtentContract.targetPolicy,
                 requestedWidth: request.requestedWidth,
                 requestedHeight: request.requestedHeight,
                 usesSharedFullFrameWorkingPair: true,

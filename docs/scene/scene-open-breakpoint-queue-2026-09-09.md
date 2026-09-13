@@ -8,7 +8,7 @@
 
 ## 1. 当前证据边界
 
-- 2026-09-13 的 Puppet 世界空间直绘已经删除 coverage 中间纹理、尺寸预算补丁和普通 layer-source publication。当前签名 Debug App 对 `3665307769 / 3780119725 / 3264246690 / 3238423642` 的定向运行均为 strict PASS；稳定帧人工复核确认角色组合、位置、大小、头部和肢体完整，人物细节不再被 coverage 降采样。现役事实见[样本调试台账](semantics/scene-sample-debug-ledger.md#2026-09-13-puppet-世界空间直绘最终定向复核)和[运行证据](semantics/runtime-evidence-current.md#e-2026-09-13-puppet-world-geometry)。这些样本不再属于 Puppet 技术断点。
+- 2026-09-13 的 Puppet 世界空间直绘删除了 coverage 中间纹理、尺寸预算补丁和普通 layer-source publication，但当时只闭合世界空间组合；effect input仍会被standard full-frame policy压到2048宽，不能作为贴图清晰度证据。2026-09-14后继把source extent变成prepared product合同：支持的Puppet geometry要求atlas首mip精确进入graph，无法满足既有pool边界时局部拒绝，禁止静默缩放或atlas quad回退。`3748311238 / 3780119725 / 3264246690 / 3238423642`当前定向运行均为strict PASS，graph input分别保持`5000×2200 / 3874×2000 / 3658×2000 / 3504×2160`；现役事实见[精确atlas运行证据](semantics/runtime-evidence-current.md#e-2026-09-14-puppet-exact-atlas-effect-extent)和[样本调试台账](semantics/scene-sample-debug-ledger.md#2026-09-14-puppet-原始-atlas-与精确-effect-extent)。
 - [样本验收台账](semantics/scene-sample-acceptance-ledger.md)当前保存的 `19 fail / 140 unreviewed` 和各首断点集群来自 2026-09-12 的归档，早于信号载体 lowering 与 Puppet 世界空间直绘。它仍是人工裁决的唯一写入面，但其计数和部分备注不是当前 HEAD 的技术缺口统计；必须在维护者重新观看后才更新 verdict，不能用 benchmark 结果代替。
 - 2026-09-12 的 full-corpus `135/159 strict PASS` 只是一份历史结构快照。后继修复没有重新执行全 corpus，本队列也不以重复全量回放刷新数字。每个条目先用受影响样本和 focused 模块建立当前首断点。
 - 五类产品——纹理、世界空间几何、模拟状态、异步 provider、多 pass graph——都必须产出或消费同一 prepared product、typed frame state、Metal execution 和唯一 compositor 合同。它们可以拥有不同的数据形状与生命周期，但不得形成第二套 property、clock、resource registry、graph 或 output owner。
@@ -35,14 +35,16 @@
 
   | 样本 | 观察到的异常 | 当前状态 |
   |---|---|---|
-  | `3748311238 / 2932631210 / 2813231542 / 3788467391 / 2797913147` | 主体人物消失 | 待复现、待归因 |
+  | `3748311238` | 主体人物消失 | 当前签名App加载`5000×2200`五级atlas、MDLV0023 layered mesh并以相同精确尺寸执行9项effect，完整人物持续可见；strict PASS，本断点关闭 |
+  | `2797913147` | 主体人物消失 | 已复现：layer 24的`1406×2500` atlas加载成功，但作者mesh为当前reader未支持的`MDLV0014`，GeometryProduct缺失并停在`layer-source-not-ready`；这是当前下一首断点 |
+  | `2932631210 / 2813231542 / 3788467391` | 主体人物消失 | 当前HEAD尚未定向刷新，待复现、待归因 |
   | `3747492842` | 历史无法播放；另有文字错位、额外闪烁和光束位置异常 | 当前签名 App 已恢复持续播放：7/7 graph layer、208/208 claim/encode/GPU、0 executor failure，fullscreen layer 173 的三项效果及三个 utility capture 完成。启动前两次 layer 186 视频 source pending 仍产生局部 fallback，tracked matrix 的旧计数也使本次报告非 strict PASS；文字裁切、闪烁、光束和人工视觉验收继续开放 |
   | `3775355045 / 3775373546` | 两层视频经遮罩合成后，下层播放数秒开始卡顿并落后于上层动画 | 待复现、待归因 |
   | `1315486372` | 水波纹特效位置不正确 | 待复现、待归因 |
   | `2684431262` | 合成画面出现异常紫色块 | 待复现、待归因 |
   | `3749463715` | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 动态 attachment current-pose和同帧shared-pair驻留均已闭合；fresh strict PASS，保留本行作为用户观察provenance |
 
-  下一批从当前签名 App 逐组做最小复现，先确定最早失效的 prepared product、typed frame state、provider/graph/geometry encode 或 compositor 环节，再按公共 owner 修复；不得把样本 ID 写入产品路由。
+  下一批先从`2797913147`的`MDLV0014`公共reader合同推进，随后定向刷新`2932631210 / 2813231542 / 3788467391`；每次先确定最早失效的prepared product、typed frame state、provider/graph/geometry encode或compositor环节，再按公共owner修复，不得把样本ID写入产品路由。
 - 全部样本最终必须由人工裁决为 `pass` 或显式 `platform-unsupported`。当前开发仍按公共首断点和受影响样本推进，不用大批量回放代替逐项可见验收。
 - 验收覆盖层中的 `fail` 与 `unreviewed` 必须逐个由维护者重新观看。`3264246690 / 3780119725 / 3238423642` 的旧 Puppet 技术原因及 `3787382101` 的旧 Water Waves mask 债务都已被 2026-09-13 后继证据取代，但没有维护者的新 verdict 时不得直接改成整样本 `pass`。
 - 新发现的公共首断点回到 P1/P2；结构 PASS、非黑截图、route 数或完成事件不能单独改变人工 verdict。
@@ -51,7 +53,7 @@
 
 **状态：P5；只有已妨碍当前样本正确播放时提前。**
 
-旧 B7 对 Puppet source-update、coverage texture 和固定 `16.67 ms` 的归因已经失效。2026-09-13 四样本回放只说明当前 CPU/GPU 帧时间仍值得重新 profile；它没有建立发布阈值，也不能证明旧 source-update 是当前热点。进入本项时必须在当前 GeometryProduct/graph/compositor 路径重新采样，先区分 CPU submission、GPU execution、display cadence 与 benchmark driver，再按共享 owner 降本。系统性阈值、睡眠/唤醒、显示器变化、场景切换和签名发布门由 P5 建立。
+旧 B7 对 Puppet source-update、coverage texture 和固定 `16.67 ms` 的归因已经失效。2026-09-14精确atlas回放的CPU p50约为`18.305 / 50.622 / 25.403 / 44.666 ms`，并且较大effect target现在承担真实作者分辨率的GPU/内存工作量；这些数值证明性能仍开放，也意味着不能靠恢复2048缩放取得表面帧率。进入本项时必须在当前GeometryProduct/exact graph/compositor路径重新采样，先区分CPU submission、GPU execution、display cadence与benchmark driver，再按共享owner降本。系统性阈值、睡眠/唤醒、显示器变化、场景切换和签名发布门由P5建立。
 
 ## 3. 观察项与能力边界
 

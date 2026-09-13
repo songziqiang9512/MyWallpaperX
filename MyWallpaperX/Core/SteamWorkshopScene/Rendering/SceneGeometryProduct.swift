@@ -20,4 +20,7 @@ struct SceneGeometryProduct {
         ColorBlendBinder?
     ) -> Bool
     let authoredSize: SIMD2<Float>
+    /// Fixed when this source product is prepared. Effects process the atlas
+    /// before the mesh samples it, so changing its extent changes the product.
+    let effectSourceExtentContract: SceneEffectSourceExtentContract
 }

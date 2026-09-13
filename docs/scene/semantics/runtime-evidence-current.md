@@ -22,6 +22,25 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-14-puppet-exact-atlas-effect-extent"></a>
+### 2026-09-14 Puppet 原始 atlas 与精确 effect extent 闭环
+
+**结论：已支持 Puppet geometry 的 atlas 现在从 TEX decode 到 effect graph 再到 mesh UV 采样全程保持作者首 mip 的精确物理尺寸；世界空间网格只负责最终放置，不能再掩盖 atlas 被 effect target 缩小的问题。** 两个共享旧假设曾连续降低人物细节：embedded image uploader 把有效多级编译 TEX 的首级也限制为 `4096`，使 `3748311238` 的 `5000×2200` 五级链直接加载失败；解除该门后，Puppet graph request 又继承普通 layer 的 standard full-frame policy，把同一 atlas 静默压到 `2048×901`。现役 `SceneGeometryProduct` 在 generation preparation 固化 `effectSourceExtentContract`：普通可缩放产品使用 `scalableStandard`，Puppet mesh 使用 `exactSamplingTexture`。preflight/target plan只消费该 prepared contract；exact source 不能在既有pool尺寸或字节上限内分配时局部拒绝对应graph unit，不缩小、不增加预算，也不退回atlas quad。
+
+**资源与正反门：**有效多级 embedded color TEX 只要每级payload、尺寸、format和完整mip链相互一致，就按编译后的实际首级创建Metal texture；`4096`的loose/single-image bounded normalization继续适用于单级超限输入。focused门以 `4097×2 → 2048×1` 两级TEX证明多级链保留，并保留畸形mip拒绝与超限单级仍规范化的旧反门。Puppet静态/动画geometry都声明exact合同；offscreen正门证明`5000×2200`保持原尺寸，`8193`边界在分配前拒绝而不缩放。runtime bridge不再携带按effect/layer重复选择的full-frame policy。
+
+**产品身份与真实运行：**规定的签名Debug build `BUILD SUCCEEDED`。App为2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `49459aa043a5562d3dafa6f9beca569f55a61c82`，executable SHA-256 `bb08ad84ef1f39a276804c4e770fd74007b618b1fe56fdb7c200063f0c7289fd`。只运行五个受影响样本、每个25秒并要求effect admission/execution/graph execution；未运行full corpus。
+
+| 样本 | 精确执行事实 | 结果与可见边界 |
+| --- | --- | --- |
+| `3748311238` | layer 728加载`5000×2200`五级TEX、MDLV0023 layered 2 clips；9个active effect的graph input均为`5000×2200`，作者Shine target为`2500×1100`；959/958/0 frame | `failures=[] / strict PASS`；完整人物持续可见。report/app-log/runtime/ready/after SHA-256为`92869265fc2126514fc1ab26936438cd14ced550a5b5cafdea53400698f1175d / 2a346a532c14282613c5b0d12f730b148425d0ae670795536c475fd1dc6c6e37 / 72baf2528f1593f23e0d3bfe41f978a0068d20e2657239ad5f6652e61fa4be83 / 2bc6125628ecac7940f9e00af05c5b5e706f95d4104cefdade2eb0c8607403ab / 9dfcd8a108cd45070d23674415eb5dca2b3cb7ce8bbe5079eec929147aaceaef` |
+| `3780119725` | layer 21的7项graph input均为atlas `3874×2000`，layer 794为`391×310`；354/353/0 frame | `failures=[] / strict PASS`；人物、摩托、猫与前后景保持完整组合。report/app-log/ready/after SHA-256为`901e1d1368b0eaa307db12b46b11824b13e4f06be4650050d45dbb85eaba8cd6 / 5b10383d763959d0871f015b66d52e67dbf2c239ba0461565d48f23bcce00dba / 5ddad21006552573acc14d1730b18b8f41ab00f8d0cf88b43016c16767afbcc8 / 1d5e648041210a96926b2a8a9e53c620e4b394277c4d3f5275a0b2f20f6bd35c` |
+| `3264246690` | layer 389的9项graph input均为atlas `3658×2000`；658/657/0 frame | `failures=[] / strict PASS`，loaded ratio仍为已知`0.9412`；头部、双臂与手部完整。report/app-log/ready/after SHA-256为`c74f44f8c957062fcd90bb25d8a6d4e29c0106b0bf1c53f5373a8ffd96eed44f / 9ec505f3818d602fa7e41498b9fdcbe387940350ced902819fdf74b65c3d8254 / 15b7ed6a2e8ac2a64006ecad2dfa0e76da9d34c2d37eb6627f6d793cc6706f51 / 941468c5eecd5f0722f5d0c10a272f477aff68e6509cea5c312bec2d7ce701e9` |
+| `3238423642` | Puppet layers 20/820的graph input均为`3504×2160`，layer 2190为`600×600`；361/360/0 frame | `failures=[] / strict PASS`；主角色和红/绿偏移组合完整。report/app-log/ready/after SHA-256为`88262f9519afcad20c00b0d2a61bb9f5bef11f9824155ea3794cdeba88a34410 / 013f508a9a79ed48654bc68a06402fcf376327302a32e644390546106ce4fa1e / 5b9d8704daafd91d4b531775ead24f37bd6cd833a7d5400be18bff4711f5518d / cf55af53ee7f13591e5deb11c804800b806ae5ba973a1e6e6f458e5bde674d60` |
+| `2797913147` | layer 24 atlas `1406×2500`已加载，但作者引用的现有mesh为当前reader未支持的`MDLV0014`，没有形成GeometryProduct | `0/1 NON-PASS`，停在`layer-source-not-ready`且人物缺失；这是下一项明确资产格式断点，不能由atlas quad、缩放或sample fallback代替。report/app-log/ready/after SHA-256为`f3e7243e38a874bffd6aab3d0d477edaccee5c4b668b253926c6361ee835b819 / 9758def8da5c41b451278095ab3e499f522291c84d6a03f13562de97de555fdf / 7b669b3b3b1157f195339a1f320bdbef593266aaae8ba2e15e768e64b03dfb89 / abd82ddfc290ab0fae61903de1f38b5ff5baa696c9e83149758784584edc87d9` |
+
+**边界：**四个strict PASS证明已支持MDL族的原始atlas尺寸、effect graph、mesh采样、GPU/publication/terminal compositor和稳定画面；它们不等于官方逐像素golden或整样本人工acceptance。CPU p50仍约`18.305 / 50.622 / 25.403 / 44.666 ms`，精确输入增加了真实GPU/内存工作量，性能继续属于Q2。`2797913147`证明资源尺寸合同已不再是其首断点，同时把`MDLV0014`提升为下一项公共reader工作。
+
 <a id="e-2026-09-14-prepared-effect-parameter-contract"></a>
 ### 2026-09-14 prepared effect 参数执行与 emitted-geometry projection 合同
 
@@ -192,15 +211,15 @@ Shake matrix/report/log/runtime-evidence SHA-256 为 `11a6cdf988e2a6050eddd3e930
 <a id="e-2026-09-13-puppet-world-geometry"></a>
 ### 2026-09-13 Puppet GeometryProduct 世界空间绘制闭环
 
-**结论：已登记的 Puppet mesh/version/pose/effect 形状达到 S4 bounded visible。** 静态 bind pose 与动画 pose 共享 `SceneGeometryProduct`；atlas 只作 mesh UV 采样。无 effect 时原始/变形 mesh 以唯一 world MVP/camera VP 直接进入 compositor；有 effect 时 GraphExecutor 先在 atlas mapped extent 内生成 graph-final atlas，再由同一 mesh 采样并在世界空间绘制。几何不会先捕获成平面纹理。旧 coverage 重组纹理、逐帧中间纹理、重组预算/cache 和 Puppet source publication 已退役。作者 package 确实缺少所引用 mesh 时允许局部普通纹理降级；解析、验证、资源分配或 encode 失败不能发布 atlas。
+**结论：该历史批次证明已登记 Puppet mesh/version/pose 的世界空间几何与唯一 compositor 布局达到 S4 bounded visible；其纹理清晰度结论已被[2026-09-14精确atlas后继证据](#e-2026-09-14-puppet-exact-atlas-effect-extent)纠正。** 静态 bind pose 与动画 pose 共享 `SceneGeometryProduct`；atlas 只作 mesh UV 采样。无 effect 时原始/变形 mesh 以唯一 world MVP/camera VP 直接进入 compositor；有 effect 时 GraphExecutor 先生成 graph-final atlas，再由同一 mesh 采样并在世界空间绘制。几何不会先捕获成平面纹理。旧 coverage 重组纹理、逐帧中间纹理、重组预算/cache 和 Puppet source publication 已退役。
 
 **实际执行身份：**签名 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `07a606db3682c87a3bb568244faa6ea4b8759a25`，executable SHA-256 `a28dedc828fef98569dedf5cb07da28771f9815fb34e8f36b446057adb8b958d`。构建命令为 `xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX -configuration Debug -derivedDataPath /private/tmp/mwx-b7-memo-build CODE_SIGNING_ALLOWED=YES build`，结果 `BUILD SUCCEEDED`；benchmark 在复制前后都验证签名，报告中的 `source_signature_verified / verified_before / verified_after` 均为 true。
 
 **定向真实运行：**同一签名 App、真实只读样本根、fresh 输出 `/private/tmp/mwx-puppet-world-final-20260913-v3`，只运行 `3665307769`、`3780119725`、`3264246690`、`3238423642` 各 15 秒，并同时要求 effect-stage admission、effect execution 与 graph execution。四者均 `failures=[] / strict PASS`，loaded ratio 依次为 `1.000 / 1.000 / 0.941 / 1.000`；总 report SHA-256 `88ecaaafe097493a2d2d6d06ee9e870d644e317511df03460b6f5dc4ddf45574`。四份 app log SHA-256 依次为 `43a9f2037699a595a429eb625ce7a57d69834f80956a1c2c46c8bd6fba65153f`、`b6a3792513d6300af50da6638baafec6f5eccb2a4d5854750e368920d2377e3b`、`1cea9b8f079ce925c7c1d8d4ccf13a4347c017197a7e503e6f22132b14799019`、`b19cb6507e5a05739a3ebc5f416acebee516f715b521dbfd217e35dafc135f56`。四次运行的 required graph contract 均成功、effect CPU invocation 有完成帧、after snapshot 非黑；`puppet-world-draw` 直接记录 `3665307769:71/153`、`3780119725:21/794`、`3264246690:389`、`3238423642:20/820/2190` 的原始 mesh 顶点进入 NDC，没有 geometry capture target。
 
-**可见检查：**四张 after-window 截图 SHA-256 依次为 `5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。原分辨率逐张检查确认：`3665307769` 的粉发人物与大型机甲完整同轴；`3780119725` 的人物、摩托、猫和路牌比例/位置正常，人物轮廓与服装细节不再经过 coverage 降采样；`3264246690` 的头部、双臂和手部完整；`3238423642` 的主角色、红/绿偏移层与光环正确合成。`3780119725:279` 的 package 实际缺少所引用 `models/мотик зад_puppet.mdl`，该层命中明确的 missing-mesh TextureProduct 降级；其他 Puppet mesh 均走 GeometryProduct。
+**可见检查：**四张 after-window 截图 SHA-256 依次为 `5f8d791e99a9b1d704c8f674ad807bf962be8d0cd81dc487f7924e37d21350dd`、`b10a941707a6d5627d2e0eeee1c566840dc4f3a77f2cbf843b210d56ea8ceef6`、`c223c8355c29824cbf98a8d2c87ba37fad62029310e0b03b0b5db32acb07e1b2`、`e09db3a62a3d1cf4c3af5f0c43a8ac894abc91b1672e24bdd31dcbb7164b72ad`。原分辨率逐张检查只确认世界空间组合、位置、比例、头部和肢体完整。该构建的effect input实际上仍受standard full-frame policy约束，较大atlas可被压到2048宽；因此本段不能证明人物贴图未压缩或清晰度完成。`3780119725:279` 的 package 实际缺少所引用 `models/мотик зад_puppet.mdl`，该层命中明确的 missing-mesh TextureProduct 降级；其他已登记 Puppet mesh走GeometryProduct。
 
-**边界：**重写基线的 10 个 focused 模块与最终 main-pass owner 收敛后的 5 个 focused 模块（含 semantics main-pass writer 门）、签名 build 和四样本运行，只证明本批 Geometry/atlas-graph/compositor 合同及代表构图，不证明逐像素官方 parity、未登记 MDL/动画/constraint、Puppet 跨层 provider、通用 3D、全部五类产品子形状、159 样本视觉收口或 B7 的 16.67ms CPU 预算。
+**边界：**重写基线的10个focused模块、最终main-pass owner的5个focused模块、签名build和四样本运行，只证明世界空间Geometry/compositor与代表构图。atlas effect target的尺寸与清晰度由2026-09-14后继证据拥有；本段不证明逐像素官方parity、未登记MDL/动画/constraint、Puppet跨层provider、通用3D、全部五类产品子形状、159样本视觉收口或稳定帧预算。
 
 <a id="e-2026-09-10-b3-event-only-closure"></a>
 ### 2026-09-10 B3 event-only SceneScript producer 闭环

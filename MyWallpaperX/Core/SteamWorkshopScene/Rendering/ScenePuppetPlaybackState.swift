@@ -314,7 +314,8 @@ final class ScenePuppetPlaybackState {
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: mesh.indices.count,
                 indexType: .uint16, indexBuffer: indexBuffer, indexBufferOffset: 0)
             return true
-        }, authoredSize: authoredSize)
+        }, authoredSize: authoredSize,
+        effectSourceExtentContract: .exactSamplingTexture)
     }
 
     /// Returns the current animated pose for SceneScript getters. This uses

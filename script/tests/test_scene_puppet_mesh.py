@@ -397,6 +397,10 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         graph_composition = (
             SCENE_ROOT / "Rendering/SceneResolvedMaterialGraphComposition.swift"
         ).read_text(encoding="utf-8")
+        extent_policy = (
+            SCENE_ROOT
+            / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift"
+        ).read_text(encoding="utf-8")
         self.assertNotIn("contentFit", recomposer)
         self.assertNotIn("ContentFit", recomposer)
         self.assertNotIn("coverageExtent", recomposer)
@@ -405,6 +409,12 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertNotIn("coverageWidth", playback)
         self.assertNotIn("coverageHeight", playback)
         self.assertIn("position: position", playback)
+        self.assertIn(
+            "effectSourceExtentContract: .exactSamplingTexture", recomposer
+        )
+        self.assertIn(
+            "effectSourceExtentContract: .exactSamplingTexture", playback
+        )
         self.assertNotIn("var renderSize:", load)
         self.assertIn("let geometryProducts: [Int: SceneGeometryProduct]", base)
         self.assertIn("func setPuppetGeometry(", base)
@@ -424,6 +434,13 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("case rejected", load)
         self.assertIn("puppet mesh path rejected", load)
         self.assertIn("desiredSize = selectedSource.candidate?.mappedSize", preflight)
+        self.assertIn("?.effectSourceExtentContract ?? .scalableStandard", preflight)
+        self.assertIn(
+            "extentPolicy: request.effectSourceExtentContract.targetPolicy",
+            graph_composition,
+        )
+        self.assertIn("case exactSamplingTexture", extent_policy)
+        self.assertIn("requiresExactInputExtent: true", extent_policy)
         self.assertIn("sourceTexture = source.texture", preflight)
         self.assertNotIn("SceneGeometryCapture", preflight)
         self.assertNotIn("viewportToAuthoredUV", preflight)

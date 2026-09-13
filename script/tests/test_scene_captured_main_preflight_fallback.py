@@ -101,7 +101,6 @@ def augmented_harness(source: str) -> str:
                 pairPlan: original.pairPlan,
                 admittedProducts: original.admittedProducts,
                 stages: original.stages,
-                fullFrameExtentPolicy: original.fullFrameExtentPolicy,
                 dependencyOwnership: original.dependencyOwnership,
                 sourceRoute: sourceRoute
             )

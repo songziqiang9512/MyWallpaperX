@@ -17,7 +17,6 @@ final class SceneResolvedMaterialRuntimeBridge {
         let admittedGraphs: [Graph]
         let clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry]
         let pairPlan: SceneLayerFullFramePairPlan
-        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement:
@@ -31,7 +30,6 @@ final class SceneResolvedMaterialRuntimeBridge {
             admittedGraphs: [Graph],
             clearFunctionsByEffect: [Graph.EffectKey: SceneGraphClearFunctionRegistry],
             pairPlan: SceneLayerFullFramePairPlan,
-            fullFrameExtentPolicy: SceneFullFrameExtentPolicy,
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
             sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute,
             sceneBackgroundRequirement:
@@ -44,7 +42,6 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.admittedGraphs = admittedGraphs
             self.clearFunctionsByEffect = clearFunctionsByEffect
             self.pairPlan = pairPlan
-            self.fullFrameExtentPolicy = fullFrameExtentPolicy
             self.dependencyOwnership = dependencyOwnership
             self.sourceRoute = sourceRoute
             self.sceneBackgroundRequirement = sceneBackgroundRequirement
@@ -567,7 +564,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
                 return (effect, $0.clearFunctions)
             }),
             pairPlan: capability.pairPlan,
-            fullFrameExtentPolicy: capability.fullFrameExtentPolicy,
             dependencyOwnership: capability.dependencyOwnership,
             sourceRoute: capability.sourceRoute,
             sceneBackgroundRequirement: capability.sceneBackgroundRequirement,

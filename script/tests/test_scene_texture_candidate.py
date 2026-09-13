@@ -35,6 +35,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Resources/SceneTextureLoader+Candidate.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpriteResidentBudget.swift",
     SCENE_ROOT / "Resources/SceneMultiImageSpritePlayback.swift",
+    SCENE_ROOT / "RenderGraph/GraphTargets/SceneOffscreenResolutionPolicy.swift",
     SCENE_ROOT / "Rendering/SceneMetalPipeline.swift",
     SCENE_ROOT / "Rendering/SceneImageLayerCompositor+Uniforms.swift",
     SCENE_ROOT / "Rendering/SceneSpriteAnimation.swift",
@@ -187,6 +188,9 @@ enum Harness {
         let mappedTexb3EmbeddedURL = directory.appendingPathComponent(
             "mapped-texb3-embedded-color.tex"
         )
+        let oversizedTexb3MipChainURL = directory.appendingPathComponent(
+            "oversized-texb3-mip-chain-color.tex"
+        )
         let malformedTexb3EmbeddedURL = directory.appendingPathComponent(
             "malformed-texb3-embedded-color.tex"
         )
@@ -323,6 +327,19 @@ enum Harness {
                 (2, 2, try pngData(width: 2, height: 2)),
             ]
         ).write(to: mappedTexb3EmbeddedURL)
+        try embeddedImageTex(
+            textureWidth: 4097,
+            textureHeight: 2,
+            imageWidth: 4097,
+            imageHeight: 2,
+            payload: try pngData(width: 4097, height: 2),
+            containerVersion: "TEXB0003",
+            mipWidth: 4097,
+            mipHeight: 2,
+            additionalMips: [
+                (2048, 1, try pngData(width: 2048, height: 1)),
+            ]
+        ).write(to: oversizedTexb3MipChainURL)
         try embeddedImageTex(
             textureWidth: 8,
             textureHeight: 4,
@@ -568,6 +585,11 @@ enum Harness {
         )
         let mappedTexb3EmbeddedColor = try candidate(loader.loadCandidate(
             from: mappedTexb3EmbeddedURL,
+            purpose: .premultipliedColor,
+            device: device
+        ))
+        let oversizedTexb3MipChainColor = try candidate(loader.loadCandidate(
+            from: oversizedTexb3MipChainURL,
             purpose: .premultipliedColor,
             device: device
         ))
@@ -1333,6 +1355,14 @@ enum Harness {
                 ) == SIMD2(repeating: 1),
             "mappedTexb3EmbeddedColorPreservesMipChain":
                 mappedTexb3EmbeddedColor.texture.mipmapLevelCount == 2,
+            "oversizedTexb3MipChainPreservesAuthoredBase":
+                oversizedTexb3MipChainColor.texture.width == 4097
+                    && oversizedTexb3MipChainColor.texture.height == 2
+                    && oversizedTexb3MipChainColor.texture.mipmapLevelCount == 2
+                    && oversizedTexb3MipChainColor.physicalSize
+                        == CGSize(width: 4097, height: 2)
+                    && oversizedTexb3MipChainColor.mappedSize
+                        == CGSize(width: 4097, height: 2),
             "mappedTexb3EmbeddedNormalIdentity":
                 mappedTexb3EmbeddedNormal.axisAlignedMappedUVScale(
                     expectedPurpose: .normal
@@ -2170,6 +2200,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "mappedTexb2MipRejected": True,
                 "mappedTexb3EmbeddedColorIdentity": True,
                 "mappedTexb3EmbeddedColorPreservesMipChain": True,
+                "oversizedTexb3MipChainPreservesAuthoredBase": True,
                 "mappedTexb3EmbeddedNormalIdentity": True,
                 "mappedTexb3JPEGIdentity": True,
                 "mappedTexb3JPEGOpaque": True,

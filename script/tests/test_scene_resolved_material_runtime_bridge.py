@@ -868,7 +868,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let pairPlan: SceneLayerFullFramePairPlan
         let admittedProducts: [AdmittedProduct]
         let stages: [StageCapability]
-        let fullFrameExtentPolicy: SceneFullFrameExtentPolicy
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         let sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil
@@ -1714,7 +1713,6 @@ private func makeCapabilities(
                 ),
                 visualFailureReasonCode: visualFailureReasonByLayerID[layerID]
             )],
-            fullFrameExtentPolicy: .standard,
             dependencyOwnership:
                 dependencyOwnershipByLayerID[layerID] ?? .none,
             sourceRoute: .capturedLayerTexture

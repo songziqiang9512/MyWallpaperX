@@ -11,6 +11,30 @@ nonisolated struct SceneFullFrameExtentPolicy: Equatable, Hashable, Sendable {
         maximumDimensionClass: .standard,
         requiresExactInputExtent: false
     )
+
+    static let exactSamplingTexture = Self(
+        maximumDimensionClass: .poolLimit,
+        requiresExactInputExtent: true
+    )
+}
+
+/// Prepared source-product contract for the texture extent consumed by an
+/// effect graph. The renderer selects one immutable contract from the prepared
+/// source product before target planning; individual effects cannot replace it.
+nonisolated enum SceneEffectSourceExtentContract: Equatable, Hashable, Sendable {
+    /// Ordinary captured products may be proportionally bounded by the normal
+    /// working-target limit.
+    case scalableStandard
+    /// Geometry samples the graph output as its authored texture atlas, so the
+    /// graph must preserve that atlas exactly or reject the local graph unit.
+    case exactSamplingTexture
+
+    var targetPolicy: SceneFullFrameExtentPolicy {
+        switch self {
+        case .scalableStandard: .standard
+        case .exactSamplingTexture: .exactSamplingTexture
+        }
+    }
 }
 
 enum SceneOffscreenResolutionPolicy {

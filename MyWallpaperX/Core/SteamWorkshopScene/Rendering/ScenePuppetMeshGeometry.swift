@@ -98,7 +98,8 @@ enum ScenePuppetMeshGeometry {
                 )
                 return true
             },
-            authoredSize: SIMD2(layerWidth, layerHeight)
+            authoredSize: SIMD2(layerWidth, layerHeight),
+            effectSourceExtentContract: .exactSamplingTexture
         )
         return .success(Output(
             product: product,

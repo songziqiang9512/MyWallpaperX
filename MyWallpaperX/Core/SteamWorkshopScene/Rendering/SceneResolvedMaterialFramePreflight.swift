@@ -231,6 +231,9 @@ extension SceneMetalRenderer {
                 continue
             }
             let desiredSize: CGSize
+            let effectSourceExtentContract = imageTextures.geometryProducts[
+                layer.id
+            ]?.effectSourceExtentContract ?? .scalableStandard
             switch claim.sourceRoute {
             case .capturedLayerTexture:
                 let selection = cachedBaseMaterialTextureSelection(
@@ -404,7 +407,7 @@ extension SceneMetalRenderer {
             }
             requests.append(.init(
                 claim: claim,
-                fullFrameExtentPolicy: claim.fullFrameExtentPolicy,
+                effectSourceExtentContract: effectSourceExtentContract,
                 requestedWidth: max(1, Int(desiredSize.width.rounded(.up))),
                 requestedHeight: max(1, Int(desiredSize.height.rounded(.up))),
                 materialFunctionInvocations: materialFunctionInvocations(for: layer)
