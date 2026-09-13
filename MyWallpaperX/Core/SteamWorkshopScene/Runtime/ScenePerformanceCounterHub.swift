@@ -14,6 +14,16 @@ enum ScenePerformanceMetric: Int, CaseIterable, Sendable {
     case cpuFrameMicros
     case rendererMicros
     case drawableWaitMicros
+    case drawCalls
+    // Renderer frame stages. `prologueMicros` includes the nested
+    // `frameAdmissionMicros` window; both accumulate independently.
+    case sourceUpdateMicros
+    case worldResolveMicros
+    case prologueMicros
+    case frameAdmissionMicros
+    case prepassMicros
+    case layerLoopMicros
+    case compositorSealMicros
 }
 
 /// Scene launch phases with first-occurrence uptime timestamps. Capacity is

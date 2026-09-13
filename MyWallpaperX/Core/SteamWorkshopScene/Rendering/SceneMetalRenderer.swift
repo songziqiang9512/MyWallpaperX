@@ -93,12 +93,24 @@ struct SceneMetalRenderer {
         let effectExecutionTrace = effectExecutionTelemetry.makeFrame(
             frameIndex: frameContext.frameIndex
         )
+        // Always-on stage timings mirror the telemetry-gated stages below;
+        // each is bypass-only accumulation with no control-flow effect.
+        @inline(__always) func hubStage(
+            _ metric: ScenePerformanceMetric, _ start: TimeInterval
+        ) {
+            ScenePerformanceCounterHub.shared.add(
+                metric, ScenePerformanceCounterHub.micros(since: start)
+            )
+        }
         performanceTelemetry?.beginStage("source-update")
+        let hubSourceUpdateStart = ProcessInfo.processInfo.systemUptime
         let puppetAttachmentFrames = encodeSourceUpdates?(
             commandBuffer, sourceUpdateTransaction
         ) ?? .empty
         performanceTelemetry?.endStage("source-update")
+        hubStage(.sourceUpdateMicros, hubSourceUpdateStart)
         performanceTelemetry?.beginStage("world-resolve")
+        let hubWorldResolveStart = ProcessInfo.processInfo.systemUptime
         let frameProjection = resolveFrameWorldProjection(
             layerTopology: layerTopology,
             dynamicValues: frameContext.dynamicValues,
@@ -113,7 +125,9 @@ struct SceneMetalRenderer {
         var dynamicPassthroughLayerCount = 0
 #endif
         performanceTelemetry?.endStage("world-resolve")
+        hubStage(.worldResolveMicros, hubWorldResolveStart)
         performanceTelemetry?.beginStage("prologue")
+        let hubPrologueStart = ProcessInfo.processInfo.systemUptime
         let viewportSize = frameContext.screenSize
         let time = Float(frameContext.sceneTime)
         let parallaxMouseNormalized = frameContext.cameraParallaxPosition
@@ -147,6 +161,7 @@ struct SceneMetalRenderer {
             layersByID: frameLayersByID
         )
         performanceTelemetry?.beginStage("frame-admission")
+        let hubFrameAdmissionStart = ProcessInfo.processInfo.systemUptime
         let resolvedMaterialFrameAdmission = admitResolvedMaterialFrameTargets(
             imageTextures: imageTextures,
             spriteAnimations: spriteAnimations,
@@ -166,6 +181,7 @@ struct SceneMetalRenderer {
             commandBuffer: commandBuffer
         )
         performanceTelemetry?.endStage("frame-admission")
+        hubStage(.frameAdmissionMicros, hubFrameAdmissionStart)
         let resolvedMaterialFrameTargetPlans: [Int: SceneResolvedMaterialFrameTargetPlan]
         switch resolvedMaterialFrameAdmission {
         case let .ready(plans):
@@ -176,7 +192,9 @@ struct SceneMetalRenderer {
             return .dropped(reasonCode: reasonCode)
         }
         performanceTelemetry?.endStage("prologue")
+        hubStage(.prologueMicros, hubPrologueStart)
         performanceTelemetry?.beginStage("prepass")
+        let hubPrepassStart = ProcessInfo.processInfo.systemUptime
         let particleBatches = particleBatchesProvider()
         let particleBatchesByID = Dictionary(grouping: particleBatches, by: \.layerID)
         defer {
@@ -232,7 +250,9 @@ struct SceneMetalRenderer {
             }
         }
         performanceTelemetry?.endStage("prepass")
+        hubStage(.prepassMicros, hubPrepassStart)
         performanceTelemetry?.beginStage("layer-loop")
+        let hubLayerLoopStart = ProcessInfo.processInfo.systemUptime
         frameLayers: for layer in orderedLayers {
             if stopsAfterClaimedFailure { break frameLayers }
             defer {
@@ -546,6 +566,9 @@ struct SceneMetalRenderer {
                         for: layer.contentKind
                     )
                 )
+                if drawOutcome.encoded {
+                    ScenePerformanceCounterHub.shared.bump(.drawCalls)
+                }
 #if DEBUG
                 if frameDynamicLayerIDs.contains(layer.id) {
                     if drawOutcome.encoded {
@@ -750,8 +773,10 @@ struct SceneMetalRenderer {
             }
         }
         performanceTelemetry?.endStage("layer-loop")
+        hubStage(.layerLoopMicros, hubLayerLoopStart)
 
         performanceTelemetry?.beginStage("compositor-seal")
+        let hubCompositorSealStart = ProcessInfo.processInfo.systemUptime
         mainPass.finishEnsuringClear()
         encodeFrameReadback?(drawable.texture, commandBuffer)
         guard imageCompositor.endResolvedMaterialFrame(on: commandBuffer) else {
@@ -781,6 +806,7 @@ struct SceneMetalRenderer {
         didCommitParticleSubmission = true
         sourceUpdateTransaction.didSubmit()
         performanceTelemetry?.endStage("compositor-seal")
+        hubStage(.compositorSealMicros, hubCompositorSealStart)
         if let cpuStart {
             performanceTelemetry?.recordCPUFrame(
                 duration: ProcessInfo.processInfo.systemUptime - cpuStart
