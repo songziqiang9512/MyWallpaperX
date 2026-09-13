@@ -1,4 +1,5 @@
 import Foundation
+import QuartzCore
 import Metal
 
 nonisolated struct SceneWallpaperLaunchState: Equatable, Sendable {
@@ -521,12 +522,14 @@ extension SceneDesktopWallpaperHost {
         )
         try cancellation?.check()
         progress?(.preparingResources, "正在加载纹理并预检 Metal 资源")
+        let resourcesStageStart = CACurrentMediaTime()
         let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands,
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             device: device
         )
+        NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let provisionalMaterialExecutionCapabilities =
             SceneResolvedMaterialExecutionCapabilityCatalog(
                 admissionCandidates: resolvedMaterialAdmissionCandidates,
@@ -541,6 +544,7 @@ extension SceneDesktopWallpaperHost {
                 assetFormatFacts: materialAssetCatalog.launchFormatFacts,
                 assetStates: materialAssetCatalog.launchStates
             )
+        NSLog("MWX LAUNCH-STAGE: stage=capability-catalog elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let admittedVectorPassTargets =
             provisionalMaterialExecutionCapabilities.sceneScriptConsumerTargets
                 .intersection(propertyVectorPassCandidateTargets)
@@ -562,6 +566,7 @@ extension SceneDesktopWallpaperHost {
             firstSurfaceRuntimePreparation.cancel()
             _ = try? firstSurfaceRuntimePreparation.value()
         }
+        NSLog("MWX LAUNCH-STAGE: stage=first-surface-start elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         try cancellation?.check()
         let sceneScriptStorageSession = recordID.map {
             SceneScriptLocalStorageSession(recordID: $0)
@@ -596,6 +601,7 @@ extension SceneDesktopWallpaperHost {
             throw SceneDesktopWallpaperHostLaunchError
                 .invalidBoundedSceneScriptProgramAt("media-route-fixed-point")
         }
+        NSLog("MWX LAUNCH-STAGE: stage=quickjs-compile elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let committedPrograms = routedPrograms.programs
         let committedVectorPassTargets = routedPrograms.admittedPassTargets
         let propertyVectorMediaTargets = routedPrograms.mediaOwnerTargets
@@ -696,9 +702,11 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView
         )
         let preparedDeviceResources = try deviceResourcesPreparation.value()
+        NSLog("MWX LAUNCH-STAGE: stage=device-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let preparedFirstSurfaceRuntime = ScenePreparedFirstSurfaceRuntime(
             try firstSurfaceRuntimePreparation.value()
         )
+        NSLog("MWX LAUNCH-STAGE: stage=first-surface-join elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         let frameSchema = SceneDesktopWallpaperLaunchFrameSchema(
             runtimeInput: runtimeInput,
             sharedLayerAlphaProgram: model.sharedLayerAlphaProgram,
@@ -771,6 +779,7 @@ extension SceneDesktopWallpaperHost {
         )
         try context.configurePreparedPuppetBones()
         try cancellation?.check()
+        NSLog("MWX LAUNCH-STAGE: stage=prepare-end elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
         return PreparedLaunch(model: model, context: context)
     }
 

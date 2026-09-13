@@ -136,6 +136,7 @@ final class SceneDesktopWallpaperHost {
         }
         pendingDeferredLayerVisibilityUpdate = nil
         launchContext = context
+        let activateStageStart = CACurrentMediaTime()
 #if DEBUG
         debugDynamicLayerVisibilitySignature = nil
 #endif
@@ -150,6 +151,7 @@ final class SceneDesktopWallpaperHost {
             stop()
             throw SceneDesktopWallpaperHostLaunchError.noSurface
         }
+        NSLog("MWX LAUNCH-STAGE: stage=activate-surfaces elapsedMs=%.0f", (CACurrentMediaTime() - activateStageStart) * 1000)
         nextSoundPlaybackEpoch &+= 1
         let soundPlaybackRegistry = SceneSoundPlaybackRegistry(
             program: context.soundPlaybackProgram,
