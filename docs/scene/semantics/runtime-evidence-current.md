@@ -22,6 +22,17 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-water-waves-mask-ab"></a>
+### 2026-09-13 `3787382101` Water Waves 作者 mask 同构 A/B
+
+**结论：旧记录中的“Water Waves 影响整个人物”已被当前世界空间直绘架构下的 fresh 同构 A/B 证伪并关闭，达到 S4 bounded visible mask locality。** 作者 layer 28 定义两个 stock `effects/waterwaves/effect.json`，分别绑定 `masks/waterwaves_mask_5eff32e0` 与 `masks/waterwaves_mask_13a26579`；shader 以第二纹理槽红通道乘位移强度。包内两张 TEX 都是 `1400×600`、format 9 的 R8 数据，解码后非零区域分别覆盖左侧和右侧选定的发丝、飘带、衣裙、躯干与腿部。没有 mask 时的整图位移与本样本无关。
+
+**同构方法与架构边界：**真实样本根保持只读。诊断副本保留原包全部 78 个 entry、camera/general 和人物 layer 28，只移除其他 object、人物 animation layer 与非 Water Waves effect；左波、右波、双波各自建立作者强度 `0.04` 与 `strength=0` 对照。每一对拥有相同 layer/effect identity、shader、mask candidate、Program、GraphExecutor 和唯一 compositor，仅 typed pass uniform 不同。因而对照不会把“无 effect 直接合成”和“有 effect 离屏合成”的重采样差异误记成 mask 泄漏，也没有增加第二个 renderer、resource registry、预算、fallback 或 sample/effect 路由。现役 same-slot mapped-coordinate analyzer 继续唯一拥有作者 `g_Texture1Resolution.zw/xy` 映射，host 不再二次缩放 UV。
+
+**执行证据：**使用当前签名 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `42018537fb67606beb674bb5f29ed8173198266c`，executable SHA-256 `65db1f28e5300359359cdebdb589a4cc5a8a56b86cf3ade296cf2aa7bdeb0dc9`；source/before/after 验签均为 true。左、右、双波与三份零强度对照共 6/6 `failures=[] / strict PASS`，loaded ratio 都为 1.0，0 failed frame。单波均为 1/1 `admitted-generic / Program`、frame 0/next-frame 两次 terminal success；双波为 2/2 Program、四次 terminal success；0 dedicated/fallback/passthrough/unsupported。六份 report SHA-256 依次为 `1ce9cfc1736388fd734ebc8342ec285017f90c159be68a5c25d4d798fe8742d0 / a98e291cde53d8183c00f49cbc20c11851b53644d1bd461d392f3bf189823033 / af9ccd8576f7ab400edefd86126ce96833a0d19094e4ad7c783338f286dda3bf / 89c84c59bd6fd1871e32e16aece4f3de03555e17f98d36a6778d58f0b9985066 / 3bde82327737615e995edaddcec0c99cec149791daab0375c23c020a80dc5efb / 9c82e3c3f76b0f1ac5620ad7b67aae5d13e9a6e145dabc005c7ec1c698ed241c`。原始完整样本另以同一 App 取得 strict PASS，report SHA-256 `dad202066f96d3ac3a010aa843b27bb34e6d7ca3a9030829f8e662b3165a441a`。
+
+**可见裁决与上限：**三份零强度 ready/after 完全相同，PNG SHA-256 均为 `6687765543f52ac1715d30746039013f0d8d5259d86b223c20c91ed094926822`。作者强度与同构零强度的增强像素差显示：左波只覆盖左 mask 对应部件，右波只覆盖右 mask 对应部件，双波为两者并集；没有旧截图中的整个人物共同波纹、错位或缩放。两张解码 mask PNG SHA-256 为 `3e65d836adbf204f8820f0981be0f72ad0e2582a82e62f15f1b7d4cddc045f95 / 13cbf1f2b4e93ce6f36046882862d89d13731948e656ea76cc86017160da3d25`，差分审阅图 SHA-256 `c126e573b4838dbd9b427bbd3eb4a0245632049325e467d0add07a7fb98b9804`。这是一个真实消费者的局部 mask 证据，不证明任意 Water Waves variant、官方客户端逐像素 parity、完整样本所有其他 effect 或 release；也不自动改写人工 acceptance verdict。未运行 full corpus。
+
 <a id="e-2026-09-13-shared-pair-history-terminal"></a>
 ### 2026-09-13 shared full-frame pair 与 authored FBO history terminal 闭环
 
@@ -343,7 +354,7 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 
 用户对照证伪了同日 origin-pivot `contentFit`：`3264246690` 人物变小且位置偏离。世界位置合同保持 `world = origin + mesh * authored scale`。该批随后采用 origin 居中 coverage（作者 size∪bind-pose）和 `vertex / coverage`；它修复缺头但引入后续压平与欠采样问题。2026-09-13 已删除 coverage publication/归一化，现役 mesh 保留原始像素位置并由唯一 world MVP 直接绘制；本段不再定义当前实现。
 
-`3787382101` 的两张 Water Waves mask 是 `1400×600` R8，与作者画幅同宽高比。stock vert 无条件 include 的 helper `if` 不再让 same-slot mapped UV owner 失效。presence-combo 仍缓存 on/off 两套 Program。同日前一版签名 2/2 PASS 与“头/手齐全、不再整图细波纹”已被用户眼睛证伪，不能再当当前视觉事实。
+`3787382101` 的两张 Water Waves mask 是 `1400×600` R8，与作者画幅同宽高比。stock vert 无条件 include 的 helper `if` 不再让 same-slot mapped UV owner 失效。presence-combo 仍缓存 on/off 两套 Program。同日前一版签名 2/2 PASS 与“头/手齐全、不再整图细波纹”已被用户眼睛证伪，不能再当当前视觉事实；该历史判断已由 2026-09-13 世界空间直绘后的[同构 A/B 后继证据](#e-2026-09-13-water-waves-mask-ab)取代。
 
 这属于 `S2 mapping/UV-owner contract correction`，在新的隔离运行之前不升级为 `S4`。不证明官方像素 parity、头发运动数值、149 corpus 或完整 Water Waves family。
 
@@ -351,7 +362,7 @@ String Program 已把 callback-only owner 的稳定帧求值收口到同一 type
 
 最新隔离运行的报告为 `/private/tmp/mwx-visible-final.FDfcLr/report.json`：`3787382101` 的 loaded texture ratio 为 `1.0`，`3264246690` 为 `0.9412`；两者的运行报告均为 benchmark `PASS`，但这只证明资源加载、帧提交、GPU completion 与 compositor 安全门通过。对应截图为 `results/3787382101/scene-after-window.png`、`results/3787382101/scene-ready-window.png`、`results/3264246690/scene-after-window.png` 和 `results/3264246690/scene-ready-window.png`。
 
-截图验收否决了“构图完整”的旧结论：`3264246690` layer 389 的人物左侧手肘仍有明显三角缺角；`3787382101` 的 Water Waves 仍表现为人物全身受到波纹扭曲。该样本的 15/15 resolved-material asset demands 已 ready，且 Water Waves mask 已进入 generic admission，但目前没有局部 ROI 或像素证据证明位移被限制在作者 mask 内。因此这两个问题暂停修复并登记为未闭合视觉债务；不得把 benchmark `PASS`、资源 ready 或整链 completion 写成视觉修复完成。
+截图验收否决了“构图完整”的旧结论：`3264246690` layer 389 的人物左侧手肘仍有明显三角缺角；`3787382101` 的 Water Waves 仍表现为人物全身受到波纹扭曲。该样本的 15/15 resolved-material asset demands 已 ready，且 Water Waves mask 已进入 generic admission，但当时没有局部 ROI 或像素证据证明位移被限制在作者 mask 内。因此两个问题在该历史现场保持开放；它们后来分别由[世界空间 Puppet 几何](#e-2026-09-13-puppet-world-geometry)和[Water Waves 同构 A/B](#e-2026-09-13-water-waves-mask-ab)关闭，旧 benchmark `PASS` 本身仍不构成视觉证据。
 
 ### 2026-09-06 Puppet frame 溢出适配 + MDLV0019 版本族
 

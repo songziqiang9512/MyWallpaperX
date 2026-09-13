@@ -2,6 +2,14 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 `3787382101` Water Waves mask 同构 A/B
+
+作者人物 layer 28 的两个 stock Water Waves 分别绑定 `waterwaves_mask_5eff32e0` 与 `waterwaves_mask_13a26579`。两张包内 TEX 均为 `1400×600` R8；shader 以 slot 1 红通道乘位移强度。旧 2026-09-06 截图曾被裁决为“整个人物扭曲”，但它混合了 Puppet coverage 合成、动画、Opacity、Iris、God Rays、Shake 与 Shimmer，不能区分 Water Waves mask 和旧 Puppet source。
+
+当前诊断从只读真实样本建立六份隔离副本：只保留人物 layer 28，停用 animation layer，分别保留左、右或两组 Water Waves，并为每组制作作者 `strength=0.04` 与 `strength=0` 的同构对照。包仍保留原 78 个 entry；每一对只改变 typed strength uniform，Program、mask resource、graph 和 compositor 路径完全相同。三组作者强度与三组零强度运行均 `failures=[] / strict PASS`、loaded ratio 1.0、0 failed frame；单波 1/1 Program、双波 2/2 Program，frame 0/next-frame 均 terminal success，0 dedicated/fallback/passthrough/unsupported。六份 report SHA-256 为 `1ce9cfc1736388fd734ebc8342ec285017f90c159be68a5c25d4d798fe8742d0 / a98e291cde53d8183c00f49cbc20c11851b53644d1bd461d392f3bf189823033 / af9ccd8576f7ab400edefd86126ce96833a0d19094e4ad7c783338f286dda3bf / 89c84c59bd6fd1871e32e16aece4f3de03555e17f98d36a6778d58f0b9985066 / 3bde82327737615e995edaddcec0c99cec149791daab0375c23c020a80dc5efb / 9c82e3c3f76b0f1ac5620ad7b67aae5d13e9a6e145dabc005c7ec1c698ed241c`。
+
+三份零强度 ready/after 逐字节相同，PNG SHA-256 都是 `6687765543f52ac1715d30746039013f0d8d5259d86b223c20c91ed094926822`。与各自零强度对照相比，左波差异只出现在左 mask 选中的发丝、飘带、裙摆等部件，右波只出现在右 mask 选中的发丝、躯干与腿部，双波是两者并集；人物未整体缩放、错位或共同波动。完整真实样本也以相同 App strict PASS，report SHA-256 `dad202066f96d3ac3a010aa843b27bb34e6d7ca3a9030829f8e662b3165a441a`。这关闭旧 Water Waves 技术债务，不改写整样本人工 verdict，也不证明全部 Water Waves variant 或官方逐像素 parity。完整身份与证据上限见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-water-waves-mask-ab)。
+
 ## 2026-09-13 `3754630802` shared-pair/history terminal 复核
 
 最终签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `42018537fb67606beb674bb5f29ed8173198266c`，executable SHA-256 `65db1f28e5300359359cdebdb589a4cc5a8a56b86cf3ade296cf2aa7bdeb0dc9`。只读真实样本 fresh 运行输出 `/private/tmp/mwx-current-q1-375-shared-history-terminal-20260913-v3`；matrix/report/log SHA-256 为 `6f179c96a040c502ad2835a5f4d7ae67ba80440666d90940910652cd365690c6 / b0c9013f9873c36b182c5368f32b8b0b8e5005526bb19d0c964004b5d075ace4 / b175ede6a576ce3cad514975c3a5a8eef99476f58e42c2e6ef90993aca6ebae4`。结果 `failures=[] / strict PASS`，31/31 active effect 均为 Program，92/92/0 frame submitted/completed/failed，214/214 graph observation terminal success；utility capture `91 / 607 / 677 / 743 / 922` 全部成功。

@@ -48,7 +48,7 @@ Depth Parallax          -> depth map 驱动的 UV/POM 重采样
 
 五类路径不能共用一个“正弦位移”实现。
 
-当前样本边界：`3787382101` 的 Water Waves 虽已完成资源 ready 与 generic admission，但最新隔离截图仍显示人物全身被扭曲；这说明执行链证据不足以证明作者 mask 的局部视觉效果，问题保持开放，不得把本表的局部变形合同写成该样本已修复。
+当前样本边界：`3787382101` 已在 2026-09-13 用同构 A/B 关闭旧“整个人物扭曲”债务。诊断副本只保留人物 layer 28；作者强度与 `strength=0` 对照使用相同 Water Waves Program、graph、两张 `1400×600` R8 mask 和唯一 compositor。左、右、双波的差异分别落在作者 mask 选中的部件，六份运行均 strict PASS。该证据只证明这个真实消费者的 mask 局部性，不把一个样本推广成全部 Water Waves 形状或官方逐像素 parity；详见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-water-waves-mask-ab)。
 
 ## 3. 模糊类
 
