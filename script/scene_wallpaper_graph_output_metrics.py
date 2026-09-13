@@ -161,6 +161,7 @@ def resolved_material_graph_observation_metrics(
     required_fields = {
         "frame", "layer", "trigger", "transaction", *count_fields.values(),
         "allocationGeneration", "mappingGeneration",
+        "fullFramePairStorage", "fullFramePairGeneration",
         "mappingBeforeSHA256", "mappingAfterSHA256",
         "targetDescriptorsSHA256", "targetDescriptorCounts",
         "inputWidth", "inputHeight", "historyRehydrateCopyCount",
@@ -210,6 +211,7 @@ def resolved_material_graph_observation_metrics(
             )
             allocation_generation = int(fields["allocationGeneration"])
             mapping_generation = int(fields["mappingGeneration"])
+            full_frame_pair_generation = int(fields["fullFramePairGeneration"])
             publication_generation = int(fields["publicationGeneration"])
             input_width = int(fields["inputWidth"])
             input_height = int(fields["inputHeight"])
@@ -235,6 +237,7 @@ def resolved_material_graph_observation_metrics(
         )
         history = fields["history"]
         reset = fields["reset"]
+        full_frame_pair_storage = fields["fullFramePairStorage"]
         runtime_instance_identity = fields.get("runtime", "legacy")
         history_content_discarded = fields["historyContentDiscarded"] == "true"
         descriptor_counts_valid = target_descriptor_counts == "-" or bool(
@@ -321,6 +324,15 @@ def resolved_material_graph_observation_metrics(
                     "resolved material graph lifecycle generation invalid",
                 ),
                 (
+                    full_frame_pair_generation > 0
+                    and full_frame_pair_storage in {"owned", "shared"}
+                    and (
+                        full_frame_pair_storage == "shared"
+                        or full_frame_pair_generation == allocation_generation
+                    ),
+                    "resolved material graph full-frame pair identity invalid",
+                ),
+                (
                     input_width > 0 and input_height > 0,
                     "resolved material graph input extent invalid",
                 ),
@@ -384,6 +396,8 @@ def resolved_material_graph_observation_metrics(
             "publication_generation": publication_generation,
             "allocation_generation": allocation_generation,
             "mapping_generation": mapping_generation,
+            "full_frame_pair_storage": full_frame_pair_storage,
+            "full_frame_pair_generation": full_frame_pair_generation,
             "mapping_before_sha256": fields["mappingBeforeSHA256"],
             "mapping_after_sha256": fields["mappingAfterSHA256"],
             "compositor_consumed": fields["compositorConsumed"] == "true",
@@ -659,12 +673,34 @@ def resolved_material_graph_observation_metrics(
             if reset in {
                 "history-copy-on-write", "allocation-reprepare", "allocation-rebind"
             } and previous is not None:
+                same_shared_pair = (
+                    observation["full_frame_pair_storage"] == "shared"
+                    and previous["full_frame_pair_storage"] == "shared"
+                    and observation["full_frame_pair_generation"]
+                        == previous["full_frame_pair_generation"]
+                )
+                if same_shared_pair:
+                    physical_transition_valid = (
+                        observation["final_physical"]
+                            == previous["final_physical"]
+                    )
+                else:
+                    physical_transition_valid = (
+                        observation["final_physical"]
+                            != previous["final_physical"]
+                        and (
+                            observation["full_frame_pair_storage"] != "shared"
+                            or previous["full_frame_pair_storage"] != "shared"
+                            or observation["full_frame_pair_generation"]
+                                > previous["full_frame_pair_generation"]
+                        )
+                    )
                 if not (
                     observation["allocation_generation"]
                         > previous["allocation_generation"]
                     and observation["mapping_generation"]
                         > previous["mapping_generation"]
-                    and observation["final_physical"] != previous["final_physical"]
+                    and physical_transition_valid
                     and observation["final_publication"]
                         != previous["final_publication"]
                 ):

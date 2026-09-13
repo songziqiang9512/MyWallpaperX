@@ -18,6 +18,10 @@ struct SceneGraphRenderTargetLease {
         case physicalAlias
     }
 
+    enum FullFramePairStorage: Equatable {
+        case owned, shared
+    }
+
     struct FullFramePair {
         let first: State.PhysicalToken
         let second: State.PhysicalToken
@@ -27,6 +31,7 @@ struct SceneGraphRenderTargetLease {
     let allocation: State.Allocation
     let texturesByToken: [State.PhysicalToken: MTLTexture]
     let fullFramePair: FullFramePair
+    let fullFramePairStorage: FullFramePairStorage
     let fullFramePairGeneration: UInt64
 
     var generation: UInt64 { allocation.generation }
@@ -46,11 +51,13 @@ struct SceneGraphRenderTargetLease {
         allocation: State.Allocation,
         texturesByToken: [State.PhysicalToken: MTLTexture],
         fullFramePair: FullFramePair? = nil,
+        fullFramePairStorage: FullFramePairStorage = .owned,
         fullFramePairGeneration: UInt64? = nil
     ) {
         self.table = table
         self.allocation = allocation
         self.texturesByToken = texturesByToken
+        self.fullFramePairStorage = fullFramePairStorage
         self.fullFramePairGeneration = fullFramePairGeneration ?? allocation.generation
         let fallback = State.PhysicalToken(rawValue: "")
         self.fullFramePair = fullFramePair ?? .init(
@@ -68,10 +75,19 @@ struct SceneGraphRenderTargetLease {
         table: SceneGraphRenderTargetTable,
         generation: UInt64,
         tokenForTexture: (MTLTexture) -> State.PhysicalToken?,
+        fullFramePairStorage: FullFramePairStorage = .owned,
         fullFramePairGeneration: UInt64? = nil,
         tokenForPairTexture: ((MTLTexture) -> State.PhysicalToken?)? = nil
     ) -> Result<Self, Failure> {
-        guard generation > 0 else { return .failure(.invalidGeneration) }
+        guard generation > 0,
+              fullFramePairStorage == .shared
+                || fullFramePairGeneration == nil
+                || fullFramePairGeneration == generation,
+              fullFramePairStorage == .owned
+                || (fullFramePairGeneration != nil
+                    && tokenForPairTexture != nil) else {
+            return .failure(.invalidGeneration)
+        }
         guard let identities = orderedIdentities(for: table.plan) else {
             return .failure(.invalidPlan)
         }
@@ -156,6 +172,7 @@ struct SceneGraphRenderTargetLease {
             allocation: .init(generation: generation, resources: resources),
             texturesByToken: textures,
             fullFramePair: .init(first: firstPairToken, second: secondPairToken),
+            fullFramePairStorage: fullFramePairStorage,
             fullFramePairGeneration: fullFramePairGeneration
         ))
     }

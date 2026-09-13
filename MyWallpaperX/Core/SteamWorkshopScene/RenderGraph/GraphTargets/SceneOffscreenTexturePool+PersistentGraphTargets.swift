@@ -222,7 +222,7 @@ extension SceneOffscreenTexturePool {
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int,
-        sharesFullFramePairWhenHistoryFree: Bool = false,
+        usesSharedFullFrameWorkingPair: Bool = false,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> ScenePersistentGraphTargetFramePlan? {
         guard case let .success(plan) = framePlanResultForPersistentGraphTargets(
@@ -232,7 +232,7 @@ extension SceneOffscreenTexturePool {
             extentPolicy: extentPolicy,
             requestedWidth: requestedWidth,
             requestedHeight: requestedHeight,
-            sharesFullFramePairWhenHistoryFree: sharesFullFramePairWhenHistoryFree,
+            usesSharedFullFrameWorkingPair: usesSharedFullFrameWorkingPair,
             orderingContext: orderingContext
         ) else { return nil }
         return plan
@@ -245,7 +245,7 @@ extension SceneOffscreenTexturePool {
         extentPolicy: SceneFullFrameExtentPolicy = .standard,
         requestedWidth: Int,
         requestedHeight: Int,
-        sharesFullFramePairWhenHistoryFree: Bool = false,
+        usesSharedFullFrameWorkingPair: Bool = false,
         orderingContext: SceneGraphCommandQueueOrderingContext? = nil
     ) -> Result<ScenePersistentGraphTargetFramePlan,
         ScenePersistentGraphTargetPlanningFailure> {
@@ -267,7 +267,7 @@ extension SceneOffscreenTexturePool {
         case let .failure(failure): return .failure(failure)
         }
         let plan: SceneLayerGraphTargetPlan
-        if sharesFullFramePairWhenHistoryFree,
+        if usesSharedFullFrameWorkingPair,
            case let .success(shared) = SceneLayerGraphTargetPlan.make(
                plans: prepared.plans,
                pairPlan: pairPlan,

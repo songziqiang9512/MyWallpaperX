@@ -158,6 +158,8 @@ enum Harness {
         mappingAfter customAfter: [SceneGraphExecutionLogicalBinding]? = nil,
         inputWidth: Int = 2_048,
         inputHeight: Int = 1_152,
+        fullFramePairStorage: SceneGraphExecutionFullFramePairStorage = .owned,
+        fullFramePairGeneration: UInt64? = nil,
         historyRehydrateCopyCount: Int = 0,
         historyContentDiscarded: Bool = false,
         composeSlotBefore: SceneGraphExecutionComposeSlot = .primary,
@@ -179,6 +181,7 @@ enum Harness {
         let mappedOutput = selectedAfter.first(where: {
             $0.logicalIdentity == outputIdentity
         })?.physicalIdentity ?? "missing-physical-output"
+        let successful = if case .succeeded = outcome { true } else { false }
         return try .init(
             runtimeInstanceIdentity: "runtime-fixture",
             identity: identity,
@@ -197,6 +200,9 @@ enum Harness {
             logicalMappingAfter: selectedAfter,
             inputWidth: inputWidth,
             inputHeight: inputHeight,
+            fullFramePairStorage: successful ? fullFramePairStorage : nil,
+            fullFramePairGeneration: successful
+                ? (fullFramePairGeneration ?? allocationGeneration) : nil,
             historyRehydrateCopyCount: historyRehydrateCopyCount,
             historyContentDiscarded: historyContentDiscarded,
             composeSlotBefore: composeSlotBefore,

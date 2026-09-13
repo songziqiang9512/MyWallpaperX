@@ -3078,6 +3078,138 @@ private func dormantGraphInputFactTokens(
     ]
 }
 
+private func capturedMainInternalTerminalTokens() -> [String: Bool] {
+    func identity(
+        kind: Graph.TextureKind,
+        effect: Graph.EffectKey? = nil,
+        name: String? = nil
+    ) -> Graph.TextureIdentity {
+        .init(
+            kind: kind,
+            layerID: fixtureLayerID,
+            effect: effect,
+            name: name
+        )
+    }
+    let key = Graph.EffectKey(
+        layerID: fixtureLayerID,
+        effectIndex: 4,
+        descriptorID: "fixture-captured-main-terminal"
+    )
+    let foreignKey = Graph.EffectKey(
+        layerID: fixtureLayerID,
+        effectIndex: 5,
+        descriptorID: "fixture-foreign-terminal"
+    )
+    let input = identity(kind: .layerSource)
+    let intermediate = identity(
+        kind: .framebuffer,
+        effect: key,
+        name: "fixture-terminal-intermediate"
+    )
+    let output = identity(kind: .effectOutput, effect: key)
+    let foreignOutput = identity(kind: .effectOutput, effect: foreignKey)
+    let foreignFramebuffer = identity(
+        kind: .framebuffer,
+        effect: foreignKey,
+        name: "fixture-foreign-intermediate"
+    )
+    let context = Template.EffectContext(key: key, input: input)
+    let value = template(
+        contract(
+            revision: "captured-main-internal-terminal",
+            uniformMetadata: nil,
+            semanticProbes: false
+        ),
+        primaryReference: .graph(intermediate),
+        primaryGraphTextureRole: .framebuffer,
+        graphBindingsOverride: [.init(slot: 0, texture: .framebuffer)],
+        effectContext: context
+    )
+    guard case let .success(cache) = SceneResolvedMaterialVariantCache
+            .launchValidated(template: value, maximumVariantCount: 8),
+          case .success = cache.precompileLaunchEnvelope(
+              implicitFramebufferIdentity: input
+          ) else {
+        return ["setup": false]
+    }
+    let effect = Graph.Effect(
+        key: key,
+        definitionPath: "effects/fixture-captured-main-terminal.json",
+        input: input,
+        output: output,
+        nodeIndices: [0]
+    )
+    func node(
+        target: Graph.TextureIdentity?,
+        binding: Graph.TextureIdentity = intermediate
+    ) -> Graph.Node {
+        .init(
+            nodeIndex: 0,
+            effect: key,
+            definitionPassIndex: 0,
+            materialOrdinal: 0,
+            instancePassIndex: 0,
+            kind: .material,
+            materialPath: "materials/fixture-captured-main-terminal.json",
+            materialPassID: "0",
+            target: target,
+            bindings: [
+                .init(
+                    slot: 0,
+                    authoredName: "intermediate",
+                    texture: binding,
+                    conditions: nil
+                ),
+            ],
+            commandSource: nil,
+            commandTarget: nil,
+            compose: nil,
+            conditions: nil
+        )
+    }
+    let terminal = node(target: output)
+    let forgedEffect = Graph.Effect(
+        key: key,
+        definitionPath: effect.definitionPath,
+        input: input,
+        output: foreignOutput,
+        nodeIndices: effect.nodeIndices
+    )
+    return [
+        "exactEffectOutputAccepted":
+            cache.supportsCapturedMainTargetInternalProgram(
+                node: terminal,
+                effect: effect
+            ),
+        "terminalRemainsInternalOnly":
+            cache.capturedMainTargetSourceSlot(
+                node: terminal,
+                effect: effect
+            ) == nil,
+        "foreignEffectOutputRejected":
+            !cache.supportsCapturedMainTargetInternalProgram(
+                node: node(target: foreignOutput),
+                effect: effect
+            ),
+        "foreignFramebufferBindingRejected":
+            !cache.supportsCapturedMainTargetInternalProgram(
+                node: node(target: output, binding: foreignFramebuffer),
+                effect: effect
+            ),
+        "forgedEffectOutputRejected":
+            !cache.supportsCapturedMainTargetInternalProgram(
+                node: terminal,
+                effect: forgedEffect
+            ),
+        "missingTargetRejected":
+            !cache.supportsCapturedMainTargetInternalProgram(
+                node: node(target: nil),
+                effect: effect
+            ),
+    ]
+}
+
 private func admittedEffectIngressTokens(
     _ device: MTLDevice
 ) -> [String: String] {
@@ -5654,6 +5786,8 @@ private enum Harness {
         let neutralTextureResolutionFailures =
             neutralTextureResolutionFinalizerFailures(device)
         let dormantGraphInputFacts = dormantGraphInputFactTokens(device)
+        let capturedMainInternalTerminal =
+            capturedMainInternalTerminalTokens()
         let sameSlotMappedCoordinate = sameSlotMappedCoordinateTokens(device)
         let mixedSystemNamedProvider = mixedSystemNamedProviderTokens(device)
         let namedProviderRuntimePurpose = namedProviderRuntimePurposeTokens(device)
@@ -5968,6 +6102,7 @@ private enum Harness {
             "neutralTextureResolutionAnalyzer": neutralTextureResolutionAnalyzer,
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "dormantGraphInputFacts": dormantGraphInputFacts,
+            "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": admittedEffectIngress,
             "failures": failures,
         ]
@@ -6187,6 +6322,22 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "defaultBoundaryPreservesGraphFact": "preserved",
                 "arbitraryHiddenKeySlot0": "proven",
                 "unseenArbitraryHiddenKeySlot3": "proven",
+            },
+            self.result,
+        )
+
+    def test_captured_main_internal_program_can_terminate_its_exact_effect(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.result["capturedMainInternalTerminal"],
+            {
+                "exactEffectOutputAccepted": True,
+                "terminalRemainsInternalOnly": True,
+                "foreignEffectOutputRejected": True,
+                "foreignFramebufferBindingRejected": True,
+                "forgedEffectOutputRejected": True,
+                "missingTargetRejected": True,
             },
             self.result,
         )

@@ -204,7 +204,13 @@ enum SceneOffscreenTextureFramePreflight {
             if let history = victim.demotedHistory {
                 values.append(historyResident(from: victim, history: history))
             }
-            guard let next = cost(values), next < total else {
+            // A shared-pair graph may consist entirely of history FBOs. Its
+            // full graph and history-only projections then have equal byte
+            // cost, but demotion still removes that entry from the evictable
+            // set and lets the LRU walk continue to the next resident. This
+            // mirrors AllocationCache.evictToFit, which also permits a
+            // zero-byte demotion before considering the next victim.
+            guard let next = cost(values), next <= total else {
                 return .rejected(reasonCode: "frame-target-eviction-invariant")
             }
             total = next

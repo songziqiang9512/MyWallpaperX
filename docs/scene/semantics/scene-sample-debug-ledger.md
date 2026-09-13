@@ -2,6 +2,14 @@
 
 > 这是一份可复查的运行首断点档案，不是视觉通过矩阵。样本根只读，档案只记录 authored corpus 的 identity、运行状态和可定位证据；最终“正确显示和播放”仍须逐样本人工/ROI 验收。
 
+## 2026-09-13 `3754630802` shared-pair/history terminal 复核
+
+最终签名 Debug App 为 2.0.9 (277)，Team `H9QWU9XN8R`，CDHash `42018537fb67606beb674bb5f29ed8173198266c`，executable SHA-256 `65db1f28e5300359359cdebdb589a4cc5a8a56b86cf3ade296cf2aa7bdeb0dc9`。只读真实样本 fresh 运行输出 `/private/tmp/mwx-current-q1-375-shared-history-terminal-20260913-v3`；matrix/report/log SHA-256 为 `6f179c96a040c502ad2835a5f4d7ae67ba80440666d90940910652cd365690c6 / b0c9013f9873c36b182c5368f32b8b0b8e5005526bb19d0c964004b5d075ace4 / b175ede6a576ce3cad514975c3a5a8eef99476f58e42c2e6ef90993aca6ebae4`。结果 `failures=[] / strict PASS`，31/31 active effect 均为 Program，92/92/0 frame submitted/completed/failed，214/214 graph observation terminal success；utility capture `91 / 607 / 677 / 743 / 922` 全部成功。
+
+旧首断点不是缺少 Bokeh/Motion Blur shader owner：两族节点已经有公共 Program，最后的 internal-FBO-only terminal 因只接受 same-effect framebuffer 而在 launch 拒绝。放开精确 `effect.output` 后，frame 0 暴露出另一个旧设计假设：只要有 authored FBO history 就禁止共享 full-frame working pair，导致 31/31 首帧后资源驻留失败。现役 target plan 明确证明工作对 slot 与 authored history slot 不重叠；history 单独 rehydrate/COW，工作对保持 submission pin，并以 storage/generation/physical token 审计。layer 607 每帧 7/7 material；layer 743 每帧 2 material + 1 copy，后续帧完成 history rehydrate/COW，shared pair physical token 在同 generation 内保持稳定。
+
+ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266eeef21df4624e / ce09e0fcf904846dd420996acaa566d6a486e3c77f7224f934a9c25ef5e6fc4b`。原分辨率复核确认人物、舞狮、灯笼和完整春节构图在首帧与稳定帧持续存在，没有黑屏、硬矩形或明显几何错位，且 `changed_ratio=0.7385117970`。这关闭两项 active unsupported，但没有独立 Bokeh/Motion Blur ROI、官方像素 golden 或性能完成证据；当前约 4.67 FPS、CPU frame p50 128.113 ms 进入性能队列。完整合同见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-shared-pair-history-terminal)。
+
 ## 2026-09-13 `3395777145` 作者 media 面板正反复核
 
 作者定义不包含鼠标点击回调。layer 203 的位置脚本监听 `mediaPlaybackChanged(state)`，layer 125 的 Timeline 脚本监听 `mediaThumbnailChanged` 并重启动画，layer 505 的 tint 脚本读取同一事件颜色。当前能力因此按作者事件、typed media snapshot 和 Timeline owner 实现；没有增加点击手势或样本分支。
@@ -21,9 +29,9 @@
 | `3323988600` | Pixelate 的 component-wise vector conversion | 5/5 active effect 为 Program；utility 65 成功；人物、烟雾与爱心动态可见 | 整样本逐像素 parity 未裁决 |
 | `3395777145` | vertex/fragment loop guard 生成符号碰撞 | 本批冻结时 22 个 active Program，Oscilloscope 与 utility 338/392 完成，声波/时钟可见 | layer 125 三项在后继作者 media 面板批次关闭；本行只保留旧首断点 provenance |
 | `3472940912` | Standard Blur 静态非单位 tint 被 unit-only gate 拒绝 | 6/6 active effect 为 Program；tinted terminal composite 为 generic-only；人物、高光与雾可见 | 独立 Blur ROI 与逐像素 parity 未裁决 |
-| `3754630802` | Fire 标量 LOD data sample 未进入 preserved-alpha fact | 29 个 active Program；Fire、utility 91/677/922、人物/舞狮/灯笼/火焰动态完成 | layer 607 Bokeh Blur 与 layer 743 Motion Blur 无 owner；尚无隔离 ROI |
+| `3754630802` | Fire 标量 LOD data sample 未进入 preserved-alpha fact | 本批冻结时 29 个 active Program；Fire、utility 91/677/922、人物/舞狮/灯笼/火焰动态完成 | layer 607/743 已由上方 shared-pair/history terminal 后继关闭；本行只保留旧首断点 provenance |
 
-四个样本的 graph contract 均成功，executor 无 failure/local fallback，目标均有 CPU invocation、GPU completion、publication 和 terminal/下游消费与 next-frame。该段取代 2026-09-12 归档中的 effect-local passthrough 首断点；339 的后继状态由上方作者 media 面板证据拥有，375 的两项 unsupported 仍开放。完整代码边界、focused 门和证据身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-effect-local-four)。
+四个样本的 graph contract 均成功，executor 无 failure/local fallback，目标均有 CPU invocation、GPU completion、publication 和 terminal/下游消费与 next-frame。该段取代 2026-09-12 归档中的 effect-local passthrough 首断点；339 的后继状态由上方作者 media 面板证据拥有，375 的两项 unsupported 由本页最新 shared-pair/history terminal 证据关闭。完整代码边界、focused 门和证据身份见[当前运行证据](runtime-evidence-current.md#e-2026-09-13-effect-local-four)。
 
 ## 2026-09-13 feedback 内容合同与 `3749463715` utility 输出闭环
 

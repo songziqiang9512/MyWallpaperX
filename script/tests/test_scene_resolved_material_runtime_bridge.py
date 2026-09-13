@@ -1161,6 +1161,8 @@ final class SceneResolvedMaterialGraphExecutor {
         let pairStep: SceneLayerFullFramePairPlan.EffectStep
         let transition: State.Transition
         let inputWidth, inputHeight: Int
+        let fullFramePairIsShared: Bool
+        let fullFramePairGeneration: UInt64
         let historyRehydrateCopyCount: Int
         let historyContentDiscarded: Bool
         let frameResources: [Graph.TextureIdentity: SceneFrameTextureResource]
@@ -1419,6 +1421,8 @@ private func makeObservationTransition(
         transition: .init(nextState: nextState, transaction: transaction),
         inputWidth: 2_048,
         inputHeight: 1_152,
+        fullFramePairIsShared: false,
+        fullFramePairGeneration: transaction.allocationGeneration,
         historyRehydrateCopyCount: 0,
         historyContentDiscarded: false,
         frameResources: [:],
@@ -1517,6 +1521,8 @@ private func makeAtomicPrepared(
         transition: .init(nextState: state, transaction: transaction),
         inputWidth: 2_048,
         inputHeight: 1_152,
+        fullFramePairIsShared: false,
+        fullFramePairGeneration: transaction.allocationGeneration,
         historyRehydrateCopyCount: 0,
         historyContentDiscarded: false,
         frameResources: [:],

@@ -74,6 +74,10 @@ nonisolated enum SceneGraphExecutionGPUCompletionStatus: String, Hashable, Senda
     case completed, failed
 }
 
+nonisolated enum SceneGraphExecutionFullFramePairStorage: String, Hashable, Sendable {
+    case owned, shared
+}
+
 nonisolated enum SceneGraphExecutionOutcome: Hashable, Sendable {
     case succeeded
     case failed(reasonCode: String)
@@ -109,6 +113,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
     let logicalMappingBeforeSHA256, logicalMappingAfterSHA256: String
     let targetDescriptorsSHA256, targetDescriptorCounts: String?
     let inputWidth, inputHeight: Int
+    let fullFramePairStorage: SceneGraphExecutionFullFramePairStorage?
+    let fullFramePairGeneration: UInt64?
     let historyRehydrateCopyCount: Int
     let historyContentDiscarded: Bool
     let composeSlotBefore, composeSlotAfter: SceneGraphExecutionComposeSlot
@@ -142,6 +148,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         logicalMappingAfter: [SceneGraphExecutionLogicalBinding],
         inputWidth: Int,
         inputHeight: Int,
+        fullFramePairStorage: SceneGraphExecutionFullFramePairStorage?,
+        fullFramePairGeneration: UInt64?,
         historyRehydrateCopyCount: Int,
         historyContentDiscarded: Bool,
         composeSlotBefore: SceneGraphExecutionComposeSlot,
@@ -194,6 +202,10 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             nodes: nodes
         )
         guard inputWidth > 0, inputHeight > 0,
+              (fullFramePairStorage == nil) == (fullFramePairGeneration == nil),
+              fullFramePairGeneration.map({ $0 > 0 }) ?? true,
+              fullFramePairStorage != .owned
+                || fullFramePairGeneration == allocationGeneration,
               historyRehydrateCopyCount >= 0,
               !(historyContentDiscarded && historyRehydrateCopyCount > 0),
               resetReason != .historyCopyOnWrite || (
@@ -230,6 +242,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             guard (expectedNodeCounts.rejected == 0
                     || effectPassthrough),
                   finalOutput != nil,
+                  fullFramePairStorage != nil,
+                  fullFramePairGeneration != nil,
                   gpuCompletionStatus == .completed else {
                 throw SceneGraphExecutionObservationError.invalidOutcome
             }
@@ -237,6 +251,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
             guard Self.hasText(reasonCode),
                   expectedNodeCounts.rejected == expectedNodeCounts.authored,
                   finalOutput == nil,
+                  fullFramePairStorage == nil,
+                  fullFramePairGeneration == nil,
                   !compositorConsumed,
                   gpuCompletionStatus != .completed else {
                 throw SceneGraphExecutionObservationError.invalidOutcome
@@ -264,6 +280,8 @@ nonisolated struct SceneGraphExecutionObservation: Sendable {
         targetDescriptorCounts = mappingEvidence.targetDescriptorCounts
         self.inputWidth = inputWidth
         self.inputHeight = inputHeight
+        self.fullFramePairStorage = fullFramePairStorage
+        self.fullFramePairGeneration = fullFramePairGeneration
         self.historyRehydrateCopyCount = historyRehydrateCopyCount
         self.historyContentDiscarded = historyContentDiscarded
         self.composeSlotBefore = composeSlotBefore

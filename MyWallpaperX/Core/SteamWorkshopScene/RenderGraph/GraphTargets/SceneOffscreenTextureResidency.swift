@@ -303,6 +303,10 @@ struct SceneLayerGraphTargetAllocation {
               leases.count == plan.stages.count,
               leases.allSatisfy({ $0.generation == generation }),
               leases.allSatisfy({
+                  ($0.fullFramePairStorage == .shared)
+                    == (plan.pairStorage == .shared)
+              }),
+              leases.allSatisfy({
                   $0.fullFramePairGeneration == pairGeneration
               }),
               texturesBySlot.count == plan.slots.count,

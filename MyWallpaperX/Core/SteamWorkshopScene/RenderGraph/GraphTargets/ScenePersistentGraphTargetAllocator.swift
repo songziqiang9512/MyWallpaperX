@@ -183,6 +183,7 @@ struct ScenePersistentGraphTargetAllocator {
                     generation: allocationGeneration,
                     tokenForTexture: identity?.token(for:)
                         ?? sharedPair.identity.token(for:),
+                    fullFramePairStorage: .shared,
                     fullFramePairGeneration: sharedPair.identity.generation,
                     tokenForPairTexture: sharedPair.identity.token(for:)
                 ) else { return nil }
@@ -192,7 +193,8 @@ struct ScenePersistentGraphTargetAllocator {
                       case .success(let created) = SceneGraphRenderTargetLease.make(
                           table: table,
                           generation: identity.generation,
-                          tokenForTexture: identity.token(for:)
+                          tokenForTexture: identity.token(for:),
+                          fullFramePairStorage: .owned
                       ) else { return nil }
                 lease = created
             }

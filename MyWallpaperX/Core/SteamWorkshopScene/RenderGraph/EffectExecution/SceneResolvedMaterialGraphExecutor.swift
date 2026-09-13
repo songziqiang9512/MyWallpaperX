@@ -57,6 +57,10 @@ final class SceneResolvedMaterialGraphExecutor {
         /// candidate instead of publishing it as readable history.
         let discardedPersistentTargetState: Bool
         let inputWidth, inputHeight: Int
+        /// Allocation-local FBO generation and full-frame working-pair
+        /// generation are distinct when the pair is shared across graphs.
+        let fullFramePairIsShared: Bool
+        let fullFramePairGeneration: UInt64
         let historyRehydrateCopyCount: Int
         let historyContentDiscarded: Bool
         /// Complete readable FBO publications for this frame's candidate.
@@ -416,6 +420,8 @@ final class SceneResolvedMaterialGraphExecutor {
                 discardedPersistentTargetState: discardedPersistentTargetState,
                 inputWidth: lease.table.plan.inputExtent.width,
                 inputHeight: lease.table.plan.inputExtent.height,
+                fullFramePairIsShared: lease.fullFramePairStorage == .shared,
+                fullFramePairGeneration: lease.fullFramePairGeneration,
                 historyRehydrateCopyCount: history.commands.count,
                 historyContentDiscarded: history.discardsPreviousContent,
                 frameResources: frameResources,

@@ -66,6 +66,8 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
         let nodeSequence, mappingBefore, mappingAfter: String
         let targetDescriptors: String?
         let inputWidth, inputHeight: Int
+        let fullFramePairStorage: SceneGraphExecutionFullFramePairStorage?
+        let fullFramePairGeneration: UInt64?
         let historyRehydrateCopyCount: Int
         let historyContentDiscarded: Bool
         let composeBefore, composeAfter: SceneGraphExecutionComposeSlot
@@ -84,6 +86,8 @@ nonisolated final class SceneGraphExecutionTelemetry: @unchecked Sendable {
             targetDescriptors = value.targetDescriptorsSHA256
             inputWidth = value.inputWidth
             inputHeight = value.inputHeight
+            fullFramePairStorage = value.fullFramePairStorage
+            fullFramePairGeneration = value.fullFramePairGeneration
             historyRehydrateCopyCount = value.historyRehydrateCopyCount
             historyContentDiscarded = value.historyContentDiscarded
             composeBefore = value.composeSlotBefore
@@ -392,6 +396,8 @@ nonisolated extension SceneGraphExecutionObservation {
             "targetDescriptorCounts=\(SceneGraphExecutionLogToken.encode(targetDescriptorCounts))",
             "inputWidth=\(inputWidth)",
             "inputHeight=\(inputHeight)",
+            "fullFramePairStorage=\(fullFramePairStorage?.rawValue ?? "-")",
+            "fullFramePairGeneration=\(fullFramePairGeneration.map(String.init) ?? "-")",
             "historyRehydrateCopyCount=\(historyRehydrateCopyCount)",
             "historyContentDiscarded=\(historyContentDiscarded)",
             "composeSlotBefore=\(composeSlotBefore.rawValue)",

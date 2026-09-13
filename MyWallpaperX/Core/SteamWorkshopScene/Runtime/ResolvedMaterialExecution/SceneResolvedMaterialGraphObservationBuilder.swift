@@ -92,6 +92,9 @@ enum SceneResolvedMaterialGraphObservationBuilder {
             logicalMappingAfter: mapping(mappingAfter),
             inputWidth: value.inputWidth,
             inputHeight: value.inputHeight,
+            fullFramePairStorage: failed ? nil
+                : (value.fullFramePairIsShared ? .shared : .owned),
+            fullFramePairGeneration: failed ? nil : value.fullFramePairGeneration,
             historyRehydrateCopyCount: value.historyRehydrateCopyCount,
             historyContentDiscarded: value.historyContentDiscarded,
             composeSlotBefore: failed ? .none : slot(value.pairStep.inputMember),

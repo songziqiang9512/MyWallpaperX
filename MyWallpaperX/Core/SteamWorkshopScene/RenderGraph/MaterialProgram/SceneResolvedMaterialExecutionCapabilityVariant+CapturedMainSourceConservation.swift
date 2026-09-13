@@ -87,7 +87,8 @@ extension SceneResolvedMaterialVariantCache {
                           }
                       }
                   }),
-                  exactEffectFramebuffer(target, effect: effect.key)
+                  target == effect.output
+                    || exactEffectFramebuffer(target, effect: effect.key)
             else { return nil }
         }
         return role

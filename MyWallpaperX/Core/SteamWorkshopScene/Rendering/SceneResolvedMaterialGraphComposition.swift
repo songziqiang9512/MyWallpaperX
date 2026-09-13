@@ -229,7 +229,7 @@ enum SceneResolvedMaterialGraphComposition {
                 extentPolicy: request.fullFrameExtentPolicy,
                 requestedWidth: request.requestedWidth,
                 requestedHeight: request.requestedHeight,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: orderingContext
             ) {
             case let .success(value): allocation = value

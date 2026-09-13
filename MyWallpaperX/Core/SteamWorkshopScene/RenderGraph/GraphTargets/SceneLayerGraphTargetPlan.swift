@@ -298,7 +298,14 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
                 history = nextHistory
             }
         }
-        guard pairStorage == .owned || history == 0 else {
+        // History is retained only from authored framebuffer slots. The
+        // full-frame pair is a submission-scoped working surface, so sharing
+        // it cannot move either pair member into the history closure.
+        let pairSlots = Set([pair.zeroSlot, pair.oneSlot])
+        let historySlots = Set(slots.compactMap {
+            $0.historyEffect == nil ? nil : $0.id
+        })
+        guard historySlots.isDisjoint(with: pairSlots) else {
             return .failure(.invalidPlan)
         }
         let pairBytes: Int

@@ -740,7 +740,7 @@ enum Harness {
             pairPlan: incompatibleCopyPair,
             requestedWidth: 2_048,
             requestedHeight: 1_152,
-            sharesFullFramePairWhenHistoryFree: true
+            usesSharedFullFrameWorkingPair: true
         ) {
         case .success: incompatibleCopyFrameReason = "accepted"
         case let .failure(failure):
@@ -804,7 +804,7 @@ enum Harness {
             pairPlan: incompatibleFitPair,
             requestedWidth: 2_048,
             requestedHeight: 1_152,
-            sharesFullFramePairWhenHistoryFree: true
+            usesSharedFullFrameWorkingPair: true
         ) {
         case .success: incompatibleFitFrameReason = "accepted"
         case let .failure(failure):
@@ -872,7 +872,7 @@ enum Harness {
             pairPlan: incompatibleFitScalePair,
             requestedWidth: 2_048,
             requestedHeight: 1_152,
-            sharesFullFramePairWhenHistoryFree: true
+            usesSharedFullFrameWorkingPair: true
         ) {
         case .success: incompatibleFitScaleFrameReason = "accepted"
         case let .failure(failure):
@@ -934,7 +934,7 @@ enum Harness {
             pairPlan: incompatibleAbsolutePair,
             requestedWidth: 2_048,
             requestedHeight: 1_152,
-            sharesFullFramePairWhenHistoryFree: true
+            usesSharedFullFrameWorkingPair: true
         ) {
         case .success: incompatibleAbsoluteFrameReason = "accepted"
         case let .failure(failure):
@@ -996,7 +996,7 @@ enum Harness {
             pairPlan: incompatibleSingleAxisPair,
             requestedWidth: 2_048,
             requestedHeight: 1_152,
-            sharesFullFramePairWhenHistoryFree: true
+            usesSharedFullFrameWorkingPair: true
         ) {
         case .success: incompatibleSingleAxisFrameReason = "accepted"
         case let .failure(failure):
@@ -1084,6 +1084,66 @@ enum Harness {
             && explicit128Pool.residentTextureCount == 0
             && explicit128Pool.residentByteCost == 0
 
+        let zeroResidentFixture = directFixture(
+            effectIndex: 580,
+            layerID: 580
+        )
+        let incomingResidentFixture = directFixture(
+            effectIndex: 581,
+            layerID: 581
+        )
+        guard case .success(let zeroResidentPlan) =
+            SceneLayerGraphTargetPlan.make(
+                plans: targetPlans([zeroResidentFixture], width: 8, height: 8),
+                pairPlan: pairPlan([zeroResidentFixture]),
+                byteBudget: 512,
+                pairStorage: .shared
+            ), case .success(let incomingResidentPlan) =
+            SceneLayerGraphTargetPlan.make(
+                plans: targetPlans([incomingResidentFixture], width: 8, height: 8),
+                pairPlan: pairPlan([incomingResidentFixture]),
+                byteBudget: 512
+            ) else { fatalError("zero-byte resident preflight fixture failed") }
+        let zeroByteResidentDoesNotStopLRUEviction =
+            zeroResidentPlan.residentByteCost == 0
+                && incomingResidentPlan.residentByteCost == 512
+                && SceneOffscreenTextureFramePreflight.evaluate(
+                    plans: [incomingResidentPlan],
+                    residents: [
+                        .init(
+                            id: 1,
+                            location: .currentGraph(zeroResidentPlan.key),
+                            graphPlan: zeroResidentPlan,
+                            history: nil,
+                            demotedHistory: nil,
+                            byteCost: 0,
+                            submissionPinCount: 0,
+                            historyPinCount: 0,
+                            permitsOrderedReuse: false,
+                            isResetInvalidated: false,
+                            lastAccess: 1,
+                            existedBeforeFrame: true,
+                            requiredByFrame: false
+                        ),
+                        .init(
+                            id: 2,
+                            location: .currentOther,
+                            graphPlan: nil,
+                            history: nil,
+                            demotedHistory: nil,
+                            byteCost: 512,
+                            submissionPinCount: 0,
+                            historyPinCount: 0,
+                            permitsOrderedReuse: false,
+                            isResetInvalidated: false,
+                            lastAccess: 2,
+                            existedBeforeFrame: true,
+                            requiredByFrame: false
+                        ),
+                    ],
+                    byteBudget: 512
+                ) == .ready
+
         let sharedFBOFixtures: [Fixture] = (0..<6).map { offset in
             fixture(
                 effectIndex: 600 + offset,
@@ -1109,7 +1169,7 @@ enum Harness {
                 pairPlan: pairPlan([fixture]),
                 requestedWidth: 2_048,
                 requestedHeight: 2_048,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: sharedFBOOrdering
             )
         }
@@ -1198,7 +1258,7 @@ enum Harness {
                 pairPlan: pairPlan([fixture]),
                 requestedWidth: 2_048,
                 requestedHeight: 2_048,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: .init(commandBuffer: overBudgetCommandBuffer)
             )
         }
@@ -1223,7 +1283,7 @@ enum Harness {
                       pairPlan: pairPlan([sharedFBOFixtures[0]]),
                       requestedWidth: 8,
                       requestedHeight: 8,
-                      sharesFullFramePairWhenHistoryFree: true,
+                      usesSharedFullFrameWorkingPair: true,
                       orderingContext: .init(commandBuffer: firstSharedPairBuffer)
                   ), let firstSharedPairPrepared = sharedPairOrderingPool
                   .preparePersistentGraphTargets(framePlan: firstSharedPairPlan),
@@ -1237,7 +1297,7 @@ enum Harness {
                       pairPlan: pairPlan([sharedFBOFixtures[1]]),
                       requestedWidth: 8,
                       requestedHeight: 8,
-                      sharesFullFramePairWhenHistoryFree: true,
+                      usesSharedFullFrameWorkingPair: true,
                       orderingContext: .init(commandBuffer: unsafeSharedPairBuffer)
                   ) else {
             fatalError("shared pair ordering fixture unavailable")
@@ -1259,7 +1319,7 @@ enum Harness {
                 pairPlan: pairPlan([sharedFBOFixtures[1]]),
                 requestedWidth: 8,
                 requestedHeight: 8,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: .init(
                     commandBuffer: differentQueueSharedPairBuffer
                 )
@@ -1281,7 +1341,7 @@ enum Harness {
                       pairPlan: pairPlan([sharedFBOFixtures[1]]),
                       requestedWidth: 8,
                       requestedHeight: 8,
-                      sharesFullFramePairWhenHistoryFree: true,
+                      usesSharedFullFrameWorkingPair: true,
                       orderingContext: .init(commandBuffer: orderedSharedPairBuffer)
                   ), sharedPairOrderingPool.preflightPersistentGraphTargets([
                       orderedSharedPairPlan
@@ -2500,6 +2560,117 @@ enum Harness {
             && historyPhysicalPlan.historyEffects == Set([historyEffect])
         historyCommit1.submissionPin.release()
 
+        let sharedHistoryPool = SceneOffscreenTexturePool(
+            device: device,
+            maxDimension: 64,
+            residentByteBudget: 100_000
+        )
+        guard let sharedHistoryQueue = device.makeCommandQueue(),
+              let sharedHistoryBuffer1 = sharedHistoryQueue.makeCommandBuffer(),
+              let sharedHistoryPlan1 = sharedHistoryPool
+                .framePlanForPersistentGraphTargets(
+                    admittedGraphs: historyGraphs,
+                    pairPlan: historyPairPlan,
+                    requestedWidth: 64,
+                    requestedHeight: 64,
+                    usesSharedFullFrameWorkingPair: true,
+                    orderingContext: .init(commandBuffer: sharedHistoryBuffer1)
+                ), sharedHistoryPool.preflightPersistentGraphTargets([
+                    sharedHistoryPlan1,
+                ]) == .ready,
+              let sharedHistoryPrepared1 = sharedHistoryPool
+                .preparePersistentGraphTargets(framePlan: sharedHistoryPlan1),
+              let sharedHistoryLease1 = sharedHistoryPrepared1.leases.first else {
+            fatalError("shared history first frame failed")
+        }
+        let sharedHistoryTransitionResult1 = SceneGraphExecutionState.reduce(
+            graph: historyFixture.execution.renderGraph,
+            targetPlan: sharedHistoryLease1.table.plan,
+            pairStep: historyPairPlan.effects[0],
+            allocation: sharedHistoryLease1.framebufferAllocation,
+            effectGeneration: 1,
+            resetGeneration: 1
+        )
+        guard case .success(let sharedHistoryTransition1) =
+                sharedHistoryTransitionResult1 else {
+            fatalError("shared history first transition failed")
+        }
+        let sharedHistoryTokens1 = Set(
+            sharedHistoryTransition1.nextState.historyClosureIdentities.compactMap {
+                sharedHistoryTransition1.transaction.mappingAfter[$0]?.token
+            }
+        )
+        guard sharedHistoryTokens1.count == 2,
+              let sharedHistoryCommit1 = sharedHistoryPrepared1.commitAndPin(
+                  historyTokensByEffect: [historyEffect: sharedHistoryTokens1],
+                  commandBuffer: sharedHistoryBuffer1
+              ) else { fatalError("shared history first commit failed") }
+        let sharedPairGeneration1 = sharedHistoryLease1.fullFramePairGeneration
+        sharedHistoryBuffer1.commit()
+        sharedHistoryBuffer1.waitUntilCompleted()
+        sharedHistoryCommit1.submissionPin.release()
+        sharedHistoryCommit1.sharedPairPin?.release()
+
+        guard let sharedHistoryBuffer2 = sharedHistoryQueue.makeCommandBuffer(),
+              let sharedHistoryPlan2 = sharedHistoryPool
+                .framePlanForPersistentGraphTargets(
+                    admittedGraphs: historyGraphs,
+                    pairPlan: historyPairPlan,
+                    requestedWidth: 64,
+                    requestedHeight: 64,
+                    usesSharedFullFrameWorkingPair: true,
+                    orderingContext: .init(commandBuffer: sharedHistoryBuffer2)
+                ), sharedHistoryPool.preflightPersistentGraphTargets([
+                    sharedHistoryPlan2,
+                ]) == .ready,
+              let sharedHistoryPrepared2 = sharedHistoryPool
+                .preparePersistentGraphTargets(framePlan: sharedHistoryPlan2),
+              let sharedHistoryLease2 = sharedHistoryPrepared2.leases.first,
+              let sharedHistoryCopies2 = sharedHistoryPrepared2
+                .historyRehydrateCopiesByEffect[historyEffect],
+              sharedHistoryCopies2.count == 2 else {
+            fatalError("shared history second frame failed")
+        }
+        let sharedPairSlots = Set([
+            sharedHistoryPlan2.graphPlan.fullFramePair.zeroSlot,
+            sharedHistoryPlan2.graphPlan.fullFramePair.oneSlot,
+        ])
+        let sharedHistorySlots = Set(
+            sharedHistoryPlan2.graphPlan.slots.compactMap {
+                $0.historyEffect == nil ? nil : $0.id
+            }
+        )
+        let sharedPairTokens2 = Set([
+            sharedHistoryLease2.fullFramePair.first,
+            sharedHistoryLease2.fullFramePair.second,
+        ])
+        let sharedHistoryTargetTokens2 = Set(
+            sharedHistoryCopies2.map(\.targetToken)
+        )
+        guard let sharedHistoryCommit2 = sharedHistoryPrepared2.commitAndPin(
+            historyTokensByEffect: [historyEffect: sharedHistoryTargetTokens2],
+            commandBuffer: sharedHistoryBuffer2
+        ) else { fatalError("shared history second commit failed") }
+        let sharedHistoryUsesPrivateFBOResidency =
+            sharedHistoryPlan1.graphPlan.pairStorage == .shared
+                && sharedHistoryPlan2.graphPlan.pairStorage == .shared
+                && sharedHistoryPlan2.graphPlan.residentByteCost
+                    == sharedHistoryPlan2.graphPlan.historyByteCost
+                && sharedHistoryPlan2.graphPlan.fullFramePairByteCost == 32_768
+                && sharedHistorySlots.isDisjoint(with: sharedPairSlots)
+                && sharedHistoryTargetTokens2.isDisjoint(with: sharedPairTokens2)
+                && Set(sharedHistoryCopies2.map(\.sourceToken))
+                    == sharedHistoryTokens1
+                && sharedHistoryLease2.fullFramePairGeneration
+                    == sharedPairGeneration1
+                && sharedHistoryLease2.generation
+                    != sharedHistoryLease1.generation
+        sharedHistoryBuffer2.commit()
+        sharedHistoryBuffer2.waitUntilCompleted()
+        sharedHistoryCommit1.historyPinsByEffect[historyEffect]?.release()
+        sharedHistoryCommit2.releaseAll()
+        sharedHistoryPool.reset()
+
         // A launch-time visual fallback may discard this frame's entire
         // uncommitted history candidate. The disposition is explicit so a
         // missing token cannot silently turn into the same operation.
@@ -2923,7 +3094,7 @@ enum Harness {
                 pairPlan: pairPlan([staleA]),
                 requestedWidth: 8,
                 requestedHeight: 8,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: sharedResolvedContext
             ), let sharedResolvedPlanB = sharedResolvedPool
             .framePlanForPersistentGraphTargets(
@@ -2931,7 +3102,7 @@ enum Harness {
                 pairPlan: pairPlan([staleB]),
                 requestedWidth: 8,
                 requestedHeight: 8,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: sharedResolvedContext
             ), sharedResolvedPool.preflightPersistentGraphTargets([
                 sharedResolvedPlanA, sharedResolvedPlanB,
@@ -2941,7 +3112,7 @@ enum Harness {
                 .preparePersistentGraphTargets(framePlans: [
                     sharedResolvedPlanA, sharedResolvedPlanB,
                 ]) else { fatalError("resolved shared pair fixture failed") }
-        let batchPlansShareOneHistoryFreePair =
+        let batchPlansShareOneWorkingPair =
             sharedResolvedPlanA.graphPlan.pairStorage == .shared
                 && sharedResolvedPlanB.graphPlan.pairStorage == .shared
                 && sharedResolvedPrepared.allSatisfy {
@@ -2983,7 +3154,7 @@ enum Harness {
                 pairPlan: pairPlan([staleA]),
                 requestedWidth: 8,
                 requestedHeight: 8,
-                sharesFullFramePairWhenHistoryFree: true,
+                usesSharedFullFrameWorkingPair: true,
                 orderingContext: .init(commandBuffer: rejectedSharedBuffer)
             ) else { fatalError("resolved shared rejection fixture failed") }
         let sharedPairBudgetRejectsBeforeAllocation =
@@ -3278,6 +3449,8 @@ enum Harness {
             "sample302FitsAutomaticBudget": sample302FitsAutomaticBudget,
             "sample302Explicit128RejectedWithoutMutation":
                 sample302Explicit128RejectedWithoutMutation,
+            "zeroByteResidentDoesNotStopLRUEviction":
+                zeroByteResidentDoesNotStopLRUEviction,
             "sharedFBOFramePairShared": sharedFBOFramePairShared,
             "sharedFBOFramebuffersDistinct": sharedFBOFramebuffersDistinct,
             "sharedFBOStateOwnsOnlyFBO": sharedFBOStateOwnsOnlyFBO,
@@ -3300,8 +3473,8 @@ enum Harness {
                 r8HistoryReleaseRestoresCurrentCost,
             "r8HistoryFinalReleaseClearsResidency":
                 r8HistoryFinalReleaseClearsResidency,
-            "batchPlansShareOneHistoryFreePair":
-                batchPlansShareOneHistoryFreePair,
+            "batchPlansShareOneWorkingPair":
+                batchPlansShareOneWorkingPair,
             "sharedResolvedPublicationsUseChainGeneration":
                 sharedResolvedPublicationsUseChainGeneration,
             "batchPrepareOnlyPublishesSharedPair":
@@ -3408,6 +3581,8 @@ enum Harness {
             "uniqueCacheIdentityIncludesEffect": uniqueCacheIdentityIncludesEffect,
             "historySwapPinnedFinalMapping": historySwapPinnedFinalMapping,
             "historyClosureContractAligned": historyClosureContractAligned,
+            "sharedHistoryUsesPrivateFBOResidency":
+                sharedHistoryUsesPrivateFBOResidency,
             "historyMissingTokenRejected": historyMissingTokenRejected,
             "historyExtraTokenRejected": historyExtraTokenRejected,
             "discardHistoryRequiresTypedDisposition":
@@ -3507,6 +3682,7 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
         self.assertTrue(
             self.result["sample302Explicit128RejectedWithoutMutation"]
         )
+        self.assertTrue(self.result["zeroByteResidentDoesNotStopLRUEviction"])
 
     def test_shared_fbo_graphs_share_pair_with_separate_residency(self) -> None:
         self.assertTrue(self.result["sharedFBOFramePairShared"])
@@ -3573,8 +3749,8 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
             "frame-target-plan-unsupported-target-descriptor",
         )
 
-    def test_resolved_batch_shares_history_free_full_frame_pair(self) -> None:
-        self.assertTrue(self.result["batchPlansShareOneHistoryFreePair"])
+    def test_resolved_batch_shares_full_frame_working_pair(self) -> None:
+        self.assertTrue(self.result["batchPlansShareOneWorkingPair"])
         self.assertTrue(
             self.result["sharedResolvedPublicationsUseChainGeneration"]
         )
@@ -3696,6 +3872,7 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     def test_dynamic_history_uses_copy_on_write_and_survives_gpu_failure(self) -> None:
         self.assertTrue(self.result["historySwapPinnedFinalMapping"])
         self.assertTrue(self.result["historyClosureContractAligned"])
+        self.assertTrue(self.result["sharedHistoryUsesPrivateFBOResidency"])
         self.assertTrue(self.result["historyMissingTokenRejected"])
         self.assertTrue(self.result["historyExtraTokenRejected"])
         self.assertTrue(self.result["discardHistoryRequiresTypedDisposition"])

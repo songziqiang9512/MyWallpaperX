@@ -13,17 +13,12 @@
 - 2026-09-12 的 full-corpus `135/159 strict PASS` 只是一份历史结构快照。后继修复没有重新执行全 corpus，本队列也不以重复全量回放刷新数字。每个条目先用受影响样本和 focused 模块建立当前首断点。
 - 五类产品——纹理、世界空间几何、模拟状态、异步 provider、多 pass graph——都必须产出或消费同一 prepared product、typed frame state、Metal execution 和唯一 compositor 合同。它们可以拥有不同的数据形状与生命周期，但不得形成第二套 property、clock、resource registry、graph 或 output owner。
 - `3749463715` 的 graph / utility-capture 断点已经在当前签名 App 上关闭。旧实现把 feedback 的持久 RGBA target 直接判成 typed data，Motion Blur 颜色输出因此不能进入 compositor，并留下未消费 transaction；现由完整 Program variant envelope 在 launch preparation 解析内容语义，颜色反馈进入 compositor，只有被所有 variant 证明为整值状态变换的反馈才发布为 data。`3749463715` 与 data 反例 `3448845950` 均取得 strict PASS，详细证据见[当前运行证据](semantics/runtime-evidence-current.md#e-2026-09-13-feedback-content-contract)。这不改变两者尚未更新的人工视觉 verdict。
-- 旧 Q1 的四个 effect-local passthrough 观察断点已关闭。当前签名 App 对 `3323988600 / 3395777145 / 3472940912 / 3754630802` 均为 strict PASS；Pixelate 的 component-wise vector conversion、跨 stage loop guard 符号冲突、Standard Blur 静态 tint 准入和 Fire 标量 LOD data sampling 已分别修正。后继又按作者 media 事件合同关闭 `3395777145` layer 125 的三项 active unsupported：25/25 active effect 均由 Program 执行，playback state 1 正例持续显示封面/文字，无 media 反例按作者 state 0 隐藏；作者脚本没有鼠标点击回调。现役证据见[作者 media 面板闭环](semantics/runtime-evidence-current.md#e-2026-09-13-authored-media-panel)。该结论不证明 macOS live now-playing producer或整样本逐像素 parity；`3754630802` 仍有下述两项 active unsupported。
+- 旧 Q1 的四个 effect-local passthrough 观察断点已关闭。当前签名 App 对 `3323988600 / 3395777145 / 3472940912 / 3754630802` 均为 strict PASS；Pixelate 的 component-wise vector conversion、跨 stage loop guard 符号冲突、Standard Blur 静态 tint 准入和 Fire 标量 LOD data sampling 已分别修正。后继又按作者 media 事件合同关闭 `3395777145` layer 125 的三项 active unsupported：25/25 active effect 均由 Program 执行，playback state 1 正例持续显示封面/文字，无 media 反例按作者 state 0 隐藏；作者脚本没有鼠标点击回调。现役证据见[作者 media 面板闭环](semantics/runtime-evidence-current.md#e-2026-09-13-authored-media-panel)。该结论不证明 macOS live now-playing producer或整样本逐像素 parity。
+- `3754630802` 最后的 Workshop Bokeh Blur 与 Motion Blur active unsupported 已关闭。terminal Program 现在接受精确 `effect.output` 或同 effect 内部 FBO；共享全帧工作对可与独立 authored FBO history 共存，但工作对仍不进入 history closure，并以独立 storage/generation/physical token 审计。fresh 真实运行 31/31 active effect 均由 Program 执行，92/92 frame 完成、0 failed，五个 utility capture 全部成功，完整人物、舞狮、灯笼和动态构图在 ready/after 中持续存在。现役证据见[共享工作对与历史终端闭环](semantics/runtime-evidence-current.md#e-2026-09-13-shared-pair-history-terminal)。该证据不证明独立 Bokeh/Motion Blur ROI、逐像素官方 parity 或性能完成。
 
 ## 2. 现役执行顺序
 
-### Q1 — `3754630802` 的 active unsupported authored effect
-
-**状态：当前最高优先级，已有 fresh 首断点。**
-
-`3754630802` 现有 31 个 active effect，其中 29 个已由 Program 执行；layer 607 的 Workshop Bokeh Blur 与 layer 743 的 Motion Blur 仍为 `unified-capability-unavailable / r5-no-runtime-owner`。当前人物、舞狮、灯笼、火焰与大范围动态均可见，尚无隔离 ROI 证明这两个 effect 的视觉贡献。下一步从真实 authored source、resource、graph role 和 output contract 建立公共 Program 能力，并以不同结构的正反例约束；不得按 effect 名称、样本、layer、路径或 hash 分派。完成门必须包含 typed admission、CPU encode、GPU completion、publication、terminal/next-frame 和相称视觉对照。
-
-### Q2 — 已确认的用户可见债务与人工重新裁决
+### Q1 — 已确认的用户可见债务与人工重新裁决
 
 **状态：P2/P4 开放。**
 
@@ -31,19 +26,19 @@
 - 验收覆盖层中的其他 `fail` 与 `unreviewed` 必须逐个由维护者重新观看。`3264246690 / 3780119725 / 3238423642` 的旧 Puppet 模糊、缺头、错位技术原因已被 2026-09-13 证据取代，但没有维护者的新 verdict 时不得直接改成整样本 `pass`。
 - 新发现的公共首断点回到 P1/P2；结构 PASS、非黑截图、route 数或完成事件不能单独改变人工 verdict。
 
-### Q3 — SceneScript TextureAnimation 官方 API
+### Q2 — SceneScript TextureAnimation 官方 API
 
 **状态：能力缺口，需独立立项。**
 
 普通 TEX autoplay 已是 bounded L3；`thisLayer.getTextureAnimation().setFrame(...)` 以及 frame/rate/play/pause/stop/join 等 SceneScript handle 仍为 L0。现存 corpus 中曾有 20 个相关样本，15 个在旧归档中 strict PASS，剩余失败表现为 typed `TypeError`；这些数量不是当前 HEAD 的完成统计。实现必须先建立公开 API 证据、instance-local identity、时钟/seek 冲突、generation 与 teardown 合同，再接入唯一 timeline/texture provider，不能恢复已退役的 fixed profile owner。现役等级见[SceneScript API 覆盖表](semantics/scenescript-api-coverage.md)。
 
-### Q4 — authored `nomip` / `halfmip` sampler policy
+### Q3 — authored `nomip` / `halfmip` sampler policy
 
 **状态：次级纹理合同缺口。**
 
 当前 texture upload 可以生成 mip，但作者 TEX V5 的 `nomip` / `halfmip` 状态尚未进入 sampler/LOD policy。实现需要从格式解析、prepared texture description、upload/storage 到 material sampler 保留同一 typed 意图；不得通过 effect 名称、路径或样本身份选择策略。完成门包含状态组合正反例、普通图片无回归和一个真实 authored consumer 的可见证据。
 
-### Q5 — 作者参数、视觉验收与 tracked matrix
+### Q4 — 作者参数、视觉验收与 tracked matrix
 
 **状态：P0/P3/P4 长期开放。**
 
@@ -51,7 +46,7 @@
 - script instance、particle override、bloom、camera 等 authored target 族仍需完成 property panel → typed snapshot → consumer → next-frame/event 的纵向闭环，或明确标为平台策略。
 - 全部样本最终必须由人工裁决为 `pass` 或显式 `platform-unsupported`。当前开发仍按公共首断点和受影响样本推进，不用大批量回放代替逐项可见验收。
 
-### Q6 — 稳定帧性能、长稳与发布
+### Q5 — 稳定帧性能、长稳与发布
 
 **状态：P5；只有已妨碍当前样本正确播放时提前。**
 
@@ -70,15 +65,15 @@
 
 | 旧批次 | 当前结论 | 后继归属 |
 | --- | --- | --- |
-| B1 shader backend vector2 | 公共编译首断点已结构闭合 | 新 visual/parameter 缺口进入 Q2/Q5 |
-| B2 dependency binding/publication | provider、隐藏 text dependency 与下游消费观察已闭合 | 新 graph first failure 进入 Q1 |
-| B3 SceneScript event/property | 已登记的 event-only、visibility 与 property color/vector 链已闭合 | 未实现官方 API 进入 Q3/Q5 |
+| B1 shader backend vector2 | 公共编译首断点已结构闭合 | 新 visual/parameter 缺口进入 Q1/Q4 |
+| B2 dependency binding/publication | provider、隐藏 text dependency 与下游消费观察已闭合 | 新 graph first failure 进入路线 P1 |
+| B3 SceneScript event/property | 已登记的 event-only、visibility 与 property color/vector 链已闭合 | 未实现官方 API 进入 Q2/Q4 |
 | B4 material envelope | 已登记 shape/format/compose owner 闭合 | 新 effect family 依路线 P1 归类 |
-| B5 graph owner/publication | 2026-09-13 已分离 feedback persistence 与 content semantic；`3749463715` color terminal consumption、`3448845950` typed data publication 均闭合 | 新 graph 缺口按 Q1 或路线 P1 归类 |
-| B6 QuickJS typed semantics | 原 angle/Vec3/string/error 子断点闭合 | 新 API 按 Q3/Q5 建合同 |
-| B7 performance | 启动/teardown 与旧 micro-optimization 批次结束；稳定帧工作未完成 | Q6，用当前架构重建 profile |
+| B5 graph owner/publication | 2026-09-13 已分离 feedback persistence 与 content semantic；`3749463715` color terminal consumption、`3448845950` typed data publication和`3754630802` shared-pair/history terminal 均闭合 | 新 graph 缺口按路线 P1 归类 |
+| B6 QuickJS typed semantics | 原 angle/Vec3/string/error 子断点闭合 | 新 API 按 Q2/Q4 建合同 |
+| B7 performance | 启动/teardown 与旧 micro-optimization 批次结束；稳定帧工作未完成 | Q5，用当前架构重建 profile |
 | B8 async readiness | 合同闭合，首帧局部失败保持可观察并自然恢复 | §3 观察项 |
-| B9 Puppet interaction/geometry | cursor→bone 与 2026-09-13 世界空间直绘闭合 | Q2 人工验收；高级能力见 §3 |
+| B9 Puppet interaction/geometry | cursor→bone 与 2026-09-13 世界空间直绘闭合 | Q1 人工验收；高级能力见 §3 |
 
 旧 B1–B9 的逐次命令、临时路径、历史 HEAD 和中间失败保留在 Git 历史及语义证据文档中，不再作为现役执行说明。
 
@@ -90,4 +85,4 @@
 4. 设计错误直接删除或重写；不得通过增加纹理预算、扩大缓存、堆叠 fallback 或按样本分支掩盖根因。
 5. 每次只在本文保留尚能驱动下一步的事实。已完成条目压缩进退役索引，详细证据写入对应能力/运行/样本台账。
 
-当 Q1–Q4 的当前公共断点均关闭，后续工作只剩路线 P0/P3/P4/P5 的系统性验收时，删除这个日期化派生入口或将其移入历史目录。
+当 Q1–Q3 的当前公共断点均关闭，后续工作只剩路线 P0/P3/P4/P5 的系统性验收时，删除这个日期化派生入口或将其移入历史目录。

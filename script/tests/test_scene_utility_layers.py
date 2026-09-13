@@ -272,8 +272,12 @@ class SceneUtilityLayerTests(unittest.TestCase):
             compact_compositor,
         )
         self.assertIn(
-            "dependencyTexture:dependencyConsumed?nil:"
+            "letfinalDependencyTexture=dependencyConsumed?nil:"
             "dependencyEffect?.texture",
+            compact_compositor,
+        )
+        self.assertIn(
+            "dependencyTexture:finalDependencyTexture",
             compact_compositor,
         )
         self.assertIn(
@@ -289,6 +293,7 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertIn("variant.graphInputSourceSlotFacts", conservation)
         self.assertIn("activeSourceBinding.texture == effect.input", conservation)
         self.assertIn("return .sourceConsumer(slot: sourceSlot)", conservation)
+        self.assertIn("target == effect.output", conservation)
         self.assertNotIn("capturedMainColorSourceSlot", conservation)
 
     def test_utility_has_no_legacy_authored_route_or_telemetry(self) -> None:

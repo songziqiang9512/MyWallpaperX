@@ -446,7 +446,7 @@ private func framePlan(
         pairPlan: pairPlan(for: graph),
         requestedWidth: extent.width,
         requestedHeight: extent.height,
-        sharesFullFramePairWhenHistoryFree: true,
+        usesSharedFullFrameWorkingPair: true,
         orderingContext: .init(commandBuffer: commandBuffer)
     ), pool.preflightPersistentGraphTargets([allocation]) == .ready
     else { fatalError("production target preparation failed") }

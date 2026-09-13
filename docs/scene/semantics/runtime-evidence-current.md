@@ -22,6 +22,19 @@
 
 ## 1. 当前证据快照
 
+<a id="e-2026-09-13-shared-pair-history-terminal"></a>
+### 2026-09-13 shared full-frame pair 与 authored FBO history terminal 闭环
+
+**结论：`3754630802` 最后的 Workshop Bokeh Blur 与 Motion Blur active unsupported 已沿现役 Program/GraphTargets/GraphExecutor/唯一 compositor 主链关闭，达到 S4 bounded visible composition。** 旧失败不是缺少两个效果的 shader owner：Bokeh 七个 material 与 Motion Blur 两个 material 已经有 source-derived Program，但 internal-framebuffer-only terminal gate 只接受 same-effect framebuffer，拒绝了精确 `effect.output`。首层修正后又暴露旧 target-plan 假设：同 graph 只要存在 authored history 就不能复用 full-frame working pair，造成首帧 31/31 Program 成功后下一帧资源驻留失败。当前合同把 submission-scoped 工作对与 authored logical FBO/history 分开，不新增 renderer、resource registry、预算、fallback 或 effect/sample matcher。
+
+**代码与生命周期合同：**terminal Program 仍要求 exact layer/effect input、output、launch variant envelope、graph reference、active sampler/binding 与 source/color contract；末 target 只允许 exact `effect.output` 或同 effect FBO。target plan 明确验证 full-frame pair slot 与 history slot 不重叠，工作对只受 submission pin，authored FBO 才进入 history closure、rehydrate 和 COW。render-target lease、prepared stage、execution observation 与 telemetry携带工作对 `owned/shared`、generation 和 physical token；同一个 shared pair generation 必须保持 physical token，storage 或 generation 变化必须换 token，author allocation/mapping/publication generation 在 reprepare/rebind/COW 时仍须独立推进。LRU preflight 允许零字节 history demotion 后继续寻找下一 victim，与实际 cache eviction 一致，不增加纹理预算。
+
+**正反门与实际身份：**offscreen pool、material-copy history、Program finalizer、utility、execution capability、FBO activation、GraphExecutor、runtime bridge、graph telemetry 和 benchmark 共 10 个 focused 模块通过；正门包含 same-effect FBO 与 exact effect-output terminal、shared pair + private history rehydrate，反门继续拒绝外 effect target、错 binding、重叠 slot、伪造 stable-shared physical token 和非法 generation。规定的签名 checkpoint `BUILD SUCCEEDED`。实际 App 为 Debug 2.0.9 (277)，`com.songziqiang.MyWallpaperX`，Team `H9QWU9XN8R`，CDHash `42018537fb67606beb674bb5f29ed8173198266c`，executable SHA-256 `65db1f28e5300359359cdebdb589a4cc5a8a56b86cf3ade296cf2aa7bdeb0dc9`；source/before/after signature verification 均为 true。
+
+**定向真实运行：**只读真实样本根、25 秒 fresh 输出 `/private/tmp/mwx-current-q1-375-shared-history-terminal-20260913-v3`。matrix/report/app-log SHA-256 为 `6f179c96a040c502ad2835a5f4d7ae67ba80440666d90940910652cd365690c6 / b0c9013f9873c36b182c5368f32b8b0b8e5005526bb19d0c964004b5d075ace4 / b175ede6a576ce3cad514975c3a5a8eef99476f58e42c2e6ef90993aca6ebae4`。结果 `failures=[] / strict PASS`、loaded texture ratio 1.0，31/31 active effect 全为 `admitted-generic / complete / Program`，0 dedicated/fallback/passthrough/not-admitted；92/92/0 frame submitted/completed/failed，21/21 accepted graph layer encoded，214/214 graph observation terminal success，0 executor failure/deferred/local fallback、0 GPU failure。utility capture `91 / 607 / 677 / 743 / 922` 全部成功。layer 607 每帧 7/7 material；layer 743 为 2 material + 1 copy，首帧 seed 后有 153 次 history COW，rehydrate 时 authored allocation/mapping/publication generation 推进而 shared pair generation/physical token保持稳定，两层都由 compositor 消费并进入 next-frame。
+
+**可见与性能边界：**ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266eeef21df4624e / ce09e0fcf904846dd420996acaa566d6a486e3c77f7224f934a9c25ef5e6fc4b`。原分辨率检查确认女性角色、舞狮、灯笼和完整春节构图在 ready/after 持续存在，没有黑屏、硬矩形、丢层或明显几何异常；两帧 `mean_delta=0.0538085998 / changed_ratio=0.7385117970`。Steam preview 只作方向性参考，不能证明逐像素 parity；本批也没有隔离 Bokeh/Motion Blur ROI。当前 driver FPS 约 4.67、CPU frame p50 128.113 ms、GPU p50 21.463 ms，明确留给性能队列，不把能力正确性写成性能完成。未运行 full corpus，也未改写人工 acceptance verdict。
+
 <a id="e-2026-09-13-authored-media-panel"></a>
 ### 2026-09-13 作者 media event 面板与同 provider 候选闭环
 
@@ -46,7 +59,7 @@
 
 **逐样本执行：**`3323988600:65#effect#68` Pixelate 以 `genericCompilerArtifact` 编码，utility capture 65 成功；`3395777145:338#effect#339 / 392#effect#496` 的 Oscilloscope 进入 Program，日志不再出现 guard redefinition，utility capture 338/392 成功；`3472940912:50#effect#58` 的 tinted Standard Blur terminal 命中 `source-proven-previous-blurred-composite / generic-only`，全样本 6/6 active effect 为 Program；`3754630802:857#effect#1036` Fire 命中带静态 auxiliary 的 preserved-alpha Program。四次 graph contract 均成功，executor claimed/encoded/failure/local-fallback 依次为 `26/26/0/0`、`40/40/0/0`、`30/30/0/0`、`76/76/0/0`，目标均有 effect CPU invocation、GPU completion、publication、terminal 或下游消费及 next-frame。
 
-**可见边界与当前首断点：**原分辨率 ready/after 检查确认 332 的人物、烟雾与爱心动态，347 的人物/高光/雾，375 的人物、舞狮、灯笼、火焰和大范围动态均存在。本批冻结时 339 的 layer 125 三项 effect 与 375 的 layer 607/743 两项 effect 仍 unsupported；339 已由后继[作者 media event 面板证据](#e-2026-09-13-authored-media-panel)关闭，375 两项仍开放且尚无隔离 ROI。因而本证据只关闭旧四样本 effect-local passthrough 队列，不声明 375 整样本视觉完成、逐像素 parity、全部 authored dialect、性能或 release；未运行 full corpus。
+**可见边界与后继状态：**原分辨率 ready/after 检查确认 332 的人物、烟雾与爱心动态，347 的人物/高光/雾，375 的人物、舞狮、灯笼、火焰和大范围动态均存在。本批冻结时 339 的 layer 125 三项 effect 与 375 的 layer 607/743 两项 effect 仍 unsupported；339 已由后继[作者 media event 面板证据](#e-2026-09-13-authored-media-panel)关闭，375 两项也由后继[shared-pair/history terminal 证据](#e-2026-09-13-shared-pair-history-terminal)关闭。因而本证据只关闭旧四样本 effect-local passthrough 队列，不声明整样本逐像素 parity、全部 authored dialect、性能或 release；未运行 full corpus。
 
 <a id="e-2026-09-13-feedback-content-contract"></a>
 ### 2026-09-13 feedback 生命周期与内容语义分离

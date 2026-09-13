@@ -228,6 +228,9 @@ def graph_execution_observation(
     gpu_completion: str = "completed",
     allocation_generation: int | None = None,
     mapping_generation: int | None = None,
+    full_frame_pair_storage: str = "owned",
+    full_frame_pair_generation: int | None = None,
+    final_physical_identity: str | None = None,
     mapping_before_sha256: str = "a" * 64,
     mapping_after_sha256: str = "b" * 64,
     target_descriptors_sha256: str = "-",
@@ -245,13 +248,19 @@ def graph_execution_observation(
     dependency_providers: list[int] | None = None,
 ) -> str:
     final_output = f"output-{transaction}" if publish else "-"
-    final_physical = f"physical-{transaction}" if publish else "-"
+    final_physical = (
+        final_physical_identity or f"physical-{transaction}"
+    ) if publish else "-"
     final_publication = f"publication-{transaction}" if publish else "-"
     publication_generation = frame if publish else 0
     allocation_generation = (
         frame if allocation_generation is None else allocation_generation
     )
     mapping_generation = frame if mapping_generation is None else mapping_generation
+    full_frame_pair_generation = (
+        allocation_generation
+        if full_frame_pair_generation is None else full_frame_pair_generation
+    )
     runtime_field = (
         f"runtime={runtime_instance_identity} "
         if runtime_instance_identity is not None else ""
@@ -278,6 +287,8 @@ def graph_execution_observation(
         f"rejectedNodes={rejected} "
         f"allocationGeneration={allocation_generation} "
         f"mappingGeneration={mapping_generation} "
+        f"fullFramePairStorage={full_frame_pair_storage} "
+        f"fullFramePairGeneration={full_frame_pair_generation} "
         f"mappingBeforeSHA256={mapping_before_sha256} "
         f"mappingAfterSHA256={mapping_after_sha256} "
         f"targetDescriptorsSHA256={target_descriptors_sha256} "
@@ -4911,6 +4922,70 @@ utility layer 763: skippedHidden kind=composition
         self.assertIn(
             "resolved material graph allocation identity transition invalid",
             metrics["validation_failures"],
+        )
+
+    def test_graph_lifecycle_tracks_shared_working_pair_separately(self) -> None:
+        initial = graph_execution_observation(
+            frame=1,
+            layer=743,
+            transaction="initial-shared-history",
+            trigger="first-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=40,
+            mapping_generation=1,
+            full_frame_pair_storage="shared",
+            full_frame_pair_generation=7,
+            final_physical_identity="shared-pair-7-primary",
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="seeded",
+            reset="initial",
+        )
+        valid_reuse = graph_execution_observation(
+            frame=2,
+            layer=743,
+            transaction="shared-history-cow",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=41,
+            mapping_generation=2,
+            full_frame_pair_storage="shared",
+            full_frame_pair_generation=7,
+            final_physical_identity="shared-pair-7-primary",
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="reused",
+            reset="history-copy-on-write",
+            history_rehydrate_copy_count=2,
+        )
+        valid = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join([initial, valid_reuse])
+        )
+        self.assertEqual(valid["validation_failures"], [])
+
+        invalid_rebind = graph_execution_observation(
+            frame=2,
+            layer=743,
+            transaction="forged-shared-history-cow",
+            trigger="next-frame+compositor-consume+gpu-completed",
+            consumed=True,
+            allocation_generation=41,
+            mapping_generation=2,
+            full_frame_pair_storage="shared",
+            full_frame_pair_generation=7,
+            final_physical_identity="forged-pair-primary",
+            target_descriptors_sha256="a" * 64,
+            target_descriptor_counts="1024x576/rgbaBackbuffer:2",
+            history="reused",
+            reset="history-copy-on-write",
+            history_rehydrate_copy_count=2,
+        )
+        invalid = benchmark.resolved_material_graph_observation_metrics(
+            "\n".join([initial, invalid_rebind])
+        )
+        self.assertIn(
+            "resolved material graph allocation identity transition invalid",
+            invalid["validation_failures"],
         )
 
     def test_resolved_material_graph_lifecycle_rejects_mislabeled_transitions(
